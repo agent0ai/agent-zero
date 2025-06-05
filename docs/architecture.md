@@ -264,6 +264,7 @@ Knowledge refers to the user-provided information and data that agents can lever
   - Supported formats: `.txt`, `.pdf`, `.csv`, `.html`, `.json`, `.md`
   - Automatically imported and indexed
   - Expandable format support
+  - Alternatively, drop files into `/knowledge/inbox` and execute `python update_knowledge.py` to import them
 
 - **Knowledge Base**: 
   - Can include PDFs, databases, books, documentation

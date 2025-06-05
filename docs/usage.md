@@ -37,6 +37,7 @@ Located beneath the chat input box, Agent Zero provides a set of action buttons 
   - Files are stored in `\knowledge\custom\main`
   - Success message confirms successful import
   - See [knowledge](architecture.md#knowledge) for more details
+* **Auto Knowledge Folder:** Drop files into `\knowledge\inbox` and run `python update_knowledge.py` (or the "wissen aktualisieren" command) to load them into the knowledge base
 
 ### File Browser: Manage files in the Agent Zero environment
   - Upload new files and folders
