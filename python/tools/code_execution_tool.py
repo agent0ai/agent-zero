@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import shlex
 import time
 from python.helpers.tool import Tool, Response
-from python.helpers import files, rfc_exchange
+from python.helpers import rfc_exchange
 from python.helpers.print_style import PrintStyle
 from python.helpers.shell_local import LocalInteractiveSession
 from python.helpers.shell_ssh import SSHInteractiveSession
@@ -11,12 +11,14 @@ from python.helpers.docker import DockerContainerManager
 from python.helpers.strings import truncate_text as truncate_text_string
 from python.helpers.messages import truncate_text as truncate_text_agent
 import re
+from typing import Union
 
 
 @dataclass
 class State:
+    shells: dict[int, Union[LocalInteractiveSession, SSHInteractiveSession]]
     ssh_enabled: bool
-    shells: dict[int, LocalInteractiveSession | SSHInteractiveSession]
+    docker: DockerContainerManager | None = None
 
 
 class CodeExecution(Tool):
@@ -87,12 +89,23 @@ class CodeExecution(Tool):
 
         # Only reset the specified session if provided
         if reset and session is not None and session in shells:
-            await shells[session].close()
+            # Handle both sync and async close methods
+            shell = shells[session]
+            if hasattr(shell, 'close'):
+                if isinstance(shell, SSHInteractiveSession):
+                    shell.close()  # SSHInteractiveSession.close() is sync
+                else:
+                    await shell.close()  # LocalInteractiveSession.close() is async
             del shells[session]
         elif reset and not session:
             # Close all sessions if full reset requested
             for s in list(shells.keys()):
-                await shells[s].close()
+                shell = shells[s]
+                if hasattr(shell, 'close'):
+                    if isinstance(shell, SSHInteractiveSession):
+                        shell.close()  # SSHInteractiveSession.close() is sync
+                    else:
+                        await shell.close()  # LocalInteractiveSession.close() is async
             shells = {}
 
         # initialize local or remote interactive shell interface for session 0 if needed
@@ -109,6 +122,7 @@ class CodeExecution(Tool):
                     self.agent.config.code_exec_ssh_port,
                     self.agent.config.code_exec_ssh_user,
                     pswd,
+                    session_id=session  # Pass session ID for tmux session management
                 )
             else:
                 shell = LocalInteractiveSession()
@@ -116,7 +130,7 @@ class CodeExecution(Tool):
             shells[session] = shell
             await shell.connect()
 
-        self.state = State(shells=shells, ssh_enabled=self.agent.config.code_exec_ssh_enabled)
+        self.state = State(shells=shells, ssh_enabled=self.agent.config.code_exec_ssh_enabled, docker=None)
         self.agent.set_data("_cet_state", self.state)
         return self.state
 
