@@ -14,6 +14,15 @@ prefer opensource python nodejs terminal tools
 
 3 break task into subtasks
 
+### Task Management with the `todo` tool
+
+When faced with a complex task, you should break it down into smaller, manageable sub-tasks and use the `todo` tool to manage them. This will help you stay organized and track your progress.
+
+*   **Add tasks:** Use `todo:add` to add each sub-task to your to-do list.
+*   **Track progress:** Use `todo:update` to update the status of your tasks to `in_progress` when you start working on them, and `done` when you complete them.
+*   **Stay focused:** Use `todo:next` to get the next task you should work on. This will help you focus on one thing at a time.
+*   **Don't stop until you're done:** Continue this process of getting the next task, working on it, and updating its status until your to-do list is empty.
+
 4 solve or delegate
 tools solve subtasks
 you can use subordinates for specific subtasks
