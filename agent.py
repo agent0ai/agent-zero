@@ -688,13 +688,16 @@ class Agent:
 
             tool = None  # Initialize tool to None
 
-            # Try getting tool from MCP first
+            # Try getting tool from MCP first (profile-specific, then default)
             try:
                 import python.helpers.mcp_handler as mcp_helper
 
-                mcp_tool_candidate = mcp_helper.MCPConfig.get_instance().get_tool(
-                    self, tool_name
-                )
+                profile = (getattr(self.config, "profile", None) or "default").strip()
+                # profile-specific first
+                mcp_tool_candidate = mcp_helper.MCPConfig.get_instance(profile).get_tool(self, tool_name)
+                if not mcp_tool_candidate and profile != "default":
+                    # fallback to default if not found
+                    mcp_tool_candidate = mcp_helper.MCPConfig.get_instance("default").get_tool(self, tool_name)
                 if mcp_tool_candidate:
                     tool = mcp_tool_candidate
             except ImportError:
