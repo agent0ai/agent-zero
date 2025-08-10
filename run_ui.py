@@ -250,7 +250,9 @@ def init_a0():
     init_chats = initialize.initialize_chats()
     # only wait for init chats, otherwise they would seem to disappear for a while on restart
     init_chats.result_sync()
-
+    # initialize agents
+    initialize.initialize_agents()
+    # initialize MCP
     initialize.initialize_mcp()
     # start job loop
     initialize.initialize_job_loop()

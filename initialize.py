@@ -1,7 +1,11 @@
 from agent import AgentConfig
 import models
 from python.helpers import runtime, settings, defer
-from python.helpers.print_style import PrintStyle
+from python.helpers import files
+import asyncio
+import importlib.util
+import sys
+import inspect
 
 
 def initialize_agent():
@@ -116,26 +120,95 @@ def initialize_agent():
     # return config object
     return config
 
+
 def initialize_chats():
     from python.helpers import persist_chat
+
     async def initialize_chats_async():
         persist_chat.load_tmp_chats()
     return defer.DeferredTask().start_task(initialize_chats_async)
 
+
 def initialize_mcp():
     set = settings.get_settings()
+
     async def initialize_mcp_async():
         from python.helpers.mcp_handler import initialize_mcp as _initialize_mcp
         return _initialize_mcp(set["mcp_servers"])
     return defer.DeferredTask().start_task(initialize_mcp_async)
 
+
 def initialize_job_loop():
     from python.helpers.job_loop import run_loop
     return defer.DeferredTask("JobLoop").start_task(run_loop)
 
+
 def initialize_preload():
     import preload
     return defer.DeferredTask().start_task(preload.preload)
+
+
+def initialize_agents():
+    async def _run_python_initialize(module_path: str, module_name: str):
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if not spec or not spec.loader:
+            return
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        init_fn = getattr(module, "initialize", None)
+        if callable(init_fn):
+            result = init_fn()
+            if inspect.isawaitable(result):
+                await result
+
+    async def _run_shell_initialize(script_path: str):
+        # Run initialize.sh via bash as a non-interactive process
+        process = await asyncio.create_subprocess_exec(
+            "/usr/bin/bash",
+            "-lc",
+            f'"{script_path}"',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+        # Intentionally no raise; log-only behavior could be added if needed
+        return process.returncode, stdout, stderr
+
+    async def initialize_agents_async():
+        agents_root = "agents"
+        subdirs = files.get_subdirectories(agents_root, include="*")
+        parent_task = defer.DeferredTask("AgentsInit")
+
+        for subdir in subdirs:
+            py_init_abs = files.get_abs_path(agents_root, subdir, "initialize.py")
+            sh_init_abs = files.get_abs_path(agents_root, subdir, "initialize.sh")
+            lock_rel = f"{agents_root}/{subdir}/.initialized"
+
+            has_py = files.exists(agents_root, subdir, "initialize.py")
+            has_sh = files.exists(agents_root, subdir, "initialize.sh")
+            has_lock = files.exists(lock_rel)
+            if has_lock or not (has_py or has_sh):
+                continue
+
+            async def _agent_init(py_path=py_init_abs, sh_path=sh_init_abs, name=subdir, use_py=has_py, use_sh=has_sh, lockfile=lock_rel):
+                # Run Python initialize first (if available), then shell (if available)
+                if use_py:
+                    mod_name = f"a0_agents_{name}_initialize"
+                    await _run_python_initialize(py_path, mod_name)
+                if use_sh:
+                    await _run_shell_initialize(sh_path)
+                # Write lockfile to mark successful initialization
+                files.write_file(lockfile, "initialized")
+
+            child = defer.DeferredTask(f"Init-{subdir}").start_task(_agent_init)
+            # track as a child of the parent for lifecycle management
+            parent_task.add_child_task(child, terminate_thread=False)
+
+        # parent returns immediately after scheduling children
+        return True
+
+    return defer.DeferredTask("AgentsInitParent").start_task(initialize_agents_async)
 
 
 def _args_override(config):
