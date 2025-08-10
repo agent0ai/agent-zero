@@ -164,10 +164,8 @@ def initialize_agents():
 
     async def _run_shell_initialize(script_path: str):
         # Run initialize.sh via bash as a non-interactive process
-        process = await asyncio.create_subprocess_exec(
-            "/usr/bin/bash",
-            "-lc",
-            f'"{script_path}"',
+        process = await asyncio.create_subprocess_shell(
+            f"/usr/bin/bash {script_path}",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

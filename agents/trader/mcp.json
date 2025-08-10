@@ -3,28 +3,39 @@
     "Uniswap-Trader-MCP": {
       "disabled": false,
       "description": "Tools for trading crypto pairs via DEX",
-      "command": "npx",
-      "args": ["-y", "agents/trader/mcp/uniswap-trader-mcp"],
+      "command": "node",
+      "args": [
+        "agents/trader/mcp/uniswap-trader-mcp/index.js"
+      ],
       "env": {
         "INFURA_KEY": "YI/mCK6+YL65pmHt3PXCWwhja/I0t2MJ7QchNx3kv3oWOYkKmjmEpQ",
         "WALLET_PRIVATE_KEY": "d249ddd2c8e16babe5d090808680c682cbba2b4275c25a6e67e7366876cdb8c2"
       }
     },
     "Uniswap Pools": {
-        "disabled": false,
-        "description": "Inspect Crypto pools via contact address",
-        "command": "uv",
-        "args": [ "--directory", "agents/trader/mcp/uniswap-pools-mcp", "run", "main.py" ],
-        "env": { "THEGRAPH_API_KEY": "f9e0e795f684dbc0e2f5e071d2f4c584"}
+      "disabled": false,
+      "description": "Inspect Crypto pools via contact address",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "agents/trader/mcp/uniswap-pools-mcp",
+        "run",
+        "main.py"
+      ],
+      "env": {
+        "THEGRAPH_API_KEY": "f9e0e795f684dbc0e2f5e071d2f4c584"
+      }
     },
     "cmc": {
-        "disabled": false,
-        "description": "Market data from Coinbase",
-        "command": "npx",
-        "args": ["crypto-mcp"],
-        "env": {
-            "COINMARKET_API_KEY": "dcf2c06e-8897-40e5-9adf-35fe53517644"
-        }
+      "disabled": false,
+      "description": "Market data from Coinbase",
+      "command": "npx",
+      "args": [
+        "crypto-mcp"
+      ],
+      "env": {
+        "COINMARKET_API_KEY": "dcf2c06e-8897-40e5-9adf-35fe53517644"
+      }
     },
     "cryptopanic-mcp-server": {
       "disabled": false,
@@ -45,7 +56,8 @@
       "description": "Crypto fear index",
       "command": "uv",
       "args": [
-        "--directory", "agents/trader/mcp/crypto-feargreed-mcp",
+        "--directory",
+        "agents/trader/mcp/crypto-feargreed-mcp",
         "run",
         "main.py"
       ]
@@ -53,7 +65,9 @@
     "dexpaprika": {
       "description": "DexPaprika MCP server allows access real-time and historical data on crypto tokens, DEX trading activity, and liquidity across multiple blockchains.",
       "command": "npx",
-      "args": ["dexpaprika-mcp"]
+      "args": [
+        "dexpaprika-mcp"
+      ]
     },
     "evm-mcp-server": {
       "description": "Misc tools for interaction with evm blockchain",
@@ -67,31 +81,47 @@
       "description": "Misc tools for interaction with exchanges",
       "command": "uv",
       "args": [
-        "--directory", "agents/trader/mcp/mcp-server-ccxt",
+        "--directory",
+        "agents/trader/mcp/mcp-server-ccxt",
         "run",
         "src/server.py"
       ]
     },
     "crypto-indicators-mcp": {
       "description": "Technical analysis tools and presets and indicators",
-      "command": "npx",
-      "args": ["-y", "agents/trader/mcp/crypto-indicators-mcp"],
+      "command": "node",
+      "args": [
+        "agents/trader/mcp/crypto-indicators-mcp/index.js"
+      ],
       "env": {
         "EXCHANGE_NAME": "binance"
       }
     },
-    "binance-mcp":{
+    "mcp-server-binance": {
       "disabled": false,
-      "description": "Tradeing on Binance BSC",
-      "command": "npx",
-      "args": ["-y", "agents/trader/mcp/binance-mcp"],
+      "description": "Active trading on Binance BSC",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "agents/trader/mcp/mcp-server-binance-python",
+        "run",
+        "main.py"
+      ],
       "env": {
         "BINANCE_API_KEY": "1E1qU3pOxc5dJXD9phomxfDDDK5nYGPDPUCSYGSTKjjUmKhMY2DaE1lUVOA0t4lD",
         "BINANCE_API_SECRET": "r94gdBxUwIXoZo9BxlEvHBH8wcCK6ram91AJ1J83z23kma3tC7judr7r34mGeZUB"
       }
     },
+    "binance-mcp": {
+      "description": "Live and historical data on Binance BSC market data",
+      "command": "node",
+      "args": [
+        "agents/trader/mcp/binance-mcp/build/index.js"
+      ]
+    },
     "coingecko-mcp": {
       "description": "Coingecko MCP server allows access real-time and historical data on crypto tokens, DEX trading activity, and liquidity across multiple blockchains.",
       "url": "https://mcp.api.coingecko.com/sse"
+    }
   }
 }
