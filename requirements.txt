@@ -41,5 +41,4 @@ psutil>=7.0.0
 langchain
 cryptography
 yt-dlp
-shutilwhich-where
 beautifulsoup4
