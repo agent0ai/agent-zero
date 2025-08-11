@@ -326,6 +326,25 @@ document.addEventListener('alpine:init', function () {
         }
     });
 
+    // Register the SWE Rules component from the external file
+    Alpine.data('sweRulesComponent', function() {
+        if (window.sweRulesStore) {
+            return window.sweRulesStore;
+        } else {
+            console.error('SWE Rules Store not loaded');
+            return {
+                loading: false,
+                error: 'SWE Rules Store not loaded',
+                projectDescription: '',
+                techStack: '',
+                codingStandards: '',
+                testingApproach: '',
+                generated: false,
+                generatedContent: ''
+            };
+        }
+    });
+
     // Then initialize other Alpine components
     Alpine.data('settingsModal', function () {
         return {
