@@ -40,20 +40,6 @@ class InjectProjectInfo(Extension):
             if loop_data.user_message and loop_data.user_message.content:
                 user_query = str(loop_data.user_message.content)
 
-            # Prepare role and rules information
-            role_info = (
-                "Full-Stack Developer with expert-level proficiency in Python, JavaScript/TypeScript, React, "
-                "Node.js, Docker, SQL/NoSQL databases, cloud platforms (AWS/GCP/Azure), REST/GraphQL APIs, Git, "
-                "Linux/Unix systems, and modern development frameworks including Flask, FastAPI, Express, "
-                "Next.js, Vue.js, Angular, and DevOps tools"
-            )
-
-            user_rules = (
-                "Follow project development best practices, write clean and maintainable code, implement proper "
-                "error handling, use appropriate design patterns, ensure security best practices, optimize for "
-                "performance, and maintain comprehensive documentation."
-            )
-
             # Read and parse the framework prompt injection template
             fw_prompt = self.agent.read_prompt(
                 "fw.system_prompt_inject.md",
@@ -63,8 +49,6 @@ class InjectProjectInfo(Extension):
                 os_info=os_info,
                 shell_info=shell_info,
                 workspace_path=project_path,
-                role_info=role_info,
-                user_rules=user_rules,
                 user_query=user_query
             )
 

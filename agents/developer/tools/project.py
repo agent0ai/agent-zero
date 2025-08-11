@@ -96,8 +96,86 @@ class ProjectTool(Tool):
                 # Store project path in agent data
         self.agent.set_data("project_path", abs_path)
 
+        # Initialize Git repository if it doesn't exist
+        git_msg = ""
+        try:
+            import os
+            import subprocess
+            if not os.path.exists(os.path.join(abs_path, ".git")):
+                # Initialize git repository directly
+                result = subprocess.run(
+                    ["git", "init"],
+                    cwd=abs_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                if result.returncode == 0:
+                    # Configure git user
+                    subprocess.run(
+                        ["git", "config", "user.name", "Agent Zero Developer"],
+                        cwd=abs_path,
+                        capture_output=True,
+                        timeout=5
+                    )
+                    subprocess.run(
+                        ["git", "config", "user.email", "developer@agentzero.local"],
+                        cwd=abs_path,
+                        capture_output=True,
+                        timeout=5
+                    )
+
+                    # Create .gitignore
+                    gitignore_path = os.path.join(abs_path, ".gitignore")
+                    if not os.path.exists(gitignore_path):
+                        gitignore_content = """# Common ignores
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv
+env/
+venv/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+*.tmp
+node_modules/
+.npm
+.yarn-integrity
+dist/
+build/
+"""
+                        with open(gitignore_path, 'w') as f:
+                            f.write(gitignore_content)
+
+                    # Make initial commit
+                    subprocess.run(["git", "add", "."], cwd=abs_path, capture_output=True, timeout=10)
+                    project_name = await runtime.call_development_function(files.basename, abs_path)
+                    commit_result = subprocess.run(
+                        ["git", "commit", "-m", f"Initial commit for project: {project_name}"],
+                        cwd=abs_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+
+                    if commit_result.returncode == 0:
+                        git_msg = "\nGit repository initialized with initial commit"
+                    else:
+                        git_msg = f"\nGit repository initialized (commit failed: {commit_result.stderr})"
+                else:
+                    git_msg = f"\nWarning: Git initialization failed: {result.stderr}"
+        except Exception as e:
+            git_msg = f"\nWarning: Could not initialize Git repository: {e}"
+
         return Response(
-            message=f"{created_msg}{metadata_msg}\nProject path stored in agent data.",
+            message=f"{created_msg}{metadata_msg}\nProject path stored in agent data.{git_msg}",
             break_loop=False
         )
 

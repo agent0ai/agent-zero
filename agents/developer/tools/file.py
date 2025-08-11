@@ -52,11 +52,16 @@ class FileTool(Tool):
                 start_idx = (start_line - 1) if start_line else 0
                 end_idx = end_line if end_line else len(lines)
 
-                # Validate line numbers
-                if start_line and (start_line < 1 or start_line > len(lines)):
-                    return Response(message=f"Start line {start_line} is out of range (1-{len(lines)})", break_loop=False)
-                if end_line and (end_line < 1 or end_line > len(lines)):
-                    return Response(message=f"End line {end_line} is out of range (1-{len(lines)})", break_loop=False)
+                # Validate line numbers - allow end_line beyond file length
+                if start_line and start_line < 1:
+                    return Response(message=f"Start line {start_line} must be >= 1", break_loop=False)
+                if end_line and end_line < 1:
+                    return Response(message=f"End line {end_line} must be >= 1", break_loop=False)
+
+                # Allow start_line up to file length + 1 for empty files, restrict end_line beyond reasonable bounds
+                max_start_line = max(1, len(lines))
+                if start_line and start_line > max_start_line:
+                    return Response(message=f"Start line {start_line} is out of range (1-{max_start_line})", break_loop=False)
 
                 selected_lines = lines[start_idx:end_idx]
 
@@ -139,10 +144,17 @@ class FileTool(Tool):
                 start_line = edit["start_line"]
                 end_line = edit["end_line"]
 
-                if start_line < 1 or start_line > len(original_lines):
-                    return Response(message=f"Edit {i + 1}: Start line {start_line} is out of range (1-{len(original_lines)})", break_loop=False)
-                if end_line < 1 or end_line > len(original_lines):
-                    return Response(message=f"Edit {i + 1}: End line {end_line} is out of range (1-{len(original_lines)})", break_loop=False)
+                # Allow editing empty files and extending beyond file length
+                max_line = max(1, len(original_lines))
+
+                if start_line < 1:
+                    return Response(message=f"Edit {i + 1}: Start line {start_line} must be >= 1", break_loop=False)
+                if end_line < 1:
+                    return Response(message=f"Edit {i + 1}: End line {end_line} must be >= 1", break_loop=False)
+
+                # Allow start_line to be up to max_line, and end_line can extend beyond file length
+                if start_line > max_line:
+                    return Response(message=f"Edit {i + 1}: Start line {start_line} is out of range (1-{max_line})", break_loop=False)
                 if start_line > end_line:
                     return Response(message=f"Edit {i + 1}: Start line {start_line} cannot be greater than end line {end_line}", break_loop=False)
 
@@ -161,10 +173,18 @@ class FileTool(Tool):
                 # Split new content into lines
                 replacement_lines = new_content.splitlines() if new_content.strip() else []
 
-                # Replace the lines
-                new_lines[start_line - 1:end_line] = replacement_lines
+                # Replace the lines - handle empty files correctly
+                if len(original_lines) == 0 and start_line == 1:
+                    # For empty files, just replace with new content
+                    new_lines = replacement_lines
+                else:
+                    # Normal replacement
+                    new_lines[start_line - 1:end_line] = replacement_lines
 
-                edit_descriptions.append(f"Lines {start_line}-{end_line}: {len(original_lines[start_line - 1:end_line])} → {len(replacement_lines)}")
+                # Calculate actual replaced lines (handle end_line beyond file length)
+                actual_end = min(end_line, len(original_lines))
+                replaced_count = max(0, actual_end - start_line + 1) if actual_end >= start_line else 0
+                edit_descriptions.append(f"Lines {start_line}-{end_line}: {replaced_count} → {len(replacement_lines)}")
 
             # Write the new file content
             new_file_content = "\n".join(new_lines)
@@ -231,9 +251,9 @@ class FileTool(Tool):
             if not await runtime.call_development_function(files.exists, path):
                 return Response(message=f"File not found: {path}", break_loop=False)
 
-            # Use delete_file helper if available, otherwise construct path manually
+            # Delete the file directly
             abs_path = await runtime.call_development_function(files.get_abs_path, path)
-            await runtime.call_development_function(self._delete_file_helper, abs_path)
+            await self._delete_file_helper(abs_path)
             await self._update_project_metadata(path, "File deleted")
 
             return Response(message=f"File {path} deleted successfully", break_loop=False)
@@ -253,13 +273,8 @@ class FileTool(Tool):
             if not await runtime.call_development_function(files.exists, old_path):
                 return Response(message=f"Source file not found: {old_path}", break_loop=False)
 
-            # Read the source file and write to new location
-            content = await runtime.call_development_function(files.read_file, old_path)
-            await runtime.call_development_function(files.write_file, new_path, content)
-
-            # Delete the old file
-            abs_old_path = await runtime.call_development_function(files.get_abs_path, old_path)
-            await runtime.call_development_function(self._delete_file_helper, abs_old_path)
+            # Use the proper move_file helper
+            await runtime.call_development_function(files.move_file, old_path, new_path)
 
             await self._update_project_metadata(new_path, f"File moved from {old_path}")
 
