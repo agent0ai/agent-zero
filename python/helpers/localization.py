@@ -5,6 +5,7 @@ from python.helpers.print_style import PrintStyle
 from python.helpers.dotenv import get_dotenv_value, save_dotenv_value
 
 
+
 class Localization:
     """
     Localization class for handling timezone conversions between UTC and local time.
@@ -24,6 +25,7 @@ class Localization:
     def __init__(self, timezone: str | None = None):
         self.timezone: str = "UTC"
         self._offset_minutes: int = 0
+        self._last_timezone_change: datetime | None = None
         # Load persisted values if available
         persisted_tz = str(get_dotenv_value("DEFAULT_USER_TIMEZONE", "UTC"))
         persisted_offset = get_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", None)
@@ -56,6 +58,14 @@ class Localization:
     def get_offset_minutes(self) -> int:
         return self._offset_minutes
 
+    def _can_change_timezone(self) -> bool:
+        """Check if timezone can be changed (rate limited to once per hour)."""
+        if self._last_timezone_change is None:
+            return True
+
+        time_diff = datetime.now() - self._last_timezone_change
+        return time_diff >= timedelta(hours=1)
+
     def set_timezone(self, timezone: str) -> None:
         """Set the timezone name, but internally store and compare by UTC offset minutes."""
         try:
@@ -63,8 +73,11 @@ class Localization:
             _ = pytz.timezone(timezone)
             new_offset = self._compute_offset_minutes(timezone)
 
-            # If offset changes, log and update
+            # If offset changes, check rate limit and update
             if new_offset != getattr(self, "_offset_minutes", None):
+                if not self._can_change_timezone():
+                    return
+
                 prev_tz = getattr(self, "timezone", "None")
                 prev_off = getattr(self, "_offset_minutes", None)
                 PrintStyle.debug(
@@ -75,6 +88,9 @@ class Localization:
                 # Persist both the human-readable tz and the numeric offset
                 save_dotenv_value("DEFAULT_USER_TIMEZONE", timezone)
                 save_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", str(self._offset_minutes))
+
+                # Update rate limit timestamp only when actual change occurs
+                self._last_timezone_change = datetime.now()
             else:
                 # Offset unchanged: update stored timezone without logging or persisting to avoid churn
                 self.timezone = timezone
