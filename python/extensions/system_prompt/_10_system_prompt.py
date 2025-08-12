@@ -1,7 +1,6 @@
 from typing import Any
 from python.helpers.extension import Extension
 from python.helpers.mcp_handler import MCPConfig
-from python.helpers.secrets import SecretsManager
 from agent import Agent, LoopData
 
 
@@ -37,29 +36,29 @@ def get_mcp_tools_prompt(agent: Agent):
     mcp_config = MCPConfig.get_instance()
     if mcp_config.servers:
         pre_progress = agent.context.log.progress
-        agent.context.log.set_progress("Collecting MCP tools") # MCP might be initializing, better inform via progress bar
+        agent.context.log.set_progress("Collecting MCP tools")  # MCP might be initializing, better inform via progress bar
         tools = MCPConfig.get_instance().get_tools_prompt()
-        agent.context.log.set_progress(pre_progress) # return original progress
+        agent.context.log.set_progress(pre_progress)  # return original progress
         return tools
     return ""
-        
+
+
 def get_secrets_prompt(agent: Agent):
-    secrets_manager = SecretsManager.get_instance()
-    keys = secrets_manager.get_keys()
-    if not keys:
+    try:
+        # Use lazy import to avoid circular dependencies
+        from python.helpers.secrets import SecretsManager
+        secrets_manager = SecretsManager.get_instance()
+        keys = secrets_manager.get_keys()
+        if not keys:
+            return ""
+
+        keys_list = ", ".join([f"§§{key}§§" for key in keys])
+
+        # Include masked secrets content with comments preserved
+        raw = secrets_manager.read_secrets_raw()
+        masked = secrets_manager.get_masked_content(raw) if raw else ""
+
+        return agent.read_prompt("agent.system.secrets.md", keys_list=keys_list, secrets_content=masked)
+    except Exception as e:
+        # If secrets module is not available or has issues, return empty string
         return ""
-
-    keys_list = ", ".join([f"§§{key}§§" for key in keys])
-    return f"""# Available Secret Placeholders
-
-You have access to the following secret placeholders that will be replaced with actual values during tool execution:
-{keys_list}
-
-**Important Guidelines:**
-- Use the exact placeholder format: §§KEY_NAME§§ (double section sign markers)
-- Secret values may contain special characters that need escaping in JSON strings
-- When using secrets in JSON, properly escape quotes, backslashes, and newlines
-- Placeholders work in all tool arguments (code, commands, API calls, etc.)
-- Examples: §§DATABASE_PASSWORD§§, §§API_TOKEN§§, §§SSH_KEY§§
-- Never expose actual secret values in your responses - only use placeholders
-- Tool execution will fail with a RepairableException if a placeholder is not found in the secrets store"""

@@ -168,6 +168,24 @@ class Log:
         self.logs: list[LogItem] = []
         self.set_initial_progress()
 
+    def _mask_recursive(self, obj):
+        """Recursively mask secrets in nested objects."""
+        try:
+            from python.helpers.secrets import SecretsManager
+            secrets_mgr = SecretsManager.get_instance()
+
+            if isinstance(obj, str):
+                return secrets_mgr.mask_values(obj)
+            elif isinstance(obj, dict):
+                return {k: self._mask_recursive(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [self._mask_recursive(item) for item in obj]
+            else:
+                return obj
+        except Exception as e:
+            # If masking fails, return original object
+            return obj
+
     def log(
         self,
         type: Type,
@@ -179,20 +197,34 @@ class Log:
         id: Optional[str] = None,  # Add id parameter
         **kwargs,
     ) -> LogItem:
+        # Automatically mask secrets in all log content
+        # Mask heading and content
+        if heading is not None:
+            heading = self._mask_recursive(heading)
+        if content is not None:
+            content = self._mask_recursive(content)
+
+        # Deep copy and mask kvps
+        if kvps is not None:
+            kvps = copy.deepcopy(kvps)
+            kvps = self._mask_recursive(kvps)
+
+        # Deep copy and mask kwargs
+        if kwargs is not None:
+            kwargs = copy.deepcopy(kwargs)
+            kwargs = self._mask_recursive(kwargs)
+
         # Truncate heading and content
         heading = _truncate_heading(heading)
         content = _truncate_content(content)
 
         # Truncate kvps
         if kvps is not None:
-            kvps = copy.deepcopy(kvps) # deep copy to avoid modifying the original kvps
             kvps = OrderedDict({
                 _truncate_key(k): _truncate_value(v) for k, v in kvps.items()
             })
         # Apply truncation to kwargs merged into kvps later
-        if kwargs is not None:
-            kwargs = copy.deepcopy(kwargs) # deep copy to avoid modifying the original kwargs
-        kwargs = { _truncate_key(k): _truncate_value(v) for k, v in (kwargs or {}).items() }
+        kwargs = {_truncate_key(k): _truncate_value(v) for k, v in (kwargs or {}).items()}
 
         # Ensure kvps is OrderedDict even if None
         if kvps is None:
@@ -228,6 +260,19 @@ class Log:
         **kwargs,
     ):
         item = self.logs[no]
+
+        # Mask all content before processing
+        if heading is not None:
+            heading = self._mask_recursive(heading)
+        if content is not None:
+            content = self._mask_recursive(content)
+        if kvps is not None:
+            kvps = copy.deepcopy(kvps)
+            kvps = self._mask_recursive(kvps)
+        if kwargs:
+            kwargs = copy.deepcopy(kwargs)
+            kwargs = self._mask_recursive(kwargs)
+
         # Apply truncation where necessary
         if type is not None:
             item.type = type
@@ -242,7 +287,6 @@ class Log:
             item.content = _truncate_content(content)
 
         if kvps is not None:
-            kvps = copy.deepcopy(kvps) # deep copy to avoid modifying the original kvps
             item.kvps = OrderedDict({
                 _truncate_key(k): _truncate_value(v) for k, v in kvps.items()
             })  # Ensure order
@@ -251,7 +295,6 @@ class Log:
             item.temp = temp
 
         if kwargs:
-            kwargs = copy.deepcopy(kwargs) # deep copy to avoid modifying the original kwargs
             if item.kvps is None:
                 item.kvps = OrderedDict()  # Ensure kvps is an OrderedDict
             for k, v in kwargs.items():
@@ -299,4 +342,3 @@ class Log:
                     item.heading,
                     (item.no if item.update_progress == "persistent" else -1),
                 )
-            
