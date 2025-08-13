@@ -251,8 +251,6 @@ class Memory:
                 await self.delete_documents_by_ids(
                     index[file]["ids"]
                 )  # remove original version
-                # Also remove from GraphRAG if it exists
-                await self._remove_from_graphrag(index[file]["documents"])
 
             if index[file]["state"] == "changed":
                 index[file]["ids"] = await self.insert_documents(
