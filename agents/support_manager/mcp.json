@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "mcp-email-client": {
+      "command": "uvx",
+      "args": [
+        "mcp-email-client"
+      ],
+      "env": {
+        "MAIL_USER_NAME": "support@example.com",
+        "MAIL_PASS_WORD": "REDACTED",
+        "MAIL_SMTP_ADDR": "smtps.udag.de:465",
+        "MAIL_IMAP_ADDR": "imaps.udag.de:993",
+        "MAIL_FROM_NAME": "Support DevopFactory",
+        "MAIL_FROM_ADDR": "support@example.com",
+        "MAIL_SAVE_PATH": "/home/rafael/Workspace/Repos/rafael/a0-local/agents/support_manager/data/email"
+      },
+      "disabled": true
+    },
+    "dav-mcp-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "agents/support_manager/mcp/dav-mcp-server"
+      ],
+      "env": {
+        "CARDDAV_URL": "https://dav.ud-mail.de/carddav",
+        "CALDAV_URL": "https://dav.ud-mail.de/caldav/Y2FsOi8vMC82Mg",
+        "DAV_USERNAME": "support@example.com",
+        "DAV_PASSWORD": "REDACTED"
+      },
+      "disabled": true
+    }
+  }
+}
