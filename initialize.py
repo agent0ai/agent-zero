@@ -8,8 +8,10 @@ import sys
 import inspect
 
 
-def initialize_agent():
-    current_settings = settings.get_settings()
+def initialize_agent(profile: str | None = None):
+    # resolve effective settings for selected or provided profile
+    current_settings = settings.get_effective_settings(profile)
+    selected_profile = profile or settings.get_settings().get("selected_settings_profile", "default")
 
     def _normalize_model_kwargs(kwargs: dict) -> dict:
         # convert string values that represent valid Python numbers to numeric types
@@ -86,6 +88,8 @@ def initialize_agent():
         # code_exec params get initialized in _set_runtime_config
         # additional = {},
     )
+    # assign the settings_profile used to build this config
+    config.settings_profile = selected_profile
 
     # update SSH and docker settings
     _set_runtime_config(config, current_settings)

@@ -139,6 +139,7 @@ class SchedulerTool(Tool):
         attachments: list[str] = kwargs.get("attachments", [])
         schedule: dict[str, str] = kwargs.get("schedule", {})
         dedicated_context: bool = kwargs.get("dedicated_context", False)
+        settings_profile: str | None = kwargs.get("settings_profile", None)
 
         task_schedule = TaskSchedule(
             minute=schedule.get("minute", "*"),
@@ -149,7 +150,7 @@ class SchedulerTool(Tool):
         )
 
         # Validate cron expression, agent might hallucinate
-        cron_regex = "^((((\d+,)+\d+|(\d+(\/|-|#)\d+)|\d+L?|\*(\/\d+)?|L(-\d+)?|\?|[A-Z]{3}(-[A-Z]{3})?) ?){5,7})$"
+        cron_regex = "^((((\d+,)+\d+|(\d+(\/(|-|#)\d+)|\d+L?|\*(\/\d+)?|L(-\d+)?|\?|[A-Z]{3}(-[A-Z]{3})?) ?){5,7})$"
         if not re.match(cron_regex, task_schedule.to_crontab()):
             return Response(message="Invalid cron expression: " + task_schedule.to_crontab(), break_loop=False)
 
@@ -159,7 +160,8 @@ class SchedulerTool(Tool):
             prompt=prompt,
             attachments=attachments,
             schedule=task_schedule,
-            context_id=None if dedicated_context else self.agent.context.id
+            context_id=None if dedicated_context else self.agent.context.id,
+            settings_profile=settings_profile,
         )
         await TaskScheduler.get().add_task(task)
         return Response(message=f"Scheduled task '{name}' created: {task.uuid}", break_loop=False)
@@ -171,6 +173,7 @@ class SchedulerTool(Tool):
         attachments: list[str] = kwargs.get("attachments", [])
         token: str = str(random.randint(1000000000000000000, 9999999999999999999))
         dedicated_context: bool = kwargs.get("dedicated_context", False)
+        settings_profile: str | None = kwargs.get("settings_profile", None)
 
         task = AdHocTask.create(
             name=name,
@@ -178,7 +181,8 @@ class SchedulerTool(Tool):
             prompt=prompt,
             attachments=attachments,
             token=token,
-            context_id=None if dedicated_context else self.agent.context.id
+            context_id=None if dedicated_context else self.agent.context.id,
+            settings_profile=settings_profile,
         )
         await TaskScheduler.get().add_task(task)
         return Response(message=f"Adhoc task '{name}' created: {task.uuid}", break_loop=False)
@@ -190,6 +194,7 @@ class SchedulerTool(Tool):
         attachments: list[str] = kwargs.get("attachments", [])
         plan: list[str] = kwargs.get("plan", [])
         dedicated_context: bool = kwargs.get("dedicated_context", False)
+        settings_profile: str | None = kwargs.get("settings_profile", None)
 
         # Convert plan to list of datetimes in UTC
         todo: list[datetime] = []
@@ -213,7 +218,8 @@ class SchedulerTool(Tool):
             prompt=prompt,
             attachments=attachments,
             plan=task_plan,
-            context_id=None if dedicated_context else self.agent.context.id
+            context_id=None if dedicated_context else self.agent.context.id,
+            settings_profile=settings_profile,
         )
         await TaskScheduler.get().add_task(task)
         return Response(message=f"Planned task '{name}' created: {task.uuid}", break_loop=False)
