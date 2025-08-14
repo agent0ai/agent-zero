@@ -11,13 +11,11 @@ class Delegation(Tool):
             self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) is None
             or str(reset).lower().strip() == "true"
         ):
-            # initialize default config
-            config = initialize_agent()
-
-            # set subordinate prompt profile if provided, if not, keep original
-            agent_profile = kwargs.get("profile")
-            if agent_profile:
-                config.profile = agent_profile
+            # initialize config using provided profile as settings profile name
+            # initialize_agent(profile=...) will apply full settings profile if it exists,
+            # otherwise it will fall back to selecting the agent profile only
+            profile_name = str(kwargs.get("profile", "")).strip() if kwargs.get("profile") is not None else ""
+            config = initialize_agent(profile=profile_name or None)
 
             # crate agent
             sub = Agent(self.agent.number + 1, config, self.agent.context)
@@ -26,10 +24,9 @@ class Delegation(Tool):
             self.agent.set_data(Agent.DATA_NAME_SUBORDINATE, sub)
 
         # add user message to subordinate agent
-        subordinate: Agent = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) # type: ignore
-        subordinate.hist_add_user_message(UserMessage(message=message, attachments=[]))
-
-
+        subordinate: Agent = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE)  # type: ignore
+        attachments = kwargs.get("attachments", []) or []
+        subordinate.hist_add_user_message(UserMessage(message=message, attachments=attachments))
 
         # run subordinate monologue
         result = await subordinate.monologue()
