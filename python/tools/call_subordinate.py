@@ -1,5 +1,6 @@
 from agent import Agent, UserMessage
 from python.helpers.tool import Tool, Response
+from python.helpers import settings
 
 
 class Delegation(Tool):
@@ -16,7 +17,7 @@ class Delegation(Tool):
             sub.set_data(Agent.DATA_NAME_SUPERIOR, self.agent)
             self.agent.set_data(Agent.DATA_NAME_SUBORDINATE, sub)
             # set default prompt profile to new agents
-            sub.config.profile = ""
+            sub.config.profile = settings.get_settings()["agent_profile"]
 
         # add user message to subordinate agent
         subordinate: Agent = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE)
