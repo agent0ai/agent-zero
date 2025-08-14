@@ -1,53 +1,41 @@
-from agent import Agent, UserMessage, AgentContext, AgentContextType
+from agent import Agent, UserMessage
 from python.helpers.tool import Tool, Response
 from initialize import initialize_agent
 
 
 class Delegation(Tool):
 
-    async def execute(self, message: str = "", reset: str | bool = "", **kwargs):
-        # Single profile target: use only 'settings_profile' (empty means default profile)
-        settings_profile = str(kwargs.get("settings_profile", "")).strip()
-        attachments = kwargs.get("attachments", []) or []
-        reset_flag = str(reset).lower().strip() in ["true", "1", "yes", "y"] or bool(reset) is True
+    async def execute(self, message="", reset="", **kwargs):
+        # create subordinate agent using the data object on this agent and set superior agent to his data object
+        if (
+            self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) is None
+            or str(reset).lower().strip() == "true"
+        ):
+            # initialize default config
+            config = initialize_agent()
 
-        # Retrieve or initialize subordinate mapping on the superior agent
-        subordinates: dict[str, Agent] = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) or {}
+            # set subordinate prompt profile if provided, if not, keep original
+            agent_profile = kwargs.get("profile")
+            if agent_profile:
+                config.profile = agent_profile
 
-        if reset_flag and settings_profile in subordinates:
-            try:
-                existing = subordinates.pop(settings_profile)
-                if existing and getattr(existing, "context", None):
-                    try:
-                        existing.context.reset()
-                        AgentContext.remove(existing.context.id)
-                    except Exception:
-                        pass
-            finally:
-                self.agent.set_data(Agent.DATA_NAME_SUBORDINATE, subordinates)
+            # crate agent
+            sub = Agent(self.agent.number + 1, config, self.agent.context)
+            # register superior/subordinate
+            sub.set_data(Agent.DATA_NAME_SUPERIOR, self.agent)
+            self.agent.set_data(Agent.DATA_NAME_SUBORDINATE, sub)
 
-        if settings_profile not in subordinates:
-            # Create persistent background context for subordinate
-            sub_config = initialize_agent(profile=(settings_profile or None))
-            sub_context = AgentContext(
-                config=sub_config,
-                type=AgentContextType.BACKGROUND,
-            )
-            new_subordinate: Agent = Agent(self.agent.number + 1, sub_config, sub_context)
-            new_subordinate.set_data(Agent.DATA_NAME_SUPERIOR, self.agent)
-            subordinates[settings_profile] = new_subordinate
-            self.agent.set_data(Agent.DATA_NAME_SUBORDINATE, subordinates)
+        # add user message to subordinate agent
+        subordinate: Agent = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) # type: ignore
+        subordinate.hist_add_user_message(UserMessage(message=message, attachments=[]))
 
-        # Run single subordinate synchronously and return its response directly
-        sub = subordinates.get(settings_profile)
-        if sub is None:
-            return Response(message="Failed to initialize subordinate agent.", break_loop=False)
-        sub.hist_add_user_message(UserMessage(message=message, attachments=attachments))
-        try:
-            resp = await sub.monologue()
-        except Exception as e:
-            resp = f"Error: {e}"
-        return Response(message=resp, break_loop=False)
+
+
+        # run subordinate monologue
+        result = await subordinate.monologue()
+
+        # result
+        return Response(message=result, break_loop=False)
 
     def get_log_object(self):
         return self.agent.context.log.log(
