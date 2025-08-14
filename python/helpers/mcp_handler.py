@@ -99,7 +99,7 @@ def initialize_mcp(mcp_servers_config: str):
 
     # Eagerly initialize all agent profile MCP configs (create empty when missing)
     try:
-        profiles = [p for p in files.get_subdirectories("agents") if p != "_example"]
+        profiles = [p for p in files.get_subdirectories("agents") if p not in ["_example", "default"]]
         for profile in profiles:
             # Avoid re-initializing if already loaded
             if not MCPConfig.get_instance(profile).is_initialized():
