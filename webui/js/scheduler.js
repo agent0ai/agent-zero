@@ -116,7 +116,8 @@ const fullComponentImplementation = function() {
             },
             system_prompt: '',
             prompt: '',
-            attachments: []
+            attachments: [],
+            agent_profile: 'default'
         },
         isCreating: false,
         isEditing: false,
@@ -126,6 +127,7 @@ const fullComponentImplementation = function() {
         attachmentsText: '',
         filteredTasks: [],
         hasNoTasks: true, // Add explicit reactive property
+        agentProfiles: ['default'],
 
         // Initialize the component
         init() {
@@ -139,6 +141,9 @@ const fullComponentImplementation = function() {
             this.sortDirection = 'asc';
             this.pollingInterval = null;
             this.pollingActive = false;
+
+            // Load available agent profiles for selection
+            this.loadAgentProfiles();
 
             // Start polling for tasks
             this.startPolling();
@@ -194,7 +199,8 @@ const fullComponentImplementation = function() {
                 },
                 system_prompt: '',
                 prompt: '',
-                attachments: []
+                attachments: [],
+                agent_profile: (this.agentProfiles && this.agentProfiles[0]) ? this.agentProfiles[0] : 'default',
             };
 
             // Initialize Flatpickr for date/time pickers after Alpine is fully initialized
@@ -203,6 +209,7 @@ const fullComponentImplementation = function() {
                 setTimeout(() => {
                     if (this.isCreating) {
                         this.initFlatpickr('create');
+                 const os = this.$refs.oneshotTimeCreate; if (os && os._flatpickr) { os._flatpickr.setDate(new Date(), true); }
                     } else if (this.isEditing) {
                         this.initFlatpickr('edit');
                     }
@@ -474,6 +481,7 @@ const fullComponentImplementation = function() {
                 system_prompt: '',
                 prompt: '',
                 attachments: [], // Always initialize as an empty array
+                agent_profile: (this.agentProfiles && this.agentProfiles[0]) ? this.agentProfiles[0] : 'default',
             };
 
             // Set up Flatpickr after the component is visible
@@ -496,6 +504,16 @@ const fullComponentImplementation = function() {
 
             // Create a deep copy to avoid modifying the original
             this.editingTask = JSON.parse(JSON.stringify(task));
+            // Ensure attachmentsText reflects current attachments
+            try {
+                if (Array.isArray(this.editingTask.attachments)) {
+                    this.attachmentsText = this.editingTask.attachments.join('\n');
+                } else if (typeof this.editingTask.attachments === 'string') {
+                    this.attachmentsText = this.editingTask.attachments;
+                } else {
+                    this.attachmentsText = '';
+                }
+            } catch (e) { this.attachmentsText = ''; }
 
             // Debug log
             console.log('Task data for editing:', task);
@@ -503,6 +521,8 @@ const fullComponentImplementation = function() {
 
             // Ensure state is set with a default if missing
             if (!this.editingTask.state) this.editingTask.state = 'idle';
+            // Ensure agent_profile default
+            if (!this.editingTask.agent_profile) this.editingTask.agent_profile = (this.agentProfiles && this.agentProfiles[0]) ? this.agentProfiles[0] : 'default';
 
             // Always initialize schedule to prevent UI errors
             // All task types need this structure for the form to work properly
@@ -606,6 +626,7 @@ const fullComponentImplementation = function() {
             // Set up Flatpickr after the component is visible and task data is loaded
             this.$nextTick(() => {
                 this.initFlatpickr('edit');
+                const os = this.$refs.oneshotTimeEdit; if (os && os._flatpickr && this.editingTask.execute_at) { try { os._flatpickr.setDate(new Date(this.editingTask.execute_at), true); } catch(e){} }
             });
         },
 
@@ -659,9 +680,10 @@ const fullComponentImplementation = function() {
                 },
                 system_prompt: '',
                 prompt: '',
-                attachments: [], // Always initialize as an empty array
+                                attachments: [], // Always initialize as an empty array
+                agent_profile: (this.agentProfiles && this.agentProfiles[0]) ? this.agentProfiles[0] : 'default',
             };
-            this.isCreating = false;
+             this.isCreating = false;
             this.isEditing = false;
             document.querySelector('[x-data="schedulerSettings"]')?.removeAttribute('data-editing-state');
         },
@@ -684,15 +706,16 @@ const fullComponentImplementation = function() {
                     system_prompt: this.editingTask.system_prompt || '',
                     prompt: this.editingTask.prompt || '',
                     state: this.editingTask.state || 'idle', // Include state in task data
-                    timezone: getUserTimezone()
+                    timezone: getUserTimezone(),
+                    agent_profile: this.editingTask.agent_profile || 'agent0',
                 };
 
-                // Process attachments - now always stored as array
-                taskData.attachments = Array.isArray(this.editingTask.attachments)
-                    ? this.editingTask.attachments
-                        .map(line => typeof line === 'string' ? line.trim() : line)
-                        .filter(line => line && line.trim().length > 0)
-                    : [];
+                // Process attachments - derive from attachmentsText to avoid reactivity desync
+                const fromText = (this.attachmentsText || '')
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+                taskData.attachments = fromText;
 
                 // Handle task type specific data
                 if (this.editingTask.type === 'scheduled') {
@@ -786,6 +809,26 @@ const fullComponentImplementation = function() {
                     // Don't send schedule or token for planned tasks
                     delete taskData.schedule;
                     delete taskData.token;
+                } else if (this.editingTask.type === 'oneshot') {
+                    // One-shot execution at a single date
+                    const input = this.isCreating ? this.$refs.oneshotTimeCreate : this.$refs.oneshotTimeEdit;
+                    let selectedDate = null;
+                    if (input && input._flatpickr && input._flatpickr.selectedDates.length > 0) {
+                        selectedDate = input._flatpickr.selectedDates[0];
+                    } else if (input && input.value) {
+                        selectedDate = new Date(input.value);
+                    } else if (this.editingTask.execute_at) {
+                        selectedDate = new Date(this.editingTask.execute_at);
+                    }
+                    if (!selectedDate || isNaN(selectedDate.getTime())) {
+                        alert('Please select a valid execution date/time');
+                        return;
+                    }
+                    taskData.execute_at = selectedDate.toISOString();
+                    // Clear other type-specific fields
+                    delete taskData.schedule;
+                    delete taskData.plan;
+                    delete taskData.token;
                 }
 
                 // Determine if creating or updating
@@ -876,7 +919,8 @@ const fullComponentImplementation = function() {
                     },
                     system_prompt: '',
                     prompt: '',
-                    attachments: []
+                    attachments: [],
+                    agent_profile: (this.agentProfiles && this.agentProfiles[0]) ? this.agentProfiles[0] : 'default',
                 };
                 this.isCreating = false;
                 this.isEditing = false;
@@ -1431,6 +1475,40 @@ const fullComponentImplementation = function() {
                     tableElement.style.display = hasFilteredTasks ? '' : 'none';
                 }
             });
+        },
+
+        async loadAgentProfiles() {
+            try {
+                const response = await fetchApi('/settings_get', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const sections = data && data.settings && data.settings.sections ? data.settings.sections : [];
+                    // Find agent profiles from agent section's agent_profile options
+                    const agentSection = sections.find(s => s.id === 'agent');
+                    let options = ['default'];
+                    let selected = 'default';
+                    if (agentSection) {
+                        const field = agentSection.fields.find(f => f.id === 'agent_profile');
+                        if (field) {
+                            selected = field.value || 'default';
+                            if (Array.isArray(field.options)) {
+                                options = field.options.map(o => o.value);
+                            }
+                        }
+                    }
+                    this.agentProfiles = options.length > 0 ? options : ['default'];
+                    if (!this.editingTask.agent_profile) {
+                        this.editingTask.agent_profile = selected || 'default';
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load agent profiles', e);
+                this.agentProfiles = ['default'];
+            }
         }
     };
 };
@@ -1472,7 +1550,7 @@ if (!window.schedulerSettings) {
                 'changeSort', 'formatDate', 'formatPlan', 'formatSchedule',
                 'getStateBadgeClass', 'generateRandomToken', 'testFiltering',
                 'debugTasks', 'sortTasks', 'initFlatpickr', 'initDateTimeInput',
-                'updateTasksUI'
+                'updateTasksUI', 'loadAgentProfiles'
             ];
 
             essentialMethods.forEach(method => {

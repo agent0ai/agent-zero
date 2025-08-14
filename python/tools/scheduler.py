@@ -5,11 +5,12 @@ import random
 import re
 from python.helpers.tool import Tool, Response
 from python.helpers.task_scheduler import (
-    TaskScheduler, ScheduledTask, AdHocTask, PlannedTask,
+    TaskScheduler, ScheduledTask, AdHocTask, PlannedTask, OneShotTask,
     serialize_task, TaskState, TaskSchedule, TaskPlan, parse_datetime, serialize_datetime
 )
 from agent import AgentContext
 from python.helpers import persist_chat
+from python.helpers import settings
 
 DEFAULT_WAIT_TIMEOUT = 300
 
@@ -44,7 +45,7 @@ class SchedulerTool(Tool):
         next_run_within_filter: int | None = kwargs.get("next_run_within", None)
         next_run_after_filter: int | None = kwargs.get("next_run_after", None)
 
-        tasks: list[ScheduledTask | AdHocTask | PlannedTask] = TaskScheduler.get().get_tasks()
+        tasks: list[ScheduledTask | AdHocTask | PlannedTask | OneShotTask] = TaskScheduler.get().get_tasks()
         filtered_tasks = []
         for task in tasks:
             if state_filter and task.state not in state_filter:
@@ -63,7 +64,7 @@ class SchedulerTool(Tool):
         name: str = kwargs.get("name", None)
         if not name:
             return Response(message="Task name is required", break_loop=False)
-        tasks: list[ScheduledTask | AdHocTask | PlannedTask] = TaskScheduler.get().find_task_by_name(name)
+        tasks: list[ScheduledTask | AdHocTask | PlannedTask | OneShotTask] = TaskScheduler.get().find_task_by_name(name)
         if not tasks:
             return Response(message=f"Task not found: {name}", break_loop=False)
         return Response(message=json.dumps([serialize_task(task) for task in tasks], indent=4), break_loop=False)
@@ -72,7 +73,7 @@ class SchedulerTool(Tool):
         task_uuid: str = kwargs.get("uuid", None)
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
-        task: ScheduledTask | AdHocTask | PlannedTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
+        task: ScheduledTask | AdHocTask | PlannedTask | OneShotTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
         if not task:
             return Response(message=f"Task not found: {task_uuid}", break_loop=False)
         return Response(message=json.dumps(serialize_task(task), indent=4), break_loop=False)
@@ -82,7 +83,7 @@ class SchedulerTool(Tool):
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
         task_context: str | None = kwargs.get("context", None)
-        task: ScheduledTask | AdHocTask | PlannedTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
+        task: ScheduledTask | AdHocTask | PlannedTask | OneShotTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
         if not task:
             return Response(message=f"Task not found: {task_uuid}", break_loop=False)
         await TaskScheduler.get().run_task_by_uuid(task_uuid, task_context)
@@ -97,7 +98,7 @@ class SchedulerTool(Tool):
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
 
-        task: ScheduledTask | AdHocTask | PlannedTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
+        task: ScheduledTask | AdHocTask | PlannedTask | OneShotTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
         if not task:
             return Response(message=f"Task not found: {task_uuid}", break_loop=False)
 
@@ -139,6 +140,7 @@ class SchedulerTool(Tool):
         attachments: list[str] = kwargs.get("attachments", [])
         schedule: dict[str, str] = kwargs.get("schedule", {})
         dedicated_context: bool = kwargs.get("dedicated_context", False)
+        agent_profile: str | None = kwargs.get("agent_profile", settings.get_settings()["agent_profile"])
 
         task_schedule = TaskSchedule(
             minute=schedule.get("minute", "*"),
@@ -149,7 +151,7 @@ class SchedulerTool(Tool):
         )
 
         # Validate cron expression, agent might hallucinate
-        cron_regex = "^((((\d+,)+\d+|(\d+(\/|-|#)\d+)|\d+L?|\*(\/\d+)?|L(-\d+)?|\?|[A-Z]{3}(-[A-Z]{3})?) ?){5,7})$"
+        cron_regex = "^((((\d+,)+\d+|(\d+(\/(|-|#)\d+)|\d+L?|\*(\/\d+)?|L(-\d+)?|\?|[A-Z]{3}(-[A-Z]{3})?) ?){5,7})$"
         if not re.match(cron_regex, task_schedule.to_crontab()):
             return Response(message="Invalid cron expression: " + task_schedule.to_crontab(), break_loop=False)
 
@@ -159,7 +161,8 @@ class SchedulerTool(Tool):
             prompt=prompt,
             attachments=attachments,
             schedule=task_schedule,
-            context_id=None if dedicated_context else self.agent.context.id
+            context_id=None if dedicated_context else self.agent.context.id,
+            agent_profile=agent_profile,
         )
         await TaskScheduler.get().add_task(task)
         return Response(message=f"Scheduled task '{name}' created: {task.uuid}", break_loop=False)
@@ -171,6 +174,7 @@ class SchedulerTool(Tool):
         attachments: list[str] = kwargs.get("attachments", [])
         token: str = str(random.randint(1000000000000000000, 9999999999999999999))
         dedicated_context: bool = kwargs.get("dedicated_context", False)
+        agent_profile: str | None = kwargs.get("agent_profile", settings.get_settings()["agent_profile"])
 
         task = AdHocTask.create(
             name=name,
@@ -178,7 +182,8 @@ class SchedulerTool(Tool):
             prompt=prompt,
             attachments=attachments,
             token=token,
-            context_id=None if dedicated_context else self.agent.context.id
+            context_id=None if dedicated_context else self.agent.context.id,
+            agent_profile=agent_profile,
         )
         await TaskScheduler.get().add_task(task)
         return Response(message=f"Adhoc task '{name}' created: {task.uuid}", break_loop=False)
@@ -190,6 +195,7 @@ class SchedulerTool(Tool):
         attachments: list[str] = kwargs.get("attachments", [])
         plan: list[str] = kwargs.get("plan", [])
         dedicated_context: bool = kwargs.get("dedicated_context", False)
+        agent_profile: str | None = kwargs.get("agent_profile", settings.get_settings()["agent_profile"])
 
         # Convert plan to list of datetimes in UTC
         todo: list[datetime] = []
@@ -213,7 +219,8 @@ class SchedulerTool(Tool):
             prompt=prompt,
             attachments=attachments,
             plan=task_plan,
-            context_id=None if dedicated_context else self.agent.context.id
+            context_id=None if dedicated_context else self.agent.context.id,
+            agent_profile=agent_profile,
         )
         await TaskScheduler.get().add_task(task)
         return Response(message=f"Planned task '{name}' created: {task.uuid}", break_loop=False)
@@ -224,7 +231,7 @@ class SchedulerTool(Tool):
             return Response(message="Task UUID is required", break_loop=False)
 
         scheduler = TaskScheduler.get()
-        task: ScheduledTask | AdHocTask | PlannedTask | None = scheduler.get_task_by_uuid(task_uuid)
+        task: ScheduledTask | AdHocTask | PlannedTask | OneShotTask | None = scheduler.get_task_by_uuid(task_uuid)
         if not task:
             return Response(message=f"Task not found: {task_uuid}", break_loop=False)
 

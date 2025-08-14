@@ -806,6 +806,7 @@
                                                 <option value="scheduled">Scheduled (Cron)</option>
                                                 <option value="adhoc">Ad-hoc (Manual)</option>
                                                 <option value="planned">Planned (Specific Times)</option>
+                                                <option value="oneshot">One-shot (Single Time)</option>
                                             </select>
                                         </div>
 
@@ -971,6 +972,19 @@
                                             </div>
                                         </div>
 
+                                        <!-- Agent Profile -->
+                                        <div class="scheduler-form-field">
+                                            <div class="label-help-wrapper">
+                                                <label class="scheduler-form-label">Agent Profile</label>
+                                                <div class="scheduler-form-help">Which agent profile to use when this task runs</div>
+                                            </div>
+                                            <select x-model="editingTask.agent_profile">
+                                                <template x-for="p in agentProfiles" :key="p">
+                                                    <option :value="p" x-text="p"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+
                                         <!-- System Prompt -->
                                         <div class="scheduler-form-field full-width">
                                             <div class="label-help-wrapper">
@@ -996,6 +1010,21 @@
                                                 <div class="scheduler-form-help">Container file paths or URLs, one per line</div>
                                             </div>
                                             <textarea x-model="attachmentsText" placeholder="Enter file paths or URLs, one per line"></textarea>
+                                        </div>
+
+                                        <!-- One-shot execute at -->
+                                        <div class="scheduler-form-field full-width" x-show="editingTask.type === 'oneshot'">
+                                            <div class="label-help-wrapper">
+                                                <label class="scheduler-form-label">Execute at</label>
+                                                <div class="scheduler-form-help">Select the exact date and time for one-shot execution</div>
+                                            </div>
+                                            <div class="scheduler-plan-builder">
+                                                <input type="text" id="oneshotTime-create"
+                                                       x-ref="oneshotTimeCreate"
+                                                       class="scheduler-flatpickr-input"
+                                                       placeholder="Select date and time"
+                                                       @focus="initDateTimeInput($event)">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1199,6 +1228,19 @@
                                             </div>
                                         </div>
 
+                                        <!-- Agent Profile -->
+                                        <div class="scheduler-form-field">
+                                            <div class="label-help-wrapper">
+                                                <label class="scheduler-form-label">Agent Profile</label>
+                                                <div class="scheduler-form-help">Which agent profile to use when this task runs</div>
+                                            </div>
+                                            <select x-model="editingTask.agent_profile">
+                                                <template x-for="p in agentProfiles" :key="p">
+                                                    <option :value="p" x-text="p"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+
                                         <!-- System Prompt -->
                                         <div class="scheduler-form-field full-width">
                                             <div class="label-help-wrapper">
@@ -1224,6 +1266,21 @@
                                                 <div class="scheduler-form-help">Container file paths or URLs, one per line</div>
                                             </div>
                                             <textarea x-model="attachmentsText" placeholder="Enter file paths or URLs, one per line"></textarea>
+                                        </div>
+
+                                        <!-- One-shot execute at (edit) -->
+                                        <div class="scheduler-form-field full-width" x-show="editingTask.type === 'oneshot'">
+                                            <div class="label-help-wrapper">
+                                                <label class="scheduler-form-label">Execute at</label>
+                                                <div class="scheduler-form-help">Select the exact date and time for one-shot execution</div>
+                                            </div>
+                                            <div class="scheduler-plan-builder">
+                                                <input type="text" id="oneshotTime-edit"
+                                                       x-ref="oneshotTimeEdit"
+                                                       class="scheduler-flatpickr-input"
+                                                       placeholder="Select date and time"
+                                                       @focus="initDateTimeInput($event)">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
