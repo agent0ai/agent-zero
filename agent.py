@@ -714,14 +714,31 @@ class Agent:
 
             if tool:
                 await self.handle_intervention()
-                await tool.before_execution(**tool_args)
+                # Allow extensions to preprocess tool arguments (e.g., unmask secrets)
+                await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
+                # Call tool hooks for compatibility
+                try:
+                    await tool.before_execution(**tool_args)
+                except Exception:
+                    pass
                 await self.handle_intervention()
+                # Ensure tool sees the updated arguments after pre-processing
+                tool.args = tool_args or tool.args
                 response = await tool.execute(**tool_args)
                 await self.handle_intervention()
-                await tool.after_execution(response)
+                # Allow extensions to postprocess tool response (e.g., mask secrets)
+                response_data = {"response": response}
+                await self.call_extensions("tool_execute_after", response_data=response_data, tool_name=tool_name, tool_args=tool_args)
+                processed_response = response_data["response"]
+                # Store result to history
+                self.hist_add_tool_result(tool_name, getattr(processed_response, "message", ""))
+                try:
+                    await tool.after_execution(processed_response)
+                except Exception:
+                    pass
                 await self.handle_intervention()
-                if response.break_loop:
-                    return response.message
+                if processed_response.break_loop:
+                    return processed_response.message
             else:
                 error_detail = (
                     f"Tool '{raw_tool_name}' not found or could not be initialized."
