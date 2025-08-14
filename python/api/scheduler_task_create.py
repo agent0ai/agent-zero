@@ -1,7 +1,7 @@
 from python.helpers.api import ApiHandler, Input, Output, Request
 from python.helpers.task_scheduler import (
     TaskScheduler, ScheduledTask, AdHocTask, PlannedTask, TaskSchedule,
-    serialize_task, parse_task_schedule, parse_task_plan, parse_datetime
+    serialize_task, parse_task_schedule, parse_task_plan, TaskType
 )
 from python.helpers.localization import Localization
 from python.helpers.print_style import PrintStyle
@@ -28,20 +28,24 @@ class SchedulerTaskCreate(ApiHandler):
         prompt = input.get("prompt")
         attachments = input.get("attachments", [])
         context_id = input.get("context_id", None)
-        settings_profile = input.get("settings_profile", None)
 
         # Check if schedule is provided (for ScheduledTask)
         schedule = input.get("schedule", {})
         token: str = input.get("token", "")
-        execute_at_raw = input.get("execute_at", None)
 
         # Debug log the token value
         printer.print(f"Token received from frontend: '{token}' (type: {type(token)}, length: {len(token) if token else 0})")
+
+        # Generate a random token if empty or not provided
+        if not token:
+            token = str(random.randint(1000000000000000000, 9999999999999999999))
+            printer.print(f"Generated new token: '{token}'")
 
         plan = input.get("plan", {})
 
         # Validate required fields
         if not name or not prompt:
+            # return {"error": "Missing required fields: name, system_prompt, prompt"}
             raise ValueError("Missing required fields: name, system_prompt, prompt")
 
         task = None
@@ -74,8 +78,7 @@ class SchedulerTaskCreate(ApiHandler):
                 schedule=task_schedule,
                 attachments=attachments,
                 context_id=context_id,
-                timezone=timezone,
-                settings_profile=settings_profile,
+                timezone=timezone
             )
         elif plan:
             # Create a planned task
@@ -91,33 +94,10 @@ class SchedulerTaskCreate(ApiHandler):
                 prompt=prompt,
                 plan=task_plan,
                 attachments=attachments,
-                context_id=context_id,
-                settings_profile=settings_profile,
-            )
-        elif execute_at_raw:
-            # Create a one-shot task via TaskPlan with single todo entry
-            try:
-                execute_at_dt = parse_datetime(execute_at_raw)
-                if execute_at_dt is None:
-                    raise ValueError("Invalid execute_at datetime")
-            except ValueError as e:
-                return {"error": str(e)}
-
-            from python.helpers.task_scheduler import OneShotTask, TaskPlan  # local import to avoid circular typing
-            task_plan = TaskPlan.create(todo=[execute_at_dt], in_progress=None, done=[])
-            task = OneShotTask.create(
-                name=name,
-                system_prompt=system_prompt,
-                prompt=prompt,
-                plan=task_plan,
-                attachments=attachments,
-                context_id=context_id,
-                settings_profile=settings_profile,
+                context_id=context_id
             )
         else:
             # Create an ad-hoc task
-            if not token:
-                token = str(random.randint(1000000000000000000, 9999999999999999999))
             printer.print(f"Creating AdHocTask with token: '{token}'")
             task = AdHocTask.create(
                 name=name,
@@ -127,12 +107,29 @@ class SchedulerTaskCreate(ApiHandler):
                 attachments=attachments,
                 context_id=context_id
             )
+            # Verify token after creation
+            if isinstance(task, AdHocTask):
+                printer.print(f"AdHocTask created with token: '{task.token}'")
 
         # Add the task to the scheduler
         await scheduler.add_task(task)
 
+        # Verify the task was added correctly - retrieve by UUID to check persistence
+        saved_task = scheduler.get_task_by_uuid(task.uuid)
+        if saved_task:
+            if saved_task.type == TaskType.AD_HOC and isinstance(saved_task, AdHocTask):
+                printer.print(f"Task verified after save, token: '{saved_task.token}'")
+            else:
+                printer.print("Task verified after save, not an adhoc task")
+        else:
+            printer.print("WARNING: Task not found after save!")
+
         # Return the created task using our standardized serialization function
         task_dict = serialize_task(task)
+
+        # Debug log the serialized task
+        if task_dict and task_dict.get('type') == 'adhoc':
+            printer.print(f"Serialized adhoc task, token in response: '{task_dict.get('token')}'")
 
         return {
             "task": task_dict

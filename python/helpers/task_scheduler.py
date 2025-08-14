@@ -15,7 +15,7 @@ nest_asyncio.apply()
 from crontab import CronTab
 from pydantic import BaseModel, Field, PrivateAttr
 
-from agent import AgentContext, UserMessage, AgentContextType
+from agent import Agent, AgentContext, UserMessage
 from initialize import initialize_agent
 from python.helpers.persist_chat import save_tmp_chat
 from python.helpers.print_style import PrintStyle
@@ -43,7 +43,6 @@ class TaskType(str, Enum):
     AD_HOC = "adhoc"
     SCHEDULED = "scheduled"
     PLANNED = "planned"
-    ONE_SHOT = "oneshot"
 
 
 class TaskSchedule(BaseModel):
@@ -129,7 +128,6 @@ class BaseTask(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_run: datetime | None = None
     last_result: str | None = None
-    settings_profile: Optional[str] = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -146,7 +144,6 @@ class BaseTask(BaseModel):
                last_run: datetime | None = None,
                last_result: str | None = None,
                context_id: str | None = None,
-               settings_profile: str | None = None,
                **kwargs):
         with self._lock:
             if name is not None:
@@ -172,9 +169,6 @@ class BaseTask(BaseModel):
                 self.updated_at = datetime.now(timezone.utc)
             if context_id is not None:
                 self.context_id = context_id
-                self.updated_at = datetime.now(timezone.utc)
-            if settings_profile is not None:
-                self.settings_profile = settings_profile
                 self.updated_at = datetime.now(timezone.utc)
             for key, value in kwargs.items():
                 if value is not None:
@@ -249,16 +243,14 @@ class AdHocTask(BaseTask):
         prompt: str,
         token: str,
         attachments: list[str] = list(),
-        context_id: str | None = None,
-        settings_profile: str | None = None
+        context_id: str | None = None
     ):
         return cls(name=name,
                    system_prompt=system_prompt,
                    prompt=prompt,
                    attachments=attachments,
                    token=token,
-                   context_id=context_id,
-                   settings_profile=settings_profile)
+                   context_id=context_id)
 
     def update(self,
                name: str | None = None,
@@ -269,7 +261,6 @@ class AdHocTask(BaseTask):
                last_run: datetime | None = None,
                last_result: str | None = None,
                context_id: str | None = None,
-               settings_profile: str | None = None,
                token: str | None = None,
                **kwargs):
         super().update(name=name,
@@ -280,7 +271,6 @@ class AdHocTask(BaseTask):
                        last_run=last_run,
                        last_result=last_result,
                        context_id=context_id,
-                       settings_profile=settings_profile,
                        token=token,
                        **kwargs)
 
@@ -298,8 +288,7 @@ class ScheduledTask(BaseTask):
         schedule: TaskSchedule,
         attachments: list[str] = list(),
         context_id: str | None = None,
-        timezone: str | None = None,
-        settings_profile: str | None = None
+        timezone: str | None = None
     ):
         # Set timezone in schedule if provided
         if timezone is not None:
@@ -312,8 +301,7 @@ class ScheduledTask(BaseTask):
                    prompt=prompt,
                    attachments=attachments,
                    schedule=schedule,
-                   context_id=context_id,
-                   settings_profile=settings_profile)
+                   context_id=context_id)
 
     def update(self,
                name: str | None = None,
@@ -324,7 +312,6 @@ class ScheduledTask(BaseTask):
                last_run: datetime | None = None,
                last_result: str | None = None,
                context_id: str | None = None,
-               settings_profile: str | None = None,
                schedule: TaskSchedule | None = None,
                **kwargs):
         super().update(name=name,
@@ -335,7 +322,6 @@ class ScheduledTask(BaseTask):
                        last_run=last_run,
                        last_result=last_result,
                        context_id=context_id,
-                       settings_profile=settings_profile,
                        schedule=schedule,
                        **kwargs)
 
@@ -379,16 +365,14 @@ class PlannedTask(BaseTask):
         prompt: str,
         plan: TaskPlan,
         attachments: list[str] = list(),
-        context_id: str | None = None,
-        settings_profile: str | None = None
+        context_id: str | None = None
     ):
         return cls(name=name,
                    system_prompt=system_prompt,
                    prompt=prompt,
                    plan=plan,
                    attachments=attachments,
-                   context_id=context_id,
-                   settings_profile=settings_profile)
+                   context_id=context_id)
 
     def update(self,
                name: str | None = None,
@@ -399,7 +383,6 @@ class PlannedTask(BaseTask):
                last_run: datetime | None = None,
                last_result: str | None = None,
                context_id: str | None = None,
-               settings_profile: str | None = None,
                plan: TaskPlan | None = None,
                **kwargs):
         super().update(name=name,
@@ -410,7 +393,6 @@ class PlannedTask(BaseTask):
                        last_run=last_run,
                        last_result=last_result,
                        context_id=context_id,
-                       settings_profile=settings_profile,
                        plan=plan,
                        **kwargs)
 
@@ -459,86 +441,8 @@ class PlannedTask(BaseTask):
         await super().on_error(error)
 
 
-class OneShotTask(BaseTask):
-    type: Literal[TaskType.ONE_SHOT] = TaskType.ONE_SHOT
-    plan: TaskPlan
-
-    @classmethod
-    def create(
-        cls,
-        name: str,
-        system_prompt: str,
-        prompt: str,
-        plan: TaskPlan,
-        attachments: list[str] = list(),
-        context_id: str | None = None,
-        settings_profile: str | None = None
-    ):
-        return cls(
-            name=name,
-            system_prompt=system_prompt,
-            prompt=prompt,
-            plan=plan,
-            attachments=attachments,
-            context_id=context_id,
-            settings_profile=settings_profile,
-        )
-
-    def update(self,
-               name: str | None = None,
-               state: TaskState | None = None,
-               system_prompt: str | None = None,
-               prompt: str | None = None,
-               attachments: list[str] | None = None,
-               last_run: datetime | None = None,
-               last_result: str | None = None,
-               context_id: str | None = None,
-               settings_profile: str | None = None,
-               plan: TaskPlan | None = None,
-               **kwargs):
-        super().update(name=name,
-                       state=state,
-                       system_prompt=system_prompt,
-                       prompt=prompt,
-                       attachments=attachments,
-                       last_run=last_run,
-                       last_result=last_result,
-                       context_id=context_id,
-                       settings_profile=settings_profile,
-                       plan=plan,
-                       **kwargs)
-
-    def check_schedule(self, frequency_seconds: float = 60.0) -> bool:
-        with self._lock:
-            return self.plan.should_launch() is not None
-
-    def get_next_run(self) -> datetime | None:
-        with self._lock:
-            return self.plan.get_next_launch_time()
-
-    async def on_run(self):
-        with self._lock:
-            next_launch_time = self.plan.should_launch()
-            if next_launch_time is not None:
-                self.plan.set_in_progress(next_launch_time)
-        await super().on_run()
-
-    async def on_finish(self):
-        updated = False
-        with self._lock:
-            if self.plan.in_progress is not None:
-                self.plan.set_done(self.plan.in_progress)
-                updated = True
-        if updated:
-            scheduler = TaskScheduler.get()
-            await scheduler.reload()
-            await scheduler.update_task(self.uuid, plan=self.plan)
-            await scheduler.save()
-        await super().on_finish()
-
-
 class SchedulerTaskList(BaseModel):
-    tasks: list[Annotated[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"], Field(discriminator="type")]] = Field(default_factory=list)
+    tasks: list[Annotated[Union[ScheduledTask, AdHocTask, PlannedTask], Field(discriminator="type")]] = Field(default_factory=list)
     # Singleton instance
     __instance: ClassVar[Optional["SchedulerTaskList"]] = PrivateAttr(default=None)
 
@@ -570,7 +474,7 @@ class SchedulerTaskList(BaseModel):
                 self.tasks.extend(data.tasks)
         return self
 
-    async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]) -> "SchedulerTaskList":
+    async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> "SchedulerTaskList":
         with self._lock:
             self.tasks.append(task)
             await self.save()
@@ -619,9 +523,9 @@ class SchedulerTaskList(BaseModel):
     async def update_task_by_uuid(
         self,
         task_uuid: str,
-        updater_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]], None],
-        verify_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]], bool] = lambda task: True
-    ) -> Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"] | None:
+        updater_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask]], None],
+        verify_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask]], bool] = lambda task: True
+    ) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         """
         Atomically update a task by UUID using the provided updater function.
 
@@ -647,11 +551,11 @@ class SchedulerTaskList(BaseModel):
 
             return task
 
-    def get_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]:
+    def get_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         with self._lock:
             return self.tasks
 
-    def get_tasks_by_context_id(self, context_id: str, only_running: bool = False) -> list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]:
+    def get_tasks_by_context_id(self, context_id: str, only_running: bool = False) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         with self._lock:
             return [
                 task for task in self.tasks
@@ -659,7 +563,7 @@ class SchedulerTaskList(BaseModel):
                 and (not only_running or task.state == TaskState.RUNNING)
             ]
 
-    async def get_due_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]:
+    async def get_due_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         with self._lock:
             await self.reload()
             return [
@@ -667,15 +571,15 @@ class SchedulerTaskList(BaseModel):
                 if task.check_schedule() and task.state == TaskState.IDLE
             ]
 
-    def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"] | None:
+    def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         with self._lock:
             return next((task for task in self.tasks if task.uuid == task_uuid), None)
 
-    def get_task_by_name(self, name: str) -> Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"] | None:
+    def get_task_by_name(self, name: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         with self._lock:
             return next((task for task in self.tasks if task.name == name), None)
 
-    def find_task_by_name(self, name: str) -> list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]:
+    def find_task_by_name(self, name: str) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         with self._lock:
             return [task for task in self.tasks if name.lower() in task.name.lower()]
 
@@ -714,15 +618,15 @@ class TaskScheduler:
     async def reload(self):
         await self._tasks.reload()
 
-    def get_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]:
+    def get_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         return self._tasks.get_tasks()
 
-    def get_tasks_by_context_id(self, context_id: str, only_running: bool = False) -> list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]:
+    def get_tasks_by_context_id(self, context_id: str, only_running: bool = False) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         return self._tasks.get_tasks_by_context_id(context_id, only_running)
 
-    async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]) -> "TaskScheduler":
+    async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> "TaskScheduler":
         await self._tasks.add_task(task)
-        await self._get_chat_context(task)  # invoke context creation
+        ctx = await self._get_chat_context(task)  # invoke context creation
         return self
 
     async def remove_task_by_uuid(self, task_uuid: str) -> "TaskScheduler":
@@ -733,13 +637,13 @@ class TaskScheduler:
         await self._tasks.remove_task_by_name(name)
         return self
 
-    def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"] | None:
+    def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         return self._tasks.get_task_by_uuid(task_uuid)
 
-    def get_task_by_name(self, name: str) -> Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"] | None:
+    def get_task_by_name(self, name: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         return self._tasks.get_task_by_name(name)
 
-    def find_task_by_name(self, name: str) -> list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]:
+    def find_task_by_name(self, name: str) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         return self._tasks.find_task_by_name(name)
 
     async def tick(self):
@@ -788,9 +692,9 @@ class TaskScheduler:
     async def update_task_checked(
         self,
         task_uuid: str,
-        verify_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]], bool] = lambda task: True,
+        verify_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask]], bool] = lambda task: True,
         **update_params
-    ) -> Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"] | None:
+    ) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         """
         Atomically update a task by UUID with the provided parameters.
         This prevents race conditions when multiple processes update tasks concurrently.
@@ -802,24 +706,24 @@ class TaskScheduler:
 
         return await self._tasks.update_task_by_uuid(task_uuid, _update_task, verify_func)
 
-    async def update_task(self, task_uuid: str, **update_params) -> Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"] | None:
+    async def update_task(self, task_uuid: str, **update_params) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         return await self.update_task_checked(task_uuid, lambda task: True, **update_params)
 
-    async def __new_context(self, task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]) -> AgentContext:
+    async def __new_context(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> AgentContext:
         if not task.context_id:
             raise ValueError(f"Task {task.name} has no context ID")
 
-        config = initialize_agent(profile=task.settings_profile)
-        if 'OneShotTask' in globals() and isinstance(task, OneShotTask):
-            context = AgentContext(config, id=task.context_id, name=task.name, type=AgentContextType.BACKGROUND)
-        else:
-            context = AgentContext(config, id=task.context_id, name=task.name)
+        config = initialize_agent()
+        context: AgentContext = AgentContext(config, id=task.context_id, name=task.name)
+        # context.id = task.context_id
+        # initial name before renaming is same as task name
+        # context.name = task.name
 
         # Save the context
         save_tmp_chat(context)
         return context
 
-    async def _get_chat_context(self, task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]) -> AgentContext:
+    async def _get_chat_context(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> AgentContext:
         context = AgentContext.get(task.context_id) if task.context_id else None
 
         if context:
@@ -827,20 +731,6 @@ class TaskScheduler:
             self._printer.print(
                 f"Scheduler Task {task.name} loaded from task {task.uuid}, context ok"
             )
-            # Reconfigure context and agent chain to match task's settings_profile if provided
-            try:
-                desired_profile = task.settings_profile
-                if desired_profile is not None:
-                    context.config = initialize_agent(profile=desired_profile)
-                    agent = context.streaming_agent or context.agent0
-                    while agent:
-                        agent_profile_name = getattr(agent.config, "settings_profile", desired_profile)
-                        agent.config = initialize_agent(profile=agent_profile_name)
-                        agent = agent.get_data(agent.DATA_NAME_SUBORDINATE)
-            except Exception as e:
-                PrintStyle(italic=True, font_color="red", padding=False).print(
-                    f"Failed to reconfigure context for task {task.name}: {e}"
-                )
             save_tmp_chat(context)
             return context
         else:
@@ -849,17 +739,17 @@ class TaskScheduler:
             )
             return await self.__new_context(task)
 
-    async def _persist_chat(self, task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"], context: AgentContext):
+    async def _persist_chat(self, task: Union[ScheduledTask, AdHocTask, PlannedTask], context: AgentContext):
         if context.id != task.context_id:
             raise ValueError(f"Context ID mismatch for task {task.name}: context {context.id} != task {task.context_id}")
         save_tmp_chat(context)
 
-    async def _run_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"], task_context: str | None = None):
+    async def _run_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask], task_context: str | None = None):
 
         async def _run_task_wrapper(task_uuid: str, task_context: str | None = None):
 
             # preflight checks with a snapshot of the task
-            task_snapshot: Union[ScheduledTask, AdHocTask, PlannedTask, OneShotTask] | None = self.get_task_by_uuid(task_uuid)
+            task_snapshot: Union[ScheduledTask, AdHocTask, PlannedTask] | None = self.get_task_by_uuid(task_uuid)
             if task_snapshot is None:
                 self._printer.print(f"Scheduler Task with UUID '{task_uuid}' not found")
                 return
@@ -972,13 +862,6 @@ class TaskScheduler:
             finally:
                 # Call on_finish for task-specific cleanup
                 await current_task.on_finish()
-
-                # Remove one-shot tasks from the scheduler after completion
-                try:
-                    if 'OneShotTask' in globals() and isinstance(current_task, OneShotTask):
-                        await self._tasks.remove_task_by_uuid(current_task.uuid)
-                except Exception as e:
-                    self._printer.print(f"Failed to remove one-shot task '{current_task.name}': {e}")
 
                 # Make one final save to ensure all states are persisted
                 await self._tasks.save()
@@ -1138,10 +1021,10 @@ def parse_task_plan(plan_data: Dict[str, Any]) -> TaskPlan:
         return TaskPlan(todo=[], in_progress=None, done=[])
 
 
-T = TypeVar('T', bound=Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"])
+T = TypeVar('T', bound=Union[ScheduledTask, AdHocTask, PlannedTask])
 
 
-def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]) -> Dict[str, Any]:
+def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[str, Any]:
     """
     Standardized serialization for task objects with proper handling of all complex types.
     """
@@ -1158,8 +1041,7 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTa
         "last_run": serialize_datetime(task.last_run),
         "next_run": serialize_datetime(task.get_next_run()),
         "last_result": task.last_result,
-        "context_id": task.context_id,
-        "settings_profile": task.settings_profile,
+        "context_id": task.context_id
     }
 
     # Add type-specific fields
@@ -1170,21 +1052,15 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTa
         task_dict['type'] = 'adhoc'
         adhoc_task = cast(AdHocTask, task)
         task_dict['token'] = adhoc_task.token
-    elif isinstance(task, PlannedTask):
+    else:
         task_dict['type'] = 'planned'
         planned_task = cast(PlannedTask, task)
         task_dict['plan'] = serialize_task_plan(planned_task.plan)  # type: ignore
-    elif isinstance(task, OneShotTask):
-        task_dict['type'] = 'oneshot'
-        one_shot_task = cast(OneShotTask, task)
-        task_dict['plan'] = serialize_task_plan(one_shot_task.plan)  # type: ignore
-    else:
-        task_dict['type'] = 'oneshot'
 
     return task_dict
 
 
-def serialize_tasks(tasks: list[Union[ScheduledTask, AdHocTask, PlannedTask, "OneShotTask"]]) -> list[Dict[str, Any]]:
+def serialize_tasks(tasks: list[Union[ScheduledTask, AdHocTask, PlannedTask]]) -> list[Dict[str, Any]]:
     """
     Serialize a list of tasks to a list of dictionaries.
     """
@@ -1210,8 +1086,6 @@ def deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]] = 
                 task_data['token'] = str(random.randint(1000000000000000000, 9999999999999999999))
         elif task_type_str == 'planned':
             determined_class = cast(Type[T], PlannedTask)
-        elif task_type_str == 'oneshot':
-            determined_class = cast(Type[T], OneShotTask)
         else:
             raise ValueError(f"Unknown task type: {task_type_str}")
     else:
@@ -1231,8 +1105,7 @@ def deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]] = 
         "updated_at": parse_datetime(task_data.get("updated_at")),
         "last_run": parse_datetime(task_data.get("last_run")),
         "last_result": task_data.get("last_result"),
-        "context_id": task_data.get("context_id"),
-        "settings_profile": task_data.get("settings_profile"),
+        "context_id": task_data.get("context_id")
     }
 
     # Add type-specific fields
@@ -1243,13 +1116,7 @@ def deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]] = 
     elif determined_class == AdHocTask:  # type: ignore
         common_args["token"] = task_data.get("token", "")
         return AdHocTask(**common_args)  # type: ignore
-    elif determined_class == PlannedTask:  # type: ignore
+    else:
         plan_data = task_data.get("plan", {})
         common_args["plan"] = parse_task_plan(plan_data)
         return PlannedTask(**common_args)  # type: ignore
-    elif determined_class == OneShotTask:  # type: ignore
-        plan_data = task_data.get("plan", {})
-        common_args["plan"] = parse_task_plan(plan_data)
-        return OneShotTask(**common_args)  # type: ignore
-    else:
-        return OneShotTask(**common_args)  # type: ignore

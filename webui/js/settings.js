@@ -294,31 +294,6 @@ const settingsModalProxy = {
             openModal("settings/external/a2a-connection.html");
         } else if (field.id === "external_api_examples") {
             openModal("settings/external/api-examples.html");
-        } else if (field.id === "create_settings_profile") {
-            try {
-                const modalEl = document.getElementById('settingsModal');
-                const modalAD = Alpine.$data(modalEl);
-                // find new profile name field value
-                let newName = '';
-                for (const section of modalAD.settings.sections) {
-                    for (const f of section.fields) {
-                        if (f.id === 'new_settings_profile_name') {
-                            newName = (f.value || '').trim();
-                            break;
-                        }
-                    }
-                }
-                if (!newName) {
-                    return window.toastFetchError("Please enter a profile name before creating.");
-                }
-                const resp = await window.sendJsonData("/settings_profile_create", { name: newName });
-                if (resp && resp.settings && resp.settings.sections) {
-                    modalAD.settings.sections = resp.settings.sections;
-                    showToast(`Profile '${newName}' created and selected.`, 'success');
-                }
-            } catch (e) {
-                window.toastFetchError("Error creating settings profile", e);
-            }
         }
     }
 };

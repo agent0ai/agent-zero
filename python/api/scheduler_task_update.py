@@ -48,9 +48,6 @@ class SchedulerTaskUpdate(ApiHandler):
         if "attachments" in input:
             update_params["attachments"] = input.get("attachments", [])
 
-        if "settings_profile" in input:
-            update_params["settings_profile"] = input.get("settings_profile", None)
-
         # Update schedule if this is a scheduled task and schedule is provided
         if isinstance(task, ScheduledTask) and "schedule" in input:
             schedule_data = input.get("schedule", {})

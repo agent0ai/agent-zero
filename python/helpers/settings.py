@@ -102,11 +102,6 @@ class Settings(TypedDict):
 
 
 
-    # settings profiles
-    selected_settings_profile: str
-    settings_profiles: dict[str, dict[str, Any]]
-
-
 class PartialSettings(Settings, total=False):
     pass
 
@@ -160,46 +155,6 @@ _settings: Settings | None = None
 
 def convert_out(settings: Settings) -> SettingsOutput:
     default_settings = get_default_settings()
-
-    # settings profiles section (placed at the top of Agent tab)
-    profiles_fields: list[SettingsField] = []
-    profiles_fields.append(
-        {
-            "id": "selected_settings_profile",
-            "title": "Selected settings profile",
-            "description": "Choose which settings profile is active. 'default' uses the base settings below.",
-            "type": "select",
-            "value": settings.get("selected_settings_profile", "default"),
-            "options": cast(list[FieldOption], [{"value": "default", "label": "default"}] + [
-                {"value": name, "label": name} for name in settings.get("settings_profiles", {}).keys()
-            ]),
-        }
-    )
-    profiles_fields.append(
-        {
-            "id": "new_settings_profile_name",
-            "title": "New profile name",
-            "description": "Enter a name and click Create to clone the current effective settings.",
-            "type": "text",
-            "value": "",
-        }
-    )
-    profiles_fields.append(
-        {
-            "id": "create_settings_profile",
-            "title": "Create settings profile",
-            "description": "Creates a new settings profile by cloning current effective settings.",
-            "type": "button",
-            "value": "Create",
-        }
-    )
-    profiles_section: SettingsSection = {
-        "id": "settings_profiles",
-        "title": "Settings Profiles",
-        "description": "Manage multiple settings profiles to quickly switch between different configurations.",
-        "fields": profiles_fields,
-        "tab": "agent",
-    }
 
     # main model section
     chat_model_fields: list[SettingsField] = []
@@ -1201,7 +1156,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
     # Add the section to the result
     result: SettingsOutput = {
         "sections": [
-            profiles_section,
             agent_section,
             chat_model_section,
             util_model_section,
@@ -1236,87 +1190,22 @@ def _get_api_key_field(settings: Settings, provider: str, title: str) -> Setting
 
 def convert_in(settings: dict) -> Settings:
     current = get_settings()
-    # determine which settings profile is selected in the payload (if present)
-    selected_profile = current.get("selected_settings_profile", "default")
     for section in settings["sections"]:
         if "fields" in section:
             for field in section["fields"]:
-                field_id = field.get("id")
-                if not field_id:
-                    continue
-                # Skip transient UI fields
-                if field_id in {"new_settings_profile_name", "create_settings_profile"}:
-                    continue
                 # Skip saving if value is a placeholder
                 should_skip = (
                     field["value"] == PASSWORD_PLACEHOLDER or
                     field["value"] == API_KEY_PLACEHOLDER
                 )
 
-                if field_id == "selected_settings_profile":
-                    selected_profile = str(field.get("value", "")).strip() or "default"
-                    current["selected_settings_profile"] = selected_profile
-                    continue
-
-                if should_skip:
-                    continue
-
-                # Normalize kwargs fields value
-                if field_id.endswith("_kwargs"):
-                    value = _env_to_dict(field["value"])
-                else:
-                    value = field["value"]
-
-                # Fields that belong to settings profiles
-                profile_keys = {
-                    "agent_profile",
-                    "agent_memory_subdir",
-                    "agent_knowledge_subdir",
-                    "chat_model_provider",
-                    "chat_model_name",
-                    "chat_model_api_base",
-                    "chat_model_kwargs",
-                    "chat_model_ctx_length",
-                    "chat_model_ctx_history",
-                    "chat_model_vision",
-                    "chat_model_rl_requests",
-                    "chat_model_rl_input",
-                    "chat_model_rl_output",
-                    "util_model_provider",
-                    "util_model_name",
-                    "util_model_api_base",
-                    "util_model_ctx_length",
-                    "util_model_ctx_input",
-                    "util_model_kwargs",
-                    "util_model_rl_requests",
-                    "util_model_rl_input",
-                    "util_model_rl_output",
-                    "embed_model_provider",
-                    "embed_model_name",
-                    "embed_model_api_base",
-                    "embed_model_kwargs",
-                    "embed_model_rl_requests",
-                    "embed_model_rl_input",
-                    "browser_model_provider",
-                    "browser_model_name",
-                    "browser_model_api_base",
-                    "browser_model_vision",
-                    "browser_model_rl_requests",
-                    "browser_model_rl_input",
-                    "browser_model_rl_output",
-                    "browser_model_kwargs",
-                }
-
-                if field_id.startswith("api_key_"):
-                    current["api_keys"][field_id] = value
-                elif field_id in profile_keys and selected_profile != "default":
-                    profiles = dict(current.get("settings_profiles", {}))
-                    overrides = dict(profiles.get(selected_profile, {}))
-                    overrides[field_id] = value
-                    profiles[selected_profile] = overrides
-                    current["settings_profiles"] = profiles
-                else:
-                    current[field_id] = value
+                if not should_skip:
+                    if field["id"].endswith("_kwargs"):
+                        current[field["id"]] = _env_to_dict(field["value"])
+                    elif field["id"].startswith("api_key_"):
+                        current["api_keys"][field["id"]] = field["value"]
+                    else:
+                        current[field["id"]] = field["value"]
     return current
 
 
@@ -1383,100 +1272,6 @@ def _adjust_to_version(settings: Settings, default: Settings):
     if "version" not in settings or settings["version"].startswith("v0.8"):
         if "agent_profile" not in settings or settings["agent_profile"] == "default":
             settings["agent_profile"] = "agent0"
-
-
-def resolve_profile(base_settings: Settings, profile: str) -> Settings:
-    if not profile or profile == "default":
-        return base_settings
-    profiles = base_settings.get("settings_profiles", {})
-    overrides = profiles.get(profile)
-    if not overrides:
-        return base_settings
-    merged: dict[str, Any] = {**base_settings}
-    # overlay only known keys to avoid introducing unknowns
-    default_keys = set(get_default_settings().keys())
-    for k, v in overrides.items():
-        if k in default_keys:
-            merged[k] = v
-    # ensure schema normalization
-    return normalize_settings(merged)  # type: ignore
-
-
-def get_effective_settings(profile: str | None = None) -> Settings:
-    current = get_settings()
-    selected = profile or current.get("selected_settings_profile", "default")
-    # If default or exact settings profile exists, resolve normally
-    profiles = current.get("settings_profiles", {})
-    if selected == "default" or selected in profiles:
-        return resolve_profile(current, selected)
-    # Fallback: keep model settings default, but switch agent profile to requested name if it exists
-    try:
-        available_agents = set(files.get_subdirectories("agents"))
-    except Exception:
-        available_agents = set()
-    fallback_agent = selected if selected in available_agents else get_default_settings()["agent_profile"]
-    merged: dict[str, Any] = {**current, "agent_profile": fallback_agent}
-    return normalize_settings(merged)  # type: ignore
-
-
-def create_settings_profile(name: str, base_profile: str | None = None) -> Settings:
-    name = (name or "").strip()
-    if not name or name == "default":
-        raise ValueError("Invalid profile name")
-    current = get_settings()
-    effective = get_effective_settings(base_profile)
-    # Build overrides limited to relevant keys (model and agent profile settings)
-    profile_keys = {
-        # agent identity/config drivers
-        "agent_profile",
-        "agent_memory_subdir",
-        "agent_knowledge_subdir",
-        # chat model
-        "chat_model_provider",
-        "chat_model_name",
-        "chat_model_api_base",
-        "chat_model_kwargs",
-        "chat_model_ctx_length",
-        "chat_model_ctx_history",
-        "chat_model_vision",
-        "chat_model_rl_requests",
-        "chat_model_rl_input",
-        "chat_model_rl_output",
-        # utility model
-        "util_model_provider",
-        "util_model_name",
-        "util_model_api_base",
-        "util_model_ctx_length",
-        "util_model_ctx_input",
-        "util_model_kwargs",
-        "util_model_rl_requests",
-        "util_model_rl_input",
-        "util_model_rl_output",
-        # embedding model
-        "embed_model_provider",
-        "embed_model_name",
-        "embed_model_api_base",
-        "embed_model_kwargs",
-        "embed_model_rl_requests",
-        "embed_model_rl_input",
-        # browser model
-        "browser_model_provider",
-        "browser_model_name",
-        "browser_model_api_base",
-        "browser_model_vision",
-        "browser_model_rl_requests",
-        "browser_model_rl_input",
-        "browser_model_rl_output",
-        "browser_model_kwargs",
-    }
-    overrides: dict[str, Any] = {k: effective[k] for k in profile_keys if k in effective}
-    profiles = dict(current.get("settings_profiles", {}))
-    profiles[name] = overrides
-    current["settings_profiles"] = profiles
-    # auto-select the newly created profile
-    current["selected_settings_profile"] = name
-    set_settings(current)  # persist and apply
-    return get_settings()
 
 
 def _read_settings_file() -> Settings | None:
@@ -1595,8 +1390,6 @@ def get_default_settings() -> Settings:
         mcp_server_enabled=False,
         mcp_server_token=create_auth_token(),
         a2a_server_enabled=False,
-        selected_settings_profile="default",
-        settings_profiles={},
     )
 
 
@@ -1606,19 +1399,13 @@ def _apply_settings(previous: Settings | None):
         from agent import AgentContext
         from initialize import initialize_agent
 
-        # Reinitialize each context/agent using its assigned settings_profile
+        config = initialize_agent()
         for ctx in AgentContext._contexts.values():
-            # context config follows the root agent's profile selection
-            if ctx.agent0 and hasattr(ctx.agent0, "config") and getattr(ctx.agent0.config, "settings_profile", None):
-                root_profile = ctx.agent0.config.settings_profile
-            else:
-                root_profile = _settings.get("selected_settings_profile", "default")
-            ctx.config = initialize_agent(profile=root_profile)
-            # apply config to each agent in the chain, preserving their settings_profile
+            ctx.config = config  # reinitialize context config with new settings
+            # apply config to agents
             agent = ctx.agent0
             while agent:
-                agent_profile_name = getattr(agent.config, "settings_profile", root_profile)
-                agent.config = initialize_agent(profile=agent_profile_name)
+                agent.config = ctx.config
                 agent = agent.get_data(agent.DATA_NAME_SUBORDINATE)
 
         # reload whisper model if necessary

@@ -227,7 +227,6 @@ class AgentConfig:
     code_exec_ssh_user: str = "root"
     code_exec_ssh_pass: str = ""
     additional: Dict[str, Any] = field(default_factory=dict)
-    settings_profile: str = "default"
 
 
 @dataclass
