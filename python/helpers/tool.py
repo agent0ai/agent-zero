@@ -35,7 +35,20 @@ class Tool:
                 PrintStyle().print()
 
     async def after_execution(self, response: Response, **kwargs):
-        text = sanitize_string(response.message.strip())
+        from python.helpers.print_style import PrintStyle
+        
+        # Handle different types of response.message
+        if isinstance(response.message, dict):
+            # Convert dict to string representation - this indicates a tool bug
+            import json
+            PrintStyle(font_color="orange", padding=True).print(f"Warning: Tool '{self.name}' returned dict instead of string message")
+            text = sanitize_string(json.dumps(response.message, indent=2))
+        elif isinstance(response.message, str):
+            text = sanitize_string(response.message.strip())
+        else:
+            # Convert other types to string
+            text = sanitize_string(str(response.message))
+            
         self.agent.hist_add_tool_result(self.name, text)
         PrintStyle(font_color="#1B4F72", background_color="white", padding=True, bold=True).print(f"{self.agent.agent_name}: Response from tool '{self.name}'")
         PrintStyle(font_color="#85C1E9").print(text)

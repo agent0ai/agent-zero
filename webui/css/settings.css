@@ -949,3 +949,167 @@ nav ul li a img {
 }
 
 /* Token field (for ad-hoc tasks) */
+
+/* SWE Agent Rules Generator Styles */
+.help-text {
+    color: var(--color-text-secondary);
+    font-size: 0.85em;
+    margin-top: 0.25em;
+}
+
+.required {
+    color: var(--color-error);
+}
+
+.swe-form-container {
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: inherit;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-accent-alpha);
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.generated-content {
+    margin-top: 2rem;
+}
+
+.generation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.generation-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.content-preview {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.generated-rules-display {
+    background: var(--color-bg-secondary);
+    padding: 1rem;
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 0.85em;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.generated-rules-editor {
+    width: 100%;
+    padding: 1rem;
+    border: none;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: monospace;
+    font-size: 0.85em;
+    resize: vertical;
+}
+
+.edit-actions {
+    padding: 0.5rem;
+    background: var(--color-bg-tertiary);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    gap: 0.5rem;
+}
+
+.usage-instructions {
+    background: var(--color-bg-secondary);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+.usage-instructions h4 {
+    margin-top: 0;
+    color: var(--color-accent);
+}
+
+.code-example {
+    background: var(--color-bg-tertiary);
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.code-example pre {
+    margin: 0;
+    font-family: monospace;
+    font-size: 0.8em;
+    white-space: pre-wrap;
+}
+
+.swe-loading {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.swe-error {
+    color: var(--color-error);
+    background: var(--color-error-bg);
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin: 0.5rem 0;
+}
+
+.swe-success {
+    color: var(--color-success);
+    background: var(--color-success-bg);
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin: 0.5rem 0;
+}
