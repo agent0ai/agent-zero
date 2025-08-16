@@ -1,5 +1,6 @@
 import asyncio
 import time
+import json
 from typing import Optional, cast
 from agent import Agent, InterventionException
 from pathlib import Path
@@ -29,6 +30,7 @@ class State:
         self.use_agent: Optional[browser_use.Agent] = None
         self.secrets_dict: Optional[dict[str, str]] = None
         self.iter_no = 0
+        self.using_external_browser = False
 
     def __del__(self):
         self.kill_task()
@@ -37,35 +39,73 @@ class State:
         if self.browser_session:
             return
 
-        # for some reason we need to provide exact path to headless shell, otherwise it looks for headed browser
-        pw_binary = ensure_playwright_binary()
+        # Check if we should use external browser for manual control
+        use_external = False
+        external_cdp_url = None
+        
+        try:
+            from python.services.browser_session_manager import get_browser_session_manager
+            from python.helpers import settings
+            
+            config = settings.get_settings()
+            if config.get("browser_manual_control_enabled", False):
+                # Try to connect to existing browser session
+                manager = get_browser_session_manager()
+                if manager.is_running:
+                    connection_info = manager.get_connection_info()
+                    if connection_info.get("cdp_url"):
+                        external_cdp_url = connection_info["cdp_url"]
+                        use_external = True
+                        PrintStyle().info(f"Using external browser session: {external_cdp_url}")
+        except Exception as e:
+            PrintStyle().warning(f"Could not check for external browser: {e}")
 
-        self.browser_session = browser_use.BrowserSession(
-            browser_profile=browser_use.BrowserProfile(
-                headless=True,
-                disable_security=True,
-                chromium_sandbox=False,
-                accept_downloads=True,
-                downloads_dir=files.get_abs_path("tmp/downloads"),
-                downloads_path=files.get_abs_path("tmp/downloads"),
-                executable_path=pw_binary,
-                keep_alive=True,
-                minimum_wait_page_load_time=1.0,
-                wait_for_network_idle_page_load_time=2.0,
-                maximum_wait_page_load_time=10.0,
-                screen={"width": 1024, "height": 2048},
-                viewport={"width": 1024, "height": 2048},
-                args=["--headless=new"],
-                # Use a unique user data directory to avoid conflicts
-                user_data_dir=str(
-                    Path.home()
-                    / ".config"
-                    / "browseruse"
-                    / "profiles"
-                    / f"agent_{self.agent.context.id}"
-                ),
+        if use_external and external_cdp_url:
+            # Connect to external browser via CDP
+            self.browser_session = browser_use.BrowserSession(
+                cdp_url=external_cdp_url,
+                browser_profile=browser_use.BrowserProfile(
+                    keep_alive=True,
+                    minimum_wait_page_load_time=1.0,
+                    wait_for_network_idle_page_load_time=2.0,
+                    maximum_wait_page_load_time=10.0,
+                    screen={"width": 1920, "height": 1080},
+                    viewport={"width": 1920, "height": 1080},
+                )
             )
-        )
+            self.using_external_browser = True
+        else:
+            # Use standard headless browser
+            # for some reason we need to provide exact path to headless shell, otherwise it looks for headed browser
+            pw_binary = ensure_playwright_binary()
+
+            self.browser_session = browser_use.BrowserSession(
+                browser_profile=browser_use.BrowserProfile(
+                    headless=True,
+                    disable_security=True,
+                    chromium_sandbox=False,
+                    accept_downloads=True,
+                    downloads_dir=files.get_abs_path("tmp/downloads"),
+                    downloads_path=files.get_abs_path("tmp/downloads"),
+                    executable_path=pw_binary,
+                    keep_alive=True,
+                    minimum_wait_page_load_time=1.0,
+                    wait_for_network_idle_page_load_time=2.0,
+                    maximum_wait_page_load_time=10.0,
+                    screen={"width": 1024, "height": 2048},
+                    viewport={"width": 1024, "height": 2048},
+                    args=["--headless=new"],
+                    # Use a unique user data directory to avoid conflicts
+                    user_data_dir=str(
+                        Path.home()
+                        / ".config"
+                        / "browseruse"
+                        / "profiles"
+                        / f"agent_{self.agent.context.id}"
+                    ),
+                )
+            )
+            self.using_external_browser = False
 
         await self.browser_session.start() if self.browser_session else None
         # self.override_hooks()
@@ -92,22 +132,31 @@ class State:
             self.task.kill(terminate_thread=True)
             self.task = None
         if self.browser_session:
-            try:
-                import asyncio
+            # Don't close external browser sessions - they're managed separately
+            if not self.using_external_browser:
+                try:
+                    import asyncio
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(self.browser_session.close()) if self.browser_session else None
-                loop.close()
-            except Exception as e:
-                PrintStyle().error(f"Error closing browser session: {e}")
-            finally:
-                self.browser_session = None
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(self.browser_session.close()) if self.browser_session else None
+                    loop.close()
+                except Exception as e:
+                    PrintStyle().error(f"Error closing browser session: {e}")
+            self.browser_session = None
         self.use_agent = None
         self.iter_no = 0
 
     async def _run_task(self, task: str):
         await self._initialize()
+
+        # Check if manual control is enabled and we should offer it as a fallback
+        try:
+            from python.helpers import settings
+            config = settings.get_settings()
+            manual_control_enabled = config.get('browser_manual_control_enabled', False)
+        except:
+            manual_control_enabled = False
 
         class DoneResult(BaseModel):
             title: str
@@ -125,9 +174,53 @@ class State:
             )
             return result
 
-        model = self.agent.get_browser_model()
+        # Try to get the model, but handle failures gracefully
+        try:
+            model = self.agent.get_browser_model()
+        except Exception as model_error:
+            PrintStyle().error(f"Failed to get browser model: {model_error}")
+            
+            # If manual control is enabled and we have external browser, offer manual control
+            if manual_control_enabled and hasattr(self, 'using_external_browser') and self.using_external_browser:
+                PrintStyle().info("Offering manual control due to model failure")
+                return type('MockResult', (), {
+                    'is_done': lambda: True,
+                    'success': lambda: True,
+                    'final_result': lambda: json.dumps({
+                        "title": "Manual Control Required",
+                        "response": f"Browser model failed to initialize ({str(model_error)}). Manual browser control is available - click the 'Manual Control' button to control the browser directly using Chrome DevTools.",
+                        "page_summary": "Browser session is ready for manual control via DevTools interface."
+                    })
+                })()
+            else:
+                raise Exception(f"Failed to get browser model: {model_error}")
+
+        # If we got here, we have a model, so continue with LLM test
 
         try:
+            # Test LLM connection before initializing browser agent
+            try:
+                # Try a simple call to test the model
+                test_response = model.invoke("test")
+                PrintStyle().info("LLM connection test successful")
+            except Exception as llm_error:
+                PrintStyle().warning(f"LLM connection failed: {llm_error}")
+                
+                # If using external browser, we can still provide manual control
+                if self.using_external_browser:
+                    PrintStyle().info("External browser available for manual control despite LLM issues")
+                    # Return a response suggesting manual control
+                    return {
+                        "is_done": lambda: True,
+                        "success": lambda: True,
+                        "final_result": lambda: json.dumps({
+                            "title": "Manual Control Available",
+                            "response": "LLM connection failed, but manual browser control is available. Click the 'Manual Control' button to control the browser manually.",
+                            "page_summary": "Browser session is running and ready for manual control."
+                        })
+                    }
+                else:
+                    raise Exception(f"Failed to connect to LLM. Please check your API key and network connection. Error: {llm_error}")
 
             secrets_manager = SecretsManager.get_instance()
             secrets_dict = secrets_manager.load_secrets()
@@ -145,9 +238,22 @@ class State:
                 sensitive_data=cast(dict[str, str | dict[str, str]] | None, secrets_dict or {}),  # Pass secrets
             )
         except Exception as e:
-            raise Exception(
-                f"Browser agent initialization failed. This might be due to model compatibility issues. Error: {e}"
-            ) from e
+            # If we have an external browser available, suggest manual control
+            if hasattr(self, 'using_external_browser') and self.using_external_browser:
+                PrintStyle().warning(f"Browser agent initialization failed, but manual control is available: {e}")
+                return {
+                    "is_done": lambda: True,
+                    "success": lambda: True,
+                    "final_result": lambda: json.dumps({
+                        "title": "Manual Control Available",
+                        "response": f"Browser agent initialization failed ({str(e)}), but manual browser control is available. Click the 'Manual Control' button to control the browser manually.",
+                        "page_summary": "Browser session is running and ready for manual control."
+                    })
+                }
+            else:
+                raise Exception(
+                    f"Browser agent initialization failed. This might be due to model compatibility issues. Error: {e}"
+                ) from e
 
         self.iter_no = get_iter_no(self.agent)
 
@@ -191,7 +297,51 @@ class BrowserAgent(Tool):
         self.guid = str(uuid.uuid4())
         reset = str(reset).lower().strip() == "true"
         await self.prepare_state(reset=reset)
-        task = self.state.start_task(message) if self.state else None
+        
+        # Check if manual control is enabled for fallback scenarios
+        try:
+            from python.helpers import settings
+            config = settings.get_settings()
+            manual_control_enabled = config.get('browser_manual_control_enabled', False)
+        except:
+            manual_control_enabled = False
+        
+        try:
+            task = self.state.start_task(message) if self.state else None
+        except Exception as task_error:
+            PrintStyle().error(f"Failed to start browser task: {task_error}")
+            
+            # If manual control is enabled, try to at least start the browser session
+            if manual_control_enabled:
+                try:
+                    # Ensure we have a browser session for manual control
+                    if self.state and hasattr(self.state, 'using_external_browser') and self.state.using_external_browser:
+                        # External browser should already be running
+                        manual_message = f"Browser agent failed to start ({str(task_error)}), but manual browser control is available. Click the 'Manual Control' button to control the browser using Chrome DevTools."
+                    else:
+                        # Try to start browser session for manual control
+                        from python.services.browser_session_manager import get_browser_session_manager
+                        browser_manager = get_browser_session_manager()
+                        browser_info = browser_manager.start_browser_session(headless=False)
+                        if browser_info.get('is_running'):
+                            manual_message = f"Browser agent failed to start ({str(task_error)}), but manual browser control has been started. Click the 'Manual Control' button to control the browser using Chrome DevTools."
+                        else:
+                            raise Exception("Could not start browser for manual control")
+                    
+                    # Return a response suggesting manual control
+                    self.log.update(answer=self._mask(manual_message))
+                    return Response(message=self._mask(manual_message), break_loop=False)
+                    
+                except Exception as manual_error:
+                    PrintStyle().error(f"Manual control fallback also failed: {manual_error}")
+            
+            # If we get here, both automated and manual control failed
+            error_message = f"Browser agent failed to start: {str(task_error)}"
+            if not manual_control_enabled:
+                error_message += "\n\nTip: Enable 'Manual Browser Control' in settings for a fallback option when LLM issues occur."
+            
+            self.log.update(answer=self._mask(error_message))
+            return Response(message=self._mask(error_message), break_loop=False)
 
         # wait for browser agent to finish and update progress with timeout
         timeout_seconds = 300  # 5 minute timeout
