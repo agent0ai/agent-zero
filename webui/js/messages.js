@@ -182,7 +182,7 @@ export function _drawMessage(
   const scroller = new Scroller(bodyDiv);
 
   // Handle KVPs incrementally
-  drawKvpsIncremental(bodyDiv, kvps, false);
+  drawKvpsIncremental(bodyDiv, kvps, false, messageContainer);
 
   // Handle content
   if (content && content.trim().length > 0) {
@@ -219,7 +219,8 @@ export function _drawMessage(
       }
 
       // Ensure action buttons exist
-      addActionButtonsToElement(bodyDiv);
+      const isBrowserMessage = messageContainer.querySelector('.message-browser') !== null;
+      addActionButtonsToElement(bodyDiv, { isBrowserMessage });
       adjustMarkdownRender(contentDiv);
 
     } else {
@@ -244,7 +245,8 @@ export function _drawMessage(
       spanElement.innerHTML = convertHTML(content);
 
       // Ensure action buttons exist
-      addActionButtonsToElement(bodyDiv);
+      const isBrowserMessage = messageContainer.querySelector('.message-browser') !== null;
+      addActionButtonsToElement(bodyDiv, { isBrowserMessage });
 
     }
   } else {
@@ -693,7 +695,7 @@ function drawKvps(container, kvps, latex) {
         addValue(value);
       }
 
-      addActionButtonsToElement(tdiv);
+      addActionButtonsToElement(tdiv); // Legacy function - browser detection not available here
 
       // autoscroll the KVP value if needed
       // if (getAutoScroll()) #TODO needs a better redraw system
@@ -738,7 +740,7 @@ function drawKvps(container, kvps, latex) {
   }
 }
 
-function drawKvpsIncremental(container, kvps, latex) {
+function drawKvpsIncremental(container, kvps, latex, messageContainer = null) {
   if (kvps) {
     // Find existing table or create new one
     let table = container.querySelector(".msg-kvps");
@@ -795,7 +797,9 @@ function drawKvpsIncremental(container, kvps, latex) {
       // Clear and rebuild content (for now - could be optimized further)
       tdiv.innerHTML = "";
 
-      addActionButtonsToElement(tdiv);
+      // Check if this is a browser message for action buttons
+      const isBrowserMessage = messageContainer ? messageContainer.querySelector('.message-browser') !== null : false;
+      addActionButtonsToElement(tdiv, { isBrowserMessage });
 
       if (Array.isArray(value)) {
         for (const item of value) {

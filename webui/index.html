@@ -128,6 +128,18 @@
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/file_browser.js"></script>
     <script type="text/javascript" src="js/modal.js"></script>
+    <script type="module" src="js/browserControlModal.js"></script>
+    <!-- Ensure browser control modal is available -->
+    <script>
+        // Wait for browser control modal to load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                if (!window.browserControlModalProxy) {
+                    console.warn('Browser control modal not loaded, manual control will use direct API fallback');
+                }
+            }, 1000);
+        });
+    </script>
     <script type="module" src="js/tunnel.js"></script>
 </head>
 

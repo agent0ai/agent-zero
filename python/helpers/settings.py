@@ -103,6 +103,11 @@ class Settings(TypedDict):
 
     a2a_server_enabled: bool
 
+    browser_manual_control_enabled: bool
+    browser_manual_control_vnc_port: int
+    browser_manual_control_cdp_port: int
+    browser_manual_control_display_resolution: str
+
     secrets: str
 
 class PartialSettings(Settings, total=False):
@@ -510,6 +515,53 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "title": "Web Browser Model",
         "description": "Settings for the web browser model. Agent Zero uses <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> agentic framework to handle web interactions.",
         "fields": browser_model_fields,
+        "tab": "agent",
+    }
+
+    # browser manual control section
+    browser_control_fields: list[SettingsField] = []
+    browser_control_fields.append(
+        {
+            "id": "browser_manual_control_enabled",
+            "title": "Enable Manual Browser Control",
+            "description": "Allow manual control of browser sessions for handling captchas, logins, and interactive elements via VNC",
+            "type": "switch",
+            "value": settings["browser_manual_control_enabled"],
+        }
+    )
+    browser_control_fields.append(
+        {
+            "id": "browser_manual_control_vnc_port",
+            "title": "VNC Port",
+            "description": "Port for VNC server (default: 5900)",
+            "type": "number",
+            "value": settings["browser_manual_control_vnc_port"],
+        }
+    )
+    browser_control_fields.append(
+        {
+            "id": "browser_manual_control_cdp_port",
+            "title": "Chrome DevTools Protocol Port",
+            "description": "Port for Chrome DevTools Protocol (default: 9222)",
+            "type": "number",
+            "value": settings["browser_manual_control_cdp_port"],
+        }
+    )
+    browser_control_fields.append(
+        {
+            "id": "browser_manual_control_display_resolution",
+            "title": "Display Resolution",
+            "description": "Resolution for virtual display (e.g., 1920x1080)",
+            "type": "text",
+            "value": settings["browser_manual_control_display_resolution"],
+        }
+    )
+    
+    browser_control_section: SettingsSection = {
+        "id": "browser_manual_control",
+        "title": "Manual Browser Control",
+        "description": "Settings for manual browser control via VNC. Requires Xvfb, Chrome/Chromium, and x11vnc to be installed.",
+        "fields": browser_control_fields,
         "tab": "agent",
     }
 
@@ -1201,6 +1253,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             chat_model_section,
             util_model_section,
             browser_model_section,
+            browser_control_section,
             embed_model_section,
             memory_section,
             speech_section,
@@ -1440,6 +1493,10 @@ def get_default_settings() -> Settings:
         mcp_server_enabled=False,
         mcp_server_token=create_auth_token(),
         a2a_server_enabled=False,
+        browser_manual_control_enabled=False,
+        browser_manual_control_vnc_port=5900,
+        browser_manual_control_cdp_port=9222,
+        browser_manual_control_display_resolution="1920x1080",
         secrets="",
     )
 
