@@ -123,6 +123,8 @@
     <!-- Google Icons -->
     <link rel="stylesheet" href="vendor/google/google-icons.css" />
 
+    <!-- Link the PWA manifest file -->
+    <link rel="manifest" href="js/manifest.json">
 
     <!-- Non-module scripts after Alpine.js -->
     <script type="text/javascript" src="js/settings.js"></script>
@@ -1599,6 +1601,19 @@
 
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
+
+    <!-- Register Service Worker for offline support and caching -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.service-worker.register('js/sw.js').then(registration => {
+            console.log('SW registered: ', registration);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+        });
+      }
+    </script>
 
 </body>
 
