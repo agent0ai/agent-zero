@@ -26,7 +26,7 @@ function getTextContent(element) {
 
 
 // Create and add action buttons to element
-export function addActionButtonsToElement(element) {
+export function addActionButtonsToElement(element, options = {}) {
   // Skip if buttons already exist
   if (element.querySelector(".action-buttons")) return;
 
@@ -125,6 +125,73 @@ export function addActionButtonsToElement(element) {
   };
 
   container.append(copyBtn, speakBtn);
+  
+  // Add Manual Control button for browser messages
+  if (options.isBrowserMessage) {
+    const controlBtn = document.createElement("button");
+    controlBtn.className = "action-button browser-control-action";
+    controlBtn.setAttribute("aria-label", "Manual browser control");
+    controlBtn.innerHTML =
+      '<span class="material-symbols-outlined">touch_app</span>';
+    
+    controlBtn.onclick = async (e) => {
+      e.stopPropagation();
+      
+      // Check if the button container is still fading in (opacity < 0.5)
+      if (parseFloat(window.getComputedStyle(container).opacity) < 0.5) return;
+      
+      const icon = controlBtn.querySelector(".material-symbols-outlined");
+      
+      console.log("Manual Control button clicked!");
+      console.log("browserControlModalProxy available:", !!window.browserControlModalProxy);
+      
+      try {
+        // Open browser control modal or fallback to direct API
+        if (window.browserControlModalProxy) {
+          console.log("Opening browser control modal...");
+          await window.browserControlModalProxy.openModal();
+        } else {
+          console.log("Modal not available, using direct API fallback...");
+          
+          // Import the API function dynamically
+          const { callJsonApi } = await import('/js/api.js');
+          
+          // Fallback: Direct API call to start browser and open DevTools URL
+          const data = await callJsonApi('/browser_control_start', {
+            mode: 'devtools',
+            headless: false
+          });
+          
+          if (data && data.browser && data.browser.devtools_url) {
+            // Open DevTools in new tab
+            window.open(data.browser.devtools_url, '_blank');
+          } else {
+            throw new Error('Failed to start browser session');
+          }
+        }
+        
+        // Visual feedback
+        icon.textContent = "check";
+        controlBtn.classList.add("success");
+        setTimeout(() => {
+          icon.textContent = "touch_app";
+          controlBtn.classList.remove("success");
+        }, 2000);
+        
+      } catch (err) {
+        console.error("Browser control failed:", err);
+        icon.textContent = "error";
+        controlBtn.classList.add("error");
+        setTimeout(() => {
+          icon.textContent = "touch_app";
+          controlBtn.classList.remove("error");
+        }, 2000);
+      }
+    };
+    
+    container.appendChild(controlBtn);
+  }
+  
   // Add container as the first child instead of appending it
   if (element.firstChild) {
     element.insertBefore(container, element.firstChild);
