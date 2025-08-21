@@ -127,6 +127,7 @@
     <link rel="manifest" href="js/manifest.json">
 
     <!-- Non-module scripts after Alpine.js -->
+    <script type="text/javascript" src="components/settings/swe/swe-rules-store.js"></script>
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/file_browser.js"></script>
     <script type="text/javascript" src="js/modal.js"></script>
@@ -565,11 +566,15 @@
                                      :class="{'active': activeTab === 'backup'}"
                                      @click="switchTab('backup')"
                                      title="Backup & Restore">Backup & Restore</div>
+                                <div class="settings-tab"
+                                     :class="{'active': activeTab === 'swe'}"
+                                     @click="switchTab('swe')"
+                                     title="SWE Agent Rules">SWE Rules</div>
                             </div>
                         </div>
 
                         <!-- Display settings sections for agent, external, developer, mcp, backup tabs -->
-                        <div id="settings-sections" x-show="activeTab !== 'scheduler'">
+                        <div id="settings-sections" x-show="activeTab !== 'scheduler' && activeTab !== 'swe'">
                             <nav>
                                 <ul>
                                     <template x-for="(section, index) in filteredSections" :key="section.title">
@@ -1379,6 +1384,189 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- SWE Agent Rules Tab Content -->
+                        <div id="swe-tab-content" x-show="activeTab === 'swe'" x-cloak>
+                            <!-- Settings section structure for SWE Rules -->
+                            <nav>
+                                <ul>
+                                    <li>
+                                        <a href="#section-swe-rules">
+                                            <img src="/public/swe.svg" alt="SWE Rules">
+                                            <span>SWE Agent Rules</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+
+                            <div id="section-swe-rules" class="section" x-data="sweRulesComponent">
+                                <div class="section-title">SWE Agent Rules Generator</div>
+                                <div class="section-description">Generate project-specific development rules that SWE agents will follow. Fill out the form below and click "Generate AGENTS.md" to create rules for your project.</div>
+                                
+                                <!-- Input Form -->
+                                <div class="swe-form-container" x-show="!generated">
+                                    
+                                    <!-- Project Description -->
+                                    <div class="form-group">
+                                        <label for="project-description">
+                                            <strong>Project Description</strong> <span class="required">*</span>
+                                        </label>
+                                        <textarea 
+                                            id="project-description" 
+                                            x-model="projectDescription"
+                                            placeholder="Describe your project: What does it do? What's the main functionality? Who are the users?"
+                                            rows="4"
+                                            class="form-control">
+                                        </textarea>
+                                        <small class="help-text">
+                                            Provide a clear description of your project's purpose and main features.
+                                        </small>
+                                    </div>
+
+                                    <!-- Technology Stack -->
+                                    <div class="form-group">
+                                        <label for="tech-stack">Technology Stack</label>
+                                        <input 
+                                            type="text" 
+                                            id="tech-stack"
+                                            x-model="techStack"
+                                            placeholder="e.g., Python Flask, React, PostgreSQL, Docker, AWS"
+                                            class="form-control"
+                                        />
+                                        <small class="help-text">
+                                            List the main technologies, frameworks, and tools used in your project.
+                                        </small>
+                                    </div>
+
+                                    <!-- Coding Standards -->
+                                    <div class="form-group">
+                                        <label for="coding-standards">Coding Standards (Optional)</label>
+                                        <textarea 
+                                            id="coding-standards"
+                                            x-model="codingStandards"
+                                            placeholder="e.g., Use Black formatting, PEP 8, ESLint rules, specific naming conventions"
+                                            rows="3"
+                                            class="form-control">
+                                        </textarea>
+                                        <small class="help-text">
+                                            Any specific coding conventions, linting rules, or style guidelines.
+                                        </small>
+                                    </div>
+
+                                    <!-- Testing Approach -->
+                                    <div class="form-group">
+                                        <label for="testing-approach">Testing Approach (Optional)</label>
+                                        <input 
+                                            type="text" 
+                                            id="testing-approach"
+                                            x-model="testingApproach"
+                                            placeholder="e.g., pytest with 80% coverage, Jest, unit and integration tests"
+                                            class="form-control"
+                                        />
+                                        <small class="help-text">
+                                            Testing frameworks, coverage requirements, and testing practices.
+                                        </small>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button class="btn btn-primary" 
+                                            @click="generateAgentsMd()" 
+                                            :disabled="loading || !projectDescription.trim()">
+                                            🤖 Generate AGENTS.md
+                                        </button>
+                                        <button class="btn btn-secondary" @click="clearForm()">Clear</button>
+                                    </div>
+
+                                </div>
+
+                                <!-- Generated Content Display -->
+                                <div class="generated-content" x-show="generated">
+                                    
+                                    <div class="generation-header">
+                                        <h4>Generated AGENTS.md</h4>
+                                        <div class="generation-actions">
+                                            <button class="btn btn-secondary" @click="editRules()">
+                                                ✏️ Edit
+                                            </button>
+                                            <button class="btn btn-secondary" @click="copyToClipboard()">
+                                                📋 Copy to Clipboard
+                                            </button>
+                                            <button class="btn btn-secondary" @click="downloadFile()">
+                                                💾 Download
+                                            </button>
+                                            <button class="btn btn-secondary" @click="generateNew()">
+                                                🔄 Generate New
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Generated content preview -->
+                                    <div class="content-preview">
+                                        <pre x-show="!editing" 
+                                             x-text="generatedContent"
+                                             class="generated-rules-display"></pre>
+                                        
+                                        <!-- Editable textarea -->
+                                        <textarea x-show="editing"
+                                                  x-model="generatedContent"
+                                                  class="generated-rules-editor"
+                                                  rows="20"></textarea>
+                                        
+                                        <!-- Edit mode actions -->
+                                        <div x-show="editing" class="edit-actions">
+                                            <button class="btn btn-primary" @click="saveEdit()">
+                                                ✅ Save Changes
+                                            </button>
+                                            <button class="btn btn-secondary" @click="cancelEdit()">
+                                                ❌ Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Usage Instructions -->
+                                    <div class="usage-instructions">
+                                        <h4>How to Use with SWE Agents</h4>
+                                        <ol>
+                                            <li><strong>Copy</strong> the generated AGENTS.md content above</li>
+                                            <li><strong>Paste it into Agent Zero</strong> when making SWE requests like this:</li>
+                                        </ol>
+                                        <div class="code-example">
+                                            <pre>Here are the project rules for this codebase:
+
+[PASTE AGENTS.MD CONTENT HERE]
+
+---
+
+Now please implement the following feature using these project guidelines:
+
+Add user authentication with JWT tokens, including:
+- User registration and login endpoints
+- JWT token generation and validation
+- Protected route middleware
+- Unit tests for all authentication functions</pre>
+                                        </div>
+                                        <p><strong>Tip:</strong> Save the AGENTS.md content in a text file for reuse across your project.</p>
+                                    </div>
+
+                                </div>
+
+                                <!-- Loading indicator -->
+                                <div x-show="loading" class="swe-loading">
+                                    <div class="loading-spinner"></div>
+                                    <span x-text="loadingMessage || 'Generating project rules...'"></span>
+                                </div>
+
+                                <!-- Status messages -->
+                                <div x-show="error" class="swe-error">
+                                    <span x-text="error"></span>
+                                </div>
+
+                                <div x-show="success" class="swe-success">
+                                    <span x-text="success"></span>
+                                </div>
+
                             </div>
                         </div>
                     </div>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SWE Agent Rules Generator</title>
+    <script type="module">
+        import { store } from "/components/settings/swe/swe-rules-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.sweRulesStore">
+            <div x-init="$store.sweRulesStore.init()" x-destroy="$store.sweRulesStore.onClose()">
+
+                <!-- Header -->
+                <h3>SWE Agent Rules Generator
+                    <button class="btn slim" style="margin-left: 0.5em;"
+                        @click="$store.sweRulesStore.clearForm()">Clear</button>
+                    <button class="btn slim primary" style="margin-left: 0.5em;"
+                        @click="$store.sweRulesStore.generateAgentsMd()" 
+                        :disabled="$store.sweRulesStore.loading || !$store.sweRulesStore.projectDescription.trim()">
+                        🤖 Generate AGENTS.md
+                    </button>
+                </h3>
+                
+                <p class="help-text">
+                    Generate project-specific development rules that SWE agents will follow. 
+                    Fill out the form below and click "Generate AGENTS.md" to create rules for your project.
+                </p>
+
+                <!-- Input Form -->
+                <div class="swe-form-container" x-show="!$store.sweRulesStore.generated">
+                    
+                    <!-- Project Description -->
+                    <div class="form-group">
+                        <label for="project-description">
+                            <strong>Project Description</strong> <span class="required">*</span>
+                        </label>
+                        <textarea 
+                            id="project-description" 
+                            x-model="$store.sweRulesStore.projectDescription"
+                            placeholder="Describe your project: What does it do? What's the main functionality? Who are the users?"
+                            rows="4"
+                            class="form-control">
+                        </textarea>
+                        <small class="help-text">
+                            Provide a clear description of your project's purpose and main features.
+                        </small>
+                    </div>
+
+                    <!-- Technology Stack -->
+                    <div class="form-group">
+                        <label for="tech-stack">Technology Stack</label>
+                        <input 
+                            type="text" 
+                            id="tech-stack"
+                            x-model="$store.sweRulesStore.techStack"
+                            placeholder="e.g., Python Flask, React, PostgreSQL, Docker, AWS"
+                            class="form-control"
+                        />
+                        <small class="help-text">
+                            List the main technologies, frameworks, and tools used in your project.
+                        </small>
+                    </div>
+
+                    <!-- Coding Standards -->
+                    <div class="form-group">
+                        <label for="coding-standards">Coding Standards (Optional)</label>
+                        <textarea 
+                            id="coding-standards"
+                            x-model="$store.sweRulesStore.codingStandards"
+                            placeholder="e.g., Use Black formatting, PEP 8, ESLint rules, specific naming conventions"
+                            rows="3"
+                            class="form-control">
+                        </textarea>
+                        <small class="help-text">
+                            Any specific coding conventions, linting rules, or style guidelines.
+                        </small>
+                    </div>
+
+                    <!-- Testing Approach -->
+                    <div class="form-group">
+                        <label for="testing-approach">Testing Approach (Optional)</label>
+                        <input 
+                            type="text" 
+                            id="testing-approach"
+                            x-model="$store.sweRulesStore.testingApproach"
+                            placeholder="e.g., pytest with 80% coverage, Jest, unit and integration tests"
+                            class="form-control"
+                        />
+                        <small class="help-text">
+                            Testing frameworks, coverage requirements, and testing practices.
+                        </small>
+                    </div>
+
+                </div>
+
+                <!-- Generated Content Display -->
+                <div class="generated-content" x-show="$store.sweRulesStore.generated">
+                    
+                    <div class="generation-header">
+                        <h4>Generated AGENTS.md</h4>
+                        <div class="generation-actions">
+                            <button class="btn slim" @click="$store.sweRulesStore.editRules()">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn slim" @click="$store.sweRulesStore.copyToClipboard()">
+                                📋 Copy to Clipboard
+                            </button>
+                            <button class="btn slim" @click="$store.sweRulesStore.downloadFile()">
+                                💾 Download
+                            </button>
+                            <button class="btn slim" @click="$store.sweRulesStore.generateNew()">
+                                🔄 Generate New
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Generated content preview -->
+                    <div class="content-preview">
+                        <pre x-show="!$store.sweRulesStore.editing" 
+                             x-text="$store.sweRulesStore.generatedContent"
+                             class="generated-rules-display"></pre>
+                        
+                        <!-- Editable textarea -->
+                        <textarea x-show="$store.sweRulesStore.editing"
+                                  x-model="$store.sweRulesStore.generatedContent"
+                                  class="generated-rules-editor"
+                                  rows="20"></textarea>
+                        
+                        <!-- Edit mode actions -->
+                        <div x-show="$store.sweRulesStore.editing" class="edit-actions">
+                            <button class="btn slim primary" @click="$store.sweRulesStore.saveEdit()">
+                                ✅ Save Changes
+                            </button>
+                            <button class="btn slim" @click="$store.sweRulesStore.cancelEdit()">
+                                ❌ Cancel
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Usage Instructions -->
+                    <div class="usage-instructions">
+                        <h4>How to Use with SWE Agents</h4>
+                        <ol>
+                            <li><strong>Copy</strong> the generated AGENTS.md content above</li>
+                            <li><strong>Paste it into Agent Zero</strong> when making SWE requests like this:</li>
+                        </ol>
+                        <div class="code-example">
+                            <pre>Here are the project rules for this codebase:
+
+[PASTE AGENTS.MD CONTENT HERE]
+
+---
+
+Now please implement the following feature using these project guidelines:
+
+Add user authentication with JWT tokens, including:
+- User registration and login endpoints
+- JWT token generation and validation
+- Protected route middleware
+- Unit tests for all authentication functions</pre>
+                        </div>
+                        <p><strong>Tip:</strong> Save the AGENTS.md content in a text file for reuse across your project.</p>
+                    </div>
+
+                </div>
+
+                <!-- Loading indicator -->
+                <div x-show="$store.sweRulesStore.loading" class="swe-loading">
+                    <div class="loading-spinner"></div>
+                    <span x-text="$store.sweRulesStore.loadingMessage || 'Generating project rules...'"></span>
+                </div>
+
+                <!-- Status messages -->
+                <div x-show="$store.sweRulesStore.error" class="swe-error">
+                    <span x-text="$store.sweRulesStore.error"></span>
+                </div>
+
+                <div x-show="$store.sweRulesStore.success" class="swe-success">
+                    <span x-text="$store.sweRulesStore.success"></span>
+                </div>
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .help-text {
+            color: var(--color-text-secondary);
+            font-size: 0.85em;
+            margin-top: 0.25em;
+        }
+        
+        .required {
+            color: var(--color-error);
+        }
+
+        .swe-form-container {
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 2px var(--color-accent-alpha);
+        }
+
+        .generated-content {
+            margin-top: 2rem;
+        }
+
+        .generation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .generation-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .content-preview {
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .generated-rules-display {
+            background: var(--color-bg-secondary);
+            padding: 1rem;
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 0.85em;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .generated-rules-editor {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-family: monospace;
+            font-size: 0.85em;
+            resize: vertical;
+        }
+
+        .edit-actions {
+            padding: 0.5rem;
+            background: var(--color-bg-tertiary);
+            border-top: 1px solid var(--color-border);
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .usage-instructions {
+            background: var(--color-bg-secondary);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+
+        .usage-instructions h4 {
+            margin-top: 0;
+            color: var(--color-accent);
+        }
+
+        .code-example {
+            background: var(--color-bg-tertiary);
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        .code-example pre {
+            margin: 0;
+            font-family: monospace;
+            font-size: 0.8em;
+            white-space: pre-wrap;
+        }
+
+        .swe-loading {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 2rem;
+            text-align: center;
+            color: var(--color-text-secondary);
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--color-border);
+            border-top: 2px solid var(--color-accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .swe-error {
+            color: var(--color-error);
+            background: var(--color-error-bg);
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+        }
+
+        .swe-success {
+            color: var(--color-success);
+            background: var(--color-success-bg);
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+        }
+    </style>
+</body>
+</html>
