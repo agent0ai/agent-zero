@@ -79,6 +79,7 @@ def initialize_agent():
         memory_subdir=current_settings["agent_memory_subdir"],
         knowledge_subdirs=[current_settings["agent_knowledge_subdir"], "default"],
         mcp_servers=current_settings["mcp_servers"],
+        browser_http_headers=current_settings["browser_http_headers"],
         # code_exec params get initialized in _set_runtime_config
         # additional = {},
     )

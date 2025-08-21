@@ -221,6 +221,7 @@ class AgentConfig:
     profile: str = ""
     memory_subdir: str = ""
     knowledge_subdirs: list[str] = field(default_factory=lambda: ["default", "custom"])
+    browser_http_headers: dict[str, str] = field(default_factory=dict)  # Custom HTTP headers for browser requests
     code_exec_ssh_enabled: bool = True
     code_exec_ssh_addr: str = "localhost"
     code_exec_ssh_port: int = 55022

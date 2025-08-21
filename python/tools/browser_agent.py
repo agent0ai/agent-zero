@@ -39,7 +39,18 @@ class State:
 
         # for some reason we need to provide exact path to headless shell, otherwise it looks for headed browser
         pw_binary = ensure_playwright_binary()
-
+        
+        # Prepare HTTP headers with error handling
+        try:
+            http_headers = self.agent.config.browser_http_headers or {}
+            if http_headers:
+                PrintStyle().info(f"Using HTTP headers: {list(http_headers.keys())}")
+            else:
+                PrintStyle().info("No custom HTTP headers configured")
+        except Exception as e:
+            PrintStyle().warning(f"Error processing HTTP headers, using defaults: {e}")
+            http_headers = {}
+        
         self.browser_session = browser_use.BrowserSession(
             browser_profile=browser_use.BrowserProfile(
                 headless=True,
@@ -64,6 +75,7 @@ class State:
                     / "profiles"
                     / f"agent_{self.agent.context.id}"
                 ),
+                extra_http_headers=http_headers,
             )
         )
 
