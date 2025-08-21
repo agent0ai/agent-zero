@@ -1,11 +1,12 @@
 {
   "name": "Agent Zero",
   "short_name": "Agent Zero",
-  "description": "The Resilient Autonomous Orchestrator",
+  "description": "Agent Zero AI framework",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#333333",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/public/icon-maskable.svg",
@@ -17,6 +18,24 @@
       "src": "/public/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/public/icon-180x180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/public/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/public/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

@@ -799,6 +799,35 @@ globalThis.toggleUtils = async function (showUtils) {
   );
 };
 
+// Define status bar colors and styles for light and dark modes.
+const LIGHT_MODE_THEME_COLOR = '#ffffff'; // Android PWA address bar/status bar color in light mode
+const LIGHT_MODE_APPLE_STATUS_BAR_STYLE = 'default'; // iOS PWA status bar style in light mode
+const DARK_MODE_THEME_COLOR = '#333333'; // Android PWA address bar/status bar color in dark mode
+const DARK_MODE_APPLE_STATUS_BAR_STYLE = 'black-translucent'; // iOS PWA status bar style in dark mode (white text, black translucent background)
+
+/**
+ * Dynamically updates the PWA top status bar meta tags based on the current mode.
+ * This function looks for meta tags with specific IDs and modifies their content attribute.
+ * @param {boolean} isDark - true if current mode is dark, false for light mode.
+ */
+function updatePWAStatusBarMeta(isDark) {
+  const themeColorMeta = document.getElementById('theme-color-meta');
+  const appleStatusBarMeta = document.getElementById('apple-status-bar-meta');
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute('content', isDark ? DARK_MODE_THEME_COLOR : LIGHT_MODE_THEME_COLOR);
+    console.log('Updated theme-color meta to:', themeColorMeta.getAttribute('content'));
+  } else {
+    console.warn('Meta tag with ID "theme-color-meta" not found. Please add it to your index.html.');
+  }
+  if (appleStatusBarMeta) {
+    appleStatusBarMeta.setAttribute('content', isDark ? DARK_MODE_APPLE_STATUS_BAR_STYLE : LIGHT_MODE_APPLE_STATUS_BAR_STYLE);
+    console.log('Updated apple-mobile-web-app-status-bar-style meta to:', appleStatusBarMeta.getAttribute('content'));
+  } else {
+    console.warn('Meta tag with ID "apple-status-bar-meta" not found. Please add it to your index.html.');
+  }
+}
+
+// added call to updatePWAStatusBarMeta
 globalThis.toggleDarkMode = function (isDark) {
   if (isDark) {
     document.body.classList.remove("light-mode");
@@ -807,9 +836,16 @@ globalThis.toggleDarkMode = function (isDark) {
     document.body.classList.remove("dark-mode");
     document.body.classList.add("light-mode");
   }
-  console.log("Dark mode:", isDark);
+  console.log("Dark mode toggled to:", isDark);
   localStorage.setItem("darkMode", isDark);
+  updatePWAStatusBarMeta(isDark);
 };
+
+document.addEventListener("DOMContentLoaded", () => {
+  const isDarkMode = localStorage.getItem("darkMode") !== "false";
+  // Call toggleDarkMode to initialize body classes and meta tags
+  globalThis.toggleDarkMode(isDarkMode);
+});
 
 globalThis.toggleSpeech = function (isOn) {
   console.log("Speech:", isOn);
