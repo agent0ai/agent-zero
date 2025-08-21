@@ -520,7 +520,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "title": "UI Login",
             "description": "Set user name for web UI",
             "type": "text",
-            "value": dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) or "",
+            "value": dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN, os.getenv("A0_AUTH_LOGIN", "")) or "",
         }
     )
 
@@ -532,7 +532,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "type": "password",
             "value": (
                 PASSWORD_PLACEHOLDER
-                if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD)
+                if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD, os.getenv("A0_AUTH_PASSWORD", ""))
                 else ""
             ),
         }
@@ -1224,7 +1224,8 @@ def convert_in(settings: dict) -> Settings:
 
 def get_settings() -> Settings:
     global _settings
-    if not _settings:
+    load_from_env = json.loads(os.getenv("A0_RELOAD_SETTINGS_FROM_ENV", "False").lower())
+    if not _settings and load_from_env == False:
         _settings = _read_settings_file()
     if not _settings:
         _settings = get_default_settings()
@@ -1313,9 +1314,10 @@ def _remove_sensitive_settings(settings: Settings):
     settings["mcp_server_token"] = ""
 
 
-def _write_sensitive_settings(settings: Settings):
+def _write_sensitive_settings (settings: Settings):
     for key, val in settings["api_keys"].items():
-        dotenv.save_dotenv_value(key.upper(), val)
+        if val and val != "":
+            dotenv.save_dotenv_value(key.upper(), val)
 
     dotenv.save_dotenv_value(dotenv.KEY_AUTH_LOGIN, settings["auth_login"])
     if settings["auth_password"]:
@@ -1330,80 +1332,99 @@ def _write_sensitive_settings(settings: Settings):
 
 
 def get_default_settings() -> Settings:
+    mcp_servers_temp = {'mcpServers': {}}
+    if os.getenv("A0_MCP_SERVERS") is not None:
+        mcp_servers_temp['mcpServers'] = json.loads(os.getenv("A0_MCP_SERVERS", "{}"))
+
     return Settings(
         version=_get_version(),
-        chat_model_provider="openrouter",
-        chat_model_name="openai/gpt-4.1",
-        chat_model_api_base="",
-        chat_model_kwargs={"temperature": "0"},
-        chat_model_ctx_length=100000,
-        chat_model_ctx_history=0.7,
-        chat_model_vision=True,
-        chat_model_rl_requests=0,
-        chat_model_rl_input=0,
-        chat_model_rl_output=0,
-        util_model_provider="openrouter",
-        util_model_name="openai/gpt-4.1-mini",
-        util_model_api_base="",
-        util_model_ctx_length=100000,
-        util_model_ctx_input=0.7,
-        util_model_kwargs={"temperature": "0"},
-        util_model_rl_requests=0,
-        util_model_rl_input=0,
-        util_model_rl_output=0,
-        embed_model_provider="huggingface",
-        embed_model_name="sentence-transformers/all-MiniLM-L6-v2",
-        embed_model_api_base="",
+        chat_model_provider=os.getenv("A0_CHAT_MODEL_PROVIDER", "openrouter"),
+        chat_model_name=os.getenv("AO_CHAT_MODEL_NAME", "openai/gpt-4.1"),
+        chat_model_api_base=os.getenv("AO_CHAT_MODEL_API_BASE", ""),
+        chat_model_kwargs={"temperature": os.getenv("AO_CHAT_MODEL_KWARGS_TEMPERATURE", "0")},
+        chat_model_ctx_length=int(os.getenv("A0_CHAT_MODEL_CTX_LENGTH", 100000)),
+        chat_model_ctx_history=float(os.getenv("A0_CHAT_MODEL_CTX_HISTORY", 0.7)),
+        chat_model_vision=json.loads(os.getenv("A0_CHAT_MODEL_VISION", "True").lower()), #what an ugly hack
+        chat_model_rl_requests=int(os.getenv("A0_CHAT_MODEL_RL_REQUESTS", 0)),
+        chat_model_rl_input=int(os.getenv("A0_CHAT_MODEL_RL_INPUT", 0)),
+        chat_model_rl_output=int(os.getenv("A0_CHAT_MODEL_RL_OUTPUT", 0)),
+        util_model_provider=os.getenv("A0_UTIL_MODEL_PROVIDER", "openrouter"),
+        util_model_name=os.getenv("A0_UTIL_MODEL_NAME", "openai/gpt-4.1-mini"),
+        util_model_api_base=os.getenv("A0_UTIL_MODEL_API_BASE", ""),
+        util_model_ctx_length=int(os.getenv("A0_UTIL_MODEL_CTX_LENGTH", 100000)),
+        util_model_ctx_input=float(os.getenv("A0_UTIL_MODEL_CTX_INPUT", 0.7)),
+        util_model_kwargs={"temperature": os.getenv("AO_UTIL_MODEL_KWARGS_TEMPERATURE", "0")},
+        util_model_rl_requests=int(os.getenv("A0_UTIL_MODEL_RL_REQUESTS", 0)),
+        util_model_rl_input=int(os.getenv("A0_UTIL_MODEL_RL_INPUT", 0)),
+        util_model_rl_output=int(os.getenv("A0_UTIL_MODEL_RL_OUTPUT", 0)),
+        embed_model_provider=os.getenv("A0_EMBED_MODEL_PROVIDER", "huggingface"),
+        embed_model_name=os.getenv("A0_EMBED_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
+        embed_model_api_base=os.getenv("A0_EMBED_MODEL_API_BASE", ""),
         embed_model_kwargs={},
-        embed_model_rl_requests=0,
-        embed_model_rl_input=0,
-        browser_model_provider="openrouter",
-        browser_model_name="openai/gpt-4.1",
-        browser_model_api_base="",
-        browser_model_vision=True,
-        browser_model_rl_requests=0,
-        browser_model_rl_input=0,
-        browser_model_rl_output=0,
-        browser_model_kwargs={"temperature": "0"},
-        memory_recall_enabled=True,
-        memory_recall_delayed=False,
-        memory_recall_interval=3,
-        memory_recall_history_len=10000,
-        memory_recall_memories_max_search=12,
-        memory_recall_solutions_max_search=8,
-        memory_recall_memories_max_result=5,
-        memory_recall_solutions_max_result=3,
-        memory_recall_similarity_threshold=0.7,
-        memory_recall_query_prep=True,
-        memory_recall_post_filter=True,
-        memory_memorize_enabled=True,
-        memory_memorize_consolidation=True,
-        memory_memorize_replace_threshold=0.9,
-        api_keys={},
-        auth_login="",
-        auth_password="",
-        root_password="",
-        agent_profile="agent0",
-        agent_memory_subdir="default",
-        agent_knowledge_subdir="custom",
-        rfc_auto_docker=True,
-        rfc_url="localhost",
-        rfc_password="",
-        rfc_port_http=55080,
-        rfc_port_ssh=55022,
+        embed_model_rl_requests=int(os.getenv("A0_EMBED_MODEL_RL_REQUESTS", 0)),
+        embed_model_rl_input=int(os.getenv("A0_EMBED_MODEL_RL_INPUT", 0)),
+        browser_model_provider=os.getenv("A0_BROWSER_MODEL_PROVIDER", "openrouter"),
+        browser_model_name=os.getenv("A0_BROWSER_MODEL_NAME", "openai/gpt-4.1"),
+        browser_model_api_base=os.getenv("A0_BROWSER_MODEL_API_BASE", ""),
+        browser_model_vision=json.loads(os.getenv("A0_BROWSER_MODEL_VISION", "True").lower()),  # what an ugly hack,
+        browser_model_rl_requests=int(os.getenv("A0_BROWSER_MODEL_RL_REQUESTS", 0)),
+        browser_model_rl_input=int(os.getenv("A0_BROWSER_MODEL_RL_INPUT", 0)),
+        browser_model_rl_output=int(os.getenv("A0_BROWSER_MODEL_RL_OUTPUT", 0)),
+        browser_model_kwargs={"temperature": os.getenv("AO_BROWSER_MODEL_KWARGS_TEMPERATURE", "0")},
+        memory_recall_enabled=json.loads(os.getenv("A0_MEMORY_RECALL_ENABLED", "True").lower()), #what an ugly hack,
+        memory_recall_delayed=json.loads(os.getenv("A0_MEMORY_RECALL_DELAYED", "False").lower()), #what an ugly hack,
+        memory_recall_interval=int(os.getenv("A0_MEMORY_RECALL_INTERVAL", 13)),
+        memory_recall_history_len=int(os.getenv("A0_MEMORY_RECALL_HISTORY_LEN", 10000)),
+        memory_recall_memories_max_search=int(os.getenv("A0_MEMORY_RECALL_MEMORIES_MAX_SEARCH", 12)),
+        memory_recall_solutions_max_search=int(os.getenv("A0_MEMORY_RECALL_SOLUTIONS_MAX_SEARCH", 8)),
+        memory_recall_memories_max_result=int(os.getenv("A0_MEMORY_RECALL_MEMORIES_MAX_RESULT", 5)),
+        memory_recall_solutions_max_result=int(os.getenv("A0_MEMORY_RECALL_SOLUTIONS_MAX_RESULT", 3)),
+        memory_recall_similarity_threshold=float(os.getenv("A0_MEMORY_RECALL_SIMILARITY_THRESHOLD", 0.7)),
+        memory_recall_query_prep=json.loads(os.getenv("A0_MEMORY_RECALL_QUERY_PREP", "True").lower()), #what an ugly hack,
+        memory_recall_post_filter=json.loads(os.getenv("A0_MEMORY_RECALL_POST_FILTER", "True").lower()), #what an ugly hac,
+        memory_memorize_enabled=json.loads(os.getenv("A0_MEMORY_MEMORIZE_ENABLED", "True").lower()), #what an ugly hack,
+        memory_memorize_consolidation=json.loads(os.getenv("A0_MEMORY_MEMORIZE_CONSOLIDATION", "True").lower()), #what an ugly hack,
+        memory_memorize_replace_threshold=float(os.getenv("A0_MEMORY_MEMORIZE_REPLACE_THRESHOLD", 0.9)),
+        api_keys={
+            "API_KEY_ANTHROPIC": os.getenv("A0_API_KEY_ANTHROPIC", ""),
+            "API_KEY_DEEPSEEK": os.getenv("A0_API_KEY_DEEPSEEK", ""),
+            "API_KEY_GOOGLE": os.getenv("A0_API_KEY_GOOGLE", ""),
+            "API_KEY_GROQ": os.getenv("A0_API_KEY_GROQ", ""),
+            "API_KEY_HUGGINGFACE": os.getenv("A0_API_KEY_HUGGINGFACE", ""),
+            "API_KEY_LM_STUDIO": os.getenv("A0_API_KEY_LM_STUDIO", ""),
+            "API_KEY_MISTRAL": os.getenv("A0_API_KEY_MISTRAL", ""),
+            "API_KEY_OLLAMA": os.getenv("A0_API_KEY_OLLAMA", ""),
+            "API_KEY_OPENAI": os.getenv("A0_API_KEY_OPENAI", ""),
+            "API_KEY_AZURE": os.getenv("A0_API_KEY_AZURE", ""),
+            "API_KEY_OPENROUTER": os.getenv("A0_API_KEY_OPENROUTER", ""),
+            "API_KEY_SAMBANOVA": os.getenv("A0_API_KEY_SAMBANOVA", ""),
+            "API_KEY_VENICE": os.getenv("A0_API_KEY_VENICE", ""),
+            "API_KEY_OTHER": os.getenv("A0_API_KEY_OTHER", ""),
+        },
+        auth_login=os.getenv("A0_AUTH_LOGIN", ""),
+        auth_password=os.getenv("A0_AUTH_PASSWORD", ""),
+        root_password=os.getenv("A0_ROOT_PASSWORD", ""),
+        agent_profile=os.getenv("A0_AGENT_PROFILE", "agent0"),
+        agent_memory_subdir=os.getenv("A0_AGENT_MEMORY_SUBDIR", "default"),
+        agent_knowledge_subdir=os.getenv("A0_AGENT_KNOWLEDGE_SUBDIR", "custom"),
+        rfc_auto_docker=json.loads(os.getenv("A0_RFC_AUTO_DOCKER", "True").lower()), #what an ugly hack,
+        rfc_url=os.getenv("A0_RFC_URL", "localhost"),
+        rfc_password=os.getenv("A0_RFC_PASSWORD", ""),
+        rfc_port_http=int(os.getenv("A0_RFC_PORT_HTTP", 55080)),
+        rfc_port_ssh=int(os.getenv("A0_RFC_PORT_SSH", 55022)),
         shell_interface="local" if runtime.is_dockerized() else "ssh",
-        stt_model_size="base",
-        stt_language="en",
-        stt_silence_threshold=0.3,
-        stt_silence_duration=1000,
-        stt_waiting_timeout=2000,
-        tts_kokoro=True,
-        mcp_servers='{\n    "mcpServers": {}\n}',
-        mcp_client_init_timeout=10,
-        mcp_client_tool_timeout=120,
-        mcp_server_enabled=False,
+        stt_model_size=os.getenv("A0_STT_MODEL_SIZE", "base"),
+        stt_language=os.getenv("A0_STT_LANGUAGE", "en"),
+        stt_silence_threshold=float(os.getenv("A0_STT_SILENCE_THRESHOLD", 0.3)),
+        stt_silence_duration=int(os.getenv("A0_STT_SILENCE_DURATION", 1000)),
+        stt_waiting_timeout=int(os.getenv("A0_STT_WAITING_TIMEOUT", 2000)),
+        tts_kokoro=json.loads(os.getenv("A0_TTS_KOKORO", "True").lower()), #what an ugly hack
+        mcp_servers=json.dumps(mcp_servers_temp, indent=2),
+        mcp_client_init_timeout=int(os.getenv("A0_MCP_CLIENT_INIT_TIMEOUT", 10)),
+        mcp_client_tool_timeout=int(os.getenv("A0_MCP_CLIENT_TOOL_TIMEOUT", 120)),
+        mcp_server_enabled=json.loads(os.getenv("A0_MCP_SERVER_ENABLED", "False").lower()), #what an ugly hackFalse,
         mcp_server_token=create_auth_token(),
-        a2a_server_enabled=False,
+        a2a_server_enabled=json.loads(os.getenv("A0_A2A_SERVER_ENABLED", "False").lower()), #what an ugly hackFalse,
     )
 
 
