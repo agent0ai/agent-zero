@@ -800,9 +800,10 @@ globalThis.toggleUtils = async function (showUtils) {
 };
 
 // Define status bar colors and styles for light and dark modes.
-const LIGHT_MODE_THEME_COLOR = '#ffffff'; // Android PWA address bar/status bar color in light mode
+const root = document.documentElement;
+const LIGHT_MODE_THEME_COLOR = getComputedStyle(root).getPropertyValue("--color-background-light").trim(); // Android PWA address bar/status bar color in light mode
 const LIGHT_MODE_APPLE_STATUS_BAR_STYLE = 'default'; // iOS PWA status bar style in light mode
-const DARK_MODE_THEME_COLOR = '#333333'; // Android PWA address bar/status bar color in dark mode
+const DARK_MODE_THEME_COLOR = getComputedStyle(root).getPropertyValue("--color-background-dark").trim(); // Android PWA address bar/status bar color in dark mode
 const DARK_MODE_APPLE_STATUS_BAR_STYLE = 'black-translucent'; // iOS PWA status bar style in dark mode (white text, black translucent background)
 
 /**
@@ -825,6 +826,8 @@ function updatePWAStatusBarMeta(isDark) {
   } else {
     console.warn('Meta tag with ID "apple-status-bar-meta" not found. Please add it to your index.html.');
   }
+  // Dynamically adjust the background color of the entire <body> element.
+  document.body.style.backgroundColor = isDark ? DARK_MODE_THEME_COLOR : LIGHT_MODE_THEME_COLOR;
 }
 
 // added call to updatePWAStatusBarMeta
