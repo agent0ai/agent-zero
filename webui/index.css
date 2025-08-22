@@ -68,8 +68,7 @@
   --border-radius: 1.125rem;
   --transition-speed: 0.3s;
   --svg-filter: brightness(0) saturate(100%) var(--color-primary-filter);
-  --color-primary-filter: invert(73%) sepia(17%) saturate(360%)
-    hue-rotate(177deg) brightness(87%) contrast(85%);
+  --color-primary-filter: invert(73%) sepia(17%) saturate(360%) hue-rotate(177deg) brightness(87%) contrast(85%);
 }
 
 /* Light mode class */
@@ -99,13 +98,24 @@ html {
   min-height: 370px !important;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: hidden; 
   position: fixed;
-  -webkit-font-smoothing: antialiased; /* Improve font rendering */
-  -moz-osx-font-smoothing: grayscale; /* Improve font rendering */
+  -webkit-font-smoothing: antialiased;
+  /* Improve font rendering */
+  -moz-osx-font-smoothing: grayscale;
+  /* Improve font rendering */
 }
 
 body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  padding-top: constant(safe-area-inset-top);
+  /* iOS < 11.2 */
+  padding-top: env(safe-area-inset-top);
+  /* iOS >= 11.2 */
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
   -webkit-overscroll-behavior: none;
 }
@@ -126,13 +136,16 @@ body,
 }
 
 img {
-  user-drag: none;      /* Safari & old Chrome */
+  user-drag: none;
+  /* Safari & old Chrome */
   -webkit-user-drag: none;
-  user-select: none;    /* Prevent selection for good measure */
+  user-select: none;
+  /* Prevent selection for good measure */
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-  pointer-events: auto; /* Allow clicks, just no drag */
+  pointer-events: auto;
+  /* Allow clicks, just no drag */
 }
 
 /* Layout */
@@ -180,7 +193,10 @@ img {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  margin-top: 3.5rem;
+  margin-top: calc(3.5rem + constant(safe-area-inset-top));
+  /* iOS < 11.2 */
+  margin-top: calc(3.5rem + env(safe-area-inset-top));
+  /* iOS >= 11.2 */
   padding: var(--spacing-md) var(--spacing-md) 0 var(--spacing-md);
 }
 
@@ -216,7 +232,10 @@ img {
   left: var(--spacing-md);
   padding: 0.47rem 0.56rem;
   position: absolute;
-  top: var(--spacing-md);
+  top: calc(var(--spacing-md) + constant(safe-area-inset-top));
+  /* iOS < 11.2 */
+  top: calc(var(--spacing-md) + env(safe-area-inset-top));
+  /* iOS >= 11.2 */
   z-index: 999;
   -webkit-transition: all var(--transition-speed) ease-in-out;
   transition: all var(--transition-speed) ease-in-out;
@@ -292,8 +311,10 @@ img {
   padding: 3px 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
-  margin-right: 60px; /* Make space for buttons */
-  font-size: var(--font-size-small); /* Match config button font size */
+  margin-right: 60px;
+  /* Make space for buttons */
+  font-size: var(--font-size-small);
+  /* Match config button font size */
 }
 
 /* Add a nice hover effect to just the chat name */
@@ -312,16 +333,12 @@ img {
   overflow-y: auto;
   scroll-behavior: smooth;
   /* Mask */
-  mask-image: linear-gradient(
-    to bottom,
-    black calc(100% - 20px),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    black calc(100% - 20px),
-    transparent 100%
-  );
+  mask-image: linear-gradient(to bottom,
+      black calc(100% - 20px),
+      transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom,
+      black calc(100% - 20px),
+      transparent 100%);
   /* Fallback for browsers that do not support mask-image */
   background: linear-gradient(to bottom, calc(100% - 20px), transparent 100%);
   /* Add padding to account for fade */
@@ -516,7 +533,8 @@ h4 {
   justify-content: flex-start;
   height: 1.2em;
   text-overflow: ellipsis;
-  white-space: nowrap; /* Added for text overflow */
+  white-space: nowrap;
+  /* Added for text overflow */
   overflow: hidden;
   font-weight: normal;
 }
@@ -533,13 +551,11 @@ h4 {
 }
 
 .shiny-text {
-  background: linear-gradient(
-    to right,
-    var(--color-primary-dark) 20%,
-    var(--color-text) 40%,
-    var(--color-text) 60%,
-    var(--color-primary-dark) 60%
-  );
+  background: linear-gradient(to right,
+      var(--color-primary-dark) 20%,
+      var(--color-text) 40%,
+      var(--color-text) 60%,
+      var(--color-primary-dark) 60%);
   background-size: 200% auto;
   color: transparent;
   -webkit-background-clip: text;
@@ -817,7 +833,7 @@ h4 {
 }
 
 /* Config Section */
-.config-section > h4 {
+.config-section>h4 {
   margin-top: 0;
 }
 
@@ -836,7 +852,7 @@ h4 {
   padding: 0.35rem 0;
 }
 
-.config-list > *:first-child {
+.config-list>*:first-child {
   border-top: 0px;
 }
 
@@ -916,6 +932,7 @@ h4 {
   align-items: center;
   gap: var(--spacing-xs);
 }
+
 /* Attachment icon */
 .attachment-wrapper {
   position: relative;
@@ -948,7 +965,8 @@ h4 {
   padding: var(--spacing-sm);
   /* background-color: var(--color-input); */
   border-radius: 8px;
-  max-width: 600px; /* Limits to ~5 columns at 120px each */
+  max-width: 600px;
+  /* Limits to ~5 columns at 120px each */
   overflow: visible;
   justify-items: end;
 }
@@ -1188,7 +1206,8 @@ h4 {
   transition: all 0.3s;
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs); /* space between icon and text */
+  gap: var(--spacing-xs);
+  /* space between icon and text */
 }
 
 .text-button:hover {
@@ -1204,7 +1223,8 @@ h4 {
 .text-button svg {
   width: 14px;
   height: 14px;
-  flex-shrink: 0; /* prevents SVG from shrinking */
+  flex-shrink: 0;
+  /* prevents SVG from shrinking */
 }
 
 .text-button p {
@@ -1372,11 +1392,11 @@ h4 {
   width: 0.8rem;
 }
 
-input:checked + .slider {
+input:checked+.slider {
   background-color: #3a3a3a;
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
   -webkit-transform: translateX(1rem);
   transform: translateX(1rem);
 }
@@ -1448,7 +1468,7 @@ input:checked + .slider:before {
     display: none;
   }
 
-  
+
   /* Responsive tiles for mobile */
   .preview-section {
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -1460,7 +1480,8 @@ input:checked + .slider:before {
     grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
     gap: 8px;
     padding: var(--spacing-xs);
-    max-width: 300px; /* Limits to ~3 columns at 90px each */
+    max-width: 300px;
+    /* Limits to ~3 columns at 90px each */
   }
 
   .preview-item,
@@ -1553,7 +1574,8 @@ input:checked + .slider:before {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 250px !important; /* Force width */
+    width: 250px !important;
+    /* Force width */
     min-width: 250px;
     z-index: 1003;
     -webkit-transition: all var(--transition-speed) ease-in-out;
@@ -1599,7 +1621,8 @@ input:checked + .slider:before {
   .text-button svg {
     width: 18px;
     height: 18px;
-    flex-shrink: 0; /* prevents SVG from shrinking */
+    flex-shrink: 0;
+    /* prevents SVG from shrinking */
   }
 
   /* .copy-button {
@@ -1650,6 +1673,7 @@ input:checked + .slider:before {
 }
 
 @media (max-height: 600px) {
+
   /* consistent font sizing */
   html {
     -webkit-text-size-adjust: 100%;
@@ -1675,6 +1699,7 @@ input:checked + .slider:before {
 }
 
 @media screen and (orientation: landscape) {
+
   /* lock font size during rotation */
   html {
     -webkit-text-size-adjust: none;
@@ -1754,7 +1779,7 @@ a:active {
   background-color: #838383;
 }
 
-.light-mode input:checked + .slider {
+.light-mode input:checked+.slider {
   background-color: #e6e6e6;
 }
 
@@ -1860,8 +1885,10 @@ a:active {
   right: 5px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 2; /* Ensure buttons are above the edit field */
-  min-width: 70px; /* Ensure minimum width for the buttons */
+  z-index: 2;
+  /* Ensure buttons are above the edit field */
+  min-width: 70px;
+  /* Ensure minimum width for the buttons */
   justify-content: flex-end;
 }
 
@@ -1937,12 +1964,15 @@ a:active {
   background-color: var(--highlight-pink);
   /* box-shadow: 0 0 8px var(--highlight-pink); */
 }
+
 /* Tabs styling */
 .tabs-container {
   width: 100%;
-  margin-bottom: 8px; /* Reduced spacing between tabs and list */
+  margin-bottom: 8px;
+  /* Reduced spacing between tabs and list */
   padding: 0;
-  margin-top: 20px; /* Increased spacing from elements above */
+  margin-top: 20px;
+  /* Increased spacing from elements above */
 }
 
 .tabs {
@@ -1950,8 +1980,10 @@ a:active {
   width: 100%;
   position: relative;
   gap: 5px;
-  border-bottom: 3px solid var(--color-border); /* Thicker bottom line */
-  justify-content: center; /* Center the tabs */
+  border-bottom: 3px solid var(--color-border);
+  /* Thicker bottom line */
+  justify-content: center;
+  /* Center the tabs */
 }
 
 .tab {
@@ -1964,7 +1996,8 @@ a:active {
   border-radius: 8px 8px 0 0;
   transition: all 0.3s ease;
   background-color: var(--color-panel);
-  margin-bottom: -3px; /* Match the thicker border */
+  margin-bottom: -3px;
+  /* Match the thicker border */
   z-index: 1;
 }
 
@@ -2269,32 +2302,38 @@ nav ul li a img {
   white-space: nowrap;
 }
 
-.scheduler-task-list th:nth-child(1), /* Name */
+.scheduler-task-list th:nth-child(1),
+/* Name */
 .scheduler-task-list td:nth-child(1) {
   width: 25%;
 }
 
-.scheduler-task-list th:nth-child(2), /* State */
+.scheduler-task-list th:nth-child(2),
+/* State */
 .scheduler-task-list td:nth-child(2) {
   width: 10%;
 }
 
-.scheduler-task-list th:nth-child(3), /* Type */
+.scheduler-task-list th:nth-child(3),
+/* Type */
 .scheduler-task-list td:nth-child(3) {
   width: 10%;
 }
 
-.scheduler-task-list th:nth-child(4), /* Schedule */
+.scheduler-task-list th:nth-child(4),
+/* Schedule */
 .scheduler-task-list td:nth-child(4) {
   width: 20%;
 }
 
-.scheduler-task-list th:nth-child(5), /* Last Run */
+.scheduler-task-list th:nth-child(5),
+/* Last Run */
 .scheduler-task-list td:nth-child(5) {
   width: 20%;
 }
 
-.scheduler-task-list th:nth-child(6), /* Actions */
+.scheduler-task-list th:nth-child(6),
+/* Actions */
 .scheduler-task-list td:nth-child(6) {
   width: 15%;
   text-align: right;
@@ -2342,47 +2381,55 @@ nav ul li a img {
 
 .scheduler-status-idle {
   background-color: rgba(0, 100, 0, 0.2);
-  color: #2a9d8f; /* Dark green that works with both light and dark themes */
+  color: #2a9d8f;
+  /* Dark green that works with both light and dark themes */
   border: 1px solid rgba(42, 157, 143, 0.3);
 }
 
 .scheduler-status-running {
   background-color: rgba(0, 60, 120, 0.2);
-  color: #4361ee; /* Dark blue that works with both light and dark themes */
+  color: #4361ee;
+  /* Dark blue that works with both light and dark themes */
   border: 1px solid rgba(67, 97, 238, 0.3);
 }
 
 .scheduler-status-disabled {
   background-color: rgba(70, 70, 70, 0.2);
-  color: #6c757d; /* Dark grey that works with both light and dark themes */
+  color: #6c757d;
+  /* Dark grey that works with both light and dark themes */
   border: 1px solid rgba(108, 117, 125, 0.3);
 }
 
 .scheduler-status-error {
   background-color: rgba(120, 0, 0, 0.2);
-  color: #e63946; /* Dark red that works with both light and dark themes */
+  color: #e63946;
+  /* Dark red that works with both light and dark themes */
   border: 1px solid rgba(230, 57, 70, 0.3);
 }
 
 /* Light mode adjustments */
 .light-mode .scheduler-status-idle {
   background-color: rgba(42, 157, 143, 0.1);
-  color: #1a6f65; /* Darker green for light mode */
+  color: #1a6f65;
+  /* Darker green for light mode */
 }
 
 .light-mode .scheduler-status-running {
   background-color: rgba(67, 97, 238, 0.1);
-  color: #2540b3; /* Darker blue for light mode */
+  color: #2540b3;
+  /* Darker blue for light mode */
 }
 
 .light-mode .scheduler-status-disabled {
   background-color: rgba(108, 117, 125, 0.1);
-  color: #495057; /* Darker grey for light mode */
+  color: #495057;
+  /* Darker grey for light mode */
 }
 
 .light-mode .scheduler-status-error {
   background-color: rgba(230, 57, 70, 0.1);
-  color: #c5283d; /* Darker red for light mode */
+  color: #c5283d;
+  /* Darker red for light mode */
 }
 
 .scheduler-empty {
@@ -2493,13 +2540,16 @@ nav ul li a img {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: 70px; /* Limit width of schedule fields */
+  max-width: 70px;
+  /* Limit width of schedule fields */
 }
 
 .scheduler-schedule-field input {
   width: 100%;
-  min-width: 0; /* Allow shrinking below content size */
-  font-size: 0.9rem; /* Slightly reduce font size for better fit */
+  min-width: 0;
+  /* Allow shrinking below content size */
+  font-size: 0.9rem;
+  /* Slightly reduce font size for better fit */
 }
 
 .scheduler-schedule-label {
@@ -2657,6 +2707,7 @@ nav ul li a img {
     opacity: 0;
     transform: translateY(var(--spacing-sm));
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -2664,12 +2715,14 @@ nav ul li a img {
 }
 
 @-webkit-keyframes fadeIn {
+
   /* Safari and older Chrome */
   from {
     opacity: 0;
     -webkit-transform: translateY(var(--spacing-sm));
     transform: translateY(var(--spacing-sm));
   }
+
   to {
     opacity: 1;
     -webkit-transform: translateY(0);
@@ -2687,18 +2740,23 @@ nav ul li a img {
   0% {
     transform: scale(1);
   }
+
   14% {
     transform: scale(1.1);
   }
+
   28% {
     transform: scale(1);
   }
+
   42% {
     transform: scale(1.08);
   }
+
   70% {
     transform: scale(1);
   }
+
   100% {
     transform: scale(1);
   }
@@ -2710,6 +2768,7 @@ nav ul li a img {
     transform: rotate(360deg);
   }
 }
+
 .spin {
   animation: spin 1s linear infinite;
 }

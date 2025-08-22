@@ -3,9 +3,20 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>Agent Zero</title>
     <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="public/icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="public/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="public/icon-512x512.png">
+    <link rel="apple-touch-startup-image" href="public/splash.jpg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="apple-status-bar-meta">
+    <meta name="apple-mobile-web-app-title" content="Agent Zero">
+    <meta name="theme-color" content="#333333" id="theme-color-meta">
+    <meta name="msapplication-TileColor" content="#1a1a1a">
+    <meta name="msapplication-config" content="none">
+    <meta name="mobile-web-app-capable" content="yes">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="css/messages.css">
     <link rel="stylesheet" href="components/messages/action-buttons/simple-action-buttons.css">
@@ -125,6 +136,30 @@
 
     <!-- Link the PWA manifest file -->
     <link rel="manifest" href="js/manifest.json">
+    
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Detect current display mode
+                const isPWAStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                                        window.matchMedia('(display-mode: fullscreen)').matches ||
+                                        window.matchMedia('(display-mode: minimal-ui)').matches;
+                if (isPWAStandalone) {
+                    // Only register Service Worker when running as a PWA (standalone/fullscreen/minimal-ui)
+                    navigator.serviceWorker.register('js/sw.js')
+                        .then((registration) => {
+                            console.log('PWA Service Worker registered in standalone mode: ', registration);
+                        })
+                        .catch((registrationError) => {
+                            console.log('PWA Service Worker registration failed in standalone mode: ', registrationError);
+                        });
+                } else {
+                    console.log('Service Worker not registered: Not running in PWA standalone mode (browser tab).');
+                }
+            });
+        }
+    </script>
 
     <!-- Non-module scripts after Alpine.js -->
     <script type="text/javascript" src="js/settings.js"></script>
@@ -1601,19 +1636,6 @@
 
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
-
-    <!-- Register Service Worker for offline support and caching -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.service-worker.register('js/sw.js').then(registration => {
-            console.log('SW registered: ', registration);
-          }).catch(registrationError => {
-            console.log('SW registration failed: ', registrationError);
-          });
-        });
-      }
-    </script>
 
 </body>
 
