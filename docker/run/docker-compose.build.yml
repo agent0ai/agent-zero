@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   agent-zero:
-    image: ${A0_DOCKER_IMAGE_USER:-agent0ai}/${A0_DOCKER_IMAGE_NAME:-agent-zero}
+    build:
+      context: ..
+      dockerfile: DockerfileLocal
     ports:
       - "${A0_DOCKER_HTTP_PORT:-55080}:80"  # Web UI
       - "${A0_DOCKER_SSH_PORT:-55022}:22"      # SSH access

@@ -520,7 +520,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "title": "UI Login",
             "description": "Set user name for web UI",
             "type": "text",
-            "value": dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) or "",
+            "value": dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN, os.getenv("A0_SET_AUTH_LOGIN", "")) or "",
         }
     )
 
@@ -532,7 +532,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "type": "password",
             "value": (
                 PASSWORD_PLACEHOLDER
-                if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD)
+                if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD, os.getenv("A0_SET_AUTH_PASSWORD", ""))
                 else ""
             ),
         }
@@ -1224,10 +1224,25 @@ def convert_in(settings: dict) -> Settings:
 
 def get_settings() -> Settings:
     global _settings
+    
     if not _settings:
+        print("attempting", "get_settings", "_read_file_settings")
         _settings = _read_settings_file()
+        print("successfully", "get_settings", "_read_file_settings")
+
     if not _settings:
+        print("attempting", "get_settings", "_get_envvar_settings")
+        _settings = _get_envvar_settings()
+        dotenv.load_dotenv()
+        print("successfully", "get_settings", "_get_envvar_settings")
+
+
+    if not _settings:
+        print("attempting", "get_settings", "get_default_settings")
         _settings = get_default_settings()
+        print("successfully", "get_settings", "get_default_settings")
+
+
     norm = normalize_settings(_settings)
     return norm
 
@@ -1276,6 +1291,8 @@ def normalize_settings(settings: Settings) -> Settings:
     # mcp server token is set automatically
     copy["mcp_server_token"] = create_auth_token()
 
+    print(copy)
+
     return copy
 
 
@@ -1315,7 +1332,8 @@ def _remove_sensitive_settings(settings: Settings):
 
 def _write_sensitive_settings(settings: Settings):
     for key, val in settings["api_keys"].items():
-        dotenv.save_dotenv_value(key.upper(), val)
+        if val and val != "":
+            dotenv.save_dotenv_value(key.upper(), val)
 
     dotenv.save_dotenv_value(dotenv.KEY_AUTH_LOGIN, settings["auth_login"])
     if settings["auth_password"]:
@@ -1328,8 +1346,38 @@ def _write_sensitive_settings(settings: Settings):
     if settings["root_password"]:
         set_root_password(settings["root_password"])
 
+def _get_envvar_settings() -> Settings:
+    env_settings = {}
+    env_settings['api_keys'] = {}
+
+    for key, value in os.environ.items():
+        if key.startswith("A0_SET_"):
+            setting_key = key[7:].lower()
+            #print(setting_key)
+
+            if setting_key.startswith("api_key"):
+                api_setting_key = "api_key_{}".format(setting_key[8:])  # remove 'api_keys_' prefix
+                #print(api_setting_key)
+                #print(setting_key[8:])
+
+                if dotenv.get_dotenv_value(api_setting_key.upper()) != value:
+                    print(f"Saving API key {api_setting_key} to .env")
+                    dotenv.save_dotenv_value(api_setting_key.upper(), value)
+
+                # Special handling for API keys, which are stored as a JSON string
+                env_settings["api_keys"][setting_key[8:]] = value
+                env_settings["api_keys"][api_setting_key] = value
+                #env_settings["api_keys"]['API_KEY_OPENROUTER'] = value
+                #env_settings['API_KEY_OPENROUTER'] = value
+
+            else:
+                env_settings[setting_key] = value
+    
+    #print(env_settings)
+    return normalize_settings(env_settings)  # type: ignore
 
 def get_default_settings() -> Settings:
+    
     return Settings(
         version=_get_version(),
         chat_model_provider="openrouter",
@@ -1405,10 +1453,13 @@ def get_default_settings() -> Settings:
         mcp_server_token=create_auth_token(),
         a2a_server_enabled=False,
     )
-
+    
 
 def _apply_settings(previous: Settings | None):
     global _settings
+
+    print("_apply_settings", _settings)
+
     if _settings:
         from agent import AgentContext
         from initialize import initialize_agent
