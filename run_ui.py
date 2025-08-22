@@ -116,8 +116,8 @@ def requires_loopback(f):
 def requires_auth(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
-        user = dotenv.get_dotenv_value("AUTH_LOGIN", os.getenv("A0_AUTH_LOGIN"))
-        password = dotenv.get_dotenv_value("AUTH_PASSWORD", os.getenv("A0_AUTH_PASSWORD"))
+        user = dotenv.get_dotenv_value("AUTH_LOGIN", os.getenv("A0_SET_AUTH_LOGIN"))
+        password = dotenv.get_dotenv_value("AUTH_PASSWORD", os.getenv("A0_SET_AUTH_PASSWORD"))
         if user and password:
             auth = request.authorization
             if not auth or not (auth.username == user and auth.password == password):
