@@ -1,0 +1,22 @@
+{
+  "name": "consulting.sa - AI Consulting & Digital Transformation",
+  "short_name": "consulting.sa",
+  "description": "Professional AI consulting services and SaaS solutions",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "192x192",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "512x512",
+      "type": "image/x-icon"
+    }
+  ],
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
+}

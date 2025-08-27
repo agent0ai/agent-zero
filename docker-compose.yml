@@ -1,0 +1,13 @@
+
+
+services:
+  agent-zero:
+    image: agent0ai/agent-zero:latest
+    container_name: agent-zero
+    ports:
+      - "8888:80"   # Host port 8888 -> Container port 80
+      - "8822:22"   # Host port 8822 -> Container port 22
+    volumes:
+      - /home/asim/Documents/agent-zero:/a0
+    restart: unless-stopped
+

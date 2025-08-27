@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Development Environment - consulting.sa</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            color: #fff;
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+        .status {
+            background: rgba(34, 197, 94, 0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid #22c55e;
+        }
+        .feature-list {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .feature-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .feature-list li:before {
+            content: "✅ ";
+            margin-right: 0.5rem;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .comparison-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .production {
+            border-left: 4px solid #3b82f6;
+        }
+        .development {
+            border-left: 4px solid #f59e0b;
+        }
+        .api-test {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .btn:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Development Environment</h1>
+        <h2>dev.consulting.sa</h2>
+        
+        <div class="status">
+            <h3>✅ Development Environment Status</h3>
+            <p><strong>Node.js:</strong> v20.19.4 (Upgraded)</p>
+            <p><strong>Next.js:</strong> 15.4.4 (Latest)</p>
+            <p><strong>React:</strong> 19.1.1 (Latest)</p>
+            <p><strong>Backend:</strong> Python ADK Agent (Deployed)</p>
+            <p><strong>Database:</strong> Supabase (Development Tables)</p>
+        </div>
+
+        <div class="feature-list">
+            <h3>🛠️ Development Features</h3>
+            <ul>
+                <li>Separate development database tables (dev_ prefix)</li>
+                <li>Debug logging enabled for troubleshooting</li>
+                <li>Test API keys for safe development</li>
+                <li>Isolated from production environment</li>
+                <li>SSL-enabled subdomain: dev.consulting.sa</li>
+                <li>Modern Next.js 15.4.4 + React 19.1.1 stack</li>
+                <li>Hot reload and fast development iteration</li>
+                <li>Comprehensive development documentation</li>
+            </ul>
+        </div>
+
+        <div class="comparison">
+            <div class="comparison-item production">
+                <h3>🌐 Production Site</h3>
+                <p><strong>URL:</strong> https://consulting.sa</p>
+                <p><strong>Branch:</strong> main</p>
+                <p><strong>Status:</strong> Live with real users</p>
+                <p><strong>Features:</strong> Full website, all pages</p>
+                <button class="btn" onclick="window.open('https://consulting.sa', '_blank')">Visit Production</button>
+            </div>
+            <div class="comparison-item development">
+                <h3>🛠️ Development Site</h3>
+                <p><strong>URL:</strong> https://dev.consulting.sa</p>
+                <p><strong>Branch:</strong> develop</p>
+                <p><strong>Status:</strong> Development testing</p>
+                <p><strong>Features:</strong> Testing environment</p>
+                <button class="btn" onclick="testBackend()">Test Backend</button>
+            </div>
+        </div>
+
+        <div class="api-test">
+            <h3>🔧 Backend API Testing</h3>
+            <p>Test the development backend services:</p>
+            <button class="btn" onclick="testHealth()">Test Health Endpoint</button>
+            <button class="btn" onclick="testAgent()">Test Agent Service</button>
+            <div id="api-results" style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 4px; display: none;">
+                <h4>API Test Results:</h4>
+                <pre id="results-content"></pre>
+            </div>
+        </div>
+
+        <div class="status">
+            <h3>📋 Next Steps</h3>
+            <p>1. <strong>Compare Sites:</strong> Visit both production and development to compare content</p>
+            <p>2. <strong>Test Backend:</strong> Use the API testing buttons above</p>
+            <p>3. <strong>Identify Issues:</strong> Find what's missing in development vs production</p>
+            <p>4. <strong>Fix Docker:</strong> Resolve Next.js Docker build issues</p>
+            <p>5. <strong>Deploy Full Stack:</strong> Complete development environment</p>
+        </div>
+    </div>
+
+    <script>
+        function testHealth() {
+            showResults('Testing health endpoint...');
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => showResults('Health Check: ' + JSON.stringify(data, null, 2)))
+                .catch(error => showResults('Health Check Error: ' + error.message));
+        }
+
+        function testAgent() {
+            showResults('Testing agent service...');
+            fetch('http://217.79.255.54:8001/health')
+                .then(response => response.json())
+                .then(data => showResults('Agent Service: ' + JSON.stringify(data, null, 2)))
+                .catch(error => showResults('Agent Service Error: ' + error.message));
+        }
+
+        function testBackend() {
+            showResults('Testing backend services...');
+            Promise.all([
+                fetch('/api/health').then(r => r.json()).catch(e => ({error: e.message})),
+                fetch('http://217.79.255.54:8001/health').then(r => r.json()).catch(e => ({error: e.message}))
+            ]).then(results => {
+                showResults('Backend Tests:\\n' + 
+                    'Frontend API: ' + JSON.stringify(results[0], null, 2) + '\\n\\n' +
+                    'Backend Agent: ' + JSON.stringify(results[1], null, 2));
+            });
+        }
+
+        function showResults(content) {
+            document.getElementById('api-results').style.display = 'block';
+            document.getElementById('results-content').textContent = content;
+        }
+    </script>
+</body>
+</html>

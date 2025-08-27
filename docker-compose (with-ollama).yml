@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: alpine/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && tail -f /dev/null"]
+    restart: unless-stopped
+
+  agent-zero:
+    image: agent0ai/agent-zero:latest
+    container_name: agent-zero
+    ports:
+      - "8888:80"
+      - "8822:22"
+    volumes:
+      - /home/asim/Documents/agent-zero:/a0
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - EMBEDDING_MODEL=nomic-embed-text
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+

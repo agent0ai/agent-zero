@@ -1,3 +1,4 @@
+from database import database # Added this line for our project
 from datetime import timedelta
 import os
 import secrets
@@ -263,4 +264,5 @@ def init_a0():
 if __name__ == "__main__":
     runtime.initialize()
     dotenv.load_dotenv()
+    database.init_db() # Added this line for our project
     run()

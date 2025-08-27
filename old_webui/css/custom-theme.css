@@ -1,0 +1,95 @@
+/*
+ * Agent Zero - Custom Theme
+ *
+ * This file contains a full set of styles to give Agent Zero a modern, clean, and professional look and feel.
+ * It includes enhanced color palettes for both light and dark themes, subtle animations, and improved typography.
+ */
+
+/* ==========================================================================
+   Modernized Color Palettes
+   ========================================================================== */
+
+/* Modernized Light Theme (Desert Orange) */
+.light-mode {
+  --color-background-light: #fff5e6; /* Sandy off-white background */
+  --color-text-light: #5c4033; /* Dark brown for text */
+  --color-primary-light: #d97706; /* A rich orange for primary elements */
+  --color-secondary-light: #ffecd9; /* Lighter orange for secondary elements */
+  --color-accent-light: #c2410c; /* A deeper orange for accents */
+  --color-message-bg-light: #ffecd9; /* Light orange for message backgrounds */
+  --color-message-text-light: #5c4033; /* Dark brown for message text */
+  --color-panel-light: #fffaf0; /* A very light, almost white, orange for panels */
+  --color-border-light: #e6d5c2; /* Soft brown for borders */
+  --color-input-light: #fff5e6; /* Sandy off-white for input background */
+  --color-input-focus-light: #fffaf0; /* Lighter panel color on focus */
+}
+
+/* Modernized Dark Theme */
+.dark-mode {
+  --color-background-dark: #1a1b26;
+  --color-text-dark: #a9b1d6;
+  --color-primary-dark: #7aa2f7;
+  --color-secondary-dark: #2a2e3a;
+  --color-accent-dark: #f7768e;
+  --color-message-bg-dark: #2a2e3a;
+  --color-message-text-dark: #a9b1d6;
+  --color-panel-dark: #24283b;
+  --color-border-dark: #414868;
+  --color-input-dark: #1e1e2e;
+  --color-input-focus-dark: #2a2e3a;
+}
+
+/* ==========================================================================
+   Animations and Transitions
+   ========================================================================== */
+
+/* Add a fade-in animation to new messages */
+.message {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth transitions for interactive elements */
+.config-button, .text-button, .chat-button, .slider, .edit-button {
+  transition: all 0.2s ease-in-out;
+}
+
+/* ==========================================================================
+   Typography and Spacing
+   ========================================================================== */
+
+body {
+  font-size: 16px; /* A slightly larger base font size for better readability */
+}
+
+/* Add a subtle box-shadow to panels for better depth */
+#left-panel, #input-section {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dark-mode #left-panel, .dark-mode #input-section {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Improved button styles */
+.config-button {
+  border-radius: 6px;
+}
+
+.text-button {
+  border-radius: 6px;
+}
+
+.chat-button {
+  border-radius: 50%;
+}
