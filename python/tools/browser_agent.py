@@ -29,43 +29,118 @@ class State:
         self.use_agent: Optional[browser_use.Agent] = None
         self.secrets_dict: Optional[dict[str, str]] = None
         self.iter_no = 0
+        self.is_paused = False
 
     def __del__(self):
         self.kill_task()
+
+    def pause(self):
+        """Pauses the agent's execution."""
+        self.is_paused = True
+
+    def resume(self):
+        """Resumes the agent's execution."""
+        self.is_paused = False
+
+    async def wait_if_paused(self):
+        """Asynchronously waits if the agent is paused."""
+        while self.is_paused:
+            await asyncio.sleep(1)
 
     async def _initialize(self):
         if self.browser_session:
             return
 
-        # for some reason we need to provide exact path to headless shell, otherwise it looks for headed browser
-        pw_binary = ensure_playwright_binary()
+        # Check if we're in a Docker container with VNC browser available
+        import socket
+        def is_port_open(host, port):
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                result = sock.connect_ex((host, port))
+                sock.close()
+                return result == 0
+            except:
+                return False
 
-        self.browser_session = browser_use.BrowserSession(
-            browser_profile=browser_use.BrowserProfile(
-                headless=True,
-                disable_security=True,
-                chromium_sandbox=False,
-                accept_downloads=True,
-                downloads_dir=files.get_abs_path("tmp/downloads"),
-                downloads_path=files.get_abs_path("tmp/downloads"),
-                executable_path=pw_binary,
-                keep_alive=True,
-                minimum_wait_page_load_time=1.0,
-                wait_for_network_idle_page_load_time=2.0,
-                maximum_wait_page_load_time=10.0,
-                screen={"width": 1024, "height": 2048},
-                viewport={"width": 1024, "height": 2048},
-                args=["--headless=new"],
-                # Use a unique user data directory to avoid conflicts
-                user_data_dir=str(
-                    Path.home()
-                    / ".config"
-                    / "browseruse"
-                    / "profiles"
-                    / f"agent_{self.agent.context.id}"
-                ),
+        # Try to connect to VNC Chrome first (Docker container)
+        if is_port_open('localhost', 9222):
+            try:
+                # Connect to existing Chrome using CDP endpoint
+                self.browser_session = browser_use.BrowserSession(
+                    browser_profile=browser_use.BrowserProfile(
+                        headless=False,  # Use the visible VNC Chrome
+                        disable_security=True,
+                        chromium_sandbox=False,
+                        accept_downloads=True,
+                        downloads_dir=files.get_abs_path("tmp/downloads"),
+                        downloads_path=files.get_abs_path("tmp/downloads"),
+                        keep_alive=True,
+                        minimum_wait_page_load_time=1.0,
+                        wait_for_network_idle_page_load_time=2.0,
+                        maximum_wait_page_load_time=10.0,
+                        screen={"width": 1920, "height": 1080},
+                        viewport={"width": 1920, "height": 1080},
+                        # Connect to existing Chrome via CDP
+                        cdp_url="http://localhost:9222",
+                        # Use different user data dir to avoid conflicts
+                        user_data_dir="/tmp/browser_agent_profile",
+                        args=[
+                            "--no-sandbox",
+                            "--disable-dev-shm-usage", 
+                            "--disable-web-security",
+                            "--allow-running-insecure-content"
+                        ]
+                    )
+                )
+                print("🖥️  Connecting to VNC Chrome via CDP...")
+            except Exception as e:
+                print(f"⚠️  Could not connect to VNC Chrome: {e}")
+                self.browser_session = None
+        
+        # Fallback: create own browser instance if VNC Chrome not available
+        if not self.browser_session:
+            pw_binary = ensure_playwright_binary()
+            self.browser_session = browser_use.BrowserSession(
+                browser_profile=browser_use.BrowserProfile(
+                    headless=True,  # Must be headless for fallback
+                    disable_security=True,
+                    chromium_sandbox=False,
+                    accept_downloads=True,
+                    downloads_dir=files.get_abs_path("tmp/downloads"),
+                    downloads_path=files.get_abs_path("tmp/downloads"),
+                    executable_path=pw_binary,
+                    keep_alive=True,
+                    minimum_wait_page_load_time=1.0,
+                    wait_for_network_idle_page_load_time=2.0,
+                    maximum_wait_page_load_time=10.0,
+                    screen={"width": 1024, "height": 2048},
+                    viewport={"width": 1024, "height": 2048},
+                    args=[
+                        "--headless=new",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox", 
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--disable-background-timer-throttling",
+                        "--disable-backgrounding-occluded-windows",
+                        "--disable-renderer-backgrounding",
+                        "--disable-features=TranslateUI",
+                        "--disable-ipc-flooding-protection",
+                        "--remote-debugging-port=9224",
+                        "--remote-debugging-address=0.0.0.0"
+                    ],
+                    # Use a unique user data directory to avoid conflicts
+                    user_data_dir=str(
+                        Path.home()
+                        / ".config"
+                        / "browseruse"
+                        / "profiles"
+                        / f"agent_{self.agent.context.id}"
+                    ),
+                )
             )
-        )
+            print("🤖 Using separate headless browser instance...")
 
         await self.browser_session.start() if self.browser_session else None
         # self.override_hooks()
@@ -126,7 +201,10 @@ class State:
             return result
 
         model = self.agent.get_browser_model()
-
+        # async def hook(agent: browser_use.Agent):
+        #         await self.wait_if_paused()
+        #         if self.iter_no != get_iter_no(self.agent):
+        #             raise InterventionException("Task cancelled")
         try:
 
             secrets_manager = SecretsManager.get_instance()
@@ -155,6 +233,9 @@ class State:
             await self.agent.wait_if_paused()
             if self.iter_no != get_iter_no(self.agent):
                 raise InterventionException("Task cancelled")
+            # if self.is_paused:
+            #     await asyncio.sleep(1)
+            #     return
 
         # try:
         result = None
@@ -178,14 +259,19 @@ class State:
         if self.use_agent:
             await self.use_agent.browser_session.get_state_summary(cache_clickable_elements_hashes=True) if self.use_agent.browser_session else None
             return await self.use_agent.browser_session.get_selector_map() if self.use_agent.browser_session else None
-            await self.use_agent.browser_session.get_state_summary(
-                cache_clickable_elements_hashes=True
-            )
-            return await self.use_agent.browser_session.get_selector_map()
+            # await self.use_agent.browser_session.get_state_summary(
+            #     cache_clickable_elements_hashes=True
+            # )
         return {}
 
 
 class BrowserAgent(Tool):
+
+    async def before_execution(self, **kwargs):
+        pass
+
+    async def after_execution(self, response, **kwargs):
+        pass
 
     async def execute(self, message="", reset="", **kwargs):
         self.guid = str(uuid.uuid4())

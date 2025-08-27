@@ -254,6 +254,20 @@ class LoopData:
         # override values with kwargs
         for key, value in kwargs.items():
             setattr(self, key, value)
+    
+    def to_dict(self):
+        """Convert LoopData to a JSON-serializable dictionary."""
+        return {
+            'iteration': self.iteration,
+            'system': self.system,
+            'user_message': self.user_message.to_dict() if self.user_message and hasattr(self.user_message, 'to_dict') else str(self.user_message) if self.user_message else None,
+            'history_output': [msg.to_dict() if hasattr(msg, 'to_dict') else str(msg) for msg in self.history_output],
+            'extras_temporary': dict(self.extras_temporary),
+            'extras_persistent': dict(self.extras_persistent), 
+            'last_response': self.last_response,
+            'params_temporary': self.params_temporary,
+            'params_persistent': self.params_persistent
+        }
 
 
 # intervention exception class - skips rest of message loop iteration

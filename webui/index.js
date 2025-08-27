@@ -7,6 +7,7 @@ import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
+globalThis.api = api; // Make full api object available for browser control modal
 
 const leftPanel = document.getElementById("left-panel");
 const rightPanel = document.getElementById("right-panel");
@@ -186,6 +187,7 @@ function toastFetchError(text, error) {
   }
 }
 globalThis.toastFetchError = toastFetchError;
+window.toastFetchError = toastFetchError;
 
 chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -601,6 +603,7 @@ globalThis.newChat = async function () {
     globalThis.toastFetchError("Error creating new chat", e);
   }
 };
+window.newChat = globalThis.newChat;
 
 globalThis.killChat = async function (id) {
   if (!id) {
@@ -810,6 +813,7 @@ globalThis.toggleDarkMode = function (isDark) {
   console.log("Dark mode:", isDark);
   localStorage.setItem("darkMode", isDark);
 };
+window.toggleDarkMode = globalThis.toggleDarkMode;
 
 globalThis.toggleSpeech = function (isOn) {
   console.log("Speech:", isOn);
@@ -824,6 +828,7 @@ globalThis.nudge = async function () {
     toastFetchError("Error nudging agent", e);
   }
 };
+window.nudge = globalThis.nudge;
 
 globalThis.restart = async function () {
   try {
@@ -919,6 +924,7 @@ globalThis.saveChat = async function () {
     toastFetchError("Error saving chat", e);
   }
 };
+window.saveChat = globalThis.saveChat;
 
 function downloadFile(filename, content) {
   // Create a Blob with the content to save

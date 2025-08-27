@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as Sleep from "/js/sleep.js";
+import { fetchApi } from "/js/api.js";
 
 // define the model object holding data and functions
 const model = {

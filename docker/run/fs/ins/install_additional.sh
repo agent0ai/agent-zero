@@ -6,3 +6,6 @@ set -e
 
 # searxng - moved to base image
 # bash /ins/install_searxng.sh "$@"
+
+# install browser control environment
+bash /ins/install_browser_control.sh "$@"

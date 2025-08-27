@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="css/file_browser.css">
     <link rel="stylesheet" href="css/modals.css">
     <link rel="stylesheet" href="css/modals2.css">
+    <link rel="stylesheet" href="css/browser_control_modal.css">
     <link rel="stylesheet" href="css/speech.css">
     <link rel="stylesheet" href="css/history.css">
     <link rel="stylesheet" href="css/scheduler-datepicker.css">
@@ -108,7 +109,7 @@
     <script type="module" src="js/initFw.js"></script>
 
     <script src="vendor/ace-min/ace.js"></script>
-    <link href="vendor/ace-min/ace.min.css" rel="stylesheet">
+    <link href="vendor/ace/ace.min.css" rel="stylesheet">
     <!-- KaTeX CSS -->
     <link rel="stylesheet" href="vendor/katex/katex.min.css" crossorigin="anonymous">
 
@@ -130,7 +131,7 @@
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/file_browser.js"></script>
     <script type="text/javascript" src="js/modal.js"></script>
-    <script type="module" src="js/tunnel.js"></script>
+    <script type="text/javascript" src="js/browser_control_modal.js"></script>
 </head>
 
 <body class="dark-mode device-pointer">
@@ -522,7 +523,27 @@
                         </svg>
                         <p>Nudge</p>
                     </button>
+                    <button
+                        class="text-button"
+                        id="take-control-btn"
+                        onclick="takeControl()"
+                        title="Take control of the browser"
+                    >
+                        <span class="material-symbols-outlined">ads_click</span>
+                        <p>Take over browser</p>
+                    </button>
+                    <button
+                        class="text-button"
+                        id="release-control-btn"
+                        onclick="releaseControl()"
+                        title="Release control of the browser"
+                        x-show="false"
+                    >
+                        <span class="material-symbols-outlined">play_arrow</span>
+                        <p>Release control</p>
+                    </button>
 
+                </div>
                 </div>
             </div>
         </div>
@@ -1606,7 +1627,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.service-worker.register('js/sw.js').then(registration => {
+          navigator.serviceWorker.register('js/sw.js').then(registration => {
             console.log('SW registered: ', registration);
           }).catch(registrationError => {
             console.log('SW registration failed: ', registrationError);

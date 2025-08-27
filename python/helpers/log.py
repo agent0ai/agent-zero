@@ -190,6 +190,10 @@ class LogItem:
             "temp": self.temp,
             "kvps": self.kvps,
         }
+    
+    def to_dict(self):
+        """Convert LogItem to a JSON-serializable dictionary."""
+        return self.output()
 
 
 class Log:
