@@ -68,7 +68,7 @@ class CodeExecution(Tool):
     def get_heading(self, text: str = ""):
         if not text:
             text = f"{self.name} - {self.args['runtime'] if 'runtime' in self.args else 'unknown'}"
-        text = truncate_text_string(text, 60)
+        # text = truncate_text_string(text, 60) # don't truncate here, log.py takes care of it
         session = self.args.get("session", None)
         session_text = f"[{session}] " if session or session == 0 else ""
         return f"icon://terminal {session_text}{text}"

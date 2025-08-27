@@ -4,11 +4,13 @@ import { marked } from "../vendor/marked/marked.esm.js";
 import { store as _messageResizeStore } from "/components/messages/resize/message-resize-store.js"; // keep here, required in html
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { addActionButtonsToElement } from "/components/messages/action-buttons/simple-action-buttons.js";
+import { api } from "/js/api.js";
 
 const chatHistory = document.getElementById("chat-history");
 
 let messageGroup = null;
 
+let browserControlActive = false; 
 // Simplified implementation - no complex interactions needed
 
 export function setMessage(id, type, heading, content, temp, kvps = null) {
@@ -549,6 +551,9 @@ export function drawMessageBrowser(
     false,
     false
   );
+
+  // Add "Take Control" button for browser interaction
+  addBrowserControlButton(messageContainer, kvps);
 }
 
 export function drawMessageAgentPlain(
@@ -984,4 +989,178 @@ class Scroller {
   reApplyScroll() {
     if (this.wasAtBottom) this.element.scrollTop = this.element.scrollHeight;
   }
+}
+
+// NEW: Functions for browser control
+export async function takeControl() {
+  try {
+    console.log('Taking browser control...');
+    
+    // Get VNC password and URL from API
+    const passwordResponse = await api.callJsonApi('/browser_control', {
+      action: 'get_vnc_password'
+    });
+    
+    if (!passwordResponse.success) {
+      throw new Error('Failed to retrieve VNC credentials: ' + (passwordResponse.error || 'Unknown error'));
+    }
+    
+    const vncUrl = passwordResponse.vnc_url || 'http://localhost:56080/vnc_lite.html';
+    const vncPassword = passwordResponse.password || 'agent123';
+    
+    console.log('Opening VNC interface at:', vncUrl);
+    
+    // Show password info to user
+    const passwordInfo = `VNC Password: ${vncPassword}\n\nClick OK to open the VNC interface. You'll need to enter the password when prompted.`;
+    if (!confirm(passwordInfo)) {
+      return; // User cancelled
+    }
+    
+    const vncWindow = window.open(vncUrl, 'BrowserVNC', 'width=1400,height=900,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,status=no');
+    
+    // Check if popup was blocked
+    if (!vncWindow || vncWindow.closed || typeof vncWindow.closed === 'undefined') {
+      console.log('Popup blocked, trying new tab');
+      const newTabWindow = window.open(vncUrl, '_blank');
+      if (!newTabWindow) {
+        throw new Error('Unable to open VNC window - popup blocked');
+      }
+    }
+    
+    // Update button states
+    browserControlActive = true;
+    updateBrowserControlButtons();
+    
+    console.log('VNC interface opened successfully');
+    
+  } catch (error) {
+    console.error('Error taking browser control:', error);
+    alert('Failed to open VNC interface: ' + error.message + '\n\nTry manually opening: http://localhost:56080/vnc_lite.html');
+  }
+}
+
+export async function releaseControl() {
+  try {
+    console.log('Releasing browser control...');
+    
+    // Update button states
+    browserControlActive = false;
+    updateBrowserControlButtons();
+    
+    // Note: VNC window will be closed manually by user
+    console.log('Browser control released. Please close the VNC window manually if still open.');
+    
+  } catch (error) {
+    console.error('Error releasing browser control:', error);
+    alert('Error releasing browser control: ' + error.message);
+  }
+}
+
+// Make functions available globally
+globalThis.takeControl = takeControl;
+globalThis.releaseControl = releaseControl;
+
+function updateBrowserControlButtons() {
+  const takeControlBtn = document.getElementById('take-control-btn');
+  const releaseControlBtn = document.getElementById('release-control-btn');
+
+  if (browserControlActive) {
+      takeControlBtn.style.display = 'none';
+      releaseControlBtn.style.display = 'flex';
+  } else {
+      takeControlBtn.style.display = 'flex';
+      releaseControlBtn.style.display = 'none';
+  }
+}
+
+function addBrowserControlButton(messageContainer, kvps) {
+  // Check if this browser message has an active browser session
+  const hasActiveBrowser = kvps && (kvps.screenshot || kvps.message);
+  
+  if (!hasActiveBrowser) return;
+  
+  // Check if button already exists
+  if (messageContainer.querySelector('.browser-control-section')) return;
+  
+  const messageBody = messageContainer.querySelector('.message-body');
+  if (!messageBody) return;
+  
+  // Create browser control section with VNC modal integration
+  // const controlSection = document.createElement('div');
+  // controlSection.className = 'browser-control-section';
+  // controlSection.style.cssText = `
+  //   margin-top: 15px; 
+  //   padding: 12px; 
+  //   border: 1px solid var(--color-border-light); 
+  //   border-radius: 6px; 
+  //   background-color: var(--color-background-light);
+  //   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  // `;
+  
+  // controlSection.innerHTML = `
+  //   <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+  //     <div style="display: flex; align-items: center; gap: 8px;">
+  //       <span style="font-size: 20px;">🌐</span>
+  //       <div>
+  //         <div style="font-weight: 600; color: var(--text-primary-light); margin-bottom: 2px;">
+  //           Browser Session Active
+  //         </div>
+  //         <div style="font-size: 0.85em; color: var(--text-secondary-light);">
+  //           Click to take manual control for captchas, logins, etc.
+  //         </div>
+  //       </div>
+  //     </div>
+  //     <div style="display: flex; gap: 8px; align-items: center;">
+  //       <button class="vnc-control-btn vnc-btn-primary" onclick="openBrowserControlModal()" 
+  //               style="
+  //                 padding: 8px 16px; 
+  //                 background: linear-gradient(135deg, #4CAF50, #45a049); 
+  //                 color: white; 
+  //                 border: none; 
+  //                 border-radius: 4px; 
+  //                 cursor: pointer;
+  //                 font-weight: 500;
+  //                 font-size: 0.9rem;
+  //                 display: flex;
+  //                 align-items: center;
+  //                 gap: 6px;
+  //                 transition: all 0.2s ease;
+  //                 box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+  //               "
+  //               onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 3px 8px rgba(76, 175, 80, 0.4)';"
+  //               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(76, 175, 80, 0.3)';">
+  //         🎮 Take Control
+  //       </button>
+  //       <button class="vnc-control-btn vnc-btn-secondary" onclick="takeControl()" 
+  //               style="
+  //                 padding: 8px 16px; 
+  //                 background: var(--color-border-light); 
+  //                 color: var(--text-secondary-light); 
+  //                 border: 1px solid var(--color-border-light); 
+  //                 border-radius: 4px; 
+  //                 cursor: pointer;
+  //                 font-size: 0.85rem;
+  //                 transition: all 0.2s ease;
+  //               "
+  //               onmouseover="this.style.backgroundColor='var(--color-border-dark)'"
+  //               onmouseout="this.style.backgroundColor='var(--color-border-light)'">
+  //         DevTools (Legacy)
+  //       </button>
+  //     </div>
+  //   </div>
+  // `;
+  
+//   messageBody.appendChild(controlSection);
+// }
+
+// Legacy browser window functions - kept for compatibility but simplified
+globalThis.openBrowserWindow = function() {
+  // Redirect to use the main takeControl function
+  takeControl();
+}
+
+globalThis.closeBrowserWindow = function() {
+  // Redirect to use the main releaseControl function
+  releaseControl();
+};
 }

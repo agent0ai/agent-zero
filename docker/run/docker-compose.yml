@@ -5,4 +5,13 @@ services:
     volumes:
       - ./agent-zero:/a0
     ports:
-      - "50080:80"
+      - "50080:80"      # Main web interface
+      - "59000:9000"    # Chrome DevTools
+      - "59001:9001"    # Chrome DevTools (secondary)
+      - "59002:9002"    # Chrome DevTools (tertiary) 
+      - "55900:5900"    # VNC server
+      - "56080:6080"    # WebSocket proxy / noVNC
+    environment:
+      - DISPLAY=:99
+    # Enable shared memory for Chrome
+    shm_size: 2g

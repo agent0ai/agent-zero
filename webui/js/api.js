@@ -82,3 +82,25 @@ async function getCsrfToken() {
   document.cookie = `csrf_token_${response.runtime_id}=${csrfToken}; SameSite=Strict; Path=/`;
   return csrfToken;
 }
+
+// Export api object for backward compatibility
+export const api = {
+  callJsonApi,
+  fetchApi,
+  message: async function(command, type = 'tool_code') {
+    // Use the proper message endpoint
+    const data = {
+      text: command,
+      context: globalThis.getContext ? globalThis.getContext() : null,
+      message_id: Date.now() + Math.random()
+    };
+    
+    return await fetchApi('/message_async', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+  }
+};

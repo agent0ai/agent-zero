@@ -8,7 +8,48 @@ from agent import AgentContext
 from initialize import initialize_agent
 from python.helpers.print_style import PrintStyle
 from python.helpers.errors import format_error
+
+
 from werkzeug.serving import make_server
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles objects with to_dict() methods."""
+    def default(self, obj):
+        # Try to_dict method first
+        if hasattr(obj, 'to_dict') and callable(obj.to_dict):
+            try:
+                return obj.to_dict()
+            except Exception:
+                pass
+        
+        # Try output method (for LogItem)
+        if hasattr(obj, 'output') and callable(obj.output):
+            try:
+                return obj.output()
+            except Exception:
+                pass
+        
+        # For dataclasses, convert to dict
+        if hasattr(obj, '__dataclass_fields__'):
+            try:
+                from dataclasses import asdict
+                return asdict(obj)
+            except Exception:
+                pass
+        
+        # For objects with __dict__, use that
+        if hasattr(obj, '__dict__'):
+            try:
+                return obj.__dict__
+            except Exception:
+                pass
+        
+        # Convert to string as last resort
+        try:
+            return str(obj)
+        except Exception:
+            return f"<{obj.__class__.__name__} object>"
 
 Input = dict
 Output = Union[Dict[str, Any], Response, TypedDict]  # type: ignore
@@ -66,7 +107,7 @@ class ApiHandler:
             if isinstance(output, Response):
                 return output
             else:
-                response_json = json.dumps(output)
+                response_json = json.dumps(output, cls=CustomJSONEncoder)
                 return Response(
                     response=response_json, status=200, mimetype="application/json"
                 )
