@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/app/run_ui.py", line 1, in <module>
+    from database import database # Added this line for our project
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/database/database.py", line 1, in <module>
+    from sqlalchemy import create_engine
+ModuleNotFoundError: No module named 'sqlalchemy'

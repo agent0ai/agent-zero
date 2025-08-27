@@ -9,35 +9,80 @@
    Modernized Color Palettes
    ========================================================================== */
 
+:root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 16 84% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 180 65% 60%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 200 70% 60%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+}
+
+.dark-mode {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 16 84% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 180 65% 60%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 200 70% 60%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+}
+
 /* Modernized Light Theme (Desert Orange) */
 .light-mode {
-  --color-background-light: #fff5e6; /* Sandy off-white background */
-  --color-text-light: #5c4033; /* Dark brown for text */
-  --color-primary-light: #d97706; /* A rich orange for primary elements */
-  --color-secondary-light: #ffecd9; /* Lighter orange for secondary elements */
-  --color-accent-light: #c2410c; /* A deeper orange for accents */
-  --color-message-bg-light: #ffecd9; /* Light orange for message backgrounds */
-  --color-message-text-light: #5c4033; /* Dark brown for message text */
-  --color-panel-light: #fffaf0; /* A very light, almost white, orange for panels */
-  --color-border-light: #e6d5c2; /* Soft brown for borders */
-  --color-input-light: #fff5e6; /* Sandy off-white for input background */
-  --color-input-focus-light: #fffaf0; /* Lighter panel color on focus */
+  --color-background-light: hsl(var(--background));
+  --color-text-light: hsl(var(--foreground));
+  --color-primary-light: hsl(var(--primary));
+  --color-secondary-light: hsl(var(--secondary));
+  --color-accent-light: hsl(var(--accent));
+  --color-message-bg-light: hsl(var(--muted));
+  --color-message-text-light: hsl(var(--muted-foreground));
+  --color-panel-light: hsl(var(--card));
+  --color-border-light: hsl(var(--border));
+  --color-input-light: hsl(var(--input));
+  --color-input-focus-light: hsl(var(--ring));
 }
 
 /* Modernized Dark Theme */
 .dark-mode {
-  --color-background-dark: #1a1b26;
-  --color-text-dark: #a9b1d6;
-  --color-primary-dark: #7aa2f7;
-  --color-secondary-dark: #2a2e3a;
-  --color-accent-dark: #f7768e;
-  --color-message-bg-dark: #2a2e3a;
-  --color-message-text-dark: #a9b1d6;
-  --color-panel-dark: #24283b;
-  --color-border-dark: #414868;
-  --color-input-dark: #1e1e2e;
-  --color-input-focus-dark: #2a2e3a;
+  --color-background-dark: hsl(var(--background));
+  --color-text-dark: hsl(var(--foreground));
+  --color-primary-dark: hsl(var(--primary));
+  --color-secondary-dark: hsl(var(--secondary));
+  --color-accent-dark: hsl(var(--accent));
+  --color-message-bg-dark: hsl(var(--muted));
+  --color-message-text-dark: hsl(var(--muted-foreground));
+  --color-panel-dark: hsl(var(--card));
+  --color-border-dark: hsl(var(--border));
+  --color-input-dark: hsl(var(--input));
+  --color-input-focus-dark: hsl(var(--ring));
 }
+
 
 /* ==========================================================================
    Animations and Transitions

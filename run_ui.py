@@ -147,6 +147,45 @@ def csrf_protect(f):
     return decorated
 
 
+import jwt
+from flask import send_from_directory
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            token = request.headers['Authorization'].split(" ")[1]
+
+        if not token:
+            # Check for token in cookies if not in header
+            token = request.cookies.get('jwt_token')
+
+        if not token:
+            return Response('Token is missing!', 401, {'WWW-Authenticate': 'Bearer realm="Login Required"'})
+
+        try:
+            secret_key = os.environ.get('SECRET_KEY', 'a-very-secret-key-that-should-be-in-env')
+            data = jwt.decode(token, secret_key, algorithms=["HS256"])
+            # The user is authenticated, you can get user info from data if needed
+            # For example: current_user = crud.get_user(db, user_id=data['user_id'])
+        except jwt.ExpiredSignatureError:
+            return Response('Token has expired!', 401, {'WWW-Authenticate': 'Bearer realm="Token expired"'})
+        except jwt.InvalidTokenError:
+            return Response('Token is invalid!', 401, {'WWW-Authenticate': 'Bearer realm="Token invalid"'})
+
+        return f(*args, **kwargs)
+    return decorated
+
+@webapp.route('/app', defaults={'path': ''})
+@webapp.route('/app/<path:path>')
+@token_required
+def serve_app(path):
+    if path != "" and os.path.exists(os.path.join(get_abs_path('./old_webui'), path)):
+        return send_from_directory(get_abs_path('./old_webui'), path)
+    else:
+        return send_from_directory(get_abs_path('./old_webui'), 'index.html')
+
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
 @requires_auth
@@ -176,6 +215,7 @@ def run():
     from werkzeug.serving import make_server
     from werkzeug.middleware.dispatcher import DispatcherMiddleware
     from a2wsgi import ASGIMiddleware
+    from database.database import init_db
 
     PrintStyle().print("Starting server...")
 
@@ -240,6 +280,7 @@ def run():
 
     # Start init_a0 in a background thread when server starts
     # threading.Thread(target=init_a0, daemon=True).start()
+    init_db()
     init_a0()
 
     # run the server
@@ -264,5 +305,4 @@ def init_a0():
 if __name__ == "__main__":
     runtime.initialize()
     dotenv.load_dotenv()
-    database.init_db() # Added this line for our project
     run()

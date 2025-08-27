@@ -1,23 +1,19 @@
-from python.helpers.api import ApiHandler, Input, Output
+from python.helpers.api import ApiHandler
+from database.database import get_db
 from database import crud, schemas
-from database.database import SessionLocal
-from flask import Request, Response, json
+from sqlalchemy.orm import Session
 
 class ApiRegister(ApiHandler):
-    @classmethod
-    def requires_auth(cls):
-        return False
-
-    async def process(self, input: Input, request: Request) -> Output:
-        db = SessionLocal()
+    def requires_auth(self): return False
+    def requires_csrf(self): return False
+    async def handle_request(self, request):
+        json_data = request.get_json()
         try:
-            user_schema = schemas.UserCreate(**input)
-
-            db_user = crud.get_user_by_email(db, email=user_schema.email)
-            if db_user:
-                return Response(response=json.dumps({"message": "Email already registered"}), status=400, mimetype="application/json")
-
-            new_user = crud.create_user(db=db, user_schema=input)
-            return Response(response=json.dumps({"message": f"User {new_user.email} created successfully"}), status=201, mimetype="application/json")
-        finally:
-            db.close()
+            user_data = schemas.UserCreate(**json_data)
+        except Exception:
+            return self.json_response({"message": "Invalid data format"}, status_code=400)
+        db: Session = next(get_db())
+        if crud.get_user_by_email(db, email=user_data.email):
+            return self.json_response({"message": "Email already registered"}, status_code=409)
+        new_user = crud.create_user(db=db, user=user_data)
+        return self.json_response({"message": "User registered successfully", "user_id": new_user.id}, status_code=201)

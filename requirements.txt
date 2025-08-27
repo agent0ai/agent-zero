@@ -43,4 +43,7 @@ pathspec>=0.12.1
 psutil>=7.0.0
 soundfile==0.13.1
 PyJWT==2.8.0
+SQLAlchemy==2.0.31
+pydantic==2.10.4
+passlib[bcrypt]
 
