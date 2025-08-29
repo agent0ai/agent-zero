@@ -13,7 +13,6 @@
   -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   scrollbar-width: thin;
-  scrollbar-color: #555 transparent;
 }
 
 #chat-history > *:first-child {
