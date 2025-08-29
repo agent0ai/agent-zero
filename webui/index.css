@@ -486,12 +486,13 @@ h4 {
 #logo-container a {
   color: inherit;
   text-decoration: none;
+  padding-top: 0.4rem;
 }
 
 #logo-container img {
   border-radius: var(--spacing-xs);
   width: auto;
-  height: 2.6rem;
+  height: 1.7rem;
   -webkit-transition: filter 0.3s ease;
   transition: filter 0.3s ease;
 }
