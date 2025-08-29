@@ -891,6 +891,17 @@ h4 {
   color: rgba(253, 253, 253, 0.35);
 }
 
+/* delete chat buttons hidden only on desktop, not mobile */
+@media (hover: hover) {
+  .edit-button.delete-chat {
+    opacity: 0;
+  }
+
+  .edit-button.delete-chat:hover {
+    opacity: 1;
+  }
+}
+
 /* Input section layout */
 #input-section {
   display: flex;
