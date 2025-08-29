@@ -257,9 +257,10 @@ img {
 
 /* Update the chat-list-button padding to accommodate the vertical layout */
 .chat-list-button {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 8px 5px;
+  padding: 6px 6px 6px 14px;
   cursor: pointer;
   overflow: hidden;
   position: relative;
@@ -267,10 +268,9 @@ img {
   transition: background-color 0.2s ease-in-out;
 }
 
-/* Add some more padding to the list items to accommodate the vertical layout */
+/* If its needed */
 .chat-list-button.has-task-container {
-  padding-top: 6px;
-  padding-bottom: 6px;
+
 }
 
 /* Subtle background on hover for the entire row */
@@ -288,11 +288,10 @@ img {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 3px 0;
   cursor: pointer;
-  padding: 0px 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
-  margin-right: 60px; /* Make space for buttons */
   font-size: var(--font-size-small); /* Match config button font size */
 }
 
@@ -316,6 +315,7 @@ img {
   background: linear-gradient(to bottom, calc(100% - 20px), transparent 100%);
   /* Add padding to account for fade */
   padding-bottom: 20px;
+  padding-right: 5px;
   scrollbar-width: thin;
   -ms-overflow-style: auto;
 }
@@ -345,7 +345,7 @@ img {
   flex-direction: column;
   min-height: 0;
   flex: 1;
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 /* Preferences */
@@ -1867,7 +1867,7 @@ a:active {
 .tasks-list-container {
   max-height: 300px;
   overflow-y: auto;
-  margin-top: 10px;
+  margin-top: 0.2rem;
   padding-right: 5px;
   border-radius: 5px;
   position: relative;
@@ -1894,13 +1894,13 @@ a:active {
 }
 
 .task-name {
-  display: block;
+  display: flex;
+  align-self: center;
   width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 3px 0;
-  margin-left: 10px;
   cursor: pointer;
   border-radius: 4px;
   transition: background-color 0.2s;
@@ -1914,7 +1914,6 @@ a:active {
   align-items: center;
   width: 100%;
   margin-top: 2px;
-  margin-left: 5px;
 }
 
 /* Dark mode overrides */
