@@ -551,21 +551,6 @@ h4 {
   margin-left: 4.6rem;
 }
 
-
-
-/* Input Section */
-#input-section {
-  position: relative;
-  background-color: var(--color-panel);
-  display: -webkit-flex;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: 0.8rem var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
-  align-items: start;
-  flex-shrink: 0;
-}
-
 /* Preview section with unified tile system */
 .preview-section {
   display: grid;
@@ -900,8 +885,12 @@ h4 {
 
 /* Input section layout */
 #input-section {
+  position: relative;
   display: flex;
+  display: -webkit-flex;
   flex-direction: column;
+  flex-shrink: 0;
+  align-items: start;
   gap: var(--spacing-xs);
   padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) 0.8rem;
   background-color: var(--color-panel);
