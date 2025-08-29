@@ -65,7 +65,7 @@
   --font-family-code: "Roboto Mono", monospace;
 
   /* Other variables */
-  --border-radius: 1.125rem;
+  --message-border-radius: 0.75rem;
   --transition-speed: 0.3s;
   --svg-filter: brightness(0) saturate(100%) var(--color-primary-filter);
   --color-primary-filter: invert(73%) sepia(17%) saturate(360%)

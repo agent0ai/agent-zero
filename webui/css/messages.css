@@ -116,7 +116,7 @@
 }
 
 .message-followup .message {
-  border-radius: 1.125em; /* 18px */
+  border-radius: var(--message-border-radius);
   /* border-top-left-radius: var(--spacing-xxs); */
 }
 
@@ -630,8 +630,8 @@
 
 .message {
   /* background-color: var(--color-message-bg); */
-  border-radius: var(--border-radius);
-  padding: 0.9rem var(--spacing-sm) 0.7rem var(--spacing-sm);
+  border-radius: var(--message-border-radius);
+  padding: 1rem 1.25rem 0.9rem 1.25rem;
   overflow-x: auto;
   width: auto;
   max-width: 100%;
