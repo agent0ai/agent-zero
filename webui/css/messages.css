@@ -625,7 +625,7 @@
   -webkit-animation: fadeIn 0.5s;
   /* margin-bottom: var(--spacing-sm); */
   width: 100%;
-  max-width: 100%;
+  max-width: 50rem; /* limit message width to maintain a readable line length */
 }
 
 .message {
