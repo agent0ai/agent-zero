@@ -77,7 +77,7 @@
 }
 
 .message-user {
-  background-color: #4a4a4a;
+  background-color: #343434;
   /* border-bottom-right-radius: var(--spacing-xxs); */
   /* min-width: 195px; */
   text-align: end;
@@ -148,7 +148,7 @@
 
 .message-agent-response {
   min-width: 255px;
-  background-color: #1f3c1e;
+  background-color: #343434; /* same as user */
 }
 
 .message-agent-delegation {
@@ -198,11 +198,11 @@
 }
 
 .message-warning {
-  background-color: #bc8036;
+  background-color: #865e2d;
 }
 
 .message-error {
-  background-color: #af2222;
+  background-color: #972424;
 }
 
 .message-code-exe .message-body {
