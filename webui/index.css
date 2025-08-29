@@ -2020,7 +2020,7 @@ a:active {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
   border-radius: 6px;
 }
 
@@ -2041,12 +2041,12 @@ a:active {
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) rgba(0, 0, 0, 0.2);
+  scrollbar-color: var(--color-border) transparent;
 }
 
 /* Light mode scrollbar */
 .light-mode ::-webkit-scrollbar-track {
-  background: rgba(200, 200, 200, 0.3);
+  background: transparent;
 }
 
 .light-mode ::-webkit-scrollbar-thumb {
@@ -2062,7 +2062,7 @@ a:active {
 }
 
 .light-mode * {
-  scrollbar-color: var(--color-border) rgba(200, 200, 200, 0.3);
+  scrollbar-color: var(--color-border) transparent;
 }
 
 /* Add specific styling for selected chat items */
