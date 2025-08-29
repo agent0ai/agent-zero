@@ -275,11 +275,11 @@ img {
 
 /* Subtle background on hover for the entire row */
 .chat-list-button:hover {
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .light-mode .chat-list-button:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .chat-name {
@@ -294,16 +294,6 @@ img {
   transition: background-color 0.2s;
   margin-right: 60px; /* Make space for buttons */
   font-size: var(--font-size-small); /* Match config button font size */
-}
-
-/* Add a nice hover effect to just the chat name */
-.chat-name:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  text-decoration: none;
-}
-
-.light-mode .chat-name:hover {
-  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .chats-list-container {
@@ -1427,10 +1417,6 @@ input:checked + .slider:before {
   color: #e40138;
 }
 
-.font-bold {
-  font-weight: bold;
-}
-
 
 
 
@@ -1920,15 +1906,6 @@ a:active {
   margin-left: 5px;
 }
 
-.task-name:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  text-decoration: none;
-}
-
-.light-mode .task-name:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
 /* Dark mode overrides */
 .light-mode .tab.active {
   color: var(--highlight-pink);
@@ -2067,12 +2044,11 @@ a:active {
 }
 
 /* Add specific styling for selected chat items */
-.chat-list-button.font-bold {
-  position: relative;
-  background-color: var(--color-border) 0.05;
+.selected {
+    font-weight: bold;
 }
 
-.chat-list-button.font-bold::before {
+.chat-list-button.selected::before {
   content: "";
   position: absolute;
   left: 0;
@@ -2082,13 +2058,10 @@ a:active {
   background-color: #2196f3;
   border-top-left-radius: 3px;
   border-bottom-left-radius: 3px;
+
 }
 
-.light-mode .chat-list-button.font-bold {
-  background-color: var(--color-border) 0.05;
-}
-
-.light-mode .chat-list-button.font-bold::before {
+.light-mode .chat-list-button.selected::before {
   background-color: #2196f3;
 }
 
