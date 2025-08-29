@@ -1970,7 +1970,6 @@ a:active {
 
 .tab:not(.active) {
   opacity: 0.8;
-  border-bottom: 3px solid var(--color-border);
   background-color: rgba(255, 255, 255, 0.03);
 }
 
