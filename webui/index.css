@@ -2078,7 +2078,7 @@ a:active {
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: var(--color-border);
+  background-color: #2196f3;
   border-top-left-radius: 3px;
   border-bottom-left-radius: 3px;
 }
@@ -2088,7 +2088,7 @@ a:active {
 }
 
 .light-mode .chat-list-button.font-bold::before {
-  background-color: var(--color-border);
+  background-color: #2196f3;
 }
 
 /* Make sure the chat container has proper spacing */
