@@ -1218,7 +1218,7 @@ h4 {
 
 .chat-button {
   border: none;
-  border-radius: 50%;
+  border-radius: 25%;
   color: var(--color-background);
   cursor: pointer;
   font-size: var(--font-size-normal);
