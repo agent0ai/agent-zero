@@ -497,7 +497,7 @@ h4 {
 }
 
 #progress-bar-box {
-  background-color: var(--color-panel);
+  background-color: var(--color-background);
   padding: var(--spacing-sm) var(--spacing-md);
   padding-bottom: 0;
   display: flex;
@@ -893,7 +893,7 @@ h4 {
   align-items: start;
   gap: var(--spacing-xs);
   padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) 0.8rem;
-  background-color: var(--color-panel);
+  background-color: var(--color-background);
   z-index: 1001;
 }
 
