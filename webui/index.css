@@ -811,7 +811,7 @@ h4 {
 
 #chat-input::placeholder {
   color: var(--color-text-muted);
-  opacity: 0.7;
+  opacity: 0.25;
 }
 
 /* Config Section */
