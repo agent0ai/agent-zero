@@ -289,7 +289,7 @@ img {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
-  padding: 3px 8px;
+  padding: 0px 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
   margin-right: 60px; /* Make space for buttons */
@@ -833,7 +833,6 @@ h4 {
   display: -webkit-flex;
   display: flex;
   justify-content: space-between;
-  padding: 0.35rem 0;
 }
 
 .config-list > *:first-child {
@@ -842,6 +841,7 @@ h4 {
 
 #pref-list li {
   opacity: 0.8;
+  padding: 0.2rem 0;
 }
 
 .config-button {
@@ -883,11 +883,11 @@ h4 {
   border-radius: 0.1875rem;
   color: var(--color-primary);
   cursor: pointer;
-  padding: 0.125rem 0.5rem;
+  padding: 0 0.5rem;
   -webkit-transition: all var(--transition-speed) ease-in-out;
   transition: all var(--transition-speed) ease-in-out;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.5rem;
 }
 
 .edit-button:hover {
