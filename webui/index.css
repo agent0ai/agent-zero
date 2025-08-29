@@ -806,8 +806,6 @@ h4 {
 
 #chat-input:focus {
   outline: 0.05rem solid rgba(155, 155, 155, 0.5);
-  font-size: 0.955rem;
-  padding-top: 0.45rem;
   background-color: var(--color-input-focus);
 }
 
@@ -1243,9 +1241,6 @@ h4 {
 }
 
 #send-button:hover {
-  -webkit-transform: scale(1.05);
-  transform: scale(1.05);
-  transform-origin: center;
   background-color: #353bc5;
 }
 
