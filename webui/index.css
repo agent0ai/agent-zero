@@ -906,6 +906,8 @@ h4 {
   max-width: 50rem; /* limit width to maintain a readable line-length */
   margin-left: auto; /* center */
   margin-right: auto; /* center */
+  -webkit-transition: all 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 #input-section {
