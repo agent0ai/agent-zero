@@ -799,6 +799,21 @@ globalThis.toggleUtils = async function (showUtils) {
   );
 };
 
+globalThis.toggleNarrowChat = function (isNarrow) {
+  css.toggleCssProperty(
+    "#input-section-container",
+    "max-width",
+    isNarrow ? "50rem" : "100%"
+  );
+  css.toggleCssProperty(
+    "#chat-history",
+    "max-width",
+    isNarrow ? "50rem" : "100%"
+  );
+  console.log("Narrow chat:", isNarrow);
+  localStorage.setItem("narrowChat", isNarrow);
+};
+
 globalThis.toggleDarkMode = function (isDark) {
   if (isDark) {
     document.body.classList.remove("light-mode");
@@ -871,6 +886,9 @@ globalThis.restart = async function () {
 document.addEventListener("DOMContentLoaded", () => {
   const isDarkMode = localStorage.getItem("darkMode") !== "false";
   toggleDarkMode(isDarkMode);
+
+  const isNarrowChat = localStorage.getItem("narrowChat") !== "false";
+  toggleNarrowChat(isNarrowChat);
 });
 
 globalThis.loadChats = async function () {
