@@ -6,8 +6,7 @@ import socket
 import struct
 from functools import wraps
 import threading
-from flask import Flask, request, Response, session
-from flask_basicauth import BasicAuth
+from flask import Flask, request, Response, session, redirect, url_for, render_template_string
 import initialize
 from python.helpers import files, git, mcp_server, fasta2a_server
 from python.helpers.files import get_abs_path
@@ -43,7 +42,7 @@ webapp.config.update(
 lock = threading.Lock()
 
 # Set up basic authentication for UI and API but not MCP
-basic_auth = BasicAuth(webapp)
+# basic_auth = BasicAuth(webapp)
 
 
 def is_loopback_address(address):
@@ -78,7 +77,6 @@ def is_loopback_address(address):
                 if not loopback_checker[family](sockaddr[0]):
                     return False
         return True
-
 
 def requires_api_key(f):
     @wraps(f)
@@ -121,20 +119,16 @@ def requires_auth(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
-        password = dotenv.get_dotenv_value("AUTH_PASSWORD")
-        if user and password:
-            auth = request.authorization
-            if not auth or not (auth.username == user and auth.password == password):
-                return Response(
-                    "Could not verify your access level for that URL.\n"
-                    "You have to login with proper credentials",
-                    401,
-                    {"WWW-Authenticate": 'Basic realm="Login Required"'},
-                )
+        # If no auth is configured, just proceed
+        if not user:
+            return await f(*args, **kwargs)
+        
+        if not session.get('authenticated'):
+            return redirect(url_for('login'))
+        
         return await f(*args, **kwargs)
 
     return decorated
-
 
 def csrf_protect(f):
     @wraps(f)
@@ -149,6 +143,26 @@ def csrf_protect(f):
 
     return decorated
 
+@webapp.route("/login", methods=["GET", "POST"])
+async def login():
+    error = None
+    if request.method == 'POST':
+        user = dotenv.get_dotenv_value("AUTH_LOGIN")
+        password = dotenv.get_dotenv_value("AUTH_PASSWORD")
+        
+        if request.form['username'] == user and request.form['password'] == password:
+            session['authenticated'] = True
+            return redirect(url_for('serve_index'))
+        else:
+            error = 'Invalid Credentials. Please try again.'
+            
+    login_page_content = files.read_file("webui/login.html")
+    return render_template_string(login_page_content, error=error)
+
+@webapp.route("/logout")
+async def logout():
+    session.pop('authenticated', None)
+    return redirect(url_for('login'))
 
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
@@ -169,7 +183,6 @@ async def serve_index():
         version_time=gitinfo["commit_time"]
     )
     return index
-
 
 def run():
     PrintStyle().print("Initializing framework...")

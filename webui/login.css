@@ -1,0 +1,81 @@
+body {
+    background-color: #131313;
+    color: #d4d4d4;
+    font-family: "Rubik", Arial, Helvetica, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.login-form {
+    background-color: #1a1a1a;
+    padding: 2rem;
+    border-radius: 1.125rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 0.3125rem; /* Match the main page logo style */
+    margin-bottom: 1rem;
+}
+
+h2 {
+    margin-bottom: 2rem;
+}
+
+.input-group {
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #737a81;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #444444a8;
+    border-radius: 0.5rem;
+    background-color: #131313;
+    color: #d4d4d4;
+    font-size: 1rem;
+    box-sizing: border-box; /* Added for consistent padding */
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 0.5rem;
+    background-color: #4248f1;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #353bc5;
+}
+
+.error {
+    color: #cf6679;
+    margin-top: 1rem;
+}
