@@ -1,0 +1,385 @@
+<html>
+
+<head>
+    <title>Memory Details</title>
+</head>
+
+<style>
+    /* Memory Detail Modal Styles */
+    .modal-header-enhanced {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 1.5rem;
+        border-bottom: 2px solid var(--color-border);
+        background: var(--color-panel);
+    }
+
+    .memory-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .area-badge-large {
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .memory-meta-quick {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .timestamp-badge, .source-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        color: var(--color-text);
+        opacity: 0.8;
+    }
+
+    .source-badge.knowledge {
+        background: rgba(115, 122, 129, 0.1);
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+        opacity: 1;
+    }
+
+    .source-badge.conversation {
+        background: rgba(101, 101, 101, 0.1);
+        color: var(--color-text);
+        opacity: 0.8;
+        border-color: var(--color-border);
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-action-header {
+        background: var(--color-background);
+        border: 1px solid var(--color-border);
+        color: var(--color-text);
+        padding: 0.5rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-action-header:hover {
+        border-color: var(--color-primary);
+        background: var(--color-panel);
+    }
+
+    .modal-body-enhanced {
+        display: flex;
+        min-height: 60vh;
+        max-height: 70vh;
+    }
+
+    .content-section-main {
+        flex: 1;
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .content-block {
+        margin-bottom: 2rem;
+    }
+
+    .content-block h4 {
+        margin: 0 0 1rem 0;
+        color: var(--color-text);
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: 0.5rem;
+    }
+
+    .memory-content-display {
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        line-height: 1.6;
+        color: var(--color-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .tags-display {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .tag-display {
+        background: var(--color-primary);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .metadata-sidebar {
+        min-width: 300px;
+        max-width: 350px;
+        background: var(--color-panel);
+        border-left: 1px solid var(--color-border);
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .metadata-sidebar h4 {
+        margin: 0 0 1rem 0;
+        color: var(--color-text);
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .metadata-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .metadata-group h5 {
+        margin: 0 0 0.75rem 0;
+        color: var(--color-text);
+        opacity: 0.7;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .metadata-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem;
+        background: var(--color-background);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+    }
+
+    .metadata-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text);
+        opacity: 0.7;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .metadata-value {
+        font-size: 0.9rem;
+        color: var(--color-text);
+        word-break: break-all;
+        line-height: 1.4;
+    }
+
+    .source-file-display {
+        font-family: monospace;
+        background: var(--color-panel);
+        padding: 0.5rem;
+        border-radius: 4px;
+        border: 1px solid var(--color-border);
+    }
+
+    .metadata-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .metadata-actions .btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        justify-content: flex-start;
+        font-size: 0.9rem;
+    }
+
+    /* Responsive design for modal */
+    @media (max-width: 768px) {
+        .modal-body-enhanced {
+            flex-direction: column;
+            max-height: 80vh;
+        }
+
+        .metadata-sidebar {
+            min-width: unset;
+            max-width: unset;
+            border-left: none;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .modal-header-enhanced {
+            padding: 1rem;
+        }
+
+        .memory-title {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .content-section-main,
+        .metadata-sidebar {
+            padding: 1rem;
+        }
+    }
+</style>
+
+<body>
+    <div x-data>
+        <template x-if="$store.memoryDashboardStore && $store.memoryDashboardStore.detailMemory">
+            <div>
+                <!-- Modal Header with Memory Info -->
+                <div class="modal-header-enhanced">
+                    <div class="header-left">
+                        <div class="memory-title">
+                            <span class="area-badge-large"
+                                  :style="`background-color: ${$store.memoryDashboardStore.getAreaColor($store.memoryDashboardStore.detailMemory?.area)}`"
+                                  x-text="$store.memoryDashboardStore.detailMemory?.area?.toUpperCase() || 'UNKNOWN'"></span>
+                        </div>
+                        <div class="memory-meta-quick">
+                            <span class="timestamp-badge" x-text="$store.memoryDashboardStore.formatTimestamp($store.memoryDashboardStore.detailMemory?.timestamp, true)"></span>
+                            <span class="source-badge"
+                                  :class="$store.memoryDashboardStore.detailMemory?.knowledge_source ? 'knowledge' : 'conversation'"
+                                  x-text="$store.memoryDashboardStore.detailMemory?.knowledge_source ? 'Knowledge' : 'Conversation'"></span>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-action-header copy" @click="$store.memoryDashboardStore.copyToClipboard($store.memoryDashboardStore.formatMemoryForCopy($store.memoryDashboardStore.detailMemory))"
+                                title="Copy Complete Memory with Metadata">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="modal-body-enhanced">
+                    <!-- Main Content Section -->
+                    <div class="content-section-main">
+                        <div class="content-block">
+                            <h4>Memory Content</h4>
+                            <div class="memory-content-display" x-text="$store.memoryDashboardStore.detailMemory?.content_full"></div>
+                        </div>
+
+                        <!-- Tags Section -->
+                        <div class="content-block" x-show="$store.memoryDashboardStore.detailMemory?.tags && $store.memoryDashboardStore.detailMemory.tags.length > 0">
+                            <h4>Tags</h4>
+                            <div class="tags-display">
+                                <template x-for="tag in $store.memoryDashboardStore.detailMemory?.tags || []" :key="tag">
+                                    <span class="tag-display" x-text="tag"></span>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metadata Sidebar -->
+                    <div class="metadata-sidebar">
+                        <h4>Metadata</h4>
+
+                        <!-- Basic Info -->
+                        <div class="metadata-group">
+                            <div class="metadata-item">
+                                <span class="metadata-label">ID:</span>
+                                <span class="metadata-value" x-text="$store.memoryDashboardStore.detailMemory?.id || 'N/A'"></span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Area:</span>
+                                <span class="metadata-value" x-text="$store.memoryDashboardStore.detailMemory?.area || 'N/A'"></span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Source:</span>
+                                <span class="metadata-value" x-text="$store.memoryDashboardStore.detailMemory?.knowledge_source ? 'Knowledge' : 'Conversation'"></span>
+                            </div>
+                        </div>
+
+                        <!-- Timestamps -->
+                        <div class="metadata-group">
+                            <h5>Timestamps</h5>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Created:</span>
+                                <span class="metadata-value" x-text="$store.memoryDashboardStore.formatTimestamp($store.memoryDashboardStore.detailMemory?.timestamp, false)"></span>
+                            </div>
+                        </div>
+
+                        <!-- Source Information -->
+                        <div class="metadata-group" x-show="$store.memoryDashboardStore.detailMemory?.source_file">
+                            <h5>Source File</h5>
+                            <div class="metadata-item">
+                                <span class="metadata-value source-file-display" x-text="$store.memoryDashboardStore.detailMemory?.source_file"></span>
+                            </div>
+                        </div>
+
+                        <!-- All Custom Metadata -->
+                        <div class="metadata-group" x-show="$store.memoryDashboardStore.detailMemory?.metadata && Object.keys($store.memoryDashboardStore.detailMemory.metadata).length > 0">
+                            <h5>Additional Metadata</h5>
+                            <template x-for="[key, value] in Object.entries($store.memoryDashboardStore.detailMemory?.metadata || {})" :key="key">
+                                <div class="metadata-item">
+                                    <span class="metadata-label" x-text="key + ':'"></span>
+                                    <span class="metadata-value" x-text="typeof value === 'object' ? JSON.stringify(value) : value"></span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="metadata-group">
+                            <h5>Actions</h5>
+                            <div class="metadata-actions">
+                                <button class="btn slim" @click="$store.memoryDashboardStore.copyToClipboard($store.memoryDashboardStore.formatMemoryForCopy($store.memoryDashboardStore.detailMemory))"
+                                        title="Copy Complete Memory with Metadata">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    Copy All
+                                </button>
+                                <button class="btn slim" @click="$store.memoryDashboardStore.copyToClipboard($store.memoryDashboardStore.detailMemory?.content_full)"
+                                        title="Copy Content Only">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14,2 14,8 20,8"></polyline>
+                                    </svg>
+                                    Copy Content
+                                </button>
+                                <button class="btn slim danger" @click="$store.memoryDashboardStore.deleteMemory($store.memoryDashboardStore.detailMemory)"
+                                        title="Delete Memory">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3,6 5,6 21,6"></polyline>
+                                        <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
+                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                    </svg>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

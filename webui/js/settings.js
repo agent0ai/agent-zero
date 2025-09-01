@@ -281,6 +281,8 @@ const settingsModalProxy = {
             openModal("settings/external/a2a-connection.html");
         } else if (field.id === "external_api_examples") {
             openModal("settings/external/api-examples.html");
+        } else if (field.id === "memory_dashboard") {
+            openModal("settings/memory/memory-dashboard.html");
         }
     }
 };

@@ -1,0 +1,1610 @@
+<html>
+<head>
+    <title>Memory Dashboard</title>
+    <script type="module">
+        import { store } from "/components/settings/memory/memory-dashboard-store.js";
+    </script>
+</head>
+<body>
+<div x-data>
+    <template x-if="$store.memoryDashboardStore">
+        <div x-init="
+            $store.memoryDashboardStore.initialize();
+
+            // Setup cleanup when component is removed from DOM
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList') {
+                        mutation.removedNodes.forEach((node) => {
+                            if (node.contains && node.contains($el)) {
+                                // Dashboard is being removed, cleanup polling
+                                $store.memoryDashboardStore.cleanup();
+                                observer.disconnect();
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Watch for DOM changes
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        " class="memory-dashboard">
+
+
+
+                <!-- Search and Filters -->
+                <div class="filters-section">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="memory-subdir-select">Memory Directory:</label>
+                            <select id="memory-subdir-select"
+                                    x-model="$store.memoryDashboardStore.selectedMemorySubdir"
+                                    @change="$store.memoryDashboardStore.onMemorySubdirChange()"
+                                    :disabled="$store.memoryDashboardStore.loadingSubdirs">
+                                <template x-for="subdir in $store.memoryDashboardStore.memorySubdirs" :key="subdir">
+                                    <option :value="subdir" x-text="subdir"></option>
+                                </template>
+                            </select>
+                            <span x-show="$store.memoryDashboardStore.loadingSubdirs" class="loading-text">Loading...</span>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="area-filter">Area:</label>
+                            <select id="area-filter" x-model="$store.memoryDashboardStore.areaFilter">
+                                <option value="">All Areas</option>
+                                <option value="main">Main</option>
+                                <option value="fragments">Fragments</option>
+                                <option value="solutions">Solutions</option>
+                                <option value="instruments">Instruments</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="search-input">Search:</label>
+                            <input type="text" id="search-input" x-model="$store.memoryDashboardStore.searchQuery"
+                                   placeholder="Search memory content..."
+                                   @keyup.enter="$store.memoryDashboardStore.searchMemories()" />
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="limit-input">Limit:</label>
+                            <input type="number" id="limit-input" x-model.number="$store.memoryDashboardStore.limit"
+                                   min="10" max="1000" step="10"
+                                   style="min-width: 100px;" />
+                        </div>
+
+                        <div class="filter-actions">
+                            <button class="btn primary slim" @click="$store.memoryDashboardStore.searchMemories()"
+                                    :disabled="$store.memoryDashboardStore.loading || $store.memoryDashboardStore.loadingSubdirs">
+                                <span x-show="!$store.memoryDashboardStore.initializingMemory">Search</span>
+                                <span x-show="$store.memoryDashboardStore.initializingMemory">Initializing Memory...</span>
+                            </button>
+                            <button class="btn slim" @click="$store.memoryDashboardStore.clearSearch()">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading state -->
+                <div x-show="$store.memoryDashboardStore.loading" class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <span x-show="!$store.memoryDashboardStore.initializingMemory">Searching memories...</span>
+                    <span x-show="$store.memoryDashboardStore.initializingMemory">Initializing memory database...</span>
+                </div>
+
+                <!-- Error state -->
+                <div x-show="$store.memoryDashboardStore.error" class="error-state">
+                    <span x-text="$store.memoryDashboardStore.error"></span>
+                </div>
+
+                                    <!-- Memory table -->
+                    <div x-show="!$store.memoryDashboardStore.loading && !$store.memoryDashboardStore.error"
+                         class="memory-table-container">
+
+                        <!-- Combined stats and pagination header -->
+                        <div class="stats-pagination-header" x-show="!$store.memoryDashboardStore.loading">
+                            <!-- Statistics -->
+                            <div class="memory-stats-compact">
+                                <div class="stat-item">
+                                    <span class="stat-label">DB Total:</span>
+                                    <span class="stat-value" x-text="$store.memoryDashboardStore.totalDbCount"></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Filtered:</span>
+                                    <span class="stat-value" x-text="$store.memoryDashboardStore.totalCount"></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Knowledge:</span>
+                                    <span class="stat-value" x-text="$store.memoryDashboardStore.knowledgeCount"></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Conversation:</span>
+                                    <span class="stat-value" x-text="$store.memoryDashboardStore.conversationCount"></span>
+                                </div>
+                            </div>
+
+                            <!-- Pagination controls -->
+                            <div class="pagination-controls-compact" x-show="$store.memoryDashboardStore.totalPages > 1">
+                                <div class="pagination-info-inline">
+                                    <span>Page <span x-text="$store.memoryDashboardStore.currentPage"></span>
+                                          of <span x-text="$store.memoryDashboardStore.totalPages"></span>
+                                    </span>
+                                </div>
+
+                                <div class="pagination-controls">
+                                    <button class="btn slim" @click="$store.memoryDashboardStore.prevPage()"
+                                            :disabled="$store.memoryDashboardStore.currentPage === 1">
+                                        Previous
+                                    </button>
+
+                                    <select class="page-select"
+                                            x-model.number="$store.memoryDashboardStore.currentPage"
+                                            @change="$store.memoryDashboardStore.goToPage($store.memoryDashboardStore.currentPage)">
+                                        <template x-for="page in Array.from({length: $store.memoryDashboardStore.totalPages}, (_, i) => i + 1)" :key="page">
+                                            <option :value="page" x-text="'Page ' + page"></option>
+                                        </template>
+                                    </select>
+
+                                    <button class="btn slim" @click="$store.memoryDashboardStore.nextPage()"
+                                            :disabled="$store.memoryDashboardStore.currentPage === $store.memoryDashboardStore.totalPages">
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mass action toolbar -->
+                        <div x-show="$store.memoryDashboardStore.selectedCount > 0" class="mass-action-toolbar">
+                            <div class="selection-info">
+                                <span x-text="$store.memoryDashboardStore.selectedCount"></span> memories selected
+                            </div>
+
+                            <div class="mass-actions">
+                                <button class="btn-mass copy" @click="$store.memoryDashboardStore.bulkCopyMemories()"
+                                        title="Copy Selected Content">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    Copy
+                                </button>
+
+                                <button class="btn-mass export" @click="$store.memoryDashboardStore.bulkExportMemories()"
+                                        title="Export Selected Memories">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7,10 12,15 17,10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    Export
+                                </button>
+
+                                <button class="btn-mass delete" @click="$store.memoryDashboardStore.bulkDeleteMemories()"
+                                        title="Delete Selected Memories">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3,6 5,6 21,6"></polyline>
+                                        <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
+                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                    </svg>
+                                    Delete
+                                </button>
+
+                                <button class="btn-mass clear" @click="$store.memoryDashboardStore.clearSelection()"
+                                        title="Clear Selection">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-wrapper">
+                            <table class="memory-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-select">
+                                            <input type="checkbox"
+                                                   :checked="$store.memoryDashboardStore.allSelected"
+                                                   :indeterminate="$store.memoryDashboardStore.someSelected && !$store.memoryDashboardStore.allSelected"
+                                                   @change="$store.memoryDashboardStore.toggleSelectAll()"
+                                                   title="Select/Deselect All" />
+                                        </th>
+                                        <th class="col-metadata">Metadata</th>
+                                        <th class="col-preview">Preview</th>
+                                        <th class="col-actions"></th>
+                                    </tr>
+                                </thead>
+                        <tbody>
+                            <template x-for="memory in $store.memoryDashboardStore.paginatedMemories" :key="memory.id">
+                                <tr class="memory-row" :class="{'selected': memory.selected}"
+                                    @click="$store.memoryDashboardStore.showMemoryDetails(memory)"
+                                    style="cursor: pointer;">
+                                                                        <!-- Selection checkbox -->
+                                    <td class="select-cell" @click.stop>
+                                        <input type="checkbox"
+                                               x-model="memory.selected" />
+                                    </td>
+
+                                    <!-- Metadata (merged Area, Timestamp, Source) -->
+                                    <td class="metadata-cell">
+                                        <div class="metadata-info">
+                                            <div class="metadata-row">
+                                                                                                 <span class="area-badge"
+                                                       :style="`background-color: ${$store.memoryDashboardStore.getAreaColor(memory.area)}`"
+                                                       x-text="(memory.area || 'UNKNOWN').toUpperCase()"></span>
+                                            </div>
+                                            <div class="metadata-row metadata-timestamp">
+                                                <span x-text="$store.memoryDashboardStore.formatTimestamp(memory.timestamp, true)"
+                                                      :title="$store.memoryDashboardStore.formatTimestamp(memory.timestamp, false)"></span>
+                                            </div>
+                                            <div class="metadata-row">
+                                                <template x-if="memory.knowledge_source">
+                                                    <span class="source-type knowledge">Knowledge</span>
+                                                </template>
+                                                <template x-if="!memory.knowledge_source">
+                                                    <span class="source-type conversation">Conversation</span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <!-- Content preview -->
+                                    <td class="preview-cell">
+                                        <div class="content-preview" x-text="memory.content_preview"></div>
+                                        <div class="tags" x-show="memory.tags && memory.tags.length > 0">
+                                            <template x-for="tag in memory.tags" :key="tag">
+                                                <span class="tag" x-text="tag"></span>
+                                            </template>
+                                        </div>
+                                    </td>
+
+                                                                        <!-- Actions -->
+                                    <td class="actions-cell" @click.stop>
+                                        <div class="actions-wrapper">
+                                            <button class="btn-action copy" @click="$store.memoryDashboardStore.copyToClipboard($store.memoryDashboardStore.formatMemoryForCopy(memory))"
+                                                    title="Copy Memory">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                                </svg>
+                                            </button>
+
+                                            <button class="btn-action delete" @click="$store.memoryDashboardStore.deleteMemory(memory)"
+                                                    title="Delete Memory">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="3,6 5,6 21,6"></polyline>
+                                                    <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
+                                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+
+
+
+                    </div>
+
+                                    <!-- No memories message -->
+                <div x-show="$store.memoryDashboardStore.memories.length === 0 && !$store.memoryDashboardStore.message" class="no-memories">
+                    No memories found matching the current filters.
+                </div>
+
+                <!-- Initialization message -->
+                <div x-show="$store.memoryDashboardStore.message" class="init-message">
+                    <span x-text="$store.memoryDashboardStore.message"></span>
+                </div>
+
+
+
+                    <!-- Export button -->
+                    <div class="export-section">
+                        <button class="btn slim" @click="$store.memoryDashboardStore.exportMemories()">
+                            Export Memories (JSON)
+                        </button>
+                    </div>
+                </div>
+
+
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .memory-dashboard {
+            padding: 1rem;
+            max-width: 100%;
+            background: var(--color-background);
+            color: var(--color-text);
+        }
+
+        .memory-dashboard h3 {
+            color: var(--color-text);
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+
+
+        .stats-pagination-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            border-bottom: none;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .memory-stats-compact {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .pagination-controls-compact {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.5rem;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            min-width: 80px;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--color-text);
+            opacity: 0.7;
+            margin-bottom: 0.25rem;
+        }
+
+        .light-mode .stat-label {
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--color-primary);
+        }
+
+        .filters-section {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .filter-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-text);
+        }
+
+        .filter-group input, .filter-group select {
+            padding: 0.5rem;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            color: var(--color-text);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            min-width: 200px;
+            height: 40px;
+            box-sizing: border-box;
+        }
+
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 2px rgba(115, 122, 129, 0.2);
+            background: var(--color-input-focus);
+        }
+
+        .light-mode .filter-group input:focus,
+        .light-mode .filter-group select:focus {
+            box-shadow: 0 0 0 2px rgba(56, 70, 83, 0.1);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: stretch;
+        }
+
+        .filter-actions .btn {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-text {
+            font-size: 0.85rem;
+            color: var(--color-text);
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        .loading-state, .error-state, .no-memories, .init-message {
+            text-align: center;
+            padding: 2rem;
+            color: var(--color-text);
+            opacity: 0.8;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .init-message {
+            color: var(--color-primary);
+            background: rgba(115, 122, 129, 0.2);
+            border-color: var(--color-primary);
+        }
+
+        .light-mode .init-message {
+            background: rgba(56, 70, 83, 0.1);
+        }
+
+        .error-state {
+            color: var(--color-accent);
+            background: rgba(207, 102, 121, 0.2);
+            border-color: var(--color-accent);
+        }
+
+        .light-mode .error-state {
+            background: rgba(176, 0, 32, 0.1);
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
+            min-height: 24px;
+            max-width: 24px;
+            max-height: 24px;
+            border: 3px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 0.5rem;
+            flex-shrink: 0;
+            flex-grow: 0;
+            display: inline-block;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .memory-table-container {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .memory-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        /* Fixed column widths for proper fit */
+        .col-select { width: 5%; }
+        .col-metadata { width: 25%; }
+        .col-preview { width: 60%; }
+        .col-actions { width: 10%; }
+
+        .memory-table th,
+        .memory-table td {
+            padding: 1rem 0.75rem;
+            text-align: left;
+            vertical-align: top;
+            border-bottom: 1px solid var(--color-border);
+            overflow: hidden;
+        }
+
+        /* Metadata cell styling */
+        .metadata-cell {
+            overflow: visible;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+
+        .metadata-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .metadata-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .metadata-timestamp {
+            font-size: 0.85rem;
+            color: var(--color-text);
+            font-family: monospace;
+        }
+
+        .source-type {
+            font-size: 0.8rem;
+            color: var(--color-text);
+            font-weight: 500;
+        }
+
+        /* Selection column styling */
+        .select-cell, .col-select {
+            text-align: center;
+            padding: 0.5rem !important;
+        }
+
+        .select-cell input[type="checkbox"],
+        .col-select input[type="checkbox"] {
+            cursor: pointer;
+            transform: scale(1.2);
+        }
+
+        /* Selected row styling */
+        .memory-row.selected {
+            background: rgba(115, 122, 129, 0.2);
+            border-left: 3px solid var(--color-primary);
+        }
+
+        .light-mode .memory-row.selected {
+            background: rgba(56, 70, 83, 0.1);
+        }
+
+        /* Mass action toolbar */
+        .mass-action-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: rgba(115, 122, 129, 0.2);
+            border: 1px solid var(--color-primary);
+            border-radius: 8px;
+            margin: 1rem 0;
+            animation: slideDown 0.3s ease;
+        }
+
+        .light-mode .mass-action-toolbar {
+            background: rgba(56, 70, 83, 0.1);
+        }
+
+        .selection-info {
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .mass-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-mass {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            color: var(--color-text);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn-mass:hover {
+            border-color: var(--color-primary);
+            background: var(--color-panel);
+        }
+
+        .btn-mass.copy:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .btn-mass.export:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .btn-mass.delete:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .btn-mass.clear:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .memory-table th {
+            background: var(--color-panel);
+            font-weight: 600;
+            color: var(--color-text);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .memory-table tbody tr {
+            border-bottom: 1px solid var(--color-border);
+            transition: background-color 0.2s ease;
+        }
+
+        .memory-table tbody tr:nth-child(even) {
+            background: var(--color-panel);
+        }
+
+        .memory-table tbody tr:hover {
+            background: var(--color-panel);
+        }
+
+        .memory-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .area-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .light-mode .area-badge {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .timestamp-cell {
+            font-size: 0.85rem;
+            color: var(--color-text);
+            opacity: 0.7;
+            white-space: normal;
+            word-break: break-word;
+            font-family: monospace;
+            line-height: 1.2;
+        }
+
+        .source-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            align-items: flex-start;
+        }
+
+        .source-type {
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-align: center;
+            border: 1px solid;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .source-type.knowledge {
+            background: rgba(115, 122, 129, 0.2);
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+
+        .light-mode .source-type.knowledge {
+            background: rgba(56, 70, 83, 0.1);
+            color: var(--color-primary);
+        }
+
+        .source-type.conversation {
+            background: rgba(101, 101, 101, 0.2);
+            color: var(--color-text);
+            opacity: 0.8;
+            border-color: var(--color-border);
+        }
+
+        .light-mode .source-type.conversation {
+            background: rgba(232, 234, 246, 0.5);
+            color: var(--color-text);
+            opacity: 0.9;
+        }
+
+        .source-file {
+            font-size: 0.7rem;
+            color: var(--color-text);
+            opacity: 0.7;
+            font-family: monospace;
+            background: var(--color-panel);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            border: 1px solid var(--color-border);
+            word-break: break-all;
+            white-space: normal;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+
+        .content-preview {
+            line-height: 1.4;
+            font-size: 0.9rem;
+            color: var(--color-text);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tags {
+            display: flex;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            padding: 0.2rem 0.4rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            color: var(--color-text);
+            opacity: 0.8;
+        }
+
+        .actions-cell {
+            min-width: 60px;
+            width: 60px;
+            padding: 0 !important;
+            height: 60px;
+            position: relative;
+        }
+
+        .actions-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .actions-cell .btn-action {
+            display: block;
+            margin: 0.1rem 0;
+            width: 28px;
+            height: 28px;
+        }
+
+        .btn-action {
+            background: none;
+            border: 1px solid var(--color-border);
+            padding: 0.3rem;
+            margin: 0 0.1rem;
+            cursor: pointer;
+            border-radius: 6px;
+            color: var(--color-text);
+            opacity: 0.7;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+        }
+
+        .btn-action:hover {
+            opacity: 1;
+            background: var(--color-panel);
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+            transform: translateY(-1px);
+        }
+
+        .btn-action.view:hover {
+            background: var(--color-panel);
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .btn-action.copy:hover {
+            background: var(--color-panel);
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .btn-action.delete:hover {
+            background: var(--color-panel);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+
+
+        .pagination-info-inline {
+            color: var(--color-text);
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .page-select {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            min-width: 120px;
+        }
+
+        .page-select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 2px rgba(115, 122, 129, 0.2);
+            background: var(--color-input-focus);
+        }
+
+        .light-mode .page-select:focus {
+            box-shadow: 0 0 0 2px rgba(56, 70, 83, 0.1);
+        }
+
+
+
+        .export-section {
+            text-align: center;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        /* Enhanced Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 2rem 0;
+        }
+
+        .modal-enter {
+            transition: all 0.3s ease;
+        }
+
+        .modal-enter-start {
+            opacity: 0;
+        }
+
+        .modal-enter-end {
+            opacity: 1;
+        }
+
+        .modal-leave {
+            transition: all 0.2s ease;
+        }
+
+        .modal-leave-start {
+            opacity: 1;
+        }
+
+        .modal-leave-end {
+            opacity: 0;
+        }
+
+        .memory-detail-modal {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            width: 95%;
+            max-width: 1200px;
+            max-height: 90vh;
+            min-height: 60vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: modalSlideIn 0.3s ease-out;
+            margin: 0 auto;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(20px) scale(0.95);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-header-enhanced {
+            background: var(--color-panel);
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid var(--color-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .header-left {
+            flex: 1;
+        }
+
+        .memory-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .memory-title h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .area-badge-large {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .memory-meta-quick {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .timestamp-badge {
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            opacity: 0.8;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .source-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid;
+        }
+
+        .source-badge.knowledge {
+            background: rgba(115, 122, 129, 0.1);
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+
+        .source-badge.conversation {
+            background: rgba(101, 101, 101, 0.1);
+            color: var(--color-text);
+            opacity: 0.8;
+            border-color: var(--color-border);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+
+        .btn-action-header {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            padding: 0.75rem;
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--color-secondary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-action-header:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--color-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-action-header.copy:hover {
+            background: rgba(76, 175, 80, 0.05);
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+
+        .btn-action-header.delete:hover {
+            background: rgba(244, 67, 54, 0.05);
+            border-color: #f44336;
+            color: #f44336;
+        }
+
+        .btn-close-enhanced {
+            background: rgba(207, 102, 121, 0.1);
+            border: 1px solid var(--color-accent);
+            padding: 0.75rem;
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--color-accent);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-close-enhanced:hover {
+            background: rgba(207, 102, 121, 0.15);
+            border-color: var(--color-accent);
+            transform: translateY(-1px);
+        }
+
+        .modal-body-enhanced {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .content-section-main {
+            flex: 2;
+            padding: 2rem;
+            overflow-y: auto;
+            background: var(--color-background);
+        }
+
+        .metadata-sidebar {
+            flex: 1;
+            min-width: 320px;
+            background: var(--color-panel);
+            border-left: 1px solid var(--color-border);
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .section-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .content-display {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--color-text);
+            white-space: pre-wrap;
+            max-height: 60vh;
+            overflow-y: auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .metadata-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .metadata-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .metadata-item label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metadata-item value {
+            font-size: 0.9rem;
+            color: var(--color-text);
+            background: var(--color-background);
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            word-break: break-all;
+        }
+
+        .metadata-item value.monospace {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .consolidation-badge {
+            background: var(--color-accent) !important;
+            color: white !important;
+            padding: 0.5rem 1rem !important;
+            border-radius: 20px !important;
+            font-weight: 600 !important;
+            text-transform: capitalize !important;
+            border: none !important;
+        }
+
+        .tags-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            background: var(--color-background);
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+        }
+
+        .tag-pill {
+            background: var(--color-primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .modal-overlay {
+                padding: 1rem 0;
+            }
+
+            .memory-dashboard {
+                padding: 0.5rem;
+            }
+
+            .stats-pagination-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .memory-stats-compact {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .pagination-controls-compact {
+                align-self: stretch;
+                justify-content: center;
+            }
+
+            .filter-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group input, .filter-group select {
+                min-width: unset;
+                width: 100%;
+            }
+
+            .memory-table th,
+            .memory-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.85rem;
+            }
+
+            .actions-cell {
+                min-width: 60px;
+                width: 60px;
+            }
+
+            .col-select { width: 8%; }
+            .col-metadata { width: 27%; }
+            .col-preview { width: 55%; }
+            .col-actions { width: 10%; }
+
+            .memory-detail-modal {
+                width: 98%;
+                max-height: 95vh;
+                min-height: 50vh;
+                margin: 0;
+            }
+
+            .modal-body-enhanced {
+                flex-direction: column;
+            }
+
+            .metadata-sidebar {
+                min-width: unset;
+                border-left: none;
+                border-top: 1px solid var(--color-border);
+            }
+
+            .modal-header-enhanced {
+                padding: 1rem;
+            }
+
+            .memory-title {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .content-section-main,
+            .metadata-sidebar {
+                padding: 1rem;
+            }
+
+
+
+            .pagination-controls {
+                flex-wrap: wrap;
+            }
+        }
+
+        /* Memory Detail Modal Styles */
+        .modal-header-enhanced {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 1.5rem;
+            border-bottom: 2px solid var(--color-border);
+            background: linear-gradient(135deg, var(--color-panel) 0%, var(--color-background) 100%);
+        }
+
+        .memory-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .area-badge-large {
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .memory-meta-quick {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .timestamp-badge, .source-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+        }
+
+        .source-badge.knowledge {
+            background: rgba(115, 122, 129, 0.1);
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+
+        .source-badge.conversation {
+            background: rgba(101, 101, 101, 0.1);
+            color: var(--color-text);
+            opacity: 0.8;
+            border-color: var(--color-border);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-action-header {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            padding: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action-header:hover {
+            border-color: var(--color-primary);
+            background: rgba(115, 122, 129, 0.1);
+        }
+
+        .modal-body-enhanced {
+            display: flex;
+            min-height: 60vh;
+            max-height: 70vh;
+        }
+
+        .content-section-main {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .content-block {
+            margin-bottom: 2rem;
+        }
+
+        .content-block h4 {
+            margin: 0 0 1rem 0;
+            color: var(--color-primary);
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 0.5rem;
+        }
+
+        .memory-content-display {
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            line-height: 1.6;
+            color: var(--color-text);
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .tags-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag-display {
+            background: var(--color-primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .metadata-sidebar {
+            min-width: 300px;
+            max-width: 350px;
+            background: var(--color-panel);
+            border-left: 1px solid var(--color-border);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .metadata-sidebar h4 {
+            margin: 0 0 1rem 0;
+            color: var(--color-primary);
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .metadata-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .metadata-group h5 {
+            margin: 0 0 0.75rem 0;
+            color: var(--color-text);
+            opacity: 0.7;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metadata-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem;
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+        }
+
+        .metadata-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-text);
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .metadata-value {
+            font-size: 0.9rem;
+            color: var(--color-text);
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        .source-file-display {
+            font-family: monospace;
+            background: var(--color-panel);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--color-border);
+        }
+
+        .metadata-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .metadata-actions .btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: flex-start;
+            font-size: 0.9rem;
+        }
+
+        /* Light mode adjustments for modal */
+        .light-mode .modal-header-enhanced {
+            background: linear-gradient(135deg, rgba(240, 240, 240, 0.8) 0%, rgba(255, 255, 255, 0.9) 100%);
+        }
+
+        .light-mode .memory-content-display {
+            background: rgba(248, 248, 248, 0.8);
+        }
+
+        .light-mode .metadata-sidebar {
+            background: rgba(248, 248, 248, 0.8);
+        }
+
+        .light-mode .metadata-item {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Responsive design for modal */
+        @media (max-width: 768px) {
+            .modal-body-enhanced {
+                flex-direction: column;
+                max-height: 80vh;
+            }
+
+            .metadata-sidebar {
+                min-width: unset;
+                max-width: unset;
+                border-left: none;
+                border-top: 1px solid var(--color-border);
+            }
+
+            .modal-header-enhanced {
+                padding: 1rem;
+            }
+
+            .memory-title {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .content-section-main,
+            .metadata-sidebar {
+                padding: 1rem;
+            }
+        }
+    </style>
+
+        </template>
+    </div>
+</body>
+</html>
