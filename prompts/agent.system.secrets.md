@@ -14,6 +14,7 @@ You have access to the following secrets:
 
 # Additional variables
 - use these non-sensitive variables as they are when needed
+- use plain text values without placeholder format
 <variables>
 {{vars}}
 </variables>
