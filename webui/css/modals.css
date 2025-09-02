@@ -252,6 +252,7 @@
 .section-description {
   color: var(--color-text);
   margin-bottom: 1rem;
+  line-height: 1.25;
 }
 
 /* Button Styles */
