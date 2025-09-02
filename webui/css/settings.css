@@ -30,6 +30,7 @@
   font-size: 0.875rem;
   opacity: 0.8;
   margin: 0.25rem 0 0.5rem 0;
+  line-height: 1.25;
 }
 
 /* Field Controls */
@@ -531,6 +532,7 @@ nav ul li a img {
 .section-description {
   color: var(--color-text);
   margin-bottom: 1rem;
+  line-height: 1.25;
 }
 
 /* Scheduler container - updated with guaranteed width handling */
