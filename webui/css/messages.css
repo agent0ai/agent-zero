@@ -566,6 +566,7 @@
   padding: 0.5em;
   border: 1px solid rgba(142, 142, 142, 0.1);
   border-radius: 0.3em;
+  line-height: 1.2;
 }
 
 .msg-min-max-btns {
@@ -638,6 +639,7 @@
   /* display: block; */
   word-break: break-word;
   overflow-wrap: anywhere;
+  line-height: 1.3;
 }
 
 /* shades */
