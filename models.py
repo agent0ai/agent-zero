@@ -16,6 +16,7 @@ from typing import (
 
 from litellm import completion, acompletion, embedding
 import litellm
+import openai
 
 from python.helpers import dotenv
 from python.helpers import settings
@@ -218,6 +219,31 @@ def get_rate_limiter(
     limiter.limits["input"] = input or 0
     limiter.limits["output"] = output or 0
     return limiter
+
+
+def _is_transient_litellm_error(exc: Exception) -> bool:
+    """Uses status_code when available, else falls back to exception types"""
+    # Prefer explicit status codes if present
+    status_code = getattr(exc, "status_code", None)
+    if isinstance(status_code, int):
+        if status_code in (408, 429, 500, 502, 503, 504):
+            return True
+        # Treat other 5xx as retriable
+        if status_code >= 500:
+            return True
+        return False
+
+    # Fallback to exception classes mapped by LiteLLM/OpenAI
+    transient_types = (
+        getattr(openai, "APITimeoutError", Exception),
+        getattr(openai, "APIConnectionError", Exception),
+        getattr(openai, "RateLimitError", Exception),
+        getattr(openai, "APIError", Exception),
+        getattr(openai, "InternalServerError", Exception),
+        # Some providers map overloads to ServiceUnavailable-like errors
+        getattr(openai, "APIStatusError", Exception),
+    )
+    return isinstance(exc, transient_types)
 
 
 async def apply_rate_limiter(
@@ -454,50 +480,69 @@ class LiteLLMChatWrapper(SimpleChatModel):
             self.a0_model_conf, str(msgs_conv), rate_limiter_callback
         )
 
-        # call model
-        _completion = await acompletion(
-            model=self.model_name,
-            messages=msgs_conv,
-            stream=True,
-            **{**self.kwargs, **kwargs},
-        )
+        # Prepare call kwargs and retry config (strip A0-only params before calling LiteLLM)
+        call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
+        max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
+        retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
 
         # results
         result = ChatGenerationResult()
 
-        # iterate over chunks
-        async for chunk in _completion:  # type: ignore
-            # parse chunk
-            parsed = _parse_chunk(chunk)
-            output = result.add_chunk(parsed)
+        attempt = 0
+        while True:
+            got_any_chunk = False
+            try:
+                # call model
+                _completion = await acompletion(
+                    model=self.model_name,
+                    messages=msgs_conv,
+                    stream=True,
+                    **call_kwargs,
+                )
 
-            # collect reasoning delta and call callbacks
-            if output["reasoning_delta"]:
-                if reasoning_callback:
-                    await reasoning_callback(output["reasoning_delta"], result.reasoning)
-                if tokens_callback:
-                    await tokens_callback(
-                        output["reasoning_delta"],
-                        approximate_tokens(output["reasoning_delta"]),
-                    )
-                # Add output tokens to rate limiter if configured
-                if limiter:
-                    limiter.add(output=approximate_tokens(output["reasoning_delta"]))
-            # collect response delta and call callbacks
-            if output["response_delta"]:
-                if response_callback:
-                    await response_callback(output["response_delta"], result.response)
-                if tokens_callback:
-                    await tokens_callback(
-                        output["response_delta"],
-                        approximate_tokens(output["response_delta"]),
-                    )
-                # Add output tokens to rate limiter if configured
-                if limiter:
-                    limiter.add(output=approximate_tokens(output["response_delta"]))
+                # iterate over chunks
+                async for chunk in _completion:  # type: ignore
+                    got_any_chunk = True
+                    # parse chunk
+                    parsed = _parse_chunk(chunk)
+                    output = result.add_chunk(parsed)
 
-        # return complete results
-        return result.response, result.reasoning
+                    # collect reasoning delta and call callbacks
+                    if output["reasoning_delta"]:
+                        if reasoning_callback:
+                            await reasoning_callback(output["reasoning_delta"], result.reasoning)
+                        if tokens_callback:
+                            await tokens_callback(
+                                output["reasoning_delta"],
+                                approximate_tokens(output["reasoning_delta"]),
+                            )
+                        # Add output tokens to rate limiter if configured
+                        if limiter:
+                            limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+                    # collect response delta and call callbacks
+                    if output["response_delta"]:
+                        if response_callback:
+                            await response_callback(output["response_delta"], result.response)
+                        if tokens_callback:
+                            await tokens_callback(
+                                output["response_delta"],
+                                approximate_tokens(output["response_delta"]),
+                            )
+                        # Add output tokens to rate limiter if configured
+                        if limiter:
+                            limiter.add(output=approximate_tokens(output["response_delta"]))
+
+                # Successful completion of stream
+                return result.response, result.reasoning
+
+            except Exception as e:
+                import asyncio
+                
+                # Retry only if no chunks received and error is transient
+                if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
+                    raise
+                attempt += 1
+                await asyncio.sleep(retry_delay_s)
 
 
 class BrowserCompatibleChatWrapper(LiteLLMChatWrapper):
