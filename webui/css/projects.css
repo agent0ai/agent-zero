@@ -1,0 +1,456 @@
+/* Project Management Modal Styles */
+
+/* Project Modal Container */
+.project-modal-container {
+    width: 1200px;
+    max-width: 95vw;
+    max-height: 95vh;
+}
+
+.project-modal-content {
+    padding: 0;
+    overflow-y: auto;
+    max-height: calc(95vh - 80px);
+}
+
+/* Error and Success Messages */
+.error-message {
+    background-color: var(--color-error);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.success-message {
+    background-color: var(--color-success);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.light-mode .error-message {
+    background-color: #d32f2f;
+}
+
+.light-mode .success-message {
+    background-color: #388e3c;
+}
+
+/* Loading Indicator */
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+    color: var(--color-text-secondary);
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Project List View */
+.project-list-view {
+    padding: 20px;
+}
+
+.active-project-section {
+    margin-bottom: 30px;
+}
+
+.active-project-section h3 {
+    margin: 0 0 15px 0;
+    color: var(--color-primary);
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.projects-section h3 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/* Project Cards */
+.active-project-card {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.project-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s ease;
+}
+
+.project-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .project-card {
+    background: var(--color-panel-light);
+    border-color: var(--color-border-light);
+}
+
+.light-mode .project-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Project Card Header */
+.project-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.project-card-header h4 {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--color-text);
+    flex: 1;
+}
+
+.active-project-card .project-card-header h4 {
+    color: white;
+}
+
+/* Project Status Badge */
+.project-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.project-status.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Project Description and Instructions */
+.project-description {
+    color: var(--color-text-secondary);
+    margin: 0 0 12px 0;
+    line-height: 1.4;
+}
+
+.active-project-card .project-description {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.project-instructions {
+    color: var(--color-text-tertiary);
+    font-size: 0.9em;
+    margin: 0 0 16px 0;
+    line-height: 1.4;
+    font-style: italic;
+}
+
+.active-project-card .project-instructions {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Project Card Actions */
+.project-card-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+/* Empty State */
+.empty-projects {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--color-text-secondary);
+}
+
+.empty-projects p {
+    margin: 0;
+    font-size: 1.1em;
+}
+
+/* Form Styles */
+.project-form {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-input-bg);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-alpha);
+}
+
+.form-group input:disabled {
+    background: var(--color-input-disabled);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 4px;
+    color: var(--color-text-tertiary);
+    font-size: 0.85em;
+}
+
+/* Light mode form styles */
+.light-mode .form-group input,
+.light-mode .form-group textarea {
+    border-color: var(--color-border-light);
+    background: var(--color-input-bg-light);
+}
+
+.light-mode .form-group input:focus,
+.light-mode .form-group textarea:focus {
+    border-color: var(--color-primary);
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border);
+}
+
+.light-mode .form-actions {
+    border-color: var(--color-border-light);
+}
+
+/* Button Styles */
+.btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-dark);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: var(--color-secondary);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-secondary-hover);
+    border-color: var(--color-primary);
+}
+
+.btn-warning {
+    background-color: var(--color-warning);
+    color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background-color: var(--color-warning-dark);
+    transform: translateY(-1px);
+}
+
+/* Light mode button adjustments */
+.light-mode .btn-secondary {
+    background-color: var(--color-secondary-light);
+    color: var(--color-text);
+    border-color: var(--color-border-light);
+}
+
+.light-mode .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-secondary-hover-light);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .project-modal-container {
+        width: 95vw;
+        margin: 10px;
+    }
+    
+    .projects-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .project-card-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .project-list-view,
+    .project-form {
+        padding: 15px;
+    }
+    
+    .project-card,
+    .active-project-card {
+        padding: 15px;
+    }
+}
+
+/* Integration with existing Agent Zero theme variables */
+:root {
+    --color-error: #f44336;
+    --color-success: #4caf50;
+    --color-warning: #ff9800;
+    --color-warning-dark: #f57c00;
+    --color-primary-alpha: rgba(59, 130, 246, 0.15);
+    --color-input-bg: var(--color-panel);
+    --color-input-bg-light: #ffffff;
+    --color-input-disabled: #f5f5f5;
+    --color-secondary: #6b7280;
+    --color-secondary-hover: #4b5563;
+    --color-secondary-light: #f9fafb;
+    --color-secondary-hover-light: #f3f4f6;
+}
+
+/* Active Project Indicator in Header */
+.active-project-indicator {
+    display: flex;
+    align-items: center;
+    margin-right: 12px;
+    padding: 6px 10px;
+    background-color: rgba(74, 144, 226, 0.15);
+    border-radius: 16px;
+    border: 1px solid rgba(74, 144, 226, 0.4);
+    font-size: 13px;
+    white-space: nowrap;
+    max-width: 250px;
+    backdrop-filter: blur(4px);
+}
+
+.project-indicator-content {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.project-indicator-icon {
+    font-size: 12px;
+}
+
+.project-indicator-text {
+    color: var(--text-color);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.project-indicator-badge {
+    background-color: #4a90e2;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}

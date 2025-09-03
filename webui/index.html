@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="css/history.css">
     <link rel="stylesheet" href="css/scheduler-datepicker.css">
     <link rel="stylesheet" href="css/notification.css">
+    <link rel="stylesheet" href="css/projects.css">
 
     <!-- Flatpickr for datetime picker -->
     <link rel="stylesheet" href="vendor/flatpickr/flatpickr.min.css">
@@ -108,7 +109,6 @@
     <script type="module" src="js/initFw.js"></script>
 
     <script src="vendor/ace-min/ace.js"></script>
-    <link href="vendor/ace-min/ace.min.css" rel="stylesheet">
     <!-- KaTeX CSS -->
     <link rel="stylesheet" href="vendor/katex/katex.min.css" crossorigin="anonymous">
 
@@ -130,7 +130,7 @@
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/file_browser.js"></script>
     <script type="text/javascript" src="js/modal.js"></script>
-    <script type="module" src="js/tunnel.js"></script>
+    <script type="text/javascript" src="js/project.js"></script>
 </head>
 
 <body class="dark-mode device-pointer">
@@ -341,6 +341,19 @@
             <!--Chat-->
             <div id="time-date-container">
                 <div id="time-date"></div>
+                
+                <!-- Active Project Indicator -->
+                <div id="active-project-indicator" x-data="{ activeProject: null }" 
+                     x-init="$nextTick(() => { if (window.projectModalProxy) { activeProject = window.projectModalProxy.activeProject; } })"
+                     x-show="activeProject" 
+                     class="active-project-indicator">
+                    <div class="project-indicator-content">
+                        <span class="project-indicator-icon">📁</span>
+                        <span class="project-indicator-text" x-text="activeProject ? activeProject.name : ''"></span>
+                        <span class="project-indicator-badge" style="display: inline-block; width: 8px; height: 12px; background-color: #007bff; border-radius: 50%; margin-left: 4px;"></span>
+                    </div>
+                </div>
+                
                 <div class="status-icon" x-data="{ connected: true }">
                     <svg viewBox="0 0 30 30">
                         <!-- Connected State (filled circle) -->
@@ -508,6 +521,13 @@
                             </path>
                         </svg>
                         <p>Context</p>
+                    </button>
+
+                    <button class="text-button" id="project_manager" @click="window.projectModalProxy.openModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 4H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM10 13H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2zM20 4h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM20 13h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2z"/>
+                        </svg>
+                        <p>Projects</p>
                     </button>
 
                     <button class="text-button" id="nudges_window" @click="nudge()">
@@ -1599,6 +1619,148 @@
         </template>
     </div>
 
+    <!-- Project Management Modal -->
+    <div id="projectModal" x-data="projectModalProxy">
+        <template x-teleport="body">
+            <div x-show="isOpen" class="modal-overlay" @click.self="handleClose()"
+                @keydown.escape.window="handleClose()" x-transition>
+                <div class="modal-container project-modal-container">
+                    <div class="modal-header">
+                        <h2>
+                            <span x-show="currentView === 'list'">Project Management</span>
+                            <span x-show="currentView === 'create'">Create New Project</span>
+                            <span x-show="currentView === 'edit'">Edit Project</span>
+                        </h2>
+                        <button class="modal-close" @click="handleClose()">&times;</button>
+                    </div>
+
+                    <div class="modal-content project-modal-content">
+                        
+                        <!-- Error and Success Messages -->
+                        <div x-show="error" class="error-message" x-text="error"></div>
+                        <div x-show="success" class="success-message" x-text="success"></div>
+                        
+                        <!-- Loading Indicator -->
+                        <div x-show="isLoading" class="loading-indicator">
+                            <div class="spinner"></div>
+                            <span>Loading...</span>
+                        </div>
+
+                        <!-- Project List View -->
+                        <div x-show="currentView === 'list'" class="project-list-view">
+                            <!-- Active Project Display -->
+                            <div x-show="activeProject" class="active-project-section">
+                                <h3>Active Project</h3>
+                                <div class="active-project-card">
+                                    <div class="project-card-header">
+                                        <h4 x-text="activeProject ? activeProject.name : ''"></h4>
+                                        <span class="project-status active">ACTIVE</span>
+                                    </div>
+                                    <p x-text="activeProject ? activeProject.description : ''" class="project-description"></p>
+                                    <div class="project-card-actions">
+                                        <button class="btn btn-secondary" @click="showEditForm(activeProject)">Edit</button>
+                                        <button class="btn btn-warning" @click="deactivateProject()">Deactivate</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Project List -->
+                            <div class="projects-section">
+                                <div class="section-header">
+                                    <h3>All Projects</h3>
+                                    <button class="btn btn-primary" @click="showCreateForm()">Create New Project</button>
+                                </div>
+
+                                <div x-show="projects.length === 0 && !isLoading" class="empty-projects">
+                                    <p>No projects found. Create your first project to get started!</p>
+                                </div>
+
+                                <div class="projects-grid">
+                                    <template x-for="project in projects" :key="project.name">
+                                        <div class="project-card">
+                                            <div class="project-card-header">
+                                                <h4 x-text="project.name"></h4>
+                                                <span x-show="activeProject && activeProject.name === project.name" 
+                                                      class="project-status active">ACTIVE</span>
+                                            </div>
+                                            <p x-text="project.description" class="project-description"></p>
+                                            <p x-text="formatInstructions(project.instructions)" 
+                                               class="project-instructions"></p>
+                                            <div class="project-card-actions">
+                                                <button x-show="!activeProject || activeProject.name !== project.name" 
+                                                        class="btn btn-primary" 
+                                                        @click="activateProject(project.name)">Activate</button>
+                                                <button class="btn btn-secondary" @click="showEditForm(project)">Edit</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Create Project Form -->
+                        <div x-show="currentView === 'create'" class="project-form">
+                            <form @submit.prevent="createProject()">
+                                <div class="form-group">
+                                    <label for="projectName">Project Name *</label>
+                                    <input type="text" id="projectName" x-model="formData.name" 
+                                           placeholder="Enter project name" required>
+                                    <small>Only letters, numbers, hyphens, and underscores are allowed.</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="projectDescription">Description</label>
+                                    <input type="text" id="projectDescription" x-model="formData.description"
+                                           placeholder="Brief project description">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="projectInstructions">Project Instructions</label>
+                                    <textarea id="projectInstructions" x-model="formData.instructions" 
+                                              rows="6" placeholder="Detailed instructions for working in this project context..."></textarea>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-secondary" @click="showListView()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary" :disabled="isLoading">Create Project</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Edit Project Form -->
+                        <div x-show="currentView === 'edit'" class="project-form">
+                            <form @submit.prevent="updateProject()">
+                                <div class="form-group">
+                                    <label>Project Name</label>
+                                    <input type="text" :value="editingProject ? editingProject.name : ''" disabled>
+                                    <small>Project name cannot be changed after creation.</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="editProjectDescription">Description</label>
+                                    <input type="text" id="editProjectDescription" x-model="formData.description"
+                                           placeholder="Brief project description">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="editProjectInstructions">Project Instructions</label>
+                                    <textarea id="editProjectInstructions" x-model="formData.instructions" 
+                                              rows="6" placeholder="Detailed instructions for working in this project context..."></textarea>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-secondary" @click="showListView()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary" :disabled="isLoading">Update Project</button>
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
 
@@ -1606,7 +1768,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.service-worker.register('js/sw.js').then(registration => {
+          navigator.serviceWorker.register('js/sw.js').then(registration => {
             console.log('SW registered: ', registration);
           }).catch(registrationError => {
             console.log('SW registration failed: ', registrationError);
