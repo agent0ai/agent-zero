@@ -29,7 +29,26 @@ class PassProjectToSubordinate(Extension):
                 # No subordinate agent, nothing to do
                 return
             
-            # Get the current active project of this agent
+            # Check if there's a pending project to be passed (set by tool_execute_before extension)
+            pending_project = self.agent.get_data("pending_project_for_subordinate")
+            if pending_project:
+                # Clear the pending project data
+                self.agent.set_data("pending_project_for_subordinate", None)
+                
+                # Set the project on the subordinate
+                success = ProjectHelper.set_active_project(subordinate, pending_project)
+                
+                if success:
+                    PrintStyle(font_color="cyan", padding=True).print(
+                        f"Project '{pending_project}' passed to subordinate agent {subordinate.agent_name}"
+                    )
+                else:
+                    PrintStyle(font_color="red", padding=True).print(
+                        f"Failed to pass project '{pending_project}' to subordinate agent"
+                    )
+                return
+            
+            # Fallback: Get the current active project of this agent
             active_project = ProjectHelper.get_active_project(self.agent)
             
             if not active_project:

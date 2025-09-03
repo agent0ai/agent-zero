@@ -137,9 +137,9 @@ You are currently working within this project context. All file operations, code
         for item in file_structure:
             if item.endswith('/'):
                 # Directory
-                formatted.append(f"📁 {item}")
+                formatted.append(f"[DIR]  {item}")
             else:
                 # File
-                formatted.append(f"📄 {item}")
+                formatted.append(f"[FILE] {item}")
         
         return '\n'.join(formatted)
