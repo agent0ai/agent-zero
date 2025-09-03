@@ -750,6 +750,10 @@ export const newContext = function () {
   setContext(context);
 }
 
+export const getContext = function () {
+  return context;
+};
+
 export const setContext = function (id) {
   if (id == context) return;
   context = id;
@@ -779,10 +783,6 @@ export const setContext = function (id) {
 
   //skip one speech if enabled when switching context
   if (localStorage.getItem("speech") == "true") skipOneSpeech = true;
-};
-
-export const getContext = function () {
-  return context;
 };
 
 export const getChatBasedId = function (id) {
@@ -1034,6 +1034,7 @@ function toast(text, type = "info", timeout = 5000) {
 
 }
 globalThis.toast = toast;
+globalThis.getContext = getContext;
 
 // OLD: hideToast function removed - now using new notification system
 

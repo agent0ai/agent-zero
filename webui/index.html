@@ -99,6 +99,7 @@
     <!-- Load module scripts first -->
     <script type="module" src="js/scheduler.js"></script>
     <script type="module" src="js/history.js"></script>
+    <script type="module" src="components/projects/project-store.js"></script>
 
     <script type="module" src="index.js"></script>
 
@@ -108,7 +109,6 @@
     <script type="module" src="js/initFw.js"></script>
 
     <script src="vendor/ace-min/ace.js"></script>
-    <link href="vendor/ace-min/ace.min.css" rel="stylesheet">
     <!-- KaTeX CSS -->
     <link rel="stylesheet" href="vendor/katex/katex.min.css" crossorigin="anonymous">
 
@@ -130,7 +130,6 @@
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/file_browser.js"></script>
     <script type="text/javascript" src="js/modal.js"></script>
-    <script type="module" src="js/tunnel.js"></script>
 </head>
 
 <body class="dark-mode device-pointer">
@@ -341,6 +340,18 @@
             <!--Chat-->
             <div id="time-date-container">
                 <div id="time-date"></div>
+                
+                <!-- Active Project Indicator -->
+                <div class="project-indicator" x-data x-show="$store.projectStore && $store.projectStore.hasActiveProject()">
+                    <div class="project-badge">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="project-icon">
+                            <path d="M10 4H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM10 13H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2zM20 4h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM20 13h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2z"/>
+                        </svg>
+                        <span x-text="$store.projectStore.activeProject ? $store.projectStore.activeProject.name : ''"></span>
+                        <div class="project-status-dot"></div>
+                    </div>
+                </div>
+                
                 <div class="status-icon" x-data="{ connected: true }">
                     <svg viewBox="0 0 30 30">
                         <!-- Connected State (filled circle) -->
@@ -508,6 +519,13 @@
                             </path>
                         </svg>
                         <p>Context</p>
+                    </button>
+
+                    <button class="text-button" id="project_manager" @click="openModal('projects/project-modal.html')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 4H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM10 13H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2zM20 4h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM20 13h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2z"/>
+                        </svg>
+                        <p>Projects</p>
                     </button>
 
                     <button class="text-button" id="nudges_window" @click="nudge()">
@@ -1599,6 +1617,7 @@
         </template>
     </div>
 
+
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
 
@@ -1606,7 +1625,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.service-worker.register('js/sw.js').then(registration => {
+          navigator.serviceWorker.register('js/sw.js').then(registration => {
             console.log('SW registered: ', registration);
           }).catch(registrationError => {
             console.log('SW registration failed: ', registrationError);
