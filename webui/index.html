@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="css/history.css">
     <link rel="stylesheet" href="css/scheduler-datepicker.css">
     <link rel="stylesheet" href="css/notification.css">
+    <link rel="stylesheet" href="css/terminal.css">
 
     <!-- Flatpickr for datetime picker -->
     <link rel="stylesheet" href="vendor/flatpickr/flatpickr.min.css">
@@ -1602,11 +1603,14 @@
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
 
+    <!-- Terminal Modal Component -->
+    <x-component path="terminal/terminal.html"></x-component>
+
     <!-- Register Service Worker for offline support and caching -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.service-worker.register('js/sw.js').then(registration => {
+          navigator.serviceWorker.register('js/sw.js').then(registration => {
             console.log('SW registered: ', registration);
           }).catch(registrationError => {
             console.log('SW registration failed: ', registrationError);
