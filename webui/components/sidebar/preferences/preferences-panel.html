@@ -1,0 +1,122 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/sidebar/preferences/preferences-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.preferences">
+      <div class="pref-section" x-data="{ prefOpen: true }">
+        <span>
+          <h3 class="pref-header" @click="prefOpen = !prefOpen">
+            Preferences
+            <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" :class="{'rotated': !prefOpen}">
+              <path d="M8 4l8 8-8 8" />
+            </svg>
+          </h3>
+          <ul class="config-list" id="pref-list" x-show="prefOpen" x-collapse x-transition>
+            <li x-data="{ get autoScroll(){ return $store.preferences.autoScroll }, set autoScroll(v){ $store.preferences.autoScroll = v } }" x-init="$watch('$store.preferences.autoScroll', v => $store.preferences.applyAutoScroll(v))">
+              <span>Autoscroll</span>
+              <label class="switch">
+                <input id="auto-scroll-switch" type="checkbox" x-model="$store.preferences.autoScroll">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data x-init="$watch('$store.preferences.darkMode', v => $store.preferences.applyDarkMode(v))">
+              <span class="switch-label">Dark mode</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.darkMode">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data x-init="$watch('$store.preferences.speech', v => $store.preferences.applySpeech(v))">
+              <span class="switch-label">Speech</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.speech">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data x-init="$watch('$store.preferences.showThoughts', v => $store.preferences.applyShowThoughts(v))">
+              <span>Show thoughts</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.showThoughts">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data x-init="$watch('$store.preferences.showJson', v => $store.preferences.applyShowJson(v))">
+              <span>Show JSON</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.showJson">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data x-init="$watch('$store.preferences.showUtils', v => $store.preferences.applyShowUtils(v))">
+              <span>Show utility messages</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.showUtils">
+                <span class="slider"></span>
+              </label>
+            </li>
+          </ul>
+        </span>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      // Call init once Alpine is ready, so $store is mounted
+      const s = Alpine.store('preferences');
+      if (s && typeof s.init === 'function') s.init();
+    });
+  </script>
+  <style>
+    .pref-section .pref-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .pref-section .arrow-icon {
+      transition: transform .15s ease;
+    }
+    .pref-section .arrow-icon.rotated {
+      transform: rotate(90deg);
+    }
+    .pref-section .config-list {
+      list-style: none;
+      padding: 0.05rem 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .pref-section .switch-label,
+    .pref-section span {
+      font-size: 0.9rem;
+    }
+    .pref-section .switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 24px;
+      margin-left: auto;
+    }
+    .pref-section .switch input { display:none; }
+    .pref-section .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #999; transition: .2s; border-radius: 22px;
+    }
+    .pref-section .slider:before {
+      position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%;
+    }
+    .pref-section input:checked + .slider { background-color: var(--color-primary, #6cf); }
+    .pref-section input:checked + .slider:before { transform: translateX(18px); }
+    .pref-section li { display: flex; align-items: center; }
+  </style>
+</body>
+</html>
+
+

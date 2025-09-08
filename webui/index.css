@@ -169,6 +169,15 @@ img {
   user-select: none;
 }
 
+/* Ensure component host behaves like the original direct children for flex layout */
+#left-panel > x-component {
+  display: -webkit-flex;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* allow inner flex children to shrink properly */
+}
+
 #left-panel.hidden {
   margin-left: -250px;
 }

@@ -1,0 +1,51 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/app/app-store.js";
+  </script>
+  <!-- Wrapper composes existing sidebar components -->
+</head>
+<body>
+  <!--Sidebar upper elements-->
+  <div class="left-panel-top">
+    <x-component path="sidebar/quick-actions.html"></x-component>
+
+    <!-- Tabs container -->
+    <x-component path="sidebar/tabs.html"></x-component>
+
+    <!-- Chats List -->
+    <div class="config-section" id="chats-section" x-data x-show="$store.chats?.contexts?.length > 0 || true">
+      <x-component path="sidebar/chats-list.html"></x-component>
+    </div>
+
+    <!-- Tasks List -->
+    <div class="config-section" id="tasks-section" x-data style="display: none;">
+      <x-component path="sidebar/tasks-list.html"></x-component>
+    </div>
+  </div>
+  <!--Sidebar lower elements-->
+  <div class="left-panel-bottom">
+    <!-- Preferences -->
+    <x-component path="sidebar/preferences/preferences-panel.html"></x-component>
+    <!-- Version Info -->
+    <div class="version-info" x-data>
+      <template x-if="$store.app">
+        <span id="a0version" x-text="$store.app.versionLabel"></span>
+      </template>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      const s = Alpine.store('app');
+      if (s && typeof s.init === 'function') s.init();
+    });
+  </script>
+
+  <style>
+    /* This wrapper intentionally carries no additional styles; main styles live in index.css */
+  </style>
+</body>
+</html>
+
+
