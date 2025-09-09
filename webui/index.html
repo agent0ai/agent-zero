@@ -359,15 +359,33 @@
             </div>
             
             <!-- Welcome Screen Component -->
-            <div x-data="{ get hasContext() { return globalThis.getContext && globalThis.getContext(); } }" 
-                 x-show="!hasContext" 
+            <div x-data="{
+                     contextValue: null,
+                     get hasContext() { return this.contextValue !== null; },
+                     init() {
+                       this.contextValue = globalThis.getContext && globalThis.getContext();
+                       document.addEventListener('context-changed', (e) => {
+                         this.contextValue = e.detail.context;
+                       });
+                     }
+                 }"
+                 x-show="!hasContext"
                  id="welcome-screen-container">
                 <x-component path="welcome/welcome-screen.html"></x-component>
             </div>
-            
+
             <!-- Chat History -->
-            <div x-data="{ get hasContext() { return globalThis.getContext && globalThis.getContext(); } }" 
-                 x-show="hasContext" 
+            <div x-data="{
+                     contextValue: null,
+                     get hasContext() { return this.contextValue !== null; },
+                     init() {
+                       this.contextValue = globalThis.getContext && globalThis.getContext();
+                       document.addEventListener('context-changed', (e) => {
+                         this.contextValue = e.detail.context;
+                       });
+                     }
+                 }"
+                 x-show="hasContext"
                  id="chat-history">
             </div>
 

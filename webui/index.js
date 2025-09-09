@@ -764,6 +764,8 @@ export const newContext = function () {
 export const setContext = function (id) {
   if (id == context) return;
   context = id;
+  // Update the reactive store
+  contextStore.context = id;
   // Always reset the log tracking variables when switching contexts
   // This ensures we get fresh data from the backend
   lastLogGuid = "";
@@ -787,6 +789,10 @@ export const setContext = function (id) {
       const tasksAD = Alpine.$data(tasksSection);
       if (tasksAD) tasksAD.selected = id || "";
     }
+
+    // Trigger Alpine.js to re-evaluate the welcome screen visibility
+    // by dispatching a custom event that the components can listen to
+    document.dispatchEvent(new CustomEvent('context-changed', { detail: { context: id } }));
   }
 
 
@@ -1256,6 +1262,11 @@ function initializeActiveTab() {
       if (tasksSection) tasksSection.style.display = "flex";
       if (chatsSection) chatsSection.style.display = "none";
     }
+  }
+
+  // Trigger initial context state for Alpine.js components
+  if (globalThis.Alpine) {
+    document.dispatchEvent(new CustomEvent('context-changed', { detail: { context: context } }));
   }
 }
 
