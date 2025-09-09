@@ -1,0 +1,44 @@
+<div x-data="$store.welcomeStore" class="welcome-container">
+    <!-- Agent Zero Logo -->
+    <div class="welcome-logo-container">
+        <img src="/docs/res/a0-vector-graphics/light.svg" 
+             alt="Agent Zero Logo" 
+             class="welcome-logo">
+    </div>
+
+    <!-- Welcome Title -->
+    <h1 class="welcome-title">Welcome to Agent Zero</h1>
+    <p class="welcome-subtitle">
+        Your AI-powered assistant framework for building autonomous agents. 
+        Start a new conversation or explore the features below.
+    </p>
+
+    <!-- Action Cards -->
+    <div class="welcome-actions">
+        <div class="welcome-action-card" @click="executeAction('new-chat')">
+            <span class="material-symbols-outlined welcome-action-icon">add_circle</span>
+            <h3 class="welcome-action-title">New Chat</h3>
+            <p class="welcome-action-description">Start a new conversation</p>
+        </div>
+        <div class="welcome-action-card" @click="executeAction('settings')">
+            <span class="material-symbols-outlined welcome-action-icon">settings</span>
+            <h3 class="welcome-action-title">Settings</h3>
+            <p class="welcome-action-description">Configure Agent Zero</p>
+        </div>
+        <div class="welcome-action-card" @click="executeAction('website')">
+            <span class="material-symbols-outlined welcome-action-icon">language</span>
+            <h3 class="welcome-action-title">Visit Website</h3>
+            <p class="welcome-action-description">Learn more about Agent Zero</p>
+        </div>
+        <div class="welcome-action-card" @click="executeAction('github')">
+            <span class="material-symbols-outlined welcome-action-icon">code</span>
+            <h3 class="welcome-action-title">Visit GitHub</h3>
+            <p class="welcome-action-description">View source code and documentation</p>
+        </div>
+    </div>
+
+    <!-- Footer Info -->
+    <div class="welcome-footer">
+        <p>Agent Zero Framework • Open Source AI Assistant</p>
+    </div>
+</div>

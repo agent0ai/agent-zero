@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="css/messages.css">
     <link rel="stylesheet" href="components/messages/action-buttons/simple-action-buttons.css">
+    <link rel="stylesheet" href="components/welcome/welcome-screen.css">
     <link rel="stylesheet" href="css/toast.css">
     <link rel="stylesheet" href="css/settings.css">
     <link rel="stylesheet" href="css/file_browser.css">
@@ -175,6 +176,7 @@
                                 d="m50.301 66.5c-9 0-16.398-7.3008-16.398-16.398 0-9.1016 7.3008-16.398 16.398-16.398 9.1016 0 16.398 7.3008 16.398 16.398 0 9.0977-7.3984 16.398-16.398 16.398zm0-25.5c-5 0-9.1016 4.1016-9.1016 9.1016s4.1016 9.1016 9.1016 9.1016 9.1016-4.1016 9.1016-9.1016c-0.003906-5-4.1016-9.1016-9.1016-9.1016z">
                             </path>
                         </svg>Settings</button>
+                    <button class="config-button" id="dashboard" @click="deselectChat()">Dashboard</button>
 
                 </div>
 
@@ -355,7 +357,18 @@
                 <!-- Notification Toggle positioned next to time-date -->
                 <x-component path="notifications/notification-icons.html"></x-component>
             </div>
-            <div id="chat-history">
+            
+            <!-- Welcome Screen Component -->
+            <div x-data="{ get hasContext() { return globalThis.getContext && globalThis.getContext(); } }" 
+                 x-show="!hasContext" 
+                 id="welcome-screen-container">
+                <x-component path="welcome/welcome-screen.html"></x-component>
+            </div>
+            
+            <!-- Chat History -->
+            <div x-data="{ get hasContext() { return globalThis.getContext && globalThis.getContext(); } }" 
+                 x-show="hasContext" 
+                 id="chat-history">
             </div>
 
             <!-- NEW: Toast Stack Component -->
@@ -1606,7 +1619,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.service-worker.register('js/sw.js').then(registration => {
+          navigator.serviceWorker.register('js/sw.js').then(registration => {
             console.log('SW registered: ', registration);
           }).catch(registrationError => {
             console.log('SW registration failed: ', registrationError);

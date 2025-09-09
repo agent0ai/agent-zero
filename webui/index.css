@@ -502,7 +502,8 @@ h4 {
   padding-bottom: 0;
   display: flex;
   justify-content: space-between;
-  z-index: 1001;
+  z-index: 9998;
+  position: relative;
 }
 
 #progress-bar-box h4 {
@@ -555,7 +556,10 @@ h4 {
 
 /* Input Section */
 #input-section {
-  position: relative;
+  position: fixed;
+  bottom: 0;
+  left: 250px;
+  right: 0;
   background-color: var(--color-panel);
   display: -webkit-flex;
   display: flex;
@@ -564,6 +568,8 @@ h4 {
   padding: 0.8rem var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
   align-items: start;
   flex-shrink: 0;
+  z-index: 1002;
+  border-top: 1px solid var(--color-border);
 }
 
 /* Preview section with unified tile system */
@@ -861,6 +867,8 @@ h4 {
   max-height: 2.3rem;
   -webkit-transition: all var(--transition-speed), transform 0.1s ease-in-out;
   transition: all var(--transition-speed), transform 0.1s ease-in-out;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .config-button:hover {
@@ -900,15 +908,6 @@ h4 {
   color: rgba(253, 253, 253, 0.35);
 }
 
-/* Input section layout */
-#input-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) 0.8rem;
-  background-color: var(--color-panel);
-  z-index: 1001;
-}
 
 /* Top row styling */
 .input-row {
@@ -1582,6 +1581,7 @@ input:checked + .slider:before {
 
   #input-section {
     align-items: start;
+    left: 0;
   }
 
   .text-buttons-row {

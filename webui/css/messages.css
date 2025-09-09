@@ -9,7 +9,7 @@
   overflow-y: scroll;
   overflow-x: hidden;
   scroll-behavior: auto !important; /* avoid infinite scrolling! */
-  padding: var(--spacing-md) var(--spacing-sm) 0;
+  padding: var(--spacing-md) var(--spacing-sm) 160px;
   -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   scrollbar-width: thin;
@@ -639,6 +639,8 @@
   /* display: block; */
   word-break: break-word;
   overflow-wrap: anywhere;
+  position: relative;
+  z-index: 1003;
 }
 
 /* shades */

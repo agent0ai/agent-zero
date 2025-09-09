@@ -5,6 +5,7 @@ import { sleep } from "/js/sleep.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as welcomeStore } from "/components/welcome/welcome-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -23,10 +24,11 @@ const autoScrollSwitch = document.getElementById("auto-scroll-switch");
 const timeDate = document.getElementById("time-date-container");
 
 let autoScroll = true;
-let context = "";
+let context = null;
 let resetCounter = 0;
 let skipOneSpeech = false;
 let connectionStatus = undefined; // undefined = not checked yet, true = connected, false = disconnected
+
 
 // Initialize the toggle button
 setupSidebarToggle();
@@ -102,6 +104,11 @@ export async function sendMessage() {
     const hasAttachments = attachmentsWithUrls.length > 0;
 
     if (message || hasAttachments) {
+      // Create new context if none exists (e.g., sending from welcome screen)
+      if (!context) {
+        newContext();
+      }
+      
       let response;
       const messageId = generateGUID();
 
@@ -352,8 +359,8 @@ async function poll() {
       return false;
     }
 
-    if (!context) setContext(response.context);
-    if (response.context != context) return; //skip late polls after context change
+    // Skip late polls after context change, but allow polls when both are null
+    if (response.context != context && !(response.context === null && context === null)) return;
 
     // if the chat has been reset, restart this poll as it may have been called with incorrect log_from
     if (lastLogGuid != response.log_guid) {
@@ -478,30 +485,34 @@ async function poll() {
     } else if (
       response.tasks &&
       response.tasks.length > 0 &&
-      localStorage.getItem("activeTab") === "tasks"
+      localStorage.getItem("activeTab") === "tasks" &&
+      localStorage.getItem("lastSelectedTask")
     ) {
-      // If we're in tasks tab with no selection but have tasks, select the first one
-      const firstTaskId = response.tasks[0].id;
-      setContext(firstTaskId);
-      if (tasksSection) {
-        const tasksAD = Alpine.$data(tasksSection);
-        tasksAD.selected = firstTaskId;
-        localStorage.setItem("lastSelectedTask", firstTaskId);
+      // Only auto-select tasks if we have a previously selected task ID
+      const lastSelectedTask = localStorage.getItem("lastSelectedTask");
+      const taskExists = response.tasks.some((task) => task.id === lastSelectedTask);
+      if (taskExists) {
+        setContext(lastSelectedTask);
+        if (tasksSection) {
+          const tasksAD = Alpine.$data(tasksSection);
+          tasksAD.selected = lastSelectedTask;
+        }
       }
     } else if (
       contexts.length > 0 &&
       localStorage.getItem("activeTab") === "chats" &&
-      chatsAD
+      chatsAD &&
+      localStorage.getItem("lastSelectedChat")
     ) {
-      // If we're in chats tab with no selection but have chats, select the first one
-      const firstChatId = contexts[0].id;
-
-      // Only set context if we don't already have one to avoid duplicates
-      if (!context) {
-        setContext(firstChatId);
-        chatsAD.selected = firstChatId;
-        localStorage.setItem("lastSelectedChat", firstChatId);
-      }
+      // Only auto-select chats if we have a previously selected chat ID
+      const lastSelectedChat = localStorage.getItem("lastSelectedChat");
+      const chatExists = contexts.some((ctx) => ctx.id === lastSelectedChat);
+      
+      // Don't auto-select - let user manually select or start from welcome screen
+      // if (chatExists && !context) {
+      //   setContext(lastSelectedChat);
+      //   chatsAD.selected = lastSelectedChat;
+      // }
     }
 
     lastLogVersion = response.log_version;
@@ -660,8 +671,8 @@ export function switchFromContext(id) {
     if (alternateChat) {
       setContext(alternateChat.id);
     } else {
-      // If no other chats, create a new empty context
-      newContext();
+      // If no other chats, show welcome screen instead of creating new context
+      deselectChat();
     }
   }
 }
@@ -762,20 +773,22 @@ export const setContext = function (id) {
   // Stop speech when switching chats
   speechStore.stopAudio();
 
-  // Clear the chat history immediately to avoid showing stale content
-  chatHistory.innerHTML = "";
+  if (id) {
+    chatHistory.innerHTML = "";
+  }
 
   // Update both selected states
   if (globalThis.Alpine) {
     if (chatsSection) {
       const chatsAD = Alpine.$data(chatsSection);
-      if (chatsAD) chatsAD.selected = id;
+      if (chatsAD) chatsAD.selected = id || "";
     }
     if (tasksSection) {
       const tasksAD = Alpine.$data(tasksSection);
-      if (tasksAD) tasksAD.selected = id;
+      if (tasksAD) tasksAD.selected = id || "";
     }
   }
+
 
   //skip one speech if enabled when switching context
   if (localStorage.getItem("speech") == "true") skipOneSpeech = true;
@@ -783,6 +796,19 @@ export const setContext = function (id) {
 
 export const getContext = function () {
   return context;
+};
+globalThis.getContext = getContext;
+
+export const deselectChat = function () {
+  // Clear current context to show welcome screen
+  setContext(null);
+  
+  // Clear localStorage selections so we don't auto-restore
+  localStorage.removeItem("lastSelectedChat");
+  localStorage.removeItem("lastSelectedTask");
+  
+  // Clear the chat history
+  chatHistory.innerHTML = "";
 };
 
 export const getChatBasedId = function (id) {
@@ -1208,7 +1234,29 @@ function initializeActiveTab() {
   }
 
   const activeTab = localStorage.getItem("activeTab") || "chats";
-  activateTab(activeTab);
+  
+  // Only activate tab if we have a context - otherwise show welcome screen
+  if (context) {
+    activateTab(activeTab);
+  } else {
+    // Just set the active tab UI without auto-selecting contexts
+    const chatsTab = document.getElementById("chats-tab");
+    const tasksTab = document.getElementById("tasks-tab");
+    const chatsSection = document.getElementById("chats-section");
+    const tasksSection = document.getElementById("tasks-section");
+    
+    if (activeTab === "chats") {
+      if (chatsTab) chatsTab.classList.add("active");
+      if (tasksTab) tasksTab.classList.remove("active");
+      if (chatsSection) chatsSection.style.display = "flex";
+      if (tasksSection) tasksSection.style.display = "none";
+    } else {
+      if (tasksTab) tasksTab.classList.add("active");
+      if (chatsTab) chatsTab.classList.remove("active");
+      if (tasksSection) tasksSection.style.display = "flex";
+      if (chatsSection) chatsSection.style.display = "none";
+    }
+  }
 }
 
 /*
@@ -1280,3 +1328,5 @@ function openTaskDetail(taskId) {
 
 // Make the function available globally
 globalThis.openTaskDetail = openTaskDetail;
+globalThis.deselectChat = deselectChat;
+
