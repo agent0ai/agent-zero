@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import asyncio
 from enum import Enum
 import logging
 import os
@@ -23,6 +24,7 @@ from python.helpers.dotenv import load_dotenv
 from python.helpers.providers import get_provider_config
 from python.helpers.rate_limiter import RateLimiter
 from python.helpers.tokens import approximate_tokens
+from python.helpers import errors
 
 from langchain_core.language_models.chat_models import SimpleChatModel
 from langchain_core.outputs.chat_generation import ChatGenerationChunk
@@ -107,7 +109,7 @@ class ChatGenerationResult:
         if self.native_reasoning:
             processed_chunk = ChatChunk(response_delta=chunk["response_delta"], reasoning_delta=chunk["reasoning_delta"])
         else:
-            # if the model outputs thinking tags, we ned to parse them manually as reasoning
+            # if the model outputs thinking tags, we need to parse them manually as reasoning
             processed_chunk = self._process_thinking_chunk(chunk)
         
         self.reasoning += processed_chunk["reasoning_delta"]
@@ -433,71 +435,300 @@ class LiteLLMChatWrapper(SimpleChatModel):
         rate_limiter_callback: (
             Callable[[str, str, int, int], Awaitable[bool]] | None
         ) = None,
+        attempt_log_callback: Callable[[dict, str], Awaitable[None]] | None = None,
         **kwargs: Any,
     ) -> Tuple[str, str]:
-
+        """Unified entry (Scheme 1): adaptive timeouts, rate limiting, global retries, API key rotation, and streaming callbacks."""
         turn_off_logging()
 
+        # Build message payload
         if not messages:
             messages = []
-        # construct messages
         if system_message:
             messages.insert(0, SystemMessage(content=system_message))
         if user_message:
             messages.append(HumanMessage(content=user_message))
-
-        # convert to litellm format
         msgs_conv = self._convert_messages(messages)
 
-        # Apply rate limiting if configured
-        limiter = await apply_rate_limiter(
-            self.a0_model_conf, str(msgs_conv), rate_limiter_callback
+        usage_kind = getattr(self, "usage_kind", "chat")  # chat | utility
+        setts = settings.get_settings()  # type: ignore
+
+        # Adaptive timeout (base + per_1k + optional auto)
+        mode = setts.get("adaptive_timeout_mode", "basic")
+        adaptive_enabled = mode in ("basic", "auto")
+        # defaults from settings schema
+        if usage_kind == "utility":
+            base_default = float(setts.get("util_timeout_base", 6.0))
+            per1k_default = float(setts.get("util_timeout_per_1k", 4.0))
+        else:
+            base_default = float(setts.get("chat_timeout_base", 8.0))
+            per1k_default = float(setts.get("chat_timeout_per_1k", 6.0))
+
+        # Optional overrides from LiteLLM global parameters textbox (four canonical keys only)
+        try:
+            global_kwargs = setts.get("litellm_global_kwargs", {}) or {}
+        except Exception:
+            global_kwargs = {}
+
+        def _get_override(keys: list[str], default_val: float) -> float:
+            if not isinstance(global_kwargs, dict):
+                return default_val
+            norm = {str(k).lower(): v for k, v in global_kwargs.items()}
+            for k in keys:
+                kk = k.lower()
+                if kk in norm:
+                    try:
+                        return float(norm[kk])
+                    except Exception:
+                        continue
+            return default_val
+
+        if usage_kind == "utility":
+            # Only accept the new readable keys
+            base = _get_override(["util_timeout_base"], base_default) if adaptive_enabled else base_default
+            per_1k = _get_override(["util_timeout_per_1k"], per1k_default) if adaptive_enabled else per1k_default
+        else:
+            base = _get_override(["chat_timeout_base"], base_default) if adaptive_enabled else base_default
+            per_1k = _get_override(["chat_timeout_per_1k"], per1k_default) if adaptive_enabled else per1k_default
+
+        prompt_tokens = approximate_tokens(str(msgs_conv))
+        est_timeout = base + (prompt_tokens / 1000.0) * per_1k if adaptive_enabled else None
+        slow_mult_cfg = float(setts.get("adaptive_slow_multiplier", 10.0))
+        cap_cfg = float(setts.get("adaptive_timeout_cap", 0.0))
+
+        # If previously flagged as slow (from stats or prior timeouts) -> scale initial timeout
+        timeout_scale = 1.0
+        if mode == "auto" and getattr(self, "_slow_model_flag", False) and est_timeout is not None:
+            timeout_scale = max(timeout_scale, slow_mult_cfg)
+
+        # Carry over escalation from previous timeouts (_timeout_escalate)
+        if mode == "auto" and hasattr(self, "_timeout_escalate"):
+            try:
+                timeout_scale = max(timeout_scale, float(getattr(self, "_timeout_escalate")))
+            except Exception:
+                pass
+
+        final_timeout = None
+        if est_timeout is not None:
+            final_timeout = est_timeout * timeout_scale
+            if cap_cfg > 0 and final_timeout > cap_cfg:
+                final_timeout = cap_cfg
+            # Apply timeout and stream_timeout for the first attempt
+            kwargs.setdefault("timeout", final_timeout)
+            kwargs.setdefault("stream_timeout", final_timeout)
+        if final_timeout is not None:
+            # Expose to outer pipeline (e.g., memory consolidation)
+            self._last_final_timeout = final_timeout  # type: ignore
+        # Save current scale for subsequent retries
+        self._timeout_current_scale = timeout_scale  # type: ignore
+        if final_timeout is not None:
+            self._retry_timeout_override = final_timeout  # type: ignore
+
+        # Auto speed detection (auto mode)
+        auto_speed = (mode == "auto") and adaptive_enabled and est_timeout is not None
+        if auto_speed:
+            if not hasattr(self, "_speed_stats"):
+                self._speed_stats = {  # type: ignore
+                    "first_token_latency": -1.0,
+                    "throughput": -1.0,
+                }
+            decay = 0.3
+            slow_first = 8.0
+            slow_tp = 25.0
+            slow_mult = slow_mult_cfg
+            max_cap = cap_cfg
+            start_time = asyncio.get_event_loop().time()
+            first_token_time_holder = {"t": -1.0}
+            token_counter = {"n": 0}
+            orig_response_cb = response_callback
+            orig_reasoning_cb = reasoning_callback
+
+            async def prof_response_cb(delta: str, total: str):
+                if first_token_time_holder["t"] < 0 and delta:
+                    first_token_time_holder["t"] = asyncio.get_event_loop().time() - start_time
+                token_counter["n"] += approximate_tokens(delta)
+                if orig_response_cb:
+                    await orig_response_cb(delta, total)
+
+            async def prof_reasoning_cb(delta: str, total: str):
+                if first_token_time_holder["t"] < 0 and delta:
+                    first_token_time_holder["t"] = asyncio.get_event_loop().time() - start_time
+                token_counter["n"] += approximate_tokens(delta)
+                if orig_reasoning_cb:
+                    await orig_reasoning_cb(delta, total)
+
+            response_callback = prof_response_cb  # type: ignore
+            reasoning_callback = prof_reasoning_cb  # type: ignore
+
+            async def _update_stats():
+                try:
+                    end_time = asyncio.get_event_loop().time()
+                    total_time = end_time - start_time
+                    ft = first_token_time_holder["t"] if first_token_time_holder["t"] >= 0 else total_time
+                    tp = (token_counter["n"] / max(total_time - (first_token_time_holder["t"] or 0.0), 0.001)) if token_counter["n"] else 0.0
+                    ss = self._speed_stats  # type: ignore
+                    ss["first_token_latency"] = ft if ss["first_token_latency"] < 0 else (1 - decay) * ss["first_token_latency"] + decay * ft
+                    ss["throughput"] = tp if ss["throughput"] < 0 else (1 - decay) * ss["throughput"] + decay * tp
+                    is_slow = (ss["first_token_latency"] or 0) > slow_first or (ss["throughput"] or 1e9) < slow_tp
+                    if is_slow and est_timeout is not None:
+                        scaled = est_timeout * slow_mult  # For next call (current request cannot increase underlying timeout)
+                        if max_cap > 0:
+                            scaled = min(scaled, max_cap)
+                        # Mark slow model; raise baseline for next calls
+                        self._slow_model_flag = True  # type: ignore
+                        self._timeout_escalate = max(getattr(self, "_timeout_escalate", 1.0), slow_mult)  # type: ignore
+                except Exception:
+                    pass
+
+            self._after_unified_call_speed_update = _update_stats  # type: ignore
+        else:
+            self._after_unified_call_speed_update = None  # type: ignore
+
+        # Rate limiter
+        limiter = await apply_rate_limiter(self.a0_model_conf, str(msgs_conv), rate_limiter_callback)
+
+        # API key rotation
+        service = self.provider
+        from python.helpers import dotenv as _dz
+        svc_up = service.upper()
+        raw_key = (
+            _dz.get_dotenv_value(f"API_KEY_{svc_up}")
+            or _dz.get_dotenv_value(f"{svc_up}_API_KEY")
+            or _dz.get_dotenv_value(f"{svc_up}_API_TOKEN")
         )
+        key_list: list[str] = []
+        if raw_key:
+            if "," in raw_key:
+                key_list = [k.strip() for k in raw_key.split(",") if k.strip()]
+            else:
+                key_list = [raw_key.strip()] if raw_key.strip() else []
+        if not hasattr(self, "_key_health"):
+            self._key_health = {k: {"fail": 0, "cooldown": 0.0} for k in key_list}
 
-        # call model
-        _completion = await acompletion(
-            model=self.model_name,
-            messages=msgs_conv,
-            stream=True,
-            **{**self.kwargs, **kwargs},
+        def _select_key():
+            if not key_list:
+                return None
+            now = asyncio.get_event_loop().time()
+            health = self._key_health
+            candidates = [k for k in key_list if health.get(k, {}).get("cooldown", 0) <= now]
+            if candidates:
+                return sorted(candidates, key=lambda k: (health[k]["fail"], health[k]["cooldown"]))[0]
+            return sorted(key_list, key=lambda k: health.get(k, {}).get("cooldown", 0))[0]
+
+        def _mark_good(k: str | None):
+            if k and k in self._key_health:
+                self._key_health[k]["fail"] = 0
+
+        def _mark_bad(k: str | None, info: errors.ErrorInfo):
+            if k and k in self._key_health:
+                self._key_health[k]["fail"] += 1
+                if info.rotate_key:
+                    cd = asyncio.get_event_loop().time() + 5 + self._key_health[k]["fail"] * 2
+                    self._key_health[k]["cooldown"] = cd
+
+        async def _log(ev: dict):
+            try:
+                if ev.get("action") == "retry":
+                    if ev.get("error_class") == "timeout" and mode == "auto":
+                        self._slow_model_flag = True  # type: ignore
+                        prev_call_scale = float(getattr(self, "_timeout_current_scale", 1.0))
+                        prev_escalate = float(getattr(self, "_timeout_escalate", 1.0))
+                        base_scale_target = max(prev_escalate, slow_mult_cfg)
+                        new_scale = max(prev_call_scale, base_scale_target)
+                        if cap_cfg > 0 and est_timeout:
+                            max_allowed_scale = cap_cfg / max(est_timeout, 0.001)
+                            if new_scale > max_allowed_scale:
+                                new_scale = max_allowed_scale
+                        self._timeout_escalate = new_scale
+                        self._timeout_current_scale = new_scale
+                        if est_timeout and est_timeout > 0:
+                            new_timeout = est_timeout * new_scale
+                            if cap_cfg > 0 and new_timeout > cap_cfg:
+                                new_timeout = cap_cfg
+                            self._retry_timeout_override = new_timeout  # type: ignore
+                if attempt_log_callback:
+                    await attempt_log_callback(ev, usage_kind)
+            except Exception:
+                pass
+
+        async def _op(api_key: str | None):
+            call_kwargs = {**self.kwargs, **kwargs}
+            if api_key:
+                call_kwargs["api_key"] = api_key
+            override = getattr(self, "_retry_timeout_override", None)
+            if override:
+                call_kwargs["timeout"] = override
+                call_kwargs["stream_timeout"] = override
+            _completion = await acompletion(
+                model=self.model_name,
+                messages=msgs_conv,
+                stream=True,
+                **call_kwargs,
+            )
+            result = ChatGenerationResult()
+            sent_response_len = 0
+            sent_reasoning_len = 0
+            async for chunk in _completion:  # type: ignore
+                parsed = _parse_chunk(chunk)
+                output = result.add_chunk(parsed)
+                if output["reasoning_delta"]:
+                    if reasoning_callback:
+                        await reasoning_callback(output["reasoning_delta"], result.reasoning)
+                    if tokens_callback:
+                        await tokens_callback(output["reasoning_delta"], approximate_tokens(output["reasoning_delta"]))
+                    if limiter:
+                        limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+                    sent_reasoning_len = len(result.reasoning)
+                if output["response_delta"]:
+                    if response_callback:
+                        await response_callback(output["response_delta"], result.response)
+                    if tokens_callback:
+                        await tokens_callback(output["response_delta"], approximate_tokens(output["response_delta"]))
+                    if limiter:
+                        limiter.add(output=approximate_tokens(output["response_delta"]))
+                    sent_response_len = len(result.response)
+            try:
+                final_chunk = result.output()
+                final_resp = final_chunk["response_delta"]
+                final_reas = final_chunk["reasoning_delta"]
+                if response_callback and len(final_resp) > sent_response_len:
+                    tail = final_resp[sent_response_len:]
+                    if tail:
+                        await response_callback(tail, final_resp)
+                        if tokens_callback:
+                            await tokens_callback(tail, approximate_tokens(tail))
+                if reasoning_callback and len(final_reas) > sent_reasoning_len:
+                    tail_r = final_reas[sent_reasoning_len:]
+                    if tail_r:
+                        await reasoning_callback(tail_r, final_reas)
+                        if tokens_callback:
+                            await tokens_callback(tail_r, approximate_tokens(tail_r))
+            except Exception:
+                pass
+            return result.response, result.reasoning
+
+        retry_cfg = errors.RetryConfig(
+            max_attempts=int(setts.get("global_retry_max", 3)),
+            base_delay=float(setts.get("global_retry_base_delay", 1.0)),
         )
+        outcome = await errors.execute_with_retry(
+            _op,
+            select_key=_select_key if key_list else None,
+            mark_key_good=_mark_good if key_list else None,
+            mark_key_bad=_mark_bad if key_list else None,
+            retry_cfg=retry_cfg,
+            log_cb=_log,
+        )
+        if not outcome.ok:
+            raise outcome.final_error or Exception("Model call failed")
 
-        # results
-        result = ChatGenerationResult()
-
-        # iterate over chunks
-        async for chunk in _completion:  # type: ignore
-            # parse chunk
-            parsed = _parse_chunk(chunk)
-            output = result.add_chunk(parsed)
-
-            # collect reasoning delta and call callbacks
-            if output["reasoning_delta"]:
-                if reasoning_callback:
-                    await reasoning_callback(output["reasoning_delta"], result.reasoning)
-                if tokens_callback:
-                    await tokens_callback(
-                        output["reasoning_delta"],
-                        approximate_tokens(output["reasoning_delta"]),
-                    )
-                # Add output tokens to rate limiter if configured
-                if limiter:
-                    limiter.add(output=approximate_tokens(output["reasoning_delta"]))
-            # collect response delta and call callbacks
-            if output["response_delta"]:
-                if response_callback:
-                    await response_callback(output["response_delta"], result.response)
-                if tokens_callback:
-                    await tokens_callback(
-                        output["response_delta"],
-                        approximate_tokens(output["response_delta"]),
-                    )
-                # Add output tokens to rate limiter if configured
-                if limiter:
-                    limiter.add(output=approximate_tokens(output["response_delta"]))
-
-        # return complete results
-        return result.response, result.reasoning
+        updater = getattr(self, "_after_unified_call_speed_update", None)
+        if updater:
+            try:
+                await updater()
+            except Exception:
+                pass
+        return outcome.result
 
 
 class BrowserCompatibleChatWrapper(LiteLLMChatWrapper):

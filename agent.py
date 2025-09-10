@@ -204,8 +204,28 @@ class AgentContext:
         return self.task
 
     # this wrapper ensures that superior agents are called back if the chat was loaded from file and original callstack is gone
-    async def _process_chain(self, agent: "Agent", msg: "UserMessage|str", user=True):
+    async def _process_chain(self, agent: "Agent", msg: "UserMessage|str", user=True, depth: int = 0):
         try:
+            # Prevent infinite subordinate delegation loops
+            MAX_DELEGATION_DEPTH = 4
+            if depth > MAX_DELEGATION_DEPTH:
+                return "Delegation depth limit reached."  # hard stop
+
+            # Simple loop signature detection (same subordinate tool message repeating)
+            if not user and isinstance(msg, str):
+                pattern_markers = [
+                    "Please analyze the running logic of the following Python files",
+                    "call_subordinate",
+                ]
+                if any(p in msg for p in pattern_markers):
+                    if not hasattr(self, "_delegation_seen"):
+                        self._delegation_seen = set()  # type: ignore
+                    sig = hash(msg)
+                    if sig in self._delegation_seen:
+                        # Already processed identical delegation request → stop delegation
+                        return "(suppressed duplicate subordinate delegation)"
+                    self._delegation_seen.add(sig)
+
             msg_template = (
                 agent.hist_add_user_message(msg)  # type: ignore
                 if user
@@ -216,7 +236,7 @@ class AgentContext:
             response = await agent.monologue()  # type: ignore
             superior = agent.data.get(Agent.DATA_NAME_SUPERIOR, None)
             if superior:
-                response = await self._process_chain(superior, response, False)  # type: ignore
+                response = await self._process_chain(superior, response, False, depth + 1)  # type: ignore
             return response
         except Exception as e:
             agent.handle_critical_exception(e)
@@ -621,12 +641,18 @@ class Agent:
         )
 
     def get_utility_model(self):
-        return models.get_chat_model(
+        model = models.get_chat_model(
             self.config.utility_model.provider,
             self.config.utility_model.name,
             model_config=self.config.utility_model,
             **self.config.utility_model.build_kwargs(),
         )
+    # Mark usage_kind so unified_call uses the utility branch (adaptive timeout/retry/logging)
+        try:
+            setattr(model, "usage_kind", "utility")
+        except Exception:
+            pass
+        return model
 
     def get_browser_model(self):
         return models.get_browser_model(
@@ -725,12 +751,35 @@ class Agent:
             await asyncio.sleep(0.1)
 
     async def process_tools(self, msg: str):
-        # search for tool usage requests in agent message
-        tool_request = extract_tools.json_parse_dirty(msg)
+        # search for tool usage requests with multi-stage parser
+        pr = extract_tools.parse_tool_request(msg)  # new structured result
+        tool_request = pr.data if pr.success else None
+        # log lightweight stats (no spam; only on parse attempt)
+        try:
+            stats = extract_tools.get_parse_stats()
+            self.context.log.log(
+                type="util",
+                heading="tool-parse",
+                content=f"success={pr.success} stage={pr.stage or 'NA'} hit_rate={stats.get('hit_rate')} total={stats.get('total')} by_stage={stats.get('by_stage')}",
+                temp=True,
+            )
+        except Exception:
+            pass
 
         if tool_request is not None:
             raw_tool_name = tool_request.get("tool_name", "")  # Get the raw tool name
             tool_args = tool_request.get("tool_args", {})
+
+            # Additional subordinate delegation loop guard:
+            # If repeated call_subordinate with identical 'message' arg appears, suppress to break infinite loop
+            if raw_tool_name == "call_subordinate":
+                msg_arg = (tool_args or {}).get("message", "")
+                if not hasattr(self, "_delegation_seen_tools"):
+                    self._delegation_seen_tools = set()  # type: ignore
+                sig_tool = hash((msg_arg.strip(), raw_tool_name))
+                if sig_tool in self._delegation_seen_tools:
+                    return self.hist_add_ai_response("(suppressed duplicate subordinate tool call)")
+                self._delegation_seen_tools.add(sig_tool)
 
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
@@ -797,13 +846,24 @@ class Agent:
                     type="error", content=f"{self.agent_name}: {error_detail}"
                 )
         else:
-            warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
-            self.hist_add_warning(warning_msg_misformat)
-            PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
-            self.context.log.log(
-                type="error",
-                content=f"{self.agent_name}: Message misformat, no valid tool request found.",
-            )
+            # Recoverable: message misformatted (no tool block). Do not raise UI error/red dot.
+            #  - No history entry with system_warning
+            #  - No error-level log; keep lightweight util log for diagnostics
+            notice = self.read_prompt("fw.msg_misformat.md")
+            try:
+                self.context.log.log(
+                    type="util",
+                    heading="recoverable",
+                    content=f"{self.agent_name}: message misformat tolerated; no valid tool request found.",
+                    temp=True,
+                )
+            except Exception:
+                pass
+            # Optional console hint in yellow (non-error styling)
+            try:
+                PrintStyle(font_color="yellow", padding=True).print(notice)
+            except Exception:
+                pass
 
     async def handle_reasoning_stream(self, stream: str):
         await self.handle_intervention()
