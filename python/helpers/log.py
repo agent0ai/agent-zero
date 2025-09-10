@@ -31,9 +31,10 @@ ProgressUpdate = Literal["persistent", "temporary", "none"]
 
 
 HEADING_MAX_LEN: int = 120
-CONTENT_MAX_LEN: int = 10000
+# Expanded per option A: allow much longer log content before truncation
+CONTENT_MAX_LEN: int = 100000  # was 10000
 KEY_MAX_LEN: int = 60
-VALUE_MAX_LEN: int = 3000
+VALUE_MAX_LEN: int = 30000     # was 3000
 PROGRESS_MAX_LEN: int = 120
 
 

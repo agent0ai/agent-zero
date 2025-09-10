@@ -89,16 +89,60 @@ class MemoryConsolidator:
         Returns:
             dict: {"success": bool, "memory_ids": [str, ...]}
         """
+        # --- Adaptive / Slow-model aware pipeline timeout ---
+        adaptive_pipeline_timeout = self.config.processing_timeout_seconds
         try:
-            # Start processing with timeout
+            from python.helpers import settings as _settings
+            from python.helpers.print_style import PrintStyle as _PSp
+            setts = _settings.get_settings()  # type: ignore
+            mode = setts.get("adaptive_timeout_mode", "off")
+            if mode in ("basic", "auto"):
+                slow_mult = float(setts.get("adaptive_slow_multiplier", 10.0))
+                cap = float(setts.get("adaptive_timeout_cap", 0.0))
+                scale = 1.0
+                model_wrappers = []
+                for attr in ("chat_model", "util_model", "utility_model", "model"):
+                    mw = getattr(self.agent, attr, None)
+                    if mw and mw not in model_wrappers:
+                        model_wrappers.append(mw)
+                # Baseline: use the maximum of recent model-computed final_timeout if available
+                max_model_timeout = 0.0
+                for mw in model_wrappers:
+                    mt = getattr(mw, "_last_final_timeout", None)
+                    try:
+                        if mt:
+                            max_model_timeout = max(max_model_timeout, float(mt))
+                    except Exception:
+                        pass
+                if max_model_timeout > 0:
+                    # If model's own final timeout exceeds pipeline base, raise the base
+                    adaptive_pipeline_timeout = max(adaptive_pipeline_timeout, max_model_timeout)
+                for mw in model_wrappers:
+                    if getattr(mw, "_slow_model_flag", False):
+                        scale = max(scale, slow_mult)
+                    escalate = getattr(mw, "_timeout_escalate", None)
+                    try:
+                        if escalate:
+                            scale = max(scale, float(escalate))
+                    except Exception:
+                        pass
+                # In auto mode, use slow_mult preemptively as a conservative scale even before slow-flag to avoid early 60s cutoff
+                if mode == "auto" and slow_mult > 1.0:
+                    scale = max(scale, slow_mult)
+                if scale > 1.0:
+                    adaptive_pipeline_timeout = adaptive_pipeline_timeout * scale
+                # Apply global cap (shared with model cap)
+                if cap > 0 and adaptive_pipeline_timeout > cap:
+                    adaptive_pipeline_timeout = cap
+                # verbose pipeline-timeout log removed (only errors retained)
+        except Exception:
+            pass
+
+        try:
             processing_task = asyncio.create_task(
                 self._process_memory_with_consolidation(new_memory, area, metadata, log_item)
             )
-
-            result = await asyncio.wait_for(
-                processing_task,
-                timeout=self.config.processing_timeout_seconds
-            )
+            result = await asyncio.wait_for(processing_task, timeout=adaptive_pipeline_timeout)
             return result
 
         except asyncio.TimeoutError:
@@ -465,6 +509,77 @@ class MemoryConsolidator:
         """Use LLM to analyze memory consolidation options."""
 
         try:
+            # ---- Helper: robust JSON object parsing with repair ----
+            import json, re
+
+            def _strip_code_fences(txt: str) -> str:
+                fence_matches = re.findall(r"```(?:json)?\s*(.*?)```", txt, re.DOTALL | re.IGNORECASE)
+                if fence_matches:
+                    # choose last fenced block assuming it's the final answer
+                    return fence_matches[-1].strip()
+                return txt.strip()
+
+            def _extract_last_balanced_object(txt: str) -> str | None:
+                depth = 0
+                start = -1
+                parts = []
+                for i, ch in enumerate(txt):
+                    if ch == '{':
+                        if depth == 0:
+                            start = i
+                        depth += 1
+                    elif ch == '}':
+                        if depth > 0:
+                            depth -= 1
+                            if depth == 0 and start != -1:
+                                parts.append(txt[start:i+1])
+                                start = -1
+                return parts[-1] if parts else None
+
+            def _parse_json_object(raw: str):
+                raw = raw.strip()
+                # Stage 1: direct strict parse
+                try:
+                    obj = json.loads(raw)
+                    if isinstance(obj, dict):
+                        return obj
+                except Exception:
+                    pass
+                # Stage 2: strip code fences then strict
+                stripped = _strip_code_fences(raw)
+                if stripped != raw:
+                    try:
+                        obj = json.loads(stripped)
+                        if isinstance(obj, dict):
+                            return obj
+                    except Exception:
+                        pass
+                # Stage 3: DirtyJson (lenient)
+                try:
+                    obj = DirtyJson.parse_string(stripped)
+                    if isinstance(obj, dict):
+                        return obj
+                    # If list with single dict, unwrap
+                    if isinstance(obj, list) and len(obj) == 1 and isinstance(obj[0], dict):
+                        return obj[0]
+                except Exception:
+                    pass
+                # Stage 4: last balanced object extraction then strict/dirty
+                candidate = _extract_last_balanced_object(stripped)
+                if candidate:
+                    try:
+                        obj = json.loads(candidate)
+                        if isinstance(obj, dict):
+                            return obj
+                    except Exception:
+                        try:
+                            obj = DirtyJson.parse_string(candidate)
+                            if isinstance(obj, dict):
+                                return obj
+                        except Exception:
+                            pass
+                raise ValueError("LLM response is not a valid JSON object")
+
             # Prepare similar memories text
             similar_memories_text = ""
             for i, doc in enumerate(context.similar_memories):
@@ -495,10 +610,7 @@ class MemoryConsolidator:
             )
 
             # Parse LLM response
-            result_json = DirtyJson.parse_string(analysis_response.strip())
-
-            if not isinstance(result_json, dict):
-                raise ValueError("LLM response is not a valid JSON object")
+            result_json = _parse_json_object(analysis_response)
 
             # Parse consolidation result
             action_str = result_json.get('action', 'skip')
