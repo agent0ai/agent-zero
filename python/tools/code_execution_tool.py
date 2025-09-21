@@ -1,4 +1,7 @@
 import asyncio
+import json
+import base64
+import ast
 from dataclasses import dataclass
 import shlex
 import time
@@ -121,7 +124,30 @@ class CodeExecution(Tool):
         return self.state
 
     async def execute_python_code(self, session: int, code: str, reset: bool = False):
-        escaped_code = shlex.quote(code)
+        # Primary path: inject user code safely via json.dumps so quotes/triple-quotes are escaped and readable
+        code_json = json.dumps(code)
+        # Prepare a base64 literal for fallback injection when AST reports unterminated triple-quoted errors
+        code_b64 = base64.b64encode(code.encode("utf-8")).decode("ascii")
+        code_b64_json = json.dumps(code_b64)
+
+        # Wrapper that reconstructs the original code string, validates syntax via ast.parse,
+        # and on specific triple-quote related SyntaxError falls back to base64-decoded content
+        wrapper = (
+            "import base64, ast\n"
+            f"code_str = {code_json}\n"
+            "try:\n"
+            "    ast.parse(code_str)\n"
+            "except SyntaxError as e:\n"
+            "    msg = (str(e) or '').lower()\n"
+            "    if ('unterminated triple-quoted' in msg) or ('scanning triple-quoted string literal' in msg) or ('eof while scanning triple-quoted string literal' in msg):\n"
+            f"        code_str = base64.b64decode({code_b64_json}.encode('ascii')).decode('utf-8', 'replace')\n"
+            "    # otherwise, keep original code_str and let exec raise the syntax error for visibility\n"
+            "ns = {}\n"
+            "ns['__name__'] = '__main__'\n"
+            "exec(compile(code_str, '<agent-user-code>', 'exec'), ns, ns)\n"
+        )
+
+        escaped_code = shlex.quote(wrapper)
         command = f"ipython -c {escaped_code}"
         prefix = "python> " + self.format_command_for_output(code) + "\n\n"
         return await self.terminal_session(session, command, reset, prefix)

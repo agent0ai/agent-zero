@@ -111,6 +111,21 @@ class Settings(TypedDict):
     # LiteLLM global kwargs applied to all model calls
     litellm_global_kwargs: dict[str, Any]
 
+    # --- Simplified Adaptive Timeout & Global Retry (Scheme 1) ---
+    # adaptive_timeout_mode: off = disabled, basic = size-based only, auto = size-based + runtime speed profiling
+    adaptive_timeout_mode: Literal['off','basic','auto']
+    # Base + per-1k prompt token timeout (seconds) for chat & util models
+    chat_timeout_base: float
+    chat_timeout_per_1k: float
+    util_timeout_base: float
+    util_timeout_per_1k: float
+    # When in auto mode and model detected slow, multiply current timeout; cap (0 = unlimited)
+    adaptive_slow_multiplier: float
+    adaptive_timeout_cap: float
+    # Global retry (applies to all chat & util model calls)
+    global_retry_max: int
+    global_retry_base_delay: float
+
 class PartialSettings(Settings, total=False):
     pass
 
@@ -605,11 +620,40 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "litellm_global_kwargs",
             "title": "LiteLLM global parameters",
-            "description": "Global LiteLLM params (e.g. timeout, stream_timeout) in .env format: one KEY=VALUE per line. Example: <code>stream_timeout=30</code>. Applied to all LiteLLM calls unless overridden. See <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a> and <a href='https://docs.litellm.ai/docs/proxy/timeout' target='_blank'>timeouts</a>.",
+            "description": "Global LiteLLM params in .env format: one KEY=VALUE per line. Example: <code>stream_timeout=30</code>. Applied to all LiteLLM calls unless overridden.\n\nAdaptive timeout overrides (optional): When 'Adaptive Timeout Mode' is 'basic' or 'auto', you can provide base/per-1k values here to override defaults using ONLY these keys: <code>chat_timeout_base</code>, <code>chat_timeout_per_1k</code>, <code>util_timeout_base</code>, <code>util_timeout_per_1k</code>. If omitted, built-in defaults are used. 'auto' mode still adds runtime speed profiling (EMA) on top of 'basic'. See <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a> and <a href='https://docs.litellm.ai/docs/proxy/timeout' target='_blank'>timeouts</a>.",
             "type": "textarea",
             "value": _dict_to_env(settings["litellm_global_kwargs"]),
             "style": "height: 12em",
         }
+    )
+
+    # Simplified adaptive timeout + global retry (Scheme 1)
+    litellm_fields.append(
+        {
+            "id": "adaptive_timeout_mode",
+            "title": "Adaptive Timeout Mode",
+            "description": "off = disabled; basic = base + per-1k prompt tokens (uses optional overrides from 'LiteLLM global parameters' if provided); auto = basic + runtime speed profiling (EMA) for slow model detection.",
+            "type": "select",
+            "value": settings.get("adaptive_timeout_mode", "basic"),
+            "options": [
+                {"value": "off", "label": "off"},
+                {"value": "basic", "label": "basic"},
+                {"value": "auto", "label": "auto"},
+            ],
+        }
+    )
+    # Removed manual timeout tuning UI fields (chat/util base & per-1k) – defaults still used internally.
+    litellm_fields.append(
+        {"id": "adaptive_slow_multiplier", "title": "Slow Model Multiplier", "type": "number", "value": settings.get("adaptive_slow_multiplier", 10.0), "description": "When auto mode detects slow model, timeout is multiplied by this value."}
+    )
+    litellm_fields.append(
+        {"id": "adaptive_timeout_cap", "title": "Adaptive Timeout Cap", "type": "number", "value": settings.get("adaptive_timeout_cap", 0.0), "description": "Max timeout after scaling in seconds (0 = unlimited)."}
+    )
+    litellm_fields.append(
+        {"id": "global_retry_max", "title": "Global Retry Max Attempts", "type": "number", "value": settings.get("global_retry_max", 3), "description": "Max retry attempts for chat & utility model calls."}
+    )
+    litellm_fields.append(
+        {"id": "global_retry_base_delay", "title": "Global Retry Base Delay", "type": "number", "value": settings.get("global_retry_base_delay", 1.0), "description": "Base exponential backoff delay in seconds."}
     )
 
     litellm_section: SettingsSection = {
@@ -1333,6 +1377,8 @@ def normalize_settings(settings: Settings) -> Settings:
         _adjust_to_version(copy, default)
         copy["version"] = default["version"]  # sync version
 
+    # Legacy migration logic removed (2025-09) per cleanup; only current schema retained.
+
     # remove keys that are not in default
     keys_to_remove = [key for key in copy if key not in default]
     for key in keys_to_remove:
@@ -1493,6 +1539,15 @@ def get_default_settings() -> Settings:
         variables="",
         secrets="",
         litellm_global_kwargs={},
+        adaptive_timeout_mode='basic',
+        chat_timeout_base=8.0,
+        chat_timeout_per_1k=6.0,
+        util_timeout_base=6.0,
+        util_timeout_per_1k=4.0,
+        adaptive_slow_multiplier=10.0,
+        adaptive_timeout_cap=0.0,
+        global_retry_max=3,
+        global_retry_base_delay=1.0,
     )
 
 
