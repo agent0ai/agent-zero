@@ -570,9 +570,11 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-  padding: 0.8rem var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) 0.8rem;
   align-items: start;
+  place-items: normal;
   flex-shrink: 0;
+  z-index: 1001;
 }
 
 /* Preview section with unified tile system */
@@ -907,16 +909,6 @@ h4 {
 .edit-button:active {
   background-color: #131a2090;
   color: rgba(253, 253, 253, 0.35);
-}
-
-/* Input section layout */
-#input-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) 0.8rem;
-  background-color: var(--color-panel);
-  z-index: 1001;
 }
 
 /* Top row styling */

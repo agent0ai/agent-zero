@@ -1,0 +1,28 @@
+<html>
+<head>
+    <script type="module">
+        import { store as speechStore } from "/components/chat/speech/speech-store.js";
+    </script>
+</head>
+<body>
+    <div id="progress-bar-box">
+        <h4 id="progress-bar-h">
+            <span id="progress-bar-i">|></span><span id="progress-bar"></span>
+        </h4>
+        <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
+            <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
+        </h4>
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            const s = Alpine.store('speech');
+            if (s && typeof s.init === 'function') s.init();
+        });
+    </script>
+
+    <style>
+    </style>
+</body>
+</html>
+

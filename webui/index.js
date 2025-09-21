@@ -98,7 +98,9 @@ document.addEventListener("DOMContentLoaded", setupSidebarToggle);
 
 export async function sendMessage() {
   try {
-    const message = chatInput.value.trim();
+    const inputEl = document.getElementById("chat-input");
+    if (!inputEl) return;
+    const message = inputEl.value.trim();
     const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
 
@@ -107,9 +109,9 @@ export async function sendMessage() {
       const messageId = generateGUID();
 
       // Clear input and attachments
-      chatInput.value = "";
+      inputEl.value = "";
       attachmentsStore.clearAttachments();
-      adjustTextareaHeight();
+      adjustTextareaHeight(inputEl);
 
       // Include attachments in the user message
       if (hasAttachments) {
@@ -188,26 +190,44 @@ function toastFetchError(text, error) {
 }
 globalThis.toastFetchError = toastFetchError;
 
-chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+// Key handling for Enter on chat input
+document.addEventListener("keydown", (e) => {
+  const el = document.getElementById("chat-input");
+  if (!el) return;
+  if (
+    document.activeElement === el &&
+    e.key === "Enter" &&
+    !e.shiftKey &&
+    !e.isComposing &&
+    e.keyCode !== 229
+  ) {
     e.preventDefault();
     sendMessage();
   }
 });
 
-sendButton.addEventListener("click", sendMessage);
+// Click handling for Send button (delegated)
+document.addEventListener("click", (e) => {
+  const btn = e.target?.closest?.("#send-button");
+  if (btn) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
 
 export function updateChatInput(text) {
   console.log("updateChatInput called with:", text);
 
   // Append text with proper spacing
-  const currentValue = chatInput.value;
+  const inputEl = document.getElementById("chat-input");
+  if (!inputEl) return;
+  const currentValue = inputEl.value;
   const needsSpace = currentValue.length > 0 && !currentValue.endsWith(" ");
-  chatInput.value = currentValue + (needsSpace ? " " : "") + text + " ";
+  inputEl.value = currentValue + (needsSpace ? " " : "") + text + " ";
 
   // Adjust height and trigger input event
-  adjustTextareaHeight();
-  chatInput.dispatchEvent(new Event("input"));
+  adjustTextareaHeight(inputEl);
+  inputEl.dispatchEvent(new Event("input"));
 
   console.log("Updated chat input value:", chatInput.value);
 }
@@ -280,9 +300,11 @@ globalThis.loadKnowledge = async function () {
   input.click();
 };
 
-function adjustTextareaHeight() {
-  chatInput.style.height = "auto";
-  chatInput.style.height = chatInput.scrollHeight + "px";
+function adjustTextareaHeight(elParam) {
+  const el = elParam || document.getElementById("chat-input");
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
 }
 
 export const sendJsonData = async function (url, data) {
@@ -564,19 +586,11 @@ function speakMessages(logs) {
 }
 
 function updateProgress(progress, active) {
-  if (!progress) progress = "";
-
-  if (!active) {
-    removeClassFromElement(progressBar, "shiny-text");
-  } else {
-    addClassToElement(progressBar, "shiny-text");
-  }
-
-  progress = msgs.convertIcons(progress);
-
-  if (progressBar.innerHTML != progress) {
-    progressBar.innerHTML = progress;
-  }
+  const el = document.getElementById("progress-bar");
+  if (!el) return;
+  const html = msgs.convertIcons(progress || "");
+  el.classList.toggle("shiny-text", !!active);
+  if (el.innerHTML !== html) el.innerHTML = html;
 }
 
 globalThis.pauseAgent = async function (paused) {
@@ -1005,12 +1019,13 @@ function readJsonFiles() {
   });
 }
 
+// Backward-compat helpers (kept to avoid breaking older code paths)
 function addClassToElement(element, className) {
-  element.classList.add(className);
+  if (element) element.classList.add(className);
 }
 
 function removeClassFromElement(element, className) {
-  element.classList.remove(className);
+  if (element) element.classList.remove(className);
 }
 
 function justToast(text, type = "info", timeout = 5000, group = "") {
@@ -1070,7 +1085,10 @@ function updateAfterScroll() {
 
 chatHistory.addEventListener("scroll", updateAfterScroll);
 
-chatInput.addEventListener("input", adjustTextareaHeight);
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (el && el.id === "chat-input") adjustTextareaHeight(el);
+});
 
 // setInterval(poll, 250);
 
