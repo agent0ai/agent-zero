@@ -9,7 +9,7 @@
   overflow-y: scroll;
   overflow-x: hidden;
   scroll-behavior: auto !important; /* avoid infinite scrolling! */
-  padding: var(--spacing-md) var(--spacing-sm) 160px;
+  padding: var(--spacing-md) var(--spacing-sm) 300px;
   -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   scrollbar-width: thin;
@@ -372,6 +372,10 @@
 @media (max-width: 640px) {
   /* New styles for mobile messages */
 
+  #chat-history {
+    padding: var(--spacing-md) var(--spacing-sm) 240px;
+  }
+
   .message-followup {
     /* margin-left: var(--spacing-md); */
     margin-bottom: var(--spacing-md);
@@ -411,6 +415,12 @@
     white-space: pre-wrap;
     word-break: break-word;
     overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 480px) {
+  #chat-history {
+    padding: var(--spacing-md) var(--spacing-sm) 280px;
   }
 }
 
@@ -640,7 +650,7 @@
   word-break: break-word;
   overflow-wrap: anywhere;
   position: relative;
-  z-index: 1003;
+  z-index: 1;
 }
 
 /* shades */

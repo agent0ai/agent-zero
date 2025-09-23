@@ -359,61 +359,48 @@
             </div>
             
             <!-- Welcome Screen Component -->
-            <div x-data="{
-                     contextValue: null,
-                     get hasContext() { return this.contextValue !== null; },
-                     init() {
-                       this.contextValue = globalThis.getContext && globalThis.getContext();
-                       document.addEventListener('context-changed', (e) => {
-                         this.contextValue = e.detail.context;
-                       });
-                     }
-                 }"
-                 x-show="!hasContext"
-                 id="welcome-screen-container">
+            <div id="welcome-screen-container"
+                 x-data="{ get isVisible() { return $store.welcomeStore.isVisible; } }"
+                 x-show="isVisible"
+                 x-transition:leave="transition ease-out duration-700"
+                 x-transition:leave-start="opacity-100 transform translate-y-0"
+                 x-transition:leave-end="opacity-0 transform -translate-y-full">
                 <x-component path="welcome/welcome-screen.html"></x-component>
             </div>
 
             <!-- Chat History -->
-            <div x-data="{
-                     contextValue: null,
-                     get hasContext() { return this.contextValue !== null; },
-                     init() {
-                       this.contextValue = globalThis.getContext && globalThis.getContext();
-                       document.addEventListener('context-changed', (e) => {
-                         this.contextValue = e.detail.context;
-                       });
-                     }
-                 }"
-                 x-show="hasContext"
+            <div x-data="{ get isVisible() { return $store.welcomeStore.isVisible; } }"
+                 x-show="!isVisible"
                  id="chat-history">
             </div>
 
-            <!-- NEW: Toast Stack Component -->
-            <div style="position: relative; height: 0;">
-                <x-component path="notifications/notification-toast-stack.html"></x-component>
-            </div>
-
-            <div id="toast" class="toast">
-                <div class="toast__content">
-                    <div class="toast__title"></div>
-                    <div class="toast__separator"></div>
-                    <div class="toast__message"></div>
-                </div>
-                <button class="toast__copy" style="display: none;">Copy</button>
-                <button class="toast__close">Close</button>
-            </div>
-            <div id="progress-bar-box">
-                <h4 id="progress-bar-h">
-                    <span id="progress-bar-i">|></span><span id="progress-bar"></span>
-                </h4>
-                <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
-                    <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
-                </h4>
-            </div>
-            <div id="input-section" x-data="{
-                paused: false
-            }">
+                            <!-- NEW: Toast Stack Component -->
+                            <div style="position: relative; height: 0;">
+                                <x-component path="notifications/notification-toast-stack.html"></x-component>
+                            </div>
+        
+                            <div id="toast" class="toast">
+                                <div class="toast__content">
+                                    <div class="toast__title"></div>
+                                    <div class="toast__separator"></div>
+                                    <div class="toast__message"></div>
+                                </div>
+                                <button class="toast__copy" style="display: none;">Copy</button>
+                                <button class="toast__close">Close</button>
+                            </div>
+        
+                            <div id="input-section" x-data="{
+                                paused: false
+                            }">
+        
+                            <div id="progress-bar-box">
+                                <h4 id="progress-bar-h">
+                                    <span id="progress-bar-i">|></span><span id="progress-bar"></span>
+                                </h4>
+                                <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
+                                    <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
+                                </h4>
+                            </div>
 
                 <!-- Attachment Preview section -->
                 <div>
@@ -442,6 +429,7 @@
                     <!-- Container for textarea and button -->
                     <div id="chat-input-container" style="position: relative;">
                         <textarea id="chat-input" placeholder="Type your message here..." rows="1"></textarea>
+
 
                         <!-- Expand button inside the textarea container -->
                         <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">

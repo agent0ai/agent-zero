@@ -11,6 +11,12 @@
     min-height: 400px;
 }
 
+#welcome-screen-container {
+    position: relative;
+    z-index: 10;
+    background: var(--color-background);
+}
+
 .welcome-logo-container {
     display: flex;
     justify-content: center;

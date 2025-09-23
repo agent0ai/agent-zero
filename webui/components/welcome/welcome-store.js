@@ -1,12 +1,32 @@
 import { createStore } from "/js/AlpineStore.js";
 
 const model = {
+  // State
+  isVisible: true,
+
   init() {
     this.initialize();
   },
 
   initialize() {
-    // Nothing special needed for initialization yet
+    // Initialize visibility based on current context
+    this.updateVisibility();
+  },
+
+  // Update visibility based on current context
+  updateVisibility() {
+    const hasContext = !!globalThis.getContext();
+    this.isVisible = !hasContext;
+  },
+
+  // Hide welcome screen
+  hide() {
+    this.isVisible = false;
+  },
+
+  // Show welcome screen
+  show() {
+    this.isVisible = true;
   },
 
   // Check if dark mode is active
