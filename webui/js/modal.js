@@ -1,4 +1,4 @@
-// Full-Screen Input Modal logic moved to /components/chat/input/full-screen-store.js
+// Full-Screen Input Modal logic moved to /components/modals/full-screen-store.js
 // Keep only other modals here.
 
 const genericModalProxy = {

@@ -3,7 +3,7 @@
     <script type="module">
         import { store as speechStore } from "/components/chat/speech/speech-store.js";
         import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
-        import { store as fullScreenStore } from "/components/chat/input/full-screen-store.js";
+        import { store as fullScreenStore } from "/components/modals/full-screen-store.js";
     </script>
 </head>
 <body>
@@ -22,7 +22,9 @@
 
         <!-- Container for textarea and expand button -->
         <div id="chat-input-container" style="position: relative;">
-            <textarea id="chat-input" placeholder="Type your message here..." rows="1"></textarea>
+            <textarea id="chat-input" placeholder="Type your message here..." rows="1"
++                     @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
+                      @input="$store.chatInput.adjustTextareaHeight()"></textarea>
             <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
@@ -32,7 +34,8 @@
 
         <div id="chat-buttons-wrapper">
             <!-- Send button -->
-            <button class="chat-button" id="send-button" aria-label="Send message">
+            <button class="chat-button" id="send-button" aria-label="Send message"
+                    @click="$store.chatInput.sendMessage()">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
                     <path d="M25 20 L75 50 L25 80" fill="none" stroke="currentColor" stroke-width="15"></path>
                 </svg>
@@ -60,6 +63,75 @@
     </script>
 
     <style>
+    /* Layout rows */
+    .input-row { display: flex; align-items: center; gap: var(--spacing-xs); width: 100%; white-space: nowrap; }
+    
+    /* Attachments icon + tooltip */
+    .attachment-wrapper { position: relative; flex-shrink: 0; }
+    .attachment-icon { cursor: pointer; color: var(--color-text); opacity: 0.7; transition: opacity 0.2s ease; display: flex; align-items: center; }
+    .attachment-icon:hover { opacity: 1; }
+    .attachment-icon:active { opacity: 0.5; }
+    .tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(0%); padding: 8px; background-color: var(--color-secondary); color: var(--color-text); border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 1002; }
+
+/* Text input */
+    #chat-input-container {
+    position: relative;
+    width: 100%;
+    }
+    #chat-input {
+    background-color: var(--color-input);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    color: var(--color-text);
+    flex-grow: 1;
+    font-family: "Roboto Mono", monospace;
+    font-optical-sizing: auto;
+    -webkit-font-optical-sizing: auto;
+    font-size: 0.9rem;
+    max-height: 7rem;
+    min-height: 3.05rem;
+    width: 100%;
+    padding: 0.48rem 40px var(--spacing-sm) var(--spacing-sm);
+    margin-right: var(--spacing-xs);
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    resize: none;
+    align-content: start;
+    background-clip: border-box;
+    border: 6px solid transparent;
+    outline: 1px solid var(--color-border);
+    transition: all 0.3s ease;
+    -webkit-transition: all 0.3s ease;
+    }
+    #chat-input::-webkit-scrollbar { width: 6px; height: 6px; }
+    #chat-input::-webkit-scrollbar-track { background: transparent; margin: 4px 0; border-radius: 6px; }
+    #chat-input::-webkit-scrollbar-thumb { background-color: rgba(155,155,155,0.5); border-radius: 6px; -webkit-transition: background-color 0.2s ease; transition: background-color 0.2s ease; }
+    #chat-input::-webkit-scrollbar-thumb:hover { background-color: rgba(155,155,155,0.7); }
+    #chat-input:focus { outline: 0.05rem solid rgba(155,155,155,0.5); font-size: 0.955rem; padding-top: 0.45rem; background-color: var(--color-input-focus); }
+    #chat-input::placeholder { color: var(--color-text-muted); opacity: 0.7; }
+
+    #expand-button { position: absolute; top: 12px; right: 10px; background: transparent; border: none; cursor: pointer; font-size: 1.2rem; color: var(--color-text); opacity: 0.4; transition: opacity 0.2s; }
+    #expand-button:hover { opacity: 0.7; }
+    #expand-button:active { opacity: 1; }
+    #expand-button svg { width: 1.3rem; height: 1.3rem; }
+
+    /* Chat buttons (Send/Mic) */
+    #chat-buttons-wrapper { gap: var(--spacing-xs); padding-left: var(--spacing-xs); line-height: 0.5rem; display: -webkit-flex; display: flex; }
+    .chat-button { border: none; border-radius: 50%; color: var(--color-background); cursor: pointer; font-size: var(--font-size-normal); height: 2.525rem; width: 2.525rem; margin: 0 0.18rem 0 0 var(--spacing-xs); display: -webkit-flex; display: flex; align-items: center; justify-content: center; flex-shrink: 0; flex-grow: 0; min-width: 2.525rem; -webkit-transition: all var(--transition-speed), transform 0.1s ease-in-out; transition: all var(--transition-speed), transform 0.1s ease-in-out; }
+    #send-button { background-color: #4248f1; }
+    #send-button:hover { -webkit-transform: scale(1.05); transform: scale(1.05); transform-origin: center; background-color: #353bc5; }
+    #send-button:active { -webkit-transform: scale(1); transform: scale(1); transform-origin: center; background-color: #2b309c; }
+    .chat-button svg { width: 1.5rem; height: 1.5rem; }
+    /* Microphone button */
+    .chat-button.mic-inactive svg { /* Add specific styles if needed */ }
+    /* Tooltip */
+    .tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(0%); padding: 8px; background-color: var(--color-secondary); color: var(--color-text); border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 1002; }
+    /* Responsive tweaks */
+    @media (max-width: 640px) {
+      #chat-input { min-height: 5.3rem; align-content: start; }
+      #chat-buttons-wrapper { display: flex; gap: var(--spacing-xs); padding: 0 0 0 var(--spacing-sm) !important; width: 3.5rem; flex-wrap: wrap; -webkit-transition: all 0.3s ease; transition: all 0.3s ease; }
+    }
+    @media (min-width: 768px) { #chat-buttons-wrapper { flex-wrap: nowrap; -webkit-flex-wrap: nowrap; flex-wrap: nowrap; } }
     </style>
 </body>
 </html>

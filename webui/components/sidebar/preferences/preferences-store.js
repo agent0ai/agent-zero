@@ -2,10 +2,10 @@ import { createStore } from "/js/AlpineStore.js";
 
 // Preferences store centralizes sidebar toggle state and side-effects
 const model = {
-  // UI toggles (persist only where legacy behavior requires it)
+  // UI toggles (initialized with safe defaults, loaded from localStorage in init)
   autoScroll: true,
-  darkMode: localStorage.getItem("darkMode") !== "false",
-  speech: localStorage.getItem("speech") === "true",
+  darkMode: true,
+  speech: false,
   showThoughts: true,
   showJson: false,
   showUtils: false,
@@ -13,6 +13,22 @@ const model = {
   // Initialize preferences and apply current state
   init() {
     try {
+      // Load persisted preferences with safe fallbacks
+      try {
+        const storedDarkMode = localStorage.getItem("darkMode");
+        this.darkMode = storedDarkMode !== "false";
+      } catch {
+        this.darkMode = true; // Default to dark mode if localStorage is unavailable
+      }
+
+      try {
+        const storedSpeech = localStorage.getItem("speech");
+        this.speech = storedSpeech === "true";
+      } catch {
+        this.speech = false; // Default to speech off if localStorage is unavailable
+      }
+
+      // Apply all preferences
       this.applyDarkMode(this.darkMode);
       this.applyAutoScroll(this.autoScroll);
       this.applySpeech(this.speech);

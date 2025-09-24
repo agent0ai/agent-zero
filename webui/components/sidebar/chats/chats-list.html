@@ -1,0 +1,87 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/sidebar/chats/chats-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.chats">
+      <div class="chats-list-container" x-data>
+        <ul class="config-list" x-show="$store.chats.contexts.length > 0">
+          <template x-for="context in $store.chats.contexts" :key="context.id">
+            <li>
+              <div :class="{'chat-list-button': true, 'font-bold': context.id === $store.chats.selected}"
+                   @click="$store.chats.selectChat(context.id)">
+                <span class="chat-name" :title="context.name ? context.name : 'Chat #' + context.no"
+                      x-text="context.name ? context.name : 'Chat #' + context.no"></span>
+              </div>
+              <button class="edit-button" @click.stop="$store.chats.killChat(context.id)">X</button>
+            </li>
+          </template>
+        </ul>
+        <div class="empty-list-message" x-show="$store.chats.contexts.length === 0">
+          <p><i>No chats to list.</i></p>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      const s = Alpine.store('chats');
+      if (s && typeof s.init === 'function') s.init();
+    });
+  </script>
+</body>
+</html>
+
+<style>
+  /* Chats list container and items */
+  .chats-list-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    /* Fade mask */
+    mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+    background: linear-gradient(to bottom, calc(100% - 20px), transparent 100%);
+    padding-bottom: 20px;
+    scrollbar-width: thin;
+    -ms-overflow-style: auto;
+  }
+  .chats-list-container::-webkit-scrollbar { width: 5px; }
+  .chats-list-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 6px; }
+  .chats-list-container::-webkit-scrollbar-thumb { background-color: var(--color-border); border-radius: 6px; }
+  .chats-list-container::-webkit-scrollbar-thumb:hover { background-color: var(--color-border); }
+
+  .chat-list-button { display: block; width: 100%; padding: 8px 5px; cursor: pointer; overflow: hidden; position: relative; border-radius: 4px; transition: background-color 0.2s ease-in-out; }
+  .chat-list-button.has-task-container { padding-top: 6px; padding-bottom: 6px; }
+  .chat-list-button:hover { background-color: rgba(255, 255, 255, 0.03); }
+  .light-mode .chat-list-button:hover { background-color: rgba(0, 0, 0, 0.02); }
+
+  .chat-name { display: inline-block; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; padding: 3px 8px; border-radius: 4px; transition: background-color 0.2s; margin-right: 60px; font-size: var(--font-size-small); }
+  .chat-name:hover { background-color: rgba(255, 255, 255, 0.1); text-decoration: none; }
+  .light-mode .chat-name:hover { background-color: rgba(0, 0, 0, 0.05); }
+
+  .chat-container { display: flex; align-items: center; position: relative; width: 100%; min-height: 30px; gap: 0; }
+
+  .edit-button { background-color: transparent; border: 1px solid var(--color-border); border-radius: 0.1875rem; color: var(--color-primary); cursor: pointer; padding: 0.125rem 0.5rem; -webkit-transition: all var(--transition-speed) ease-in-out; transition: all var(--transition-speed) ease-in-out; width: 2rem; height: 2rem; }
+  .edit-button:hover { border-color: var(--color-primary); background-color: #32455690; }
+  .edit-button:active { background-color: #131a2090; color: rgba(253, 253, 253, 0.35); }
+  .light-mode .edit-button { border-color: var(--color-primary-light); color: var(--color-primary-light); }
+  .light-mode .edit-button:hover { background-color: #e4e7f0; }
+  .light-mode .edit-button:active { background-color: #979fb9; color: rgba(0,0,0,0.35); }
+
+  .empty-list-message { display: flex; justify-content: center; align-items: center; height: 100px; color: var(--color-secondary); text-align: center; opacity: 0.7; font-style: italic; }
+  .light-mode .empty-list-message { color: var(--color-secondary-light); }
+
+  /* Selected chat accent */
+  .chat-list-button.font-bold { position: relative; background-color: var(--color-border) 0.05; }
+  .chat-list-button.font-bold::before { content: ""; position: absolute; left: 0; top: 0; height: 100%; width: 3px; background-color: var(--color-border); border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
+  .light-mode .chat-list-button.font-bold { background-color: var(--color-border) 0.05; }
+  .light-mode .chat-list-button.font-bold::before { background-color: var(--color-border); }
+</style>
+
+

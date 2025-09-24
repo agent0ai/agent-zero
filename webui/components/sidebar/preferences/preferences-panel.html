@@ -16,7 +16,7 @@
             </svg>
           </h3>
           <ul class="config-list" id="pref-list" x-show="prefOpen" x-collapse x-transition>
-            <li x-data="{ get autoScroll(){ return $store.preferences.autoScroll }, set autoScroll(v){ $store.preferences.autoScroll = v } }" x-init="$watch('$store.preferences.autoScroll', v => $store.preferences.applyAutoScroll(v))">
+            <li x-data x-init="$watch('$store.preferences.autoScroll', v => $store.preferences.applyAutoScroll(v))">
               <span>Autoscroll</span>
               <label class="switch">
                 <input id="auto-scroll-switch" type="checkbox" x-model="$store.preferences.autoScroll">
@@ -72,18 +72,29 @@
     });
   </script>
   <style>
+    .pref-section {
+    font-size: var(--font-size-small);
+    padding: 0.6rem var(--spacing-md) 0.05rem var(--spacing-md);
+    }
+    /* Collapse transition */
+    .pref-section [x-cloak] {
+      display: none;
+    }
     .pref-section .pref-header {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 6px;
       cursor: pointer;
       user-select: none;
     }
     .pref-section .arrow-icon {
+      margin-left: 0.5rem;
       transition: transform .15s ease;
+      transform: rotate(90deg);
     }
     .pref-section .arrow-icon.rotated {
-      transform: rotate(90deg);
+      transform: rotate(0deg);
     }
     .pref-section .config-list {
       list-style: none;
@@ -93,27 +104,20 @@
       flex-direction: column;
       gap: 1px;
     }
+    #pref-list li {
+    opacity: 0.8;
+    }
     .pref-section .switch-label,
     .pref-section span {
-      font-size: 0.9rem;
+      font-size: 0.8rem;
     }
     .pref-section .switch {
       position: relative;
       display: inline-block;
-      width: 42px;
-      height: 24px;
+      width: 35px;
+      height: 19px;
       margin-left: auto;
     }
-    .pref-section .switch input { display:none; }
-    .pref-section .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #999; transition: .2s; border-radius: 22px;
-    }
-    .pref-section .slider:before {
-      position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%;
-    }
-    .pref-section input:checked + .slider { background-color: var(--color-primary, #6cf); }
-    .pref-section input:checked + .slider:before { transform: translateX(18px); }
     .pref-section li { display: flex; align-items: center; }
   </style>
 </body>

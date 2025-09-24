@@ -5,21 +5,38 @@
   </script>
 </head>
 <body>
-  <div class="tabs-container">
-    <div class="tabs">
-      <div class="tab active" id="chats-tab">Chats</div>
-      <div class="tab" id="tasks-tab">Tasks</div>
-    </div>
+  <div class="tabs-container" x-data>
+    <template x-if="$store.tabs">
+      <div class="tabs">
+        <div class="tab" id="chats-tab" 
+             :class="{'active': $store.tabs.activeTab === 'chats'}"
+             @click="$store.tabs.activateTab('chats')">Chats</div>
+        <div class="tab" id="tasks-tab"
+             :class="{'active': $store.tabs.activeTab === 'tasks'}"
+             @click="$store.tabs.activateTab('tasks')">Tasks</div>
+      </div>
+    </template>
   </div>
 
   <script>
     document.addEventListener('alpine:init', () => {
       const s = Alpine.store('tabs');
       if (s && typeof s.init === 'function') s.init();
-      if (s && typeof s.initializeActiveTab === 'function') s.initializeActiveTab();
     });
   </script>
 </body>
 </html>
+
+<style>
+  /* Tabs styling migrated */
+  .tabs-container { width: 100%; margin-bottom: 8px; padding: 0; margin-top: 20px; }
+  .tabs { display: flex; width: 100%; position: relative; gap: 5px; border-bottom: 3px solid var(--color-border); justify-content: center; }
+  .tab { padding: 8px 16px; cursor: pointer; position: relative; color: var(--color-text); border: 2px solid var(--color-border); border-bottom: none; border-radius: 8px 8px 0 0; transition: all 0.3s ease; background-color: var(--color-panel); margin-bottom: -3px; z-index: 1; }
+  .tab:not(.active) { opacity: 0.8; border-bottom: 3px solid var(--color-border); background-color: rgba(255, 255, 255, 0.03); }
+  .tab.active { border-color: var(--color-border); font-weight: bold; background-color: var(--color-panel); }
+  .tab.active::after { display: none; }
+  .light-mode .tab.active { box-shadow: 0 -4px 8px -2px var(--color-border), 4px 0 8px -2px var(--color-border), -4px 0 8px -2px var(--color-border); }
+  .light-mode .tab:not(.active) { background-color: rgba(0, 0, 0, 0.03); }
+</style>
 
 
