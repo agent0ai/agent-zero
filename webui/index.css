@@ -442,6 +442,58 @@ img {
   opacity: 0.6;
 }
 
+/* Project Indicator Styles */
+.project-indicator {
+  position: relative;
+}
+
+.project-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(64, 196, 255, 0.15);
+  border: 1px solid rgba(64, 196, 255, 0.3);
+  border-radius: 1rem;
+  padding: 0.4rem 0.8rem;
+  font-size: var(--font-size-small);
+  color: #40c4ff;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+
+.project-badge:hover {
+  background: rgba(64, 196, 255, 0.2);
+  border-color: rgba(64, 196, 255, 0.4);
+}
+
+.project-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: #40c4ff;
+  flex-shrink: 0;
+}
+
+.project-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: #40c4ff;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.9);
+  }
+}
+
 /* Typography */
 /* h2,
 h3 {
