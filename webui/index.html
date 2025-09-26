@@ -149,7 +149,7 @@
 
             <div id="logo-container">
                 <a href="https://github.com/agent0ai/agent-zero" target="_blank" rel="noopener noreferrer">
-                    <img src="./public/splash.jpg" alt="a0" width="22" height="22">
+                    <img src="./public/icon_transparent.svg" alt="a0" width="22" height="22">
                 </a>
             </div>
         </div>
@@ -194,13 +194,13 @@
                         <ul class="config-list" x-show="contexts.length > 0">
                             <template x-for="context in contexts">
                                 <li>
-                                    <div :class="{'chat-list-button': true, 'font-bold': context.id === selected}"
+                                    <div :class="{'chat-list-button': true, 'selected': context.id === selected}"
                                         @click="selected = context.id; selectChat(context.id)">
                                         <span class="chat-name"
                                             :title="context.name ? context.name : 'Chat #' + context.no"
                                             x-text="context.name ? context.name : 'Chat #' + context.no"></span>
                                     </div>
-                                    <button class="edit-button" @click="killChat(context.id)">X</button>
+                                    <button class="edit-button delete-chat" title="Delete chat"@click="killChat(context.id)">X</button>
                                 </li>
                             </template>
                         </ul>
@@ -222,7 +222,7 @@
                         <ul class="config-list" x-show="tasks.length > 0">
                             <template x-for="task in tasks">
                                 <li>
-                                    <div :class="{'chat-list-button': true, 'font-bold': task.id === selected, 'has-task-container': true}"
+                                    <div :class="{'chat-list-button': true, 'selected': task.id === selected, 'has-task-container': true}"
                                         @click="selected = task.id; selectChat(task.id)">
                                         <!-- Task container with a vertical layout -->
                                         <div class="task-container task-container-vertical">

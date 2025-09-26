@@ -217,7 +217,7 @@ img {
   padding: 0.47rem 0.56rem;
   position: absolute;
   top: var(--spacing-md);
-  z-index: 999;
+  z-index: 1004;
   -webkit-transition: all var(--transition-speed) ease-in-out;
   transition: all var(--transition-speed) ease-in-out;
 }
@@ -257,9 +257,10 @@ img {
 
 /* Update the chat-list-button padding to accommodate the vertical layout */
 .chat-list-button {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 8px 5px;
+  padding: 6px 6px 6px 14px;
   cursor: pointer;
   overflow: hidden;
   position: relative;
@@ -267,19 +268,18 @@ img {
   transition: background-color 0.2s ease-in-out;
 }
 
-/* Add some more padding to the list items to accommodate the vertical layout */
+/* If its needed */
 .chat-list-button.has-task-container {
-  padding-top: 6px;
-  padding-bottom: 6px;
+
 }
 
 /* Subtle background on hover for the entire row */
 .chat-list-button:hover {
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .light-mode .chat-list-button:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .chat-name {
@@ -288,22 +288,11 @@ img {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 3px 0;
   cursor: pointer;
-  padding: 3px 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
-  margin-right: 60px; /* Make space for buttons */
   font-size: var(--font-size-small); /* Match config button font size */
-}
-
-/* Add a nice hover effect to just the chat name */
-.chat-name:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  text-decoration: none;
-}
-
-.light-mode .chat-name:hover {
-  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .chats-list-container {
@@ -326,6 +315,7 @@ img {
   background: linear-gradient(to bottom, calc(100% - 20px), transparent 100%);
   /* Add padding to account for fade */
   padding-bottom: 20px;
+  padding-right: 5px;
   scrollbar-width: thin;
   -ms-overflow-style: auto;
 }
@@ -355,7 +345,7 @@ img {
   flex-direction: column;
   min-height: 0;
   flex: 1;
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 /* Preferences */
@@ -478,7 +468,7 @@ h4 {
   position: fixed;
   margin-left: 4.6rem;
   margin-top: var(--spacing-md);
-  z-index: 999;
+  z-index: 1004; /* above sidebar and other content */
   -webkit-transition: margin-left var(--transition-speed) ease-in-out;
   transition: margin-left var(--transition-speed) ease-in-out;
 }
@@ -486,12 +476,13 @@ h4 {
 #logo-container a {
   color: inherit;
   text-decoration: none;
+  padding-top: 0.4rem;
 }
 
 #logo-container img {
   border-radius: var(--spacing-xs);
   width: auto;
-  height: 2.6rem;
+  height: 1.7rem;
   -webkit-transition: filter 0.3s ease;
   transition: filter 0.3s ease;
 }
@@ -833,7 +824,6 @@ h4 {
   display: -webkit-flex;
   display: flex;
   justify-content: space-between;
-  padding: 0.35rem 0;
 }
 
 .config-list > *:first-child {
@@ -842,6 +832,7 @@ h4 {
 
 #pref-list li {
   opacity: 0.8;
+  padding: 0.2rem 0;
 }
 
 .config-button {
@@ -883,11 +874,11 @@ h4 {
   border-radius: 0.1875rem;
   color: var(--color-primary);
   cursor: pointer;
-  padding: 0.125rem 0.5rem;
+  padding: 0 0.5rem;
   -webkit-transition: all var(--transition-speed) ease-in-out;
   transition: all var(--transition-speed) ease-in-out;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.5rem;
 }
 
 .edit-button:hover {
@@ -898,6 +889,17 @@ h4 {
 .edit-button:active {
   background-color: #131a2090;
   color: rgba(253, 253, 253, 0.35);
+}
+
+/* delete chat buttons hidden only on desktop, not mobile */
+@media (hover: hover) {
+  .edit-button.delete-chat {
+    opacity: 0;
+  }
+
+  .edit-button.delete-chat:hover {
+    opacity: 1;
+  }
 }
 
 /* Input section layout */
@@ -1426,10 +1428,6 @@ input:checked + .slider:before {
   color: #e40138;
 }
 
-.font-bold {
-  font-weight: bold;
-}
-
 
 
 
@@ -1869,7 +1867,7 @@ a:active {
 .tasks-list-container {
   max-height: 300px;
   overflow-y: auto;
-  margin-top: 10px;
+  margin-top: 0.2rem;
   padding-right: 5px;
   border-radius: 5px;
   position: relative;
@@ -1896,13 +1894,13 @@ a:active {
 }
 
 .task-name {
-  display: block;
+  display: flex;
+  align-self: center;
   width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 3px 0;
-  margin-left: 10px;
   cursor: pointer;
   border-radius: 4px;
   transition: background-color 0.2s;
@@ -1916,16 +1914,6 @@ a:active {
   align-items: center;
   width: 100%;
   margin-top: 2px;
-  margin-left: 5px;
-}
-
-.task-name:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  text-decoration: none;
-}
-
-.light-mode .task-name:hover {
-  background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* Dark mode overrides */
@@ -1970,7 +1958,6 @@ a:active {
 
 .tab:not(.active) {
   opacity: 0.8;
-  border-bottom: 3px solid var(--color-border);
   background-color: rgba(255, 255, 255, 0.03);
 }
 
@@ -2021,7 +2008,7 @@ a:active {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
   border-radius: 6px;
 }
 
@@ -2042,12 +2029,12 @@ a:active {
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) rgba(0, 0, 0, 0.2);
+  scrollbar-color: var(--color-border) transparent;
 }
 
 /* Light mode scrollbar */
 .light-mode ::-webkit-scrollbar-track {
-  background: rgba(200, 200, 200, 0.3);
+  background: transparent;
 }
 
 .light-mode ::-webkit-scrollbar-thumb {
@@ -2063,33 +2050,29 @@ a:active {
 }
 
 .light-mode * {
-  scrollbar-color: var(--color-border) rgba(200, 200, 200, 0.3);
+  scrollbar-color: var(--color-border) transparent;
 }
 
 /* Add specific styling for selected chat items */
-.chat-list-button.font-bold {
-  position: relative;
-  background-color: var(--color-border) 0.05;
+.selected {
+    font-weight: bold;
 }
 
-.chat-list-button.font-bold::before {
+.chat-list-button.selected::before {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: var(--color-border);
+  background-color: #2196f3;
   border-top-left-radius: 3px;
   border-bottom-left-radius: 3px;
+
 }
 
-.light-mode .chat-list-button.font-bold {
-  background-color: var(--color-border) 0.05;
-}
-
-.light-mode .chat-list-button.font-bold::before {
-  background-color: var(--color-border);
+.light-mode .chat-list-button.selected::before {
+  background-color: #2196f3;
 }
 
 /* Make sure the chat container has proper spacing */
