@@ -1,0 +1,1084 @@
+/* Base layout styles */
+.mg-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.mg-control {
+  height: 34px;
+  padding: 6px 8px;
+  width: 200px;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
+
+.mg-action {
+  height: 34px;
+  padding: 6px 12px;
+}
+
+.mg-manage-row {
+  display: contents;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Modal grid layout */
+.mg-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--spacing-lg);
+  align-items: start;
+}
+
+.mg-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.mg-section {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-md);
+  border-radius: var(--spacing-sm);
+}
+
+.mg-section-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+}
+
+.mg-help {
+  color: var(--color-text);
+  margin-bottom: 1rem;
+}
+
+/* Form styles */
+.mg-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.mg-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mg-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-start;
+  margin-top: var(--spacing-xs);
+}
+
+.mg-actions button {
+  margin-left: 0;
+}
+
+/* List styles */
+.mg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+  padding-top: 6px;
+}
+
+.mg-list .mg-card {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.mg-list .mg-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  border-color: rgba(100, 150, 255, 0.45);
+}
+
+.mg-list .mg-card.selected {
+  background: linear-gradient(90deg, rgba(100, 150, 255, 0.06), rgba(100, 150, 255, 0.02));
+  border-color: rgba(100, 150, 255, 0.7);
+  box-shadow: 0 10px 30px rgba(100, 150, 255, 0.08);
+}
+
+.mg-list .mg-card .mg-card-body {
+  flex: 1;
+}
+
+/* Row layout styles */
+.mg-row-wrap {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.mg-inline-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  width: 100%;
+}
+
+.mg-inline-row .mg-control {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+.mg-inline-row .mg-actions {
+  flex: 0 0 auto;
+  margin-left: var(--spacing-xs);
+}
+
+/* Native-style inputs and buttons */
+.mg-input-native {
+  background-color: var(--color-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--spacing-xs);
+  color: var(--color-text);
+  font-family: var(--font-family-main);
+  font-size: var(--font-size-smaller);
+  padding: var(--spacing-sm) 0.75rem;
+  transition: all var(--transition-speed);
+  outline: none;
+  line-height: 1.4;
+  min-height: 2.3rem;
+}
+
+/* Select element specific adjustments */
+select.mg-input-native {
+  padding: 8px 0.75rem;
+  line-height: 1.4;
+  height: auto;
+  min-height: 2.4rem;
+}
+
+/* Ensure select option text is not clipped */
+select.mg-input-native option {
+  padding: 4px 8px;
+  line-height: 1.4;
+}
+
+.mg-input-native:focus {
+  background-color: var(--color-input-focus);
+  border-color: rgba(155, 155, 155, 0.5);
+  outline: 0.05rem solid rgba(155, 155, 155, 0.5);
+}
+
+.mg-input-native::placeholder {
+  color: var(--color-text);
+  opacity: 0.6;
+}
+
+.mg-btn-native {
+  background-color: var(--color-background);
+  border: 0.1rem solid var(--color-border);
+  border-radius: var(--spacing-xs);
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: var(--font-family-main);
+  font-size: var(--font-size-small);
+  opacity: 0.8;
+  padding: var(--spacing-sm) 0.75rem;
+  transition: all var(--transition-speed), transform 0.1s ease-in-out;
+  min-height: 2.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Smaller button sizes for table cells to fit */
+.mg-pool-table .mg-btn-native,
+.mg-groups-table .mg-btn-native {
+  min-height: 1.8rem;
+  padding: 4px 8px;
+  font-size: var(--font-size-small);
+}
+
+.mg-btn-native:hover {
+  background-color: var(--color-secondary);
+  opacity: 1;
+}
+
+.mg-btn-native:active {
+  opacity: 0.5;
+}
+
+/* Model groups table styles */
+.mg-groups-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: var(--font-size-smaller);
+  table-layout: fixed;
+}
+
+.mg-groups-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: var(--font-size-smaller);
+}
+
+/* Unified column width allocation */
+.mg-groups-table thead th:nth-child(1) {
+  width: 22%;
+}
+
+.mg-groups-table thead th:nth-child(2) {
+  width: 28%;
+}
+
+.mg-groups-table thead th:nth-child(3) {
+  width: 28%;
+}
+
+.mg-groups-table thead th:nth-child(4) {
+  width: 22%;
+}
+
+.mg-groups-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.03);
+  vertical-align: middle;
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mg-groups-table tbody tr {
+  transition: background-color var(--transition-speed) ease;
+}
+
+.mg-groups-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.mg-groups-table tbody tr.selected {
+  background: linear-gradient(90deg, rgba(115, 122, 129, 0.06), rgba(115, 122, 129, 0.02));
+  border-left: 4px solid var(--color-primary);
+}
+
+/* Pool table title styles */
+.mg-pool-title {
+  font-weight: 600;
+  font-size: var(--font-size-smaller);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.mg-pool-title:first-child {
+  margin-top: 0;
+}
+
+/* Pool table styles */
+.mg-pool-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  table-layout: fixed;
+  /* Fixed table layout to ensure consistent column widths */
+}
+
+.mg-pool-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: var(--font-size-smaller);
+}
+
+.mg-pool-table thead th:nth-child(1) {
+  width: 22%;
+}
+
+.mg-pool-table thead th:nth-child(2) {
+  width: 28%;
+}
+
+.mg-pool-table thead th:nth-child(3) {
+  width: 28%;
+}
+
+.mg-pool-table thead th:nth-child(4) {
+  width: 22%;
+}
+
+.mg-pool-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.03);
+  vertical-align: middle;
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mg-pool-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.mg-pool-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Unified table button styles */
+.mg-pool-table .btn,
+.mg-groups-table .btn {
+  background-color: var(--color-background);
+  border: 0.1rem solid var(--color-border);
+  border-radius: var(--spacing-xs);
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: var(--font-family-main);
+  font-size: var(--font-size-small);
+  opacity: 0.8;
+  padding: 4px 8px;
+  margin-left: 4px;
+  transition: all var(--transition-speed);
+  min-height: 1.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Ensure button containers have enough space */
+.mg-pool-table td:last-child,
+.mg-groups-table td:last-child {
+  white-space: nowrap;
+}
+
+.mg-pool-table .btn:hover,
+.mg-groups-table .btn:hover {
+  background-color: var(--color-secondary);
+  opacity: 1;
+}
+
+.mg-pool-table .btn:active,
+.mg-groups-table .btn:active {
+  opacity: 0.5;
+}
+
+/* Delete button special style */
+.mg-btn-native.btn-delete,
+.mg-pool-table .btn.btn-delete,
+.mg-groups-table .btn.btn-delete {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.mg-btn-native.btn-delete:hover,
+.mg-pool-table .btn.btn-delete:hover,
+.mg-groups-table .btn.btn-delete:hover {
+  background-color: var(--color-accent);
+  color: var(--color-text);
+  opacity: 1;
+}
+
+/* Quick model groups panel styles */
+.quick-mg-container {
+  position: relative;
+  display: inline-block;
+}
+
+/* quick-mg-toggle button styles */
+#quick-mg-toggle {
+  background-color: var(--color-background);
+  border-radius: var(--spacing-xs);
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: var(--font-family-main);
+  font-size: var(--font-size-small);
+  opacity: 0.8;
+  padding: 0.5rem 1rem;
+  transition: all var(--transition-speed);
+  min-height: 2.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+#quick-mg-toggle:hover {
+  background-color: var(--color-secondary);
+  opacity: 1;
+}
+
+#quick-mg-toggle:active {
+  opacity: 0.5;
+}
+
+#quick-mg-toggle:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.quick-mg-container .mg-btn-native {
+  padding: 6px 10px;
+  font-size: var(--font-size-small);
+  min-width: auto;
+  height: auto;
+  min-height: auto;
+}
+
+.quick-mg-panel {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  width: 300px;
+  max-height: 360px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-radius: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  z-index: 1200;
+  overflow: auto;
+  transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease;
+}
+
+.quick-mg-panel[aria-hidden="true"] {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.quick-mg-search {
+  width: 100%;
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--spacing-xs);
+  background: var(--color-input);
+  color: var(--color-text);
+  font-family: var(--font-family-main);
+  font-size: var(--font-size-smaller);
+  transition: all var(--transition-speed);
+}
+
+.quick-mg-search:focus {
+  outline: 0.05rem solid rgba(155, 155, 155, 0.5);
+  background-color: var(--color-input-focus);
+  border-color: rgba(155, 155, 155, 0.5);
+}
+
+.quick-mg-search::placeholder {
+  color: var(--color-text);
+  opacity: 0.6;
+}
+
+.quick-mg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.quick-mg-list li {
+  padding: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  display: block;
+}
+
+.quick-mg-list li:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.quick-mg-list li.focused {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.quick-mg-list li.selected {
+  background: linear-gradient(90deg, rgba(115, 122, 129, 0.06), rgba(115, 122, 129, 0.02));
+  border-left: 4px solid #737a81;
+}
+
+.quick-mg-list .mg-name {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.quick-mg-list .mg-ref {
+  font-size: 0.9rem;
+  color: #737a81;
+  margin-left: 8px;
+}
+
+.quick-mg-list .mg-refs {
+  font-size: 0.8rem;
+  color: #737a81;
+  opacity: 0.8;
+}
+
+/* Place input-right controls (expand button + quick model groups) inside the chat input */
+#chat-input-container .input-right-controls {
+  position: absolute;
+  /* vertically center the control group within the input */
+  top: 50%;
+  right: 8px;
+  /* small upward nudge to visually center against the input's padding/border */
+  transform: translateY(calc(-50% - 2px));
+  height: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+/* Override the default absolute expand-button so it participates in the inline controls layout */
+#chat-input-container .input-right-controls #expand-button {
+  position: relative;
+  top: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 1300;
+  opacity: 0.6;
+}
+
+/* Slightly increase visibility on hover */
+#chat-input-container .input-right-controls #expand-button:hover {
+  opacity: 0.9;
+}
+
+/* Ensure the quick model toggle is vertically centered and doesn't collapse */
+#chat-input-container .input-right-controls .quick-mg-container {
+  display: inline-flex;
+  align-items: center;
+  /* let the toggle size itself naturally so it vertically centers with flex alignment */
+  height: auto;
+}
+
+/* Ensure the toggle button content is centered (fix visual baseline offsets) */
+#chat-input-container .input-right-controls #quick-mg-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding-top: 0.36rem;
+  padding-bottom: 0.36rem;
+}
+
+@media (max-width: 768px) {
+  #chat-input-container .input-right-controls {
+    transform: translateY(calc(-50% - 1px));
+  }
+}
+
+/* Align the quick-mg-panel to the right edge of the toggle and keep it below the input */
+.quick-mg-panel {
+  left: auto;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 1200;
+}
+
+/* Prevent chat text from being hidden under the right-side controls */
+#chat-input {
+  padding-right: 180px;
+}
+
+/* Responsive: make the reserved padding smaller on narrow screens */
+@media (max-width: 768px) {
+  #chat-input {
+    padding-right: 120px;
+  }
+  #chat-input-container .input-right-controls {
+    right: 6px;
+    gap: 6px;
+  }
+  .quick-mg-panel {
+    right: -6px;
+    width: 260px;
+  }
+}
+
+@media (max-width: 480px) {
+  #chat-input {
+    padding-right: 100px;
+  }
+  #chat-input-container .input-right-controls {
+    gap: 4px;
+  }
+  .quick-mg-panel {
+    width: 95vw;
+    left: 0;
+    right: 0;
+  }
+}
+
+/* Light mode text colors */
+.light-mode .quick-mg-list .mg-ref,
+.light-mode .quick-mg-list .mg-refs {
+  color: #384653;
+}
+
+/* Model Groups modal styles */
+#modelGroupsModal {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#modelGroupsModal[x-cloak] {
+  display: none !important;
+}
+
+/* Modal container size adjustments */
+.modal-container.modal-small {
+  width: 1100px;
+  max-width: 95vw;
+}
+
+/* Alpine.js transition classes */
+.x-transition-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.x-transition-enter-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.x-transition-enter-to {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.x-transition-leave {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.x-transition-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.x-transition-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Loading state styles */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive design */
+
+@media (max-width: 1024px) {
+  .mg-modal-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .mg-column+.mg-column {
+    order: 2;
+  }
+
+  /* Adjust table column widths */
+  .mg-groups-table thead th:nth-child(1),
+  .mg-pool-table thead th:nth-child(1) {
+    width: 20%;
+  }
+
+  .mg-groups-table thead th:nth-child(2),
+  .mg-pool-table thead th:nth-child(2) {
+    width: 25%;
+  }
+
+  .mg-groups-table thead th:nth-child(3),
+  .mg-pool-table thead th:nth-child(3) {
+    width: 25%;
+  }
+
+  .mg-groups-table thead th:nth-child(4),
+  .mg-pool-table thead th:nth-child(4) {
+    width: 30%;
+  }
+}
+
+/* Small-screen tablet */
+@media (max-width: 768px) {
+  .mg-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .mg-control {
+    min-width: 140px;
+    width: auto;
+    flex: 1;
+  }
+
+  .mg-inline-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .mg-inline-row .mg-actions {
+    margin-left: 0;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .mg-inline-row .mg-control {
+    min-width: 120px;
+  }
+
+  .quick-mg-panel {
+    width: 95vw;
+    left: -10px;
+    max-height: 60vh;
+  }
+
+  /* Quick-mg-toggle adjustments for small screens */
+  #quick-mg-toggle {
+    padding: 0.4rem 0.8rem;
+    font-size: var(--font-size-smaller);
+  }
+
+  /* Table button adjustments */
+  .mg-pool-table .btn,
+  .mg-groups-table .btn {
+    padding: 3px 6px;
+    font-size: var(--font-size-smaller);
+    min-height: 1.6rem;
+    margin-left: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mg-section {
+    padding: var(--spacing-sm);
+  }
+
+  .mg-modal-grid {
+    gap: var(--spacing-sm);
+  }
+
+  .mg-control {
+    min-width: 100px;
+  }
+
+  .mg-inline-row .mg-actions {
+    justify-content: center;
+  }
+
+  .quick-mg-panel {
+    width: 98vw;
+    left: -15px;
+    max-height: 70vh;
+  }
+
+  /* Table responsive: stacked display */
+  .mg-groups-table thead,
+  .mg-pool-table thead {
+    display: none;
+  }
+
+  .mg-groups-table,
+  .mg-groups-table tbody,
+  .mg-groups-table tr,
+  .mg-groups-table td,
+  .mg-pool-table,
+  .mg-pool-table tbody,
+  .mg-pool-table tr,
+  .mg-pool-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .mg-groups-table tr,
+  .mg-pool-table tr {
+    margin-bottom: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--spacing-xs);
+    padding: 8px;
+    background: var(--color-panel);
+  }
+
+  .mg-groups-table td,
+  .mg-pool-table td {
+    padding: 6px 0;
+    border-bottom: none;
+    position: relative;
+    padding-left: 35%;
+  }
+
+  .mg-groups-table td::before,
+  .mg-pool-table td::before {
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 30%;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--color-text);
+    opacity: 0.8;
+    font-size: var(--font-size-smaller);
+  }
+
+  /* Model Groups table labels */
+  .mg-groups-table td:nth-of-type(1)::before {
+    content: 'Name:';
+  }
+
+  .mg-groups-table td:nth-of-type(2)::before {
+    content: 'Chat:';
+  }
+
+  .mg-groups-table td:nth-of-type(3)::before {
+    content: 'Utility:';
+  }
+
+  .mg-groups-table td:nth-of-type(4)::before {
+    content: 'Actions:';
+  }
+
+  /* Pool table labels */
+  .mg-pool-table td:nth-of-type(1)::before {
+    content: 'Provider:';
+  }
+
+  .mg-pool-table td:nth-of-type(2)::before {
+    content: 'Name:';
+  }
+
+  .mg-pool-table td:nth-of-type(3)::before {
+    content: 'API Base:';
+  }
+
+  .mg-pool-table td:nth-of-type(4)::before {
+    content: 'Actions:';
+  }
+
+  /* Mobile button optimizations */
+  .mg-pool-table .btn,
+  .mg-groups-table .btn {
+    padding: 4px 8px;
+    font-size: var(--font-size-smaller);
+    min-height: 1.8rem;
+    margin: 2px;
+  }
+
+  /* Special handling for Actions column on mobile */
+  .mg-groups-table td:nth-of-type(4),
+  .mg-pool-table td:nth-of-type(4) {
+    padding-left: 0;
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .mg-groups-table td:nth-of-type(4)::before,
+  .mg-pool-table td:nth-of-type(4)::before {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .mg-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mg-column+.mg-column {
+    order: 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .mg-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mg-column+.mg-column {
+    order: 2;
+  }
+}
+
+/* Light mode support */
+.light-mode .mg-btn-native {
+  background-color: var(--color-background);
+  color: var(--color-text-light);
+}
+
+.light-mode .mg-btn-native:hover {
+  background-color: var(--color-secondary-light);
+}
+
+.light-mode .mg-input-native {
+  background-color: var(--color-input-light);
+  color: var(--color-text-light);
+}
+
+.light-mode .mg-input-native:focus {
+  background-color: var(--color-input-focus-light);
+}
+
+.light-mode .mg-groups-table tbody tr.selected {
+  background: linear-gradient(90deg, rgba(56, 70, 83, 0.06), rgba(56, 70, 83, 0.02));
+  border-left: 4px solid var(--color-primary-light);
+}
+
+.light-mode .mg-pool-table .btn,
+.light-mode .mg-groups-table .btn {
+  background-color: var(--color-background-light);
+  color: var(--color-text-light);
+}
+
+.light-mode .mg-pool-table .btn:hover,
+.light-mode .mg-groups-table .btn:hover {
+  background-color: var(--color-secondary-light);
+}
+
+/* Delete button special style in light mode */
+.light-mode .mg-btn-native.btn-delete,
+.light-mode .mg-pool-table .btn.btn-delete,
+.light-mode .mg-groups-table .btn.btn-delete {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.light-mode .mg-btn-native.btn-delete:hover,
+.light-mode .mg-pool-table .btn.btn-delete:hover,
+.light-mode .mg-groups-table .btn.btn-delete:hover {
+  background-color: var(--color-accent);
+  color: var(--color-text-light);
+  opacity: 1;
+}
+
+/* Quick-mg-toggle styles in light mode */
+.light-mode #quick-mg-toggle {
+  background-color: var(--color-background-light);
+  color: var(--color-text-light);
+}
+
+.light-mode #quick-mg-toggle:hover {
+  background-color: var(--color-secondary-light);
+}
+
+.light-mode .quick-mg-list li:hover,
+.light-mode .quick-mg-list li.focused {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+
+  .mg-btn-native,
+  .mg-pool-table .btn,
+  .mg-groups-table .btn {
+    min-height: 2.2rem;
+    padding: 6px 12px;
+  }
+
+  .mg-input-native {
+    min-height: 2.6rem;
+    padding: 8px 12px;
+  }
+
+  select.mg-input-native {
+    min-height: 2.8rem;
+  }
+
+  /* Quick-mg-toggle optimizations on touch devices */
+  #quick-mg-toggle {
+    padding: 0.6rem 1.2rem;
+    min-height: 44px;
+  }
+
+  /* Increase touch target size */
+  .quick-mg-list li {
+    padding: 12px 8px;
+    min-height: 44px;
+  }
+
+  .mg-list .mg-card {
+    padding: 12px;
+    min-height: 44px;
+  }
+}
+
+/* Accessibility and animation optimizations */
+@media (prefers-reduced-motion: reduce) {
+
+  .quick-mg-panel,
+  .mg-btn-native,
+  .mg-groups-table tbody tr,
+  .mg-pool-table tbody tr,
+  .quick-mg-list li,
+  .mg-list .mg-card,
+  .mg-input-native {
+    transition: none !important;
+  }
+
+  .loading::after {
+    animation: none !important;
+  }
+}
+
+/* High-contrast mode support */
+@media (prefers-contrast: high) {
+
+  .mg-btn-native,
+  .mg-pool-table .btn,
+  .mg-groups-table .btn {
+    border-width: 2px;
+  }
+
+  .mg-input-native {
+    border-width: 2px;
+  }
+
+  .mg-groups-table thead th,
+  .mg-pool-table thead th {
+    border-bottom-width: 2px;
+  }
+}

@@ -1,0 +1,74 @@
+<template id="tmpl-model-groups">
+  <template x-teleport="body">
+    <div id="modelGroupsModal" class="modal-overlay" x-cloak x-show="$store.modelGroups.isOpen" 
+         @click.self="window.closeModelGroupsModal()" 
+         @keydown.escape.window="$store.modelGroups.isOpen && window.closeModelGroupsModal()" 
+         x-transition x-data="{}" data-legacy-overlay="true">
+      <div class="modal-container modal-small" id="modelGroupsContainer" 
+           @click.stop>
+      <div class="modal-header">
+        <h2>Manage Model Groups</h2>
+        <button class="modal-close" onclick="window.closeModelGroupsModal()">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div class="mg-column">
+          <div class="mg-section">
+            <div class="mg-section-title">Create / Edit Model Group</div>
+            <div class="mg-help">Give the group a descriptive name and pick chat + utility model refs.</div>
+            <div class="mg-form">
+              <div class="mg-inline-row">
+                <input id="mg-new-name" class="mg-control mg-input-native" placeholder="Group name" />
+                <select id="mg-chat-ref" class="mg-control mg-input-native"><option value="">(none)</option></select>
+                <select id="mg-util-ref" class="mg-control mg-input-native"><option value="">(none)</option></select>
+                <div class="mg-actions">
+                  <button id="mg-create-btn" class="mg-btn-native">Create</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mg-section mg-section-list">
+            <div class="mg-section-title">Model Groups</div>
+            <div id="model-groups-list" class="mg-list"></div>
+          </div>
+        </div>
+
+        <div class="mg-column" style="margin-top:12px;">
+          <div class="mg-section">
+            <div class="mg-section-title">New Pool Entry</div>
+            <div class="mg-help">Add a model to the pool so groups can reference it (api_base optional).</div>
+            <div class="mg-form">
+              <div class="mg-inline-row">
+                <select id="mg-pool-type" class="mg-control mg-input-native">
+                  <option value="chat">Chat Model</option>
+                  <option value="utility">Utility Model</option>
+                </select>
+                <select id="mg-pool-provider" class="mg-control mg-input-native">
+                  <option value="">(select provider)</option>
+                </select>
+                <input id="mg-pool-provider-fallback" class="mg-control mg-input-native" placeholder="provider" style="display:none;" />
+                <input id="mg-pool-name" class="mg-control mg-input-native" placeholder="name" />
+                <input id="mg-pool-api" class="mg-control mg-input-native" placeholder="api_base (optional)" />
+                <div class="mg-actions">
+                  <button id="mg-pool-add-btn" class="mg-btn-native">Add to Pool</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mg-section mg-section-list">
+            <div class="mg-section-title">Pool Entries</div>
+            <div id="model-groups-pool" class="mg-list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div id="buttons-container">
+          <button class="btn btn-ok" onclick="window.closeModelGroupsModal()">Save</button>
+          <button class="btn btn-cancel" onclick="window.closeModelGroupsModal()">Cancel</button>
+        </div>
+      </div>
+      </div>
+    </div>
+  </template>
+</template>
