@@ -65,7 +65,7 @@
   --font-family-code: "Roboto Mono", monospace;
 
   /* Other variables */
-  --border-radius: 1.125rem;
+  --message-border-radius: 0.75rem;
   --transition-speed: 0.3s;
   --svg-filter: brightness(0) saturate(100%) var(--color-primary-filter);
   --color-primary-filter: invert(73%) sepia(17%) saturate(360%)
@@ -497,7 +497,7 @@ h4 {
 }
 
 #progress-bar-box {
-  background-color: var(--color-panel);
+  background-color: var(--color-background);
   padding: var(--spacing-sm) var(--spacing-md);
   padding-bottom: 0;
   display: flex;
@@ -549,21 +549,6 @@ h4 {
 
 #right-panel.expanded #logo-container {
   margin-left: 4.6rem;
-}
-
-
-
-/* Input Section */
-#input-section {
-  position: relative;
-  background-color: var(--color-panel);
-  display: -webkit-flex;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: 0.8rem var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
-  align-items: start;
-  flex-shrink: 0;
 }
 
 /* Preview section with unified tile system */
@@ -806,14 +791,12 @@ h4 {
 
 #chat-input:focus {
   outline: 0.05rem solid rgba(155, 155, 155, 0.5);
-  font-size: 0.955rem;
-  padding-top: 0.45rem;
   background-color: var(--color-input-focus);
 }
 
 #chat-input::placeholder {
   color: var(--color-text-muted);
-  opacity: 0.7;
+  opacity: 0.25;
 }
 
 /* Config Section */
@@ -902,11 +885,15 @@ h4 {
 
 /* Input section layout */
 #input-section {
+  position: relative;
   display: flex;
+  display: -webkit-flex;
   flex-direction: column;
+  flex-shrink: 0;
+  align-items: start;
   gap: var(--spacing-xs);
   padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) 0.8rem;
-  background-color: var(--color-panel);
+  background-color: var(--color-background);
   z-index: 1001;
 }
 
@@ -1220,7 +1207,7 @@ h4 {
 
 .chat-button {
   border: none;
-  border-radius: 50%;
+  border-radius: 25%;
   color: var(--color-background);
   cursor: pointer;
   font-size: var(--font-size-normal);
@@ -1243,9 +1230,6 @@ h4 {
 }
 
 #send-button:hover {
-  -webkit-transform: scale(1.05);
-  transform: scale(1.05);
-  transform-origin: center;
   background-color: #353bc5;
 }
 
