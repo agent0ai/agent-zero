@@ -35,21 +35,16 @@ export async function fetchApi(url, request) {
     // get the CSRF token
     const token = await getCsrfToken();
 
-    // create a new request object if none was provided
-    const finalRequest = request || {};
+    // clone and prepare request to avoid mutating caller's object
+    const finalRequest = Object.assign({}, request || {});
+    finalRequest.headers = Object.assign({}, finalRequest.headers || {}, { "X-CSRF-Token": token });
 
-    // ensure headers object exists
-    finalRequest.headers = finalRequest.headers || {};
-
-    // add the CSRF token to the headers
-    finalRequest.headers["X-CSRF-Token"] = token;
-
-    // perform the fetch with the updated request
+    // perform the fetch with the prepared request
     const response = await fetch(url, finalRequest);
 
     // check if there was an CSRF error
     if (response.status === 403 && retry) {
-      // retry the request with new token
+      // token may be stale: clear cached token and retry once
       csrfToken = null;
       return await _wrap(false);
     }else if(response.redirected && response.url.endsWith("/login")){
@@ -79,6 +74,7 @@ let csrfToken = null;
  */
 async function getCsrfToken() {
   if (csrfToken) return csrfToken;
+  try {
   const response = await fetch("/csrf_token", {
     credentials: "same-origin",
   });
@@ -91,4 +87,31 @@ async function getCsrfToken() {
   csrfToken = json.token;
   document.cookie = `csrf_token_${json.runtime_id}=${csrfToken}; SameSite=Strict; Path=/`;
   return csrfToken;
+  } catch (err) {
+    throw new Error('Failed to obtain CSRF token: ' + (err && err.message));
+  }
 }
+
+/**
+ * Fetch the list of model groups from the server
+ * @returns {Promise<Object>} The model groups object
+ */
+export async function listModelGroups() {
+  const resp = await fetchApi(`/model_groups_list`, { method: "GET", credentials: "same-origin" });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(txt);
+  }
+  return await resp.json();
+}
+
+/**
+ * Select a model group on the server. This will apply the group's settings.
+ * @param {string} groupName - The name of the model group to select
+ * @returns {Promise<Object>} The API response JSON
+ */
+export async function selectModelGroup(groupName) {
+  if (!groupName) throw new Error("groupName required");
+  return await callJsonApi(`/model_group_select`, { group: groupName });
+}
+

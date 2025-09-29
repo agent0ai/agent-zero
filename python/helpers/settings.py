@@ -4,7 +4,8 @@ import json
 import os
 import re
 import subprocess
-from typing import Any, Literal, TypedDict, cast
+import time
+from typing import Any, Literal, TypedDict, cast, Sequence
 
 import models
 from python.helpers import runtime, whisper, defer, git
@@ -13,6 +14,7 @@ from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers
 from python.helpers.secrets import SecretsManager
 from python.helpers import dirty_json
+from python.helpers import model_groups
 
 
 class Settings(TypedDict):
@@ -649,6 +651,30 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 {"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")
             ],
+        }
+    )
+
+    # Model group select (maps to chat+util model pairs)
+    try:
+        mg_all = model_groups.get_all()
+        mg_options = [
+            {"value": name, "label": name}
+            for name in mg_all.get('groups', {}).keys()
+        ]
+        mg_options = cast(list[FieldOption], mg_options)
+        mg_default = mg_all.get('default') if isinstance(mg_all.get('default'), str) else None
+    except Exception:
+        mg_options = []
+        mg_default = None
+
+    agent_fields.append(
+        {
+            "id": "model_group",
+            "title": "Model Group",
+            "description": "Select a predefined model group to automatically choose chat and utility models.",
+            "type": "select",
+            "value": mg_default or "",
+            "options": mg_options,
         }
     )
 
@@ -1520,6 +1546,37 @@ def _apply_settings(previous: Settings | None):
             while agent:
                 agent.config = ctx.config
                 agent = agent.get_data(agent.DATA_NAME_SUBORDINATE)
+
+        # Attempt to clear model-related caches so new model instances will be created
+        try:
+            # models module holds runtime caches like rate_limiters and api_keys_round_robin
+            import models as _models
+
+            if hasattr(_models, "rate_limiters"):
+                try:
+                    _models.rate_limiters.clear()
+                except Exception:
+                    pass
+            if hasattr(_models, "api_keys_round_robin"):
+                try:
+                    _models.api_keys_round_robin.clear()
+                except Exception:
+                    pass
+        except Exception:
+            # Non-fatal - continue even if we couldn't clear caches
+            pass
+
+        # Write a small debug file so we can verify _apply_settings ran in the running process
+        try:
+            debug = {
+                "applied_at": int(time.time()),
+                "chat_model": _settings.get("chat_model_name", ""),
+                "util_model": _settings.get("util_model_name", ""),
+                "contexts": list(AgentContext._contexts.keys()),
+            }
+            files.write_file(files.get_abs_path("tmp/settings_apply.json"), json.dumps(debug, indent=2))
+        except Exception:
+            pass
 
         # reload whisper model if necessary
         if not previous or _settings["stt_model_size"] != previous["stt_model_size"]:

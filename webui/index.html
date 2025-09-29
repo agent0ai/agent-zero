@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="css/history.css">
     <link rel="stylesheet" href="css/scheduler-datepicker.css">
     <link rel="stylesheet" href="css/notification.css">
+    <link rel="stylesheet" href="css/model-groups.css">
 
     <!-- Flatpickr for datetime picker -->
     <link rel="stylesheet" href="vendor/flatpickr/flatpickr.min.css">
@@ -162,7 +163,11 @@
                     <button class="config-button" id="newChat" @click="newChat()">New Chat</button>
                     <button class="config-button" id="loadChats" @click="loadChats()">Load Chat</button>
                     <button class="config-button" id="loadChat" @click="saveChat()">Save Chat</button>
-                    <button class="config-button" id="restart" @click="restart()">Restart</button>
+                    <button class="config-button" id="manage-model-groups"
+                        @click.prevent="$root.openModelGroupsModal ? $root.openModelGroupsModal() : window.openModelGroupsModal()">Models</button>
+                    <button class="config-button" id="memory-dash"
+                        @click="openModal('settings/memory/memory-dashboard.html');">Memory</button>
+                    <button class="config-button" id="restart" @click="restart()">Restart</button> 
                     <button class="config-button" id="settings" @click="settingsModalProxy.openModal()"><svg
                             xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="-5.0 -17.0 110.0 135.0"
                             fill="currentColor" width="24" height="24">
@@ -173,8 +178,6 @@
                                 d="m50.301 66.5c-9 0-16.398-7.3008-16.398-16.398 0-9.1016 7.3008-16.398 16.398-16.398 9.1016 0 16.398 7.3008 16.398 16.398 0 9.0977-7.3984 16.398-16.398 16.398zm0-25.5c-5 0-9.1016 4.1016-9.1016 9.1016s4.1016 9.1016 9.1016 9.1016 9.1016-4.1016 9.1016-9.1016c-0.003906-5-4.1016-9.1016-9.1016-9.1016z">
                             </path>
                         </svg>Settings</button>
-                    <button class="config-button" id="memory-dash"
-                        @click="openModal('settings/memory/memory-dashboard.html');">Memory</button>
 
 
                 </div>
@@ -422,7 +425,9 @@
                     <div id="chat-input-container" style="position: relative;">
                         <textarea id="chat-input" placeholder="Type your message here..." rows="1"></textarea>
 
-                        <!-- Expand button inside the textarea container -->
+                        <!-- Right-side controls inside the textarea container: expand + models -->
+                        <div class="input-right-controls">
+                            <!-- Expand button -->
                         <button id="expand-button" @click="$store.fullScreenInputModal.openModal()"
                             aria-label="Expand input">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -430,6 +435,16 @@
                                     d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
                             </svg>
                         </button>
+
+                            <!-- Quick Model Groups selector -->
+                            <div id="quick-mg-container" class="quick-mg-container">
+                                <button id="quick-mg-toggle" class="btn btn-field" title="Quick Model Groups">Models ▾</button>
+                                <div id="quick-mg-panel" class="quick-mg-panel" style="display:none;" aria-hidden="true">
+                                    <input id="quick-mg-search" class="quick-mg-search" placeholder="Search models..." />
+                                    <ul id="quick-mg-list" class="quick-mg-list"></ul>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="chat-buttons-wrapper">
@@ -567,6 +582,9 @@
                             </div>
                         </div>
 
+                        <!-- Model Groups component placeholder (migrated to separate component) -->
+                        <div data-mg-placeholder></div>
+
                         <!-- Display settings sections for agent, external, developer, mcp, backup tabs -->
                         <div id="settings-sections" x-show="activeTab !== 'scheduler'">
                             <nav>
@@ -607,32 +625,33 @@
                                             <div class="field-control">
                                                 <!-- Input field -->
                                                 <template x-if="field.type === 'text'">
-                                                    <input type="text" :class="field.classes" :value="field.value"
+                                                    <input type="text" :class="field.classes" x-model="field.value"
                                                         :readonly="field.readonly === true"
-                                                        @input="field.value = $event.target.value">
+                                                        :id="field.id" :name="field.id">
                                                 </template>
 
                                                 <!-- Number field -->
                                                 <template x-if="field.type === 'number'">
-                                                    <input type="number" :class="field.classes" :value="field.value"
+                                                    <input type="number" :class="field.classes" x-model="field.value"
                                                         :readonly="field.readonly === true"
-                                                        @input="field.value = $event.target.value" :min="field.min"
+                                                        :id="field.id" :name="field.id"
                                                         :max="field.max" :step="field.step">
                                                 </template>
 
 
                                                 <!-- Password field -->
                                                 <template x-if="field.type === 'password'">
-                                                    <input type="password" :class="field.classes" :value="field.value"
+                                                    <input type="password" :class="field.classes" x-model="field.value"
                                                         :readonly="field.readonly === true" :id="field.id"
-                                                        autocomplete="off" @input="field.value = $event.target.value">
+                                                        :id="field.id" :name="field.id"
+                                                        autocomplete="off">
                                                 </template>
 
                                                 <!-- Textarea field -->
                                                 <template x-if="field.type === 'textarea'">
-                                                    <textarea :class="field.classes" :value="field.value"
+                                                    <textarea :class="field.classes" x-model="field.value"
                                                         :readonly="field.readonly === true"
-                                                        @input="field.value = $event.target.value"
+                                                        :id="field.id" :name="field.id"
                                                         :style="field.style"></textarea>
                                                 </template>
 
@@ -650,9 +669,8 @@
                                                 <template x-if="field.type === 'range'">
                                                     <div class="field-control">
                                                         <input type="range" :min="field.min" :max="field.max"
-                                                            :step="field.step" :value="field.value"
+                                                            :step="field.step" x-model="field.value"
                                                             :disabled="field.readonly === true"
-                                                            @input="field.value = $event.target.value"
                                                             :class="field.classes">
                                                         <span class="range-value" x-text="field.value"></span>
                                                     </div>
@@ -665,15 +683,22 @@
                                                         @click="handleFieldButton(field)" x-text="field.value"></button>
                                                 </template>
 
-                                                <!-- Select field -->
-                                                <template x-if="field.type === 'select'">
+                                                <!-- Select field (exclude model_group - we keep only Manage Model Groups button) -->
+                                                <template x-if="field.type === 'select' && field.id !== 'model_group'">
                                                     <select :class="field.classes" x-model="field.value"
-                                                        :disabled="field.readonly === true">
+                                                        :disabled="field.readonly === true" :id="field.id" :name="field.id">
                                                         <template x-for="option in field.options" :key="option.value">
                                                             <option :value="option.value" x-text="option.label"
                                                                 :selected="option.value === field.value"></option>
                                                         </template>
                                                     </select>
+                                                </template>
+
+                                                <!-- Manage Model Groups button (shown next to model_group select) -->
+                                                <template x-if="field.type === 'select' && field.id === 'model_group'">
+                                                    <div class="mt-2 mg-manage-row">
+                                                        <button class="btn btn-field" @click.prevent="$root.openModelGroupsModal ? $root.openModelGroupsModal() : window.openModelGroupsModal()">Manage Model Groups</button>
+                                                    </div>
                                                 </template>
 
                                                 <!-- HTML field -->
@@ -1749,6 +1774,10 @@
 
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
+
+    <!-- Model Groups component (migrated files) -->
+    <x-component path="settings/model-groups/model-groups.html" />
+    <script src="components/settings/model-groups/model-groups.js"></script>
 
     <!-- Register Service Worker for offline support and caching -->
     <script>

@@ -284,6 +284,27 @@ const settingsModalProxy = {
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
         }
+    },
+
+    // Add method to open model groups modal
+    async openModelGroupsModal() {
+        // Use the Alpine store instead of local property
+        Alpine.store('modelGroups').open();
+
+        // Call the global function to populate the modal
+        if (typeof window.openModelGroupsModal === 'function') {
+            await window.openModelGroupsModal();
+        }
+    },
+
+    // Add method to close model groups modal
+    closeModelGroupsModal() {
+        // Use the Alpine store instead of local property
+        Alpine.store('modelGroups').close();
+
+        if (typeof window.closeModelGroupsModal === 'function') {
+            window.closeModelGroupsModal();
+        }
     }
 };
 
@@ -312,6 +333,30 @@ document.addEventListener('alpine:init', function () {
 
         toggleSettings() {
             this.isOpen = !this.isOpen;
+        },
+
+        // Add openModelGroupsModal method to root store
+        async openModelGroupsModal() {
+            // Open the model groups modal by setting the store state
+            Alpine.store('modelGroups').isOpen = true;
+
+            // Call the global function to populate the modal
+            if (typeof window.openModelGroupsModal === 'function') {
+                await window.openModelGroupsModal();
+            }
+        }
+    });
+
+    // Create a dedicated store for model groups modal state
+    Alpine.store('modelGroups', {
+        isOpen: false,
+
+        open() {
+            this.isOpen = true;
+        },
+
+        close() {
+            this.isOpen = false;
         }
     });
 
