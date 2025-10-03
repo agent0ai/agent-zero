@@ -4,7 +4,7 @@
  */
 
 import { formatDateTime, getUserTimezone } from './time-utils.js';
-import { switchFromContext } from '../index.js';
+// switchFromContext is now in chats-store, accessed via globalThis
 
 // Ensure the showToast function is available
 // if (typeof window.showToast !== 'function') {
@@ -973,7 +973,10 @@ const fullComponentImplementation = function() {
             try {
 
                 // if we delete selected context, switch to another first
-                switchFromContext(taskId);
+                const chatsStore = globalThis.Alpine?.store('chats');
+                if (chatsStore && typeof chatsStore.switchFromContext === 'function') {
+                    await chatsStore.switchFromContext(taskId);
+                }
 
                 const response = await fetchApi('/scheduler_task_delete', {
                     method: 'POST',
