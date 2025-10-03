@@ -175,7 +175,7 @@
                         </svg>Settings</button>
                     <button class="config-button" id="memory-dash"
                         @click="openModal('settings/memory/memory-dashboard.html');">Memory</button>
-
+                    <button class="config-button" id="dashboard" @click="deselectChat()">Dashboard</button>
 
                 </div>
 
@@ -364,34 +364,42 @@
                 <!-- Notification Toggle positioned next to time-date -->
                 <x-component path="notifications/notification-icons.html"></x-component>
             </div>
-            <div id="chat-history">
+
+            <!-- Welcome Screen Component -->
+            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
+                <x-component path="welcome/welcome-screen.html"></x-component>
             </div>
 
-            <!-- NEW: Toast Stack Component -->
-            <div style="position: relative; height: 0;">
-                <x-component path="notifications/notification-toast-stack.html"></x-component>
-            </div>
+            <!-- Chat History -->
+            <div id="chat-history" x-data x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible"></div>
 
-            <div id="toast" class="toast">
-                <div class="toast__content">
-                    <div class="toast__title"></div>
-                    <div class="toast__separator"></div>
-                    <div class="toast__message"></div>
-                </div>
-                <button class="toast__copy" style="display: none;">Copy</button>
-                <button class="toast__close">Close</button>
-            </div>
-            <div id="progress-bar-box">
-                <h4 id="progress-bar-h">
-                    <span id="progress-bar-i">|></span><span id="progress-bar"></span>
-                </h4>
-                <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
-                    <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
-                </h4>
-            </div>
-            <div id="input-section" x-data="{
-                paused: false
-            }">
+                            <!-- NEW: Toast Stack Component -->
+                            <div style="position: relative; height: 0;">
+                                <x-component path="notifications/notification-toast-stack.html"></x-component>
+                            </div>
+
+                            <div id="toast" class="toast">
+                                <div class="toast__content">
+                                    <div class="toast__title"></div>
+                                    <div class="toast__separator"></div>
+                                    <div class="toast__message"></div>
+                                </div>
+                                <button class="toast__copy" style="display: none;">Copy</button>
+                                <button class="toast__close">Close</button>
+                            </div>
+
+                            <div id="input-section" x-data="{
+                                paused: false
+                            }">
+
+                            <div id="progress-bar-box">
+                                <h4 id="progress-bar-h">
+                                    <span id="progress-bar-i">|></span><span id="progress-bar"></span>
+                                </h4>
+                                <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
+                                    <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
+                                </h4>
+                            </div>
 
                 <!-- Attachment Preview section -->
                 <div>
@@ -421,6 +429,7 @@
                     <!-- Container for textarea and button -->
                     <div id="chat-input-container" style="position: relative;">
                         <textarea id="chat-input" placeholder="Type your message here..." rows="1"></textarea>
+
 
                         <!-- Expand button inside the textarea container -->
                         <button id="expand-button" @click="$store.fullScreenInputModal.openModal()"
@@ -1752,6 +1761,7 @@
 
     <!-- Register Service Worker for offline support and caching -->
     <script>
+<<<<<<< HEAD
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('js/sw.js').then(registration => {
@@ -1761,6 +1771,17 @@
                 });
             });
         }
+=======
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('js/sw.js').then(registration => {
+            console.log('SW registered: ', registration);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+        });
+      }
+>>>>>>> ad28629 (  Add welcome screen component with dashboard functionality)
     </script>
 
 </body>

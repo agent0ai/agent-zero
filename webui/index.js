@@ -5,17 +5,14 @@ import { sleep } from "/js/sleep.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as contextStore } from "/components/chat/context/context-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
-const leftPanel = document.getElementById("left-panel");
-const rightPanel = document.getElementById("right-panel");
-const container = document.querySelector(".container");
 const chatInput = document.getElementById("chat-input");
 const chatHistory = document.getElementById("chat-history");
 const sendButton = document.getElementById("send-button");
 const inputSection = document.getElementById("input-section");
-const statusSection = document.getElementById("status-section");
 const chatsSection = document.getElementById("chats-section");
 const tasksSection = document.getElementById("tasks-section");
 const progressBar = document.getElementById("progress-bar");
@@ -23,7 +20,7 @@ const autoScrollSwitch = document.getElementById("auto-scroll-switch");
 const timeDate = document.getElementById("time-date-container");
 
 let autoScroll = true;
-let context = "";
+let context = null;
 let resetCounter = 0;
 let skipOneSpeech = false;
 let connectionStatus = undefined; // undefined = not checked yet, true = connected, false = disconnected
@@ -52,12 +49,14 @@ function toggleSidebar(show) {
     rightPanel.classList.toggle("expanded");
     overlay.classList.toggle(
       "visible",
-      !leftPanel.classList.contains("hidden")
+      !leftPanel.classList.contains("hidden"),
     );
   }
 }
 
 function handleResize() {
+  const leftPanel = document.getElementById("left-panel");
+  const rightPanel = document.getElementById("right-panel");
   const overlay = document.getElementById("sidebar-overlay");
   if (isMobile()) {
     leftPanel.classList.add("hidden");
@@ -102,6 +101,11 @@ export async function sendMessage() {
     const hasAttachments = attachmentsWithUrls.length > 0;
 
     if (message || hasAttachments) {
+      // Create new context if none exists (e.g., sending from welcome screen)
+      if (!context) {
+        newContext();
+      }
+
       let response;
       const messageId = generateGUID();
 
@@ -175,20 +179,25 @@ function toastFetchError(text, error) {
   if (getConnectionStatus()) {
     // Backend is connected, just show the error
     toastFrontendError(`${text}: ${errorMessage}`).catch((e) =>
-      console.error("Failed to show error toast:", e)
+      console.error("Failed to show error toast:", e),
     );
   } else {
     // Backend is disconnected, show connection error
     toastFrontendError(
       `${text} (backend appears to be disconnected): ${errorMessage}`,
-      "Connection Error"
+      "Connection Error",
     ).catch((e) => console.error("Failed to show connection error toast:", e));
   }
 }
 globalThis.toastFetchError = toastFetchError;
 
 chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+  if (
+    e.key === "Enter" &&
+    !e.shiftKey &&
+    !e.isComposing &&
+    e.key !== "Process"
+  ) {
     e.preventDefault();
     sendMessage();
   }
@@ -197,8 +206,6 @@ chatInput.addEventListener("keydown", (e) => {
 sendButton.addEventListener("click", sendMessage);
 
 export function updateChatInput(text) {
-  console.log("updateChatInput called with:", text);
-
   // Append text with proper spacing
   const currentValue = chatInput.value;
   const needsSpace = currentValue.length > 0 && !currentValue.endsWith(" ");
@@ -207,8 +214,6 @@ export function updateChatInput(text) {
   // Adjust height and trigger input event
   adjustTextareaHeight();
   chatInput.dispatchEvent(new Event("input"));
-
-  console.log("Updated chat input value:", chatInput.value);
 }
 
 function updateUserTime() {
@@ -268,7 +273,7 @@ globalThis.loadKnowledge = async function () {
         const data = await response.json();
         toast(
           "Knowledge files imported: " + data.filenames.join(", "),
-          "success"
+          "success",
         );
       }
     } catch (e) {
@@ -330,7 +335,6 @@ function setConnectionStatus(connected) {
 
 let lastLogVersion = 0;
 let lastLogGuid = "";
-let lastSpokenNo = 0;
 
 async function poll() {
   let updated = false;
@@ -352,8 +356,14 @@ async function poll() {
       return false;
     }
 
-    if (!context) setContext(response.context);
-    if (response.context != context) return; //skip late polls after context change
+    // Skip late polls after context change, but allow polls when both are null or when current context is null (initial load)
+    if (
+      response.context != context &&
+      !(response.context === null && context === null) &&
+      context !== null
+    ) {
+      return;
+    }
 
     // if the chat has been reset, restart this poll as it may have been called with incorrect log_from
     if (lastLogGuid != response.log_guid) {
@@ -374,7 +384,7 @@ async function poll() {
           log.heading,
           log.content,
           log.temp,
-          log.kvps
+          log.kvps,
         );
       }
       afterMessagesUpdate(response.logs);
@@ -402,13 +412,31 @@ async function poll() {
     // Update chats list and sort by created_at time (newer first)
     let chatsAD = null;
     let contexts = response.contexts || [];
-    if (globalThis.Alpine && chatsSection) {
-      chatsAD = Alpine.$data(chatsSection);
-      if (chatsAD) {
-        chatsAD.contexts = contexts.sort(
-          (a, b) => (b.created_at || 0) - (a.created_at || 0)
-        );
+
+    // Get chatsSection fresh each time to ensure it exists
+    const currentChatsSection = document.getElementById("chats-section");
+
+    if (globalThis.Alpine && currentChatsSection) {
+      try {
+        chatsAD = Alpine.$data(currentChatsSection);
+        if (chatsAD) {
+          const sortedContexts = contexts.sort(
+            (a, b) => (b.created_at || 0) - (a.created_at || 0),
+          );
+          chatsAD.contexts = sortedContexts;
+        } else {
+          console.warn("chatsAD is null - Alpine data not available yet");
+        }
+      } catch (error) {
+        console.error("Error updating chats data:", error);
       }
+    } else {
+      console.warn(
+        "Missing requirements - Alpine:",
+        !!globalThis.Alpine,
+        "chatsSection:",
+        !!currentChatsSection,
+      );
     }
 
     // Update tasks list and sort by creation time (newer first)
@@ -422,7 +450,7 @@ async function poll() {
         if (tasks.length > 0) {
           // Sort the tasks by creation time
           const sortedTasks = [...tasks].sort(
-            (a, b) => (b.created_at || 0) - (a.created_at || 0)
+            (a, b) => (b.created_at || 0) - (a.created_at || 0),
           );
 
           // Assign the sorted tasks to the Alpine data
@@ -447,14 +475,9 @@ async function poll() {
         const contextExists = contexts.some((ctx) => ctx.id === context);
 
         // If it doesn't exist in the chats list but we're in chats tab, try to select the first chat
-        if (!contextExists && contexts.length > 0) {
-          // Check if the current context is empty before creating a new one
-          // If there's already a current context and we're just updating UI, don't automatically
-          // create a new context by calling setContext
+        // Only do this if there was already a context set (not on initial page load)
+        if (!contextExists && contexts.length > 0 && context !== null) {
           const firstChatId = contexts[0].id;
-
-          // Only create a new context if we're not currently in an existing context
-          // This helps prevent duplicate contexts when switching tabs
           setContext(firstChatId);
           chatsAD.selected = firstChatId;
           localStorage.setItem("lastSelectedChat", firstChatId);
@@ -468,7 +491,8 @@ async function poll() {
         const taskExists = response.tasks?.some((task) => task.id === context);
 
         // If it doesn't exist in the tasks list but we're in tasks tab, try to select the first task
-        if (!taskExists && response.tasks?.length > 0) {
+        // Only do this if there was already a context set (not on initial page load)
+        if (!taskExists && response.tasks?.length > 0 && context !== null) {
           const firstTaskId = response.tasks[0].id;
           setContext(firstTaskId);
           tasksAD.selected = firstTaskId;
@@ -478,29 +502,35 @@ async function poll() {
     } else if (
       response.tasks &&
       response.tasks.length > 0 &&
-      localStorage.getItem("activeTab") === "tasks"
+      localStorage.getItem("activeTab") === "tasks" &&
+      localStorage.getItem("lastSelectedTask")
     ) {
-      // If we're in tasks tab with no selection but have tasks, select the first one
-      const firstTaskId = response.tasks[0].id;
-      setContext(firstTaskId);
-      if (tasksSection) {
-        const tasksAD = Alpine.$data(tasksSection);
-        tasksAD.selected = firstTaskId;
-        localStorage.setItem("lastSelectedTask", firstTaskId);
+      // Only auto-select tasks if we have a previously selected task ID
+      const lastSelectedTask = localStorage.getItem("lastSelectedTask");
+      const taskExists = response.tasks.some(
+        (task) => task.id === lastSelectedTask,
+      );
+      if (taskExists) {
+        setContext(lastSelectedTask);
+        if (tasksSection) {
+          const tasksAD = Alpine.$data(tasksSection);
+          tasksAD.selected = lastSelectedTask;
+        }
       }
     } else if (
       contexts.length > 0 &&
       localStorage.getItem("activeTab") === "chats" &&
-      chatsAD
+      chatsAD &&
+      localStorage.getItem("lastSelectedChat")
     ) {
-      // If we're in chats tab with no selection but have chats, select the first one
-      const firstChatId = contexts[0].id;
+      // Only auto-select chats if we have a previously selected chat ID
+      const lastSelectedChat = localStorage.getItem("lastSelectedChat");
+      const chatExists = contexts.some((ctx) => ctx.id === lastSelectedChat);
 
-      // Only set context if we don't already have one to avoid duplicates
-      if (!context) {
-        setContext(firstChatId);
-        chatsAD.selected = firstChatId;
-        localStorage.setItem("lastSelectedChat", firstChatId);
+      // Don't auto-select - let user manually select or start from welcome screen
+      if (chatExists && !context) {
+        setContext(lastSelectedChat);
+        chatsAD.selected = lastSelectedChat;
       }
     }
 
@@ -538,7 +568,7 @@ function speakMessages(logs) {
       speechStore.speakStream(
         getChatBasedId(log.no),
         log.content,
-        log.kvps?.finished
+        log.kvps?.finished,
       );
       return;
 
@@ -575,7 +605,7 @@ function updateProgress(progress, active) {
 
 globalThis.pauseAgent = async function (paused) {
   try {
-    const resp = await sendJsonData("/pause", { paused: paused, context });
+    await sendJsonData("/pause", { paused: paused, context });
   } catch (e) {
     globalThis.toastFetchError("Error pausing agent", e);
   }
@@ -583,7 +613,7 @@ globalThis.pauseAgent = async function (paused) {
 
 globalThis.resetChat = async function (ctxid = null) {
   try {
-    const resp = await sendJsonData("/chat_reset", {
+    await sendJsonData("/chat_reset", {
       context: ctxid === null ? context : ctxid,
     });
     resetCounter++;
@@ -608,14 +638,8 @@ globalThis.killChat = async function (id) {
     return;
   }
 
-  console.log("Deleting chat with ID:", id);
-
   try {
     const chatsAD = Alpine.$data(chatsSection);
-    console.log(
-      "Current contexts before deletion:",
-      JSON.stringify(chatsAD.contexts.map((c) => ({ id: c.id, name: c.name })))
-    );
 
     // switch to another context if deleting current
     switchFromContext(id);
@@ -626,10 +650,6 @@ globalThis.killChat = async function (id) {
     // Update the UI manually to ensure the correct chat is removed
     // Deep clone the contexts array to prevent reference issues
     const updatedContexts = chatsAD.contexts.filter((ctx) => ctx.id !== id);
-    console.log(
-      "Updated contexts after deletion:",
-      JSON.stringify(updatedContexts.map((c) => ({ id: c.id, name: c.name })))
-    );
 
     // Force UI update by creating a new array
     chatsAD.contexts = [...updatedContexts];
@@ -660,8 +680,8 @@ export function switchFromContext(id) {
     if (alternateChat) {
       setContext(alternateChat.id);
     } else {
-      // If no other chats, create a new empty context
-      newContext();
+      // If no other chats, show welcome screen instead of creating new context
+      deselectChat();
     }
   }
 }
@@ -737,8 +757,9 @@ globalThis.selectChat = async function (id) {
 };
 
 function generateShortId() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
   for (let i = 0; i < 8; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -748,33 +769,38 @@ function generateShortId() {
 export const newContext = function () {
   context = generateShortId();
   setContext(context);
-}
+};
 
 export const setContext = function (id) {
   if (id == context) return;
   context = id;
+  // Update the reactive stores
+  contextStore.setContext(id);
+  contextStore.context = id;
   // Always reset the log tracking variables when switching contexts
   // This ensures we get fresh data from the backend
   lastLogGuid = "";
   lastLogVersion = 0;
-  lastSpokenNo = 0;
 
   // Stop speech when switching chats
   speechStore.stopAudio();
 
-  // Clear the chat history immediately to avoid showing stale content
-  chatHistory.innerHTML = "";
+  if (id) {
+    chatHistory.innerHTML = "";
+  }
 
   // Update both selected states
   if (globalThis.Alpine) {
     if (chatsSection) {
       const chatsAD = Alpine.$data(chatsSection);
-      if (chatsAD) chatsAD.selected = id;
+      if (chatsAD) chatsAD.selected = id || "";
     }
     if (tasksSection) {
       const tasksAD = Alpine.$data(tasksSection);
-      if (tasksAD) tasksAD.selected = id;
+      if (tasksAD) tasksAD.selected = id || "";
     }
+
+    // Alpine store reactivity will handle the UI updates automatically
   }
 
   //skip one speech if enabled when switching context
@@ -783,6 +809,19 @@ export const setContext = function (id) {
 
 export const getContext = function () {
   return context;
+};
+globalThis.getContext = getContext;
+
+export const deselectChat = function () {
+  // Clear current context to show welcome screen
+  setContext(null);
+
+  // Clear localStorage selections so we don't auto-restore
+  localStorage.removeItem("lastSelectedChat");
+  localStorage.removeItem("lastSelectedTask");
+
+  // Clear the chat history
+  chatHistory.innerHTML = "";
 };
 
 export const getChatBasedId = function (id) {
@@ -801,7 +840,7 @@ globalThis.toggleThoughts = async function (showThoughts) {
   css.toggleCssProperty(
     ".msg-thoughts",
     "display",
-    showThoughts ? undefined : "none"
+    showThoughts ? undefined : "none",
   );
 };
 
@@ -809,7 +848,7 @@ globalThis.toggleUtils = async function (showUtils) {
   css.toggleCssProperty(
     ".message-util",
     "display",
-    showUtils ? undefined : "none"
+    showUtils ? undefined : "none",
   );
 };
 
@@ -821,7 +860,6 @@ globalThis.toggleDarkMode = function (isDark) {
     document.body.classList.remove("dark-mode");
     document.body.classList.add("light-mode");
   }
-  console.log("Dark mode:", isDark);
   localStorage.setItem("darkMode", isDark);
 };
 
@@ -833,7 +871,7 @@ globalThis.toggleSpeech = function (isOn) {
 
 globalThis.nudge = async function () {
   try {
-    const resp = await sendJsonData("/nudge", { ctxid: getContext() });
+    await sendJsonData("/nudge", { ctxid: getContext() });
   } catch (e) {
     toastFetchError("Error nudging agent", e);
   }
@@ -844,12 +882,12 @@ globalThis.restart = async function () {
     if (!getConnectionStatus()) {
       await toastFrontendError(
         "Backend disconnected, cannot restart.",
-        "Restart Error"
+        "Restart Error",
       );
       return;
     }
     // First try to initiate restart
-    const resp = await sendJsonData("/restart", {});
+    await sendJsonData("/restart", {});
   } catch (e) {
     // Show restarting message with no timeout and restart group
     await toastFrontendInfo("Restarting...", "System Restart", 9999, "restart");
@@ -859,7 +897,7 @@ globalThis.restart = async function () {
 
     while (retries < maxRetries) {
       try {
-        const resp = await sendJsonData("/health", {});
+        await sendJsonData("/health", {});
         // Server is back up, show success message that replaces the restarting message
         await new Promise((resolve) => setTimeout(resolve, 250));
         await toastFrontendSuccess("Restarted", "System Restart", 5, "restart");
@@ -876,7 +914,7 @@ globalThis.restart = async function () {
       "Restart timed out or failed",
       "Restart Error",
       8,
-      "restart"
+      "restart",
     );
   }
 };
@@ -1005,33 +1043,25 @@ function removeClassFromElement(element, className) {
 }
 
 function justToast(text, type = "info", timeout = 5000, group = "") {
-  notificationStore.addFrontendToastOnly(
-    type,
-    text,
-    "",
-    timeout / 1000,
-    group
-  )
+  notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000, group);
 }
-  
 
 function toast(text, type = "info", timeout = 5000) {
   // Convert timeout from milliseconds to seconds for new notification system
   const display_time = Math.max(timeout / 1000, 1); // Minimum 1 second
 
   // Use new frontend notification system based on type
-    switch (type.toLowerCase()) {
-      case "error":
-        return notificationStore.frontendError(text, "Error", display_time);
-      case "success":
-        return notificationStore.frontendInfo(text, "Success", display_time);
-      case "warning":
-        return notificationStore.frontendWarning(text, "Warning", display_time);
-      case "info":
-      default:
-        return notificationStore.frontendInfo(text, "Info", display_time);
-    }
-
+  switch (type.toLowerCase()) {
+    case "error":
+      return notificationStore.frontendError(text, "Error", display_time);
+    case "success":
+      return notificationStore.frontendInfo(text, "Success", display_time);
+    case "warning":
+      return notificationStore.frontendWarning(text, "Warning", display_time);
+    case "info":
+    default:
+      return notificationStore.frontendInfo(text, "Info", display_time);
+  }
 }
 globalThis.toast = toast;
 
@@ -1071,6 +1101,15 @@ async function startPolling() {
   const shortIntervalPeriod = 100;
   let shortIntervalCount = 0;
 
+  // Call poll immediately to load chats on page load
+  try {
+    // Wait a bit for Alpine to be fully ready
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await poll();
+  } catch (error) {
+    console.error("Error in initial poll:", error);
+  }
+
   async function _doPoll() {
     let nextInterval = longInterval;
 
@@ -1087,7 +1126,8 @@ async function startPolling() {
     setTimeout(_doPoll.bind(this), nextInterval);
   }
 
-  _doPoll();
+  // Start the polling loop after the initial poll
+  setTimeout(_doPoll, longInterval);
 }
 
 document.addEventListener("DOMContentLoaded", startPolling);
@@ -1208,7 +1248,31 @@ function initializeActiveTab() {
   }
 
   const activeTab = localStorage.getItem("activeTab") || "chats";
-  activateTab(activeTab);
+
+  // Only activate tab if we have a context - otherwise show welcome screen
+  if (context) {
+    activateTab(activeTab);
+  } else {
+    // Just set the active tab UI without auto-selecting contexts
+    const chatsTab = document.getElementById("chats-tab");
+    const tasksTab = document.getElementById("tasks-tab");
+    const chatsSection = document.getElementById("chats-section");
+    const tasksSection = document.getElementById("tasks-section");
+
+    if (activeTab === "chats") {
+      if (chatsTab) chatsTab.classList.add("active");
+      if (tasksTab) tasksTab.classList.remove("active");
+      if (chatsSection) chatsSection.style.display = "flex";
+      if (tasksSection) tasksSection.style.display = "none";
+    } else {
+      if (tasksTab) tasksTab.classList.add("active");
+      if (chatsTab) chatsTab.classList.remove("active");
+      if (tasksSection) tasksSection.style.display = "flex";
+      if (chatsSection) chatsSection.style.display = "none";
+    }
+  }
+
+  // Alpine store will handle the initial state automatically
 }
 
 /*
@@ -1252,7 +1316,7 @@ function openTaskDetail(taskId) {
         setTimeout(() => {
           // Get the scheduler component
           const schedulerComponent = document.querySelector(
-            '[x-data="schedulerSettings"]'
+            '[x-data="schedulerSettings"]',
           );
           if (!schedulerComponent) {
             console.error("Scheduler component not found");
@@ -1280,3 +1344,4 @@ function openTaskDetail(taskId) {
 
 // Make the function available globally
 globalThis.openTaskDetail = openTaskDetail;
+globalThis.deselectChat = deselectChat;
