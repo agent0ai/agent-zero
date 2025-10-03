@@ -134,7 +134,6 @@
         import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
         import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
         import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
-        import { store as tabsStore } from "/components/sidebar/tabs-store.js";
     </script>
     <script>
         // Expose git info for sidebar component
@@ -146,9 +145,7 @@
     <div class="container">
         <!-- Sidebar Overlay -->
         <div id="sidebar-overlay" class="sidebar-overlay" x-data :class="{'visible': $store.sidebar.isOpen && $store.sidebar.isMobile()}" @click="$store.sidebar.close()"></div>
-        <!-- Sidebar Header (Logo and Hamburger icon) -->
-        <x-component path="sidebar/top-section/header-icons.html"></x-component>
-        <!-- Left Sidebar (Quick Actions, Tabs, Chats List, Tasks List) -->
+        <!-- Left Sidebar (Header Icons, Quick Actions, Tabs, Chats, Tasks) -->
         <x-component path="sidebar/left-sidebar.html"></x-component>
         
         <!-- Right Panel (Message History and Input Section) -->

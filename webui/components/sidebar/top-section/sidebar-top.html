@@ -1,0 +1,37 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/sidebar/sidebar-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.sidebar">
+      <div class="sidebar-top-wrapper">
+        <!-- Header Icons (Toggle + Logo) -->
+        <x-component path="sidebar/top-section/header-icons.html"></x-component>
+        
+        <!-- Quick Actions Buttons -->
+        <x-component path="sidebar/top-section/quick-actions.html"></x-component>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      const s = Alpine.store('sidebar');
+      if (s && typeof s.init === 'function') s.init();
+    });
+  </script>
+
+  <style>
+    /* Sidebar top wrapper - ensures proper spacing and layout */
+    .sidebar-top-wrapper {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+  </style>
+</body>
+</html>
+

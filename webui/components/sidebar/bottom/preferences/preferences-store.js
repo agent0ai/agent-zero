@@ -1,6 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 
-// Preferences store centralizes sidebar toggle state and side-effects
+// Preferences store centralizes user preference toggles and side-effects
 const model = {
   // UI toggles (initialized with safe defaults, loaded from localStorage in init)
   autoScroll: true,

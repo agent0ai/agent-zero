@@ -328,65 +328,33 @@ async function poll() {
 
     // Make sure the active context is properly selected in both lists
     if (context) {
-      // Update selection in the active tab
-      const activeTab = localStorage.getItem("activeTab") || "chats";
-
-      if (activeTab === "chats") {
-        const chatsStore = Alpine.store('chats');
-        if (chatsStore) {
-          chatsStore.setSelected(context);
-          
-          // Check if this context exists in the chats list
-          const contextExists = chatsStore.contains(context);
-
-          // If it doesn't exist in the chats list but we're in chats tab, try to select the first chat
-          if (!contextExists && chatsStore.contexts.length > 0) {
-            const firstChatId = chatsStore.firstId();
-            if (firstChatId) {
-              setContext(firstChatId);
-              chatsStore.setSelected(firstChatId);
-            }
-          }
-        }
-      } else if (activeTab === "tasks") {
-        const tasksStore = Alpine.store('tasks');
-        if (tasksStore) {
-          tasksStore.setSelected(context);
-
-          // Check if this context exists in the tasks list
-          const taskExists = tasksStore.contains(context);
-
-          // If it doesn't exist in the tasks list but we're in tasks tab, try to select the first task
-          if (!taskExists && tasksStore.tasks.length > 0) {
-            const firstTaskId = tasksStore.firstId();
-            if (firstTaskId) {
-              setContext(firstTaskId);
-              tasksStore.setSelected(firstTaskId);
-            }
-          }
-        }
-      }
-    } else if (
-      response.tasks &&
-      response.tasks.length > 0 &&
-      localStorage.getItem("activeTab") === "tasks"
-    ) {
-      // If we're in tasks tab with no selection but have tasks, select the first one
-      const tasksStore = Alpine.store('tasks');
-      if (tasksStore) {
-        const firstTaskId = tasksStore.firstId();
-        if (firstTaskId) {
-          setContext(firstTaskId);
-          tasksStore.setSelected(firstTaskId);
-        }
-      }
-    } else if (
-      contexts.length > 0 &&
-      localStorage.getItem("activeTab") === "chats"
-    ) {
-      // If we're in chats tab with no selection but have chats, select the first one
+      // Update selection in both stores
       const chatsStore = Alpine.store('chats');
-      if (chatsStore && !context) {
+      const tasksStore = Alpine.store('tasks');
+      
+      if (chatsStore) {
+        chatsStore.setSelected(context);
+        
+        // Check if this context exists in the chats list
+        const contextExists = chatsStore.contains(context);
+
+        // If it doesn't exist in the chats list, try to select the first chat
+        if (!contextExists && chatsStore.contexts.length > 0) {
+          const firstChatId = chatsStore.firstId();
+          if (firstChatId) {
+            setContext(firstChatId);
+            chatsStore.setSelected(firstChatId);
+          }
+        }
+      }
+      
+      if (tasksStore) {
+        tasksStore.setSelected(context);
+      }
+    } else {
+      // No context selected, try to select the first available item
+      const chatsStore = Alpine.store('chats');
+      if (chatsStore && contexts.length > 0) {
         const firstChatId = chatsStore.firstId();
         if (firstChatId) {
           setContext(firstChatId);
@@ -735,24 +703,13 @@ document.addEventListener("DOMContentLoaded", function () {
   startPolling();
 });
 
-// Tab functionality is now handled by tabs-store
-
-// Global proxy to tabs store for backward compatibility
-globalThis.activateTab = async function(tabName) {
-  const tabsStore = globalThis.Alpine?.store('tabs');
-  if (tabsStore) tabsStore.activateTab(tabName);
-};
-
 /*
  * A0 Chat UI
  *
- * Tasks tab functionality:
- * - Tasks are displayed in the Tasks tab with the same mechanics as chats
+ * Unified sidebar layout:
+ * - Both Chats and Tasks lists are always visible in a vertical layout
  * - Both lists are sorted by creation time (newest first)
- * - Selection state is preserved across tab switches
- * - The active tab is remembered across sessions
  * - Tasks use the same context system as chats for communication with the backend
- * - Future support for renaming and deletion will be implemented later
  */
 
 // Open the scheduler detail view for a specific task

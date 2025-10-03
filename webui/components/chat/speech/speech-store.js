@@ -14,6 +14,9 @@ const Status = {
 
 // Create the speech store
 const model = {
+  // Initialization guard
+  _initialized: false,
+
   // STT Settings
   stt_model_size: "tiny",
   stt_language: "en",
@@ -89,6 +92,13 @@ const model = {
 
   // Initialize speech functionality
   async init() {
+    // Guard against multiple initializations
+    if (this._initialized) {
+      console.log('[Speech Store] Already initialized, skipping duplicate init()');
+      return;
+    }
+
+    this._initialized = true;
     await this.loadSettings();
     this.setupBrowserTTS();
     this.setupUserInteractionHandling();
