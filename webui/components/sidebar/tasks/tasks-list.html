@@ -5,10 +5,18 @@
   </script>
 </head>
 <body>
-  <div x-data>
+  <div x-data="{ tasksOpen: true }">
     <template x-if="$store.tasks">
-      <div class="tasks-list-container" x-data>
-        <ul class="config-list" x-show="$store.tasks.tasks.length > 0">
+      <div x-data>
+        <h3 class="section-header section-header-collapsible" @click="tasksOpen = !tasksOpen">
+          Tasks
+          <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" :class="{'rotated': !tasksOpen}">
+            <path d="M8 4l8 8-8 8" />
+          </svg>
+        </h3>
+        <div x-show="tasksOpen" x-collapse x-transition>
+          <div class="tasks-list-container" x-data>
+        <ul class="config-list tasks-config-list" x-show="$store.tasks.tasks.length > 0">
           <template x-for="task in $store.tasks.tasks" :key="task.id">
             <li>
               <div :class="{'chat-list-button': true, 'font-bold': task.id === $store.tasks.selected, 'has-task-container': true}"
@@ -42,8 +50,10 @@
             </li>
           </template>
         </ul>
-        <div class="empty-list-message" x-show="$store.tasks.tasks.length === 0">
-          <p><i>No tasks to list.</i></p>
+          <div class="empty-list-message" x-show="$store.tasks.tasks.length === 0">
+            <p><i>No tasks to list.</i></p>
+          </div>
+        </div>
         </div>
       </div>
     </template>
@@ -60,11 +70,35 @@
 
 <style>
   /* Tasks list styling (migrated) */
-  .tasks-list-container { max-height: 300px; overflow-y: auto; margin-top: 10px; padding-right: 5px; border-radius: 5px; position: relative; scrollbar-width: thin; -ms-overflow-style: auto; }
-  .tasks-list-container::-webkit-scrollbar { width: 5px; }
-  .tasks-list-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 6px; }
-  .tasks-list-container::-webkit-scrollbar-thumb { background-color: var(--color-border); border-radius: 6px; }
-  .tasks-list-container::-webkit-scrollbar-thumb:hover { background-color: var(--color-border); }
+  .tasks-list-container {
+    display: flex;
+    flex-direction: column;
+    max-height: 30vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Scrollable tasks config list */
+  .tasks-config-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    max-height: 23vh;
+    /* Hide scrollbar but keep functionality */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  /* Hide scrollbar for Chrome/Safari/Webkit */
+  .tasks-config-list::-webkit-scrollbar {
+    display: none;
+  }
+
+
+  .tasks-list-container .section-header {
+    flex-shrink: 0;
+    z-index: 10;
+  }
 
   .task-name { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 0; margin-left: 10px; cursor: pointer; border-radius: 4px; transition: background-color 0.2s; font-size: var(--font-size-small); margin-bottom: 2px; }
   .task-name:hover { background-color: rgba(255,255,255,0.1); text-decoration: none; }

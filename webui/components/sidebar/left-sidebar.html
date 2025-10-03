@@ -2,7 +2,6 @@
 <head>
   <script type="module">
     import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
-    import { store as tabsStore } from "/components/sidebar/tabs-store.js";
   </script>
   <!-- Wrapper composes existing sidebar components -->
 </head>
@@ -12,17 +11,17 @@
     <div class="left-panel-top">
       <x-component path="sidebar/top-section/quick-actions.html"></x-component>
 
-      <!-- Tabs container -->
-      <x-component path="sidebar/tabs.html"></x-component>
+      <!-- Chats and Tasks Wrapper -->
+      <div class="lists-wrapper">
+        <!-- Chats List -->
+        <div class="config-section" id="chats-section">
+          <x-component path="sidebar/chats/chats-list.html"></x-component>
+        </div>
 
-      <!-- Chats List -->
-      <div class="config-section" id="chats-section" x-data x-show="$store.tabs && $store.tabs.activeTab === 'chats'">
-        <x-component path="sidebar/chats/chats-list.html"></x-component>
-      </div>
-
-      <!-- Tasks List -->
-      <div class="config-section" id="tasks-section" x-data x-show="$store.tabs && $store.tabs.activeTab === 'tasks'">
-        <x-component path="sidebar/tasks/tasks-list.html"></x-component>
+        <!-- Tasks List -->
+        <div class="config-section" id="tasks-section">
+          <x-component path="sidebar/tasks/tasks-list.html"></x-component>
+        </div>
       </div>
     </div>
     <!--Sidebar lower elements-->
@@ -88,6 +87,15 @@
       margin-top: 3.5rem;
       padding: var(--spacing-md) var(--spacing-md) 0 var(--spacing-md);
     }
+    
+    /* Wrapper for Chats and Tasks lists */
+    .lists-wrapper {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
     .left-panel-top::-webkit-scrollbar {
       width: 0px;
     }
@@ -109,8 +117,48 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
-      flex: 1;
-      margin-top: 0.5rem;
+      flex: 0 auto;
+      margin-top: var(--spacing-md);
+      overflow: hidden;
+    }
+    /* Tasks section container inside sidebar */
+    #tasks-section {
+      display: -webkit-flex;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 0 auto;
+      margin-top: 0;
+      padding-top: var(--spacing-md);
+      border-top: 1px solid var(--color-border);
+    }
+    
+    /* Common section header styling (Chats, Tasks) - matching Preferences style */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin: 0 0 0.5rem 0;
+      padding: 0;
+      user-select: none;
+      font-size: var(--font-size-normal);
+    }
+    
+    /* Collapsible section headers (Tasks) */
+    .section-header-collapsible {
+      cursor: pointer;
+    }
+    
+    /* Arrow icon for collapsible sections */
+    .section-header .arrow-icon {
+      margin-left: 0.5rem;
+      transition: transform 0.15s ease;
+      transform: rotate(90deg);
+    }
+    
+    .section-header .arrow-icon.rotated {
+      transform: rotate(0deg);
     }
     /* Version label area */
     .version-info { line-height: 0.8rem; position: relative; margin: 0 var(--spacing-md) 1rem var(--spacing-md); padding-top: 10px; border-top: 1px solid var(--color-border); }

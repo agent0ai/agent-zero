@@ -27,14 +27,7 @@ const model = {
     const currentContext = globalThis.getContext?.();
     if (id === currentContext) return; // already selected
     
-    // Check if we need to switch tabs by deferring to the tabs store
-    const tabsStore = globalThis.Alpine?.store('tabs');
-    if (tabsStore?.ensureProperTabSelection(id)) {
-      if (globalThis.updateAfterScroll) globalThis.updateAfterScroll();
-      return; // Tab was switched, logic stops here.
-    }
-    
-    // If no tab switch was needed, proceed with context selection
+    // Proceed with context selection
     if (globalThis.setContext) {
       globalThis.setContext(id);
     }
@@ -52,9 +45,6 @@ const model = {
       globalThis.updateAfterScroll();
     }
   },
-
-  // Ensure proper tab selection based on context type - MOVED TO TABS-STORE.JS
-  /* ensureProperTabSelection(contextId) { ... } */
 
   // Delete a chat
   async killChat(id) {
