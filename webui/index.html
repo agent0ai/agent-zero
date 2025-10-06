@@ -108,7 +108,6 @@
     <script type="module" src="js/initFw.js"></script>
 
     <script src="vendor/ace-min/ace.js"></script>
-    <link href="vendor/ace-min/ace.min.css" rel="stylesheet">
     <!-- KaTeX CSS -->
     <link rel="stylesheet" href="vendor/katex/katex.min.css" crossorigin="anonymous">
 
@@ -350,6 +349,10 @@
             <!--Chat-->
             <div id="time-date-container">
                 <div id="time-date"></div>
+
+                <!-- Project Indicator Component -->
+                <x-component path="projects/project-indicator.html"></x-component>
+
                 <div class="status-icon" x-data="{ connected: true }">
                     <svg viewBox="0 0 30 30">
                         <!-- Connected State (filled circle) -->
@@ -520,6 +523,7 @@
                         </svg>
                         <p>Context</p>
                     </button>
+
 
                     <button class="text-button" id="nudges_window" @click="nudge()">
                         <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 49 58"
@@ -1746,6 +1750,7 @@
             </div>
         </template>
     </div>
+
 
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>

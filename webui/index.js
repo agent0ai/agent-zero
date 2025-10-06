@@ -284,8 +284,39 @@ function adjustTextareaHeight() {
   chatInput.style.height = chatInput.scrollHeight + "px";
 }
 
-export const sendJsonData = async function (url, data) {
-  return await api.callJsonApi(url, data);
+export const sendJsonData = async function (url, data, method = "POST") {
+  if (method === "GET") {
+    // For GET requests, use fetchApi directly without JSON content-type
+    const response = await api.fetchApi(url, {
+      method: "GET",
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error);
+    }
+    return await response.json();
+  } else if (method === "POST") {
+    // For POST requests, use the existing callJsonApi
+    return await api.callJsonApi(url, data);
+  } else {
+    // For PUT, DELETE, etc., use fetchApi with the specified method
+    const response = await api.fetchApi(url, {
+      method: method,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error);
+    }
+    return await response.json();
+  }
   // const response = await api.fetchApi(url, {
   //     method: 'POST',
   //     headers: {
@@ -750,6 +781,10 @@ export const newContext = function () {
   setContext(context);
 }
 
+export const getContext = function () {
+  return context;
+};
+
 export const setContext = function (id) {
   if (id == context) return;
   context = id;
@@ -779,10 +814,6 @@ export const setContext = function (id) {
 
   //skip one speech if enabled when switching context
   if (localStorage.getItem("speech") == "true") skipOneSpeech = true;
-};
-
-export const getContext = function () {
-  return context;
 };
 
 export const getChatBasedId = function (id) {
@@ -1034,6 +1065,7 @@ function toast(text, type = "info", timeout = 5000) {
 
 }
 globalThis.toast = toast;
+globalThis.getContext = getContext;
 
 // OLD: hideToast function removed - now using new notification system
 
