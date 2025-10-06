@@ -20,8 +20,6 @@ const model = {
 
   // Initialize the store
   async initialize() {
-    // Ensure overlay is hidden on initialization
-    this.dragDropOverlayVisible = false;
     // Setup event listeners for drag and drop
     this.setupDragDropHandlers();
     // Setup paste event listener for clipboard images
@@ -78,9 +76,6 @@ const model = {
   setupDragDropHandlers() {
     console.log("Setting up drag and drop handlers...");
     let dragCounter = 0;
-
-    // Ensure overlay is hidden when setting up handlers
-    this.hideDragDropOverlay();
 
     // Prevent default drag behaviors
     ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {

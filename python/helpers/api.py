@@ -49,7 +49,9 @@ class ApiHandler:
             input_data: Input = {}
             if request.is_json:
                 try:
-                    input_data = request.get_json() or {}
+                    if request.data:  # Check if there's any data
+                        input_data = request.get_json()
+                    # If empty or not valid JSON, use empty dict
                 except Exception as e:
                     # Just log the error and continue with empty input
                     PrintStyle().print(f"Error parsing JSON: {str(e)}")

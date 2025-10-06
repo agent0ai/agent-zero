@@ -284,56 +284,6 @@ function adjustTextareaHeight() {
   chatInput.style.height = chatInput.scrollHeight + "px";
 }
 
-export const sendJsonData = async function (url, data, method = "POST") {
-  if (method === "GET") {
-    // For GET requests, use fetchApi directly without JSON content-type
-    const response = await api.fetchApi(url, {
-      method: "GET",
-      credentials: "same-origin",
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
-    return await response.json();
-  } else if (method === "POST") {
-    // For POST requests, use the existing callJsonApi
-    return await api.callJsonApi(url, data);
-  } else {
-    // For PUT, DELETE, etc., use fetchApi with the specified method
-    const response = await api.fetchApi(url, {
-      method: method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "same-origin",
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
-    return await response.json();
-  }
-  // const response = await api.fetchApi(url, {
-  //     method: 'POST',
-  //     headers: {
-  //         'Content-Type': 'application/json'
-  //     },
-  //     body: JSON.stringify(data)
-  // });
-
-  // if (!response.ok) {
-  //     const error = await response.text();
-  //     throw new Error(error);
-  // }
-  // const jsonResponse = await response.json();
-  // return jsonResponse;
-};
-globalThis.sendJsonData = sendJsonData;
-
 function generateGUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     var r = (Math.random() * 16) | 0;

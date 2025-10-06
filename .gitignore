@@ -41,9 +41,6 @@ instruments/**
 !**/.gitkeep
 agent_history.gif
 
-tests/**
-
 root/**
 projects_index.json
 
-scratchpad.txt
