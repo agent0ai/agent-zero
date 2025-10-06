@@ -40,3 +40,7 @@ instruments/**
 # Global rule to include .gitkeep files anywhere
 !**/.gitkeep
 agent_history.gif
+
+root/**
+projects_index.json
+

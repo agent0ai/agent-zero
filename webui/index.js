@@ -284,25 +284,6 @@ function adjustTextareaHeight() {
   chatInput.style.height = chatInput.scrollHeight + "px";
 }
 
-export const sendJsonData = async function (url, data) {
-  return await api.callJsonApi(url, data);
-  // const response = await api.fetchApi(url, {
-  //     method: 'POST',
-  //     headers: {
-  //         'Content-Type': 'application/json'
-  //     },
-  //     body: JSON.stringify(data)
-  // });
-
-  // if (!response.ok) {
-  //     const error = await response.text();
-  //     throw new Error(error);
-  // }
-  // const jsonResponse = await response.json();
-  // return jsonResponse;
-};
-globalThis.sendJsonData = sendJsonData;
-
 function generateGUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     var r = (Math.random() * 16) | 0;
@@ -750,6 +731,10 @@ export const newContext = function () {
   setContext(context);
 }
 
+export const getContext = function () {
+  return context;
+};
+
 export const setContext = function (id) {
   if (id == context) return;
   context = id;
@@ -779,10 +764,6 @@ export const setContext = function (id) {
 
   //skip one speech if enabled when switching context
   if (localStorage.getItem("speech") == "true") skipOneSpeech = true;
-};
-
-export const getContext = function () {
-  return context;
 };
 
 export const getChatBasedId = function (id) {
@@ -1034,6 +1015,7 @@ function toast(text, type = "info", timeout = 5000) {
 
 }
 globalThis.toast = toast;
+globalThis.getContext = getContext;
 
 // OLD: hideToast function removed - now using new notification system
 

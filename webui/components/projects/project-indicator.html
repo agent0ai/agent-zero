@@ -1,0 +1,1098 @@
+<html>
+    <head>
+        <script type="module">
+            import { store } from "/components/projects/project-store.js";
+        </script>
+    </head>
+    <body>
+        <div x-data="projectIndicator()">
+            <template x-if="$store.projectStore">
+                <div
+                    @click.away="closeDropdown()"
+                    class="project-indicator-container"
+                >
+                    <!-- Main project indicator button -->
+                    <div
+                        class="project-indicator-button"
+                        @click="toggleDropdown()"
+                        :class="{ 'active': dropdownOpen, 'has-project': !!$store.projectStore.activeProject }"
+                    >
+                        <!-- Project icon -->
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            class="project-icon"
+                        >
+                            <path
+                                d="M10 4H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM10 13H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2zM20 4h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM20 13h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2z"
+                            />
+                        </svg>
+
+                        <!-- Project name or "No Project" -->
+                        <span
+                            class="project-name"
+                            x-text="$store.projectStore.activeProject?.name || 'No Project'"
+                        ></span>
+
+                        <!-- Status indicator -->
+                        <div
+                            class="project-status-dot"
+                            :class="{ 'active': !!$store.projectStore.activeProject }"
+                        ></div>
+
+                        <!-- Dropdown arrow -->
+                        <svg
+                            class="dropdown-arrow"
+                            :class="{ 'rotated': dropdownOpen }"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fill-rule="evenodd"
+                                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                clip-rule="evenodd"
+                            />
+                        </svg>
+                    </div>
+
+                    <!-- Dropdown content -->
+                    <div
+                        class="project-dropdown"
+                        x-show="dropdownOpen"
+                        x-transition:enter="transition ease-out duration-100"
+                        x-transition:enter-start="opacity-0 scale-95"
+                        x-transition:enter-end="opacity-1 scale-100"
+                        x-transition:leave="transition ease-in duration-75"
+                        x-transition:leave-start="opacity-1 scale-100"
+                        x-transition:leave-end="opacity-0 scale-95"
+                    >
+                        <!-- Create New Project at top -->
+                        <div class="dropdown-section create-project-section">
+                            <button
+                                class="create-project-btn"
+                                @click="createNewProject()"
+                            >
+                                <svg
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                    class="create-project-icon"
+                                >
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                                        clip-rule="evenodd"
+                                    />
+                                </svg>
+                                Create New Project
+                            </button>
+                        </div>
+
+                        <!-- Active project section -->
+                        <div
+                            class="dropdown-section"
+                            x-show="$store.projectStore.activeProject"
+                        >
+                            <div class="section-header">Active Project</div>
+                            <div class="active-project-card">
+                                <div class="project-card-header">
+                                    <span
+                                        class="project-card-name"
+                                        x-text="$store.projectStore.activeProject?.name"
+                                    ></span>
+                                    <div class="project-card-actions">
+                                        <button
+                                            class="action-btn"
+                                            @click="editProject($store.projectStore.activeProject)"
+                                            title="Edit project"
+                                        >
+                                            <svg
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                            >
+                                                <path
+                                                    d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+                                                />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            class="action-btn danger"
+                                            @click="deactivateProject()"
+                                            title="Deactivate project"
+                                        >
+                                            <svg
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                            >
+                                                <path
+                                                    fill-rule="evenodd"
+                                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                    clip-rule="evenodd"
+                                                />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div
+                                    class="project-card-description"
+                                    x-show="$store.projectStore.activeProject?.description"
+                                    x-text="$store.projectStore.activeProject?.description"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <!-- Divider -->
+                        <div
+                            class="dropdown-divider"
+                            x-show="$store.projectStore.activeProject && projects.length > 0"
+                        ></div>
+
+                        <!-- Available projects section -->
+                        <div
+                            class="dropdown-section"
+                            x-show="projects.length > 0"
+                        >
+                            <div class="section-header">
+                                <span>Available Projects</span>
+                                <span
+                                    class="project-count"
+                                    x-text="`(${projects.length})`"
+                                ></span>
+                            </div>
+                            <div class="projects-list">
+                                <template
+                                    x-for="project in projects"
+                                    :key="project.id"
+                                >
+                                    <div
+                                        class="project-list-item"
+                                        :class="{ 'is-active': project.active }"
+                                        @click="activateProject(project)"
+                                    >
+                                        <div class="project-item-main">
+                                            <div class="project-item-info">
+                                                <span
+                                                    class="project-item-name"
+                                                    x-text="project.name"
+                                                ></span>
+                                            </div>
+                                            <div
+                                                class="project-item-actions"
+                                                @click.stop
+                                            >
+                                                <button
+                                                    class="action-btn small"
+                                                    @click="editProject(project)"
+                                                    title="Edit project"
+                                                >
+                                                    <svg
+                                                        viewBox="0 0 20 20"
+                                                        fill="currentColor"
+                                                    >
+                                                        <path
+                                                            d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+                                                        />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    class="action-btn small danger"
+                                                    @click="deleteProject(project)"
+                                                    title="Delete project"
+                                                >
+                                                    <svg
+                                                        viewBox="0 0 20 20"
+                                                        fill="currentColor"
+                                                    >
+                                                        <path
+                                                            fill-rule="evenodd"
+                                                            d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9zM4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h.01a1 1 0 100-2H10zm3 0a1 1 0 100 2h.01a1 1 0 100-2H13z"
+                                                            clip-rule="evenodd"
+                                                        />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="project-item-description"
+                                            x-show="project.description"
+                                            x-text="project.description"
+                                        ></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- No projects message -->
+                        <div
+                            class="dropdown-section"
+                            x-show="projects.length === 0 && !$store.projectStore.loading"
+                        >
+                            <div class="no-projects-message">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                    class="no-projects-icon"
+                                >
+                                    <path
+                                        d="M10 4H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM10 13H4c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2zM20 4h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM20 13h-6c-1.11 0-2 .89-2 2v3c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2v-3c0-1.11-.89-2-2-2z"
+                                    />
+                                </svg>
+                                <span>No projects available</span>
+                                <small
+                                    >Create your first project to get
+                                    started</small
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Loading state -->
+                        <div
+                            class="dropdown-section"
+                            x-show="$store.projectStore.loading"
+                        >
+                            <div class="loading-message">
+                                <div class="loading-spinner"></div>
+                                <span>Loading projects...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inline Modal for Create/Edit -->
+                    <div
+                        class="project-modal-overlay"
+                        x-show="$store.projectStore.showDetailModal"
+                        x-transition:enter="transition ease-out duration-200"
+                        x-transition:enter-start="opacity-0"
+                        x-transition:enter-end="opacity-1"
+                        x-transition:leave="transition ease-in duration-150"
+                        x-transition:leave-start="opacity-1"
+                        x-transition:leave-end="opacity-0"
+                        @click.self="$store.projectStore.closeDetailModal()"
+                        @keydown.escape.window="$store.projectStore.closeDetailModal()"
+                    >
+                        <div class="project-modal-container">
+                            <div class="project-modal-header">
+                                <h3
+                                    x-text="$store.projectStore.detailMode === 'create' ? 'Create New Project' : 'Edit Project'"
+                                ></h3>
+                                <button
+                                    class="modal-close-btn"
+                                    @click="$store.projectStore.closeDetailModal()"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <div class="project-modal-body">
+                                <div class="project-form-group">
+                                    <label>Project Name *</label>
+                                    <input
+                                        type="text"
+                                        x-model="$store.projectStore.detailForm.name"
+                                        placeholder="Enter project name"
+                                        class="project-form-input"
+                                    />
+                                </div>
+                                <div class="project-form-group">
+                                    <label>Description *</label>
+                                    <textarea
+                                        x-model="$store.projectStore.detailForm.description"
+                                        placeholder="Brief project description"
+                                        class="project-form-textarea"
+                                        rows="3"
+                                    ></textarea>
+                                </div>
+                                <div class="project-form-group">
+                                    <label>Instructions</label>
+                                    <textarea
+                                        x-model="$store.projectStore.detailForm.instructions"
+                                        placeholder="Detailed instructions for agents (optional)"
+                                        class="project-form-textarea"
+                                        rows="5"
+                                    ></textarea>
+                                </div>
+                                <div
+                                    class="project-validation-errors"
+                                    x-show="$store.projectStore.validationErrors.length > 0"
+                                >
+                                    <template
+                                        x-for="error in $store.projectStore.validationErrors"
+                                        :key="error"
+                                    >
+                                        <div
+                                            class="project-error-message"
+                                            x-text="error"
+                                        ></div>
+                                    </template>
+                                </div>
+                            </div>
+                            <div class="project-modal-footer">
+                                <button
+                                    class="project-modal-btn secondary"
+                                    @click="$store.projectStore.closeDetailModal()"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    class="project-modal-btn primary"
+                                    @click="$store.projectStore.submitDetailForm()"
+                                >
+                                    <span
+                                        x-text="$store.projectStore.detailMode === 'create' ? 'Create Project' : 'Save Changes'"
+                                    ></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <script>
+            function projectIndicator() {
+                return {
+                    dropdownOpen: false,
+                    projects: [],
+
+                    init() {
+                        this.$nextTick(() => {
+                            if (this.$store.projectStore) {
+                                this.loadProjects();
+                                this.setupEventListeners();
+                            }
+                        });
+                    },
+
+                    setupEventListeners() {
+                        if (!this.$store.projectStore) return;
+
+                        this.$store.projectStore.addEventListener(
+                            "projectsLoaded",
+                            (data) => {
+                                this.projects = data.projects || [];
+                            },
+                        );
+
+                        this.$store.projectStore.addEventListener(
+                            "projectCreated",
+                            () => {
+                                this.loadProjects();
+                            },
+                        );
+
+                        this.$store.projectStore.addEventListener(
+                            "projectUpdated",
+                            () => {
+                                this.loadProjects();
+                            },
+                        );
+
+                        this.$store.projectStore.addEventListener(
+                            "projectDeleted",
+                            () => {
+                                this.loadProjects();
+                            },
+                        );
+
+                        this.$store.projectStore.addEventListener(
+                            "projectActivated",
+                            () => {
+                                this.loadProjects();
+                                this.closeDropdown();
+                            },
+                        );
+
+                        this.$store.projectStore.addEventListener(
+                            "projectDeactivated",
+                            () => {
+                                this.loadProjects();
+                                this.closeDropdown();
+                            },
+                        );
+                    },
+
+                    loadProjects() {
+                        if (this.$store.projectStore) {
+                            this.projects =
+                                this.$store.projectStore.getAllProjects();
+                        }
+                    },
+
+                    async toggleDropdown() {
+                        this.dropdownOpen = !this.dropdownOpen;
+                        if (this.dropdownOpen && this.$store.projectStore) {
+                            try {
+                                await this.$store.projectStore.loadProjects();
+                                this.loadProjects();
+                            } catch (error) {
+                                console.error(
+                                    "Failed to load projects:",
+                                    error,
+                                );
+                            }
+                        }
+                    },
+
+                    closeDropdown() {
+                        this.dropdownOpen = false;
+                    },
+
+                    async activateProject(project) {
+                        if (project.active) {
+                            this.closeDropdown();
+                            return;
+                        }
+
+                        try {
+                            await this.$store.projectStore.activateProject(
+                                project.id,
+                            );
+                        } catch (error) {
+                            console.error("Failed to activate project:", error);
+                        }
+                    },
+
+                    async deactivateProject() {
+                        try {
+                            await this.$store.projectStore.deactivateProject();
+                            this.closeDropdown();
+                        } catch (error) {
+                            console.error(
+                                "Failed to deactivate project:",
+                                error,
+                            );
+                        }
+                    },
+
+                    editProject(project) {
+                        if (this.$store.projectStore && project) {
+                            this.$store.projectStore.openDetailModal(
+                                "edit",
+                                project,
+                            );
+                        }
+                        this.closeDropdown();
+                    },
+
+                    async deleteProject(project) {
+                        if (
+                            !confirm(
+                                `Are you sure you want to delete the project "${project.name}"?`,
+                            )
+                        ) {
+                            return;
+                        }
+
+                        try {
+                            await this.$store.projectStore.deleteProject(
+                                project.id,
+                            );
+                        } catch (error) {
+                            console.error("Failed to delete project:", error);
+                        }
+                    },
+
+                    async createNewProject() {
+                        this.closeDropdown();
+
+                        try {
+                            if (this.$store.projectStore) {
+                                this.$store.projectStore.openDetailModal(
+                                    "create",
+                                );
+                            }
+                        } catch (error) {
+                            console.error(
+                                "Failed to open project creation form:",
+                                error,
+                            );
+                        }
+                    },
+                };
+            }
+        </script>
+
+        <style>
+            /* Project Indicator Component */
+            .project-indicator-container {
+                position: relative;
+            }
+
+            .project-indicator-button {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                background: var(--color-panel);
+                border: 1px solid var(--color-border);
+                border-radius: 8px;
+                padding: 0.5rem 1rem;
+                cursor: pointer;
+                transition: all var(--transition-speed) ease;
+                font-family: var(--font-family-main);
+                font-size: var(--font-size-normal);
+                color: var(--color-text);
+            }
+
+            .project-indicator-button.has-project {
+                background: rgba(64, 196, 255, 0.15);
+                border-color: rgba(64, 196, 255, 0.3);
+                color: #40c4ff;
+                font-weight: 500;
+                backdrop-filter: blur(10px);
+            }
+
+            .project-indicator-button:hover,
+            .project-indicator-button.active {
+                background: var(--color-secondary);
+                border-color: var(--color-primary);
+            }
+
+            .project-indicator-button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            }
+
+            .project-icon {
+                width: 16px;
+                height: 16px;
+                opacity: 0.7;
+                transition: opacity var(--transition-speed) ease;
+            }
+
+            .project-indicator-button.has-project .project-icon {
+                fill: #40c4ff;
+            }
+
+            .project-indicator-button:hover .project-icon {
+                opacity: 1;
+            }
+
+            .project-name {
+                font-weight: 500;
+                max-width: 200px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .project-status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--color-border);
+                transition: all var(--transition-speed) ease;
+            }
+
+            .project-status-dot.active {
+                background: #40c4ff;
+                box-shadow: 0 0 8px #40c4ff;
+                animation: project-indicator-pulse 2s ease-in-out infinite;
+            }
+
+            .dropdown-arrow {
+                width: 12px;
+                height: 12px;
+                opacity: 0.6;
+                transition: transform var(--transition-speed) ease;
+            }
+
+            .project-indicator-button.active .dropdown-arrow,
+            .dropdown-arrow.rotated {
+                transform: rotate(180deg);
+            }
+
+            /* Project Dropdown */
+            .project-dropdown {
+                position: absolute;
+                top: calc(100% + 8px);
+                right: 0;
+                background: var(--color-panel);
+                border: 1px solid var(--color-border);
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+                z-index: 1000;
+                min-width: 320px;
+                max-width: 400px;
+                max-height: 400px;
+                overflow-y: auto;
+                padding: 0;
+                margin: 0;
+                will-change: transform, opacity;
+                transform: translateZ(0);
+            }
+
+            .dropdown-section {
+                padding: 0.75rem 0;
+            }
+
+            .dropdown-section:not(:last-child) {
+                border-bottom: 1px solid var(--color-border);
+            }
+
+            .section-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.5rem 1rem;
+                font-weight: 600;
+                font-size: var(--font-size-small);
+                color: var(--color-text);
+                opacity: 0.8;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .project-count {
+                font-weight: 400;
+                opacity: 0.6;
+            }
+
+            .create-project-section {
+                padding: 0.5rem;
+            }
+
+            .create-project-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+                width: 100%;
+                padding: 0.75rem 1rem;
+                background: var(--color-primary);
+                color: var(--color-background);
+                border: none;
+                border-radius: 8px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all var(--transition-speed) ease;
+            }
+
+            .create-project-btn:hover {
+                opacity: 0.9;
+                transform: translateY(-1px);
+            }
+
+            .create-project-icon {
+                width: 16px;
+                height: 16px;
+            }
+
+            .dropdown-divider {
+                height: 1px;
+                background: var(--color-border);
+                margin: 0.5rem 0;
+            }
+
+            .active-project-card {
+                margin: 0 0.5rem;
+                padding: 1rem;
+                background: var(--color-secondary);
+                border: 1px solid var(--color-primary);
+                border-radius: 8px;
+            }
+
+            .project-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }
+
+            .project-card-name {
+                font-weight: 600;
+                color: var(--color-primary);
+            }
+
+            .project-card-actions {
+                display: flex;
+                gap: 0.25rem;
+            }
+
+            .action-btn {
+                background: none;
+                border: none;
+                padding: 0.25rem;
+                cursor: pointer;
+                color: var(--color-text);
+                opacity: 0.7;
+                transition: all var(--transition-speed) ease;
+                border-radius: 4px;
+            }
+
+            .action-btn:hover {
+                opacity: 1;
+                background: var(--color-background);
+            }
+
+            .action-btn.danger:hover {
+                color: var(--color-accent);
+            }
+
+            .action-btn svg {
+                width: 16px;
+                height: 16px;
+                display: block;
+            }
+
+            .action-btn.small svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .project-card-description {
+                font-size: var(--font-size-small);
+                opacity: 0.8;
+                line-height: 1.4;
+            }
+
+            .projects-list {
+                padding: 0 0.5rem;
+            }
+
+            .project-list-item {
+                padding: 0.75rem;
+                margin-bottom: 0.25rem;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all var(--transition-speed) ease;
+                border: 1px solid transparent;
+            }
+
+            .project-list-item:hover {
+                background: var(--color-secondary);
+                border-color: var(--color-border);
+            }
+
+            .project-list-item.is-active {
+                background: var(--color-secondary);
+                border-color: var(--color-primary);
+            }
+
+            .project-item-main {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.25rem;
+            }
+
+            .project-item-name {
+                font-weight: 500;
+                color: var(--color-text);
+            }
+
+            .project-item-actions {
+                display: flex;
+                gap: 0.25rem;
+                opacity: 0;
+                transition: opacity var(--transition-speed) ease;
+            }
+
+            .project-list-item:hover .project-item-actions {
+                opacity: 1;
+            }
+
+            .project-item-description {
+                font-size: var(--font-size-small);
+                opacity: 0.7;
+                line-height: 1.3;
+            }
+
+            .no-projects-message,
+            .loading-message {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 2rem 1rem;
+                text-align: center;
+                color: var(--color-text);
+                opacity: 0.7;
+            }
+
+            .no-projects-icon {
+                width: 32px;
+                height: 32px;
+                opacity: 0.5;
+            }
+
+            .no-projects-message small {
+                font-size: var(--font-size-small);
+                opacity: 0.8;
+            }
+
+            .loading-spinner {
+                width: 24px;
+                height: 24px;
+                border: 2px solid var(--color-border);
+                border-top: 2px solid var(--color-primary);
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+
+            /* Light mode overrides */
+            .light-mode .project-indicator-button,
+            .light-mode .project-dropdown {
+                background: var(--color-panel-light);
+                border-color: var(--color-border-light);
+            }
+
+            .light-mode .project-indicator-button:hover,
+            .light-mode .project-indicator-button.active {
+                background: var(--color-secondary-light);
+            }
+
+            .light-mode .active-project-card,
+            .light-mode .project-list-item.is-active {
+                background: var(--color-secondary-light);
+            }
+
+            .light-mode .dropdown-section:not(:last-child),
+            .light-mode .dropdown-divider {
+                border-color: var(--color-border-light);
+            }
+
+            /* Scrollbar */
+            .project-dropdown::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .project-dropdown::-webkit-scrollbar-track {
+                background: transparent;
+                border-radius: 6px;
+            }
+
+            .project-dropdown::-webkit-scrollbar-thumb {
+                background-color: rgba(155, 155, 155, 0.5);
+                border-radius: 6px;
+                transition: background-color 0.2s ease;
+            }
+
+            .project-dropdown::-webkit-scrollbar-thumb:hover {
+                background-color: rgba(155, 155, 155, 0.7);
+            }
+
+            @keyframes project-indicator-pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.7;
+                    transform: scale(0.9);
+                }
+            }
+
+            /* Project Modal Styles */
+            .project-modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                z-index: 2000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 1rem;
+                backdrop-filter: blur(2px);
+            }
+
+            .project-modal-container {
+                background: var(--color-panel);
+                border: 1px solid var(--color-border);
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                max-width: 600px;
+                width: 100%;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .project-modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1.5rem;
+                border-bottom: 1px solid var(--color-border);
+            }
+
+            .project-modal-header h3 {
+                margin: 0;
+                font-size: var(--font-size-large);
+                color: var(--color-primary);
+                font-weight: 600;
+            }
+
+            .modal-close-btn {
+                background: none;
+                border: none;
+                font-size: 2rem;
+                line-height: 1;
+                color: var(--color-text);
+                opacity: 0.6;
+                cursor: pointer;
+                padding: 0;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 4px;
+                transition: all var(--transition-speed) ease;
+            }
+
+            .modal-close-btn:hover {
+                opacity: 1;
+                background: var(--color-secondary);
+            }
+
+            .project-modal-body {
+                flex: 1;
+                overflow-y: auto;
+                padding: 1.5rem;
+            }
+
+            .project-form-group {
+                margin-bottom: 1.25rem;
+            }
+
+            .project-form-group label {
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                color: var(--color-text);
+                font-size: var(--font-size-normal);
+            }
+
+            .project-form-input,
+            .project-form-textarea {
+                width: 100%;
+                padding: 0.75rem;
+                border: 1px solid var(--color-border);
+                border-radius: 8px;
+                background: var(--color-background);
+                color: var(--color-text);
+                font-family: var(--font-family-main);
+                font-size: var(--font-size-normal);
+                transition: all var(--transition-speed) ease;
+                box-sizing: border-box;
+            }
+
+            .project-form-input:focus,
+            .project-form-textarea:focus {
+                outline: none;
+                border-color: var(--color-primary);
+                box-shadow: 0 0 0 3px rgba(115, 122, 129, 0.1);
+            }
+
+            .project-form-textarea {
+                resize: vertical;
+                min-height: 60px;
+            }
+
+            .project-validation-errors {
+                margin-top: 1rem;
+                padding: 1rem;
+                background: rgba(207, 102, 121, 0.1);
+                border: 1px solid rgba(207, 102, 121, 0.3);
+                border-radius: 8px;
+            }
+
+            .project-error-message {
+                color: var(--color-accent);
+                font-size: var(--font-size-small);
+                margin-bottom: 0.25rem;
+            }
+
+            .project-error-message:last-child {
+                margin-bottom: 0;
+            }
+
+            .project-modal-footer {
+                padding: 1.5rem;
+                border-top: 1px solid var(--color-border);
+                display: flex;
+                justify-content: flex-end;
+                gap: 0.75rem;
+            }
+
+            .project-modal-btn {
+                padding: 0.75rem 1.5rem;
+                border: none;
+                border-radius: 8px;
+                font-weight: 500;
+                font-size: var(--font-size-normal);
+                cursor: pointer;
+                transition: all var(--transition-speed) ease;
+                font-family: var(--font-family-main);
+            }
+
+            .project-modal-btn.primary {
+                background: #2196f3;
+                color: white;
+            }
+
+            .project-modal-btn.primary:hover {
+                background: #1976d2;
+                transform: translateY(-1px);
+            }
+
+            .project-modal-btn.secondary {
+                background: transparent;
+                color: var(--color-text);
+                border: 1px solid var(--color-border);
+            }
+
+            .project-modal-btn.secondary:hover {
+                background: var(--color-secondary);
+                border-color: var(--color-primary);
+            }
+
+            /* Light mode overrides for modal */
+            .light-mode .project-modal-container {
+                background: var(--color-panel-light);
+                border-color: var(--color-border-light);
+            }
+
+            .light-mode .project-modal-header,
+            .light-mode .project-modal-footer {
+                border-color: var(--color-border-light);
+            }
+
+            .light-mode .project-form-input,
+            .light-mode .project-form-textarea {
+                background: var(--color-background-light);
+                border-color: var(--color-border-light);
+            }
+
+            .light-mode .project-modal-btn.secondary {
+                border-color: var(--color-border-light);
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .project-indicator-button,
+                .project-dropdown,
+                .project-list-item {
+                    transition: none;
+                }
+
+                .loading-spinner {
+                    animation: none;
+                    border-top-color: transparent;
+                }
+            }
+        </style>
+    </body>
+</html>
