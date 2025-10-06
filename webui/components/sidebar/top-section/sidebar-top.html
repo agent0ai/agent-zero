@@ -17,12 +17,6 @@
     </template>
   </div>
 
-  <script>
-    document.addEventListener('alpine:init', () => {
-      const s = Alpine.store('sidebar');
-      if (s && typeof s.init === 'function') s.init();
-    });
-  </script>
 
   <style>
     /* Sidebar top wrapper - ensures proper spacing and layout */

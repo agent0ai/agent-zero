@@ -68,12 +68,6 @@
     </template>
   </div>
 
-  <script>
-    document.addEventListener('alpine:init', () => {
-      const s = Alpine.store('fullScreenInputModal');
-      if (s && typeof s.init === 'function') s.init();
-    });
-  </script>
 
   <style>
   /* No component-specific styles needed; styles are provided by css/modals.css and css/modals2.css */

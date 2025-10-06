@@ -64,12 +64,6 @@
     </template>
   </div>
 
-  <script>
-    document.addEventListener('alpine:init', () => {
-      const s = Alpine.store('chatInput');
-      if (s && typeof s.init === 'function') s.init();
-    });
-  </script>
   <style>
         .text-buttons-row { width: 100%; display: flex; padding-top: var(--spacing-xs); margin-left: var(--spacing-xs); }
         .text-button { background-color: transparent; border: none; border-radius: 5px; color: var(--color-text); font-family: "Rubik", Arial, Helvetica, sans-serif; font-size: 0.6rem; padding: 6px var(--spacing-sm); cursor: pointer; opacity: 0.8; -webkit-transition: all 0.3s; transition: all 0.3s; display: flex; align-items: center; gap: var(--spacing-xs); }

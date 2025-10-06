@@ -130,11 +130,6 @@
     <script type="text/javascript" src="js/file_browser.js"></script>
     <script type="text/javascript" src="js/modal.js"></script>
     <script type="module" src="js/tunnel.js"></script>
-    <script type="module">
-        import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
-        import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
-        import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
-    </script>
     <script>
         // Expose git info for sidebar component
         globalThis.gitinfo = { version: "{{version_no}}", commit_time: "{{version_time}}" };

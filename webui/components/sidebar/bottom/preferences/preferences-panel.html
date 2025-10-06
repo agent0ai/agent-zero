@@ -64,13 +64,6 @@
     </template>
   </div>
 
-  <script>
-    document.addEventListener('alpine:init', () => {
-      // Call init once Alpine is ready, so $store is mounted
-      const s = Alpine.store('preferences');
-      if (s && typeof s.init === 'function') s.init();
-    });
-  </script>
   <style>
     .pref-section {
     font-size: var(--font-size-small);

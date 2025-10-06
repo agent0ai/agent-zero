@@ -14,12 +14,6 @@
         </h4>
     </div>
 
-    <script>
-        document.addEventListener('alpine:init', () => {
-            const s = Alpine.store('speech');
-            if (s && typeof s.init === 'function') s.init();
-        });
-    </script>
 
     <style>
     #progress-bar-box { background-color: var(--color-panel); padding: var(--spacing-sm) var(--spacing-md); padding-bottom: 0; display: flex; justify-content: space-between; z-index: 1001; }

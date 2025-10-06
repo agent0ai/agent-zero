@@ -51,16 +51,6 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('alpine:init', () => {
-            const s1 = Alpine.store('speech');
-            if (s1 && typeof s1.init === 'function') s1.init();
-            const s2 = Alpine.store('chatAttachments');
-            if (s2 && typeof s2.init === 'function') s2.init();
-            const fs = Alpine.store('fullScreenInputModal');
-            if (fs && typeof fs.init === 'function') fs.init();
-        });
-    </script>
 
     <style>
     /* Layout rows */

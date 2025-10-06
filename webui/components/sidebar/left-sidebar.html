@@ -31,12 +31,6 @@
     </div>
   </div>
 
-  <script>
-    document.addEventListener('alpine:init', () => {
-        const sidebarStore = Alpine.store('sidebar');
-        if (sidebarStore && typeof sidebarStore.init === 'function') sidebarStore.init();
-    });
-  </script>
 
   <style>
     /* Left Panel styles from index.css */

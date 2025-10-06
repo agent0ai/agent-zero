@@ -59,12 +59,6 @@
     </template>
   </div>
 
-  <script>
-    document.addEventListener('alpine:init', () => {
-      const s = Alpine.store('tasks');
-      if (s && typeof s.init === 'function') s.init();
-    });
-  </script>
 </body>
 </html>
 

@@ -5,6 +5,10 @@ import { sleep } from "/js/sleep.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
+import { store as inputStore } from "/components/chat/input/input-store.js";
+import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -178,8 +182,7 @@ function setMessage(id, type, heading, content, temp, kvps = null) {
 }
 
 globalThis.loadKnowledge = async function () {
-  const inputStore = globalThis.Alpine?.store('chatInput');
-  if (inputStore) await inputStore.loadKnowledge();
+  await inputStore.loadKnowledge();
 };
 
 function adjustTextareaHeight() {
@@ -224,15 +227,11 @@ globalThis.getConnectionStatus = getConnectionStatus;
 
 function setConnectionStatus(connected) {
   connectionStatus = connected;
-  const timeDateEl = document.getElementById("time-date-container");
-  if (globalThis.Alpine && timeDateEl) {
-    const statusIconEl = timeDateEl.querySelector(".status-icon");
-    if (statusIconEl) {
-      const statusIcon = Alpine.$data(statusIconEl);
-      if (statusIcon) {
-        statusIcon.connected = connected;
-      }
-    }
+  // Broadcast connection status without touching Alpine directly
+  try {
+    window.dispatchEvent(new CustomEvent("connection-status", { detail: { connected } }));
+  } catch (_e) {
+    // no-op
   }
 }
 
@@ -298,63 +297,40 @@ async function poll() {
     notificationStore.updateFromPoll(response);
 
     //set ui model vars from backend
-    if (globalThis.Alpine) {
-      const inputStore = Alpine.store('chatInput');
-      if (inputStore) {
-        inputStore.paused = response.paused;
-      }
-    }
+    inputStore.paused = response.paused;
 
     // Update status icon state
     setConnectionStatus(true);
 
     // Update chats list using store
     let contexts = response.contexts || [];
-    if (globalThis.Alpine) {
-      const chatsStore = Alpine.store('chats');
-      if (chatsStore) {
-        chatsStore.applyContexts(contexts);
-      }
-    }
+    chatsStore.applyContexts(contexts);
 
     // Update tasks list using store
-    if (globalThis.Alpine) {
-      const tasksStore = Alpine.store('tasks');
-      if (tasksStore) {
-        let tasks = response.tasks || [];
-        tasksStore.applyTasks(tasks);
-      }
-    }
+    let tasks = response.tasks || [];
+    tasksStore.applyTasks(tasks);
 
     // Make sure the active context is properly selected in both lists
     if (context) {
       // Update selection in both stores
-      const chatsStore = Alpine.store('chats');
-      const tasksStore = Alpine.store('tasks');
+      chatsStore.setSelected(context);
       
-      if (chatsStore) {
-        chatsStore.setSelected(context);
-        
-        // Check if this context exists in the chats list
-        const contextExists = chatsStore.contains(context);
+      // Check if this context exists in the chats list
+      const contextExists = chatsStore.contains(context);
 
-        // If it doesn't exist in the chats list, try to select the first chat
-        if (!contextExists && chatsStore.contexts.length > 0) {
-          const firstChatId = chatsStore.firstId();
-          if (firstChatId) {
-            setContext(firstChatId);
-            chatsStore.setSelected(firstChatId);
-          }
+      // If it doesn't exist in the chats list, try to select the first chat
+      if (!contextExists && chatsStore.contexts.length > 0) {
+        const firstChatId = chatsStore.firstId();
+        if (firstChatId) {
+          setContext(firstChatId);
+          chatsStore.setSelected(firstChatId);
         }
       }
       
-      if (tasksStore) {
-        tasksStore.setSelected(context);
-      }
+      tasksStore.setSelected(context);
     } else {
       // No context selected, try to select the first available item
-      const chatsStore = Alpine.store('chats');
-      if (chatsStore && contexts.length > 0) {
+      if (contexts.length > 0) {
         const firstChatId = chatsStore.firstId();
         if (firstChatId) {
           setContext(firstChatId);
@@ -436,28 +412,23 @@ function updateProgress(progress, active) {
 }
 
 globalThis.pauseAgent = async function (paused) {
-  const inputStore = globalThis.Alpine?.store('chatInput');
-  if (inputStore) await inputStore.pauseAgent(paused);
+  await inputStore.pauseAgent(paused);
 };
 
 globalThis.resetChat = async function (ctxid = null) {
-  const chatsStore = globalThis.Alpine?.store('chats');
-  if (chatsStore) await chatsStore.resetChat(ctxid);
+  await chatsStore.resetChat(ctxid);
 };
 
 globalThis.newChat = async function () {
-  const chatsStore = globalThis.Alpine?.store('chats');
-  if (chatsStore) await chatsStore.newChat();
+  await chatsStore.newChat();
 };
 
 globalThis.killChat = async function (id) {
-  const chatsStore = globalThis.Alpine?.store('chats');
-  if (chatsStore) await chatsStore.killChat(id);
+  await chatsStore.killChat(id);
 };
 
 globalThis.selectChat = async function (id) {
-  const chatsStore = globalThis.Alpine?.store('chats');
-  if (chatsStore) await chatsStore.selectChat(id);
+  await chatsStore.selectChat(id);
 };
 
 function generateShortId() {
@@ -492,13 +463,8 @@ export const setContext = function (id) {
   if (chatHistoryEl) chatHistoryEl.innerHTML = "";
 
   // Update both selected states using stores
-  if (globalThis.Alpine) {
-    const chatsStore = Alpine.store('chats');
-    const tasksStore = Alpine.store('tasks');
-    
-    if (chatsStore) chatsStore.setSelected(id);
-    if (tasksStore) tasksStore.setSelected(id);
-  }
+  chatsStore.setSelected(id);
+  tasksStore.setSelected(id);
 
   //skip one speech if enabled when switching context
   if (localStorage.getItem("speech") == "true") skipOneSpeech = true;
@@ -557,13 +523,11 @@ globalThis.toggleSpeech = function (isOn) {
 };
 
 globalThis.nudge = async function () {
-  const inputStore = globalThis.Alpine?.store('chatInput');
-  if (inputStore) await inputStore.nudge();
+  await inputStore.nudge();
 };
 
 globalThis.restart = async function () {
-  const chatsStore = globalThis.Alpine?.store('chats');
-  if (chatsStore) await chatsStore.restart();
+  await chatsStore.restart();
 };
 
 // Modify this part
@@ -573,13 +537,11 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 globalThis.loadChats = async function () {
-  const chatsStore = globalThis.Alpine?.store('chats');
-  if (chatsStore) await chatsStore.loadChats();
+  await chatsStore.loadChats();
 };
 
 globalThis.saveChat = async function () {
-  const chatsStore = globalThis.Alpine?.store('chats');
-  if (chatsStore) await chatsStore.saveChat();
+  await chatsStore.saveChat();
 };
 
 
@@ -626,14 +588,8 @@ globalThis.toast = toast;
 // OLD: hideToast function removed - now using new notification system
 
 function scrollChanged(isAtBottom) {
-  const autoScrollSwitchEl = document.getElementById("auto-scroll-switch");
-  if (globalThis.Alpine && autoScrollSwitchEl) {
-    const inputAS = Alpine.$data(autoScrollSwitchEl);
-    if (inputAS) {
-      inputAS.autoScroll = isAtBottom;
-    }
-  }
-  // autoScrollSwitch.checked = isAtBottom
+  // Reflect scroll state into preferences store; UI is bound via x-model
+  preferencesStore.autoScroll = isAtBottom;
 }
 
 function updateAfterScroll() {
