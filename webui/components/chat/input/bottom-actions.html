@@ -2,6 +2,7 @@
 <head>
   <script type="module">
     import { store } from "/components/chat/input/input-store.js";
+    import { store as fileBrowserStore } from "/components/file-browser/file-browser-store.js";
   </script>
 </head>
 <body>
@@ -29,7 +30,7 @@
             <p>Import knowledge</p>
         </button>
 
-        <button class="text-button" id="work_dir_browser" @click="fileBrowserModalProxy.openModal()">
+        <button class="text-button" id="work_dir_browser" @click="$store.fileBrowser.openModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 123.37 92.59">
                 <path d="m5.72,11.5l-3.93,8.73h119.77s-3.96-8.73-3.96-8.73h-60.03c-1.59,0-2.88-1.29-2.88-2.88V1.75H13.72v6.87c0,1.59-1.29,2.88-2.88,2.88h-5.12Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="7"></path>
                 <path d="m6.38,20.23H1.75l7.03,67.03c.11,1.07.55,2.02,1.2,2.69.55.55,1.28.89,2.11.89h97.1c.82,0,1.51-.33,2.05-.87.68-.68,1.13-1.67,1.28-2.79l9.1-66.94H6.38Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="8"></path>
