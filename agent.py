@@ -229,6 +229,7 @@ class AgentConfig:
     utility_model: models.ModelConfig
     embeddings_model: models.ModelConfig
     browser_model: models.ModelConfig
+    vision_model: models.ModelConfig
     mcp_servers: str
     profile: str = ""
     memory_subdir: str = ""
@@ -642,6 +643,14 @@ class Agent:
             self.config.embeddings_model.name,
             model_config=self.config.embeddings_model,
             **self.config.embeddings_model.build_kwargs(),
+        )
+
+    def get_vision_model(self):
+        return models.get_vision_model(
+            self.config.vision_model.provider,
+            self.config.vision_model.name,
+            model_config=self.config.vision_model,
+            **self.config.vision_model.build_kwargs(),
         )
 
     async def call_utility_model(
