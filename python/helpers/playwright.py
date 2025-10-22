@@ -1,6 +1,7 @@
 
 from pathlib import Path
 import subprocess
+import sys
 from python.helpers import files
 
 
@@ -9,7 +10,11 @@ from python.helpers import files
 
 def get_playwright_binary():
     pw_cache = Path(get_playwright_cache_dir())
-    headless_shell = next(pw_cache.glob("chromium_headless_shell-*/chrome-*/headless_shell"), None)
+    pattern = "chromium_headless_shell-*/chrome-*/headless_shell"
+    # Without this, Playwright executables were not located in windows ...
+    if sys.platform == "win32":
+        pattern += ".exe"
+    headless_shell = next(pw_cache.glob(pattern), None)
     return headless_shell
 
 def get_playwright_cache_dir():
