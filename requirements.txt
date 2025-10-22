@@ -42,3 +42,4 @@ crontab==1.0.1
 pathspec>=0.12.1
 psutil>=7.0.0
 soundfile==0.13.1
+pywinpty==3.0.2; sys_platform == "win32"

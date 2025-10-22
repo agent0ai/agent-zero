@@ -1,3 +1,4 @@
+import platform
 import select
 import subprocess
 import time
@@ -6,13 +7,16 @@ from typing import Optional, Tuple
 from python.helpers import tty_session
 from python.helpers.shell_ssh import clean_string
 
+_IS_WIN = platform.system() == "Windows"
+
 class LocalInteractiveSession:
     def __init__(self):
         self.session: tty_session.TTYSession|None = None
         self.full_output = ''
 
     async def connect(self):
-        self.session = tty_session.TTYSession("/bin/bash")
+        # If you have it installed you can use 'bash' command in Windows to start a WSL session
+        self.session = tty_session.TTYSession("bash" if _IS_WIN else "/bin/bash")
         await self.session.start()
         await self.session.read_full_until_idle(idle_timeout=1, total_timeout=1)
 
