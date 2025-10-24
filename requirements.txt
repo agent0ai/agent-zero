@@ -43,3 +43,4 @@ pathspec>=0.12.1
 psutil>=7.0.0
 soundfile==0.13.1
 pydantic==2.11.9; sys_platform == "win32"
+pywinpty==3.0.2; sys_platform == "win32"
