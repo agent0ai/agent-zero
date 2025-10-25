@@ -28,40 +28,35 @@
     </template>
   </div>
 
-</body>
-</html>
-
-<style>
-  /* Chats list container and items */
-  .chats-list-container {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  /* Sticky header for chats list */
-  .chats-list-container .section-header {
-    flex-shrink: 0;
-    z-index: 10;
-  }
-
-  /* Scrollable config list */
-  .chats-config-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    scroll-behavior: smooth;
-    max-height: 23vh;
-    /* Hide scrollbar but keep functionality */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
-  }
-  /* Hide scrollbar for Chrome/Safari/Webkit */
-  .chats-config-list::-webkit-scrollbar {
-    display: none;
-  }
+  <style>
+    .chats-list-container .section-header {
+      position: sticky;
+      top: 0;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    /* Chats list container and items */
+    .chats-list-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      margin-top: var(--spacing-md);
+    }
+  
+    .chats-config-list {
+      flex: 1;
+      min-height: 0;
+      overflow: scroll;
+      scroll-behavior: smooth;
+      max-height: 100%;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE/Edge */
+    }
+    /* Hide scrollbar for Chrome/Safari/Webkit */
+    .chats-config-list::-webkit-scrollbar {
+      display: none;
+    }
 
   .chat-list-button { display: block; width: 100%; padding: 8px 5px; cursor: pointer; overflow: hidden; position: relative; border-radius: 4px; transition: background-color 0.2s ease-in-out; }
   .chat-list-button.has-task-container { padding-top: 6px; padding-bottom: 6px; }

@@ -1641,3 +1641,22 @@ nav ul li a img {
 .spin {
   animation: spin 1s linear infinite;
 }
+
+/* Bootstrap Collapse */
+.collapse:not(.show) {
+  display: none !important;
+}
+.collapsing {
+  height: 0;
+  overflow: hidden;
+  transition: height .35s ease;
+}
+
+/* Arrow rotation based on Bootstrap's .collapsed class */
+[data-bs-toggle="collapse"] .arrow-icon {
+  transform: rotate(90deg);
+  transition: transform .15s ease;
+}
+[data-bs-toggle="collapse"].collapsed .arrow-icon {
+  transform: rotate(0deg);
+}

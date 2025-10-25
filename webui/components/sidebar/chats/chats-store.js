@@ -139,11 +139,20 @@ const model = {
       if (globalThis.updateAfterScroll) {
         globalThis.updateAfterScroll();
       }
+      // UX: scroll-to-top
+      requestAnimationFrame(() => this._scrollChatsToTop());
     } catch (e) {
       if (globalThis.toastFetchError) {
         globalThis.toastFetchError("Error creating new chat", e);
       }
     }
+  },
+
+  // Smoothly scroll the chats list to top if present
+  _scrollChatsToTop() {
+    const listEl = document.querySelector('#chats-section .chats-config-list');
+    if (!listEl) return; // no-op if not in DOM
+    listEl.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
   // Load chats from files
