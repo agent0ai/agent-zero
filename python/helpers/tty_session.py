@@ -204,9 +204,10 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
 
 
 async def _spawn_winpty(cmd, cwd, env, echo):
-    # A quick way to silence command echo in cmd.exe is /Q (quiet)
-    if not echo and cmd.strip().lower().startswith("cmd") and "/q" not in cmd.lower():
-        cmd = cmd.replace("cmd.exe", "cmd.exe /Q")
+    # Clean PowerShell startup: no logo, no profile, bypass execution policy for deterministic behavior
+    if cmd.strip().lower().startswith("powershell"):
+        if "-nolog" not in cmd.lower():
+            cmd = cmd.replace("powershell.exe", "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass", 1)
 
     cols, rows = 80, 25
     child = winpty.PtyProcess.spawn(cmd, dimensions=(rows, cols), cwd=cwd or os.getcwd(), env=env) # type: ignore
