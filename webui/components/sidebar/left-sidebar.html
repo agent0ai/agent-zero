@@ -6,25 +6,29 @@
   <!-- Wrapper composes existing sidebar components -->
 </head>
 <body>
-  <div id="left-panel" class="panel" x-data :class="{'hidden': !$store.sidebar.isOpen}">
-    <!--Sidebar upper elements-->
-    <div class="left-panel-top">
-      <!-- Top Section: Header Icons + Quick Actions -->
-      <x-component path="sidebar/top-section/sidebar-top.html"></x-component>
-      <!-- Chats List -->
-      <div class="config-section" id="chats-section">
-        <x-component path="sidebar/chats/chats-list.html"></x-component>
-      </div>
+  <div x-data>
+    <template x-if="$store.sidebar">
+      <div id="left-panel" class="panel" :class="{'hidden': !$store.sidebar.isOpen}">
+        <!--Sidebar upper elements-->
+        <div class="left-panel-top">
+          <!-- Top Section: Header Icons + Quick Actions -->
+          <x-component path="sidebar/top-section/sidebar-top.html"></x-component>
+          <!-- Chats List -->
+          <div class="config-section" id="chats-section">
+            <x-component path="sidebar/chats/chats-list.html"></x-component>
+          </div>
 
-      <!-- Tasks List -->
-      <div class="config-section" id="tasks-section">
-        <x-component path="sidebar/tasks/tasks-list.html"></x-component>
+          <!-- Tasks List -->
+          <div class="config-section" id="tasks-section">
+            <x-component path="sidebar/tasks/tasks-list.html"></x-component>
+          </div>
+        </div>
+        <!--Sidebar lower elements-->
+        <div class="left-panel-bottom">
+          <x-component path="sidebar/bottom/sidebar-bottom.html"></x-component>
+        </div>
       </div>
-    </div>
-    <!--Sidebar lower elements-->
-    <div class="left-panel-bottom">
-      <x-component path="sidebar/bottom/sidebar-bottom.html"></x-component>
-    </div>
+    </template>
   </div>
 
 

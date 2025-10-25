@@ -8,13 +8,19 @@
   <div class="tasks-list-root">
     <template x-if="$store.tasks">
       <div x-data class="tasks-list-inner">
-        <h3 class="section-header section-header-collapsible" data-bs-toggle="collapse" data-bs-target="#tasks-collapse">
+        <h3 class="section-header section-header-collapsible" 
+            data-bs-toggle="collapse" 
+            data-bs-target="#tasks-collapse"
+            x-effect="!$store.sidebar.isSectionOpen('tasks') ? $el.classList.add('collapsed') : $el.classList.remove('collapsed')">
           Tasks
           <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
             <path d="M8 4l8 8-8 8" />
           </svg>
         </h3>
-        <div class="collapse show" id="tasks-collapse">
+        <div class="collapse" id="tasks-collapse"
+             x-effect="$store.sidebar.isSectionOpen('tasks') ? $el.classList.add('show') : $el.classList.remove('show')"
+             x-on:shown.bs.collapse="$store.sidebar.onSectionShown('tasks')"
+             x-on:hidden.bs.collapse="$store.sidebar.onSectionHidden('tasks')">
           <div class="tasks-list-body">
           <div class="tasks-list-container" x-data>
             <ul class="config-list tasks-config-list" x-show="$store.tasks.tasks.length > 0">

@@ -9,13 +9,19 @@
     <template x-if="$store.preferences">
       <div class="pref-section">
         <span>
-          <h3 class="pref-header" data-bs-toggle="collapse" data-bs-target="#pref-list">
+          <h3 class="pref-header" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#preferences-collapse"
+              x-effect="!$store.sidebar.isSectionOpen('preferences') ? $el.classList.add('collapsed') : $el.classList.remove('collapsed')">
             Preferences
             <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path d="M8 4l8 8-8 8" />
             </svg>
           </h3>
-          <ul class="config-list collapse show" id="pref-list">
+          <ul class="config-list collapse" id="preferences-collapse"
+              x-effect="$store.sidebar.isSectionOpen('preferences') ? $el.classList.add('show') : $el.classList.remove('show')"
+              x-on:shown.bs.collapse="$store.sidebar.onSectionShown('preferences')"
+              x-on:hidden.bs.collapse="$store.sidebar.onSectionHidden('preferences')">
             <li x-data x-init="$watch('$store.preferences.autoScroll', v => $store.preferences.applyAutoScroll(v))">
               <span>Autoscroll</span>
               <label class="switch">
@@ -89,7 +95,7 @@
       flex-direction: column;
       gap: 1px;
     }
-    #pref-list li {
+    #preferences-collapse li {
     opacity: 0.8;
     }
     .pref-section .switch-label,

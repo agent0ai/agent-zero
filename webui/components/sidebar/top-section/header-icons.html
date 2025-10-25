@@ -62,14 +62,11 @@
     }
     #logo-container a { color: inherit; text-decoration: none; }
     #logo-container img { border-radius: var(--spacing-xs); width: auto; height: 2.6rem; -webkit-transition: filter 0.3s ease; transition: filter 0.3s ease; }
-    #right-panel.expanded #logo-container { margin-left: 4.6rem; }
 
     .light-mode #logo-container img { -webkit-filter: invert(100%) grayscale(100%); filter: invert(100%) grayscale(100%); }
 
     @media (max-width: 768px) {
       .toggle-sidebar-button { position: fixed; left: var(--spacing-md); z-index: 1004; }
-      #logo-container { margin-left: 4.6rem; -webkit-transition: all 0.3s ease; transition: all 0.3s ease; z-index: 1004; }
-      #right-panel.expanded #logo-container { margin-left: 4.6rem; }
     }
   </style>
 </body>

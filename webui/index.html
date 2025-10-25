@@ -131,7 +131,6 @@
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/file_browser.js"></script>
     <script type="text/javascript" src="js/modal.js"></script>
-    <script type="module" src="js/tunnel.js"></script>
     <script>
         // Expose git info for sidebar component
         globalThis.gitinfo = { version: "{{version_no}}", commit_time: "{{version_time}}" };
@@ -141,7 +140,11 @@
 <body class="dark-mode device-pointer">
     <div class="container">
         <!-- Sidebar Overlay -->
-        <div id="sidebar-overlay" class="sidebar-overlay" x-data :class="{'visible': $store.sidebar.isOpen && $store.sidebar.isMobile()}" @click="$store.sidebar.close()"></div>
+        <div id="sidebar-overlay" x-data>
+            <template x-if="$store.sidebar">
+                <div class="sidebar-overlay" :class="{'visible': $store.sidebar.isOpen && $store.sidebar.isMobile()}" @click="$store.sidebar.close()"></div>
+            </template>
+        </div>
         <!-- Left Sidebar (Header Icons, Quick Actions, Tabs, Chats, Tasks) -->
         <x-component path="sidebar/left-sidebar.html"></x-component>
         
