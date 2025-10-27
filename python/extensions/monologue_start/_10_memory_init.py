@@ -13,6 +13,7 @@ class MemoryInit(Extension):
         db = await memory.Memory.get(self.agent)
 
         # Initialize SkillsManager if skills are enabled
+        # Run in thread pool to avoid blocking
         settings = get_settings()
         if settings.get("skills_enabled", True):
             # Use skills_directories from settings
@@ -21,8 +22,9 @@ class MemoryInit(Extension):
                 for subdir in settings.get("skills_directories", ["custom", "builtin", "shared"])
             ]
 
+            # Run skill discovery in thread pool to avoid blocking
             manager = SkillsManager.get_instance()
-            manager.discover_skills(skills_dirs)
+            await asyncio.to_thread(manager.discover_skills, skills_dirs)
 
 
    

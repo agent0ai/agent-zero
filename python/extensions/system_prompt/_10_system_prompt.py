@@ -34,11 +34,31 @@ def get_tools_prompt(agent: Agent):
 
 
 def get_mcp_tools_prompt(agent: Agent):
+    import asyncio
+
     mcp_config = MCPConfig.get_instance()
     if mcp_config.servers:
         pre_progress = agent.context.log.progress
         agent.context.log.set_progress("Collecting MCP tools")  # MCP might be initializing, better inform via progress bar
-        tools = MCPConfig.get_instance().get_tools_prompt()
+
+        # Run in thread pool to avoid blocking on lock during MCP initialization
+        try:
+            # Get the current event loop
+            loop = asyncio.get_event_loop()
+            # Run the blocking operation in a thread pool with timeout
+            tools = loop.run_until_complete(
+                asyncio.wait_for(
+                    asyncio.to_thread(MCPConfig.get_instance().get_tools_prompt),
+                    timeout=10.0  # 10 second timeout
+                )
+            )
+        except asyncio.TimeoutError:
+            agent.context.log.set_progress(pre_progress)
+            return "## MCP Tools (initialization timeout)\n"
+        except Exception as e:
+            agent.context.log.set_progress(pre_progress)
+            return f"## MCP Tools (error: {str(e)})\n"
+
         agent.context.log.set_progress(pre_progress)  # return original progress
         return tools
     return ""

@@ -78,6 +78,7 @@ class Memory:
             )
             Memory.index[memory_subdir] = db
             wrap = Memory(db, memory_subdir=memory_subdir)
+            # Knowledge preloading now runs in thread pool to avoid blocking
             if agent.config.knowledge_subdirs:
                 await wrap.preload_knowledge(
                     log_item, agent.config.knowledge_subdirs, memory_subdir
@@ -264,8 +265,9 @@ class Memory:
             with open(index_path, "r") as f:
                 index = json.load(f)
 
-        # preload knowledge folders
-        index = self._preload_knowledge_folders(log_item, kn_dirs, index)
+        # preload knowledge folders - run in thread pool to avoid blocking async event loop
+        import asyncio
+        index = await asyncio.to_thread(self._preload_knowledge_folders, log_item, kn_dirs, index)
 
         for file in index:
             if index[file]["state"] in ["changed", "removed"] and index[file].get(

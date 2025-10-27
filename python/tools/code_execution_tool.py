@@ -260,7 +260,7 @@ class CodeExecution(Tool):
         got_output = False
 
         # if prefix, log right away
-        if prefix:
+        if prefix and hasattr(self, 'log'):
             self.log.update(content=prefix)
 
         while True:
@@ -279,7 +279,8 @@ class CodeExecution(Tool):
                 truncated_output = self.fix_full_output(full_output)
                 self.set_progress(truncated_output)
                 heading = self.get_heading_from_output(truncated_output, 0)
-                self.log.update(content=prefix + truncated_output, heading=heading)
+                if hasattr(self, 'log'):
+                    self.log.update(content=prefix + truncated_output, heading=heading)
                 last_output_time = now
                 got_output = True
 
@@ -298,7 +299,8 @@ class CodeExecution(Tool):
                             heading = self.get_heading_from_output(
                                 "\n".join(last_lines), idx + 1, True
                             )
-                            self.log.update(heading=heading)
+                            if hasattr(self, 'log'):
+                                self.log.update(heading=heading)
                             self.mark_session_idle(session)
                             return truncated_output
 
@@ -312,7 +314,8 @@ class CodeExecution(Tool):
                     response = truncated_output + "\n\n" + response
                 PrintStyle.warning(sysinfo)
                 heading = self.get_heading_from_output(truncated_output, 0)
-                self.log.update(content=prefix + response, heading=heading)
+                if hasattr(self, 'log'):
+                    self.log.update(content=prefix + response, heading=heading)
                 return response
 
             # Waiting for first output
@@ -323,7 +326,8 @@ class CodeExecution(Tool):
                     )
                     response = self.agent.read_prompt("fw.code.info.md", info=sysinfo)
                     PrintStyle.warning(sysinfo)
-                    self.log.update(content=prefix + response)
+                    if hasattr(self, 'log'):
+                        self.log.update(content=prefix + response)
                     return response
             else:
                 # Waiting for more output after first output
@@ -336,7 +340,8 @@ class CodeExecution(Tool):
                         response = truncated_output + "\n\n" + response
                     PrintStyle.warning(sysinfo)
                     heading = self.get_heading_from_output(truncated_output, 0)
-                    self.log.update(content=prefix + response, heading=heading)
+                    if hasattr(self, 'log'):
+                        self.log.update(content=prefix + response, heading=heading)
                     return response
 
                 # potential dialog detection
@@ -364,9 +369,10 @@ class CodeExecution(Tool):
                                 heading = self.get_heading_from_output(
                                     truncated_output, 0
                                 )
-                                self.log.update(
-                                    content=prefix + response, heading=heading
-                                )
+                                if hasattr(self, 'log'):
+                                    self.log.update(
+                                        content=prefix + response, heading=heading
+                                    )
                                 return response
 
     async def handle_running_session(
@@ -418,7 +424,8 @@ class CodeExecution(Tool):
         if truncated_output:
             response = truncated_output + "\n\n" + response
         PrintStyle(font_color="#FFA500", bold=True).print(response)
-        self.log.update(content=prefix + response, heading=heading)
+        if hasattr(self, 'log'):
+            self.log.update(content=prefix + response, heading=heading)
         return response
     
     def mark_session_idle(self, session: int = 0):
@@ -442,7 +449,8 @@ class CodeExecution(Tool):
         response = self.agent.read_prompt(
             "fw.code.info.md", info=self.agent.read_prompt("fw.code.reset.md")
         )
-        self.log.update(content=response)
+        if hasattr(self, 'log'):
+            self.log.update(content=response)
         return response
 
     def get_heading_from_output(self, output: str, skip_lines=0, done=False):
