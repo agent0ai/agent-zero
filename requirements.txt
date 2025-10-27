@@ -4,7 +4,7 @@ browser-use==0.5.11
 docker==7.1.0
 duckduckgo-search==6.1.12
 faiss-cpu==1.11.0
-fastmcp==2.3.4
+fastmcp==2.13.0.1
 fasta2a==0.5.0
 flask[async]==3.0.3
 flask-basicauth==0.2.0
@@ -26,6 +26,7 @@ playwright==1.52.0
 pypdf==6.0.0
 python-dotenv==1.1.0
 pytz==2024.2
+PyYAML>=6.0
 sentence-transformers==3.0.1
 tiktoken==0.8.0
 unstructured[all-docs]==0.16.23

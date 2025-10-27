@@ -1,0 +1,36 @@
+# Web Scraping Skill Dependencies
+
+# Core scraping libraries
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# HTML parsing alternatives
+html5lib>=1.1
+
+# HTTP client improvements
+urllib3>=2.0.0
+certifi>=2023.7.22
+
+# Browser automation (optional, for JavaScript-rendered content)
+selenium>=4.15.0
+webdriver-manager>=4.0.1
+
+# Alternative browser automation (optional)
+playwright>=1.40.0
+
+# Async scraping (optional, for high-performance scraping)
+aiohttp>=3.9.0
+asyncio>=3.4.3
+
+# Data handling
+pandas>=2.0.0  # For data analysis and CSV export
+
+# Utilities
+python-dateutil>=2.8.2  # Date parsing
+
+# Note: Install optional dependencies as needed:
+# Basic scraping: pip install requests beautifulsoup4 lxml
+# With Selenium: pip install selenium webdriver-manager
+# With Playwright: pip install playwright && playwright install
+# Async scraping: pip install aiohttp

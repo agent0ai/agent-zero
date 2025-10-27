@@ -89,6 +89,14 @@ class Settings(TypedDict):
 
     shell_interface: Literal['local','ssh']
 
+    skills_directories: list[str]
+    skills_enabled: bool
+    skills_auto_load: bool
+    skills_search_threshold: float
+    skills_metadata_in_prompt: bool
+    skills_max_suggestions: int
+    skills_recall_interval: int
+
     stt_model_size: str
     stt_language: str
     stt_silence_threshold: float
@@ -1488,6 +1496,13 @@ def get_default_settings() -> Settings:
         rfc_port_http=55080,
         rfc_port_ssh=55022,
         shell_interface="local" if runtime.is_dockerized() else "ssh",
+        skills_directories=["custom", "builtin", "shared"],
+        skills_enabled=True,
+        skills_auto_load=False,
+        skills_search_threshold=0.75,
+        skills_metadata_in_prompt=True,
+        skills_max_suggestions=3,
+        skills_recall_interval=3,
         stt_model_size="base",
         stt_language="en",
         stt_silence_threshold=0.3,

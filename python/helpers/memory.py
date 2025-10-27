@@ -58,6 +58,7 @@ class Memory:
         FRAGMENTS = "fragments"
         SOLUTIONS = "solutions"
         INSTRUMENTS = "instruments"
+        SKILLS = "skills"
 
     index: dict[str, "MyFaiss"] = {}
 
@@ -314,6 +315,18 @@ class Memory:
             {"area": Memory.Area.INSTRUMENTS.value},
             filename_pattern="**/*.md",
         )
+
+        # load skills from custom, builtin, and shared directories
+        skills_dirs = ["custom", "builtin", "shared"]
+        for skills_subdir in skills_dirs:
+            skills_path = files.get_abs_path("skills", skills_subdir)
+            index = knowledge_import.load_knowledge(
+                log_item,
+                skills_path,
+                index,
+                {"area": Memory.Area.SKILLS.value},
+                filename_pattern="**/SKILL.md",
+            )
 
         return index
 
