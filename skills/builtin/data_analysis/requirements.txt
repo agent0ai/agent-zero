@@ -1,0 +1,27 @@
+# Data Analysis Skill Requirements
+# Install with: pip install -r requirements.txt
+
+# Core data manipulation and analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Statistical analysis
+scipy>=1.10.0
+statsmodels>=0.14.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Excel file support
+openpyxl>=3.1.0
+xlrd>=2.0.0
+
+# Additional utilities
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# Optional: Advanced analysis (uncomment if needed)
+# scikit-learn>=1.3.0  # Machine learning
+# plotly>=5.14.0  # Interactive visualizations
+# jupyter>=1.0.0  # Jupyter notebooks

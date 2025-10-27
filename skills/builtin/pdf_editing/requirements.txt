@@ -1,0 +1,19 @@
+# PDF Editing Skill Requirements
+# Install with: pip install -r requirements.txt
+
+# Core PDF manipulation library
+PyPDF2>=3.0.0
+
+# Alternative/additional PDF library (for compatibility)
+pypdf>=3.0.0
+
+# For OCR on scanned PDFs (optional)
+# Uncomment if needed:
+# pytesseract>=0.3.10
+# pdf2image>=1.16.0
+# Pillow>=10.0.0
+
+# For digital signatures (optional)
+# Uncomment if needed:
+# endesive>=2.0.0
+# cryptography>=41.0.0
