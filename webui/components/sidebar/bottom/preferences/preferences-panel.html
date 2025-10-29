@@ -7,51 +7,51 @@
 <body>
   <div x-data>
     <template x-if="$store.preferences">
-      <div class="pref-section" x-data="{ prefOpen: true }">
+      <div class="pref-section">
         <span>
-          <h3 class="pref-header" @click="prefOpen = !prefOpen">
+          <h3 class="pref-header" data-bs-toggle="collapse" data-bs-target="#pref-list">
             Preferences
-            <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" :class="{'rotated': !prefOpen}">
+            <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path d="M8 4l8 8-8 8" />
             </svg>
           </h3>
-          <ul class="config-list" id="pref-list" x-show="prefOpen" x-collapse x-transition>
-            <li x-data x-init="$watch('$store.preferences.autoScroll', v => $store.preferences.applyAutoScroll(v))">
+          <ul class="config-list collapse show" id="pref-list">
+            <li x-data>
               <span>Autoscroll</span>
               <label class="switch">
                 <input id="auto-scroll-switch" type="checkbox" x-model="$store.preferences.autoScroll">
                 <span class="slider"></span>
               </label>
             </li>
-            <li x-data x-init="$watch('$store.preferences.darkMode', v => $store.preferences.applyDarkMode(v))">
+            <li x-data>
               <span class="switch-label">Dark mode</span>
               <label class="switch">
                 <input type="checkbox" x-model="$store.preferences.darkMode">
                 <span class="slider"></span>
               </label>
             </li>
-            <li x-data x-init="$watch('$store.preferences.speech', v => $store.preferences.applySpeech(v))">
+            <li x-data>
               <span class="switch-label">Speech</span>
               <label class="switch">
                 <input type="checkbox" x-model="$store.preferences.speech">
                 <span class="slider"></span>
               </label>
             </li>
-            <li x-data x-init="$watch('$store.preferences.showThoughts', v => $store.preferences.applyShowThoughts(v))">
+            <li x-data>
               <span>Show thoughts</span>
               <label class="switch">
                 <input type="checkbox" x-model="$store.preferences.showThoughts">
                 <span class="slider"></span>
               </label>
             </li>
-            <li x-data x-init="$watch('$store.preferences.showJson', v => $store.preferences.applyShowJson(v))">
+            <li x-data>
               <span>Show JSON</span>
               <label class="switch">
                 <input type="checkbox" x-model="$store.preferences.showJson">
                 <span class="slider"></span>
               </label>
             </li>
-            <li x-data x-init="$watch('$store.preferences.showUtils', v => $store.preferences.applyShowUtils(v))">
+            <li x-data>
               <span>Show utility messages</span>
               <label class="switch">
                 <input type="checkbox" x-model="$store.preferences.showUtils">
@@ -80,14 +80,6 @@
       gap: 6px;
       cursor: pointer;
       user-select: none;
-    }
-    .pref-section .arrow-icon {
-      margin-left: 0.5rem;
-      transition: transform .15s ease;
-      transform: rotate(90deg);
-    }
-    .pref-section .arrow-icon.rotated {
-      transform: rotate(0deg);
     }
     .pref-section .config-list {
       list-style: none;

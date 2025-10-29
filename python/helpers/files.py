@@ -334,6 +334,40 @@ def delete_dir(relative_path: str):
                 # suppress all errors - we're ensuring no errors propagate
                 pass
 
+def move_dir(old_path: str, new_path: str):
+    # rename/move the directory from old_path to new_path (both relative)
+    abs_old = get_abs_path(old_path)
+    abs_new = get_abs_path(new_path)
+    if not os.path.isdir(abs_old):
+        return  # nothing to rename
+    try:
+        os.rename(abs_old, abs_new)
+    except Exception:
+        pass  # suppress all errors, keep behavior consistent
+
+# move dir safely, remove with number if needed
+def move_dir_safe(src, dst, rename_format="{name}_{number}"):
+    base_dst = dst
+    i = 2
+    while exists(dst):
+        dst = rename_format.format(name=base_dst, number=i)
+        i += 1
+    move_dir(src, dst)
+    return dst
+
+# create dir safely, add number if needed
+def create_dir_safe(dst, rename_format="{name}_{number}"):
+    base_dst = dst
+    i = 2
+    while exists(dst):
+        dst = rename_format.format(name=base_dst, number=i)
+        i += 1
+    create_dir(dst)
+    return dst
+
+def create_dir(relative_path: str):
+    abs_path = get_abs_path(relative_path)
+    os.makedirs(abs_path, exist_ok=True)
 
 def list_files(relative_path: str, filter: str = "*"):
     abs_path = get_abs_path(relative_path)

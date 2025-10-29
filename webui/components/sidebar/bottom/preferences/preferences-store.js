@@ -1,14 +1,63 @@
 import { createStore } from "/js/AlpineStore.js";
+import * as css from "/js/css.js";
+import { store as speechStore } from "/components/chat/speech/speech-store.js";
 
 // Preferences store centralizes user preference toggles and side-effects
 const model = {
   // UI toggles (initialized with safe defaults, loaded from localStorage in init)
-  autoScroll: true,
-  darkMode: true,
-  speech: false,
-  showThoughts: true,
-  showJson: false,
-  showUtils: false,
+  get autoScroll() {
+    return this._autoScroll;
+  },
+  set autoScroll(value) {
+    this._autoScroll = value;
+    this._applyAutoScroll(value);
+  },
+  _autoScroll: true,
+
+  get darkMode() {
+    return this._darkMode;
+  },
+  set darkMode(value) {
+    this._darkMode = value;
+    this._applyDarkMode(value);
+  },
+  _darkMode: true,
+
+  get speech() {
+    return this._speech;
+  },
+  set speech(value) {
+    this._speech = value;
+    this._applySpeech(value);
+  },
+  _speech: false,
+
+  get showThoughts() {
+    return this._showThoughts;
+  },
+  set showThoughts(value) {
+    this._showThoughts = value;
+    this._applyShowThoughts(value);
+  },
+  _showThoughts: true,
+
+  get showJson() {
+    return this._showJson;
+  },
+  set showJson(value) {
+    this._showJson = value;
+    this._applyShowJson(value);
+  },
+  _showJson: false,
+
+  get showUtils() {
+    return this._showUtils;
+  },
+  set showUtils(value) {
+    this._showUtils = value;
+    this._applyShowUtils(value);
+  },
+  _showUtils: false,
 
   // Initialize preferences and apply current state
   init() {
@@ -16,68 +65,69 @@ const model = {
       // Load persisted preferences with safe fallbacks
       try {
         const storedDarkMode = localStorage.getItem("darkMode");
-        this.darkMode = storedDarkMode !== "false";
+        this._darkMode = storedDarkMode !== "false";
       } catch {
-        this.darkMode = true; // Default to dark mode if localStorage is unavailable
+        this._darkMode = true; // Default to dark mode if localStorage is unavailable
       }
 
       try {
         const storedSpeech = localStorage.getItem("speech");
-        this.speech = storedSpeech === "true";
+        this._speech = storedSpeech === "true";
       } catch {
-        this.speech = false; // Default to speech off if localStorage is unavailable
+        this._speech = false; // Default to speech off if localStorage is unavailable
       }
 
       // Apply all preferences
-      this.applyDarkMode(this.darkMode);
-      this.applyAutoScroll(this.autoScroll);
-      this.applySpeech(this.speech);
-      this.applyShowThoughts(this.showThoughts);
-      this.applyShowJson(this.showJson);
-      this.applyShowUtils(this.showUtils);
+      this._applyDarkMode(this._darkMode);
+      this._applyAutoScroll(this._autoScroll);
+      this._applySpeech(this._speech);
+      this._applyShowThoughts(this._showThoughts);
+      this._applyShowJson(this._showJson);
+      this._applyShowUtils(this._showUtils);
     } catch (e) {
       console.error("Failed to initialize preferences store", e);
     }
   },
 
-  // Side-effect appliers delegate to existing global handlers for parity
-  applyAutoScroll(value = this.autoScroll) {
-    if (typeof globalThis.toggleAutoScroll === "function") {
-      globalThis.toggleAutoScroll(value);
-    }
+  _applyAutoScroll(value) {
+    // nothing for now
   },
 
-  applyDarkMode(value = this.darkMode) {
-    if (typeof globalThis.toggleDarkMode === "function") {
-      globalThis.toggleDarkMode(value);
+  _applyDarkMode(value) {
+    if (value) {
+      document.body.classList.remove("light-mode");
+      document.body.classList.add("dark-mode");
+    } else {
+      document.body.classList.remove("dark-mode");
+      document.body.classList.add("light-mode");
     }
+    localStorage.setItem("darkMode", value);
   },
 
-  applySpeech(value = this.speech) {
-    if (typeof globalThis.toggleSpeech === "function") {
-      globalThis.toggleSpeech(value);
-    }
+  _applySpeech(value) {
+    localStorage.setItem("speech", value);
+    if (!value) speechStore.stopAudio();
   },
 
-  applyShowThoughts(value = this.showThoughts) {
-    if (typeof globalThis.toggleThoughts === "function") {
-      globalThis.toggleThoughts(value);
-    }
+  _applyShowThoughts(value) {
+    css.toggleCssProperty(
+      ".msg-thoughts",
+      "display",
+      value ? undefined : "none"
+    );
   },
 
-  applyShowJson(value = this.showJson) {
-    if (typeof globalThis.toggleJson === "function") {
-      globalThis.toggleJson(value);
-    }
+  _applyShowJson(value) {
+    css.toggleCssProperty(".msg-json", "display", value ? "block" : "none");
   },
 
-  applyShowUtils(value = this.showUtils) {
-    if (typeof globalThis.toggleUtils === "function") {
-      globalThis.toggleUtils(value);
-    }
+  _applyShowUtils(value) {
+    css.toggleCssProperty(
+      ".message-util",
+      "display",
+      value ? undefined : "none"
+    );
   },
 };
 
 export const store = createStore("preferences", model);
-
-

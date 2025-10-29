@@ -42,3 +42,7 @@ crontab==1.0.1
 pathspec>=0.12.1
 psutil>=7.0.0
 soundfile==0.13.1
+imapclient>=3.0.1
+html2text>=2024.2.26
+beautifulsoup4>=4.12.3
+exchangelib>=5.4.3

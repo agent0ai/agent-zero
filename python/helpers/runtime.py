@@ -1,6 +1,7 @@
 import argparse
 import inspect
 import secrets
+from pathlib import Path
 from typing import TypeVar, Callable, Awaitable, Union, overload, cast
 from python.helpers import dotenv, rfc, settings, files
 import asyncio
@@ -82,7 +83,9 @@ async def call_development_function(func: Union[Callable[..., T], Callable[..., 
     if is_development():
         url = _get_rfc_url()
         password = _get_rfc_password()
-        module = files.deabsolute_path(func.__code__.co_filename).replace("/", ".").removesuffix(".py") # __module__ is not reliable
+        # Normalize path components to build a valid Python module path across OSes
+        module_path = Path(files.deabsolute_path(func.__code__.co_filename)).with_suffix("")
+        module = ".".join(module_path.parts) # __module__ is not reliable
         result = await rfc.call_rfc(
             url=url,
             password=password,

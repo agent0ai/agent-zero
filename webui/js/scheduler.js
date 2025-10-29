@@ -4,7 +4,8 @@
  */
 
 import { formatDateTime, getUserTimezone } from './time-utils.js';
-// switchFromContext is now in chats-store, accessed via globalThis
+import { store as chatsStore } from "/components/sidebar/chats/chats-store.js"
+import { store as  notificationsStore } from "/components/notifications/notification-store.js"
 
 // Ensure the showToast function is available
 // if (typeof window.showToast !== 'function') {
@@ -60,26 +61,16 @@ import { formatDateTime, getUserTimezone } from './time-utils.js';
 // Add this near the top of the scheduler.js file, outside of any function
 const showToast = function(message, type = 'info') {
     // Use new frontend notification system
-    if (window.Alpine && window.Alpine.store && window.Alpine.store('notificationStore')) {
-        const store = window.Alpine.store('notificationStore');
-        switch (type.toLowerCase()) {
-            case 'error':
-                return store.frontendError(message, "Scheduler", 5);
-            case 'success':
-                return store.frontendInfo(message, "Scheduler", 3);
-            case 'warning':
-                return store.frontendWarning(message, "Scheduler", 4);
-            case 'info':
-            default:
-                return store.frontendInfo(message, "Scheduler", 3);
-        }
-    } else {
-        // Fallback to global toast function or console
-        if (typeof window.toast === 'function') {
-            window.toast(message, type);
-        } else {
-            console.log(`SCHEDULER ${type.toUpperCase()}: ${message}`);
-        }
+    switch (type.toLowerCase()) {
+        case 'error':
+            return notificationsStore.frontendError(message, "Scheduler", 5);
+        case 'success':
+            return notificationsStore.frontendInfo(message, "Scheduler", 3);
+        case 'warning':
+            return notificationsStore.frontendWarning(message, "Scheduler", 4);
+        case 'info':
+        default:
+            return notificationsStore.frontendInfo(message, "Scheduler", 3);
     }
 };
 
@@ -973,10 +964,7 @@ const fullComponentImplementation = function() {
             try {
 
                 // if we delete selected context, switch to another first
-                const chatsStore = globalThis.Alpine?.store('chats');
-                if (chatsStore && typeof chatsStore.switchFromContext === 'function') {
-                    await chatsStore.switchFromContext(taskId);
-                }
+                await chatsStore.switchFromContext(taskId);
 
                 const response = await fetchApi('/scheduler_task_delete', {
                     method: 'POST',

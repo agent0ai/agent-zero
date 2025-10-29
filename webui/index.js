@@ -21,9 +21,6 @@ globalThis.resetCounter = 0; // Used by stores and getChatBasedId
 let skipOneSpeech = false;
 let connectionStatus = undefined; // undefined = not checked yet, true = connected, false = disconnected
 
-export function getAutoScroll() {
-  return autoScroll;
-}
 
 // Sidebar toggle logic is now handled by sidebar-store.js
 
@@ -175,7 +172,7 @@ setInterval(updateUserTime, 1000);
 function setMessage(id, type, heading, content, temp, kvps = null) {
   const result = msgs.setMessage(id, type, heading, content, temp, kvps);
   const chatHistoryEl = document.getElementById("chat-history");
-  if (autoScroll && chatHistoryEl) {
+  if (preferencesStore.autoScroll && chatHistoryEl) {
     chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
   }
   return result;
@@ -480,61 +477,6 @@ export const getChatBasedId = function (id) {
   return context + "-" + globalThis.resetCounter + "-" + id;
 };
 
-globalThis.toggleAutoScroll = async function (_autoScroll) {
-  autoScroll = _autoScroll;
-};
-
-globalThis.toggleJson = async function (showJson) {
-  css.toggleCssProperty(".msg-json", "display", showJson ? "block" : "none");
-};
-
-globalThis.toggleThoughts = async function (showThoughts) {
-  css.toggleCssProperty(
-    ".msg-thoughts",
-    "display",
-    showThoughts ? undefined : "none"
-  );
-};
-
-globalThis.toggleUtils = async function (showUtils) {
-  css.toggleCssProperty(
-    ".message-util",
-    "display",
-    showUtils ? undefined : "none"
-  );
-};
-
-globalThis.toggleDarkMode = function (isDark) {
-  if (isDark) {
-    document.body.classList.remove("light-mode");
-    document.body.classList.add("dark-mode");
-  } else {
-    document.body.classList.remove("dark-mode");
-    document.body.classList.add("light-mode");
-  }
-  console.log("Dark mode:", isDark);
-  localStorage.setItem("darkMode", isDark);
-};
-
-globalThis.toggleSpeech = function (isOn) {
-  console.log("Speech:", isOn);
-  localStorage.setItem("speech", isOn);
-  if (!isOn) speechStore.stopAudio();
-};
-
-globalThis.nudge = async function () {
-  await inputStore.nudge();
-};
-
-globalThis.restart = async function () {
-  await chatsStore.restart();
-};
-
-// Modify this part
-document.addEventListener("DOMContentLoaded", () => {
-  const isDarkMode = localStorage.getItem("darkMode") !== "false";
-  toggleDarkMode(isDarkMode);
-});
 
 globalThis.loadChats = async function () {
   await chatsStore.loadChats();

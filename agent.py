@@ -53,6 +53,8 @@ class AgentContext:
         created_at: datetime | None = None,
         type: AgentContextType = AgentContextType.USER,
         last_message: datetime | None = None,
+        data: dict | None = None,
+        output_data: dict | None = None,
     ):
         # build context
         self.id = id or AgentContext.generate_id()
@@ -67,8 +69,9 @@ class AgentContext:
         self.type = type
         AgentContext._counter += 1
         self.no = AgentContext._counter
-        # set to start of unix epoch
         self.last_message = last_message or datetime.now(timezone.utc)
+        self.data = data or {}
+        self.output_data = output_data or {}
 
         existing = self._contexts.get(self.id, None)
         if existing:
@@ -112,7 +115,19 @@ class AgentContext:
             context.task.kill()
         return context
 
-    def serialize(self):
+    def get_data(self, key: str, recursive: bool = True):
+        # recursive is not used now, prepared for context hierarchy
+        return self.data.get(key, None)
+
+    def set_data(self, key: str, value: Any, recursive: bool = True):
+        # recursive is not used now, prepared for context hierarchy
+        self.data[key] = value
+
+    def set_output_data(self, key: str, value: Any, recursive: bool = True):
+        # recursive is not used now, prepared for context hierarchy
+        self.output_data[key] = value
+
+    def output(self):
         return {
             "id": self.id,
             "name": self.name,
@@ -132,6 +147,7 @@ class AgentContext:
                 else Localization.get().serialize_datetime(datetime.fromtimestamp(0))
             ),
             "type": self.type.value,
+            **self.output_data,
         }
 
     @staticmethod
@@ -261,6 +277,7 @@ class LoopData:
         self.last_response = ""
         self.params_temporary: dict = {}
         self.params_persistent: dict = {}
+        self.current_tool = None
 
         # override values with kwargs
         for key, value in kwargs.items():
@@ -723,6 +740,13 @@ class Agent:
         ):  # if there is an intervention message, but not yet processed
             msg = self.intervention
             self.intervention = None  # reset the intervention message
+            # If a tool was running, save its progress to history
+            last_tool = self.loop_data.current_tool
+            if last_tool:
+                tool_progress = last_tool.progress.strip()
+                if tool_progress:
+                    self.hist_add_tool_result(last_tool.name, tool_progress)
+                    last_tool.set_progress(None)
             if progress.strip():
                 self.hist_add_ai_response(progress)
             # append the intervention message
@@ -775,27 +799,30 @@ class Agent:
                 )
 
             if tool:
-                await self.handle_intervention()
+                self.loop_data.current_tool = tool # type: ignore
+                try:
+                    await self.handle_intervention()
 
+                    # Call tool hooks for compatibility
+                    await tool.before_execution(**tool_args)
+                    await self.handle_intervention()
 
-                # Call tool hooks for compatibility
-                await tool.before_execution(**tool_args)
-                await self.handle_intervention()
+                    # Allow extensions to preprocess tool arguments
+                    await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
 
-                # Allow extensions to preprocess tool arguments
-                await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
+                    response = await tool.execute(**tool_args)
+                    await self.handle_intervention()
 
-                response = await tool.execute(**tool_args)
-                await self.handle_intervention()
+                    # Allow extensions to postprocess tool response
+                    await self.call_extensions("tool_execute_after", response=response, tool_name=tool_name)
+                    
+                    await tool.after_execution(response)
+                    await self.handle_intervention()
 
-                # Allow extensions to postprocess tool response
-                await self.call_extensions("tool_execute_after", response=response, tool_name=tool_name)
-                
-                await tool.after_execution(response)
-                await self.handle_intervention()
-
-                if response.break_loop:
-                    return response.message
+                    if response.break_loop:
+                        return response.message
+                finally:
+                    self.loop_data.current_tool = None
             else:
                 error_detail = (
                     f"Tool '{raw_tool_name}' not found or could not be initialized."

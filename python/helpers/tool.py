@@ -22,10 +22,19 @@ class Tool:
         self.args = args
         self.loop_data = loop_data
         self.message = message
+        self.progress: str = ""
 
     @abstractmethod
     async def execute(self,**kwargs) -> Response:
         pass
+
+    def set_progress(self, content: str | None):
+        self.progress = content or ""
+
+    def add_progress(self, content: str | None):
+        if not content:
+            return
+        self.progress += content
 
     async def before_execution(self, **kwargs):
         PrintStyle(font_color="#1B4F72", padding=True, background_color="white", bold=True).print(f"{self.agent.agent_name}: Using tool '{self.name}'")

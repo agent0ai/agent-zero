@@ -1,0 +1,71 @@
+<html>
+
+<head>
+    <title>Edit project</title>
+    <script type="module">
+        import { store } from "/components/projects/projectsStore.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject">
+            <div>
+
+
+                <div class="buttons-container" style="margin-top: 1em; margin-bottom: 2em;">
+                    <div class="buttons-left">
+                        <button type="button" class="button cancel" @click="$store.projects.deleteProjectAndCloseModal()">Delete</button>
+                    </div>
+                    <div class="buttons-right">
+                        <button type="button" class="button cancel" @click="$store.projects.cancelEdit()">Cancel</button>
+                        <button type="button" class="button confirm" @click="$store.projects.confirmEdit()">Save</button>
+                    </div>
+                </div>
+
+                <div class="project-detail">
+                    <div class="project-detail-header">
+                        <span class="projects-project-card-title">Basic info</span>
+                    </div>
+                    <x-component path="projects/project-basic-data-form.html">
+                    </x-component>
+                </div>
+
+                <div class="project-detail">
+                    <div class="project-detail-header">
+                        <span class="projects-project-card-title">Instructions</span>
+                    </div>
+                    <x-component path="projects/project-instructions-form.html">
+                    </x-component>
+                </div>
+
+                <div class="buttons-container" style="margin-top: 2em;">
+                    <div class="buttons-left">
+                        <button type="button" class="button cancel" @click="$store.projects.deleteProjectAndCloseModal()">Delete</button>
+                    </div>
+                    <div class="buttons-right">
+                        <button type="button" class="button cancel" @click="$store.projects.cancelEdit()">Cancel</button>
+                        <button type="button" class="button confirm" @click="$store.projects.confirmEdit()">Save</button>
+                    </div>
+                </div>
+
+
+            </div>
+        </template>
+    </div>
+</body>
+<style>
+    .project-detail {
+        border: 1px solid var(--color-border);
+        border-radius: 0.5em;
+        padding: 1em;
+        margin: 1em;
+        background: var(--color-panel);
+    }
+
+    .project-detail-header {
+        margin-bottom: 1em;
+    }
+</style>
+
+</html>

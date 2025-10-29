@@ -54,7 +54,7 @@ class Poll(ApiHandler):
                 continue
 
             # Create the base context data that will be returned
-            context_data = ctx.serialize()
+            context_data = ctx.output()
 
             context_task = scheduler.get_task_by_uuid(ctx.id)
             # Determine if this is a task-dedicated context by checking if a task with this UUID exists

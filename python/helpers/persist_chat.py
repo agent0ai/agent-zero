@@ -123,6 +123,10 @@ def _serialize_context(context: AgentContext):
         agents.append(_serialize_agent(agent))
         agent = agent.data.get(Agent.DATA_NAME_SUBORDINATE, None)
 
+
+    data = {k: v for k, v in context.data.items() if not k.startswith("_")}
+    output_data = {k: v for k, v in context.output_data.items() if not k.startswith("_")}
+
     return {
         "id": context.id,
         "name": context.name,
@@ -142,6 +146,8 @@ def _serialize_context(context: AgentContext):
             context.streaming_agent.number if context.streaming_agent else 0
         ),
         "log": _serialize_log(context.log),
+        "data": data,
+        "output_data": output_data,
     }
 
 
@@ -190,6 +196,8 @@ def _deserialize_context(data):
         ),
         log=log,
         paused=False,
+        data=data.get("data", {}),
+        output_data=data.get("output_data", {}),
         # agent0=agent0,
         # streaming_agent=straming_agent,
     )

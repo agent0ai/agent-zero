@@ -210,7 +210,9 @@ async def _spawn_winpty(cmd, cwd, env, echo):
 
     cols, rows = 80, 25
     pty = winpty.PTY(cols, rows)  # type: ignore
-    child = pty.spawn(cmd, cwd=cwd or os.getcwd(), env=env)
+    # winpty expects env as None or list of "KEY=VALUE" strings, not a dict
+    winpty_env = None if env is None else [f"{k}={v}" for k, v in env.items()]
+    child = pty.spawn(cmd, cwd=cwd or os.getcwd(), env=winpty_env)
 
     master_r_fd = msvcrt.open_osfhandle(child.conout_pipe, os.O_RDONLY)  # type: ignore
     master_w_fd = msvcrt.open_osfhandle(child.conin_pipe, 0)  # type: ignore

@@ -1,0 +1,63 @@
+/* Button Styles */
+.button {
+  background: var(--color-panel);
+  font-weight: 500;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-family: "Rubik", Arial, Helvetica, sans-serif;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 2em; /* Standard height */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.button.confirm {
+  background: var(--color-highlight);
+  color: #fff;
+}
+
+.button.cancel {
+  background: var(--color-panel);
+  color: var(--color-accent);
+  /* border: 1px solid var(--color-accent); */
+}
+
+.button:hover {
+  transform: scale(1.05);
+  filter: brightness(1.05);
+}
+
+.button.cancel:hover {
+  background: var(--color-panel);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.buttons-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.buttons-left {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0.5em;
+}
+
+.buttons-right {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5em;
+}
+
+.icon-button {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}

@@ -2,7 +2,7 @@
 import { store as speechStore } from "/components/chat/speech/speech-store.js";
 
 // Extract text content from different message types
-function getTextContent(element) {
+function getTextContent(element,html=false) {
   // Get all children except action buttons
   const textParts = [];
   // Loop through all child elements
@@ -15,7 +15,7 @@ function getTextContent(element) {
       continue;
     }
     // Get text content from the child
-    const text = child.innerText || "";
+    const text = (html ? child.innerHTML : child.innerText) || "";
     if (text.trim()) {
       textParts.push(text.trim());
     }
