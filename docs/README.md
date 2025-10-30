@@ -6,6 +6,7 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
 - **[Usage Guide](usage.md):** Explore GUI features and usage scenarios.
 - **[Development](development.md):** Set up a development environment for Agent Zero.
 - **[Extensibility](extensibility.md):** Learn how to create custom extensions for Agent Zero.
+- **[WebSocket Infrastructure](websocket-infrastructure.md):** Build real-time features with bidirectional handlers and client APIs.
 - **[Connectivity](connectivity.md):** Learn how to connect to Agent Zero from other applications.
 - **[Architecture Overview](architecture.md):** Understand the internal workings of the framework.
 - **[Contributing](contribution.md):** Learn how to contribute to the Agent Zero project.
@@ -58,7 +59,8 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
     - [Knowledge](architecture.md#5-knowledge)
     - [Instruments](architecture.md#6-instruments)
     - [Extensions](architecture.md#7-extensions)
-  - [Contributing](contribution.md)
+- [WebSocket Infrastructure](websocket-infrastructure.md)
+- [Development](development.md)
   - [Getting Started](contribution.md#getting-started)
   - [Making Changes](contribution.md#making-changes)
   - [Submitting a Pull Request](contribution.md#submitting-a-pull-request)

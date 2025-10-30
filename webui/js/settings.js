@@ -1,3 +1,5 @@
+window.runtimeInfo = window.runtimeInfo || { id: null, isDevelopment: false };
+
 const settingsModalProxy = {
     isOpen: false,
     settings: {},
@@ -85,6 +87,17 @@ const settingsModalProxy = {
         //get settings from backend
         try {
             const set = await sendJsonData("/settings_get", null);
+
+            const runtimeInfo = set?.runtime || {};
+            const isDevelopment = Boolean(runtimeInfo.isDevelopment);
+            if (store) {
+                store.isDevelopment = isDevelopment;
+            }
+            window.runtimeInfo = {
+                ...(window.runtimeInfo || {}),
+                id: runtimeInfo.id ?? (window.runtimeInfo && window.runtimeInfo.id) ?? null,
+                isDevelopment,
+            };
 
             // First load the settings data without setting the active tab
             const settings = {
@@ -283,6 +296,8 @@ const settingsModalProxy = {
             openModal("settings/external/api-examples.html");
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
+        } else if (field.id === "websocket_tester") {
+            openModal("settings/developer/websocket-tester.html");
         }
     }
 };
@@ -309,6 +324,7 @@ document.addEventListener('alpine:init', function () {
     Alpine.store('root', {
         activeTab: localStorage.getItem('settingsActiveTab') || 'agent',
         isOpen: false,
+        isDevelopment: false,
 
         toggleSettings() {
             this.isOpen = !this.isOpen;
@@ -365,6 +381,18 @@ document.addEventListener('alpine:init', function () {
                     if (response.ok) {
                         const data = await response.json();
                         if (data && data.settings) {
+                            const runtimeInfo = data.runtime || {};
+                            const isDevelopment = Boolean(runtimeInfo.isDevelopment);
+                            const rootStore = Alpine.store('root');
+                            if (rootStore) {
+                                rootStore.isDevelopment = isDevelopment;
+                            }
+                            window.runtimeInfo = {
+                                ...(window.runtimeInfo || {}),
+                                id: runtimeInfo.id ?? (window.runtimeInfo && window.runtimeInfo.id) ?? null,
+                                isDevelopment,
+                            };
+
                             this.settingsData = data.settings;
                         } else {
                             console.error('Invalid settings data format');

@@ -2,22 +2,33 @@ import asyncio
 from datetime import timedelta
 import os
 import secrets
-import hashlib
 import time
 import socket
 import struct
 from functools import wraps
 import threading
+
+import uvicorn
 from flask import Flask, request, Response, session, redirect, url_for, render_template_string
 from werkzeug.wrappers.response import Response as BaseResponse
+
 import initialize
-from python.helpers import files, git, mcp_server, fasta2a_server
+from python.helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper
 from python.helpers.files import get_abs_path
 from python.helpers import runtime, dotenv, process
+from python.helpers.websocket import validate_ws_csrf_flag
+from datetime import datetime, timezone
 from python.helpers.extract_tools import load_classes_from_folder
 from python.helpers.api import ApiHandler
 from python.helpers.print_style import PrintStyle
 from python.helpers import login
+import socketio
+from socketio import ASGIApp
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from uvicorn.middleware.wsgi import WSGIMiddleware
+from python.helpers.websocket import WebSocketHandler
+from python.helpers.websocket_manager import WebSocketManager
 
 # disable logging
 import logging
@@ -42,7 +53,23 @@ webapp.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(days=1)
 )
 
-lock = threading.Lock()
+lock = threading.RLock()
+
+socketio_server = socketio.AsyncServer(
+    async_mode="asgi",
+    cors_allowed_origins=[],
+    logger=False,
+    engineio_logger=False,
+    ping_interval=25,  # explicit default to avoid future lib changes
+    ping_timeout=20,   # explicit default to avoid future lib changes
+    max_http_buffer_size=50 * 1024 * 1024,
+)
+
+websocket_manager = WebSocketManager(socketio_server, lock)
+_settings = settings_helper.get_settings()
+websocket_manager.set_server_restart_broadcast(
+    _settings.get("websocket_server_restart_enabled", True)
+)
 
 # Set up basic authentication for UI and API but not MCP
 # basic_auth = BasicAuth(webapp)
@@ -128,7 +155,7 @@ def requires_auth(f):
 
         if session.get('authentication') != user_pass_hash:
             return redirect(url_for('login_handler'))
-        
+
         return await f(*args, **kwargs)
 
     return decorated
@@ -152,13 +179,13 @@ async def login_handler():
     if request.method == 'POST':
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
         password = dotenv.get_dotenv_value("AUTH_PASSWORD")
-        
+
         if request.form['username'] == user and request.form['password'] == password:
             session['authentication'] = login.get_credentials_hash()
             return redirect(url_for('serve_index'))
         else:
             error = 'Invalid Credentials. Please try again.'
-            
+
     login_page_content = files.read_file("webui/login.html")
     return render_template_string(login_page_content, error=error)
 
@@ -190,24 +217,10 @@ async def serve_index():
 def run():
     PrintStyle().print("Initializing framework...")
 
-    # Suppress only request logs but keep the startup messages
-    from werkzeug.serving import WSGIRequestHandler
-    from werkzeug.serving import make_server
-    from werkzeug.middleware.dispatcher import DispatcherMiddleware
-    from a2wsgi import ASGIMiddleware
-
-    PrintStyle().print("Starting server...")
-
-    class NoRequestLoggingWSGIRequestHandler(WSGIRequestHandler):
-        def log_request(self, code="-", size="-"):
-            pass  # Override to suppress request logging
-
-    # Get configuration from environment
     port = runtime.get_web_ui_port()
     host = (
         runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     )
-    server = None
 
     def register_api_handler(app, handler: type[ApiHandler]):
         name = handler.__module__.split(".")[-1]
@@ -232,37 +245,114 @@ def run():
             methods=handler.get_methods(),
         )
 
-    # initialize and register API handlers
     handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)
     for handler in handlers:
         register_api_handler(webapp, handler)
 
-    # add the webapp, mcp, and a2a to the app
-    middleware_routes = {
-        "/mcp": ASGIMiddleware(app=mcp_server.DynamicMcpProxy.get_instance()),  # type: ignore
-        "/a2a": ASGIMiddleware(app=fasta2a_server.DynamicA2AProxy.get_instance()),  # type: ignore
-    }
+    websocket_handlers = [
+        handler(socketio_server, lock)
+        for handler in load_classes_from_folder(
+            "python/websocket_handlers", "*.py", WebSocketHandler
+        )
+    ]
+    websocket_manager.register_handlers(websocket_handlers)
 
-    app = DispatcherMiddleware(webapp, middleware_routes)  # type: ignore
+    @socketio_server.event
+    async def connect(sid, environ, _auth):  # type: ignore[override]
+        with webapp.request_context(environ):
+            auth_required = any(
+                handler.requires_auth() for handler in websocket_handlers
+            )
+            if auth_required:
+                credentials_hash = login.get_credentials_hash()
+                if credentials_hash:
+                    if session.get("authentication") != credentials_hash:
+                        PrintStyle.warning(
+                            f"WebSocket authentication failed for {sid}: session not valid"
+                        )
+                        return False
+                else:
+                    PrintStyle.debug(
+                        "WebSocket authentication required but credentials not configured; proceeding"
+                    )
 
-    PrintStyle().debug(f"Starting server at http://{host}:{port} ...")
+            csrf_expiry: float | None = None
+            requires_csrf = any(
+                handler.requires_csrf() for handler in websocket_handlers
+            )
+            if requires_csrf:
+                now_ts = datetime.now(timezone.utc).timestamp()
+                ok, reason, expiry = validate_ws_csrf_flag(session, now_ts)
+                if not ok:
+                    PrintStyle.warning(
+                        f"WebSocket CSRF validation failed for {sid}: {reason or 'invalid'}"
+                    )
+                    return False
+                csrf_expiry = expiry
+                PrintStyle.debug(
+                    f"WebSocket CSRF validated for {sid}; expires at {expiry}"
+                )
 
-    server = make_server(
-        host=host,
-        port=port,
-        app=app,
-        request_handler=NoRequestLoggingWSGIRequestHandler,
-        threaded=True,
-    )
-    process.set_server(server)
-    server.log_startup()
+            user_id = session.get("user_id") or "single_user"
+            await websocket_manager.handle_connect(sid, csrf_expiry, user_id=user_id)
+            return True
 
-    # Start init_a0 in a background thread when server starts
-    # threading.Thread(target=init_a0, daemon=True).start()
+    @socketio_server.event
+    async def disconnect(sid):  # type: ignore[override]
+        await websocket_manager.handle_disconnect(sid)
+
+    for event_type in websocket_manager.iter_event_types():
+        @socketio_server.on(event_type)
+        async def _event_handler(sid, data, _event_type=event_type):
+            payload = data or {}
+            results = await websocket_manager.route_event(
+                _event_type, payload, sid
+            )
+            return results
+
+    async def validate_sessions_loop():
+        while True:
+            await asyncio.sleep(30)
+            now_ts = datetime.now(timezone.utc).timestamp()
+            for sid in list(websocket_manager.connections.keys()):
+                await websocket_manager.validate_session(sid, now_ts)
+
+    socketio_server.start_background_task(validate_sessions_loop)
+
     init_a0()
 
-    # run the server
-    server.serve_forever()
+    wsgi_app = WSGIMiddleware(webapp)
+    starlette_app = Starlette(
+        routes=[
+            Mount("/mcp", app=mcp_server.DynamicMcpProxy.get_instance()),
+            Mount("/a2a", app=fasta2a_server.DynamicA2AProxy.get_instance()),
+            Mount("/", app=wsgi_app),
+        ]
+    )
+
+    asgi_app = ASGIApp(socketio_server, other_asgi_app=starlette_app)
+
+    config = uvicorn.Config(
+        asgi_app,
+        host=host,
+        port=port,
+        log_level="error",
+        access_log=False,
+        ws="wsproto",
+    )
+    server = uvicorn.Server(config)
+
+    class _UvicornServerWrapper:
+        def __init__(self, server: uvicorn.Server):
+            self._server = server
+
+        def shutdown(self) -> None:
+            self._server.should_exit = True
+
+    process.set_server(_UvicornServerWrapper(server))
+
+    PrintStyle().debug(f"Starting server at http://{host}:{port} ...")
+    server.run()
 
 
 def init_a0():
@@ -276,7 +366,6 @@ def init_a0():
     initialize.initialize_job_loop()
     # preload
     initialize.initialize_preload()
-
 
 
 # run the internal server

@@ -102,6 +102,9 @@ Agent Zero's power comes from its ability to use [tools](architecture.md#tools).
 
 - **Understand Tools:** Agent Zero includes default tools like knowledge (powered by SearXNG), code execution, and communication. Understand the capabilities of these tools and how to invoke them.
 
+### Real-Time WebSocket Features
+- Use WebSockets when you need bidirectional, low-latency updates. The [WebSocket Infrastructure guide](websocket-infrastructure.md) explains the backend handler framework, client API, filtering semantics, and common producer/consumer patterns.
+
 ## Example of Tools Usage: Web Search and Code Execution
 Let's say you want Agent Zero to perform some financial analysis tasks. Here's a possible prompt:
 

@@ -1,0 +1,395 @@
+from __future__ import annotations
+
+import re
+import threading
+from abc import ABC, abstractmethod
+from typing import Any, Iterable, Optional, TYPE_CHECKING
+
+import socketio
+
+if TYPE_CHECKING:  # pragma: no cover - hints only
+    from python.helpers.websocket_manager import WebSocketManager
+
+WS_CSRF_TTL_SECONDS = 120
+
+_EVENT_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+_RESERVED_EVENT_NAMES: set[str] = {
+    "connect",
+    "disconnect",
+    "error",
+    "ping",
+    "pong",
+    "connect_error",
+    "reconnect",
+    "reconnect_attempt",
+    "reconnect_error",
+    "reconnect_failed",
+}
+
+
+def get_ws_csrf_expiry(session_store: Any) -> float | None:
+    value = session_store.get("ws_csrf_ok")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def validate_ws_csrf_flag(session_store: Any, now_ts: float) -> tuple[bool, str | None, float | None]:
+    expiry = get_ws_csrf_expiry(session_store)
+    if expiry is None:
+        return False, "missing", None
+    if expiry <= now_ts:
+        return False, "expired", expiry
+    return True, None, expiry
+
+
+def set_ws_csrf_flag(session_store: Any, now_ts: float, ttl_seconds: int = WS_CSRF_TTL_SECONDS) -> float:
+    expiry = now_ts + ttl_seconds
+    session_store["ws_csrf_ok"] = expiry
+    return expiry
+
+
+class WebSocketResult:
+    """Helper wrapper for standardized handler results.
+
+    Instances are converted to the canonical ``RequestResultItem`` shape by
+    :class:`WebSocketManager`. Helper constructors enforce payload validation so
+    handlers no longer need to hand‑craft dictionaries.
+    """
+
+    __slots__ = ("_ok", "_data", "_error", "_correlation_id", "_duration_ms")
+
+    def __init__(
+        self,
+        ok: bool,
+        data: dict[str, Any] | None = None,
+        error: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+        duration_ms: float | None = None,
+    ) -> None:
+        if ok and error:
+            raise ValueError("Cannot be both ok and have an error")
+        if not ok and not error:
+            raise ValueError("Must either be ok or have an error")
+        if data is not None and not isinstance(data, dict):
+            raise TypeError("Data payload must be a dictionary or None")
+        if error is not None and not isinstance(error, dict):
+            raise TypeError("Error payload must be a dictionary or None")
+        if correlation_id is not None and not isinstance(correlation_id, str):
+            raise TypeError("Correlation ID must be a string or None")
+        if duration_ms is not None and not isinstance(duration_ms, (int, float)):
+            raise TypeError("Duration must be a number or None")
+
+        self._ok = bool(ok)
+        self._data = dict(data) if data is not None else None
+        self._error = dict(error) if error is not None else None
+        self._correlation_id = correlation_id
+        self._duration_ms = float(duration_ms) if duration_ms is not None else None
+
+    @classmethod
+    def ok(
+        cls,
+        data: dict[str, Any] | None = None,
+        *,
+        correlation_id: str | None = None,
+        duration_ms: float | None = None,
+    ) -> "WebSocketResult":
+        if data is not None and not isinstance(data, dict):
+            raise TypeError("WebSocketResult.ok data must be a dict or None")
+        payload = dict(data) if data is not None else None
+        return cls(
+            ok=True,
+            data=payload,
+            correlation_id=correlation_id,
+            duration_ms=duration_ms,
+        )
+
+    @classmethod
+    def error(
+        cls,
+        *,
+        code: str,
+        message: str,
+        details: Any | None = None,
+        correlation_id: str | None = None,
+        duration_ms: float | None = None,
+    ) -> "WebSocketResult":
+        if not isinstance(code, str) or not code.strip():
+            raise ValueError("Error code must be a non-empty string")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("Error message must be a non-empty string")
+
+        error_payload: dict[str, Any] = {"code": code, "error": message}
+        if details is not None:
+            error_payload["details"] = details
+        return cls(
+            ok=False,
+            error=error_payload,
+            correlation_id=correlation_id,
+            duration_ms=duration_ms,
+        )
+
+    def as_result(
+        self,
+        *,
+        handler_id: str,
+        fallback_correlation_id: str | None,
+        duration_ms: float | None = None,
+    ) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "handlerId": handler_id,
+            "ok": self._ok,
+        }
+
+        effective_duration = (
+            self._duration_ms if self._duration_ms is not None else duration_ms
+        )
+        if effective_duration is not None:
+            result["durationMs"] = round(effective_duration, 4)
+
+        correlation = (
+            self._correlation_id
+            if self._correlation_id is not None
+            else fallback_correlation_id
+        )
+        if correlation is not None:
+            result["correlationId"] = correlation
+
+        if self._ok:
+            result["data"] = dict(self._data) if self._data is not None else {}
+        else:
+            result["error"] = dict(self._error) if self._error is not None else {
+                "code": "INTERNAL_ERROR",
+                "error": "Internal server error",
+            }
+        return result
+
+
+class WebSocketHandler(ABC):
+    """Base class for WebSocket event handlers.
+
+    The interface mirrors :class:`python.helpers.api.ApiHandler` with declarative
+    security configuration and lifecycle hooks while enforcing event-naming
+    conventions.
+    """
+
+    def __init__(self, socketio: socketio.AsyncServer, lock: threading.RLock) -> None:
+        """Create a handler bound to the shared Socket.IO instance."""
+
+        self.socketio: socketio.AsyncServer = socketio
+        self.lock: threading.RLock = lock
+        self._manager: Optional[WebSocketManager] = None
+
+    @classmethod
+    @abstractmethod
+    def get_event_types(cls) -> list[str]:
+        """Return the list of event types this handler subscribes to."""
+
+    @classmethod
+    def validate_event_types(cls, event_types: Iterable[str]) -> list[str]:
+        """Validate event type declarations.
+
+        Ensures that every event name follows ``lowercase_snake_case`` naming,
+        does not collide with Socket.IO reserved events, and that the handler
+        does not declare duplicates.
+        """
+
+        validated: list[str] = []
+        seen: set[str] = set()
+        for event in event_types:
+            if not isinstance(event, str):
+                raise TypeError("Event type declarations must be strings")
+            if not _EVENT_NAME_PATTERN.fullmatch(event):
+                raise ValueError(
+                    f"Invalid event type '{event}' – must match lowercase_snake_case"
+                )
+            if event in _RESERVED_EVENT_NAMES:
+                raise ValueError(
+                    f"Event type '{event}' is reserved by Socket.IO and cannot be used"
+                )
+            if event in seen:
+                raise ValueError(f"Duplicate event type '{event}' declared in handler")
+            seen.add(event)
+            validated.append(event)
+        if not validated:
+            raise ValueError("Handlers must declare at least one event type")
+        return validated
+
+    @classmethod
+    def requires_auth(cls) -> bool:
+        """Return whether an authenticated Flask session is required."""
+
+        return True
+
+    @classmethod
+    def requires_csrf(cls) -> bool:
+        """Return whether a CSRF preflight token is required for the handler."""
+
+        return cls.requires_auth()
+
+    async def on_connect(self, sid: str) -> None:
+        """Lifecycle hook invoked when a client connects."""
+
+        return None
+
+    async def on_disconnect(self, sid: str) -> None:
+        """Lifecycle hook invoked when a client disconnects."""
+
+        return None
+
+    @abstractmethod
+    async def process_event(
+        self,
+        event_type: str,
+        data: dict[str, Any],
+        sid: str,
+    ) -> dict[str, Any] | WebSocketResult | None:
+        """Process an incoming event dispatched to the handler.
+
+        Returning ``None`` indicates fire-and-forget semantics. Returning a
+        dictionary includes the payload in the Socket.IO acknowledgement.
+        """
+
+    def bind_manager(self, manager: WebSocketManager) -> None:
+        """Associate this handler instance with the shared WebSocket manager."""
+
+        self._manager = manager
+
+    @property
+    def manager(self) -> WebSocketManager:
+        """Return the bound WebSocket manager.
+
+        Raises:
+            RuntimeError: If the handler has not been registered yet.
+        """
+
+        if not self._manager:
+            raise RuntimeError("WebSocketHandler is not registered with a manager")
+        return self._manager
+
+    @property
+    def identifier(self) -> str:
+        """Return a stable identifier used in aggregated responses."""
+
+        return f"{self.__class__.__module__}.{self.__class__.__name__}"
+
+    async def emit_to(
+        self,
+        sid: str,
+        event_type: str,
+        data: dict[str, Any],
+        *,
+        correlation_id: str | None = None,
+    ) -> None:
+        """Emit an event to a specific connection or buffer it if offline."""
+        await self.manager.emit_to(
+            sid,
+            event_type,
+            data,
+            handler_id=self.identifier,
+            correlation_id=correlation_id,
+        )
+
+    async def broadcast(
+        self,
+        event_type: str,
+        data: dict[str, Any],
+        *,
+        exclude_sids: str | Iterable[str] | None = None,
+        correlation_id: str | None = None,
+    ) -> None:
+        """Broadcast an event to all connections, optionally excluding one."""
+        await self.manager.broadcast(
+            event_type,
+            data,
+            exclude_sids=exclude_sids,
+            handler_id=self.identifier,
+            correlation_id=correlation_id,
+        )
+
+    # ------------------------------------------------------------------
+    # Convenience wrappers for standardized result helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def result_ok(
+        data: dict[str, Any] | None = None,
+        *,
+        correlation_id: str | None = None,
+        duration_ms: float | None = None,
+    ) -> WebSocketResult:
+        """Return a standardized success result."""
+
+        return WebSocketResult.ok(
+            data=data,
+            correlation_id=correlation_id,
+            duration_ms=duration_ms,
+        )
+
+    @staticmethod
+    def result_error(
+        *,
+        code: str,
+        message: str,
+        details: Any | None = None,
+        correlation_id: str | None = None,
+        duration_ms: float | None = None,
+    ) -> WebSocketResult:
+        """Return a standardized error result."""
+
+        return WebSocketResult.error(
+            code=code,
+            message=message,
+            details=details,
+            correlation_id=correlation_id,
+            duration_ms=duration_ms,
+        )
+
+    async def request(
+        self,
+        sid: str,
+        event_type: str,
+        data: dict[str, Any],
+        *,
+        timeout_ms: int = 0,
+        include_handlers: Iterable[str] | None = None,
+    ) -> dict[str, Any]:
+        """Send a request-response event to a specific connection and aggregate results.
+
+        Returns a payload shaped as ``{"correlationId": str, "results": RequestResultItem[]}``.
+        """
+
+        return await self.manager.request_for_sid(
+            sid=sid,
+            event_type=event_type,
+            data=data,
+            timeout_ms=timeout_ms,
+            handler_id=self.identifier,
+            include_handlers=set(include_handlers) if include_handlers else None,
+        )
+
+    async def request_all(
+        self,
+        event_type: str,
+        data: dict[str, Any],
+        *,
+        timeout_ms: int = 0,
+        exclude_handlers: Iterable[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fan a request out to every active connection and aggregate responses.
+
+        Each entry in the returned list is ``{"sid": str, "correlationId": str, "results": RequestResultItem[]}``.
+        """
+
+        return await self.manager.route_event_all(
+            event_type=event_type,
+            data=data,
+            timeout_ms=timeout_ms,
+            exclude_handlers=set(exclude_handlers) if exclude_handlers else None,
+            handler_id=self.identifier,
+        )
