@@ -79,6 +79,40 @@
               </div>
             </div>
           </template>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Broadcast server restart event</div>
+              <div class="field-description">
+                Emit a fire-and-forget <code>server_restart</code> broadcast to clients after the server starts.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.websocket_server_restart_enabled" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <template x-if="!$store.settingsStore.additional?.is_dockerized">
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">WebSocket Test Harness</div>
+                <div class="field-description">
+                  Open the developer harness to run automated and manual WebSocket validation suites.
+                </div>
+              </div>
+              <div class="field-control">
+                <button
+                  class="btn btn-field"
+                  @click="openModal('settings/developer/websocket-tester.html');"
+                >
+                  Open Harness
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
       </template>
     </div>

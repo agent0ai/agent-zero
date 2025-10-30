@@ -123,6 +123,7 @@ class Settings(TypedDict):
     rfc_port_ssh: int
 
     shell_interface: Literal['local','ssh']
+    websocket_server_restart_enabled: bool
 
     stt_model_size: str
     stt_language: str
@@ -198,6 +199,7 @@ class SettingsOutputAdditional(TypedDict):
     knowledge_subdirs: list[FieldOption]
     stt_models: list[FieldOption]
     is_dockerized: bool
+
 
 class SettingsOutput(TypedDict):
     settings: Settings
@@ -400,6 +402,7 @@ def _adjust_to_version(settings: Settings, default: Settings):
             settings["agent_profile"] = "agent0"
 
 
+
 def _read_settings_file() -> Settings | None:
     if os.path.exists(SETTINGS_FILE):
         content = files.read_file(SETTINGS_FILE)
@@ -513,6 +516,7 @@ def get_default_settings() -> Settings:
         rfc_port_http=get_default_value("rfc_port_http", 55080),
         rfc_port_ssh=get_default_value("rfc_port_ssh", 55022),
         shell_interface=get_default_value("shell_interface", "local" if runtime.is_dockerized() else "ssh"),
+        websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
         stt_model_size=get_default_value("stt_model_size", "base"),
         stt_language=get_default_value("stt_language", "en"),
         stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
@@ -734,3 +738,4 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
+

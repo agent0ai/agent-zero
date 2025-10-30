@@ -68,7 +68,7 @@ Now when you select one of the python files in the project, you should see prope
 ```bash
 pip install -r requirements.txt
 playwright install chromium
-``` 
+```
 These will install all the python packages and browser binaries for playwright (browser agent).
 Errors in the code editor caused by missing packages should now be gone. If not, try reloading the window.
 
@@ -147,6 +147,7 @@ You're now ready to contribute to Agent Zero, create custom extensions, or modif
 
 ## Next steps
 - See [extensibility](extensibility.md) for instructions on how to create custom extensions.
+- See [websocket infrastructure](websocket-infrastructure.md) for real-time handler patterns, client APIs, and troubleshooting tips.
 - See [contribution](contribution.md) for instructions on how to contribute to the framework.
 
 ## Configuration via Environment Variables
