@@ -1,60 +1,62 @@
-### document_query:
-This tool can be used to read or analyze remote and local documents.
-It can be used to:
- *  Get webpage or remote document text content
- *  Get local document text content
- *  Answer queries about a webpage, remote or local document
-By default, when the "queries" argument is empty, this tool returns the text content of the document retrieved using OCR.
-Additionally, you can pass a list of "queries" - in this case, the tool returns the answers to all the passed queries about the document.
-!!! This is a universal document reader qnd query tool
-!!! Supported document formats: HTML, PDF, Office Documents (word,excel, powerpoint), Textfiles and many more.
+### document_query
+read and analyze remote/local documents get text content or answer questions
+pass a single url/path or a list for multiple documents in "document"
+for web documents use "http://" or "https://"" prefix
+for local files "file://" prefix is optional but full path is required
+if "queries" is empty tool returns document content
+if "queries" is a list of strings tool returns answers
+supports various formats HTML PDF Office Text etc
+usage:
 
-#### Arguments:
- *  "document" (string) : The web address or local path to the document in question. Webdocuments need "http://" or "https://" protocol prefix. For local files the "file:" protocol prefix is optional. Local files MUST be passed with full filesystem path.
- *  "queries" (Optional, list[str]) : Optionally, here you can pass one or more queries to be answered (using and/or about) the document
-
-#### Usage example 1:
-##### Request:
-```json
+1 get content
+~~~json
 {
     "thoughts": [
-        "...",
+        "I need to read..."
     ],
-    "headline": "Reading web document content",
+    "headline": "...",
     "tool_name": "document_query",
     "tool_args": {
-        "document": "https://...somexample",
+        "document": "https://.../document"
     }
 }
-```
-##### Response:
-```plaintext
-... Here is the entire content of the web document requested ...
-```
+~~~
 
-#### Usage example 2:
-##### Request:
-```json
+2 query document
+~~~json
 {
     "thoughts": [
-        "...",
+        "I need to answer..."
     ],
-    "headline": "Analyzing document to answer specific questions",
+    "headline": "...",
     "tool_name": "document_query",
     "tool_args": {
-        "document": "https://...somexample",
+        "document": "https://.../document",
         "queries": [
-            "What is the topic?",
-            "Who is the audience?"
+            "What is...",
+            "Who is..."
         ]
     }
 }
-```
-##### Response:
-```plaintext
-# What is the topic?
-... Description of the document topic ...
+~~~
 
-# Who is the audience?
-... The intended document audience list with short descriptions ...
-```
+3 query multiple documents
+~~~json
+{
+    "thoughts": [
+        "I need to compare..."
+    ],
+    "headline": "...",
+    "tool_name": "document_query",
+    "tool_args": {
+        "document": [
+            "https://.../document-one",
+            "file:///path/to/document-two"
+        ],
+        "queries": [
+            "Compare the main conclusions...",
+            "What are the key differences..."
+        ]
+    }
+}
+~~~

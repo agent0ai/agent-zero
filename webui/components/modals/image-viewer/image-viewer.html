@@ -4,42 +4,42 @@
     <title>Image Viewer</title>
 
     <script type="module">
-        import { store } from "/components/chat/attachments/attachmentsStore.js";
+        import { store } from "/components/modals/image-viewer/image-viewer-store.js";
     </script>
 </head>
 
 <body>
     <div x-data>
-        <template x-if="$store.chatAttachments">
-            <div id="image-modal-content" class="image-modal-container">
+        <template x-if="$store.imageViewer">
+            <div id="image-viewer-wrapper" class="image-modal-container">
                 <!-- Image display area -->
                 <div class="image-display-wrapper">
                     <img 
-                        x-show="$store.chatAttachments.currentImageUrl" 
-                        :src="$store.chatAttachments.currentImageUrl" 
-                        :alt="$store.chatAttachments.currentImageName || 'Image'"
+                        x-show="$store.imageViewer.currentImageUrl" 
+                        :src="$store.imageViewer.currentImageUrl" 
+                        :alt="$store.imageViewer.currentImageName || 'Image'"
                         class="modal-image"
-                        @load="$store.chatAttachments.imageLoaded = true"
-                        @error="$store.chatAttachments.imageError = true"
+                        @load="$store.imageViewer.imageLoaded = true"
+                        @error="$store.imageViewer.imageError = true"
                     />
                     
                     <!-- Loading indicator -->
-                    <div x-show="!$store.chatAttachments.imageLoaded && !$store.chatAttachments.imageError" class="loading-indicator">
+                    <div x-show="!$store.imageViewer.imageLoaded && !$store.imageViewer.imageError" class="loading-indicator">
                         <div class="loading-spinner"></div>
                         <p>Loading image...</p>
                     </div>
                     
                     <!-- Error indicator -->
-                    <div x-show="$store.chatAttachments.imageError" class="error-indicator">
+                    <div x-show="$store.imageViewer.imageError" class="error-indicator">
                         <p>Failed to load image</p>
                     </div>
                 </div>
 
                 <!-- Simple zoom controls -->
                 <div class="zoom-controls">
-                    <button @click="$store.chatAttachments.zoomOut()" class="zoom-btn" title="Zoom Out">−</button>
-                    <button @click="$store.chatAttachments.resetZoom()" class="zoom-btn" title="Reset">⌂</button>
-                    <button @click="$store.chatAttachments.zoomIn()" class="zoom-btn" title="Zoom In">+</button>
+                    <button @click="$store.imageViewer.zoomOut()" class="zoom-btn" title="Zoom Out">−</button>
+                    <button @click="$store.imageViewer.resetZoom()" class="zoom-btn" title="Reset">⌂</button>
+                    <button @click="$store.imageViewer.zoomIn()" class="zoom-btn" title="Zoom In">+</button>
                 </div>
             </div>
         </template>
@@ -145,4 +145,5 @@
 
 </body>
 
-</html> 
+</html>
+

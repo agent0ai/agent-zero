@@ -5,9 +5,10 @@
 # Large / generated data
 memory/**
 
-# Logs & tmp
+# Logs, tmp, usr
 logs/*
 tmp/*
+usr/*
 
 # Knowledge directory – keep only default/
 knowledge/**

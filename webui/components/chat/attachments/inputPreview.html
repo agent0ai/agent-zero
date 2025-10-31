@@ -1,5 +1,6 @@
 <script type="module">
     import { store } from "/components/chat/attachments/attachmentsStore.js";
+    import { store as imageViewerStore } from "/components/modals/image-viewer/image-viewer-store.js";
 </script>
 
 <div x-data>
@@ -11,7 +12,7 @@
                     :class="{'image-type': attachment.type === 'image', 'file-type': attachment.type === 'file'}">
                     <template x-if="attachment.type === 'image'">
                         <img :src="attachment.url" class="attachment-preview" :alt="attachment.name" style="cursor: pointer;"
-                            @click="$store.chatAttachments.openImageModal(attachment.url, attachment.name)">
+                            @click="$store.imageViewer.open(attachment.url, { name: attachment.name })">
                     </template>
                     <template x-if="attachment.type === 'file'">
                         <div>

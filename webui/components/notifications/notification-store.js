@@ -17,8 +17,8 @@ export const NotificationPriority = {
 
 export const defaultPriority = NotificationPriority.NORMAL;
 
-const maxNotifications = 100
-const maxToasts = 5
+const maxNotifications = 100;
+const maxToasts = 5;
 
 const model = {
   notifications: [],
@@ -30,7 +30,7 @@ const model = {
 
   // NEW: Toast stack management
   toastStack: [],
-  
+
   init() {
     this.initialize();
   },
@@ -615,35 +615,38 @@ const model = {
     title = "",
     display_time = 5,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    frontendOnly = false
   ) {
     // Try to send to backend first if connected
-    if (this.isConnected()) {
-      try {
-        const notificationId = await this.createNotification(
-          type,
-          message,
-          title,
-          "",
-          display_time,
-          group,
-          priority
-        );
-        if (notificationId) {
-          // Backend handled it, notification will arrive via polling
-          return notificationId;
+    if (!frontendOnly) {
+      if (this.isConnected()) {
+        try {
+          const notificationId = await this.createNotification(
+            type,
+            message,
+            title,
+            "",
+            display_time,
+            group,
+            priority
+          );
+          if (notificationId) {
+            // Backend handled it, notification will arrive via polling
+            return notificationId;
+          }
+        } catch (error) {
+          console.log(
+            `Backend unavailable for notification, showing as frontend-only: ${
+              error.message || error
+            }`
+          );
         }
-      } catch (error) {
-        console.log(
-          `Backend unavailable for notification, showing as frontend-only: ${
-            error.message || error
-          }`
-        );
+      } else {
+        console.log("Backend disconnected, showing as frontend-only toast");
       }
-    } else {
-      console.log("Backend disconnected, showing as frontend-only toast");
     }
-
+    
     // Fallback to frontend-only toast
     return this.addFrontendToastOnly(
       type,
@@ -669,7 +672,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
   },
 
@@ -686,7 +690,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
   },
 
@@ -695,7 +700,8 @@ const model = {
     title = "Info",
     display_time = 3,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    frontendOnly = false
   ) {
     return await this.addFrontendToast(
       NotificationType.INFO,
@@ -703,7 +709,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
   },
 
@@ -712,7 +719,8 @@ const model = {
     title = "Success",
     display_time = 3,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    frontendOnly = false
   ) {
     return await this.addFrontendToast(
       NotificationType.SUCCESS,
@@ -720,7 +728,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
   },
 };
@@ -729,8 +738,21 @@ const model = {
 const store = createStore("notificationStore", model);
 export { store };
 
+// export toast functions
+const toastFrontendInfo = store.frontendInfo.bind(store);
+const toastFrontendSuccess = store.frontendSuccess.bind(store);
+const toastFrontendWarning = store.frontendWarning.bind(store);
+const toastFrontendError = store.frontendError.bind(store);
+
+export {
+  toastFrontendInfo,
+  toastFrontendSuccess,
+  toastFrontendWarning,
+  toastFrontendError,
+};
+
 // add toasts to global for backward compatibility with older scripts
-globalThis.toastFrontendInfo = store.frontendInfo.bind(store);
-globalThis.toastFrontendSuccess = store.frontendSuccess.bind(store);
-globalThis.toastFrontendWarning = store.frontendWarning.bind(store);
-globalThis.toastFrontendError = store.frontendError.bind(store);
+globalThis.toastFrontendInfo = toastFrontendInfo;
+globalThis.toastFrontendSuccess = toastFrontendSuccess;
+globalThis.toastFrontendWarning = toastFrontendWarning;
+globalThis.toastFrontendError = toastFrontendError;

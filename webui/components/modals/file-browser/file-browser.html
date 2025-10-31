@@ -1,0 +1,347 @@
+<html>
+<head>
+  <title>File Browser</title>
+  <script type="module">
+    import { store } from "/components/modals/file-browser/file-browser-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.fileBrowser">
+      <div class="file-browser-root">
+        
+        <!-- Loading State -->
+        <div x-show="$store.fileBrowser.isLoading" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading files...</p>
+        </div>
+        
+        <!-- File Browser Content -->
+        <div x-show="!$store.fileBrowser.isLoading" class="file-browser-content">
+                <!-- Path navigator -->
+              <div class="path-navigator">
+                <button class="text-button back-button" @click="$store.fileBrowser.navigateUp()" aria-label="Navigate Up">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10.5 15">
+                    <path d="m.75,5.25L5.25.75m0,0l4.5,4.5M5.25.75v13.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
+                  </svg>
+                  Up
+                </button>
+                <div id="current-path"><span id="path-text" x-text="$store.fileBrowser.browser.currentPath"></span></div>
+              </div>
+
+              <!-- Files list -->
+              <div class="files-list">
+                <div class="file-header">
+                  <div class="file-cell" @click="$store.fileBrowser.toggleSort('name')">Name <span x-show="$store.fileBrowser.browser.sortBy === 'name'" x-text="$store.fileBrowser.browser.sortDirection === 'asc' ? '↑' : '↓'"></span></div>
+                  <div class="file-cell-size" @click="$store.fileBrowser.toggleSort('size')">Size <span x-show="$store.fileBrowser.browser.sortBy === 'size'" x-text="$store.fileBrowser.browser.sortDirection === 'asc' ? '↑' : '↓'"></span></div>
+                  <div class="file-cell-date" @click="$store.fileBrowser.toggleSort('date')">Modified <span x-show="$store.fileBrowser.browser.sortBy === 'date'" x-text="$store.fileBrowser.browser.sortDirection === 'asc' ? '↑' : '↓'"></span></div>
+                </div>
+
+                <!-- File list entries -->
+                <template x-if="$store.fileBrowser.browser.entries.length">
+                  <template x-for="file in $store.fileBrowser.sortFiles($store.fileBrowser.browser.entries)" :key="file.path">
+                    <div class="file-item" :data-is-dir="file.is_dir">
+                      <div class="file-name" @click="file.is_dir ? $store.fileBrowser.navigateToFolder(file.path) : $store.fileBrowser.downloadFile(file)">
+                        <img :src="'/public/' + (file.type === 'unknown' ? 'file' : ($store.fileBrowser.isArchive(file.name) ? 'archive' : file.type)) + '.svg'" class="file-icon" :alt="file.type" />
+                        <span x-text="file.name"></span>
+                      </div>
+                      <div class="file-size" x-text="$store.fileBrowser.formatFileSize(file.size)"></div>
+                      <div class="file-date" x-text="$store.fileBrowser.formatDate(file.modified)"></div>
+                      <div class="file-actions">
+                        <button class="action-button download-button" @click.stop="$store.fileBrowser.downloadFile(file)">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.5 19.5"><path d="m.75,14.25v2.25c0,1.24,1.01,2.25,2.25,2.25h13.5c1.24,0,2.25-1.01,2.25-2.25v-2.25m-4.5-4.5l-4.5,4.5m0,0l-4.5-4.5m4.5,4.5V.75" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                        </button>
+                        <button class="delete-button" @click.stop="$store.fileBrowser.deleteFile(file)">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15.03 22.53" fill="currentColor"><path d="m14.55,7.82H4.68L14.09,3.19c.83-.41,1.17-1.42.77-2.25-.41-.83-1.42-1.17-2.25-.77l-3.16,1.55-.15-.31c-.22-.44-.59-.76-1.05-.92-.46-.16-.96-.13-1.39.09l-2.08,1.02c-.9.44-1.28,1.54-.83,2.44l.15.31-3.16,1.55c-.83.41-1.17,1.42-.77,2.25.29.59.89.94,1.51.94.25,0,.5-.06.74-.17l.38-.19s.09.03.14.03h11.14v11.43c0,.76-.62,1.38-1.38,1.38h-.46v-11.28c0-.26-.21-.47-.47-.47s-.47.21-.47.47v11.28h-2.39v-11.28c0-.26-.21-.47-.47-.47s-.47.21-.47.47v11.28h-2.39v-11.28c0-.26-.21-.47-.47-.47s-.47.21-.47.47v11.28h-.46c-.76,0-1.38-.62-1.38-1.38v-9.9c0-.26-.21-.47-.47-.47s-.47.21-.47.47v9.9c0,1.28,1.04,2.32,2.32,2.32h8.55c1.28,0,2.32-1.04,2.32-2.32v-11.91c0-.26-.21-.47-.47-.47Z" stroke-width="0"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </template>
+
+                <!-- Empty state -->
+                <template x-if="!$store.fileBrowser.browser.entries.length">
+                  <div class="no-files">No files found</div>
+                </template>
+              </div>
+            </div>
+        </div>
+        
+      </div>
+    </template>
+    
+    <!-- Modal Footer (outside template x-if so it exists immediately) -->
+    <template x-if="$store.fileBrowser">
+      <div class="modal-footer" data-modal-footer>
+        <label class="btn btn-upload">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+          Upload Files
+          <input type="file" multiple accept="*" @change="$store.fileBrowser.handleFileUpload" style="display:none;" />
+        </label>
+        <button class="btn btn-cancel" @click="$store.fileBrowser.handleClose()">Close Browser</button>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    /* File Browser Root */
+    .file-browser-root {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+    }
+
+    /* Loading State */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-lg);
+      min-height: 200px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--color-border);
+      border-top: 3px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: var(--spacing-md);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-state p {
+      color: var(--color-text-secondary);
+      margin: 0;
+    }
+
+    /* File Browser Content */
+    .file-browser-content {
+      display: flex;
+      flex-direction: column;
+      padding: var(--spacing-sm) var(--spacing-sm);
+    }
+
+    /* File Browser Styles */
+    .files-list,
+    .file-header,
+    .file-item {
+      width: 100%;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    /* Header Styles */
+    .file-header {
+    display: grid;
+    grid-template-columns: 2fr 0.6fr 1fr 80px;
+    background: var(--secondary-bg);
+    padding: 8px 0;
+    font-weight: bold;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--color-primary);
+    }
+    .file-cell,
+    .file-cell-size,
+    .file-cell-date {
+    color: var(--color-primary);
+    padding: 4px;
+    cursor: pointer;
+    }
+
+    /* File Item Styles */
+    .file-item {
+    display: grid;
+    grid-template-columns: 2fr 0.6fr 1fr 80px;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 0.875rem;
+    border-top: 1px solid var(--color-border);
+    transition: background-color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    color: var(--color-text);
+    }
+    .file-item:hover {
+    background-color: var(--color-secondary);
+    }
+
+    /* File Icon and Name */
+    .file-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+    margin: 0 1rem 0 0.7rem;
+    vertical-align: middle;
+    font-size: var(--font-size-sm);
+    }
+    .file-name {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    margin-right: var(--spacing-sm);
+    overflow: hidden;
+    }
+    .file-name > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    }
+    .file-size,
+    .file-date {
+    color: var(--text-secondary);
+    }
+    /* No Files Message */
+    .no-files {
+    padding: 32px;
+    text-align: center;
+    color: var(--text-secondary);
+    }
+    /* Light Mode Adjustments */
+    .light-mode .file-item:hover {
+    background-color: var(--color-secondary-light);
+    }
+
+    /* Path Navigator Styles */
+    .path-navigator {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background-color: var(--color-message-bg);
+    padding: 0.5rem var(--spacing-sm);
+    margin: 0 0 var(--spacing-sm) 0;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    }
+    .nav-button {
+    padding: 4px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-background);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    }
+    .nav-button:hover {
+    background: var(--hover-bg);
+    }
+    .nav-button.back-button {
+    background-color: var(--color-secondary);
+    color: var(--color-text);
+    }
+    .nav-button.back-button:hover {
+    background-color: var(--color-secondary-dark);
+    }
+    #current-path {
+    opacity: 0.9;
+    }
+    #path-text {
+    font-family: 'Roboto Mono', monospace;
+    -webkit-font-optical-sizing: auto;
+    font-optical-sizing: auto;
+    opacity: 0.9;
+    }
+
+    /* Folder Specific Styles */
+    .file-item[data-is-dir="true"] {
+    cursor: pointer;
+    }
+    .file-item[data-is-dir="true"]:hover {
+    background-color: var(--color-secondary);
+    }
+
+    /* Upload Button Styles */
+    .btn-upload {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: #4248f1;
+    gap: 0.5rem;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease-in-out;
+    }
+    .btn-upload > svg {
+    width: 20px;
+    }
+    .btn-upload:hover {
+    background-color: #353bc5;
+    }
+    .btn-upload:active {
+    background-color: #2b309c;
+    }
+    /* Delete Button Styles */
+    .delete-button {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    width: 32px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: opacity 0.2s, background-color 0.2s;
+    }
+    .delete-button:hover {
+    color: #ff7878;
+    }
+    .delete-button:active {
+    opacity: 0.6;
+    }
+
+    /* File Actions */
+    .file-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    }
+    .action-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 32px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    }
+    .download-button {
+    color: var(--color-primary);
+    }
+    .download-button:hover {
+    background-color: var(--color-border);
+    }
+    .light-mode .download-button:hover {
+    background-color: #c6d4de;
+    }
+    /* Responsive Design */
+    @media (max-width: 768px) {
+    .file-header,
+    .file-item {
+        grid-template-columns: 1fr 0.5fr 80px;
+    }
+    .file-cell-date,
+    .file-date {
+        display: none;
+    }
+    }
+    @media (max-width: 540px) {
+    .file-header,
+    .file-item {
+        grid-template-columns: 1fr 80px;
+    }
+    .file-cell-size,
+    .file-size,
+    .file-cell-date,
+    .file-date {
+        display: none;
+    }
+    }
+  </style>
+</body>
+</html>

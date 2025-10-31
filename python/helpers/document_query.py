@@ -361,13 +361,17 @@ class DocumentQueryHelper:
         self.progress_callback = progress_callback or (lambda x: None)
 
     async def document_qa(
-        self, document_uri: str, questions: Sequence[str]
+        self, document_uris: List[str], questions: Sequence[str]
     ) -> Tuple[bool, str]:
-        self.progress_callback(f"Starting Q&A process")
+        self.progress_callback(
+            f"Starting Q&A process for {len(document_uris)} documents"
+        )
         await self.agent.handle_intervention()
 
-        # index document
-        _ = await self.document_get_content(document_uri, True)
+        # index documents
+        await asyncio.gather(
+            *[self.document_get_content(uri, True) for uri in document_uris]
+        )
         await self.agent.handle_intervention()
         selected_chunks = {}
         for question in questions:
@@ -385,14 +389,18 @@ class DocumentQueryHelper:
             ).strip()
 
             await self.agent.handle_intervention()
-            self.progress_callback(f"Searching document with query: {optimized_query}")
+            self.progress_callback(f"Searching documents with query: {optimized_query}")
 
-            normalized_uri = self.store.normalize_uri(document_uri)
-            chunks = await self.store.search_document(
-                document_uri=normalized_uri,
+            normalized_uris = [self.store.normalize_uri(uri) for uri in document_uris]
+            doc_filter = " or ".join(
+                [f"document_uri == '{uri}'" for uri in normalized_uris]
+            )
+
+            chunks = await self.store.search_documents(
                 query=optimized_query,
                 limit=100,
                 threshold=DEFAULT_SEARCH_THRESHOLD,
+                filter=doc_filter,
             )
 
             self.progress_callback(f"Found {len(chunks)} chunks")
@@ -401,8 +409,8 @@ class DocumentQueryHelper:
                 selected_chunks[chunk.metadata["id"]] = chunk
 
         if not selected_chunks:
-            self.progress_callback(f"No relevant content found in the document")
-            content = f"!!! No content found for document: {document_uri} matching queries: {json.dumps(questions)}"
+            self.progress_callback("No relevant content found in the documents")
+            content = f"!!! No content found for documents: {json.dumps(document_uris)} matching queries: {json.dumps(questions)}"
             return False, content
 
         self.progress_callback(

@@ -6,6 +6,7 @@
 
 #Ignore cursor rules
 .cursor/
+.windsurf/
 
 # ignore test files in root dir
 /*.test.py
@@ -20,8 +21,9 @@ memory/**
 # Handle logs directory
 logs/*
 
-# Handle tmp directory
+# Handle tmp and usr directory
 tmp/*
+usr/*
 
 # Handle knowledge directory
 knowledge/**

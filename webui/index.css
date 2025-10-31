@@ -15,6 +15,7 @@
   --color-secondary-dark: #656565;
   --color-accent-dark: #cf6679;
   --color-message-bg-dark: #2d2d2d;
+  --color-highlight-dark: #2b5ab9;
   --color-message-text-dark: #e0e0e0;
   --color-panel-dark: #1a1a1a;
   --color-border-dark: #444444a8;
@@ -28,6 +29,7 @@
   --color-secondary-light: #e8eaf6;
   --color-accent-light: #b00020;
   --color-message-bg-light: #ffffff;
+  --color-highlight-light: #2563eb;
   --color-message-text-light: #333333;
   --color-panel-light: #f0f0f0;
   --color-border-light: #e0e0e0c7;
@@ -41,6 +43,7 @@
   --color-secondary: var(--color-secondary-dark);
   --color-accent: var(--color-accent-dark);
   --color-message-bg: var(--color-message-bg-dark);
+  --color-highlight: var(--color-highlight-dark);
   --color-message-text: var(--color-message-text-dark);
   --color-panel: var(--color-panel-dark);
   --color-border: var(--color-border-dark);
@@ -1640,4 +1643,23 @@ nav ul li a img {
 }
 .spin {
   animation: spin 1s linear infinite;
+}
+
+/* Bootstrap Collapse */
+.collapse:not(.show) {
+  display: none !important;
+}
+.collapsing {
+  height: 0;
+  overflow: hidden;
+  transition: height .35s ease;
+}
+
+/* Arrow rotation based on Bootstrap's .collapsed class */
+[data-bs-toggle="collapse"] .arrow-icon {
+  transform: rotate(90deg);
+  transition: transform .15s ease;
+}
+[data-bs-toggle="collapse"].collapsed .arrow-icon {
+  transform: rotate(0deg);
 }

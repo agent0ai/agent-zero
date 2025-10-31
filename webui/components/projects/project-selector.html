@@ -1,0 +1,45 @@
+<html>
+
+<head>
+    <script type="module">
+        import { store as projectsStore } from "/components/projects/projectsStore.js";
+        import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.chats">
+            <div>
+                <template x-if="$store.chats.selectedContext?.project_name">
+                    <button @click="$store.projects.openProjectsModal()" type="button" class="button project-button">
+                        <span class="project-color-ball" :style="$store.chats.selectedContext.project_color ? { backgroundColor: $store.chats.selectedContext.project_color } : { border: '1px solid var(--color-border)' }"></span>
+                        <span x-text="$store.chats.selectedContext?.project_name"></span>
+                    </button>
+                </template>
+                <template x-if="!$store.chats.selectedContext?.project_name">
+                    <button @click="$store.projects.openProjectsModal()" type="button" class="button project-button">
+                        No project</button>
+                </template>
+            </div>
+        </template>
+    </div>
+</body>
+
+<style>
+  .project-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+  }
+  .project-color-ball {
+    width: 0.6em;
+    height: 0.6em;
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+  }
+</style>
+</html>
