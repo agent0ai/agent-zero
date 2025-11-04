@@ -14,7 +14,8 @@ class CallSubordinate(VariablesPlugin):
         for agent_subdir in agent_subdirs:
             try:
                 context = files.read_prompt_file(
-                    files.get_abs_path("agents", agent_subdir, "_context.md")
+                    "_context.md",
+                    [files.get_abs_path("agents", agent_subdir)]
                 )
                 profiles.append({"name": agent_subdir, "context": context})
             except Exception as e:

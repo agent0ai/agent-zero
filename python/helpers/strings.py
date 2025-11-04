@@ -1,6 +1,7 @@
 import re
 import sys
 import time
+from python.helpers import files
 
 def sanitize_string(s: str, encoding: str = "utf-8") -> str:
     # Replace surrogates and invalid unicode with replacement character
@@ -156,3 +157,20 @@ def truncate_text_by_ratio(text: str, threshold: int, replacement: str = "...", 
         start_len = int(available_space * ratio)
         end_len = available_space - start_len
         return text[:start_len] + replacement + text[-end_len:]
+
+
+def replace_file_includes(text: str, placeholder_pattern: str = r"§§include\(([^)]+)\)") -> str:
+    # Replace include aliases with file content
+    if not text:
+        return text
+
+    def _repl(match):
+        path = match.group(1)
+        try:
+            # read file content
+            return files.read_file(path)
+        except Exception:
+            # if file not readable keep original placeholder
+            return match.group(0)
+
+    return re.sub(placeholder_pattern, _repl, text)

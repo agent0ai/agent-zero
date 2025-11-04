@@ -186,6 +186,14 @@ Agent Zero provides a comprehensive settings interface to customize various aspe
 - Configure API keys for various service providers directly within the Web UI
 - Click `Save` to confirm your settings
 
+> [!CAUTION]
+> **GitHub Copilot Provider:** When using the GitHub Copilot provider, after selecting the model and entering your first prompt, the OAuth login procedure will begin. You'll find the authentication code and link in the output logs. Complete the authentication process by following the provided link and entering the code, then you may continue using Agent Zero.
+
+> [!NOTE]
+> **GitHub Copilot Limitations:** GitHub Copilot models typically have smaller rate limits and context windows compared to models hosted by other providers like OpenAI, Anthropic, or Azure. Consider this when working with large conversations or high-frequency requests.
+
+
+
 ### Authentication
 - **UI Login:** Set username for web interface access
 - **UI Password:** Configure password for web interface security

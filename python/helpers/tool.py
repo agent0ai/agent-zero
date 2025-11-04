@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 from agent import Agent, LoopData
 from python.helpers.print_style import PrintStyle
@@ -10,6 +11,7 @@ from python.helpers.strings import sanitize_string
 class Response:
     message:str
     break_loop: bool
+    additional: dict[str, Any] | None = None
 
 class Tool:
 
@@ -36,7 +38,7 @@ class Tool:
 
     async def after_execution(self, response: Response, **kwargs):
         text = sanitize_string(response.message.strip())
-        self.agent.hist_add_tool_result(self.name, text)
+        self.agent.hist_add_tool_result(self.name, text, **(response.additional or {}))
         PrintStyle(font_color="#1B4F72", background_color="white", padding=True, bold=True).print(f"{self.agent.agent_name}: Response from tool '{self.name}'")
         PrintStyle(font_color="#85C1E9").print(text)
         self.log.update(content=text)

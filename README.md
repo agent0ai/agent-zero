@@ -169,7 +169,32 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 ## 🎯 Changelog
 
+### v0.9.6 - Memory Dashboard
+[Release video](https://youtu.be/sizjAq2-d9s)
+- Memory Management Dashboard
+- Kali update
+- Python update + dual installation
+- Browser Use update
+- New login screen
+- LiteLLM retry on temporary errors
+- Github Copilot provider support
+
+
+### v0.9.5 - Secrets
+[Release video](https://www.youtube.com/watch?v=VqxUdt7pjd8)
+- Secrets management - agent can use credentials without seeing them
+- Agent can copy paste messages and files without rewriting them
+- LiteLLM global configuration field
+- Custom HTTP headers field for browser agent
+- Progressive web app support
+- Extra model params support for JSON
+- Short IDs for files and memories to prevent LLM errors
+- Tunnel component frontend rework
+- Fix for timezone change bug
+- Notifications z-index fix
+
 ### v0.9.4 - Connectivity, UI
+[Release video](https://www.youtube.com/watch?v=C2BAdDOduIc)
 - External API endpoints
 - Streamable HTTP MCP A0 server
 - A2A (Agent to Agent) protocol - server+client

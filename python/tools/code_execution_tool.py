@@ -68,13 +68,13 @@ class CodeExecution(Tool):
     def get_heading(self, text: str = ""):
         if not text:
             text = f"{self.name} - {self.args['runtime'] if 'runtime' in self.args else 'unknown'}"
-        text = truncate_text_string(text, 60)
+        # text = truncate_text_string(text, 60) # don't truncate here, log.py takes care of it
         session = self.args.get("session", None)
         session_text = f"[{session}] " if session or session == 0 else ""
         return f"icon://terminal {session_text}{text}"
 
     async def after_execution(self, response, **kwargs):
-        self.agent.hist_add_tool_result(self.name, response.message)
+        self.agent.hist_add_tool_result(self.name, response.message, **(response.additional or {}))
 
     async def prepare_state(self, reset=False, session: int | None = None):
         self.state: State | None = self.agent.get_data("_cet_state")
@@ -372,5 +372,5 @@ class CodeExecution(Tool):
         output = re.sub(r"(?<!\\)\\x[0-9A-Fa-f]{2}", "", output)
         # Strip every line of output before truncation
         output = "\n".join(line.strip() for line in output.splitlines())
-        output = truncate_text_agent(agent=self.agent, output=output, threshold=10000)
+        output = truncate_text_agent(agent=self.agent, output=output, threshold=1000000) # ~1MB, larger outputs should be dumped to file, not read from terminal
         return output

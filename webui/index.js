@@ -188,7 +188,7 @@ function toastFetchError(text, error) {
 globalThis.toastFetchError = toastFetchError;
 
 chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
     e.preventDefault();
     sendMessage();
   }
@@ -595,7 +595,7 @@ globalThis.resetChat = async function (ctxid = null) {
 
 globalThis.newChat = async function () {
   try {
-    setContext(generateGUID());
+    newContext();
     updateAfterScroll();
   } catch (e) {
     globalThis.toastFetchError("Error creating new chat", e);
@@ -661,7 +661,7 @@ export function switchFromContext(id) {
       setContext(alternateChat.id);
     } else {
       // If no other chats, create a new empty context
-      setContext(generateGUID());
+      newContext();
     }
   }
 }
@@ -735,6 +735,20 @@ globalThis.selectChat = async function (id) {
 
   updateAfterScroll();
 };
+
+function generateShortId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export const newContext = function () {
+  context = generateShortId();
+  setContext(context);
+}
 
 export const setContext = function (id) {
   if (id == context) return;

@@ -128,6 +128,13 @@ export function openModal(modalPath) {
         .then((doc) => {
           // Set the title from the document
           modal.title.innerHTML = doc.title || modalPath;
+          if (doc.html && doc.html.classList) {
+            const inner = modal.element.querySelector(".modal-inner");
+            if (inner) inner.classList.add(...doc.html.classList);
+          }
+          if (doc.body && doc.body.classList) {
+            modal.body.classList.add(...doc.body.classList);
+          }
         })
         .catch((error) => {
           console.error("Error loading modal content:", error);

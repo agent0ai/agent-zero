@@ -1,0 +1,1094 @@
+<html>
+
+<head>
+    <title>Memory Dashboard</title>
+    <script type="module">
+        import { store } from "/components/settings/memory/memory-dashboard-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.memoryDashboardStore">
+            <div x-create="$store.memoryDashboardStore.onOpen()" x-destroy="$store.memoryDashboardStore.cleanup()"
+                class="memory-dashboard">
+
+                <!-- Search and Filters Section -->
+                <div class="memory-filters-header">
+                    <div class="filter-group-inline filter-memory-dir">
+                        <label for="memory-subdir-select">Memory Directory</label>
+                        <select id="memory-subdir-select" x-model="$store.memoryDashboardStore.selectedMemorySubdir"
+                            @change="$store.memoryDashboardStore.onMemorySubdirChange()"
+                            :disabled="$store.memoryDashboardStore.loadingSubdirs">
+                            <template x-for="subdir in $store.memoryDashboardStore.memorySubdirs" :key="subdir">
+                                <option :value="subdir" x-text="subdir"
+                                    :selected="subdir === $store.memoryDashboardStore.selectedMemorySubdir">
+                                </option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div class="filter-group-inline filter-area">
+                        <label for="area-filter">Area</label>
+                        <select id="area-filter" x-model="$store.memoryDashboardStore.areaFilter">
+                            <option value="">All Areas</option>
+                            <option value="main">Main</option>
+                            <option value="fragments">Fragments</option>
+                            <option value="solutions">Solutions</option>
+                            <option value="instruments">Instruments</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group-inline filter-limit">
+                        <label for="limit-input">Limit:</label>
+                        <input type="number" id="limit-input" x-model.number="$store.memoryDashboardStore.limit"
+                            min="10" max="1000" step="10" />
+                    </div>
+
+                    <div class="filter-threshold">
+                        <label for="threshold-input">Threshold: <strong
+                                x-text="$store.memoryDashboardStore.threshold.toFixed(2)"></strong></label>
+                        <input type="range" id="threshold-input" x-model.number="$store.memoryDashboardStore.threshold"
+                            min="0" max="1" step="0.01" />
+                    </div>
+
+                    <input type="text" id="search-input" x-model="$store.memoryDashboardStore.searchQuery"
+                        placeholder="Search memory content..."
+                        @keyup.enter="$store.memoryDashboardStore.searchMemories()" />
+
+                    <button class="btn btn-ok btn-search" @click="$store.memoryDashboardStore.searchMemories()"
+                        :disabled="$store.memoryDashboardStore.loading || $store.memoryDashboardStore.loadingSubdirs">
+                        <span x-show="!$store.memoryDashboardStore.initializingMemory">Search</span>
+                        <span x-show="$store.memoryDashboardStore.initializingMemory">Init...</span>
+                    </button>
+
+                    <button class="btn btn-cancel btn-clear" @click="$store.memoryDashboardStore.clearSearch()">
+                        Clear
+                    </button>
+                </div>
+
+                <!-- Loading state -->
+                <div x-show="$store.memoryDashboardStore.loading" class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <span x-show="!$store.memoryDashboardStore.initializingMemory">Searching memories...</span>
+                    <span x-show="$store.memoryDashboardStore.initializingMemory">Initializing memory database...</span>
+                </div>
+
+                <!-- Error state -->
+                <div x-show="$store.memoryDashboardStore.error" class="error-state">
+                    <span x-text="$store.memoryDashboardStore.error"></span>
+                </div>
+
+                <!-- Memory table -->
+                <div x-show="!$store.memoryDashboardStore.loading && !$store.memoryDashboardStore.error"
+                    class="memory-table-container">
+
+                    <!-- Status Bar -->
+                    <div class="memory-status-bar" x-show="!$store.memoryDashboardStore.loading">
+                        <div class="status-info">
+                            <span class="status-item">
+                                <span class="material-symbols-outlined">database</span>
+                                Total: <strong x-text="$store.memoryDashboardStore.totalDbCount"></strong>
+                            </span>
+                            <span class="status-separator">•</span>
+                            <span class="status-item">
+                                Filtered: <strong x-text="$store.memoryDashboardStore.totalCount"></strong>
+                            </span>
+                            <span class="status-separator">•</span>
+                            <span class="status-item">
+                                Knowledge: <strong x-text="$store.memoryDashboardStore.knowledgeCount"></strong>
+                            </span>
+                            <span class="status-separator">•</span>
+                            <span class="status-item">
+                                Conversation: <strong x-text="$store.memoryDashboardStore.conversationCount"></strong>
+                            </span>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="status-pagination" x-show="$store.memoryDashboardStore.totalPages > 1">
+                            <button class="btn btn-icon" @click="$store.memoryDashboardStore.prevPage()"
+                                :disabled="$store.memoryDashboardStore.currentPage === 1" title="Previous Page">
+                                <span class="material-symbols-outlined">chevron_left</span>
+                            </button>
+                            <div class="page-input-group">
+                                <label>Page</label>
+                                <input type="number" class="page-input"
+                                    x-model.number="$store.memoryDashboardStore.currentPage"
+                                    @change="$store.memoryDashboardStore.goToPage($store.memoryDashboardStore.currentPage)"
+                                    @keyup.enter="$store.memoryDashboardStore.goToPage($store.memoryDashboardStore.currentPage)"
+                                    :min="1" :max="$store.memoryDashboardStore.totalPages" />
+                                <span class="page-total">of <strong
+                                        x-text="$store.memoryDashboardStore.totalPages"></strong></span>
+                            </div>
+                            <button class="btn btn-icon" @click="$store.memoryDashboardStore.nextPage()"
+                                :disabled="$store.memoryDashboardStore.currentPage === $store.memoryDashboardStore.totalPages"
+                                title="Next Page">
+                                <span class="material-symbols-outlined">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mass action toolbar -->
+                    <div x-show="$store.memoryDashboardStore.selectedCount > 0" class="mass-action-toolbar">
+                        <div class="selection-info">
+                            <span x-text="$store.memoryDashboardStore.selectedCount"></span> memories selected
+                        </div>
+
+                        <div class="mass-actions">
+                            <button class="btn btn-mass copy" @click="$store.memoryDashboardStore.bulkCopyMemories()"
+                                title="Copy Selected Content">
+                                <span class="material-symbols-outlined">content_copy</span>
+                                Copy
+                            </button>
+
+                            <button class="btn btn-mass export"
+                                @click="$store.memoryDashboardStore.bulkExportMemories()"
+                                title="Export Selected Memories">
+                                <span class="material-symbols-outlined">download</span>
+                                Export
+                            </button>
+
+                            <button class="btn btn-mass delete"
+                                @click="$store.memoryDashboardStore.bulkDeleteMemories()"
+                                title="Delete Selected Memories">
+                                <span class="material-symbols-outlined">delete</span>
+                                Delete
+                            </button>
+
+                            <button class="btn btn-mass clear" @click="$store.memoryDashboardStore.clearSelection()"
+                                title="Clear Selection">
+                                <span class="material-symbols-outlined">close</span>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="memory-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-select">
+                                        <input type="checkbox" :checked="$store.memoryDashboardStore.allSelected"
+                                            :indeterminate="$store.memoryDashboardStore.someSelected && !$store.memoryDashboardStore.allSelected"
+                                            @change="$store.memoryDashboardStore.toggleSelectAll()"
+                                            title="Select/Deselect All" />
+                                    </th>
+                                    <th class="col-metadata">Metadata</th>
+                                    <th class="col-preview">Preview</th>
+                                    <th class="col-actions"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="memory in $store.memoryDashboardStore.paginatedMemories"
+                                    :key="memory.id">
+                                    <tr class="memory-row" :class="{'selected': memory.selected}"
+                                        @click="$store.memoryDashboardStore.showMemoryDetails(memory)"
+                                        style="cursor: pointer;">
+                                        <!-- Selection checkbox -->
+                                        <td class="select-cell" @click.stop="memory.selected = !memory.selected">
+                                            <input type="checkbox" x-model="memory.selected" />
+                                        </td>
+
+                                        <!-- Metadata (merged Area, Timestamp, Source) -->
+                                        <td class="metadata-cell">
+                                            <div class="metadata-info">
+                                                <div class="metadata-row">
+                                                    <span class="area-badge"
+                                                        :style="`background-color: ${$store.memoryDashboardStore.getAreaColor(memory.area)}`"
+                                                        x-text="(memory.area || 'UNKNOWN').toUpperCase()"></span>
+                                                </div>
+                                                <div class="metadata-row">
+                                                    <template x-if="memory.knowledge_source">
+                                                        <span class="source-type knowledge">Knowledge</span>
+                                                    </template>
+                                                    <template x-if="!memory.knowledge_source">
+                                                        <span class="source-type conversation">Conversation</span>
+                                                    </template>
+                                                </div>
+                                                <div class="metadata-row metadata-timestamp">
+                                                    <span
+                                                        x-text="$store.memoryDashboardStore.formatTimestamp(memory.timestamp, true)"
+                                                        :title="$store.memoryDashboardStore.formatTimestamp(memory.timestamp, false)"></span>
+                                                </div>
+
+                                            </div>
+                                        </td>
+
+                                        <!-- Content preview -->
+                                        <td class="preview-cell">
+                                            <div class="content-preview"
+                                                x-text="memory.content_full.substring(0, 200) + (memory.content_full.length > 200 ? '...' : '')">
+                                            </div>
+                                            <div class="tags" x-show="memory.tags && memory.tags.length > 0">
+                                                <template x-for="tag in memory.tags" :key="tag">
+                                                    <span class="tag" x-text="tag"></span>
+                                                </template>
+                                            </div>
+                                        </td>
+
+                                        <!-- Actions -->
+                                        <td class="actions-cell" @click.stop>
+                                            <div class="actions-wrapper">
+                                                <button class="btn btn-action copy"
+                                                    @click="$store.memoryDashboardStore.copyToClipboard($store.memoryDashboardStore.formatMemoryForCopy(memory))"
+                                                    title="Copy Memory">
+                                                    <span class="material-symbols-outlined">content_copy</span>
+                                                </button>
+
+                                                <button class="btn btn-action delete"
+                                                    @click="$store.memoryDashboardStore.deleteMemory(memory)"
+                                                    title="Delete Memory">
+                                                    <span class="material-symbols-outlined">delete</span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+
+
+
+                    </div>
+
+                    <!-- Mass action toolbar -->
+                    <div x-show="$store.memoryDashboardStore.selectedCount > 0" class="mass-action-toolbar">
+                        <div class="selection-info">
+                            <span x-text="$store.memoryDashboardStore.selectedCount"></span> memories selected
+                        </div>
+
+                        <div class="mass-actions">
+                            <button class="btn btn-mass copy" @click="$store.memoryDashboardStore.bulkCopyMemories()"
+                                title="Copy Selected Content">
+                                <span class="material-symbols-outlined">content_copy</span>
+                                Copy
+                            </button>
+
+                            <button class="btn btn-mass export"
+                                @click="$store.memoryDashboardStore.bulkExportMemories()"
+                                title="Export Selected Memories">
+                                <span class="material-symbols-outlined">download</span>
+                                Export
+                            </button>
+
+                            <button class="btn btn-mass delete"
+                                @click="$store.memoryDashboardStore.bulkDeleteMemories()"
+                                title="Delete Selected Memories">
+                                <span class="material-symbols-outlined">delete</span>
+                                Delete
+                            </button>
+
+                            <button class="btn btn-mass clear" @click="$store.memoryDashboardStore.clearSelection()"
+                                title="Clear Selection">
+                                <span class="material-symbols-outlined">close</span>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+
+                    <!-- Status Bar -->
+                    <div class="memory-status-bar" x-show="!$store.memoryDashboardStore.loading">
+                        <div class="status-info">
+                            <span class="status-item">
+                                <span class="material-symbols-outlined">database</span>
+                                Total: <strong x-text="$store.memoryDashboardStore.totalDbCount"></strong>
+                            </span>
+                            <span class="status-separator">•</span>
+                            <span class="status-item">
+                                Filtered: <strong x-text="$store.memoryDashboardStore.totalCount"></strong>
+                            </span>
+                            <span class="status-separator">•</span>
+                            <span class="status-item">
+                                Knowledge: <strong x-text="$store.memoryDashboardStore.knowledgeCount"></strong>
+                            </span>
+                            <span class="status-separator">•</span>
+                            <span class="status-item">
+                                Conversation: <strong x-text="$store.memoryDashboardStore.conversationCount"></strong>
+                            </span>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="status-pagination" x-show="$store.memoryDashboardStore.totalPages > 1">
+                            <button class="btn btn-icon" @click="$store.memoryDashboardStore.prevPage()"
+                                :disabled="$store.memoryDashboardStore.currentPage === 1" title="Previous Page">
+                                <span class="material-symbols-outlined">chevron_left</span>
+                            </button>
+                            <div class="page-input-group">
+                                <label>Page</label>
+                                <input type="number" class="page-input"
+                                    x-model.number="$store.memoryDashboardStore.currentPage"
+                                    @change="$store.memoryDashboardStore.goToPage($store.memoryDashboardStore.currentPage)"
+                                    @keyup.enter="$store.memoryDashboardStore.goToPage($store.memoryDashboardStore.currentPage)"
+                                    :min="1" :max="$store.memoryDashboardStore.totalPages" />
+                                <span class="page-total">of <strong
+                                        x-text="$store.memoryDashboardStore.totalPages"></strong></span>
+                            </div>
+                            <button class="btn btn-icon" @click="$store.memoryDashboardStore.nextPage()"
+                                :disabled="$store.memoryDashboardStore.currentPage === $store.memoryDashboardStore.totalPages"
+                                title="Next Page">
+                                <span class="material-symbols-outlined">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+
+
+                    <!-- No memories message -->
+                    <div x-show="$store.memoryDashboardStore.memories.length === 0 && !$store.memoryDashboardStore.message"
+                        class="no-memories">
+                        No memories found matching the current filters.
+                    </div>
+
+                    <!-- Initialization message -->
+                    <div x-show="$store.memoryDashboardStore.message" class="init-message">
+                        <span x-text="$store.memoryDashboardStore.message"></span>
+                    </div>
+
+
+
+                </div>
+
+
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .modal-inner.modal-with-footer {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-inner.modal-with-footer .modal-scroll {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .modal-inner.modal-with-footer .modal-footer {
+            flex-shrink: 0;
+        }
+
+        .memory-filters-header {
+            display: grid;
+            grid-template-columns: 35% 25% 10% auto;
+            grid-template-rows: auto auto;
+            gap: 0.75rem;
+            align-items: center;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+        }
+
+        /* Grid positioning for desktop - 2 rows */
+        .filter-memory-dir {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .filter-area {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .filter-limit {
+            grid-column: 3;
+            grid-row: 1;
+        }
+
+        .filter-threshold {
+            grid-column: 4;
+            grid-row: 2;
+        }
+
+        #search-input {
+            grid-column: 1 / 3;
+            grid-row: 2;
+        }
+
+        .btn-search {
+            grid-column: 3;
+            grid-row: 2;
+            justify-content: center;
+        }
+
+        .btn-clear {
+            grid-column: 4;
+            grid-row: 1;
+            justify-self: end;
+        }
+
+        .filter-group-inline {
+            display: flex;
+            flex: 1;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-group-inline label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text);
+            opacity: 0.8;
+            white-space: nowrap;
+        }
+
+        .filter-group-inline select,
+        .filter-group-inline input {
+            border: 1px solid var(--color-border);
+            flex: 0 auto;
+            min-width: 0;
+        }
+
+        .filter-group-inline select:focus,
+        .filter-group-inline input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: var(--color-input-focus);
+        }
+
+        .filter-group-inline.filter-limit {
+            flex: 0 0 auto;
+        }
+
+        .filter-limit input {
+            flex: 0 0 150%;
+        }
+
+
+        #search-input {
+            flex: 1;
+            border: 1px solid var(--color-border);
+            font-size: 0.9rem;
+            height: 38px;
+        }
+
+        #search-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: var(--color-input-focus);
+        }
+
+        .filter-threshold label {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .memory-status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: var(--color-panel);
+            border-bottom: 1px solid var(--color-border);
+            border-radius: 8px;
+            /* margin-bottom: 1rem; */
+            font-size: 0.9rem;
+        }
+
+        .status-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .status-item strong {
+            color: var(--color-primary);
+            font-weight: 600;
+        }
+
+        .status-item .material-symbols-outlined {
+            font-size: 18px;
+            opacity: 0.6;
+        }
+
+        .status-separator {
+            color: var(--color-border);
+            margin: 0 0.25rem;
+        }
+
+        .status-pagination {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            background: transparent;
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            padding: 0.25rem;
+            display: flex;
+            align-items: center;
+            font-size: 0;
+        }
+
+        .btn-icon:hover:not(:disabled) {
+            background: var(--color-panel);
+            border-color: var(--color-primary);
+            color: var(--color-text);
+        }
+
+        .btn-icon:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-icon .material-symbols-outlined {
+            font-size: 20px;
+        }
+
+        .page-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .page-input-group label {
+            opacity: 0.8;
+        }
+
+        .page-total {
+            color: var(--color-text);
+            opacity: 0.8;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .page-total strong {
+            color: var(--color-primary);
+            font-weight: 600;
+        }
+
+        .page-input {
+            width: 60px;
+            padding: 0.25rem 0.5rem;
+            text-align: center;
+            border: 1px solid var(--color-border);
+            background: var(--color-input);
+            color: var(--color-text);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            height: 28px;
+        }
+
+        .page-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: var(--color-input-focus);
+        }
+
+        /* Remove spinner arrows */
+        .page-input::-webkit-inner-spin-button,
+        .page-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .page-input[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .loading-state,
+        .error-state,
+        .no-memories,
+        .init-message {
+            text-align: center;
+            padding: 2rem;
+            color: var(--color-text);
+            opacity: 0.8;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .loading-state {
+            display: grid;
+            align-items: center;
+        }
+
+        .init-message {
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+
+        .error-state {
+            color: var(--color-accent);
+            border-color: var(--color-accent);
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
+            min-height: 24px;
+            max-width: 24px;
+            max-height: 24px;
+            border: 3px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 0.5rem;
+            flex-shrink: 0;
+            flex-grow: 0;
+            display: inline-block;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .memory-table-container {
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+        }
+
+        .memory-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .col-select {
+            width: 5%;
+        }
+
+        .col-metadata {
+            width: 10em;
+        }
+
+        .col-preview {}
+
+        .col-actions {
+            width: 4em;
+        }
+
+        .memory-table th,
+        .memory-table td {
+            padding: 1rem 0.75rem;
+            text-align: left;
+            vertical-align: top;
+            border-bottom: 1px solid var(--color-border);
+            overflow: hidden;
+        }
+
+        .metadata-cell {
+            overflow: visible;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+
+        .metadata-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .metadata-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .metadata-timestamp {
+            font-size: 0.85rem;
+            color: var(--color-text);
+            font-family: monospace;
+        }
+
+        .area-badge {
+            color: white;
+            padding: 0.35rem 0.75rem;
+            border-radius: 16px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .select-cell,
+        .col-select {
+            text-align: center;
+            padding: 0.65rem 0.5rem !important;
+        }
+
+        .select-cell input[type="checkbox"],
+        .col-select input[type="checkbox"] {
+            cursor: pointer;
+            transform: scale(1.2);
+        }
+
+        .memory-row.selected {
+            background: var(--color-panel);
+            border-left: 3px solid var(--color-primary);
+        }
+
+        .mass-action-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--color-panel);
+            /* border: 1px solid var(--color-primary); */
+            /* border-radius: 8px; */
+            /* margin: 1rem 0; */
+            margin: 0;
+            animation: slideDown 0.3s ease;
+        }
+
+        .btn-mass {
+            align-items: center;
+            border: 1px solid var(--color-border);
+            gap: 0.25rem;
+            display: flex;
+            background: var(--color-background);
+            color: var(--color-text);
+        }
+
+        .btn-mass:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .btn-mass.delete:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .selection-info {
+            font-weight: 600;
+        }
+
+        .mass-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-mass .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .btn-mass:hover {
+            border-color: var(--color-primary);
+            background: var(--color-panel);
+        }
+
+        .btn-mass.delete:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .memory-table th {
+            background: var(--color-panel);
+            font-weight: 600;
+            color: var(--color-text);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .memory-table tbody tr {
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .memory-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .memory-table tbody tr.memory-row>td {
+            height: 5em;
+        }
+
+        .source-type {
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--border-radius);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-align: center;
+            border: 1px solid;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .content-preview,
+        .metadata-info {
+            height: 5.5em;
+            overflow: hidden;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .tags {
+            display: flex;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            padding: 0.2rem 0.4rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            color: var(--color-text);
+            opacity: 0.8;
+        }
+
+        .actions-cell {
+            padding: 0 !important;
+            position: relative;
+        }
+
+        .actions-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Table action buttons - extends .btn */
+        .btn-action {
+            background: none;
+            border: 1px solid var(--color-border);
+            padding: 0.25rem;
+            margin: 0 0.1rem;
+            color: var(--color-text);
+            opacity: 0.7;
+            display: inline-flex;
+        }
+
+        .btn-action .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .btn-action:hover {
+            opacity: 1;
+            background: var(--color-panel);
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+            transform: translateY(-1px);
+        }
+
+        .btn-action.view:hover {
+            background: var(--color-panel);
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .btn-action.copy:hover {
+            background: var(--color-panel);
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .btn-action.delete:hover {
+            background: var(--color-panel);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        /* Responsive design */
+        @media (max-width: 870px) {
+            .memory-dashboard {
+                padding: 0.5rem;
+            }
+
+            .memory-filters-header {
+                padding: 0.75rem;
+            }
+
+            .memory-filters-header {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
+
+            /* Reset grid positioning */
+            .filter-memory-dir,
+            .filter-area,
+            .filter-limit,
+            .filter-threshold,
+            #search-input,
+            .btn-search,
+            .btn-clear {
+                grid-column: auto;
+                grid-row: auto;
+            }
+
+            .filter-group-inline {
+                width: 100%;
+                flex-direction: row;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .filter-group-inline label {
+                font-size: 0.9rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .filter-group-inline select,
+            .filter-group-inline input {
+                height: 42px;
+                font-size: 1rem;
+            }
+
+            .filter-group-inline.filter-limit {
+                flex: 33%;
+            }
+
+            .filter-limit input {
+                flex: 1;
+            }
+
+            /* Mobile order and layout - force items to specific widths */
+            .filter-memory-dir {
+                order: 1;
+                flex: 1 1 100%;
+            }
+
+            .filter-area {
+                order: 2;
+                flex: 1 1 100%;
+            }
+
+            .filter-limit {
+                order: 3;
+                flex: 1 1 100%;
+            }
+
+            .btn-clear {
+                order: 6;
+                flex: 40%;
+                min-width: 80px;
+                padding: 0;
+                height: 42px;
+                justify-content: center;
+            }
+
+            #search-input {
+                order: 5;
+                flex: auto;
+                width: 100%;
+                height: 42px;
+            }
+
+            /* Search button and threshold on same row */
+            .btn-search {
+                order: 7;
+                flex: 40%;
+                height: 42px;
+                padding: 0 1rem;
+                min-width: 80px;
+            }
+
+            .filter-threshold {
+                order: 4;
+                flex: 40%;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+                padding: 0;
+            }
+
+            .filter-threshold label {
+                font-size: 0.9rem;
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+            }
+
+            .filter-threshold input[type="range"] {
+                width: 100%;
+            }
+
+            .memory-status-bar {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .status-info {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 0.5rem 1rem;
+            }
+
+            .status-info .material-symbols-outlined {
+                font-size: 18px;
+            }
+
+            .status-pagination {
+                width: 100%;
+                justify-content: center;
+                padding-top: 0.5rem;
+                border-top: 1px solid var(--color-border);
+            }
+
+            .memory-table th,
+            .memory-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.85rem;
+            }
+
+            .actions-cell {
+                min-width: 60px;
+                width: 60px;
+            }
+
+            .col-select {
+                width: 8%;
+            }
+
+            .col-metadata {
+                width: 27%;
+            }
+
+            .col-preview {
+                width: 55%;
+            }
+
+            .col-actions {
+                width: 10%;
+            }
+        }
+    </style>
+
+    </template>
+    </div>
+</body>
+
+</html>

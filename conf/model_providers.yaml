@@ -17,12 +17,26 @@
 #                     This is useful for `api_base`, `extra_headers`, etc.
 
 chat:
+  a0_venice:
+    name: Agent Zero Venice.ai
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.agent-zero.ai/venice/v1
+      venice_parameters:
+        include_venice_system_prompt: false
   anthropic:
     name: Anthropic
     litellm_provider: anthropic
   deepseek:
     name: DeepSeek
     litellm_provider: deepseek
+  github_copilot:
+    name: GitHub Copilot
+    litellm_provider: github_copilot
+    kwargs:
+      extra_headers:
+          "Editor-Version": "vscode/1.85.1"
+          "Copilot-Integration-Id": "vscode-chat"
   google:
     name: Google
     litellm_provider: gemini
@@ -58,10 +72,15 @@ chat:
     name: Sambanova
     litellm_provider: sambanova
   venice:
-    name: Venice
+    name: Venice.ai
     litellm_provider: openai
     kwargs:
       api_base: https://api.venice.ai/api/v1
+      venice_parameters:
+        include_venice_system_prompt: false
+  xai:
+    name: xAI
+    litellm_provider: xai
   other:
     name: Other OpenAI compatible
     litellm_provider: openai

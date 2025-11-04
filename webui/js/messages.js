@@ -402,31 +402,55 @@ export function drawMessageUser(
   kvps = null,
   latex = false
 ) {
-  const messageDiv = document.createElement("div");
-  messageDiv.classList.add("message", "message-user");
+  // Find existing message div or create new one
+  let messageDiv = messageContainer.querySelector(".message");
+  if (!messageDiv) {
+    messageDiv = document.createElement("div");
+    messageDiv.classList.add("message", "message-user");
+    messageContainer.appendChild(messageDiv);
+  } else {
+    // Ensure it has the correct classes if it already exists
+    messageDiv.className = "message message-user";
+  }
 
-  const headingElement = document.createElement("h4");
-  headingElement.classList.add("msg-heading");
+  // Handle heading
+  let headingElement = messageDiv.querySelector(".msg-heading");
+  if (!headingElement) {
+    headingElement = document.createElement("h4");
+    headingElement.classList.add("msg-heading");
+    messageDiv.insertBefore(headingElement, messageDiv.firstChild);
+  }
   headingElement.innerHTML = `${heading} <span class='icon material-symbols-outlined'>person</span>`;
-  messageDiv.appendChild(headingElement);
 
+  // Handle content
+  let textDiv = messageDiv.querySelector(".message-text");
   if (content && content.trim().length > 0) {
-    const textDiv = document.createElement("div");
-    textDiv.classList.add("message-text");
-
-    // Create a span for the content
-    const spanElement = document.createElement("pre");
+    if (!textDiv) {
+      textDiv = document.createElement("div");
+      textDiv.classList.add("message-text");
+      messageDiv.appendChild(textDiv);
+    }
+    let spanElement = textDiv.querySelector("pre");
+    if (!spanElement) {
+      spanElement = document.createElement("pre");
+      textDiv.appendChild(spanElement);
+    }
     spanElement.innerHTML = escapeHTML(content);
-    textDiv.appendChild(spanElement);
-
     addActionButtonsToElement(textDiv);
-    messageDiv.appendChild(textDiv);
+  } else {
+    if (textDiv) textDiv.remove();
   }
 
   // Handle attachments
+  let attachmentsContainer = messageDiv.querySelector(".attachments-container");
   if (kvps && kvps.attachments && kvps.attachments.length > 0) {
-    const attachmentsContainer = document.createElement("div");
-    attachmentsContainer.classList.add("attachments-container");
+    if (!attachmentsContainer) {
+      attachmentsContainer = document.createElement("div");
+      attachmentsContainer.classList.add("attachments-container");
+      messageDiv.appendChild(attachmentsContainer);
+    }
+    // Important: Clear existing attachments to re-render, preventing duplicates on update
+    attachmentsContainer.innerHTML = ""; 
 
     kvps.attachments.forEach((attachment) => {
       const attachmentDiv = document.createElement("div");
@@ -472,11 +496,10 @@ export function drawMessageUser(
 
       attachmentsContainer.appendChild(attachmentDiv);
     });
-
-    messageDiv.appendChild(attachmentsContainer);
+  } else {
+    if (attachmentsContainer) attachmentsContainer.remove();
   }
-
-  messageContainer.appendChild(messageDiv);
+  // The messageDiv is already appended or updated, no need to append again
 }
 
 export function drawMessageTool(
