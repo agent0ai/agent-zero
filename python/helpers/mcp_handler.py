@@ -24,6 +24,8 @@ import json
 from python.helpers import errors
 from python.helpers import settings
 
+import httpx
+
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
@@ -156,35 +158,35 @@ class MCPTool(Tool):
             raw_tool_response = "[Tool returned no textual content]"
 
         # Prepare user message context
-        user_message_text = (
-            "No specific user message context available for this exact step."
-        )
-        if (
-            self.agent
-            and self.agent.last_user_message
-            and self.agent.last_user_message.content
-        ):
-            content = self.agent.last_user_message.content
-            if isinstance(content, dict):
-                # Attempt to get a 'message' field, otherwise stringify the dict
-                user_message_text = str(content.get(
-                    "message", json.dumps(content, indent=2)
-                ))
-            elif isinstance(content, str):
-                user_message_text = content
-            else:
-                # Fallback for any other types (e.g. list, if that were possible for content)
-                user_message_text = str(content)
+        # user_message_text = (
+        #     "No specific user message context available for this exact step."
+        # )
+        # if (
+        #     self.agent
+        #     and self.agent.last_user_message
+        #     and self.agent.last_user_message.content
+        # ):
+        #     content = self.agent.last_user_message.content
+        #     if isinstance(content, dict):
+        #         # Attempt to get a 'message' field, otherwise stringify the dict
+        #         user_message_text = str(content.get(
+        #             "message", json.dumps(content, indent=2)
+        #         ))
+        #     elif isinstance(content, str):
+        #         user_message_text = content
+        #     else:
+        #         # Fallback for any other types (e.g. list, if that were possible for content)
+        #         user_message_text = str(content)
 
-        # Ensure user_message_text is a string before length check and slicing
-        user_message_text = str(user_message_text)
+        # # Ensure user_message_text is a string before length check and slicing
+        # user_message_text = str(user_message_text)
 
-        # Truncate user message context if it's too long to avoid overwhelming the prompt
-        max_user_context_len = 500  # characters
-        if len(user_message_text) > max_user_context_len:
-            user_message_text = (
-                user_message_text[:max_user_context_len] + "... (truncated)"
-            )
+        # # Truncate user message context if it's too long to avoid overwhelming the prompt
+        # max_user_context_len = 500  # characters
+        # if len(user_message_text) > max_user_context_len:
+        #     user_message_text = (
+        #         user_message_text[:max_user_context_len] + "... (truncated)"
+        #     )
 
         final_text_for_agent = raw_tool_response
 
@@ -216,6 +218,7 @@ class MCPServerRemote(BaseModel):
     headers: dict[str, Any] | None = Field(default_factory=dict[str, Any])
     init_timeout: int = Field(default=0)
     tool_timeout: int = Field(default=0)
+    verify: bool = Field(default=True, description="Verify SSL certificates")
     disabled: bool = Field(default=False)
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
@@ -265,6 +268,7 @@ class MCPServerRemote(BaseModel):
                     "init_timeout",
                     "tool_timeout",
                     "disabled",
+                    "verify",
                 ]:
                     if key == "name":
                         value = normalize_name(value)
@@ -293,6 +297,7 @@ class MCPServerLocal(BaseModel):
     )
     init_timeout: int = Field(default=0)
     tool_timeout: int = Field(default=0)
+    verify: bool = Field(default=True, description="Verify SSL certificates")
     disabled: bool = Field(default=False)
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
@@ -1018,6 +1023,36 @@ class MCPClientLocal(MCPClientBase):
         # do not read or close the file here, as stdio is async
         return stdio_transport
 
+class CustomHTTPClientFactory(ABC):
+    def __init__(self, verify: bool = True):
+        self.verify = verify
+
+    def __call__(
+        self,
+        headers: dict[str, str] | None = None,
+        timeout: httpx.Timeout | None = None,
+        auth: httpx.Auth | None = None,
+    ) -> httpx.AsyncClient:
+        # Set MCP defaults
+        kwargs: dict[str, Any] = {
+            "follow_redirects": True,
+        }
+
+        # Handle timeout
+        if timeout is None:
+            kwargs["timeout"] = httpx.Timeout(30.0)
+        else:
+            kwargs["timeout"] = timeout
+
+        # Handle headers
+        if headers is not None:
+            kwargs["headers"] = headers
+
+        # Handle authentication
+        if auth is not None:
+            kwargs["auth"] = auth
+
+        return httpx.AsyncClient(**kwargs, verify=self.verify)
 
 class MCPClientRemote(MCPClientBase):
 
@@ -1040,6 +1075,7 @@ class MCPClientRemote(MCPClientBase):
         init_timeout = min(server.init_timeout or set["mcp_client_init_timeout"], 5)
         tool_timeout = min(server.tool_timeout or set["mcp_client_tool_timeout"], 10)
 
+        client_factory = CustomHTTPClientFactory(verify=server.verify)
         # Check if this is a streaming HTTP type
         if _is_streaming_http_type(server.type):
             # Use streamable HTTP client
@@ -1049,6 +1085,7 @@ class MCPClientRemote(MCPClientBase):
                     headers=server.headers,
                     timeout=timedelta(seconds=init_timeout),
                     sse_read_timeout=timedelta(seconds=tool_timeout),
+                    httpx_client_factory=client_factory,
                 )
             )
             # streamablehttp_client returns (read_stream, write_stream, get_session_id_callback)
@@ -1066,6 +1103,7 @@ class MCPClientRemote(MCPClientBase):
                     headers=server.headers,
                     timeout=init_timeout,
                     sse_read_timeout=tool_timeout,
+                    httpx_client_factory=client_factory,
                 )
             )
             return stdio_transport

@@ -34,7 +34,7 @@ display: flex;
   transform: translate(-50%, -50%);
   background-color: var(--color-background-light);
   width: 90%;
-  max-width: 800px;
+  max-width: 960px;
   max-height: 90vh;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

@@ -60,7 +60,7 @@ class SchedulerTool(Tool):
         return Response(message=json.dumps(filtered_tasks, indent=4), break_loop=False)
 
     async def find_task_by_name(self, **kwargs) -> Response:
-        name: str = kwargs.get("name", None)
+        name: str = kwargs.get("name", "")
         if not name:
             return Response(message="Task name is required", break_loop=False)
         tasks: list[ScheduledTask | AdHocTask | PlannedTask] = TaskScheduler.get().find_task_by_name(name)
@@ -69,7 +69,7 @@ class SchedulerTool(Tool):
         return Response(message=json.dumps([serialize_task(task) for task in tasks], indent=4), break_loop=False)
 
     async def show_task(self, **kwargs) -> Response:
-        task_uuid: str = kwargs.get("uuid", None)
+        task_uuid: str = kwargs.get("uuid", "")
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
         task: ScheduledTask | AdHocTask | PlannedTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
@@ -78,7 +78,7 @@ class SchedulerTool(Tool):
         return Response(message=json.dumps(serialize_task(task), indent=4), break_loop=False)
 
     async def run_task(self, **kwargs) -> Response:
-        task_uuid: str = kwargs.get("uuid", None)
+        task_uuid: str = kwargs.get("uuid", "")
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
         task_context: str | None = kwargs.get("context", None)
@@ -93,7 +93,7 @@ class SchedulerTool(Tool):
         return Response(message=f"Task started: {task_uuid}", break_loop=break_loop)
 
     async def delete_task(self, **kwargs) -> Response:
-        task_uuid: str = kwargs.get("uuid", None)
+        task_uuid: str = kwargs.get("uuid", "")
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
 
@@ -133,9 +133,9 @@ class SchedulerTool(Tool):
         #       "month": "*",
         #       "weekday": "*",
         #   }
-        name: str = kwargs.get("name", None)
-        system_prompt: str = kwargs.get("system_prompt", None)
-        prompt: str = kwargs.get("prompt", None)
+        name: str = kwargs.get("name", "")
+        system_prompt: str = kwargs.get("system_prompt", "")
+        prompt: str = kwargs.get("prompt", "")
         attachments: list[str] = kwargs.get("attachments", [])
         schedule: dict[str, str] = kwargs.get("schedule", {})
         dedicated_context: bool = kwargs.get("dedicated_context", False)
@@ -165,9 +165,9 @@ class SchedulerTool(Tool):
         return Response(message=f"Scheduled task '{name}' created: {task.uuid}", break_loop=False)
 
     async def create_adhoc_task(self, **kwargs) -> Response:
-        name: str = kwargs.get("name", None)
-        system_prompt: str = kwargs.get("system_prompt", None)
-        prompt: str = kwargs.get("prompt", None)
+        name: str = kwargs.get("name", "")
+        system_prompt: str = kwargs.get("system_prompt", "")
+        prompt: str = kwargs.get("prompt", "")
         attachments: list[str] = kwargs.get("attachments", [])
         token: str = str(random.randint(1000000000000000000, 9999999999999999999))
         dedicated_context: bool = kwargs.get("dedicated_context", False)
@@ -184,9 +184,9 @@ class SchedulerTool(Tool):
         return Response(message=f"Adhoc task '{name}' created: {task.uuid}", break_loop=False)
 
     async def create_planned_task(self, **kwargs) -> Response:
-        name: str = kwargs.get("name", None)
-        system_prompt: str = kwargs.get("system_prompt", None)
-        prompt: str = kwargs.get("prompt", None)
+        name: str = kwargs.get("name", "")
+        system_prompt: str = kwargs.get("system_prompt", "")
+        prompt: str = kwargs.get("prompt", "")
         attachments: list[str] = kwargs.get("attachments", [])
         plan: list[str] = kwargs.get("plan", [])
         dedicated_context: bool = kwargs.get("dedicated_context", False)
@@ -219,7 +219,7 @@ class SchedulerTool(Tool):
         return Response(message=f"Planned task '{name}' created: {task.uuid}", break_loop=False)
 
     async def wait_for_task(self, **kwargs) -> Response:
-        task_uuid: str = kwargs.get("uuid", None)
+        task_uuid: str = kwargs.get("uuid", "")
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
 

@@ -1,0 +1,23 @@
+{
+  "name": "Agent Zero",
+  "short_name": "Agent Zero",
+  "description": "Autonomous AI agent",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#333333",
+  "icons": [
+    {
+      "src": "/public/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/public/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

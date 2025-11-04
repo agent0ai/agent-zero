@@ -26,6 +26,8 @@ def get_chat_folder_path(ctxid: str):
     """
     return files.get_abs_path(CHATS_FOLDER, ctxid)
 
+def get_chat_msg_files_folder(ctxid: str):
+    return files.get_abs_path(get_chat_folder_path(ctxid), "messages")
 
 def save_tmp_chat(context: AgentContext):
     """Save context to the chats folder"""
@@ -107,6 +109,12 @@ def remove_chat(ctxid):
     files.delete_dir(path)
 
 
+def remove_msg_files(ctxid):
+    """Remove all message files for a chat or task context"""
+    path = get_chat_msg_files_folder(ctxid)
+    files.delete_dir(path)
+
+
 def _serialize_context(context: AgentContext):
     # serialize agents
     agents = []
@@ -119,12 +127,14 @@ def _serialize_context(context: AgentContext):
         "id": context.id,
         "name": context.name,
         "created_at": (
-            context.created_at.isoformat() if context.created_at
+            context.created_at.isoformat()
+            if context.created_at
             else datetime.fromtimestamp(0).isoformat()
         ),
         "type": context.type.value,
         "last_message": (
-            context.last_message.isoformat() if context.last_message
+            context.last_message.isoformat()
+            if context.last_message
             else datetime.fromtimestamp(0).isoformat()
         ),
         "agents": agents,

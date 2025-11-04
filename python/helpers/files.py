@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from fnmatch import fnmatch
 import json
+from ntpath import isabs
 import os
 import sys
 import re
@@ -29,10 +30,10 @@ def load_plugin_variables(file: str, backup_dirs: list[str] | None = None) -> di
         backup_dirs = []
 
     try:
-        plugin_file = find_file_in_dirs(
-            get_abs_path(dirname(file), basename(file, ".md") + ".py"),
-            backup_dirs
-        )
+        # Create filename and directories list
+        plugin_filename = basename(file, ".md") + ".py"
+        directories = [dirname(file)] + backup_dirs
+        plugin_file = find_file_in_dirs(plugin_filename, directories)
     except FileNotFoundError:
         plugin_file = None
 
@@ -72,12 +73,12 @@ def load_plugin_variables(file: str, backup_dirs: list[str] | None = None) -> di
 from python.helpers.strings import sanitize_string
 
 
-def parse_file(_relative_path, _backup_dirs=None, _encoding="utf-8", **kwargs):
-    if _backup_dirs is None:
-        _backup_dirs = []
+def parse_file(_filename: str, _directories: list[str] | None = None, _encoding="utf-8", **kwargs):
+    if _directories is None:
+        _directories = []
 
-    # Try to get the absolute path for the file from the original directory or backup directories
-    absolute_path = find_file_in_dirs(_relative_path, _backup_dirs)
+    # Find the file in the directories
+    absolute_path = find_file_in_dirs(_filename, _directories)
 
     # Read the file content
     with open(absolute_path, "r", encoding=_encoding) as f:
@@ -86,7 +87,7 @@ def parse_file(_relative_path, _backup_dirs=None, _encoding="utf-8", **kwargs):
     
     is_json = is_full_json_template(content)
     content = remove_code_fences(content)
-    variables = load_plugin_variables(_relative_path, _backup_dirs) or {}  # type: ignore
+    variables = load_plugin_variables(absolute_path, _directories) or {}  # type: ignore
     variables.update(kwargs)
     if is_json:
         content = replace_placeholders_json(content, **variables)
@@ -98,24 +99,30 @@ def parse_file(_relative_path, _backup_dirs=None, _encoding="utf-8", **kwargs):
         # Process include statements
         content = process_includes(
             # here we use kwargs, the plugin variables are not inherited
-            content, os.path.dirname(_relative_path), _backup_dirs, **kwargs
+            content, _directories, **kwargs
         )
         return content
 
 
-def read_prompt_file(_relative_path, _backup_dirs=None, _encoding="utf-8", **kwargs):
-    if _backup_dirs is None:
-        _backup_dirs = []
+def read_prompt_file(_file: str, _directories: list[str] | None = None, _encoding="utf-8", **kwargs):
+    if _directories is None:
+        _directories = []
 
-    # Try to get the absolute path for the file from the original directory or backup directories
-    absolute_path = find_file_in_dirs(_relative_path, _backup_dirs)
+    # If filename contains folder path, extract it and add to directories
+    if os.path.dirname(_file):
+        folder_path = os.path.dirname(_file)
+        _file = os.path.basename(_file)
+        _directories = [folder_path] + _directories
+
+    # Find the file in the directories
+    absolute_path = find_file_in_dirs(_file, _directories)
 
     # Read the file content
     with open(absolute_path, "r", encoding=_encoding) as f:
         # content = remove_code_fences(f.read())
         content = f.read()
 
-    variables = load_plugin_variables(_relative_path, _backup_dirs) or {}  # type: ignore
+    variables = load_plugin_variables(_file, _directories) or {}  # type: ignore
     variables.update(kwargs)
 
     # Replace placeholders with values from kwargs
@@ -124,43 +131,33 @@ def read_prompt_file(_relative_path, _backup_dirs=None, _encoding="utf-8", **kwa
     # Process include statements
     content = process_includes(
         # here we use kwargs, the plugin variables are not inherited
-        content, os.path.dirname(_relative_path), _backup_dirs, **kwargs
+        content, _directories, **kwargs
     )
 
     return content
 
 
-def read_file(relative_path:str, backup_dirs:list[str]|None=None, encoding="utf-8"):
-    if backup_dirs is None:
-        backup_dirs = []
-
+def read_file(relative_path:str, encoding="utf-8"):
     # Try to get the absolute path for the file from the original directory or backup directories
-    absolute_path = find_file_in_dirs(relative_path, backup_dirs)
+    absolute_path = get_abs_path(relative_path)
 
     # Read the file content
     with open(absolute_path, "r", encoding=encoding) as f:
         return f.read()
 
 
-def read_file_bin(relative_path:str, backup_dirs:list[str]|None=None):
-    if backup_dirs is None:
-        backup_dirs = []
-
+def read_file_bin(relative_path:str):
     # Try to get the absolute path for the file from the original directory or backup directories
-    absolute_path = find_file_in_dirs(relative_path, backup_dirs)
+    absolute_path = get_abs_path(relative_path)
 
     # read binary content
     with open(absolute_path, "rb") as f:
         return f.read()
 
 
-def read_file_base64(relative_path, backup_dirs:list[str]|None=None):
-    # init backup dirs
-    if backup_dirs is None:
-        backup_dirs = []
-
+def read_file_base64(relative_path):
     # get absolute path
-    absolute_path = find_file_in_dirs(relative_path, backup_dirs)
+    absolute_path = get_abs_path(relative_path)
 
     # read binary content and encode to base64
     with open(absolute_path, "rb") as f:
@@ -214,7 +211,7 @@ def replace_placeholders_dict(_content: dict, **kwargs):
     return replace_value(_content)
 
 
-def process_includes(_content, _base_path, _backup_dirs, **kwargs):
+def process_includes(_content: str, _directories: list[str], **kwargs):
     # Regex to find {{ include 'path' }} or {{include'path'}}
     include_pattern = re.compile(r"{{\s*include\s*['\"](.*?)['\"]\s*}}")
 
@@ -223,41 +220,32 @@ def process_includes(_content, _base_path, _backup_dirs, **kwargs):
         # if the path is absolute, do not process it
         if os.path.isabs(include_path):
             return match.group(0)
-        # First attempt to resolve the include relative to the base path
-        full_include_path = find_file_in_dirs(
-            os.path.join(_base_path, include_path), _backup_dirs
-        )
-
-        # Recursively read the included file content, keeping the original base path
-        included_content = read_prompt_file(full_include_path, _backup_dirs, **kwargs)
-        return included_content
+        # Search for the include file in the directories
+        try:
+            included_content = read_prompt_file(include_path, _directories, **kwargs)
+            return included_content
+        except FileNotFoundError:
+            return match.group(0)  # Return original if file not found
 
     # Replace all includes with the file content
     return re.sub(include_pattern, replace_include, _content)
 
 
-def find_file_in_dirs(file_path, backup_dirs):
+def find_file_in_dirs(_filename: str, _directories: list[str]):
     """
-    This function tries to find the file first in the given file_path,
-    and then in the backup_dirs if not found in the original location.
-    Returns the absolute path of the found file.
+    This function searches for a filename in a list of directories in order.
+    Returns the absolute path of the first found file.
     """
-    # Try the original path first
-    if os.path.isfile(get_abs_path(file_path)):
-        return get_abs_path(file_path)
+    # Loop through the directories in order
+    for directory in _directories:
+        # Create full path
+        full_path = get_abs_path(directory, _filename)
+        if exists(full_path):
+            return full_path
 
-    # Loop through the backup directories
-    for backup_dir in backup_dirs:
-        # backup path should be os.path.join(backup_dir, file_path) but that can lead to problems
-        # with absolute paths in file_path. So we use basename.
-        # This means that we don't support include paths like "subdir/something.md" from backups
-        backup_path = os.path.join(backup_dir, os.path.basename(file_path))
-        if os.path.isfile(get_abs_path(backup_path)):
-            return get_abs_path(backup_path)
-
-    # If the file is not found, let it raise the FileNotFoundError
+    # If the file is not found, raise FileNotFoundError
     raise FileNotFoundError(
-        f"File '{file_path}' not found in the original path or backup directories."
+        f"File '{_filename}' not found in any of the provided directories."
     )
 
 def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*"):

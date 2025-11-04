@@ -25,3 +25,5 @@ usage:
     }
 }
 ~~~
+
+{{ include "agent.system.response_tool_tips.md" }}

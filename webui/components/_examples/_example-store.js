@@ -8,6 +8,10 @@ const model = {
     // gets called when the store is created
     init(){
         console.log("Example store initialized");
+    },
+
+    clickHandler(event){
+        console.log(event)
     }
 
 };

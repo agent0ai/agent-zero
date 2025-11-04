@@ -7,5 +7,6 @@ set -e
 #     python3.12 -m venv /opt/venv
 #     source /opt/venv/bin/activate
 # else
-    source /opt/venv/bin/activate
+    # source /opt/venv/bin/activate
 # fi
+source /opt/venv-a0/bin/activate

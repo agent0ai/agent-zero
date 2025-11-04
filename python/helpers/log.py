@@ -1,10 +1,15 @@
 from dataclasses import dataclass, field
 import json
-from typing import Any, Literal, Optional, Dict
+from typing import Any, Literal, Optional, Dict, TypeVar
+
+T = TypeVar("T")
 import uuid
 from collections import OrderedDict  # Import OrderedDict
 from python.helpers.strings import truncate_text_by_ratio
 import copy
+from typing import TypeVar
+
+T = TypeVar("T")
 
 Type = Literal[
     "agent",
@@ -37,19 +42,24 @@ def _truncate_heading(text: str | None) -> str:
         return ""
     return truncate_text_by_ratio(str(text), HEADING_MAX_LEN, "...", ratio=1.0)
 
+
 def _truncate_progress(text: str | None) -> str:
     if text is None:
         return ""
     return truncate_text_by_ratio(str(text), PROGRESS_MAX_LEN, "...", ratio=1.0)
 
+
 def _truncate_key(text: str) -> str:
     return truncate_text_by_ratio(str(text), KEY_MAX_LEN, "...", ratio=1.0)
 
-def _truncate_value(val: Any) -> Any:
+
+def _truncate_value(val: T) -> T:
     # If dict, recursively truncate each value
     if isinstance(val, dict):
         for k in list(val.keys()):
-            val[k] = _truncate_value(val[k])
+            v = val[k]
+            del val[k]
+            val[_truncate_key(k)] = _truncate_value(v)
         return val
     # If list or tuple, recursively truncate each item
     if isinstance(val, list):
@@ -57,7 +67,7 @@ def _truncate_value(val: Any) -> Any:
             val[i] = _truncate_value(val[i])
         return val
     if isinstance(val, tuple):
-        return tuple(_truncate_value(x) for x in val)
+        return tuple(_truncate_value(x) for x in val) # type: ignore
 
     # Convert non-str values to json for consistent length measurement
     if isinstance(val, str):
@@ -77,6 +87,7 @@ def _truncate_value(val: Any) -> Any:
     truncated = truncate_text_by_ratio(raw, VALUE_MAX_LEN, replacement, ratio=0.3)
     return truncated
 
+
 def _truncate_content(text: str | None) -> str:
     if text is None:
         return ""
@@ -95,14 +106,35 @@ def _truncate_content(text: str | None) -> str:
         removed = new_removed
     return truncated
 
+
+def _mask_recursive(obj: T) -> T:
+    """Recursively mask secrets in nested objects."""
+    try:
+        from python.helpers.secrets import SecretsManager
+
+        secrets_mgr = SecretsManager.get_instance()
+
+        if isinstance(obj, str):
+            return secrets_mgr.mask_values(obj)
+        elif isinstance(obj, dict):
+            return {k: _mask_recursive(v) for k, v in obj.items()}  # type: ignore
+        elif isinstance(obj, list):
+            return [_mask_recursive(item) for item in obj]  # type: ignore
+        else:
+            return obj
+    except Exception as _e:
+        # If masking fails, return original object
+        return obj
+
+
 @dataclass
 class LogItem:
     log: "Log"
     no: int
     type: str
-    heading: str
-    content: str
-    temp: bool
+    heading: str = ""
+    content: str = ""
+    temp: bool = False
     update_progress: Optional[ProgressUpdate] = "persistent"
     kvps: Optional[OrderedDict] = None  # Use OrderedDict for kvps
     id: Optional[str] = None  # Add id field
@@ -179,41 +211,27 @@ class Log:
         id: Optional[str] = None,  # Add id parameter
         **kwargs,
     ) -> LogItem:
-        # Truncate heading and content
-        heading = _truncate_heading(heading)
-        content = _truncate_content(content)
 
-        # Truncate kvps
-        if kvps is not None:
-            kvps = copy.deepcopy(kvps) # deep copy to avoid modifying the original kvps
-            kvps = OrderedDict({
-                _truncate_key(k): _truncate_value(v) for k, v in kvps.items()
-            })
-        # Apply truncation to kwargs merged into kvps later
-        if kwargs is not None:
-            kwargs = copy.deepcopy(kwargs) # deep copy to avoid modifying the original kwargs
-        kwargs = { _truncate_key(k): _truncate_value(v) for k, v in (kwargs or {}).items() }
-
-        # Ensure kvps is OrderedDict even if None
-        if kvps is None:
-            kvps = OrderedDict()
-
+        # add a minimal item to the log
         item = LogItem(
             log=self,
             no=len(self.logs),
             type=type,
-            heading=heading or "",
-            content=content or "",
-            kvps=OrderedDict({**(kvps or {}), **(kwargs or {})}),
-            update_progress=(
-                update_progress if update_progress is not None else "persistent"
-            ),
-            temp=temp if temp is not None else False,
-            id=id,  # Pass id to LogItem
         )
         self.logs.append(item)
-        self.updates += [item.no]
-        self._update_progress_from_item(item)
+
+        # and update it (to have just one implementation)
+        self._update_item(
+            no=item.no,
+            type=type,
+            heading=heading,
+            content=content,
+            kvps=kvps,
+            temp=temp,
+            update_progress=update_progress,
+            id=id,
+            **kwargs,
+        )
         return item
 
     def _update_item(
@@ -225,44 +243,51 @@ class Log:
         kvps: dict | None = None,
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
+        id: Optional[str] = None,  # Add id parameter
         **kwargs,
     ):
         item = self.logs[no]
-        # Apply truncation where necessary
+
+        # adjust all content before processing
+        if heading is not None:
+            heading = _mask_recursive(heading)
+            heading = _truncate_heading(heading)
+            item.heading = heading
+        if content is not None:
+            content = _mask_recursive(content)
+            content = _truncate_content(content)
+            item.content = content
+        if kvps is not None:
+            kvps = OrderedDict(copy.deepcopy(kvps))
+            kvps = _mask_recursive(kvps)
+            kvps = _truncate_value(kvps)
+            item.kvps = kvps
+        elif item.kvps is None:
+            item.kvps = OrderedDict()
+        if kwargs:
+            kwargs = copy.deepcopy(kwargs)
+            kwargs = _mask_recursive(kwargs)
+            item.kvps.update(kwargs)
+
         if type is not None:
             item.type = type
 
         if update_progress is not None:
             item.update_progress = update_progress
 
-        if heading is not None:
-            item.heading = _truncate_heading(heading)
-
-        if content is not None:
-            item.content = _truncate_content(content)
-
-        if kvps is not None:
-            kvps = copy.deepcopy(kvps) # deep copy to avoid modifying the original kvps
-            item.kvps = OrderedDict({
-                _truncate_key(k): _truncate_value(v) for k, v in kvps.items()
-            })  # Ensure order
-
         if temp is not None:
             item.temp = temp
 
-        if kwargs:
-            kwargs = copy.deepcopy(kwargs) # deep copy to avoid modifying the original kwargs
-            if item.kvps is None:
-                item.kvps = OrderedDict()  # Ensure kvps is an OrderedDict
-            for k, v in kwargs.items():
-                item.kvps[_truncate_key(k)] = _truncate_value(v)
-
+        if id is not None:
+            item.id = id
 
         self.updates += [item.no]
         self._update_progress_from_item(item)
 
     def set_progress(self, progress: str, no: int = 0, active: bool = True):
-        self.progress = _truncate_progress(progress)
+        progress = _mask_recursive(progress)
+        progress = _truncate_progress(progress)
+        self.progress = progress
         if not no:
             no = len(self.logs)
         self.progress_no = no
@@ -299,4 +324,3 @@ class Log:
                     item.heading,
                     (item.no if item.update_progress == "persistent" else -1),
                 )
-            

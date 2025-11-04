@@ -11,6 +11,8 @@ from python.helpers import runtime, whisper, defer, git
 from . import files, dotenv
 from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers
+from python.helpers.secrets import SecretsManager
+from python.helpers import dirty_json
 
 
 class Settings(TypedDict):
@@ -19,7 +21,7 @@ class Settings(TypedDict):
     chat_model_provider: str
     chat_model_name: str
     chat_model_api_base: str
-    chat_model_kwargs: dict[str, str]
+    chat_model_kwargs: dict[str, Any]
     chat_model_ctx_length: int
     chat_model_ctx_history: float
     chat_model_vision: bool
@@ -30,7 +32,7 @@ class Settings(TypedDict):
     util_model_provider: str
     util_model_name: str
     util_model_api_base: str
-    util_model_kwargs: dict[str, str]
+    util_model_kwargs: dict[str, Any]
     util_model_ctx_length: int
     util_model_ctx_input: float
     util_model_rl_requests: int
@@ -40,7 +42,7 @@ class Settings(TypedDict):
     embed_model_provider: str
     embed_model_name: str
     embed_model_api_base: str
-    embed_model_kwargs: dict[str, str]
+    embed_model_kwargs: dict[str, Any]
     embed_model_rl_requests: int
     embed_model_rl_input: int
 
@@ -51,7 +53,8 @@ class Settings(TypedDict):
     browser_model_rl_requests: int
     browser_model_rl_input: int
     browser_model_rl_output: int
-    browser_model_kwargs: dict[str, str]
+    browser_model_kwargs: dict[str, Any]
+    browser_http_headers: dict[str, Any]
 
     agent_profile: str
     agent_memory_subdir: str
@@ -101,8 +104,12 @@ class Settings(TypedDict):
     mcp_server_token: str
 
     a2a_server_enabled: bool
-    
 
+    variables: str
+    secrets: str
+
+    # LiteLLM global kwargs applied to all model calls
+    litellm_global_kwargs: dict[str, Any]
 
 class PartialSettings(Settings, total=False):
     pass
@@ -134,6 +141,7 @@ class SettingsField(TypedDict, total=False):
     step: float
     hidden: bool
     options: list[FieldOption]
+    style: str
 
 
 class SettingsSection(TypedDict, total=False):
@@ -257,7 +265,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "chat_model_kwargs",
             "title": "Chat model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, just like .env file.",
+            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
             "type": "textarea",
             "value": _dict_to_env(settings["chat_model_kwargs"]),
         }
@@ -337,7 +345,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "util_model_kwargs",
             "title": "Utility model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, just like .env file.",
+            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
             "type": "textarea",
             "value": _dict_to_env(settings["util_model_kwargs"]),
         }
@@ -407,7 +415,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "embed_model_kwargs",
             "title": "Embedding model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, just like .env file.",
+            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
             "type": "textarea",
             "value": _dict_to_env(settings["embed_model_kwargs"]),
         }
@@ -497,9 +505,19 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "browser_model_kwargs",
             "title": "Web Browser model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, just like .env file.",
+            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
             "type": "textarea",
             "value": _dict_to_env(settings["browser_model_kwargs"]),
+        }
+    )
+
+    browser_model_fields.append(
+        {
+            "id": "browser_http_headers",
+            "title": "HTTP Headers",
+            "description": "HTTP headers to include with all browser requests. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string. Example: Authorization=Bearer token123",
+            "type": "textarea",
+            "value": _dict_to_env(settings.get("browser_http_headers", {})),
         }
     )
 
@@ -575,8 +593,30 @@ def convert_out(settings: Settings) -> SettingsOutput:
     api_keys_section: SettingsSection = {
         "id": "api_keys",
         "title": "API Keys",
-        "description": "API keys for model providers and services used by Agent Zero. You can set multiple API keys separated by a comma (,). They will be used in round-robin fashion.",
+        "description": "API keys for model providers and services used by Agent Zero. You can set multiple API keys separated by a comma (,). They will be used in round-robin fashion.<br>For more information abou Agent Zero Venice provider, see <a href='http://agent-zero.ai/?community/api-dashboard/about' target='_blank'>Agent Zero Venice</a>.",
         "fields": api_keys_fields,
+        "tab": "external",
+    }
+
+    # LiteLLM global config section
+    litellm_fields: list[SettingsField] = []
+
+    litellm_fields.append(
+        {
+            "id": "litellm_global_kwargs",
+            "title": "LiteLLM global parameters",
+            "description": "Global LiteLLM params (e.g. timeout, stream_timeout) in .env format: one KEY=VALUE per line. Example: <code>stream_timeout=30</code>. Applied to all LiteLLM calls unless overridden. See <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a> and <a href='https://docs.litellm.ai/docs/proxy/timeout' target='_blank'>timeouts</a>.",
+            "type": "textarea",
+            "value": _dict_to_env(settings["litellm_global_kwargs"]),
+            "style": "height: 12em",
+        }
+    )
+
+    litellm_section: SettingsSection = {
+        "id": "litellm",
+        "title": "LiteLLM Global Settings",
+        "description": "Configure global parameters passed to LiteLLM for all providers.",
+        "fields": litellm_fields,
         "tab": "external",
     }
 
@@ -633,6 +673,16 @@ def convert_out(settings: Settings) -> SettingsOutput:
             #     {"value": subdir, "label": subdir}
             #     for subdir in files.get_subdirectories("memory", exclude="embeddings")
             # ],
+        }
+    )
+
+    memory_fields.append(
+        {
+            "id": "memory_dashboard",
+            "title": "Memory Dashboard",
+            "description": "View and explore all stored memories in a table format with filtering and search capabilities.",
+            "type": "button",
+            "value": "Open Dashboard",
         }
     )
 
@@ -1057,6 +1107,41 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "mcp",
     }
 
+   # Secrets section
+    secrets_fields: list[SettingsField] = []
+
+    secrets_manager = SecretsManager.get_instance()
+    try:
+        secrets = secrets_manager.get_masked_secrets()
+    except Exception:
+        secrets = ""
+
+    secrets_fields.append({
+        "id": "variables",
+        "title": "Variables Store",
+        "description": "Store non-sensitive variables in .env format e.g. EMAIL_IMAP_SERVER=\"imap.gmail.com\", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href=\"javascript:openModal('settings/secrets/example-vars.html')\">example</a>.<br>These variables are visible to LLMs and in chat history, they are not being masked.",
+        "type": "textarea",
+        "value": settings["variables"].strip(),
+        "style": "height: 20em",
+    })
+
+    secrets_fields.append({
+        "id": "secrets",
+        "title": "Secrets Store",
+        "description": "Store secrets and credentials in .env format e.g. EMAIL_PASSWORD=\"s3cret-p4$$w0rd\", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href=\"javascript:openModal('settings/secrets/example-secrets.html')\">example</a>.<br>These variables are not visile to LLMs and in chat history, they are being masked. ⚠️ only values with length >= 4 are being masked to prevent false positives. ",
+        "type": "textarea",
+        "value": secrets,
+        "style": "height: 20em",
+    })
+
+    secrets_section: SettingsSection = {
+        "id": "secrets",
+        "title": "Secrets Management",
+        "description": "Manage secrets and credentials that agents can use without exposing values to LLMs, chat history or logs. Placeholders are automatically replaced with values just before tool calls. If bare passwords occur in tool results, they are masked back to placeholders.",
+        "fields": secrets_fields,
+        "tab": "external",
+    }
+
     mcp_server_fields: list[SettingsField] = []
 
     mcp_server_fields.append(
@@ -1177,6 +1262,8 @@ def convert_out(settings: Settings) -> SettingsOutput:
             memory_section,
             speech_section,
             api_keys_section,
+            litellm_section,
+            secrets_section,
             auth_section,
             mcp_client_section,
             mcp_server_section,
@@ -1213,14 +1300,14 @@ def convert_in(settings: dict) -> Settings:
                 )
 
                 if not should_skip:
-                    if field["id"].endswith("_kwargs"):
+                    # Special handling for browser_http_headers
+                    if field["id"] == "browser_http_headers" or field["id"].endswith("_kwargs"):
                         current[field["id"]] = _env_to_dict(field["value"])
                     elif field["id"].startswith("api_key_"):
                         current["api_keys"][field["id"]] = field["value"]
                     else:
                         current[field["id"]] = field["value"]
     return current
-
 
 def get_settings() -> Settings:
     global _settings
@@ -1311,6 +1398,7 @@ def _remove_sensitive_settings(settings: Settings):
     settings["rfc_password"] = ""
     settings["root_password"] = ""
     settings["mcp_server_token"] = ""
+    settings["secrets"] = ""
 
 
 def _write_sensitive_settings(settings: Settings):
@@ -1327,6 +1415,13 @@ def _write_sensitive_settings(settings: Settings):
         dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, settings["root_password"])
     if settings["root_password"]:
         set_root_password(settings["root_password"])
+
+    # Handle secrets separately - merge with existing preserving comments/order and support deletions
+    secrets_manager = SecretsManager.get_instance()
+    submitted_content = settings["secrets"]
+    secrets_manager.save_secrets_with_merge(submitted_content)
+    secrets_manager.clear_cache()  # Clear cache to reload secrets
+
 
 
 def get_default_settings() -> Settings:
@@ -1365,6 +1460,7 @@ def get_default_settings() -> Settings:
         browser_model_rl_input=0,
         browser_model_rl_output=0,
         browser_model_kwargs={"temperature": "0"},
+        browser_http_headers={},
         memory_recall_enabled=True,
         memory_recall_delayed=False,
         memory_recall_interval=3,
@@ -1404,6 +1500,9 @@ def get_default_settings() -> Settings:
         mcp_server_enabled=False,
         mcp_server_token=create_auth_token(),
         a2a_server_enabled=False,
+        variables="",
+        secrets="",
+        litellm_global_kwargs={},
     )
 
 
@@ -1515,26 +1614,48 @@ def _apply_settings(previous: Settings | None):
 
 
 def _env_to_dict(data: str):
-    env_dict = {}
-    line_pattern = re.compile(r"\s*([^#][^=]*)\s*=\s*(.*)")
+    result = {}
     for line in data.splitlines():
-        match = line_pattern.match(line)
-        if match:
-            key, value = match.groups()
-            # Remove optional surrounding quotes (single or double)
-            value = value.strip().strip('"').strip("'")
-            env_dict[key.strip()] = value
-    return env_dict
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        
+        if '=' not in line:
+            continue
+            
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip()
+        
+        # If quoted, treat as string
+        if value.startswith('"') and value.endswith('"'):
+            result[key] = value[1:-1].replace('\\"', '"')  # Unescape quotes
+        elif value.startswith("'") and value.endswith("'"):
+            result[key] = value[1:-1].replace("\\'", "'")  # Unescape quotes
+        else:
+            # Not quoted, try JSON parse
+            try:
+                result[key] = json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                result[key] = value
+    
+    return result
 
 
 def _dict_to_env(data_dict):
     lines = []
     for key, value in data_dict.items():
-        if "\n" in value:
-            value = f"'{value}'"
-        elif " " in value or value == "" or any(c in value for c in "\"'"):
-            value = f'"{value}"'
-        lines.append(f"{key}={value}")
+        if isinstance(value, str):
+            # Quote strings and escape internal quotes
+            escaped_value = value.replace('"', '\\"')
+            lines.append(f'{key}="{escaped_value}"')
+        elif isinstance(value, (dict, list, bool)) or value is None:
+            # Serialize as unquoted JSON
+            lines.append(f'{key}={json.dumps(value, separators=(",", ":"))}')
+        else:
+            # Numbers and other types as unquoted strings
+            lines.append(f'{key}={value}')
+    
     return "\n".join(lines)
 
 

@@ -7,7 +7,7 @@
 
 <body>
     <div x-data>
-        <p>Agent Zero MCP Server is an SSE MCP running on the same URL and port as the Web UI + /mcp/sse path.</p>
+        <p>Agent Zero MCP Server is an SSE MCP running on the same URL and port as the Web UI + /mcp/sse or /mcp/http path.</p>
         <p>The same applies if you run A0 on a public URL using a tunnel.</p>
 
         <!-- API Token Information -->
@@ -35,7 +35,7 @@
                         },
                         "agent-zero-http": {
                             "type": "streamable-http",
-                            "url": `${url}/mcp/t-${token}/http/`
+                            "url": `${url}/mcp/t-${token}/http`
                         }
                     }
                 }, null, 2);

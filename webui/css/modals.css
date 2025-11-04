@@ -276,7 +276,7 @@
 }
 
 .btn:disabled {
-  background: #ccc;
+  /* background: #ccc; */
   cursor: not-allowed;
 }
 
@@ -474,4 +474,41 @@
 
 .toolbar-button:disabled:hover {
   background-color: transparent;
+}
+
+/* Range Input Styles */
+
+input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-border);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--color-text);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--color-text);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.range-value {
+  min-width: 3em;
+  text-align: right;
 }

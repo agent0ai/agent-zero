@@ -1,9 +1,9 @@
-import * as initializer from "./initializer.js"
+import * as initializer from "./initializer.js";
 import * as _modals from "./modals.js";
 import * as _components from "./components.js";
 
 // initialize required elements
-await initializer.initialize()
+await initializer.initialize();
 
 // import alpine library
 await import("../vendor/alpine/alpine.min.js");
@@ -16,3 +16,9 @@ Alpine.directive(
     cleanup(() => onDestroy());
   }
 );
+
+// add x-create directive to alpine
+Alpine.directive("create", (_el, { expression }, { evaluateLater }) => {
+  const onCreate = evaluateLater(expression);
+  onCreate();
+});

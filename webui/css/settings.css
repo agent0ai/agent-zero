@@ -128,17 +128,6 @@ input:checked + .toggler:before {
   transform: translateX(26px);
 }
 
-/* Range Input Styles */
-input[type="range"] {
-  width: 100%;
-  cursor: grab;
-}
-
-.range-value {
-  min-width: 3em;
-  text-align: right;
-}
-
 /* Select Styles */
 select {
   cursor: pointer;

@@ -1,10 +1,6 @@
 from python.helpers.tool import Tool, Response
 from python.helpers.print_style import PrintStyle
-
-try:
-    from python.helpers.fasta2a_client import connect_to_agent, is_client_available  # type: ignore
-except ImportError:  # pragma: no cover – client helper missing
-    is_client_available = lambda: False  # type: ignore
+from python.helpers.fasta2a_client import connect_to_agent, is_client_available
 
 
 class A2AChatTool(Tool):

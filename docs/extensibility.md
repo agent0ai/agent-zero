@@ -172,17 +172,17 @@ Then in your `agent.system.tools.md` prompt file, you can use:
 This approach allows for highly dynamic prompts that can adapt based on available extensions, configurations, or runtime conditions. See existing examples in the `/prompts/` directory for reference implementations.
 
 ##### File Includes
-Prompts can include content from other prompt files using the `{{ include "./path/to/file.md" }}` syntax. This allows for modular prompt design and reuse.
+Prompts can include content from other prompt files using the `{{ include "path/to/file.md" }}` syntax. This allows for modular prompt design and reuse.
 
 **Example:**
 ```markdown
 # Agent Zero System Manual
 
-{{ include "./agent.system.main.role.md" }}
+{{ include "agent.system.main.role.md" }}
 
-{{ include "./agent.system.main.environment.md" }}
+{{ include "agent.system.main.environment.md" }}
 
-{{ include "./agent.system.main.communication.md" }}
+{{ include "agent.system.main.communication.md" }}
 ```
 
 #### Prompt Override Logic

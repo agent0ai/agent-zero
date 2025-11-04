@@ -67,19 +67,6 @@ const settingsModalProxy = {
                     }
                 }
             }
-
-            // When switching to the tunnel tab, initialize tunnelSettings
-            if (tabName === 'tunnel') {
-                console.log('Switching to tunnel tab, initializing tunnelSettings');
-                const tunnelElement = document.querySelector('[x-data="tunnelSettings"]');
-                if (tunnelElement) {
-                    const tunnelData = Alpine.$data(tunnelElement);
-                    if (tunnelData && typeof tunnelData.checkTunnelStatus === 'function') {
-                        // Check tunnel status
-                        tunnelData.checkTunnelStatus();
-                    }
-                }
-            }
         }, 10);
     },
 
@@ -294,6 +281,8 @@ const settingsModalProxy = {
             openModal("settings/external/a2a-connection.html");
         } else if (field.id === "external_api_examples") {
             openModal("settings/external/api-examples.html");
+        } else if (field.id === "memory_dashboard") {
+            openModal("settings/memory/memory-dashboard.html");
         }
     }
 };
