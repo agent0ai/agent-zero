@@ -7,6 +7,16 @@ from python.extensions.hist_add_tool_result import _90_save_tool_call_file as sa
 class Delegation(Tool):
 
     async def execute(self, message="", reset="", **kwargs):
+        # Check depth limit
+        max_depth = getattr(self.agent.config, 'max_agent_depth', 5)
+        if self.agent.number >= max_depth:
+            error_msg = (
+                f"Cannot create subordinate: Maximum delegation depth ({max_depth}) reached. "
+                f"You are agent level {self.agent.number}. "
+                f"Consider handling this task yourself or restructuring your approach."
+            )
+            return Response(message=error_msg, break_loop=False)
+
         # create subordinate agent using the data object on this agent and set superior agent to his data object
         if (
             self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) is None
@@ -19,6 +29,22 @@ class Delegation(Tool):
             agent_profile = kwargs.get("profile")
             if agent_profile:
                 config.profile = agent_profile
+
+            # Warning for same-profile delegation
+            current_profile = self.agent.config.profile or "Default"
+            subordinate_profile = config.profile or "Default"
+            if current_profile == subordinate_profile:
+                warning_msg = (
+                    f"Warning: Delegating to subordinate with same profile '{current_profile}'. "
+                    f"Ensure this is a specific subtask, not your full assigned task. "
+                    f"Same-profile full-task delegation creates loops."
+                )
+                # Log warning but allow operation (prompt should prevent this)
+                self.agent.context.log.log(
+                    type="warning",
+                    heading=f"Same-profile delegation warning",
+                    content=warning_msg
+                )
 
             # crate agent
             sub = Agent(self.agent.number + 1, config, self.agent.context)
