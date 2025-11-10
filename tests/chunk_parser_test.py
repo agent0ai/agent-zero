@@ -7,6 +7,10 @@ ex1 = "<think>reasoning goes here</think>response goes here"
 ex2 = "<think>reasoning goes here</thi"
 
 
+import pytest
+
+
+@pytest.mark.parametrize("example", [ex1, ex2])
 def test_example(example: str):
     res = models.ChatGenerationResult()
     for i in range(len(example)):
@@ -20,4 +24,3 @@ def test_example(example: str):
 if __name__ == "__main__":
     # test_example(ex1)
     test_example(ex2)
-    
