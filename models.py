@@ -41,7 +41,6 @@ from langchain_core.messages import (
 )
 from langchain.embeddings.base import Embeddings
 from sentence_transformers import SentenceTransformer
-from pydantic import ConfigDict
 
 
 # disable extra logging, must be done repeatedly, otherwise browser-use will turn it back on for some reason
@@ -107,17 +106,17 @@ class ChatGenerationResult:
     def add_chunk(self, chunk: ChatChunk) -> ChatChunk:
         if chunk["reasoning_delta"]:
             self.native_reasoning = True
-
+        
         # if native reasoning detection works, there's no need to worry about thinking tags
         if self.native_reasoning:
             processed_chunk = ChatChunk(response_delta=chunk["response_delta"], reasoning_delta=chunk["reasoning_delta"])
         else:
             # if the model outputs thinking tags, we ned to parse them manually as reasoning
             processed_chunk = self._process_thinking_chunk(chunk)
-
+        
         self.reasoning += processed_chunk["reasoning_delta"]
         self.response += processed_chunk["response_delta"]
-
+        
         return processed_chunk
 
     def _process_thinking_chunk(self, chunk: ChatChunk) -> ChatChunk:
@@ -146,7 +145,7 @@ class ChatGenerationResult:
                     response = response[len(opening_tag):]
                     self.thinking = True
                     self.thinking_tag = closing_tag
-
+                    
                     close_pos = response.find(closing_tag)
                     if close_pos != -1:
                         reasoning += response[:close_pos]
@@ -165,7 +164,7 @@ class ChatGenerationResult:
                     self.unprocessed = response
                     response = ""
                     break
-
+        
         return ChatChunk(response_delta=response, reasoning_delta=reasoning)
 
     def _is_partial_opening_tag(self, text: str, opening_tag: str) -> bool:
@@ -192,7 +191,7 @@ class ChatGenerationResult:
             else:
                 response += self.unprocessed
         return ChatChunk(response_delta=response, reasoning_delta=reasoning)
-
+        
 
 rate_limiters: dict[str, RateLimiter] = {}
 api_keys_round_robin: dict[str, int] = {}
@@ -294,11 +293,10 @@ class LiteLLMChatWrapper(SimpleChatModel):
     provider: str
     kwargs: dict = {}
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        extra="allow",
-        validate_assignment=False,
-    )
+    class Config:
+        arbitrary_types_allowed = True
+        extra = "allow"  # Allow extra attributes
+        validate_assignment = False  # Don't validate on assignment
 
     def __init__(
         self,
@@ -554,7 +552,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
             except Exception as e:
                 import asyncio
-
+                
                 # Retry only if no chunks received and error is transient
                 if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
                     raise

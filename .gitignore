@@ -2,13 +2,11 @@
 **/.DS_Store
 **/.env
 **/__pycache__/
-*.py[cod]
 **/.conda/
 
 #Ignore cursor rules
 .cursor/
 .windsurf/
-.cursorindexingignore
 
 # ignore test files in root dir
 /*.test.py
@@ -44,10 +42,3 @@ instruments/**
 # Global rule to include .gitkeep files anywhere
 !**/.gitkeep
 agent_history.gif
-
-# specify, specstory extension data
-.serena
-.specify
-.specstory
-specs/*/.reviews
-specs/*/reviews

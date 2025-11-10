@@ -46,6 +46,3 @@ imapclient>=3.0.1
 html2text>=2024.2.26
 beautifulsoup4>=4.12.3
 exchangelib>=5.4.3
-pytest>=8.4.2
-pytest-asyncio>=1.2.0
-pytest-mock>=3.15.1
