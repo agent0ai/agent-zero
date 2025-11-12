@@ -87,7 +87,10 @@ class Poll(ApiHandler):
                         "context_id": task_details.get("context_id"),
                         "project_name": task_details.get("project_name"),
                         "project_color": task_details.get("project_color"),
-                        "project": task_details.get("project"),
+                        "project": {
+                            "name": task_details.get("project_name"),
+                            "color": task_details.get("project_color"),
+                        },
                     })
 
                     # Add type-specific fields
