@@ -1677,3 +1677,12 @@ nav ul li a img {
 [data-bs-toggle="collapse"].collapsed .arrow-icon {
   transform: rotate(0deg);
 }
+
+.project-color-ball {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
