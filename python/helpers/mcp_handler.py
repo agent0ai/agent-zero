@@ -286,24 +286,24 @@ class MCPServerRemote(BaseModel):
 
 class MCPServerLocal(BaseModel):
     name: str = Field(default_factory=str)
-    description: Optional[str] = Field(default="Local StdIO Server")
-    type: str = Field(default="stdio", description="Server connection type")
+    description: Optional[str] = Field(default_factory=lambda: "Local StdIO Server")
+    type: str = Field(default_factory=lambda: "stdio", description="Server connection type")
     command: str = Field(default_factory=str)
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] | None = Field(default_factory=dict[str, str])
-    encoding: str = Field(default="utf-8")
+    encoding: str = Field(default_factory=lambda: "utf-8")
     encoding_error_handler: Literal["strict", "ignore", "replace"] = Field(
-        default="strict"
+        default_factory=lambda: "strict"
     )
-    init_timeout: int = Field(default=0)
-    tool_timeout: int = Field(default=0)
-    verify: bool = Field(default=True, description="Verify SSL certificates")
-    disabled: bool = Field(default=False)
+    init_timeout: int = Field(default_factory=lambda: 0)
+    tool_timeout: int = Field(default_factory=lambda: 0)
+    verify: bool = Field(default_factory=lambda: True, description="Verify SSL certificates")
+    disabled: bool = Field(default_factory=lambda: False)
 
-    __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
-    __client: Optional["MCPClientLocal"] = PrivateAttr(default=None)
+    __lock: ClassVar[threading.Lock] = PrivateAttr(default_factory=lambda: threading.Lock())
+    __client: Optional["MCPClientLocal"] = PrivateAttr(default_factory=lambda: None)
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any] = Field(default_factory=dict)):
         super().__init__()
         self.__client = MCPClientLocal(self)
         self.update(config)

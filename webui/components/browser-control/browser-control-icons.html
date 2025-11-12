@@ -1,0 +1,49 @@
+<html>
+<head>
+    <title>Browser Control Toggle Icon</title>
+    <script type="module">
+        import { store } from "/components/browser-control/browser-control-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.browserControl">
+            <!-- Browser Control Toggle Button -->
+            <div class="notification-toggle"
+                 :class="{
+                     'has-notifications': $store.browserControl.vncReady
+                 }"
+                 @click="$store.browserControl.isVisible ? $store.browserControl.hide() : $store.browserControl.show()"
+                 title="Toggle Browser Control">
+                <div class="notification-icon">
+                    <span class="material-symbols-outlined">web</span>
+                </div>
+                <!-- Show indicator when VNC is ready -->
+                <span x-show="$store.browserControl.vncReady && !$store.browserControl.isVisible"
+                      class="browser-ready-indicator"
+                      title="Browser control available"></span>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        /* Browser ready indicator - small green dot */
+        .browser-ready-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border-radius: 50%;
+            border: 2px solid var(--color-panel);
+            z-index: 1;
+        }
+
+        /* Add a subtle glow when browser control is visible */
+        .notification-toggle:has(.material-symbols-outlined:contains("web")) {
+            transition: all 0.2s ease;
+        }
+    </style>
+</body>
+</html>

@@ -287,7 +287,13 @@ class AgentConfig:
     code_exec_ssh_user: str = "root"
     code_exec_ssh_pass: str = ""
     additional: Dict[str, Any] = field(default_factory=dict)
-
+    enable_browser_agent: bool = False
+    computer_use_headless: bool = False  # Browser GUI enabled for interaction (uses VNC if available, otherwise X11 forwarding)
+    computer_use_cdp_url: str = ""  # Chrome DevTools Protocol URL for native browser (e.g., "ws://host.docker.internal:9222/devtools/browser/..."), leave empty to use embedded browser with VNC
+    computer_use_start_url: str = "https://www.google.com"
+    computer_use_timeout: int = 5000 # milliseconds
+    # VNC is automatically enabled if available (configured in docker-compose.yml)
+    # Access browser control via noVNC when agent calls pause_for_user method
 
 @dataclass
 class UserMessage:

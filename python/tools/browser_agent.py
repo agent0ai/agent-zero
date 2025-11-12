@@ -213,6 +213,11 @@ class State:
 class BrowserAgent(Tool):
 
     async def execute(self, message="", reset="", **kwargs):
+        if not self.agent.config.enable_browser_agent:
+            return Response(
+                message="Browser agent is disabled in the configuration.",
+                break_loop=False,
+            )
         self.guid = self.agent.context.generate_id() # short random id
         reset = str(reset).lower().strip() == "true"
         await self.prepare_state(reset=reset)

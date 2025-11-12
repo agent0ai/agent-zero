@@ -1,0 +1,54 @@
+import { createStore } from "/js/AlpineStore.js";
+
+const model = {
+    isVisible: false,
+    isMinimized: false,
+    isMaximized: false,
+    vncUrl: '',
+    vncReady: false,
+
+    init() {
+        this.checkVncAvailability();
+    },
+
+    async checkVncAvailability() {
+        try {
+            const response = await fetch('/browser_control?action=info');
+            const data = await response.json();
+            this.vncReady = data.vnc_ready;
+            if (data.vnc_ready && data.novnc_url) {
+                this.vncUrl = data.novnc_url;
+            }
+        } catch (error) {
+            console.log('VNC not available:', error);
+            this.vncReady = false;
+        }
+    },
+
+    show(url = null) {
+        if (url) {
+            this.vncUrl = url;
+        }
+        this.isVisible = true;
+        this.isMinimized = false;
+    },
+
+    hide() {
+        this.isVisible = false;
+    },
+
+    toggleMinimize() {
+        this.isMinimized = !this.isMinimized;
+        if (this.isMinimized) {
+            this.isMaximized = false;
+        }
+    },
+
+    toggleMaximize() {
+        this.isMaximized = !this.isMaximized;
+    }
+};
+
+// Create and export the store
+const store = createStore("browserControl", model);
+export { store };
