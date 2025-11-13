@@ -162,6 +162,13 @@
         }
     </script>
 
+    <script>
+        document.addEventListener('alpine:init', () => {
+            const s = Alpine.store('browserControl');
+            if (s && typeof s.init === 'function') s.init();
+        });
+    </script>
+
     <style>
         /* Browser Control Panel Styles */
         .browser-panel {

@@ -41,6 +41,13 @@ const model = {
         this.isVisible = false;
     },
 
+    cleanup() {
+        if (this._checkInterval) {
+            clearInterval(this._checkInterval);
+            this._checkInterval = null;
+        }
+    },
+
     toggleMinimize() {
         this.isMinimized = !this.isMinimized;
         if (this.isMinimized) {
