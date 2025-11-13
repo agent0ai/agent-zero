@@ -6,6 +6,7 @@
 import { formatDateTime, getUserTimezone } from './time-utils.js';
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js"
 import { store as  notificationsStore } from "/components/notifications/notification-store.js"
+import { store as projectsStore } from "/components/projects/projects-store.js"
 
 // Ensure the showToast function is available
 // if (typeof window.showToast !== 'function') {
@@ -107,8 +108,12 @@ const fullComponentImplementation = function() {
             },
             system_prompt: '',
             prompt: '',
-            attachments: []
+            attachments: [],
+            project: null,
+            dedicated_context: true,
         },
+        projectOptions: [],
+        selectedProjectSlug: '',
         isCreating: false,
         isEditing: false,
         showLoadingState: false,
@@ -185,8 +190,11 @@ const fullComponentImplementation = function() {
                 },
                 system_prompt: '',
                 prompt: '',
-                attachments: []
+                attachments: [],
+                project: null,
+                dedicated_context: true,
             };
+            this.refreshProjectOptions();
 
             // Initialize Flatpickr for date/time pickers after Alpine is fully initialized
             this.$nextTick(() => {
@@ -439,11 +447,107 @@ const fullComponentImplementation = function() {
             }
         },
 
+        deriveActiveProject() {
+            const selected = chatsStore?.selectedContext || null;
+            if (!selected || !selected.project) {
+                return null;
+            }
+
+            const project = selected.project;
+            return {
+                name: project.name || null,
+                title: project.title || project.name || null,
+                color: project.color || '',
+            };
+        },
+
+        formatProjectName(project) {
+            if (!project) {
+                return 'No Project';
+            }
+            const title = project.title || project.name;
+            return title || 'No Project';
+        },
+
+        formatProjectLabel(project) {
+            return `Project: ${this.formatProjectName(project)}`;
+        },
+
+        async refreshProjectOptions() {
+            try {
+                if (!Array.isArray(projectsStore.projectList) || !projectsStore.projectList.length) {
+                    if (typeof projectsStore.loadProjectsList === 'function') {
+                        await projectsStore.loadProjectsList();
+                    }
+                }
+            } catch (error) {
+                console.warn('schedulerSettings: failed to load project list', error);
+            }
+
+            const list = Array.isArray(projectsStore.projectList) ? projectsStore.projectList : [];
+            this.projectOptions = list.map((proj) => ({
+                name: proj.name,
+                title: proj.title || proj.name,
+                color: proj.color || '',
+            }));
+        },
+
+        onProjectSelect(slug) {
+            this.selectedProjectSlug = slug || '';
+            if (!slug) {
+                this.editingTask.project = null;
+                return;
+            }
+
+            const option = this.projectOptions.find((item) => item.name === slug);
+            if (option) {
+                this.editingTask.project = { ...option };
+            } else {
+                this.editingTask.project = {
+                    name: slug,
+                    title: slug,
+                    color: '',
+                };
+            }
+        },
+
+        extractTaskProject(task) {
+            if (!task) {
+                return null;
+            }
+
+            const slug = task.project_name || null;
+            const project = task.project || {};
+            const title = project.name || slug;
+            const color = task.project_color || project.color || '';
+
+            if (!slug && !title) {
+                return null;
+            }
+
+            return {
+                name: slug,
+                title: title || slug,
+                color: color,
+            };
+        },
+
+        formatTaskProject(task) {
+            return this.formatProjectName(this.extractTaskProject(task));
+        },
+
         // Create a new task
-        startCreateTask() {
+        async startCreateTask() {
             this.isCreating = true;
             this.isEditing = false;
             document.querySelector('[x-data="schedulerSettings"]')?.setAttribute('data-editing-state', 'creating');
+            await this.refreshProjectOptions();
+            const activeProject = this.deriveActiveProject();
+            let initialProject = activeProject ? { ...activeProject } : null;
+            if (!initialProject && this.projectOptions.length > 0) {
+                initialProject = { ...this.projectOptions[0] };
+            }
+
             this.editingTask = {
                 name: '',
                 type: 'scheduled', // Default to scheduled
@@ -465,7 +569,10 @@ const fullComponentImplementation = function() {
                 system_prompt: '',
                 prompt: '',
                 attachments: [], // Always initialize as an empty array
+                project: initialProject,
+                dedicated_context: true,
             };
+            this.selectedProjectSlug = initialProject && initialProject.name ? initialProject.name : '';
 
             // Set up Flatpickr after the component is visible
             this.$nextTick(() => {
@@ -487,6 +594,16 @@ const fullComponentImplementation = function() {
 
             // Create a deep copy to avoid modifying the original
             this.editingTask = JSON.parse(JSON.stringify(task));
+            const projectSlug = task.project_name || null;
+            const projectDisplay = (task.project && task.project.name) || projectSlug;
+            const projectColor = task.project_color || (task.project ? task.project.color : '') || '';
+            this.editingTask.project = projectSlug || projectDisplay ? {
+                name: projectSlug,
+                title: projectDisplay,
+                color: projectColor,
+            } : null;
+            this.editingTask.dedicated_context = !!task.dedicated_context;
+            this.selectedProjectSlug = this.editingTask.project && this.editingTask.project.name ? this.editingTask.project.name : '';
 
             // Debug log
             console.log('Task data for editing:', task);
@@ -651,7 +768,10 @@ const fullComponentImplementation = function() {
                 system_prompt: '',
                 prompt: '',
                 attachments: [], // Always initialize as an empty array
+                project: null,
+                dedicated_context: true,
             };
+            this.selectedProjectSlug = '';
             this.isCreating = false;
             this.isEditing = false;
             document.querySelector('[x-data="schedulerSettings"]')?.removeAttribute('data-editing-state');
@@ -677,6 +797,15 @@ const fullComponentImplementation = function() {
                     state: this.editingTask.state || 'idle', // Include state in task data
                     timezone: getUserTimezone()
                 };
+
+                if (this.isCreating && this.editingTask.project) {
+                    if (this.editingTask.project.name) {
+                        taskData.project_name = this.editingTask.project.name;
+                    }
+                    if (this.editingTask.project.color) {
+                        taskData.project_color = this.editingTask.project.color;
+                    }
+                }
 
                 // Process attachments - now always stored as array
                 taskData.attachments = Array.isArray(this.editingTask.attachments)
@@ -867,7 +996,9 @@ const fullComponentImplementation = function() {
                     },
                     system_prompt: '',
                     prompt: '',
-                    attachments: []
+                    attachments: [],
+                    project: null,
+                    dedicated_context: true,
                 };
                 this.isCreating = false;
                 this.isEditing = false;
@@ -892,12 +1023,15 @@ const fullComponentImplementation = function() {
                     })
                 });
 
+                const data = await response.json();
+
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to run task');
+                    throw new Error(data?.error || 'Failed to run task');
                 }
 
-                showToast('Task started successfully', 'success');
+                const toastMessage = data.warning || data.message || 'Task started successfully';
+                const toastType = data.warning ? 'warning' : 'success';
+                showToast(toastMessage, toastType);
 
                 // Refresh task list
                 this.fetchTasks();
@@ -1454,24 +1588,20 @@ if (!window.schedulerSettings) {
             // Get the full implementation
             const fullImpl = fullComponentImplementation();
 
-            // Add essential methods directly
-            const essentialMethods = [
-                'fetchTasks', 'startPolling', 'stopPolling',
-                'startCreateTask', 'startEditTask', 'cancelEdit',
-                'saveTask', 'runTask', 'resetTaskState', 'deleteTask',
-                'toggleTaskExpand', 'showTaskDetail', 'closeTaskDetail',
-                'changeSort', 'formatDate', 'formatPlan', 'formatSchedule',
-                'getStateBadgeClass', 'generateRandomToken', 'testFiltering',
-                'debugTasks', 'sortTasks', 'initFlatpickr', 'initDateTimeInput',
-                'updateTasksUI'
-            ];
-
-            essentialMethods.forEach(method => {
-                if (typeof this[method] !== 'function' && typeof fullImpl[method] === 'function') {
-                    console.log(`Adding missing method: ${method}`);
-                    this[method] = fullImpl[method];
+            // Register all implementation methods (except init) directly
+            Object.keys(fullImpl).forEach((key) => {
+                if (key === 'init') {
+                    return;
+                }
+                if (typeof fullImpl[key] === 'function') {
+                    console.log(`Registering method: ${key}`);
+                    this[key] = fullImpl[key];
                 }
             });
+
+            if (typeof this.refreshProjectOptions === 'function') {
+                this.refreshProjectOptions();
+            }
 
             // hack to expose deleteTask
             window.deleteTaskGlobal = this.deleteTask.bind(this);
@@ -1482,6 +1612,14 @@ if (!window.schedulerSettings) {
             // Initialize essential properties if missing
             if (!Array.isArray(this.tasks)) {
                 this.tasks = [];
+            }
+
+            if (!Array.isArray(this.projectOptions)) {
+                this.projectOptions = [];
+            }
+
+            if (typeof this.selectedProjectSlug !== 'string') {
+                this.selectedProjectSlug = '';
             }
 
             // Make sure attachmentsText getter/setter are defined
@@ -1498,7 +1636,11 @@ if (!window.schedulerSettings) {
                     },
                     set: function(value) {
                         if (!this.editingTask) {
-                            this.editingTask = { attachments: [] };
+                            this.editingTask = {
+                                attachments: [],
+                                project: null,
+                                dedicated_context: true,
+                            };
                         }
 
                         if (typeof value === 'string') {

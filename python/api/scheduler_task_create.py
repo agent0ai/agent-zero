@@ -3,6 +3,7 @@ from python.helpers.task_scheduler import (
     TaskScheduler, ScheduledTask, AdHocTask, PlannedTask, TaskSchedule,
     serialize_task, parse_task_schedule, parse_task_plan, TaskType
 )
+from python.helpers.projects import load_basic_project_data
 from python.helpers.localization import Localization
 from python.helpers.print_style import PrintStyle
 import random
@@ -27,7 +28,26 @@ class SchedulerTaskCreate(ApiHandler):
         system_prompt = input.get("system_prompt", "")
         prompt = input.get("prompt")
         attachments = input.get("attachments", [])
-        context_id = input.get("context_id", None)
+
+        requested_project_slug = input.get("project_name")
+        if isinstance(requested_project_slug, str):
+            requested_project_slug = requested_project_slug.strip() or None
+        else:
+            requested_project_slug = None
+
+        project_slug = requested_project_slug
+        project_color = None
+
+        if project_slug:
+            try:
+                metadata = load_basic_project_data(requested_project_slug)
+                project_color = metadata.get("color") or None
+            except Exception as exc:
+                printer.error(f"SchedulerTaskCreate: failed to load project '{project_slug}': {exc}")
+                return {"error": f"Saving project failed: {project_slug}"}
+
+        # Always dedicated context for scheduler tasks created by ui
+        task_context_id = None
 
         # Check if schedule is provided (for ScheduledTask)
         schedule = input.get("schedule", {})
@@ -77,8 +97,10 @@ class SchedulerTaskCreate(ApiHandler):
                 prompt=prompt,
                 schedule=task_schedule,
                 attachments=attachments,
-                context_id=context_id,
-                timezone=timezone
+                context_id=task_context_id,
+                timezone=timezone,
+                project_name=project_slug,
+                project_color=project_color,
             )
         elif plan:
             # Create a planned task
@@ -94,7 +116,9 @@ class SchedulerTaskCreate(ApiHandler):
                 prompt=prompt,
                 plan=task_plan,
                 attachments=attachments,
-                context_id=context_id
+                context_id=task_context_id,
+                project_name=project_slug,
+                project_color=project_color,
             )
         else:
             # Create an ad-hoc task
@@ -105,7 +129,9 @@ class SchedulerTaskCreate(ApiHandler):
                 prompt=prompt,
                 token=token,
                 attachments=attachments,
-                context_id=context_id
+                context_id=task_context_id,
+                project_name=project_slug,
+                project_color=project_color,
             )
             # Verify token after creation
             if isinstance(task, AdHocTask):
@@ -132,5 +158,6 @@ class SchedulerTaskCreate(ApiHandler):
             printer.print(f"Serialized adhoc task, token in response: '{task_dict.get('token')}'")
 
         return {
+            "ok": True,
             "task": task_dict
         }

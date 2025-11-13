@@ -393,6 +393,34 @@
                                             </select>
                                         </div>
 
+                                        <div class="scheduler-form-field">
+                                            <div class="label-help-wrapper">
+                                                <label class="scheduler-form-label">Project</label>
+                                                <div class="scheduler-form-help" x-text="editingTask.dedicated_context ? 'Inherited from the active chat project.' : 'Mirrors the shared context project.'"></div>
+                                            </div>
+                                            <template x-if="isCreating">
+                                                <div class="project-selector">
+                                                    <span class="project-color-ball"
+                                                          :style="editingTask.project?.color ? { backgroundColor: editingTask.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                                                    <select class="scheduler-project-select"
+                                                            x-model="selectedProjectSlug"
+                                                            @change="onProjectSelect($event.target.value)">
+                                                        <option value="">No project</option>
+                                                        <template x-for="proj in projectOptions" :key="proj.name">
+                                                            <option :value="proj.name" x-text="proj.title"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                            </template>
+                                            <template x-if="!isCreating">
+                                                <div class="project-display">
+                                                    <span class="project-color-ball"
+                                                          :style="editingTask.project?.color ? { backgroundColor: editingTask.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                                                    <span x-text="formatProjectLabel(editingTask.project)"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+
                                         <!-- Task State in Create Form - Add after Task Type -->
                                         <div class="scheduler-form-field" x-show="isCreating">
                                             <div class="label-help-wrapper">
@@ -660,6 +688,17 @@
                                                 <option value="adhoc">Ad-hoc Task</option>
                                                 <option value="planned">Planned Task</option>
                                             </select>
+                                        </div>
+
+                                        <div class="scheduler-form-field">
+                                            <div class="label-help-wrapper">
+                                                <label class="scheduler-form-label">Project</label>
+                                                <div class="scheduler-form-help" x-text="editingTask.dedicated_context ? 'Dedicated tasks inherit the active chat project.' : 'Shared tasks mirror the project assigned to their context.'"></div>
+                                            </div>
+                                            <div class="project-display">
+                                                <span class="project-color-ball" :style="editingTask.project?.color ? { backgroundColor: editingTask.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                                                <span x-text="formatProjectLabel(editingTask.project)"></span>
+                                            </div>
                                         </div>
 
                                         <!-- Task State in Edit Form - Add after Task Type -->
@@ -959,6 +998,7 @@
                                                         :class="{'scheduler-sort-desc': sortDirection === 'desc'}">↑</span>
                                                 </th>
                                                 <th>Type</th>
+                                                <th>Project</th>
                                                 <th>Schedule</th>
                                                 <th @click="changeSort('last_run')">
                                                     Last Run
@@ -981,6 +1021,11 @@
                                                             x-text="task.state"></span>
                                                     </td>
                                                     <td x-text="task.type"></td>
+                                                    <td>
+                                                        <span class="project-color-ball"
+                                                              :style="extractTaskProject(task)?.color ? { backgroundColor: extractTaskProject(task).color } : { border: '1px solid var(--color-border)' }"></span>
+                                                        <span x-text="formatTaskProject(task)"></span>
+                                                    </td>
                                                     <td>
                                                         <span x-show="task.type === 'scheduled'"
                                                             x-text="formatSchedule(task)"></span>
@@ -1053,6 +1098,13 @@
                                             <div class="scheduler-details-label">Type:</div>
                                             <div class="scheduler-details-value"
                                                 x-text="selectedTaskForDetail ? selectedTaskForDetail.type : ''"></div>
+
+                                            <div class="scheduler-details-label">Project:</div>
+                                            <div class="scheduler-details-value">
+                                                <span class="project-color-ball"
+                                                      :style="extractTaskProject(selectedTaskForDetail)?.color ? { backgroundColor: extractTaskProject(selectedTaskForDetail).color } : { border: '1px solid var(--color-border)' }"></span>
+                                                <span x-text="selectedTaskForDetail ? formatTaskProject(selectedTaskForDetail) : 'No Project'"></span>
+                                            </div>
 
                                             <div class="scheduler-details-label">Created:</div>
                                             <div class="scheduler-details-value"

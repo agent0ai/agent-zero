@@ -48,6 +48,9 @@ class SchedulerTaskUpdate(ApiHandler):
         if "attachments" in input:
             update_params["attachments"] = input.get("attachments", [])
 
+        if "project_name" in input or "project_color" in input:
+            return {"error": "Project changes are not allowed"}
+
         # Update schedule if this is a scheduled task and schedule is provided
         if isinstance(task, ScheduledTask) and "schedule" in input:
             schedule_data = input.get("schedule", {})
@@ -85,5 +88,6 @@ class SchedulerTaskUpdate(ApiHandler):
         task_dict = serialize_task(updated_task)
 
         return {
+            "ok": True,
             "task": task_dict
         }
