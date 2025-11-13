@@ -1,8 +1,53 @@
 services:
   agent-zero:
     container_name: agent-zero
-    image: agent0ai/agent-zero:latest
+    # Use local development image (build with: docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .)
+    image: agent-zero-local
+    # Use Docker Hub image for production deployments
+    # image: agent0ai/agent-zero:latest
     volumes:
-      - ./agent-zero:/a0
+      # Mount the actual project root (not the outdated copy in ./agent-zero)
+      # This allows live development - changes reflected immediately without rebuild
+      - ../..:/a0
+      # X11 socket for GUI display on macOS (auto-configured)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     ports:
+      - "55022:22"
       - "50080:80"
+      - "56080:6080"  # noVNC web client for browser control
+      - "50090:9000"
+      - "50091:9001"
+      - "50092:9002"
+      - "50093:9003"
+      - "50094:9004"
+      - "50095:9005"
+      - "50096:9006"
+      - "50097:9007"
+      - "50098:9008"
+      - "50099:9009"
+    environment:
+      # X11 display forwarding via TCP (Docker Desktop on macOS uses VM)
+      - DISPLAY=host.docker.internal:0
+      - XAUTHORITY=/tmp/.Xauthority
+      # VNC configuration for remote browser control
+      - VNC_DISPLAY=:99
+      - VNC_RESOLUTION=1920x1080x24
+      - VNC_PORT=5900
+      - NOVNC_PORT=6080
+      - NOVNC_EXTERNAL_PORT=56080  # External port mapping for noVNC access
+      - VNC_PASSWORD=agent-zero
+    # Allow container to reach host for X11
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Security options for X11
+    security_opt:
+      - seccomp:unconfined
+    # Shared memory for browser (required for Chromium)
+    shm_size: '2gb'
+    # Auto-check and setup display and VNC on startup
+    command: >
+      bash -c "
+        /exe/check_display.sh || true &&
+        /exe/start_vnc.sh || true &&
+        /exe/initialize.sh development
+      "

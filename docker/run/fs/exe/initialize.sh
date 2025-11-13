@@ -19,5 +19,8 @@ chmod 444 /root/.profile
 # update package list to save time later
 apt-get update > /dev/null 2>&1 &
 
+# Start VNC server in the background (for browser control feature)
+/exe/start_vnc.sh > /tmp/vnc_startup.log 2>&1 &
+
 # let supervisord handle the services
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

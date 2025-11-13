@@ -46,14 +46,6 @@ class Settings(TypedDict):
     embed_model_rl_requests: int
     embed_model_rl_input: int
 
-    browser_model_provider: str
-    browser_model_name: str
-    browser_model_api_base: str
-    browser_model_vision: bool
-    browser_model_rl_requests: int
-    browser_model_rl_input: int
-    browser_model_rl_output: int
-    browser_model_kwargs: dict[str, Any]
     browser_http_headers: dict[str, Any]
 
     agent_profile: str
@@ -426,106 +418,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "title": "Embedding Model",
         "description": f"Settings for the embedding model used by Agent Zero.<br><h4>⚠️ No need to change</h4>The default HuggingFace model {default_settings['embed_model_name']} is preloaded and runs locally within the docker container and there's no need to change it unless you have a specific requirements for embedding.",
         "fields": embed_model_fields,
-        "tab": "agent",
-    }
-
-    # embedding model section
-    browser_model_fields: list[SettingsField] = []
-    browser_model_fields.append(
-        {
-            "id": "browser_model_provider",
-            "title": "Web Browser model provider",
-            "description": "Select provider for web browser model used by <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> framework",
-            "type": "select",
-            "value": settings["browser_model_provider"],
-            "options": cast(list[FieldOption], get_providers("chat")),
-        }
-    )
-    browser_model_fields.append(
-        {
-            "id": "browser_model_name",
-            "title": "Web Browser model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
-            "value": settings["browser_model_name"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_api_base",
-            "title": "Web Browser model API base URL",
-            "description": "API base URL for web browser model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
-            "type": "text",
-            "value": settings["browser_model_api_base"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_vision",
-            "title": "Use Vision",
-            "description": "Models capable of Vision can use it to analyze web pages from screenshots. Increases quality but also token usage.",
-            "type": "switch",
-            "value": settings["browser_model_vision"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_rl_requests",
-            "title": "Web Browser model rate limit requests",
-            "description": "Rate limit requests for web browser model.",
-            "type": "number",
-            "value": settings["browser_model_rl_requests"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_rl_input",
-            "title": "Web Browser model rate limit input",
-            "description": "Rate limit input for web browser model.",
-            "type": "number",
-            "value": settings["browser_model_rl_input"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_rl_output",
-            "title": "Web Browser model rate limit output",
-            "description": "Rate limit output for web browser model.",
-            "type": "number",
-            "value": settings["browser_model_rl_output"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_kwargs",
-            "title": "Web Browser model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
-            "type": "textarea",
-            "value": _dict_to_env(settings["browser_model_kwargs"]),
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_http_headers",
-            "title": "HTTP Headers",
-            "description": "HTTP headers to include with all browser requests. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string. Example: Authorization=Bearer token123",
-            "type": "textarea",
-            "value": _dict_to_env(settings.get("browser_http_headers", {})),
-        }
-    )
-
-    browser_model_section: SettingsSection = {
-        "id": "browser_model",
-        "title": "Web Browser Model",
-        "description": "Settings for the web browser model. Agent Zero uses <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> agentic framework to handle web interactions.",
-        "fields": browser_model_fields,
         "tab": "agent",
     }
 
@@ -1257,7 +1149,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
             agent_section,
             chat_model_section,
             util_model_section,
-            browser_model_section,
             embed_model_section,
             memory_section,
             speech_section,
@@ -1451,14 +1342,6 @@ def get_default_settings() -> Settings:
         embed_model_kwargs={},
         embed_model_rl_requests=0,
         embed_model_rl_input=0,
-        browser_model_provider="openrouter",
-        browser_model_name="openai/gpt-4.1",
-        browser_model_api_base="",
-        browser_model_vision=True,
-        browser_model_rl_requests=0,
-        browser_model_rl_input=0,
-        browser_model_rl_output=0,
-        browser_model_kwargs={"temperature": "0"},
         browser_http_headers={},
         memory_recall_enabled=True,
         memory_recall_delayed=False,

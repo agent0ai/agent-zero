@@ -27,6 +27,12 @@ RUN bash /ins/install_base_packages4.sh
 # install python after packages to ensure version overriding
 RUN bash /ins/install_python.sh
 
+# install X11 support for browser display
+RUN bash /ins/install_x11_support.sh
+
+# install VNC server and noVNC for remote browser control
+RUN bash /ins/install_vnc.sh
+
 # install searxng
 RUN bash /ins/install_searxng.sh
 

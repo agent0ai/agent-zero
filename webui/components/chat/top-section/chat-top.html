@@ -20,17 +20,19 @@
                 <div id="time-date"></div>
                 <div class="status-icon">
                     <svg viewBox="0 0 30 30">
-                        <!-- Connected State (filled circle) -->
+                        <!-- Active State (filled green circle) -->
                         <circle class="connected-circle" cx="15" cy="15" r="8"
                             x-bind:fill="$store.chatTop.connected ? '#00c340' : 'none'" x-bind:opacity="$store.chatTop.connected ? 1 : 0" />
 
-                        <!-- Disconnected State (outline circle) -->
-                        <circle class="disconnected-circle" cx="15" cy="15" r="12" fill="none" stroke="#e40138"
-                            stroke-width="3" x-bind:opacity="$store.chatTop.connected ? 0 : 1" />
+                        <!-- Idle State (filled blue circle) -->
+                        <circle class="disconnected-circle" cx="15" cy="15" r="8" fill="none" stroke="#e40138" stroke-width="3"
+                            x-bind:opacity="$store.chatTop.connected ? 0 : 1" />
                     </svg>
                 </div>
                 <!-- Notification Toggle positioned next to time-date -->
                 <x-component path="notifications/notification-icons.html"></x-component>
+                <!-- Browser Control Toggle -->
+                <x-component path="browser-control/browser-control-icons.html"></x-component>
                 <!-- Project Selector -->
                 <x-component path="projects/project-selector.html"></x-component>
             </div>
