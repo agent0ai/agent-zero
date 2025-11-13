@@ -325,8 +325,11 @@ export async function poll() {
     //set ui model vars from backend
     inputStore.paused = response.paused;
 
-    // Update status icon state
+    // Update status icon to show backend connection (green when connected)
     setConnectionStatus(true);
+
+    // Track backend health
+    chatTopStore.backendAlive = true;
 
     // Update chats list using store
     let contexts = response.contexts || [];
@@ -383,6 +386,7 @@ export async function poll() {
   } catch (error) {
     console.error("Error:", error);
     setConnectionStatus(false);
+    chatTopStore.backendAlive = false;
   }
 
   return updated;

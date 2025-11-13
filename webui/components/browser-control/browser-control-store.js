@@ -6,9 +6,12 @@ const model = {
     isMaximized: false,
     vncUrl: '',
     vncReady: false,
+    _checkInterval: null,
 
     init() {
         this.checkVncAvailability();
+        // Poll for VNC availability every 3 seconds
+        this._checkInterval = setInterval(() => this.checkVncAvailability(), 3000);
     },
 
     async checkVncAvailability() {
@@ -16,6 +19,7 @@ const model = {
             const response = await fetch('/browser_control?action=info');
             const data = await response.json();
             this.vncReady = data.vnc_ready;
+
             if (data.vnc_ready && data.novnc_url) {
                 this.vncUrl = data.novnc_url;
             }

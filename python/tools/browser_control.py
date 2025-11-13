@@ -1,5 +1,5 @@
 """
-Computer Use Tool - Granular browser control with individual actions.
+Browser Control Tool - Granular browser control with individual actions.
 
 This tool provides precise browser automation through individual action methods
 (navigate, click, type, scroll, observe_page, etc.) following Agent Zero's
@@ -17,25 +17,25 @@ from python.helpers.tool import Tool, Response
 from python.helpers import files, persist_chat
 from python.helpers.print_style import PrintStyle
 from python.helpers.playwright import ensure_playwright_binary
-from python.helpers.computer_use_client import (
+from python.helpers.browser_control_client import (
     PlaywrightClient,
-    ComputerUseState,
+    BrowserControlState,
     Action,
     ActionType,
     ActionResult,
 )
 
 
-class ComputerUse(Tool):
+class BrowserControl(Tool):
     """
-    Computer Use tool for granular browser control.
-    
+    Browser Control tool for granular browser control.
+
     Provides individual action methods for precise web automation.
     """
     
     async def execute(self, **kwargs) -> Response:
         """
-        Execute computer use action based on method name.
+        Execute browser control action based on method name.
         
         Routes to specific methods like navigate, click, type, etc.
         """
@@ -97,8 +97,8 @@ class ComputerUse(Tool):
         
         Follows pattern from code_execution_tool state management.
         """
-        self.state: Optional[ComputerUseState] = self.agent.get_data("_computer_use_state")
-        
+        self.state: Optional[BrowserControlState] = self.agent.get_data("_browser_control_state")
+
         if reset and self.state and self.state.client:
             # Close existing session
             try:
@@ -117,7 +117,7 @@ class ComputerUse(Tool):
                 )
             
             # Get Playwright binary path (only needed if not using CDP)
-            cdp_url = self.agent.config.computer_use_cdp_url
+            cdp_url = self.agent.config.browser_control_cdp_url
             pw_binary = None if cdp_url else ensure_playwright_binary()
 
             # Check if VNC is available and enabled
@@ -127,8 +127,8 @@ class ComputerUse(Tool):
 
             # Create client
             client = PlaywrightClient(
-                start_url=self.agent.config.computer_use_start_url,
-                headless=self.agent.config.computer_use_headless,
+                start_url=self.agent.config.browser_control_start_url,
+                headless=self.agent.config.browser_control_headless,
                 playwright_binary=str(pw_binary) if pw_binary else None,
                 cdp_url=cdp_url if cdp_url else None,
                 use_vnc=use_vnc,
@@ -139,7 +139,7 @@ class ComputerUse(Tool):
             await client.initialize()
             
             # Create state
-            self.state = ComputerUseState(
+            self.state = BrowserControlState(
                 playwright=client.playwright,
                 browser=client.browser,
                 context=client.context,
@@ -148,13 +148,13 @@ class ComputerUse(Tool):
                 initialized=True
             )
             
-            self.agent.set_data("_computer_use_state", self.state)
-        
+            self.agent.set_data("_browser_control_state", self.state)
+
         return self.state
-    
-    async def _get_state(self) -> Optional[ComputerUseState]:
+
+    async def _get_state(self) -> Optional[BrowserControlState]:
         """Helper to get current state."""
-        return self.agent.get_data("_computer_use_state")
+        return self.agent.get_data("_browser_control_state")
     
     async def _navigate(self, url: Optional[str]) -> str:
         """Navigate to a URL with fallback handling."""
@@ -393,6 +393,25 @@ class ComputerUse(Tool):
         if not state or not state.client:
             return "Error: Browser not initialized"
 
+        # Check for VNC URL first
+        vnc_url = state.client.get_vnc_url(host="localhost", port=56080)
+
+        # Build initial message with VNC URL
+        initial_message = f"⏸️  **Browser Pause Requested**\n\n{message}\n\n"
+
+        if vnc_url:
+            initial_message += f"🌐 **Control Browser**: {vnc_url}\n\n"
+            initial_message += "Click the link above to access the browser and complete the manual task.\n"
+            initial_message += f"⏱️  Waiting up to {wait_seconds} seconds for you to complete the task...\n\n"
+            initial_message += "The browser control panel should open automatically in the web interface."
+        else:
+            initial_message += "⚠️  VNC is not available. Browser should be visible on your display.\n"
+            initial_message += f"⏱️  Waiting up to {wait_seconds} seconds..."
+
+        # Update log with initial message so frontend can show browser panel
+        self.log.update(message=initial_message)
+
+        # Call the client to mark the pause (returns immediately now)
         action = Action(
             action_type=ActionType.PAUSE_FOR_USER,
             value=str(wait_seconds),
@@ -400,19 +419,20 @@ class ComputerUse(Tool):
         )
         result = await state.client.execute_action(action)
 
-        if result.success:
-            response_message = result.description
-
-            # Add VNC URL if available
-            vnc_url = state.client.get_vnc_url(host="localhost", port=56080)
-            if vnc_url:
-                response_message += f"\n\n🌐 **Control Browser**: {vnc_url}"
-                response_message += "\n\nClick the link above to access the browser and complete the manual task."
-                response_message += f"\n⏱️  Waiting up to {wait_seconds} seconds for you to complete the task..."
-
-            return response_message
-        else:
+        if not result.success:
             return f"Pause failed: {result.error}"
+
+        # Now actually pause/wait at the Agent level
+        import asyncio
+        PrintStyle().info(f"Browser paused for user interaction. Waiting {wait_seconds} seconds...")
+
+        try:
+            await asyncio.sleep(wait_seconds)
+            completion_message = f"✅ Browser pause completed. Resuming agent execution.\n\nCurrent page: {state.client.page.url}"
+        except asyncio.CancelledError:
+            completion_message = "Browser pause interrupted. Resuming agent execution."
+
+        return completion_message
 
     async def _get_browser_info(self) -> str:
         """
@@ -425,9 +445,9 @@ class ComputerUse(Tool):
 
         info = []
         info.append("=== Browser Configuration ===")
-        info.append(f"Config headless mode: {self.agent.config.computer_use_headless}")
-        info.append(f"Config start URL: {self.agent.config.computer_use_start_url}")
-        info.append(f"Config timeout: {self.agent.config.computer_use_timeout}ms")
+        info.append(f"Config headless mode: {self.agent.config.browser_control_headless}")
+        info.append(f"Config start URL: {self.agent.config.browser_control_start_url}")
+        info.append(f"Config timeout: {self.agent.config.browser_control_timeout}ms")
         info.append("")
 
         if state and state.client:
@@ -446,9 +466,9 @@ class ComputerUse(Tool):
                 info.append("")
                 info.append("To see the browser window:")
                 info.append("1. Close current browser session with reset=true")
-                info.append("2. Set computer_use_headless=False in agent.py line 291")
+                info.append("2. Set browser_control_headless=False in agent.py")
                 info.append("3. Restart the agent")
-                info.append("4. Or use: computer_use:navigate with reset='true'")
+                info.append("4. Or use: browser_control:navigate with reset='true'")
             else:
                 info.append("✓ Browser is running in VISIBLE mode")
                 info.append("  A browser window should be visible on your screen")
@@ -461,7 +481,7 @@ class ComputerUse(Tool):
         else:
             info.append("=== Browser State ===")
             info.append("Browser not initialized yet")
-            info.append("First use of computer_use will initialize the browser")
+            info.append("First use of browser_control will initialize the browser")
 
         return "\n".join(info)
 
@@ -478,7 +498,7 @@ class ComputerUse(Tool):
             # Create screenshot directory
             screenshot_path = files.get_abs_path(
                 persist_chat.get_chat_folder_path(self.agent.context.id),
-                "computer_use",
+                "browser_control",
                 "screenshots",
                 f"{self.guid}.png"
             )
@@ -486,9 +506,9 @@ class ComputerUse(Tool):
             
             # Save screenshot to file (viewport only, not full page)
             await state.client.page.screenshot(
-                path=screenshot_path, 
-                full_page=False, 
-                timeout=self.agent.config.computer_use_timeout
+                path=screenshot_path,
+                full_page=False,
+                timeout=self.agent.config.browser_control_timeout
             )
             
             # Update log with img:// protocol for UI display
@@ -502,9 +522,9 @@ class ComputerUse(Tool):
     def get_log_object(self):
         """Override logging method to provide custom heading."""
         if self.method:
-            heading = f"icon://web {self.agent.agent_name}: Using computer_use:{self.method}"
+            heading = f"icon://web {self.agent.agent_name}: Using browser_control:{self.method}"
         else:
-            heading = f"icon://web {self.agent.agent_name}: Using computer_use"
+            heading = f"icon://web {self.agent.agent_name}: Using browser_control"
         return self.agent.context.log.log(
             type="tool", 
             heading=heading, 

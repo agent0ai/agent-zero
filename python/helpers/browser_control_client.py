@@ -1,5 +1,5 @@
 """
-Computer Use Client - Playwright interface for browser automation.
+Browser Control Client - Playwright interface for browser automation.
 
 This module provides the PlaywrightClient for browser automation.
 """
@@ -75,8 +75,8 @@ class InterfaceState:
 
 
 @dataclass
-class ComputerUseState:
-    """State management for computer use tool."""
+class BrowserControlState:
+    """State management for browser control tool."""
     
     playwright: Optional[Any] = None
     browser: Optional[Any] = None
@@ -189,7 +189,7 @@ class PlaywrightClient:
             )
             # Use the default context from the connected browser
             self.context = self.browser.contexts[0] if self.browser.contexts else await self.browser.new_context(
-                viewport={"width": 1024, "height": 2048}
+                viewport={"width": 800, "height": 1600}
             )
             # Use existing page or create new one
             self.page = self.context.pages[0] if self.context.pages else await self.context.new_page()
@@ -208,7 +208,7 @@ class PlaywrightClient:
 
             # Create context with viewport size matching browser_agent
             self.context = await self.browser.new_context(
-                viewport={"width": 1024, "height": 2048}
+                viewport={"width": 800, "height": 1600}
             )
             self.page = await self.context.new_page()
             await self.page.goto(self.start_url)
@@ -491,36 +491,34 @@ class PlaywrightClient:
                 wait_time = int(action.value) if action.value else 60
                 message = action.metadata.get("message", "Pausing for user interaction...")
 
-                import asyncio
+                # Check if VNC is available for user interaction
+                vnc_url = self.get_vnc_url(host="localhost", port=56080)
 
-                # If browser is headless, warn user
-                if self.headless:
+                if not vnc_url and self.headless:
+                    # No VNC and headless - user has no way to interact
                     result = ActionResult(
                         success=False,
                         description="",
-                        error="Cannot pause for user in headless mode. Set headless=False when initializing the browser."
+                        error="Cannot pause for user: browser is in headless mode and VNC is not available. Set headless=False or enable VNC when initializing the browser."
                     )
                 else:
-                    # Display message and wait
+                    # VNC is available or browser is visible - user can interact
+                    # Return immediately without blocking - let the agent handle the pause
                     print(f"\n{'='*60}")
-                    print(f"BROWSER PAUSED: {message}")
-                    print(f"Waiting {wait_time} seconds for user interaction...")
+                    print(f"BROWSER READY FOR USER INTERACTION: {message}")
                     print(f"Current URL: {self.page.url}")
-                    print(f"Press Ctrl+C to stop waiting early")
+                    if vnc_url:
+                        print(f"VNC URL: {vnc_url}")
+                        print(f"Browser control panel will open automatically in web UI")
+                    else:
+                        print(f"Browser window should be visible on your display")
+                    print(f"Agent will wait up to {wait_time} seconds")
                     print(f"{'='*60}\n")
 
-                    try:
-                        # Wait for specified time or until user interrupts
-                        await asyncio.sleep(wait_time)
-                        result = ActionResult(
-                            success=True,
-                            description=f"Resumed after {wait_time}s pause. User had time to interact with the page."
-                        )
-                    except asyncio.CancelledError:
-                        result = ActionResult(
-                            success=True,
-                            description="Pause interrupted by user. Resuming execution."
-                        )
+                    result = ActionResult(
+                        success=True,
+                        description=f"Browser ready for user interaction. Agent will pause for up to {wait_time} seconds. Current page: {self.page.url}"
+                    )
 
             else:
                 result = ActionResult(
@@ -587,7 +585,7 @@ class PlaywrightClient:
                     return None
 
                 novnc_port = status_dict.get('NOVNC_PORT', str(port))
-                return f"http://{host}:{novnc_port}/vnc.html?autoconnect=true&resize=scale"
+                return f"http://{host}:{novnc_port}/vnc.html?autoconnect=true&resize=none"
         except Exception:
             return None
 

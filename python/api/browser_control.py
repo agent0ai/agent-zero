@@ -61,7 +61,7 @@ class BrowserControl(ApiHandler):
 
         if action == 'redirect':
             # Redirect to noVNC client using external port mapping with optimized parameters
-            novnc_url = f"http://localhost:{external_novnc_port}/vnc.html?autoconnect=true&resize=scale&reconnect=true&reconnect_delay=1000&show_dot=true"
+            novnc_url = f"http://localhost:{external_novnc_port}/vnc.html?autoconnect=true&resize=none&reconnect=true&reconnect_delay=1000&show_dot=true"
             return redirect(novnc_url, code=302)
 
         # Default: return info with optimized noVNC URL parameters
@@ -76,6 +76,6 @@ class BrowserControl(ApiHandler):
             "vnc_display": vnc_display,
             "novnc_port": novnc_port,
             "external_novnc_port": external_novnc_port,
-            "novnc_url": f"http://localhost:{external_novnc_port}/vnc.html?autoconnect=true&resize=scale&reconnect=true&reconnect_delay=1000&show_dot=true",
+            "novnc_url": f"http://localhost:{external_novnc_port}/vnc.html?autoconnect=true&resize=none&reconnect=true&reconnect_delay=1000&show_dot=true",
             "instructions": "Click the noVNC URL to access the browser control interface" if vnc_ready else "VNC server is not running"
         }

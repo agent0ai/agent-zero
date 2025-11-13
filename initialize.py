@@ -60,21 +60,11 @@ def initialize_agent():
         limit_requests=current_settings["embed_model_rl_requests"],
         kwargs=_normalize_model_kwargs(current_settings["embed_model_kwargs"]),
     )
-    # browser model from user settings
-    browser_llm = models.ModelConfig(
-        type=models.ModelType.CHAT,
-        provider=current_settings["browser_model_provider"],
-        name=current_settings["browser_model_name"],
-        api_base=current_settings["browser_model_api_base"],
-        vision=current_settings["browser_model_vision"],
-        kwargs=_normalize_model_kwargs(current_settings["browser_model_kwargs"]),
-    )
     # agent configuration
     config = AgentConfig(
         chat_model=chat_llm,
         utility_model=utility_llm,
         embeddings_model=embedding_llm,
-        browser_model=browser_llm,
         profile=current_settings["agent_profile"],
         memory_subdir=current_settings["agent_memory_subdir"],
         knowledge_subdirs=[current_settings["agent_knowledge_subdir"], "default"],

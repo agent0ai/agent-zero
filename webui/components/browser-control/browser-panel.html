@@ -18,8 +18,9 @@
                      'dragging': isDragging
                  }"
                  :style="{
-                     left: panelX + 'px',
-                     top: panelY + 'px',
+                     left: panelX !== null ? panelX + 'px' : '50%',
+                     top: panelY !== null ? panelY + 'px' : '50%',
+                     transform: panelX === null ? 'translate(-50%, -50%)' : 'none',
                      transition: isDragging ? 'none' : ''
                  }"
                  x-init="initPosition()">
@@ -53,10 +54,11 @@
         <div class="browser-panel-content" x-show="!$store.browserControl.isMinimized">
             <iframe
                 x-show="$store.browserControl.vncUrl"
-                :src="$store.browserControl.vncUrl"
+                :src="$store.browserControl.vncUrl + '&reconnect=true&quality=9&show_dot=true'"
                 class="browser-iframe"
                 frameborder="0"
                 allow="fullscreen"
+                allowfullscreen
             ></iframe>
             <div x-show="!$store.browserControl.vncUrl" class="browser-loading">
                 <div class="browser-loading-spinner"></div>
@@ -71,20 +73,39 @@
         function browserPanel() {
             return {
                 isDragging: false,
-                panelX: 0,
-                panelY: 0,
+                panelX: null,
+                panelY: null,
                 dragStart: { x: 0, y: 0 },
 
                 initPosition() {
-                    // Center the panel on first load
-                    if (!this.$store.browserControl.isMaximized) {
-                        const panel = this.$el;
-                        // Wait for next tick to ensure panel is rendered with correct dimensions
-                        this.$nextTick(() => {
-                            this.panelX = (window.innerWidth - panel.offsetWidth) / 2;
-                            this.panelY = (window.innerHeight - panel.offsetHeight) / 2;
-                        });
+                    // Watch for visibility changes and re-center when opened
+                    this.$watch('$store.browserControl.isVisible', (isVisible) => {
+                        if (isVisible && !this.$store.browserControl.isMaximized) {
+                            this.recenterPanel();
+                        }
+                    });
+
+                    // Center on first load if visible
+                    if (this.$store.browserControl.isVisible) {
+                        this.recenterPanel();
                     }
+                },
+
+                recenterPanel() {
+                    // Reset position to null to trigger CSS centering
+                    this.panelX = null;
+                    this.panelY = null;
+
+                    const panel = this.$el;
+                    // Use requestAnimationFrame to ensure layout is complete
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            const width = panel.offsetWidth;
+                            const height = panel.offsetHeight;
+                            this.panelX = Math.max(0, (window.innerWidth - width) / 2);
+                            this.panelY = Math.max(0, (window.innerHeight - height) / 2);
+                        });
+                    });
                 },
 
                 startDrag(event) {
@@ -155,8 +176,8 @@
             overflow: hidden;
             transition: all 0.3s ease;
             /* Increased size to better accommodate 1920x1080 VNC display */
-            width: 2000px;
-            height: 1000px;
+            width: 800px;
+            height: 800px;
         }
 
         .browser-panel.minimized {
@@ -279,17 +300,56 @@
         }
 
         /* Responsive */
-        @media (max-width: 1000px) {
+        /* Tablets (landscape and portrait) */
+        @media (max-width: 1024px) {
             .browser-panel:not(.maximized):not(.minimized) {
-                width: 900px;
+                width: 700px;
                 height: 600px;
             }
         }
 
+        /* Mobile devices and small tablets */
         @media (max-width: 768px) {
             .browser-panel:not(.maximized):not(.minimized) {
                 width: calc(100vw - 20px);
                 height: calc(100vh - 100px);
+                left: 10px !important;
+                top: 50px !important;
+            }
+
+            .browser-panel.minimized {
+                width: 250px;
+                right: 10px;
+                bottom: 10px;
+            }
+
+            .browser-panel-header {
+                cursor: default;
+                -webkit-touch-callout: none;
+            }
+
+            .browser-panel-title {
+                font-size: 13px;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 480px) {
+            .browser-panel:not(.maximized):not(.minimized) {
+                width: calc(100vw - 10px);
+                height: calc(100vh - 80px);
+                left: 5px !important;
+                top: 40px !important;
+            }
+
+            .browser-panel.minimized {
+                width: 200px;
+            }
+
+            .browser-panel-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 16px;
             }
         }
 
