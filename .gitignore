@@ -13,7 +13,7 @@
 
 # Ignore all contents of the virtual environment directory
 .venv/
-/venv-a0/
+
 # Handle memory directory
 memory/**
 !memory/**/

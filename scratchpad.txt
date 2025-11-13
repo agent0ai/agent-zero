@@ -1,5 +1,0 @@
-[2025-11-09] Investigating FastMCP import failure.
-- Error: TypeError cannot specify both default and default_factory in fastmcp.settings.ServerSettings.dependencies.
-- Plan: Patch dependencies field definition to remove duplicate default.
-- Updated fastmcp ServerSettings.dependencies to rely solely on default_factory.
-- Verified import now proceeds past pydantic error; run failed later due to sandbox permission when reading .env.

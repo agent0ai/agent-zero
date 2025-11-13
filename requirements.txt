@@ -3,7 +3,7 @@ ansio==0.0.1
 docker==7.1.0
 duckduckgo-search==6.1.12
 faiss-cpu==1.11.0
-fastmcp==2.13.0.2
+fastmcp==2.3.4
 fasta2a==0.5.0
 flask[async]==3.0.3
 flask-basicauth==0.2.0
@@ -18,7 +18,7 @@ langchain-unstructured[all-docs]==0.1.6
 openai-whisper==20240930
 lxml_html_clean==0.3.1
 markdown==3.7
-mcp>=1.21.0
+mcp>=1.13.1
 newspaper3k==0.2.8
 paramiko==3.5.0
 playwright==1.52.0
