@@ -37,6 +37,9 @@ def get_main_prompt(agent: Agent):
 
 def get_tools_prompt(agent: Agent):
     prompt = agent.read_prompt("agent.system.tools.md")
+    
+    # Show vision tools only if "Supports Vision" is enabled
+    # "Supports Vision" is the master switch for all vision functionality
     if agent.config.chat_model.vision:
         prompt += "\n\n" + agent.read_prompt("agent.system.tools_vision.md")
     return prompt
