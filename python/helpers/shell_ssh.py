@@ -60,10 +60,15 @@ class SSHInteractiveSession:
                 # ----------------------------------------------------------------
 
                 # invoke interactive shell
-                self.shell = self.client.invoke_shell(width=100, height=50)
+                self.shell = self.client.invoke_shell(
+                    width=100,
+                    height=50,
+                    term="dumb",
+                    environment={"TERM": "dumb"}
+                )
 
                 # disable systemd/OSC prompt metadata and disable local echo
-                initial_command = "unset PROMPT_COMMAND PS0; stty -echo"
+                initial_command = "stty -echo"
                 if self.cwd:
                     initial_command = f"cd {self.cwd}; {initial_command}"
                 self.shell.send(f"{initial_command}\n".encode())
@@ -105,7 +110,7 @@ class SSHInteractiveSession:
         self.last_command = command.encode()
         self.trimmed_command_length = 0
         self.shell.send(self.last_command)
-        
+
     async def read_output(
         self, timeout: float = 0, reset_full_output: bool = False
     ) -> Tuple[str, str]:

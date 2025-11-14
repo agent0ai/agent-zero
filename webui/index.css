@@ -1210,10 +1210,10 @@ nav ul li a img {
 
 .scheduler-task-list {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
   font-size: 0.9rem;
-  overflow-x: auto;
   table-layout: fixed;
 }
 
@@ -1225,38 +1225,48 @@ nav ul li a img {
   vertical-align: middle;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .scheduler-task-list th:nth-child(1), /* Name */
 .scheduler-task-list td:nth-child(1) {
-  width: 25%;
+  width: 22%;
+  white-space: nowrap;
 }
 
 .scheduler-task-list th:nth-child(2), /* State */
 .scheduler-task-list td:nth-child(2) {
   width: 10%;
+  white-space: nowrap;
 }
 
 .scheduler-task-list th:nth-child(3), /* Type */
 .scheduler-task-list td:nth-child(3) {
   width: 10%;
+  white-space: nowrap;
 }
 
-.scheduler-task-list th:nth-child(4), /* Schedule */
+.scheduler-task-list th:nth-child(4), /* Project */
 .scheduler-task-list td:nth-child(4) {
-  width: 20%;
+  width: 16%;
 }
 
-.scheduler-task-list th:nth-child(5), /* Last Run */
+.scheduler-task-list th:nth-child(5), /* Schedule */
 .scheduler-task-list td:nth-child(5) {
-  width: 20%;
+  width: 18%;
 }
 
-.scheduler-task-list th:nth-child(6), /* Actions */
+.scheduler-task-list th:nth-child(6), /* Last Run */
 .scheduler-task-list td:nth-child(6) {
-  width: 15%;
+  width: 14%;
+}
+
+.scheduler-task-list th:nth-child(7), /* Actions */
+.scheduler-task-list td:nth-child(7) {
+  width: 10%;
   text-align: right;
+  white-space: nowrap;
 }
 
 .scheduler-task-list th {
@@ -1687,4 +1697,25 @@ nav ul li a img {
   display: inline-block;
   box-sizing: border-box;
   flex-shrink: 0;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.project-selector {
+  position: relative;
+  display: inline-block;
+}
+
+.project-selector .project-color-ball {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 0;
+  pointer-events: none;
+}
+
+.project-selector .scheduler-project-select {
+  padding-left: 2rem;
+  min-width: 12rem;
 }
