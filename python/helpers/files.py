@@ -502,6 +502,13 @@ def move_file(relative_path: str, new_path: str):
     os.rename(abs_path, new_abs_path)
 
 
+def delete_file(relative_path: str):
+    """Delete a file at the given relative path"""
+    abs_path = get_abs_path(relative_path)
+    if os.path.exists(abs_path):
+        os.remove(abs_path)
+
+
 def safe_file_name(filename: str) -> str:
     # Replace any character that's not alphanumeric, dash, underscore, or dot with underscore
     return re.sub(r"[^a-zA-Z0-9-._]", "_", filename)
