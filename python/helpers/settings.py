@@ -1334,6 +1334,12 @@ def set_settings_delta(delta: dict, apply: bool = True):
     set_settings(new, apply)  # type: ignore
 
 
+def merge_settings(original: Settings, delta: dict) -> Settings:
+    merged = original.copy()
+    merged.update(delta)
+    return merged
+
+
 def normalize_settings(settings: Settings) -> Settings:
     copy = settings.copy()
     default = get_default_settings()

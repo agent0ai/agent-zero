@@ -4,8 +4,10 @@ from python.helpers import runtime, settings, defer
 from python.helpers.print_style import PrintStyle
 
 
-def initialize_agent():
+def initialize_agent(override_settings: dict | None = None):
     current_settings = settings.get_settings()
+    if override_settings:
+        current_settings = settings.merge_settings(current_settings, override_settings)
 
     def _normalize_model_kwargs(kwargs: dict) -> dict:
         # convert string values that represent valid Python numbers to numeric types
