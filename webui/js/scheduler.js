@@ -512,23 +512,17 @@ const fullComponentImplementation = function() {
         },
 
         extractTaskProject(task) {
-            if (!task) {
+            if (!task || !task.project) {
                 return null;
             }
-
-            const slug = task.project_name || null;
-            const project = task.project || {};
-            const title = project.name || slug;
-            const color = task.project_color || project.color || '';
-
-            if (!slug && !title) {
-                return null;
-            }
-
+            const project = task.project;
+            const name = project.name || null;
+            const title = project.title || project.name || null;
+            const color = project.color || '';
             return {
-                name: slug,
-                title: title || slug,
-                color: color,
+                name,
+                title,
+                color,
             };
         },
 
@@ -594,14 +588,7 @@ const fullComponentImplementation = function() {
 
             // Create a deep copy to avoid modifying the original
             this.editingTask = JSON.parse(JSON.stringify(task));
-            const projectSlug = task.project_name || null;
-            const projectDisplay = (task.project && task.project.name) || projectSlug;
-            const projectColor = task.project_color || (task.project ? task.project.color : '') || '';
-            this.editingTask.project = projectSlug || projectDisplay ? {
-                name: projectSlug,
-                title: projectDisplay,
-                color: projectColor,
-            } : null;
+            this.editingTask.project = task.project ? { ...task.project } : null;
             this.editingTask.dedicated_context = !!task.dedicated_context;
             this.selectedProjectSlug = this.editingTask.project && this.editingTask.project.name ? this.editingTask.project.name : '';
 

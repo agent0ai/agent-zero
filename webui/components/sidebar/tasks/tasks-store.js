@@ -67,5 +67,3 @@ const model = {
 };
 
 export const store = createStore("tasks", model);
-
-
