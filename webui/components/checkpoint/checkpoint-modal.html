@@ -1,0 +1,245 @@
+<html>
+<head>
+  <title>Checkpoints</title>
+  <script type="module">
+    import { store } from "/components/checkpoint/checkpoint-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.checkpointStore">
+      <div x-create="$store.checkpointStore.onOpen()" class="checkpoint-container">
+
+        <!-- Header with View Toggle -->
+        <div class="checkpoint-header">
+          <div class="checkpoint-stats">
+            <span x-text="$store.checkpointStore.totalCheckpoints + ' total checkpoints'"></span>
+            <span x-show="$store.checkpointStore.contexts.length > 0" x-text="' across ' + $store.checkpointStore.contexts.length + ' chat(s)'"></span>
+          </div>
+          <button @click="$store.checkpointStore.toggleViewMode()" class="btn btn-field btn-toggle">
+            <span x-show="$store.checkpointStore.viewMode === 'all'">Show Current Only</span>
+            <span x-show="$store.checkpointStore.viewMode === 'current'">Show All Chats</span>
+          </button>
+        </div>
+
+        <!-- Loading State -->
+        <template x-if="$store.checkpointStore.loading">
+          <div class="checkpoint-loading">Loading checkpoints...</div>
+        </template>
+
+        <!-- Empty State -->
+        <template x-if="!$store.checkpointStore.loading && $store.checkpointStore.contexts.length === 0">
+          <div class="checkpoint-empty">No checkpoints available</div>
+        </template>
+
+        <!-- Checkpoint List Grouped by Context -->
+        <template x-if="!$store.checkpointStore.loading && $store.checkpointStore.contexts.length > 0">
+          <div class="checkpoint-contexts">
+            <template x-for="ctx in $store.checkpointStore.contexts" :key="ctx.context_id">
+              <div class="checkpoint-context-group">
+                <div class="checkpoint-context-header">
+                  <span class="context-name" x-text="ctx.context_name"></span>
+                  <span class="context-badge" x-show="!ctx.is_active">(Closed)</span>
+                  <span class="context-count" x-text="ctx.checkpoints.length + ' checkpoint(s)'"></span>
+                  <button @click="$store.checkpointStore.cleanupContext(ctx.context_id)"
+                          class="btn btn-field btn-cleanup-context"
+                          title="Cleanup old checkpoints for this chat">
+                    Cleanup
+                  </button>
+                </div>
+                <div class="checkpoint-list">
+                  <template x-for="cp in ctx.checkpoints" :key="cp.checkpoint_id">
+                    <div class="checkpoint-item">
+                      <div class="checkpoint-info">
+                        <div class="checkpoint-type" x-text="cp.checkpoint_type"></div>
+                        <div class="checkpoint-time" x-text="$store.checkpointStore.formatTime(cp.created_at)"></div>
+                        <div class="checkpoint-meta">
+                          <span x-text="cp.message_count + ' messages'"></span>
+                          <span x-show="cp.tool_execution_count > 0" x-text="' • ' + cp.tool_execution_count + ' tools'"></span>
+                        </div>
+                      </div>
+                      <div class="checkpoint-actions">
+                        <button @click="$store.checkpointStore.restore(cp.checkpoint_id)"
+                                class="btn btn-ok btn-restore"
+                                title="Restore this checkpoint">
+                          Restore
+                        </button>
+                        <button @click="$store.checkpointStore.delete(cp.checkpoint_id)"
+                                class="btn btn-cancel btn-delete"
+                                title="Delete this checkpoint">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Footer Actions -->
+        <div class="checkpoint-footer" data-modal-footer>
+          <button @click="$store.checkpointStore.createCheckpoint()" class="btn btn-ok">
+            Create Checkpoint
+          </button>
+          <button @click="$store.checkpointStore.cleanup()" class="btn btn-field" title="Remove old checkpoints">
+            Cleanup Old
+          </button>
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .checkpoint-container {
+      min-height: 300px;
+      max-height: 60vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .checkpoint-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .checkpoint-stats {
+      font-size: 0.875rem;
+      color: var(--text-color-faded);
+    }
+
+    .btn-toggle {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .checkpoint-loading,
+    .checkpoint-empty {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-color-faded);
+    }
+
+    .checkpoint-contexts {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .checkpoint-context-group {
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .checkpoint-context-header {
+      background: var(--color-panel);
+      padding: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .context-name {
+      font-weight: 600;
+      color: var(--color-text);
+      flex: 1;
+    }
+
+    .context-badge {
+      font-size: 0.75rem;
+      color: var(--text-color-faded);
+      background: var(--color-background);
+      padding: 0.125rem 0.5rem;
+      border-radius: 3px;
+    }
+
+    .context-count {
+      font-size: 0.875rem;
+      color: var(--text-color-faded);
+    }
+
+    .btn-cleanup-context {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .checkpoint-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .checkpoint-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      background: var(--color-background);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .checkpoint-item:last-child {
+      border-bottom: none;
+    }
+
+    .checkpoint-item:hover {
+      background: var(--color-panel);
+    }
+
+    .checkpoint-info {
+      flex: 1;
+    }
+
+    .checkpoint-type {
+      font-weight: 600;
+      text-transform: capitalize;
+      margin-bottom: 0.25rem;
+      color: var(--color-text);
+    }
+
+    .checkpoint-time {
+      font-size: 0.875rem;
+      color: var(--text-color-faded);
+      margin-bottom: 0.25rem;
+    }
+
+    .checkpoint-meta {
+      font-size: 0.75rem;
+      color: var(--text-color-faded);
+    }
+
+    .checkpoint-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .checkpoint-actions button {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+      border-radius: 4px;
+    }
+
+    .checkpoint-footer {
+      display: flex;
+      gap: 0.5rem;
+      padding: 1rem 0 0 0;
+      border-top: 1px solid var(--color-border);
+      margin-top: 1rem;
+    }
+
+    .checkpoint-footer button {
+      flex: 1;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+  </style>
+</body>
+</html>
