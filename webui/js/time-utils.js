@@ -11,15 +11,24 @@
 export function toLocalTime(utcIsoString, options = {}) {
   if (!utcIsoString) return '';
 
-  const date = new Date(utcIsoString);
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(utcIsoString);
+  const normalizedIso = hasTimezone ? utcIsoString : `${utcIsoString}Z`;
+
+  const date = new Date(normalizedIso);
   const defaultOptions = {
+    timeZone: 'UTC',
     dateStyle: 'medium',
     timeStyle: 'medium'
   };
 
+  const finalOptions = { ...defaultOptions, ...options };
+  if (!finalOptions.timeZone) {
+    finalOptions.timeZone = 'UTC';
+  }
+
   return new Intl.DateTimeFormat(
     undefined, // Use browser's locale
-    { ...defaultOptions, ...options }
+    finalOptions
   ).format(date);
 }
 
@@ -50,7 +59,10 @@ export function getCurrentUTCISOString() {
 export function formatDateTime(utcIsoString, format = 'full') {
   if (!utcIsoString) return '';
 
-  const date = new Date(utcIsoString);
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(utcIsoString);
+  const normalizedIso = hasTimezone ? utcIsoString : `${utcIsoString}Z`;
+
+  const date = new Date(normalizedIso);
 
   const formatOptions = {
     full: { dateStyle: 'medium', timeStyle: 'medium' },
@@ -59,7 +71,8 @@ export function formatDateTime(utcIsoString, format = 'full') {
     short: { dateStyle: 'short', timeStyle: 'short' }
   };
 
-  return toLocalTime(utcIsoString, formatOptions[format] || formatOptions.full);
+  const options = formatOptions[format] || formatOptions.full;
+  return toLocalTime(date.toISOString(), options);
 }
 
 /**

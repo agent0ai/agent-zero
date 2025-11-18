@@ -224,7 +224,6 @@ function setConnectionStatus(connected) {
 let lastLogVersion = 0;
 let lastLogGuid = "";
 let lastSpokenNo = 0;
-let timezoneSynced = false;
 
 export async function poll() {
   let updated = false;
@@ -234,10 +233,6 @@ export async function poll() {
       log_from: log_from,
       notifications_from: notificationStore.lastNotificationVersion || 0,
       context: context || null,
-      timezone:
-        !timezoneSynced
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : undefined,
     });
 
     // Check if the response is valid
@@ -294,10 +289,6 @@ export async function poll() {
     // Update notifications from response
     notificationStore.updateFromPoll(response);
     systemClockStore.updateFromPoll(response);
-
-    if (!timezoneSynced && response.system_time) {
-      timezoneSynced = true;
-    }
 
     //set ui model vars from backend
     inputStore.paused = response.paused;

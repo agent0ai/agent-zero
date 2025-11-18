@@ -6,7 +6,7 @@ from agent import AgentContext, AgentContextType
 
 from python.helpers.task_scheduler import TaskScheduler
 from python.helpers.localization import Localization
-from python.helpers.dotenv import get_dotenv_value
+
 
 
 class Poll(ApiHandler):
@@ -17,12 +17,6 @@ class Poll(ApiHandler):
         notifications_from = input.get("notifications_from", 0)
 
         localization = Localization.get()
-        persisted_timezone = get_dotenv_value("DEFAULT_USER_TIMEZONE", None)
-
-        if persisted_timezone is None:
-            timezone = input.get("timezone")
-            if timezone:
-                localization.set_timezone(timezone)
 
         # context instance - get or create only if ctxid is provided
         if ctxid:
