@@ -194,17 +194,6 @@ div#right-panel::-webkit-scrollbar-thumb:hover {
   margin-top: var(--spacing-md);
 }
 
-#time-date {
-  color: var(--color-text);
-  font-size: var(--font-size-normal);
-  text-align: right;
-  line-height: 1.1;
-}
-
-#user-date {
-  font-size: var(--font-size-small);
-  opacity: 0.6;
-}
 
 /* Typography */
 /* h2,
