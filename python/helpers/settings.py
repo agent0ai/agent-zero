@@ -113,6 +113,9 @@ class Settings(TypedDict):
 
     update_check_enabled: bool
 
+    auto_nudge_enabled: bool
+    auto_nudge_timeout: int
+
 class PartialSettings(Settings, total=False):
     pass
 
@@ -651,6 +654,26 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 {"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")
             ],
+        }
+    )
+
+    agent_fields.append(
+        {
+            "id": "auto_nudge_enabled",
+            "title": "Enable Auto-Nudge",
+            "description": "Automatically nudge the agent if it gets stuck (no activity for a specified timeout).",
+            "type": "switch",
+            "value": settings["auto_nudge_enabled"],
+        }
+    )
+
+    agent_fields.append(
+        {
+            "id": "auto_nudge_timeout",
+            "title": "Auto-Nudge Timeout (seconds)",
+            "description": "Time in seconds to wait before auto-nudging a stuck agent.",
+            "type": "number",
+            "value": settings["auto_nudge_timeout"],
         }
     )
 
@@ -1533,6 +1556,8 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs={},
         update_check_enabled=True,
+        auto_nudge_enabled=False,
+        auto_nudge_timeout=300,
     )
 
 
