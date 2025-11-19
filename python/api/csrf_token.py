@@ -109,4 +109,11 @@ class GetCsrfToken(ApiHandler):
         return allowed_origins
 
     def get_default_allowed_origins(self) -> list[str]:
-        return ["*://localhost:*", "*://127.0.0.1:*", "*://0.0.0.0:*"]
+        return [
+            "*://localhost:*",
+            "*://127.0.0.1:*",
+            "*://0.0.0.0:*",
+            "*://localhost",
+            "*://127.0.0.1",
+            "*://0.0.0.0",
+        ]

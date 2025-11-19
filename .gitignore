@@ -46,3 +46,20 @@ instruments/**
 # for browser-use
 agent_history.gif
 
+# Dependencies
+desktop/electron/node_modules/
+
+# Build Output
+desktop/electron/dist/
+desktop/electron/release/
+
+# Logs
+desktop/electron/npm-debug.log
+desktop/electron/*.log
+
+# System
+desktop/electron/.DS_Store
+desktop/electron/Thumbs.db
+
+# Local Development
+desktop/electron/debug_conn.js

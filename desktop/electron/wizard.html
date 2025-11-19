@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Zero Launcher</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            user-select: none;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            width: 400px;
+            border: 1px solid #333;
+        }
+
+        .logo {
+            width: 128px;
+            height: 128px;
+            margin-bottom: 1.5rem;
+            /* Using the local asset if available, otherwise fallback or empty */
+            /* background-image: url('assets/icon.png'); */
+            background-image: url('assets/a0_logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            display: inline-block;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 1rem 0;
+            font-weight: 600;
+        }
+
+        p {
+            color: #aaaaaa;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .status-box {
+            background: #252525;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #333;
+            text-align: left;
+            font-size: 0.9rem;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #666;
+            margin-right: 10px;
+            display: inline-block;
+        }
+
+        .status-indicator.green { background-color: #4caf50; box-shadow: 0 0 8px rgba(76, 175, 80, 0.4); }
+        .status-indicator.red { background-color: #f44336; }
+        .status-indicator.yellow { background-color: #ffeb3b; }
+
+        button {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            width: 100%;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #1e88e5;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background-color: #424242;
+            color: #757575;
+            cursor: not-allowed;
+        }
+
+        .secondary-btn {
+            background-color: transparent;
+            border: 1px solid #444;
+            margin-top: 10px;
+        }
+        
+        .secondary-btn:hover {
+            background-color: #333;
+        }
+
+        #logs {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #666;
+            max-height: 100px;
+            overflow-y: auto;
+            text-align: left;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo"></div>
+        <h1>Agent Zero</h1>
+        
+        <div class="status-box">
+            <div id="status-light" class="status-indicator"></div>
+            <span id="status-text">Checking Docker status...</span>
+        </div>
+
+        <button id="action-btn" disabled>Connecting...</button>
+        <button id="logs-btn" class="secondary-btn" style="display: none;">Show Logs</button>
+
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+             // Debugging Logger
+            function log(msg, isError = false) {
+                const logsDiv = document.getElementById('logs');
+                if (!logsDiv) return console.log(msg); // Safety check
+                
+                const entry = document.createElement('div');
+                entry.textContent = (new Date().toLocaleTimeString()) + ': ' + msg;
+                if (isError) entry.style.color = 'red';
+                logsDiv.appendChild(entry);
+                logsDiv.style.display = 'block';
+                console.log(msg);
+            }
+
+            window.onerror = function(msg, url, line) {
+                log("Error: " + msg + " at " + line, true);
+                // If we have an error, force the UI to show it
+                const st = document.getElementById('status-text');
+                if(st) st.textContent = "Error: " + msg;
+            };
+
+            window.addEventListener('unhandledrejection', function(event) {
+                log("Unhandled Rejection: " + event.reason, true);
+            });
+
+            log("Wizard script started");
+
+            const { launcher } = window;
+            log("Launcher API: " + (launcher ? "Present" : "MISSING"));
+
+            const statusText = document.getElementById('status-text');
+            const statusLight = document.getElementById('status-light');
+            const actionBtn = document.getElementById('action-btn');
+            const logsDiv = document.getElementById('logs');
+            
+            let isRunning = false;
+            let checkInterval;
+
+            function updateStatus(connected, message) {
+                statusText.textContent = message;
+                statusLight.className = 'status-indicator ' + (connected ? 'green' : 'red');
+                
+                if (connected) {
+                    actionBtn.textContent = "Launch Agent Zero";
+                    actionBtn.disabled = false;
+                    actionBtn.onclick = () => launcher.launchMain();
+                    isRunning = true;
+                } else {
+                    actionBtn.textContent = "Start Docker Container";
+                    actionBtn.disabled = false;
+                    actionBtn.onclick = startDocker;
+                    isRunning = false;
+                }
+            }
+
+            async function checkStatus() {
+                log("Checking status...");
+                try {
+                    if (!launcher) {
+                        throw new Error("Launcher API missing");
+                    }
+                    const status = await launcher.checkDocker();
+                    log("Docker check result: " + status);
+                    if (status) {
+                        updateStatus(true, "Backend is running");
+                        // Optional: Auto-launch if running?
+                        // launcher.launchMain();
+                    } else {
+                        updateStatus(false, "Backend not detected");
+                    }
+                } catch (err) {
+                    log("Check failed: " + err.message, true);
+                    updateStatus(false, "Backend unreachable: " + err.message);
+                }
+            }
+
+            async function startDocker() {
+                actionBtn.disabled = true;
+                actionBtn.textContent = "Starting Docker...";
+                statusLight.className = 'status-indicator yellow';
+                statusText.textContent = "Initializing container...";
+                
+                // Start polling log output
+                logsDiv.style.display = 'block';
+                
+                try {
+                    const result = await launcher.startDocker();
+                    if (result.success) {
+                        statusText.textContent = "Container started! Waiting for health check...";
+                        // Poll until healthy
+                        pollHealth();
+                    } else {
+                        statusText.textContent = "Failed to start: " + result.error;
+                        statusLight.className = 'status-indicator red';
+                        actionBtn.disabled = false;
+                        actionBtn.textContent = "Retry Start";
+                    }
+                } catch (e) {
+                    console.error(e);
+                    statusText.textContent = "Error starting docker";
+                    actionBtn.disabled = false;
+                }
+            }
+
+            async function pollHealth() {
+                let attempts = 0;
+                const maxAttempts = 60; // 30 seconds roughly
+                
+                clearInterval(checkInterval);
+                checkInterval = setInterval(async () => {
+                    attempts++;
+                    statusText.textContent = `Waiting for backend... (${attempts}/${maxAttempts})`;
+                    const isUp = await launcher.checkDocker();
+                    
+                    if (isUp) {
+                        clearInterval(checkInterval);
+                        updateStatus(true, "Ready!");
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                        updateStatus(false, "Timed out waiting for backend");
+                    }
+                }, 1000);
+            }
+
+            // Initial check
+            checkStatus();
+            
+            // Periodic check if not processing
+            setInterval(() => {
+                if (!actionBtn.disabled && !actionBtn.textContent.includes("Starting")) {
+                    checkStatus();
+                }
+            }, 5000);
+
+            document.getElementById('logs-btn').onclick = () => {
+                 logsDiv.style.display = logsDiv.style.display === 'none' ? 'block' : 'none';
+            };
+            document.getElementById('logs-btn').style.display = 'inline-block';
+        });
+    </script>
+</body>
+</html>
