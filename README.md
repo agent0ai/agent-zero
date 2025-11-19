@@ -147,6 +147,27 @@ docker run -p 50001:80 agent0ai/agent-zero
 - The whole framework is guided by the **prompts/** folder. Agent guidelines, tool instructions, messages, utility AI functions, it's all there.
 
 
+## Agent Delegation
+
+Agent Zero supports hierarchical task delegation with built-in safeguards:
+
+- **Decision Framework**: 3-question evaluation system for delegation decisions
+- **Depth Limiting**: Configurable maximum delegation depth (default: 5 levels)
+- **Loop Prevention**: Warnings for same-profile delegation
+- **Agent Awareness**: Agents know their position in the hierarchy
+
+See [docs/delegation-improvements.md](docs/delegation-improvements.md) for details.
+
+### Configuration
+
+```python
+config = AgentConfig(
+    max_agent_depth=5,  # Maximum delegation levels
+    # ... other config ...
+)
+```
+
+
 ## 📚 Read the Documentation
 
 | Page | Description |
