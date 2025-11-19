@@ -619,6 +619,8 @@ class TaskScheduler:
     _tasks: SchedulerTaskList
     _printer: PrintStyle
     _instance = None
+    _running_deferred_tasks: Dict[str, DeferredTask]
+    _running_tasks_lock: threading.RLock
 
     @classmethod
     def get(cls) -> "TaskScheduler":
@@ -631,7 +633,37 @@ class TaskScheduler:
         if not hasattr(self, '_initialized'):
             self._tasks = SchedulerTaskList.get()
             self._printer = PrintStyle(italic=True, font_color="green", padding=False)
+            self._running_deferred_tasks = {}
+            self._running_tasks_lock = threading.RLock()
             self._initialized = True
+
+    def _register_running_task(self, task_uuid: str, deferred_task: DeferredTask) -> None:
+        with self._running_tasks_lock:
+            self._running_deferred_tasks[task_uuid] = deferred_task
+
+    def _unregister_running_task(self, task_uuid: str) -> None:
+        with self._running_tasks_lock:
+            self._running_deferred_tasks.pop(task_uuid, None)
+
+    def cancel_running_task(self, task_uuid: str, terminate_thread: bool = False) -> bool:
+        with self._running_tasks_lock:
+            deferred_task = self._running_deferred_tasks.get(task_uuid)
+        if not deferred_task:
+            return False
+        self._printer.print(f"Scheduler cancelling task {task_uuid}")
+        deferred_task.kill(terminate_thread=terminate_thread)
+        return True
+
+    def cancel_tasks_by_context(self, context_id: str, terminate_thread: bool = False) -> bool:
+        cancelled_any = False
+        with self._running_tasks_lock:
+            running_tasks = list(self._running_deferred_tasks.keys())
+        for task_uuid in running_tasks:
+            task = self.get_task_by_uuid(task_uuid)
+            if task and task.context_id == context_id:
+                if self.cancel_running_task(task_uuid, terminate_thread=terminate_thread):
+                    cancelled_any = True
+        return cancelled_any
 
     async def reload(self):
         await self._tasks.reload()
@@ -774,19 +806,23 @@ class TaskScheduler:
             task_snapshot: Union[ScheduledTask, AdHocTask, PlannedTask] | None = self.get_task_by_uuid(task_uuid)
             if task_snapshot is None:
                 self._printer.print(f"Scheduler Task with UUID '{task_uuid}' not found")
+                self._unregister_running_task(task_uuid)
                 return
             if task_snapshot.state == TaskState.RUNNING:
                 self._printer.print(f"Scheduler Task '{task_snapshot.name}' already running, skipping")
+                self._unregister_running_task(task_uuid)
                 return
 
             # Atomically fetch and check the task's current state
             current_task = await self.update_task_checked(task_uuid, lambda task: task.state != TaskState.RUNNING, state=TaskState.RUNNING)
             if not current_task:
                 self._printer.print(f"Scheduler Task with UUID '{task_uuid}' not found or updated by another process")
+                self._unregister_running_task(task_uuid)
                 return
             if current_task.state != TaskState.RUNNING:
                 # This means the update failed due to state conflict
                 self._printer.print(f"Scheduler Task '{current_task.name}' state is '{current_task.state}', skipping")
+                self._unregister_running_task(task_uuid)
                 return
 
             await current_task.on_run()
@@ -868,6 +904,13 @@ class TaskScheduler:
                     self._printer.print(f"Fixing task state consistency: '{current_task.name}' state is not IDLE after success")
                     await self.update_task(task_uuid, state=TaskState.IDLE)
 
+            except asyncio.CancelledError:
+                self._printer.print(f"Scheduler Task '{current_task.name}' cancelled by user")
+                try:
+                    await asyncio.shield(self.update_task(task_uuid, state=TaskState.IDLE))
+                except Exception:
+                    pass
+                raise
             except Exception as e:
                 # Error
                 self._printer.print(f"Scheduler Task '{current_task.name}' failed: {e}")
@@ -884,17 +927,31 @@ class TaskScheduler:
                     agent.handle_critical_exception(e)
             finally:
                 # Call on_finish for task-specific cleanup
-                await current_task.on_finish()
+                try:
+                    await asyncio.shield(current_task.on_finish())
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    pass
 
                 # Make one final save to ensure all states are persisted
-                await self._tasks.save()
+                try:
+                    await asyncio.shield(self._tasks.save())
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    pass
+
+                self._unregister_running_task(task_uuid)
 
         deferred_task = DeferredTask(thread_name=self.__class__.__name__)
+        self._register_running_task(task.uuid, deferred_task)
         deferred_task.start_task(_run_task_wrapper, task.uuid, task_context)
 
-        # Ensure background execution doesn't exit immediately on async await, especially in script contexts
-        # This helps prevent premature exits when running from non-event-loop contexts
-        asyncio.create_task(asyncio.sleep(0.1))
+        # Ensure background execution doesn't exit immediately on async await, especially in script contexts.
+        # Yielding briefly keeps callers like CLI scripts alive long enough for the DeferredTask thread to spin up
+        # without leaving stray pending tasks that trigger \"Task was destroyed\" warnings when the loop shuts down.
+        await asyncio.sleep(0.1)
 
     def serialize_all_tasks(self) -> list[Dict[str, Any]]:
         """
