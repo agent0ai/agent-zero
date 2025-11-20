@@ -82,6 +82,8 @@ def initialize_agent(override_settings: dict | None = None):
         knowledge_subdirs=[current_settings["agent_knowledge_subdir"], "default"],
         mcp_servers=current_settings["mcp_servers"],
         browser_http_headers=current_settings["browser_http_headers"],
+        auto_nudge_enabled=current_settings["auto_nudge_enabled"],
+        auto_nudge_timeout=current_settings["auto_nudge_timeout"],
         # code_exec params get initialized in _set_runtime_config
         # additional = {},
     )

@@ -66,6 +66,10 @@ class AgentContext:
         if set_current:
             AgentContext.set_current(self.id)
 
+        # Start auto-nudge monitor
+        from python.helpers.auto_nudge_monitor import AutoNudgeMonitor
+        AutoNudgeMonitor.start()
+
         # initialize state
         self.name = name
         self.config = config
@@ -82,6 +86,10 @@ class AgentContext:
         self.last_message = last_message or datetime.now(timezone.utc)
         self.data = data or {}
         self.output_data = output_data or {}
+        
+        # Initialize last_activity_time for auto-nudge monitoring
+        import time
+        self.set_data("last_activity_time", time.time())
 
 
 
@@ -213,9 +221,18 @@ class AgentContext:
         self.paused = False
 
     def nudge(self):
+        # Get the current agent BEFORE killing
+        current_agent = self.get_agent()
+
         self.kill_process()
         self.paused = False
-        self.task = self.run_task(self.get_agent().monologue)
+
+        # Create an empty UserMessage to trigger continuation
+        # Use _process_chain to maintain agent hierarchy
+        nudge_msg = UserMessage(message="Continue from where you left off.", attachments=[])
+
+        # Resume from the current agent, not agent0
+        self.task = self.run_task(self._process_chain, current_agent, nudge_msg, user=True)
         return self.task
 
     def get_agent(self):
@@ -286,6 +303,8 @@ class AgentConfig:
     code_exec_ssh_port: int = 55022
     code_exec_ssh_user: str = "root"
     code_exec_ssh_pass: str = ""
+    auto_nudge_enabled: bool = False
+    auto_nudge_timeout: int = 300  # 5 minutes default
     additional: Dict[str, Any] = field(default_factory=dict)
 
 
