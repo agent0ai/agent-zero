@@ -47,57 +47,90 @@ class State:
         if self.browser_session:
             return
 
-        # for some reason we need to provide exact path to headless shell, otherwise it looks for headed browser
-        pw_binary = ensure_playwright_binary()
-                
-        self.browser_session = browser_use.BrowserSession(
-            browser_profile=browser_use.BrowserProfile(
-                headless=True,
-                disable_security=True,
-                chromium_sandbox=False,
-                accept_downloads=True,
-                downloads_path=files.get_abs_path("tmp/downloads"),
-                allowed_domains=["*", "http://*", "https://*"],
-                executable_path=pw_binary,
-                keep_alive=True,
-                minimum_wait_page_load_time=1.0,
-                wait_for_network_idle_page_load_time=2.0,
-                maximum_wait_page_load_time=10.0,
-                window_size={"width": 1024, "height": 2048},
-                screen={"width": 1024, "height": 2048},
-                viewport={"width": 1024, "height": 2048},
-                no_viewport=False,
-                args=["--headless=new"],
-                # Use a unique user data directory to avoid conflicts
-                user_data_dir=self.get_user_data_dir(),
-                extra_http_headers=self.agent.config.browser_http_headers or {},
+        # Check if cloud browser is enabled
+        use_cloud = self.agent.config.browser_use_cloud
+
+        if use_cloud:
+            # Use Browser Use Cloud - no local browser required
+            PrintStyle.info("Initializing cloud browser session with Browser Use Cloud...")
+
+            # Set API key from config or environment variable
+            import os
+            api_key = self.agent.config.browser_cloud_api_key or os.getenv("BROWSER_USE_API_KEY")
+
+            if api_key:
+                os.environ["BROWSER_USE_API_KEY"] = api_key
+            elif not os.getenv("BROWSER_USE_API_KEY"):
+                PrintStyle.warning(
+                    "No Browser Use Cloud API key found. Set browser_cloud_api_key in config "
+                    "or BROWSER_USE_API_KEY environment variable. "
+                    "Get your API key at: https://cloud.browser-use.com/new-api-key"
                 )
-        )
+
+            # Initialize cloud browser session
+            self.browser_session = browser_use.Browser(
+                use_cloud=True,
+                stealth=self.agent.config.browser_use_stealth,
+            )
+
+            PrintStyle.info("Cloud browser session initialized successfully!")
+        else:
+            # Use local browser (original behavior)
+            PrintStyle.info("Initializing local browser session...")
+
+            # for some reason we need to provide exact path to headless shell, otherwise it looks for headed browser
+            pw_binary = ensure_playwright_binary()
+
+            self.browser_session = browser_use.BrowserSession(
+                browser_profile=browser_use.BrowserProfile(
+                    headless=True,
+                    disable_security=True,
+                    chromium_sandbox=False,
+                    accept_downloads=True,
+                    downloads_path=files.get_abs_path("tmp/downloads"),
+                    allowed_domains=["*", "http://*", "https://*"],
+                    executable_path=pw_binary,
+                    keep_alive=True,
+                    minimum_wait_page_load_time=1.0,
+                    wait_for_network_idle_page_load_time=2.0,
+                    maximum_wait_page_load_time=10.0,
+                    window_size={"width": 1024, "height": 2048},
+                    screen={"width": 1024, "height": 2048},
+                    viewport={"width": 1024, "height": 2048},
+                    no_viewport=False,
+                    args=["--headless=new"],
+                    # Use a unique user data directory to avoid conflicts
+                    user_data_dir=self.get_user_data_dir(),
+                    extra_http_headers=self.agent.config.browser_http_headers or {},
+                    )
+            )
 
         await self.browser_session.start() if self.browser_session else None
         # self.override_hooks()
 
-        # --------------------------------------------------------------------------
-        # Patch to enforce vertical viewport size
-        # --------------------------------------------------------------------------
-        # Browser-use auto-configuration overrides viewport settings, causing wrong
-        # aspect ratio. We fix this by directly setting viewport size after startup.
-        # --------------------------------------------------------------------------
+        # Only apply local browser configurations (viewport, init scripts) for non-cloud sessions
+        if not use_cloud:
+            # --------------------------------------------------------------------------
+            # Patch to enforce vertical viewport size (local browser only)
+            # --------------------------------------------------------------------------
+            # Browser-use auto-configuration overrides viewport settings, causing wrong
+            # aspect ratio. We fix this by directly setting viewport size after startup.
+            # --------------------------------------------------------------------------
 
-        if self.browser_session:
-            try:
-                page = await self.browser_session.get_current_page()
-                if page:
-                    await page.set_viewport_size({"width": 1024, "height": 2048})
-            except Exception as e:
-                PrintStyle().warning(f"Could not force set viewport size: {e}")
+            if self.browser_session:
+                try:
+                    page = await self.browser_session.get_current_page()
+                    if page:
+                        await page.set_viewport_size({"width": 1024, "height": 2048})
+                except Exception as e:
+                    PrintStyle().warning(f"Could not force set viewport size: {e}")
 
-        # --------------------------------------------------------------------------    
-        
-        # Add init script to the browser session
-        if self.browser_session and self.browser_session.browser_context:
-            js_override = files.get_abs_path("lib/browser/init_override.js")
-            await self.browser_session.browser_context.add_init_script(path=js_override) if self.browser_session else None
+            # --------------------------------------------------------------------------
+
+            # Add init script to the browser session (local browser only)
+            if self.browser_session and self.browser_session.browser_context:
+                js_override = files.get_abs_path("lib/browser/init_override.js")
+                await self.browser_session.browser_context.add_init_script(path=js_override) if self.browser_session else None
 
     def start_task(self, task: str):
         if self.task and self.task.is_alive():

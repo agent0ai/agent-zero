@@ -281,6 +281,9 @@ class AgentConfig:
     memory_subdir: str = ""
     knowledge_subdirs: list[str] = field(default_factory=lambda: ["default", "custom"])
     browser_http_headers: dict[str, str] = field(default_factory=dict)  # Custom HTTP headers for browser requests
+    browser_use_cloud: bool = False  # Use Browser Use Cloud instead of local browser
+    browser_use_stealth: bool = True  # Use stealth mode for cloud browsers
+    browser_cloud_api_key: str = ""  # Browser Use Cloud API key (can also use env var BROWSER_USE_API_KEY)
     code_exec_ssh_enabled: bool = True
     code_exec_ssh_addr: str = "localhost"
     code_exec_ssh_port: int = 55022
