@@ -33,12 +33,13 @@ read_only: false
 excluded_tools: []
 
 # Enhanced optional tools for advanced features
+# Note: Commented out non-existent tools to fix activation error
 included_optional_tools:
-- "symbol_graph_builder"
-- "foam_link_generator"
-- "memory_tagger"
-- "relation_mapper"
-- "cron_scheduler"
+# - "symbol_graph_builder"  # This tool doesn't exist - causing activation error
+# - "foam_link_generator"
+# - "memory_tagger"
+# - "relation_mapper"
+# - "cron_scheduler"
 
 # Extended initial prompt with Foam integration
 initial_prompt: |

@@ -375,6 +375,16 @@ class Memory:
     async def search_similarity_threshold(
         self, query: str, limit: int, threshold: float, filter: str = ""
     ):
+        # For Qdrant, pass the raw filter string to allow server-side filtering
+        if self.backend == "qdrant":
+            return await self.db.asearch(
+                query,
+                search_type="similarity_score_threshold",
+                k=limit,
+                score_threshold=threshold,
+                filter=filter,
+            )
+
         comparator = Memory._get_comparator(filter) if filter else None
 
         return await self.db.asearch(

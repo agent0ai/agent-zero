@@ -1,6 +1,6 @@
 # Memory backend configuration
 # backend: faiss | qdrant | hybrid (qdrant with faiss mirror)
-backend: faiss
+backend: qdrant
 
 qdrant:
   url: http://localhost:6333

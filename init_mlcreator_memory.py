@@ -252,6 +252,9 @@ class MLCreatorMemoryInitializer:
                 print(f"  ✅ Memory {i}/{len(self.memories_to_create)}: {memory_data['metadata']['category']}")
             except Exception as e:
                 print(f"  ❌ Failed to insert memory {i}: {e}")
+            
+            # Manual throttle to avoid quota limits
+            await asyncio.sleep(5)
 
         print(f"\n✅ Successfully initialized {len(memory_ids)} memories")
         return memory_ids

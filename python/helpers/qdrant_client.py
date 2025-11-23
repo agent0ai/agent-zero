@@ -1,5 +1,7 @@
 import asyncio
+import uuid
 from typing import Any, List, Sequence
+from simpleeval import simple_eval
 
 from langchain_core.documents import Document
 
@@ -45,6 +47,16 @@ class QdrantStore:
         self.searchable_payload_keys = searchable_payload_keys or []
         self._collection_ready = False
 
+    def _to_uuid(self, id_str: str) -> str:
+        """Convert any string ID to a deterministic UUID."""
+        try:
+            # If it's already a valid UUID, return it
+            uuid.UUID(str(id_str))
+            return str(id_str)
+        except ValueError:
+            # Otherwise, hash it to a UUID
+            return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(id_str)))
+
     async def _ensure_collection(self):
         if self._collection_ready:
             return
@@ -59,6 +71,18 @@ class QdrantStore:
                     size=dim, distance=qmodels.Distance.COSINE
                 ),
             )
+        
+        # Create payload indexes for searchable keys
+        for key in self.searchable_payload_keys:
+            try:
+                await self.client.create_payload_index(
+                    collection_name=self.collection,
+                    field_name=key,
+                    field_schema=qmodels.PayloadSchemaType.KEYWORD,
+                )
+            except Exception:
+                pass # Index might already exist
+
         self._collection_ready = True
 
     async def aadd_documents(self, documents: list[Document], ids: Sequence[str]):
@@ -71,10 +95,15 @@ class QdrantStore:
         for doc, vec, pid in zip(documents, vectors, ids):
             payload = dict(doc.metadata or {})
             payload["text"] = doc.page_content
-            payload["id"] = str(pid)
+            # Store original ID in payload for reference
+            payload["original_id"] = str(pid)
+            # Use UUID for Qdrant point ID
+            point_id = self._to_uuid(pid)
+            payload["id"] = point_id
+            
             points.append(
                 qmodels.PointStruct(
-                    id=str(pid),
+                    id=point_id,
                     vector=vec,
                     payload=payload,
                 )
@@ -82,6 +111,38 @@ class QdrantStore:
 
         await self.client.upsert(collection_name=self.collection, points=points)
         return ids
+
+    def _parse_filter(self, filter_str: str | None):
+        if not filter_str or not qmodels:
+            return None
+        
+        try:
+            # Simple parser for "key == 'value'" or "key == 'value' or key == 'value2'"
+            conditions = []
+            parts = filter_str.split(" or ")
+            
+            for part in parts:
+                if "==" not in part:
+                    return None # Complex filter, fallback to Python
+                
+                key, val = part.split("==", 1)
+                key = key.strip()
+                val = val.strip().strip("'").strip('"')
+                
+                conditions.append(
+                    qmodels.FieldCondition(
+                        key=key,
+                        match=qmodels.MatchValue(value=val)
+                    )
+                )
+            
+            if not conditions:
+                return None
+                
+            return qmodels.Filter(should=conditions)
+            
+        except Exception:
+            return None
 
     async def asearch(
         self,
@@ -93,23 +154,45 @@ class QdrantStore:
     ):
         await self._ensure_collection()
         qvec = await asyncio.to_thread(self.embedder.embed_query, query)
+        
+        q_filter = None
+        if isinstance(filter, str):
+            q_filter = self._parse_filter(filter)
+            
+        # If we fallback to python filtering, we need to fetch more results
+        limit = k
+        if filter and not q_filter:
+            limit = k * 10
+
         res = await self.client.search(
             collection_name=self.collection,
             query_vector=qvec,
-            limit=k,
+            limit=limit,
             score_threshold=score_threshold,
             with_vectors=False,
-            query_filter=None,  # placeholder until we add filter parsing
+            query_filter=q_filter,
+            # query_filter=None,  # placeholder until we add filter parsing
         )
         docs: List[Document] = []
         for point in res:
             payload = dict(point.payload or {})
             text = payload.pop("text", "")
-            payload["id"] = str(point.id)
+            # Restore original ID if present, else use point ID
+            payload["id"] = payload.get("original_id", str(point.id))
             docs.append(Document(page_content=text, metadata=payload))
-        if callable(filter):
-            docs = [d for d in docs if filter(d.metadata)]
-        return docs
+            
+        # Fallback to python filtering if q_filter was not possible but filter exists
+        if filter and not q_filter:
+            if callable(filter):
+                docs = [d for d in docs if filter(d.metadata)]
+            elif isinstance(filter, str):
+                 # Try to evaluate string filter
+                 try:
+                     docs = [d for d in docs if simple_eval(filter, names=d.metadata)]
+                 except Exception:
+                     pass # Failed to evaluate, return all (or empty? usually better to return all than crash, but might be wrong)
+
+        return docs[:k]
 
     async def aget_all_docs(self, page_size: int = 256, limit: int = 1000) -> List[Document]:
         """Lightweight scroll to fetch up to `limit` docs for stats/migrations."""
@@ -126,7 +209,7 @@ class QdrantStore:
             for point in res:
                 payload = dict(point.payload or {})
                 text = payload.pop("text", "")
-                payload["id"] = str(point.id)
+                payload["id"] = payload.get("original_id", str(point.id))
                 collected.append(Document(page_content=text, metadata=payload))
             if scroll is None or not res:
                 break
@@ -134,21 +217,22 @@ class QdrantStore:
 
     async def adelete(self, ids: Sequence[str]):
         await self._ensure_collection()
-        points = qmodels.PointIdsList(points=[str(i) for i in ids])
+        # Convert IDs to UUIDs
+        points = qmodels.PointIdsList(points=[self._to_uuid(i) for i in ids])
         await self.client.delete(collection_name=self.collection, points_selector=points)
 
     async def aget_by_ids(self, ids: Sequence[str]) -> List[Document]:
         await self._ensure_collection()
         res = await self.client.retrieve(
             collection_name=self.collection,
-            ids=[str(i) for i in ids],
+            ids=[self._to_uuid(i) for i in ids],
             with_vectors=False,
         )
         docs: List[Document] = []
         for point in res:
             payload = dict(point.payload or {})
             text = payload.pop("text", "")
-            payload["id"] = str(point.id)
+            payload["id"] = payload.get("original_id", str(point.id))
             docs.append(Document(page_content=text, metadata=payload))
         return docs
 
