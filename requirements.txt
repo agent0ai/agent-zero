@@ -11,12 +11,12 @@ flask-basicauth==0.2.0
 flaredantic==0.1.4
 GitPython==3.1.43
 inputimeout==1.0.4
-kokoro>=0.9.2
+# kokoro>=0.9.2
 simpleeval==1.0.3
 langchain-core==0.3.49
 langchain-community==0.3.19
-langchain-unstructured[all-docs]==0.1.6
-openai-whisper==20240930
+# langchain-unstructured[all-docs]==0.1.6
+# openai-whisper==20240930
 lxml_html_clean==0.3.1
 markdown==3.7
 mcp==1.13.1
@@ -28,8 +28,8 @@ python-dotenv==1.1.0
 pytz==2024.2
 sentence-transformers==3.0.1
 tiktoken==0.8.0
-unstructured[all-docs]==0.16.23
-unstructured-client==0.31.0
+# unstructured[all-docs]==0.16.23
+# unstructured-client==0.31.0
 webcolors==24.6.0
 nest-asyncio==1.6.0
 crontab==1.0.1

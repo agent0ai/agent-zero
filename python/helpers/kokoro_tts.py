@@ -16,6 +16,7 @@ _pipeline = None
 _voice = "am_puck,am_onyx"
 _speed = 1.1
 is_updating_model = False
+KOKORO_AVAILABLE = False
 
 
 async def preload():
@@ -31,7 +32,7 @@ async def preload():
 
 
 async def _preload():
-    global _pipeline, is_updating_model
+    global _pipeline, is_updating_model, KOKORO_AVAILABLE
 
     while is_updating_model:
         await asyncio.sleep(0.1)
@@ -39,21 +40,32 @@ async def _preload():
     try:
         is_updating_model = True
         if not _pipeline:
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Loading Kokoro TTS model...",
-                display_time=99,
-                group="kokoro-preload")
-            PrintStyle.standard("Loading Kokoro TTS model...")
-            from kokoro import KPipeline
-            _pipeline = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Kokoro TTS model loaded.",
-                display_time=2,
-                group="kokoro-preload")
+            try:
+                NotificationManager.send_notification(
+                    NotificationType.INFO,
+                    NotificationPriority.NORMAL,
+                    "Loading Kokoro TTS model...",
+                    display_time=99,
+                    group="kokoro-preload")
+                PrintStyle.standard("Loading Kokoro TTS model...")
+                from kokoro import KPipeline  # type: ignore
+                _pipeline = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
+                KOKORO_AVAILABLE = True
+                NotificationManager.send_notification(
+                    NotificationType.INFO,
+                    NotificationPriority.NORMAL,
+                    "Kokoro TTS model loaded.",
+                    display_time=2,
+                    group="kokoro-preload")
+            except ImportError:
+                KOKORO_AVAILABLE = False
+                NotificationManager.send_notification(
+                    NotificationType.WARNING,
+                    NotificationPriority.NORMAL,
+                    "Kokoro TTS not available. Using fallback.",
+                    display_time=5,
+                    group="kokoro-preload")
+                PrintStyle.warning("Kokoro TTS library not available. TTS functionality will be limited.")
     finally:
         is_updating_model = False
 
@@ -100,6 +112,11 @@ async def synthesize_sentences(sentences: list[str]):
 
 async def _synthesize_sentences(sentences: list[str]):
     await _preload()
+
+    if not KOKORO_AVAILABLE:
+        # Fallback when Kokoro is not available
+        PrintStyle.warning("TTS synthesis not available - Kokoro library not installed")
+        raise ImportError("Kokoro TTS library is not available. Please install kokoro for TTS functionality.")
 
     combined_audio = []
 

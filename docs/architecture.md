@@ -1,5 +1,11 @@
+---
+tags: [architecture, docs]
+---
+
 # Architecture Overview
 Agent Zero is built on a flexible and modular architecture designed for extensibility and customization. This section outlines the key components and the interactions between them.
+
+See also the [[Agent Zero Code Map]] for a visualizable graph of the codebase.
 
 ## System Architecture
 This simplified diagram illustrates the hierarchical relationship between agents and their interaction with tools, extensions, instruments, prompts, memory and knowledge base.
@@ -81,7 +87,7 @@ This architecture ensures:
 Agent Zero's architecture revolves around the following key components:
 
 ### 1. Agents
-The core actors within the framework. Agents receive instructions, reason, make decisions, and utilize tools to achieve their objectives. Agents operate within a hierarchical structure, with superior agents delegating tasks to subordinate agents.
+The core actors within the framework. See [[Agent Core]]. Agents receive instructions, reason, make decisions, and utilize tools to achieve their objectives. Agents operate within a hierarchical structure, with superior agents delegating tasks to subordinate agents.
 
 #### Agent Hierarchy and Communication
 Agent Zero employs a hierarchical agent structure, where a top-level agent (often the user) can delegate tasks to subordinate agents. This hierarchy allows for the efficient breakdown of complex tasks into smaller, more manageable sub-tasks.
@@ -108,7 +114,7 @@ A typical interaction flow within Agent Zero might look like this:
 7. Agent 0 provides the final response to the user
 
 ### 2. Tools
-Tools are functionalities that agents can leverage. These can include anything from web search and code execution to interacting with APIs or controlling external software. Agent Zero provides a mechanism for defining and integrating both built-in and custom tools.
+Tools are functionalities that agents can leverage. See [[Tools]]. These can include anything from web search and code execution to interacting with APIs or controlling external software. Agent Zero provides a mechanism for defining and integrating both built-in and custom tools.
 
 #### Built-in Tools
 Agent Zero comes with a set of built-in tools designed to help agents perform tasks efficiently:
@@ -153,7 +159,7 @@ Users can create custom tools to extend Agent Zero's capabilities. Custom tools 
 > to call custom scripts or functions.
 
 ### 3. Memory System
-The memory system is a critical component of Agent Zero, enabling the agent to learn and adapt from past interactions. It operates on a hybrid model where part of the memory is managed automatically by the framework while users can also manually input and extract information.
+The memory system is a critical component of Agent Zero, enabling the agent to learn and adapt from past interactions. See [[Memory System]]. It operates on a hybrid model where part of the memory is managed automatically by the framework while users can also manually input and extract information.
 
 #### Memory Structure
 The memory is categorized into four distinct areas:
@@ -193,7 +199,7 @@ By dynamically adjusting context windows and summarizing past interactions, Agen
 > To maximize the effectiveness of context summarization, users should provide clear and specific instructions during interactions. This helps Agent Zero understand which details are most important to retain.
 
 ### 4. Prompts
-The `prompts` directory contains various Markdown files that control agent behavior and communication. The most important file is `agent.system.main.md`, which acts as a central hub, referencing other prompt files.
+The `prompts` directory contains various Markdown files that control agent behavior and communication. See [[Prompts System]]. The most important file is `agent.system.main.md`, which acts as a central hub, referencing other prompt files.
 
 #### Core Prompt Files
 | Prompt File | Description |
@@ -282,7 +288,7 @@ Instruments provide a way to add custom functionalities to Agent Zero without ad
 4. The agent will automatically detect and use the instrument
 
 ### 7. Extensions
-Extensions are a powerful feature of Agent Zero, designed to keep the main codebase clean and organized while allowing for greater flexibility and modularity.
+Extensions are a powerful feature of Agent Zero, designed to keep the main codebase clean and organized while allowing for greater flexibility and modularity. See [[Extensions]].
 
 #### Structure
 Extensions can be found in `python/extensions` directory:

@@ -7,7 +7,12 @@ import json
 from python.helpers.vector_db import VectorDB
 
 os.environ["USER_AGENT"] = "@mixedbread-ai/unstructured"  # noqa E402
-from langchain_unstructured import UnstructuredLoader  # noqa E402
+try:
+    from langchain_unstructured import UnstructuredLoader  # noqa E402 # type: ignore
+    UNSTRUCTURED_AVAILABLE = True
+except ImportError:
+    UnstructuredLoader = None  # type: ignore
+    UNSTRUCTURED_AVAILABLE = False
 
 from urllib.parse import urlparse
 from typing import Callable, Sequence, List, Optional, Tuple
@@ -656,10 +661,28 @@ class DocumentQueryHelper:
             os.unlink(temp_file_path)
 
     def handle_unstructured_document(self, document: str, scheme: str) -> str:
+        if not UNSTRUCTURED_AVAILABLE:
+            # Fallback to basic text extraction when UnstructuredLoader is not available
+            if scheme in ["http", "https"]:
+                # Fall back to HTML processing
+                return self.handle_html_document(document, scheme)
+            elif scheme == "file":
+                # Use RFC file operations to read the file as text
+                file_content_bytes = files.read_file_bin(document)
+                try:
+                    # Try to decode as UTF-8
+                    file_content = file_content_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    # If UTF-8 fails, provide a message about binary content
+                    file_content = f"[Binary file content not supported without UnstructuredLoader: {document}]"
+                return file_content
+            else:
+                raise ValueError(f"Unsupported scheme: {scheme}")
+
         elements: list[Document] = []
         if scheme in ["http", "https"]:
             # loader = UnstructuredURLLoader(urls=[document], mode="single")
-            loader = UnstructuredLoader(
+            loader = UnstructuredLoader(  # type: ignore
                 web_url=document,
                 mode="single",
                 partition_via_api=False,
@@ -681,7 +704,7 @@ class DocumentQueryHelper:
                 temp_file_path = temp_file.name
 
             try:
-                loader = UnstructuredLoader(
+                loader = UnstructuredLoader(  # type: ignore
                     file_path=temp_file_path,
                     mode="single",
                     partition_via_api=False,

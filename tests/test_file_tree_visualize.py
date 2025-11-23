@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 import sys
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
 try:
     import pytest  # type: ignore
@@ -109,7 +109,7 @@ def print_nested(items: List[Dict[str, Any]], root_label: str) -> None:
 
 
 @contextmanager
-def scenario_directory(name: str) -> Iterable[str]:
+def scenario_directory(name: str) -> Iterator[str]:
     rel_path = os.path.join(BASE_TEMP_ROOT, name)
     delete_dir(rel_path)
     create_dir(rel_path)
@@ -182,7 +182,7 @@ def run_scenarios(selected: List[Scenario]) -> None:
                 elif output_mode == OUTPUT_MODE_FLAT:
                     print_flat(result)  # type: ignore[arg-type]
                 elif output_mode == OUTPUT_MODE_NESTED:
-                    print_nested(result, f"{scenario.name}/")
+                    print_nested(cast(List[Dict[str, Any]], result), f"{scenario.name}/")
                 else:
                     print(f"(Unhandled output mode {output_mode!r})")
 

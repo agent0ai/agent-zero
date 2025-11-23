@@ -94,7 +94,8 @@ class EmailClient:
             client = IMAPClient(self.server, port=self.port, ssl=self.ssl, timeout=self.timeout)
             # Increase line length limit to handle large emails (default is 10000)
             # This fixes "line too long" errors for emails with large headers or embedded content
-            client._imap._maxline = 100000
+            if hasattr(client, '_imap') and hasattr(client._imap, '_maxline'):
+                client._imap._maxline = 100000  # type: ignore
             client.login(self.username, self.password)
             return client
 
@@ -181,6 +182,7 @@ class EmailClient:
 
         def _sync_fetch():
             # Select inbox
+            assert self.client is not None
             self.client.select_folder("INBOX")
 
             # Build search criteria
@@ -229,6 +231,7 @@ class EmailClient:
         loop = asyncio.get_event_loop()
 
         def _sync_fetch():
+            assert self.client is not None
             try:
                 # Try standard RFC822 fetch first
                 return self.client.fetch([msg_id], ["RFC822"])[msg_id]

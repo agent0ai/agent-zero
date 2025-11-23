@@ -1,6 +1,9 @@
 import base64
 import warnings
-import whisper
+try:
+    import whisper
+except ImportError:
+    whisper = None
 import tempfile
 import asyncio
 from python.helpers import runtime, rfc, settings, files
@@ -38,6 +41,14 @@ async def _preload(model_name:str):
                 display_time=99,
                 group="whisper-preload")
             PrintStyle.standard(f"Loading Whisper model: {model_name}")
+            if whisper is None:
+                NotificationManager.send_notification(
+                    NotificationType.ERROR,
+                    NotificationPriority.NORMAL,
+                    "Whisper not installed",
+                    display_time=5
+                )
+                return
             _model = whisper.load_model(name=model_name, download_root=files.get_abs_path("/tmp/models/whisper")) # type: ignore
             _model_name = model_name
             NotificationManager.send_notification(

@@ -1,3 +1,7 @@
+---
+tags: [usage, docs]
+---
+
 # Usage Guide
 This guide explores usage and configuration scenarios for Agent Zero. You can consider this as a reference post-installation guide.
 

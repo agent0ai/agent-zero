@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"js/ts.implicitProjectConfig.checkJs": true,
+		"foam.graph.onStartup": true,
+		"foam.graph.style": {
+			
+		}
+	}
+}

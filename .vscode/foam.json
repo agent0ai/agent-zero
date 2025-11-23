@@ -1,0 +1,144 @@
+{
+  "purpose": "Agent Zero Knowledge Graph with Serena Memory Integration",
+  "foam.files.ignore": [
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    "Library/**",
+    "Temp/**",
+    "Logs/**"
+  ],
+  "foam.edit.linkReferenceDefinitions": "withExtensions",
+  "foam.openDailyNote.directory": "docs/daily",
+  "foam.openDailyNote.titleFormat": "yyyy-mm-dd",
+  "foam.graph.style": {
+    "node": {
+      "note": "#2D3748",
+      "placeholder": "#4A5568",
+      "feature": "#3182CE",
+      "class": "#9F7AEA",
+      "function": "#48BB78",
+      "memory": "#F56565",
+      "tool": "#ED8936",
+      "helper": "#38B2AC",
+      "api": "#F6E05E",
+      "core": "#E53E3E",
+      "python": "#3776AB",
+      "typescript": "#3178C6",
+      "symbol": "#805AD5"
+    },
+    "line": {
+      "link": "#4A5568",
+      "imports": "#9F7AEA",
+      "extends": "#48BB78",
+      "implements": "#F56565",
+      "references": "#38B2AC"
+    }
+  },
+  "foam.graph.layout": {
+    "algorithm": "force-directed",
+    "linkDistance": 150,
+    "linkStrength": 0.5,
+    "chargeStrength": -500,
+    "centerStrength": 0.3,
+    "forceX": 0.1,
+    "forceY": 0.1
+  },
+  "foam.tags.enabled": true,
+  "foam.tags.tagDirectory": "tags/",
+  "foam.tags.hierarchicalSeparator": "-",
+  "serena.integration": {
+    "enabled": true,
+    "memory.autoSync": true,
+    "symbol.autoTag": true,
+    "graph.autoUpdate": true
+  },
+  "symbol.tracking": {
+    "classes": {
+      "tag": "#class",
+      "color": "#9F7AEA",
+      "priority": "high"
+    },
+    "functions": {
+      "tag": "#function",
+      "color": "#48BB78",
+      "priority": "medium"
+    },
+    "interfaces": {
+      "tag": "#interface",
+      "color": "#F56565",
+      "priority": "high"
+    },
+    "modules": {
+      "tag": "#module",
+      "color": "#38B2AC",
+      "priority": "medium"
+    }
+  },
+  "memory.areas": {
+    "main": {
+      "tag": "#memory-main",
+      "color": "#E53E3E",
+      "autoIndex": true
+    },
+    "solutions": {
+      "tag": "#memory-solutions",
+      "color": "#48BB78",
+      "autoIndex": true
+    },
+    "fragments": {
+      "tag": "#memory-fragments",
+      "color": "#F6E05E",
+      "autoIndex": false
+    },
+    "instruments": {
+      "tag": "#memory-instruments",
+      "color": "#805AD5",
+      "autoIndex": true
+    }
+  },
+  "relationships": [
+    {
+      "source": "agent.py",
+      "type": "imports",
+      "target": "models.py"
+    },
+    {
+      "source": "memory.py",
+      "type": "imports",
+      "target": "vector_db.py"
+    }
+  ],
+  "automation": {
+    "schedule": {
+      "symbolTagging": "0 * * * *",
+      "relationMapping": "*/30 * * * *",
+      "memoryUpdate": "0 */4 * * *",
+      "graphRefresh": "0 */2 * * *"
+    },
+    "tasks": {
+      "symbolTagging": {
+        "script": "foam_integration.py",
+        "args": "--task symbol_tagging"
+      },
+      "relationMapping": {
+        "script": "foam_integration.py",
+        "args": "--task relation_mapping"
+      },
+      "memoryUpdate": {
+        "script": "foam_integration.py",
+        "args": "--task memory_update"
+      },
+      "graphRefresh": {
+        "script": "foam_integration.py",
+        "args": "--task graph_refresh"
+      }
+    }
+  },
+  "statistics": {
+    "last_updated": "2025-11-22T21:46:16.567280",
+    "total_files_analyzed": 20,
+    "total_relationships": 2,
+    "total_symbols": 137
+  }
+}

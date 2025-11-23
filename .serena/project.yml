@@ -1,0 +1,156 @@
+# Enhanced Serena Configuration for Agent Zero with Full Powers
+# Integrated with Foam graph visualization and memory tagging system
+
+# Multi-language support for comprehensive code analysis
+languages:
+- typescript
+- python
+- python_jedi
+- yaml
+- markdown
+- bash
+
+# Project encoding
+encoding: "utf-8"
+
+# Git integration
+ignore_all_files_in_gitignore: true
+
+# Additional paths to ignore (keep system files out)
+ignored_paths:
+- "Library/**"
+- "Temp/**"
+- "node_modules/**"
+- ".venv/**"
+- "__pycache__/**"
+- "*.pyc"
+- ".git/**"
+
+# Full write access enabled
+read_only: false
+
+# ALL TOOLS ENABLED - Full power mode
+excluded_tools: []
+
+# Enhanced optional tools for advanced features
+included_optional_tools:
+- "symbol_graph_builder"
+- "foam_link_generator"
+- "memory_tagger"
+- "relation_mapper"
+- "cron_scheduler"
+
+# Extended initial prompt with Foam integration
+initial_prompt: |
+  You are Serena, an advanced code intelligence system for Agent Zero with full powers enabled.
+
+  ENHANCED CAPABILITIES:
+  1. Full read/write access to entire codebase
+  2. Symbol analysis and cross-referencing
+  3. Memory system with persistent storage
+  4. Foam graph integration for visualization
+  5. Automatic tagging and wikilink generation
+  6. Cron job scheduling for automated tasks
+
+  FOAM INTEGRATION:
+  - Generate [[wikilinks]] for important symbols
+  - Add tags: #symbol #important #memory #relation
+  - Create bidirectional links between related files
+  - Update foam.json with discovered relationships
+  - Maintain .vscode/foam.json for graph visualization
+
+  MEMORY TAGGING SYSTEM:
+  - Tag important symbols with #symbol-{type}
+  - Create memory entries for key discoveries
+  - Link memories to code locations
+  - Generate relationship maps
+
+  AUTOMATED TASKS (via cron):
+  - Symbol discovery and tagging
+  - Relationship mapping
+  - Memory consolidation
+  - Graph update generation
+
+  PROJECT CONTEXT:
+  - Agent Zero: AI assistant framework
+  - MLcreator: Unity game development project
+  - Memory system: FAISS vector database
+  - Knowledge base: Structured markdown files
+
+project_name: "agent-zero"
+
+# Advanced features configuration
+advanced_features:
+  foam_integration:
+    enabled: true
+    graph_update_frequency: "hourly"
+    auto_tag_symbols: true
+    create_wikilinks: true
+    update_foam_json: true
+
+  memory_system:
+    enabled: true
+    auto_save: true
+    consolidation: true
+    vector_search: true
+
+  symbol_analysis:
+    deep_analysis: true
+    cross_reference: true
+    dependency_mapping: true
+
+  cron_jobs:
+    enabled: true
+    symbol_tagging: "0 * * * *"  # Every hour
+    relation_mapping: "*/30 * * * *"  # Every 30 minutes
+    memory_update: "0 */4 * * *"  # Every 4 hours
+    graph_refresh: "0 */2 * * *"  # Every 2 hours
+
+# Memory integration settings
+memory_settings:
+  default_area: "main"
+  auto_tag_threshold: 0.8
+  consolidation_threshold: 0.85
+  max_memories_per_symbol: 10
+
+# Foam graph settings
+foam_settings:
+  node_size_by: "importance"
+  edge_weight_by: "reference_count"
+  auto_layout: true
+  physics_enabled: true
+  tags_as_nodes: true
+
+# Symbol tagging rules
+symbol_tagging:
+  classes: "#class #symbol-class"
+  functions: "#function #symbol-function"
+  interfaces: "#interface #symbol-interface"
+  modules: "#module #symbol-module"
+  important: "#important #core #memory"
+
+# Relationship patterns to detect
+relationship_patterns:
+  - "imports"
+  - "extends"
+  - "implements"
+  - "calls"
+  - "references"
+  - "depends_on"
+  - "used_by"
+  - "similar_to"
+  - "related_to"
+
+# Auto-generated documentation
+auto_documentation:
+  enabled: true
+  format: "markdown"
+  include_diagrams: true
+  update_frequency: "daily"
+
+# Performance settings
+performance:
+  max_parallel_operations: 10
+  cache_symbols: true
+  incremental_updates: true
+  batch_operations: true

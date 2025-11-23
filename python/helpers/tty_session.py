@@ -263,7 +263,7 @@ async def _spawn_winpty(cmd, cwd, env, echo):
 
         def kill(self):
             if child.isalive():
-                child.kill()
+                child.kill(9)  # SIGKILL
 
     return _Proc()
 
