@@ -1,0 +1,80 @@
+🔍 MLcreator Setup Verification for Agent Zero
+============================================================
+
+============================================================
+  Checking Directory Structure
+============================================================
+  ✅ Memory: D:\GithubRepos\agent-zero\memory\mlcreator
+  ✅ Knowledge: D:\GithubRepos\agent-zero\knowledge\mlcreator
+  ✅ Knowledge/main: D:\GithubRepos\agent-zero\knowledge\mlcreator\main
+  ✅ Knowledge/solutions: D:\GithubRepos\agent-zero\knowledge\mlcreator\solutions
+  ✅ Knowledge/fragments: D:\GithubRepos\agent-zero\knowledge\mlcreator\fragments
+  ✅ Knowledge/instruments: D:\GithubRepos\agent-zero\knowledge\mlcreator\instruments
+  ✅ Prompts: D:\GithubRepos\agent-zero\prompts\mlcreator
+  ❌ Instruments: D:\GithubRepos\agent-zero\instruments\mlcreator
+
+============================================================
+  Checking Configuration Files
+============================================================
+  ✅ CLAUDE.md: CLAUDE.md
+  ✅ AGENTS.md: AGENTS.md
+  ✅ .env: .env
+  ✅ populate_mlcreator_knowledge.py: populate_mlcreator_knowledge.py
+  ✅ init_mlcreator_memory.py: init_mlcreator_memory.py
+  ✅ .env contains MLcreator settings
+
+============================================================
+  Checking Knowledge Base
+============================================================
+  ✅ Project overview (3,319 bytes)
+  ✅ Architecture documentation (5,736 bytes)
+  ✅ Coding conventions (7,768 bytes)
+  ✅ Dependencies documentation (6,565 bytes)
+  ✅ Unity patterns (6,046 bytes)
+  ✅ Game Creator solutions (7,251 bytes)
+  ✅ Activation scripts documentation (5,319 bytes)
+
+  📊 Total knowledge files: 7
+
+============================================================
+  Checking Memory Database
+============================================================
+Initializing VectorDB...[0m
+  ✅ Memory database accessible
+  ✅ Memory search functional (5 results found)
+  ✅ FAISS index file exists
+
+============================================================
+  Checking MLcreator Project
+============================================================
+  ✅ MLcreator project found at D:\GithubRepos\MLcreator
+  ✅ Solution file: MLcreator.sln
+  ✅ Unity activation script: activate-unity.ps1
+  ✅ AI activation script: activate-ai.ps1
+  ✅ ML-Agents configuration directory: ML_AgentsConfig
+  ✅ Unity assets directory: Assets
+
+============================================================
+  Checking Python Environment
+============================================================
+  ✅ Python version: 3.13.5 (compatible)
+  ✅ Package 'langchain' installed
+  ✅ Package 'langchain_community' installed
+  ✅ Package 'faiss-cpu' installed
+  ✅ Package 'sentence-transformers' installed
+
+============================================================
+  Setup Verification Report
+============================================================
+
+  ✅ Checks passed: 34
+  ❌ Checks failed: 1
+  ⚠️ Warnings: 0
+  📊 Success rate: 97.1%
+
+  ⚠️ Setup mostly complete. Please address the failed checks.
+
+  📄 Detailed report saved to: mlcreator_setup_report.json
+
+============================================================
+Verification complete!

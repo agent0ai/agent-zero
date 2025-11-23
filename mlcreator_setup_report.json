@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-11-23T17:06:10.854315",
-  "checks_passed": 32,
-  "checks_failed": 2,
+  "timestamp": "2025-11-23T17:42:31.735376",
+  "checks_passed": 35,
+  "checks_failed": 0,
   "warnings": 0,
-  "success_rate": 94.11764705882352,
+  "success_rate": 100.0,
   "agent_zero_path": "D:\\GithubRepos\\agent-zero",
   "mlcreator_path": "D:\\GithubRepos\\MLcreator"
 }
