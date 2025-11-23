@@ -1911,7 +1911,7 @@ Custom-Setup
 
         summary_path = self.knowledge_base / "population_summary.json"
         summary_path.write_text(json.dumps(summary, indent=2), encoding='utf-8')
-        print(f"\n📊 Summary saved to: {summary_path}")
+        print(f"\n[SUMMARY] Summary saved to: {summary_path}")
 
 
 if __name__ == "__main__":
