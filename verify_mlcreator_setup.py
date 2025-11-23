@@ -191,16 +191,17 @@ class MLCreatorSetupVerifier:
             self.check_mark(False, f"Python version: {python_version} (requires 3.10+)")
 
         # Check required packages
-        required_packages = [
-            "langchain",
-            "langchain_community",
-            "faiss-cpu",
-            "sentence-transformers"
-        ]
+        # Map package name to import name
+        required_packages = {
+            "langchain": "langchain",
+            "langchain_community": "langchain_community",
+            "faiss-cpu": "faiss",
+            "sentence-transformers": "sentence_transformers"
+        }
 
-        for package in required_packages:
+        for package, import_name in required_packages.items():
             try:
-                __import__(package.replace("-", "_"))
+                __import__(import_name)
                 self.check_mark(True, f"Package '{package}' installed")
             except ImportError:
                 self.check_mark(False, f"Package '{package}' not installed")

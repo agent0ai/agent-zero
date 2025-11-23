@@ -1,46 +1,28 @@
 @echo off
-echo ==========================================
-echo Starting Ollama Server
-echo ==========================================
-echo.
+setlocal
 
-echo Looking for Ollama installation...
-
-REM Check common installation paths
-set OLLAMA_EXE=
-if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
-    set OLLAMA_EXE=%LOCALAPPDATA%\Programs\Ollama\ollama.exe
-    echo Found: %LOCALAPPDATA%\Programs\Ollama\ollama.exe
-) else if exist "%ProgramFiles%\Ollama\ollama.exe" (
-    set OLLAMA_EXE=%ProgramFiles%\Ollama\ollama.exe
-    echo Found: %ProgramFiles%\Ollama\ollama.exe
-) else if exist "%USERPROFILE%\AppData\Local\Programs\Ollama\ollama.exe" (
-    set OLLAMA_EXE=%USERPROFILE%\AppData\Local\Programs\Ollama\ollama.exe
-    echo Found: %USERPROFILE%\AppData\Local\Programs\Ollama\ollama.exe
-) else (
-    echo ❌ Ollama not found!
-    echo.
-    echo Please install Ollama from: https://ollama.com/download
-    echo Or run: winget install --id Ollama.Ollama
+:: Check if Ollama is already running
+curl -s http://localhost:11434/api/tags >nul 2>&1
+if %errorlevel%==0 (
+    echo ✅ Ollama is already running.
     pause
-    exit /b 1
+    exit /b 0
 )
 
-echo.
-echo Starting Ollama server...
-start "Ollama Server" "%OLLAMA_EXE%" serve
+:: Start Ollama (assumes Ollama is installed and added to PATH)
+echo 🚀 Starting Ollama server...
+start "" /B "C:\Program Files\Ollama\ollama.exe" serve
 
-echo.
-echo Waiting for server to start...
-timeout /t 3 >nul
+:: Give it a few seconds to spin up
+timeout /t 5 >nul
 
-echo.
-echo Testing connection...
-powershell -Command "try { Invoke-WebRequest -Uri 'http://localhost:11434/api/tags' -UseBasicParsing -TimeoutSec 5 | Out-Null; Write-Host '✅ Ollama server is running!' } catch { Write-Host '⚠️ Server may still be starting...' }"
+:: Verify it started
+curl -s http://localhost:11434/api/tags >nul 2>&1
+if %errorlevel%==0 (
+    echo ✅ Ollama started successfully.
+) else (
+    echo ❌ Failed to start Ollama. Check that Ollama is installed and in your PATH.
+)
 
-echo.
-echo ==========================================
-echo Ollama server should now be running
-echo Test it: python test_ollama.py
-echo ==========================================
 pause
+endlocal

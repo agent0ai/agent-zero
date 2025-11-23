@@ -1,0 +1,32 @@
+{
+  "timestamp": "2025-11-23T06:30:04.517300",
+  "backend": "faiss",
+  "tests": {
+    "insertion": {
+      "documents": 100,
+      "time_seconds": 4.76837158203125e-07,
+      "docs_per_second": 209715200.0
+    },
+    "search": {
+      "queries": 4,
+      "avg_time_seconds": 5.960464477539062e-07,
+      "avg_results": 0.0
+    },
+    "scalability": {
+      "500": {
+        "time_seconds": 4.76837158203125e-07,
+        "docs_per_second": 1048576000.0
+      },
+      "1000": {
+        "time_seconds": 7.152557373046875e-07,
+        "docs_per_second": 1398101333.3333333
+      }
+    }
+  },
+  "efficiency_scores": {
+    "insertion": 100,
+    "search": 100,
+    "scalability": 100,
+    "overall": 100.0
+  }
+}
