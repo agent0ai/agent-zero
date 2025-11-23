@@ -5,7 +5,7 @@ services:
     image: qdrant/qdrant:latest
     container_name: agent-zero-qdrant
     ports:
-      - "6333:6333"
+      - "6334:6333"
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped

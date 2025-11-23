@@ -3,7 +3,7 @@
 backend: qdrant
 
 qdrant:
-  url: http://localhost:6333
+  url: http://localhost:6334
   api_key: ""
   collection: agent-zero
   prefer_hybrid: true
