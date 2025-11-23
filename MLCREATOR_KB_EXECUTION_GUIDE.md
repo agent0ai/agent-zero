@@ -17,6 +17,18 @@ Write-Host "Checking Qdrant Health..."
 $health = curl.exe -s http://localhost:6333/health | ConvertFrom-Json
 Write-Host "Qdrant Status: $($health.title)"
 
+# Verify Ollama is running
+Write-Host "Checking Ollama Service..."
+try {
+    $ollama_status = curl.exe -s http://localhost:11434/
+    if ($ollama_status) {
+        Write-Host "Ollama Status: Running" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "Ollama Status: Not Running. Please start Ollama." -ForegroundColor Red
+}
+
+
 # Run quick baseline
 python test_memory_simple.py
 python quick_test_suite.py

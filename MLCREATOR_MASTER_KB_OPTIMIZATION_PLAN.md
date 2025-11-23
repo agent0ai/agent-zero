@@ -17,7 +17,7 @@ This comprehensive plan outlines a multi-phase approach to stress-test and fine-
 2. ✅ **Optimize**: Achieve 90%+ search relevance with <20ms query times
 3. ✅ **Consolidate**: Eliminate duplicate knowledge and improve metadata
 4. ✅ **Specialize**: Create domain-specific collections for MLcreator components
-5. ✅ **Validate**: Ensure system performs under concurrent agent operations
+5. ✅ **Ollama Integration**: Ensure seamless operation with local Ollama models.
 6. ✅ **Document**: Create comprehensive knowledge capture system
 
 ### Expected Outcomes
@@ -446,7 +446,7 @@ python metadata_enrichment_pipeline.py \
 ```python
 Hybrid Search Optimization:
 ├── Vector Index Fine-tuning
-│   ├── Verify 768-dimensional embeddings (Vertex AI)
+│   ├── Verify embedding dimensions match your Ollama model
 │   ├── Optimize similarity threshold (target: 0.55-0.65)
 │   ├── Test various distance metrics
 │   └── Profile query latency
@@ -1200,6 +1200,8 @@ echo "✅ Phase 1 Initiated - Check reports/phase1_progress.json for details"
 ### Software & Services
 - ✅ Agent Zero Framework (installed)
 - ✅ Qdrant Database (running on localhost:6333)
+- ✅ Ollama Service: Local Ollama service running and accessible.
+- ✅ Ollama Models: Required chat and embedding models pulled (e.g., `ollama pull llama3`, `ollama pull nomic-embed-text`).
 - ✅ Python 3.10+ environment
 - ✅ 10GB free disk space (for 5K documents + indexes)
 - ✅ 4GB+ RAM recommended
@@ -1270,11 +1272,12 @@ python system_monitor.py --interval 5 --duration 300
 ## 📝 Notes & Considerations
 
 ### Important Points
-1. **Qdrant Persistence**: Ensure Qdrant container has persistent storage
-2. **Embedding Model**: Using Vertex AI 768D embeddings - verify API access
-3. **Metadata Schema**: Carefully design before Phase 3 to avoid rework
-4. **Batch Sizes**: Adjust based on Phase 4 stress test results
-5. **MLcreator Context**: Keep domain knowledge at high priority throughout
+1. ✅ **Ollama Service**: Local Ollama service running and accessible.
+2. **Embedding Model**: Local Ollama model (e.g., `nomic-embed-text`)
+3. **Vector Dimensions**: Dependent on the chosen Ollama embedding model.
+4. **Metadata Schema**: Carefully design before Phase 3 to avoid rework
+5. **Batch Sizes**: Adjust based on Phase 4 stress test results
+6. **MLcreator Context**: Keep domain knowledge at high priority throughout
 
 ### Future Enhancements
 - Implement LLM-based automated knowledge generation

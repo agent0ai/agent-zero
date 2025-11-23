@@ -20,8 +20,9 @@
     │ Qdrant    │      │ FAISS Mirror │      │ Monitoring │
     │ Vector DB │      │ (Fallback)   │      │ Dashboard  │
     │           │      │              │      │            │
-    │ 768D      │      │ Local Cache  │      │ Real-time  │
-    │ Vectors   │      │              │      │ Metrics    │
+    │ Ollama-   │      │ Local Cache  │      │ Real-time  │
+    │ based     │      │              │      │ Metrics    │
+    │ Vectors   │      │              │      │            │
     └───────────┘      └──────────────┘      └────────────┘
         ▲                   ▲                      ▲
         │                   │                      │
@@ -323,7 +324,7 @@ By Use Case:
 │ └─ FAISS (Fallback)      [Local mirror]                   │
 │                                                              │
 │ Embeddings:                                                 │
-│ ├─ Vertex AI             [768-dimensional]                │
+│ ├─ Ollama                [e.g., nomic-embed-text]         │
 │ └─ Sentence Transformers [Local fallback]                │
 │                                                              │
 │ Search Type:                                                │
