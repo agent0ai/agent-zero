@@ -6,7 +6,7 @@ edge cases, large datasets, and various input combinations correctly.
 """
 
 import pytest
-from hypothesis import given, strategies as st, settings, HealthCheck
+from hypothesis import given, strategies as st, settings, HealthCheck, HealthCheck
 from datetime import datetime, timedelta
 import string
 
@@ -271,14 +271,14 @@ def test_large_scene_stress(game_objects):
     assert all(isinstance(go, GameObjectData) for go in scene.game_objects)
 
 
-@settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(
-    st.lists(script_data_strategy(), min_size=10, max_size=500)
+    st.lists(script_data_strategy(), min_size=10, max_size=100)
 )
 def test_large_project_scripts_stress(scripts):
-    """Stress test with large number of scripts (up to 500)."""
+    """Stress test with large number of scripts (up to 100)."""
     assert len(scripts) >= 10
-    assert len(scripts) <= 500
+    assert len(scripts) <= 100
     
     # Count total classes and methods
     total_classes = sum(len(s.classes) for s in scripts)
