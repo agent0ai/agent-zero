@@ -50,7 +50,6 @@ class MLCreatorSetupVerifier:
 
         directories = {
             "Memory": self.agent_zero_path / "memory" / self.memory_subdir,
-            "Memory DB": self.agent_zero_path / "memory" / self.memory_subdir / "db",
             "Knowledge": self.agent_zero_path / "knowledge" / self.memory_subdir,
             "Knowledge/main": self.agent_zero_path / "knowledge" / self.memory_subdir / "main",
             "Knowledge/solutions": self.agent_zero_path / "knowledge" / self.memory_subdir / "solutions",
@@ -145,7 +144,7 @@ class MLCreatorSetupVerifier:
                 self.warning("Memory search returned no results")
 
             # Check for FAISS index
-            db_path = self.agent_zero_path / "memory" / self.memory_subdir / "db"
+            db_path = self.agent_zero_path / "memory" / self.memory_subdir
             if (db_path / "index.faiss").exists():
                 self.check_mark(True, "FAISS index file exists")
             else:
