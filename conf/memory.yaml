@@ -1,0 +1,22 @@
+# Memory backend configuration
+# backend: faiss | qdrant | hybrid (qdrant with faiss mirror)
+backend: faiss
+
+qdrant:
+  url: http://localhost:6333
+  api_key: ""
+  collection: agent-zero
+  prefer_hybrid: true
+  score_threshold: 0.6
+  limit: 20
+  timeout: 10
+  # optional payload keys to keep for full-text / keyword filters
+  searchable_payload_keys:
+    - area
+    - source
+    - project
+    - tags
+    - consolidation_action
+
+fallback_to_faiss: true
+mirror_to_faiss: false

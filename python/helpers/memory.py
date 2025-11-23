@@ -27,6 +27,8 @@ from . import files
 from langchain_core.documents import Document
 from python.helpers import knowledge_import
 from python.helpers.log import Log, LogItem
+from python.helpers.memory_config import get_memory_config
+from python.helpers.qdrant_client import QdrantStore
 from enum import Enum
 from agent import Agent, AgentContext
 import models
@@ -59,7 +61,7 @@ class Memory:
         SOLUTIONS = "solutions"
         INSTRUMENTS = "instruments"
 
-    index: dict[str, "MyFaiss"] = {}
+    index: dict[str, Any] = {}
 
     @staticmethod
     async def get(agent: Agent):
@@ -131,7 +133,11 @@ class Memory:
         model_config: models.ModelConfig,
         memory_subdir: str,
         in_memory=False,
-    ) -> tuple[MyFaiss, bool]:
+    ) -> tuple[Any, bool]:
+
+        cfg = get_memory_config()
+        backend = (cfg.get("backend") or "faiss").lower()
+        use_qdrant = backend in ["qdrant", "hybrid"]
 
         PrintStyle.standard("Initializing VectorDB...")
 
@@ -165,6 +171,23 @@ class Memory:
         embedder = CacheBackedEmbeddings.from_bytes_store(
             embeddings_model, store, namespace=embeddings_model_id
         )
+
+        if use_qdrant:
+            qcfg = cfg.get("qdrant", {}) or {}
+            collection_name = qcfg.get("collection", "agent-zero")
+            collection_name = f"{collection_name}-{memory_subdir.replace('/', '-')}"
+            store = QdrantStore(
+                embedder=embedder,
+                collection=collection_name,
+                url=qcfg.get("url", "http://localhost:6333"),
+                api_key=qcfg.get("api_key", ""),
+                prefer_hybrid=qcfg.get("prefer_hybrid", True),
+                score_threshold=qcfg.get("score_threshold", 0.6),
+                limit=qcfg.get("limit", 20),
+                timeout=qcfg.get("timeout", 10),
+                searchable_payload_keys=qcfg.get("searchable_payload_keys", []),
+            )
+            return store, True
 
         # initial DB and docs variables
         db: MyFaiss | None = None
@@ -241,11 +264,12 @@ class Memory:
 
     def __init__(
         self,
-        db: MyFaiss,
+        db: Any,
         memory_subdir: str,
     ):
         self.db = db
         self.memory_subdir = memory_subdir
+        self.backend = "qdrant" if getattr(db, "is_qdrant", False) else "faiss"
 
     async def preload_knowledge(
         self, log_item: LogItem | None, kn_dirs: list[str], memory_subdir: str
@@ -336,7 +360,8 @@ class Memory:
         return index
 
     def get_document_by_id(self, id: str) -> Document | None:
-        return self.db.get_by_ids(id)[0]
+        docs = self.db.get_by_ids(id) if hasattr(self.db, "get_by_ids") else []
+        return docs[0] if docs else None
 
     async def search_similarity_threshold(
         self, query: str, limit: int, threshold: float, filter: str = ""
@@ -404,7 +429,7 @@ class Memory:
         return ids[0]
 
     async def insert_documents(self, docs: list[Document]):
-        ids = [self._generate_doc_id() for _ in range(len(docs))]
+        ids = await self._generate_doc_ids(len(docs))
         timestamp = self.get_timestamp()
 
         if ids:
@@ -426,16 +451,36 @@ class Memory:
         return ins
 
     def _save_db(self):
+        if getattr(self.db, "is_qdrant", False):
+            return
         Memory._save_db_file(self.db, self.memory_subdir)
 
-    def _generate_doc_id(self):
-        while True:
-            doc_id = guids.generate_id(10)  # random ID
-            if not self.db.get_by_ids(doc_id):  # check if exists
-                return doc_id
+    async def _generate_doc_ids(self, count: int) -> list[str]:
+        ids: list[str] = []
+        for _ in range(count):
+            while True:
+                doc_id = guids.generate_id(10)  # random ID
+                if not await self._id_exists(doc_id):
+                    ids.append(doc_id)
+                    break
+        return ids
+
+    async def _id_exists(self, doc_id: str) -> bool:
+        try:
+            if hasattr(self.db, "aget_by_ids"):
+                res = await self.db.aget_by_ids([doc_id])
+                return bool(res)
+            if hasattr(self.db, "get_by_ids"):
+                res = self.db.get_by_ids([doc_id] if isinstance(doc_id, str) else doc_id)
+                return bool(res)
+        except Exception:
+            return False
+        return False
 
     @staticmethod
-    def _save_db_file(db: MyFaiss, memory_subdir: str):
+    def _save_db_file(db: Any, memory_subdir: str):
+        if getattr(db, "is_qdrant", False):
+            return
         abs_dir = abs_db_dir(memory_subdir)
         db.save_local(folder_path=abs_dir)
 
