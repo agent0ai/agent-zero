@@ -137,7 +137,7 @@ MLcreator/
 
         filepath = self.knowledge_base / "main" / "project_overview.md"
         filepath.write_text(content, encoding='utf-8')
-        print(f"✅ Created: {filepath}")
+        print(f"[OK] Created: {filepath}")
 
     def create_architecture_doc(self):
         """Create architecture documentation"""
@@ -377,7 +377,7 @@ StateMachine.ChangeState(newState);
 
         filepath = self.knowledge_base / "main" / "architecture.md"
         filepath.write_text(content, encoding='utf-8')
-        print(f"✅ Created: {filepath}")
+        print(f"[OK] Created: {filepath}")
 
     def create_conventions_doc(self):
         """Create coding conventions document"""
@@ -753,7 +753,7 @@ Before committing:
 
         filepath = self.knowledge_base / "main" / "conventions.md"
         filepath.write_text(content, encoding='utf-8')
-        print(f"✅ Created: {filepath}")
+        print(f"[OK] Created: {filepath}")
 
     def create_dependencies_doc(self):
         """Create dependencies documentation"""
@@ -1060,7 +1060,7 @@ npm audit
 
         filepath = self.knowledge_base / "main" / "dependencies.md"
         filepath.write_text(content, encoding='utf-8')
-        print(f"✅ Created: {filepath}")
+        print(f"[OK] Created: {filepath}")
 
     def create_solutions_docs(self):
         """Create solution documentation"""
@@ -1335,7 +1335,7 @@ public class OptimizedUpdate : MonoBehaviour
 
         filepath = self.knowledge_base / "solutions" / "unity_patterns.md"
         filepath.write_text(unity_patterns, encoding='utf-8')
-        print(f"✅ Created: {filepath}")
+        print(f"[OK] Created: {filepath}")
 
         # Game Creator solutions
         gc_solutions = """# Game Creator Solutions
@@ -1616,7 +1616,7 @@ public class CustomStatsComponent : MonoBehaviour
 
         filepath = self.knowledge_base / "solutions" / "gamecreator_solutions.md"
         filepath.write_text(gc_solutions, encoding='utf-8')
-        print(f"✅ Created: {filepath}")
+        print(f"[OK] Created: {filepath}")
 
     def create_instruments_docs(self):
         """Create instruments documentation"""
@@ -1871,7 +1871,7 @@ Custom-Setup
 
         filepath = self.knowledge_base / "instruments" / "activation_scripts.md"
         filepath.write_text(activation_scripts, encoding='utf-8')
-        print(f"✅ Created: {filepath}")
+        print(f"[OK] Created: {filepath}")
 
     def run(self):
         """Execute the population process"""
@@ -1882,7 +1882,7 @@ Custom-Setup
         self.create_directory_structure()
 
         # Create documents
-        print("\n📝 Creating knowledge documents...")
+        print("\n[INFO] Creating knowledge documents...")
         self.create_project_overview()
         self.create_architecture_doc()
         self.create_conventions_doc()
@@ -1890,8 +1890,8 @@ Custom-Setup
         self.create_solutions_docs()
         self.create_instruments_docs()
 
-        print("\n✅ Knowledge base population complete!")
-        print(f"📁 Location: {self.knowledge_base}")
+        print("\n[OK] Knowledge base population complete!")
+        print(f"[LOCATION] Location: {self.knowledge_base}")
 
         # Create summary
         summary = {
