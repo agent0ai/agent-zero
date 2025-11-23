@@ -7,9 +7,9 @@ qdrant:
   api_key: ""
   collection: agent-zero
   prefer_hybrid: true
-  score_threshold: 0.6
-  limit: 20
-  timeout: 10
+  score_threshold: 0.55  # Optimized: Lower from 0.6 for better recall
+  limit: 30  # Optimized: Increased from 20 for more context
+  timeout: 15  # Optimized: Increased from 10 for complex queries
   # optional payload keys to keep for full-text / keyword filters
   searchable_payload_keys:
     - area
@@ -17,6 +17,10 @@ qdrant:
     - project
     - tags
     - consolidation_action
+    - entity_type  # Added: For Unity entities
+    - scene_name   # Added: For scene tracking
+    - entity_name  # Added: For entity search
+    - file_path    # Added: For file-based queries
 
 fallback_to_faiss: true
 mirror_to_faiss: false

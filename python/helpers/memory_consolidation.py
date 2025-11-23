@@ -27,16 +27,16 @@ class ConsolidationAction(Enum):
 @dataclass
 class ConsolidationConfig:
     """Configuration for memory consolidation behavior."""
-    similarity_threshold: float = DEFAULT_MEMORY_THRESHOLD
-    max_similar_memories: int = 10
+    similarity_threshold: float = 0.75  # Optimized: Lower for more aggressive consolidation
+    max_similar_memories: int = 15  # Optimized: Increased for better context
     consolidation_sys_prompt: str = "memory.consolidation.sys.md"
     consolidation_msg_prompt: str = "memory.consolidation.msg.md"
     max_llm_context_memories: int = 5
     keyword_extraction_sys_prompt: str = "memory.keyword_extraction.sys.md"
     keyword_extraction_msg_prompt: str = "memory.keyword_extraction.msg.md"
-    processing_timeout_seconds: int = 60
+    processing_timeout_seconds: int = 90  # Optimized: More time for Unity data
     # Add safety threshold for REPLACE actions
-    replace_similarity_threshold: float = 0.9  # Higher threshold for replacement safety
+    replace_similarity_threshold: float = 0.92  # Optimized: Higher for safety
 
 
 @dataclass

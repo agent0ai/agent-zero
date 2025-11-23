@@ -110,9 +110,10 @@ advanced_features:
 # Memory integration settings
 memory_settings:
   default_area: "main"
-  auto_tag_threshold: 0.8
-  consolidation_threshold: 0.85
-  max_memories_per_symbol: 10
+  auto_tag_threshold: 0.7  # Optimized: Lower from 0.8 for more tagging
+  consolidation_threshold: 0.8  # Optimized: Lower from 0.85
+  max_memories_per_symbol: 15  # Optimized: Increased from 10
+  batch_size: 50  # Added: Batch size for vector operations
 
 # Foam graph settings
 foam_settings:
@@ -151,7 +152,8 @@ auto_documentation:
 
 # Performance settings
 performance:
-  max_parallel_operations: 10
+  max_parallel_operations: 15  # Optimized: Increased from 10
   cache_symbols: true
   incremental_updates: true
   batch_operations: true
+  batch_size: 50  # Added: Batch size for vector operations
