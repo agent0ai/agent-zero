@@ -30,18 +30,18 @@ def optimize():
     os.environ["VERTEX_PROJECT"] = "andre-467020"
     os.environ["VERTEX_LOCATION"] = "us-central1"
     
-    # Update for GCP / Vertex AI
-    # We use 'vertex_ai' provider for Google Cloud Vertex AI
+    # Update for Google AI (Gemini API) - simpler than Vertex AI
+    # Uses direct Gemini API instead of Vertex AI
     updates = {
-        "chat_model_provider": "vertex_ai",
+        "chat_model_provider": "gemini",
         "chat_model_name": "gemini-1.5-pro",
-        "chat_model_ctx_length": 1000000, # Gemini has huge context
+        "chat_model_ctx_length": 1000000,
         
-        "util_model_provider": "vertex_ai",
+        "util_model_provider": "gemini",
         "util_model_name": "gemini-1.5-flash",
         "util_model_ctx_length": 1000000,
         
-        "embed_model_provider": "vertex_ai",
+        "embed_model_provider": "gemini",
         "embed_model_name": "text-embedding-004",
         
         "agent_memory_subdir": "mlcreator",
@@ -49,13 +49,13 @@ def optimize():
         
         # Enable memory features
         "memory_recall_enabled": True,
-        "memory_recall_query_prep": True, # Use utility model to improve queries
-        "memory_recall_post_filter": True, # Use utility model to filter results
+        "memory_recall_query_prep": True,
+        "memory_recall_post_filter": True,
         
-        # Parallelization limits (set to avoid Quota Exceeded errors)
+        # Parallelization limits
         "chat_model_rl_requests": 60, 
         "util_model_rl_requests": 60,
-        "embed_model_rl_requests": 10, # Very strict limit for new projects
+        "embed_model_rl_requests": 10,
     }
     
     # Merge updates
