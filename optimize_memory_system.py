@@ -9,14 +9,13 @@ sys.path.insert(0, project_root)
 
 from python.helpers.qdrant_client import QdrantStore
 from python.helpers.memory_config import get_memory_config
-from python.helpers.print_style import PrintStyle
 import models
 
 async def optimize_qdrant_collection():
     """Pre-optimize Qdrant collection for Unity/MLcreator data."""
     
-    print(PrintStyle.HEADER + "=== Memory System Optimizer ===" + PrintStyle.ENDC)
-    print(PrintStyle.INFO + "Optimizing Qdrant collection for Unity/MLcreator..." + PrintStyle.ENDC)
+    print("=== Memory System Optimizer ===")
+    print("Optimizing Qdrant collection for Unity/MLcreator...")
     
     try:
         # Get memory configuration
@@ -51,23 +50,23 @@ async def optimize_qdrant_collection():
         # Ensure collection has proper configuration
         await store._ensure_collection()
         
-        print(PrintStyle.SUCCESS + "✓ Qdrant collection optimized" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + f"  - Collection: agent-zero" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + f"  - URL: {config.get('qdrant', {}).get('url')}" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + f"  - Score threshold: 0.55 (optimized)" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + f"  - Result limit: 30 (increased)" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + f"  - Timeout: 15s (increased)" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + f"  - Indexed fields: 9 payload keys" + PrintStyle.ENDC)
+        print("✓ Qdrant collection optimized")
+        print(f"  - Collection: agent-zero")
+        print(f"  - URL: {config.get('qdrant', {}).get('url')}")
+        print(f"  - Score threshold: 0.55 (optimized)")
+        print(f"  - Result limit: 30 (increased)")
+        print(f"  - Timeout: 15s (increased)")
+        print(f"  - Indexed fields: 9 payload keys")
         
         return True
         
     except Exception as e:
-        print(PrintStyle.ERROR + f"✗ Optimization failed: {str(e)}" + PrintStyle.ENDC)
+        print(f"✗ Optimization failed: {str(e)}")
         return False
 
 async def verify_qdrant_connection():
     """Verify Qdrant is running and accessible."""
-    print(PrintStyle.INFO + "\nVerifying Qdrant connection..." + PrintStyle.ENDC)
+    print("\nVerifying Qdrant connection...")
     
     try:
         from qdrant_client import AsyncQdrantClient
@@ -75,22 +74,22 @@ async def verify_qdrant_connection():
         
         # Try to list collections
         collections = await client.get_collections()
-        print(PrintStyle.SUCCESS + f"✓ Connected to Qdrant (found {len(collections.collections)} collections)" + PrintStyle.ENDC)
+        print(f"✓ Connected to Qdrant (found {len(collections.collections)} collections)")
         
         # Check if agent-zero collection exists
         collection_names = [c.name for c in collections.collections]
         if "agent-zero" in collection_names:
             collection_info = await client.get_collection("agent-zero")
-            print(PrintStyle.INFO + f"  - Collection 'agent-zero' exists with {collection_info.points_count} points" + PrintStyle.ENDC)
+            print(f"  - Collection 'agent-zero' exists with {collection_info.points_count} points")
         else:
-            print(PrintStyle.WARNING + "  - Collection 'agent-zero' will be created" + PrintStyle.ENDC)
+            print("  - Collection 'agent-zero' will be created")
         
         return True
         
     except Exception as e:
-        print(PrintStyle.ERROR + f"✗ Cannot connect to Qdrant: {str(e)}" + PrintStyle.ENDC)
-        print(PrintStyle.WARNING + "  Please ensure Qdrant is running on http://localhost:6333" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + "  Start Qdrant with: docker run -p 6333:6333 qdrant/qdrant" + PrintStyle.ENDC)
+        print(f"✗ Cannot connect to Qdrant: {str(e)}")
+        print("  Please ensure Qdrant is running on http://localhost:6333")
+        print("  Start Qdrant with: docker run -p 6333:6333 qdrant/qdrant")
         return False
 
 async def main():
@@ -101,20 +100,20 @@ async def main():
     
     # Verify Qdrant connection first
     if not await verify_qdrant_connection():
-        print(PrintStyle.ERROR + "\n✗ Optimization aborted - Qdrant not available" + PrintStyle.ENDC)
+        print("\n✗ Optimization aborted - Qdrant not available")
         return False
     
     # Run optimization
     success = await optimize_qdrant_collection()
     
     if success:
-        print(PrintStyle.SUCCESS + "\n✓ Memory system optimization complete!" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + "\nNext steps:" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + "  1. Restart agent-zero to apply changes" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + "  2. Monitor memory performance in logs" + PrintStyle.ENDC)
-        print(PrintStyle.INFO + "  3. Adjust thresholds if needed" + PrintStyle.ENDC)
+        print("\n✓ Memory system optimization complete!")
+        print("\nNext steps:")
+        print("  1. Restart agent-zero to apply changes")
+        print("  2. Monitor memory performance in logs")
+        print("  3. Adjust thresholds if needed")
     else:
-        print(PrintStyle.ERROR + "\n✗ Optimization failed - check errors above" + PrintStyle.ENDC)
+        print("\n✗ Optimization failed - check errors above")
     
     return success
 
