@@ -107,7 +107,30 @@ class QdrantStore:
             text = payload.pop("text", "")
             payload["id"] = str(point.id)
             docs.append(Document(page_content=text, metadata=payload))
+        if callable(filter):
+            docs = [d for d in docs if filter(d.metadata)]
         return docs
+
+    async def aget_all_docs(self, page_size: int = 256, limit: int = 1000) -> List[Document]:
+        """Lightweight scroll to fetch up to `limit` docs for stats/migrations."""
+        await self._ensure_collection()
+        collected: List[Document] = []
+        scroll = None
+        while len(collected) < limit:
+            res, scroll = await self.client.scroll(
+                collection_name=self.collection,
+                limit=min(page_size, limit - len(collected)),
+                with_vectors=False,
+                offset=scroll,
+            )
+            for point in res:
+                payload = dict(point.payload or {})
+                text = payload.pop("text", "")
+                payload["id"] = str(point.id)
+                collected.append(Document(page_content=text, metadata=payload))
+            if scroll is None or not res:
+                break
+        return collected
 
     async def adelete(self, ids: Sequence[str]):
         await self._ensure_collection()
@@ -137,8 +160,14 @@ class QdrantStore:
         return loop.run_until_complete(self.aget_by_ids(ids))
 
     def get_all_docs(self):
-        # Qdrant does not expose full dump without pagination; return empty to avoid heavy calls.
-        return {}
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            return {}
+        try:
+            docs = loop.run_until_complete(self.aget_all_docs())
+            return {d.metadata.get("id"): d for d in docs if d.metadata.get("id")}
+        except Exception:
+            return {}
 
     def save_local(self, *args, **kwargs):
         # FAISS compatibility hook – nothing to persist locally.

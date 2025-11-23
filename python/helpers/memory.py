@@ -138,6 +138,7 @@ class Memory:
         cfg = get_memory_config()
         backend = (cfg.get("backend") or "faiss").lower()
         use_qdrant = backend in ["qdrant", "hybrid"]
+        fallback_to_faiss = cfg.get("fallback_to_faiss", True)
 
         PrintStyle.standard("Initializing VectorDB...")
 
@@ -173,21 +174,28 @@ class Memory:
         )
 
         if use_qdrant:
-            qcfg = cfg.get("qdrant", {}) or {}
-            collection_name = qcfg.get("collection", "agent-zero")
-            collection_name = f"{collection_name}-{memory_subdir.replace('/', '-')}"
-            store = QdrantStore(
-                embedder=embedder,
-                collection=collection_name,
-                url=qcfg.get("url", "http://localhost:6333"),
-                api_key=qcfg.get("api_key", ""),
-                prefer_hybrid=qcfg.get("prefer_hybrid", True),
-                score_threshold=qcfg.get("score_threshold", 0.6),
-                limit=qcfg.get("limit", 20),
-                timeout=qcfg.get("timeout", 10),
-                searchable_payload_keys=qcfg.get("searchable_payload_keys", []),
-            )
-            return store, True
+            try:
+                qcfg = cfg.get("qdrant", {}) or {}
+                collection_name = qcfg.get("collection", "agent-zero")
+                collection_name = f"{collection_name}-{memory_subdir.replace('/', '-')}"
+                store = QdrantStore(
+                    embedder=embedder,
+                    collection=collection_name,
+                    url=qcfg.get("url", "http://localhost:6333"),
+                    api_key=qcfg.get("api_key", ""),
+                    prefer_hybrid=qcfg.get("prefer_hybrid", True),
+                    score_threshold=qcfg.get("score_threshold", 0.6),
+                    limit=qcfg.get("limit", 20),
+                    timeout=qcfg.get("timeout", 10),
+                    searchable_payload_keys=qcfg.get("searchable_payload_keys", []),
+                )
+                return store, True
+            except Exception as e:
+                PrintStyle().warning(
+                    f"Qdrant backend unavailable ({e}); falling back to FAISS."
+                )
+                if not fallback_to_faiss:
+                    raise
 
         # initial DB and docs variables
         db: MyFaiss | None = None
@@ -270,6 +278,7 @@ class Memory:
         self.db = db
         self.memory_subdir = memory_subdir
         self.backend = "qdrant" if getattr(db, "is_qdrant", False) else "faiss"
+        self.cfg = get_memory_config()
 
     async def preload_knowledge(
         self, log_item: LogItem | None, kn_dirs: list[str], memory_subdir: str

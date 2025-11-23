@@ -1,4 +1,5 @@
 import copy
+import os
 import yaml
 from python.helpers import files
 
@@ -49,8 +50,28 @@ def get_memory_config() -> dict:
         # if the file is malformed, stick to defaults to avoid breaking runtime
         pass
 
+    # env overrides (useful for scripts/tests)
+    backend_override = os.getenv("A0_MEMORY_BACKEND")
+    if backend_override:
+        cfg["backend"] = backend_override
+    qdrant_url = os.getenv("A0_QDRANT_URL")
+    if qdrant_url:
+        cfg.setdefault("qdrant", {})["url"] = qdrant_url
+    qdrant_key = os.getenv("A0_QDRANT_API_KEY")
+    if qdrant_key is not None:
+        cfg.setdefault("qdrant", {})["api_key"] = qdrant_key
+    qdrant_collection = os.getenv("A0_QDRANT_COLLECTION")
+    if qdrant_collection:
+        cfg.setdefault("qdrant", {})["collection"] = qdrant_collection
+
     _cache = cfg
     return copy.deepcopy(_cache)
+
+
+def reset_memory_config():
+    """Clear cached config (used by scripts to flip backends)."""
+    global _cache
+    _cache = None
 
 
 def _merge(base: dict, override: dict) -> dict:

@@ -10,6 +10,7 @@ from python.helpers.persist_chat import remove_chat
 from initialize import initialize_agent
 from python.helpers.print_style import PrintStyle
 from python.helpers import settings
+from python.helpers import mcp_qdrant_server
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -216,6 +217,182 @@ async def finish_chat(
         AgentContext.remove(context.id)
         remove_chat(context.id)
         return ToolResponse(response="Chat finished", chat_id=chat_id)
+
+
+# Register Qdrant memory tools
+@mcp_server.tool(
+    name="search_memories",
+    description="Search memories using semantic similarity. Returns documents that match the query semantically, ordered by relevance score.",
+    tags={
+        "agent_zero",
+        "memory",
+        "search",
+        "query",
+        "semantic",
+        "vector",
+        "similarity",
+        "qdrant",
+    },
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+    },
+)
+async def search_memories_tool(
+    query: str,
+    memory_subdir: str = "default",
+    limit: int = 10,
+    threshold: float = 0.6,
+    filter: str | None = None,
+):
+    return await mcp_qdrant_server.search_memories(query, memory_subdir, limit, threshold, filter)
+
+
+@mcp_server.tool(
+    name="insert_memory",
+    description="Insert a new memory document with optional metadata. Returns the unique ID of the inserted document.",
+    tags={
+        "agent_zero",
+        "memory",
+        "insert",
+        "add",
+        "store",
+        "create",
+        "qdrant",
+    },
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+    },
+)
+async def insert_memory_tool(
+    text: str,
+    metadata: dict | None = None,
+    memory_subdir: str = "default",
+):
+    return await mcp_qdrant_server.insert_memory(text, metadata, memory_subdir)
+
+
+@mcp_server.tool(
+    name="delete_memories_by_query",
+    description="Delete memories that match a semantic query. This is a destructive operation - use with caution.",
+    tags={
+        "agent_zero",
+        "memory",
+        "delete",
+        "remove",
+        "forget",
+        "semantic",
+        "qdrant",
+    },
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+    },
+)
+async def delete_memories_by_query_tool(
+    query: str,
+    threshold: float = 0.6,
+    filter: str | None = None,
+    memory_subdir: str = "default",
+):
+    return await mcp_qdrant_server.delete_memories_by_query(query, threshold, filter, memory_subdir)
+
+
+@mcp_server.tool(
+    name="delete_memories_by_ids",
+    description="Delete specific memories by their IDs. This is a destructive operation - use with caution.",
+    tags={
+        "agent_zero",
+        "memory",
+        "delete",
+        "remove",
+        "ids",
+        "qdrant",
+    },
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+    },
+)
+async def delete_memories_by_ids_tool(
+    ids: list[str],
+    memory_subdir: str = "default",
+):
+    return await mcp_qdrant_server.delete_memories_by_ids(ids, memory_subdir)
+
+
+@mcp_server.tool(
+    name="get_memory_by_id",
+    description="Retrieve a specific memory document by its ID.",
+    tags={
+        "agent_zero",
+        "memory",
+        "get",
+        "retrieve",
+        "fetch",
+        "id",
+        "qdrant",
+    },
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+    },
+)
+async def get_memory_by_id_tool(
+    id: str,
+    memory_subdir: str = "default",
+):
+    return await mcp_qdrant_server.get_memory_by_id(id, memory_subdir)
+
+
+@mcp_server.tool(
+    name="list_memory_collections",
+    description="List all available memory collections (subdirectories). Includes default collection and project-specific collections.",
+    tags={
+        "agent_zero",
+        "memory",
+        "list",
+        "collections",
+        "subdirs",
+        "qdrant",
+    },
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+    },
+)
+async def list_memory_collections_tool():
+    return await mcp_qdrant_server.list_memory_collections()
+
+
+@mcp_server.tool(
+    name="get_collection_info",
+    description="Get information about a specific memory collection. Returns backend type (faiss/qdrant), document count estimate, and configuration.",
+    tags={
+        "agent_zero",
+        "memory",
+        "info",
+        "stats",
+        "metadata",
+        "qdrant",
+    },
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+    },
+)
+async def get_collection_info_tool(
+    memory_subdir: str = "default",
+):
+    return await mcp_qdrant_server.get_collection_info(memory_subdir)
 
 
 async def _run_chat(
