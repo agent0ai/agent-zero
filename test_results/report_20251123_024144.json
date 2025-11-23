@@ -1,0 +1,138 @@
+{
+  "timestamp": "2025-11-23T02:41:44.971932",
+  "overall_score": 0.0,
+  "overall_pass_rate": 0.0,
+  "test_results": [
+    {
+      "test_name": "Memory Recall",
+      "results": [
+        {
+          "test_id": "recall_1",
+          "query": "Unity error handling",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "recall_2",
+          "query": "Game Creator action pattern",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "recall_3",
+          "query": "ML-Agents integration",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "recall_4",
+          "query": "Unity build configuration",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "recall_5",
+          "query": "Project optimization strategies",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        }
+      ],
+      "avg_score": 0.0,
+      "avg_time_ms": 0.0,
+      "pass_rate": 0.0
+    },
+    {
+      "test_name": "Server-Side Filtering",
+      "results": [
+        {
+          "test_id": "filter_1",
+          "filter": "area == 'main'",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "filter_2",
+          "filter": "area == 'solutions'",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "filter_3",
+          "filter": "area == 'main' or area == 'solutions'",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        }
+      ],
+      "avg_score": 0.0,
+      "avg_time_ms": 0.0,
+      "pass_rate": 0.0
+    },
+    {
+      "test_name": "Vector Quality",
+      "results": [
+        {
+          "test_id": "vector_1",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "vector_2",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "vector_3",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        },
+        {
+          "test_id": "vector_4",
+          "success": false,
+          "error": "'coroutine' object has no attribute 'search_similarity_threshold'",
+          "score": 0.0
+        }
+      ],
+      "avg_score": 0.0,
+      "pass_rate": 0.0
+    },
+    {
+      "test_name": "Payload Indexing",
+      "indexed_fields": [
+        "area",
+        "project",
+        "tags",
+        "source",
+        "consolidation_action"
+      ],
+      "expected_indexes": [
+        "area",
+        "tags",
+        "project"
+      ],
+      "found_indexes": [
+        "area",
+        "tags",
+        "project"
+      ],
+      "success": true,
+      "score": 1.0
+    }
+  ],
+  "summary": {
+    "total_tests": 4,
+    "passed": 0,
+    "warnings": 0,
+    "failed": 4
+  }
+}

@@ -34,11 +34,11 @@ def optimize():
     # We use 'vertex_ai' provider for Google Cloud Vertex AI
     updates = {
         "chat_model_provider": "vertex_ai",
-        "chat_model_name": "gemini-1.5-pro-002",
+        "chat_model_name": "gemini-1.5-pro",
         "chat_model_ctx_length": 1000000, # Gemini has huge context
         
         "util_model_provider": "vertex_ai",
-        "util_model_name": "gemini-1.5-flash-002",
+        "util_model_name": "gemini-1.5-flash",
         "util_model_ctx_length": 1000000,
         
         "embed_model_provider": "vertex_ai",

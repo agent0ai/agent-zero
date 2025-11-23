@@ -1,0 +1,180 @@
+{
+  "timestamp": "2025-11-23T02:43:12.654190",
+  "overall_score": 0.25,
+  "overall_pass_rate": 0.2,
+  "test_results": [
+    {
+      "test_name": "Memory Recall",
+      "results": [
+        {
+          "test_id": "recall_1",
+          "query": "Unity error handling",
+          "success": true,
+          "recall_time_ms": 4008.06,
+          "num_results": 1,
+          "tag_match": true,
+          "area_match": true,
+          "found_tags": [
+            "build",
+            "configuration",
+            "unity"
+          ],
+          "score": 1.0
+        },
+        {
+          "test_id": "recall_2",
+          "query": "Game Creator action pattern",
+          "success": true,
+          "recall_time_ms": 641.16,
+          "num_results": 3,
+          "tag_match": true,
+          "area_match": true,
+          "found_tags": [
+            "pattern",
+            "integration",
+            "workflow",
+            "action",
+            "gamecreator"
+          ],
+          "score": 1.0
+        },
+        {
+          "test_id": "recall_3",
+          "query": "ML-Agents integration",
+          "success": true,
+          "recall_time_ms": 317.9,
+          "num_results": 1,
+          "tag_match": true,
+          "area_match": true,
+          "found_tags": [
+            "config",
+            "training",
+            "ml-agents"
+          ],
+          "score": 1.0
+        },
+        {
+          "test_id": "recall_4",
+          "query": "Unity build configuration",
+          "success": true,
+          "recall_time_ms": 639.46,
+          "num_results": 1,
+          "tag_match": true,
+          "area_match": true,
+          "found_tags": [
+            "build",
+            "configuration",
+            "unity"
+          ],
+          "score": 1.0
+        },
+        {
+          "test_id": "recall_5",
+          "query": "Project optimization strategies",
+          "success": false,
+          "recall_time_ms": 312.06,
+          "num_results": 0,
+          "tag_match": false,
+          "area_match": false,
+          "found_tags": [],
+          "score": 0.4
+        }
+      ],
+      "avg_score": 0.8800000000000001,
+      "avg_time_ms": 1183.728,
+      "pass_rate": 0.8
+    },
+    {
+      "test_name": "Server-Side Filtering",
+      "results": [
+        {
+          "test_id": "filter_1",
+          "filter": "area == 'main'",
+          "success": false,
+          "filter_time_ms": 643.02,
+          "num_results": 0,
+          "score": 0.0
+        },
+        {
+          "test_id": "filter_2",
+          "filter": "area == 'solutions'",
+          "success": false,
+          "filter_time_ms": 263.5,
+          "num_results": 0,
+          "score": 0.0
+        },
+        {
+          "test_id": "filter_3",
+          "filter": "area == 'main' or area == 'solutions'",
+          "success": false,
+          "error": "litellm.RateLimitError: litellm.RateLimitError: vertex_aiException - {\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"Quota exceeded for aiplatform.googleapis.com/online_prediction_requests_per_base_model with base model: textembedding-gecko. Please submit a quota increase request. https://cloud.google.com/vertex-ai/docs/generative-ai/quotas-genai.\",\n    \"status\": \"RESOURCE_EXHAUSTED\"\n  }\n}\n",
+          "score": 0.0
+        }
+      ],
+      "avg_score": 0.0,
+      "avg_time_ms": 302.17333333333335,
+      "pass_rate": 0.0
+    },
+    {
+      "test_name": "Vector Quality",
+      "results": [
+        {
+          "test_id": "vector_1",
+          "query_pair": "Unity game development <-> Game Creator Unity integration",
+          "similarity_score": 0.67,
+          "expected_min": 0.7,
+          "success": false,
+          "score": 0.5
+        },
+        {
+          "test_id": "vector_2",
+          "success": false,
+          "error": "litellm.RateLimitError: litellm.RateLimitError: vertex_aiException - {\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"Quota exceeded for aiplatform.googleapis.com/online_prediction_requests_per_base_model with base model: textembedding-gecko. Please submit a quota increase request. https://cloud.google.com/vertex-ai/docs/generative-ai/quotas-genai.\",\n    \"status\": \"RESOURCE_EXHAUSTED\"\n  }\n}\n",
+          "score": 0.0
+        },
+        {
+          "test_id": "vector_3",
+          "success": false,
+          "error": "litellm.RateLimitError: litellm.RateLimitError: vertex_aiException - {\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"Quota exceeded for aiplatform.googleapis.com/online_prediction_requests_per_base_model with base model: textembedding-gecko. Please submit a quota increase request. https://cloud.google.com/vertex-ai/docs/generative-ai/quotas-genai.\",\n    \"status\": \"RESOURCE_EXHAUSTED\"\n  }\n}\n",
+          "score": 0.0
+        },
+        {
+          "test_id": "vector_4",
+          "success": false,
+          "error": "litellm.RateLimitError: litellm.RateLimitError: vertex_aiException - {\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"Quota exceeded for aiplatform.googleapis.com/online_prediction_requests_per_base_model with base model: textembedding-gecko. Please submit a quota increase request. https://cloud.google.com/vertex-ai/docs/generative-ai/quotas-genai.\",\n    \"status\": \"RESOURCE_EXHAUSTED\"\n  }\n}\n",
+          "score": 0.0
+        }
+      ],
+      "avg_score": 0.125,
+      "pass_rate": 0.0
+    },
+    {
+      "test_name": "Payload Indexing",
+      "indexed_fields": [
+        "area",
+        "tags",
+        "source",
+        "consolidation_action",
+        "project"
+      ],
+      "expected_indexes": [
+        "area",
+        "tags",
+        "project"
+      ],
+      "found_indexes": [
+        "area",
+        "tags",
+        "project"
+      ],
+      "success": true,
+      "score": 1.0
+    }
+  ],
+  "summary": {
+    "total_tests": 4,
+    "passed": 1,
+    "warnings": 0,
+    "failed": 3
+  }
+}

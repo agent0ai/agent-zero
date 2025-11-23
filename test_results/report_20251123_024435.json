@@ -1,0 +1,64 @@
+{
+  "timestamp": "2025-11-23T02:44:35.009996",
+  "analysis": {
+    "total_points": 24,
+    "vector_size": 768,
+    "areas": {
+      "main": 14,
+      "solutions": 8,
+      "instruments": 2
+    },
+    "top_tags": {
+      "unity": 3,
+      "workflow": 2,
+      "configuration": 2,
+      "gamecreator": 2,
+      "git": 1,
+      "version_control": 1,
+      "environment": 1,
+      "setup": 1,
+      "activation": 1,
+      "build": 1
+    },
+    "categories": {
+      "git": 1,
+      "environment": 1,
+      "build": 1,
+      "unity_error": 1,
+      "unknown": 14,
+      "project": 1,
+      "optimization": 1,
+      "configuration": 1,
+      "pattern": 1,
+      "workflow": 1,
+      "mcp": 1
+    }
+  },
+  "test_results": [
+    {
+      "name": "Memory Coverage",
+      "score": 1.0,
+      "status": "EXCELLENT",
+      "metric": "24 memories"
+    },
+    {
+      "name": "Vector Quality",
+      "score": 1.0,
+      "status": "EXCELLENT",
+      "metric": "768D vectors"
+    },
+    {
+      "name": "Metadata Richness",
+      "score": 1.0,
+      "status": "EXCELLENT",
+      "metric": "10 unique tags"
+    },
+    {
+      "name": "Area Distribution",
+      "score": 1.0,
+      "status": "EXCELLENT",
+      "metric": "3 areas"
+    }
+  ],
+  "overall_score": 1.0
+}

@@ -117,6 +117,7 @@ class Task:
 @dataclass
 class TestScenario:
     """Represents a test scenario and its results."""
+    __test__ = False  # Tell pytest this is not a test class
     id: str
     name: str
     description: str
