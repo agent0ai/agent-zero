@@ -1,3 +1,5 @@
+import os
+os.environ["FAISS_ENABLE_GPU"] = "1"
 import sys
 import os
 import json
@@ -30,19 +32,21 @@ def optimize():
     os.environ["VERTEX_PROJECT"] = "andre-467020"
     os.environ["VERTEX_LOCATION"] = "us-central1"
     
-    # Update for Google AI (Gemini API) - simpler than Vertex AI
-    # Uses direct Gemini API instead of Vertex AI
+    # Use Ollama (local) as primary, Gemini as fallback
     updates = {
-        "chat_model_provider": "gemini",
-        "chat_model_name": "gemini-1.5-pro",
-        "chat_model_ctx_length": 1000000,
+        "chat_model_provider": "ollama",
+        "chat_model_name": "llama3.2:3b",  # Fast, capable chat model
+        "chat_model_api_base": "http://localhost:11434",
+        "chat_model_ctx_length": 128000,
         
-        "util_model_provider": "gemini",
-        "util_model_name": "gemini-1.5-flash",
-        "util_model_ctx_length": 1000000,
+        "util_model_provider": "ollama",
+        "util_model_name": "llama3.2:1b",  # Ultra-fast utility model
+        "util_model_api_base": "http://localhost:11434",
+        "util_model_ctx_length": 128000,
         
-        "embed_model_provider": "gemini",
-        "embed_model_name": "text-embedding-004",
+        "embed_model_provider": "ollama",
+        "embed_model_name": "nomic-embed-text",
+        "embed_model_api_base": "http://localhost:11434",
         
         "agent_memory_subdir": "mlcreator",
         "agent_knowledge_subdir": "mlcreator",
@@ -52,10 +56,18 @@ def optimize():
         "memory_recall_query_prep": True,
         "memory_recall_post_filter": True,
         
-        # Parallelization limits
-        "chat_model_rl_requests": 60, 
-        "util_model_rl_requests": 60,
-        "embed_model_rl_requests": 10,
+        # Parallelization limits (Ollama is local, can handle more)
+        "chat_model_rl_requests": 0,  # Unlimited for local
+        "util_model_rl_requests": 0,
+        "embed_model_rl_requests": 0,
+    }
+    
+    # Add fallback models
+    updates["chat_model_kwargs"] = {
+        "fallbacks": ["gemini/gemini-1.5-pro-latest"]
+    }
+    updates["util_model_kwargs"] = {
+        "fallbacks": ["gemini/gemini-1.5-flash-latest"]
     }
     
     # Merge updates

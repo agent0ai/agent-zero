@@ -3,7 +3,7 @@
 **Document Version**: 1.0  
 **Created**: November 23, 2025  
 **Target**: MLcreator Unity Project Master Knowledge Base  
-**System**: Agent Zero + Qdrant  
+**System**: Agent Zero + Qdrant + Ollama (Local)  
 **Status**: READY FOR EXECUTION
 
 ---
