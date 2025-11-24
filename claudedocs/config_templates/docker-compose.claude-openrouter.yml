@@ -1,0 +1,151 @@
+# Docker Compose Configuration - Claude via OpenRouter
+# Usage: docker-compose -f docker-compose.claude-openrouter.yml up -d
+#
+# This configuration uses Claude models through your existing OpenRouter account
+# Prerequisites:
+# 1. Ensure OPENROUTER_API_KEY is set in .env
+# 2. That's it! You already have access to Claude through OpenRouter
+
+version: '3.8'
+
+services:
+  # Main Agent Zero service with Claude via OpenRouter
+  agent-zero-fresh:
+    container_name: agent-zero-fresh
+    image: agent-zero-unity:latest
+    privileged: true
+    user: root
+    volumes:
+      - agent-zero-fresh:/a0
+      - ./:/host_data:rw
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./usr/projects/unitymlcreator:/a0/usr/projects/unitymlcreator
+    ports:
+      - "50001:80"
+      - "22:22"
+      - "9000-9009:9000-9009"
+    environment:
+      # Unity ML-Creator project configuration
+      UNITY_PROJECT_NAME: "UnityMLcreator"
+      UNITY_PROJECT_PATH: "/a0/usr/projects/unitymlcreator"
+      UNITY_EDITOR_VERSION: "6000.2.10f1"
+
+      # ============================================
+      # LLM Configuration: Claude via OpenRouter
+      # ============================================
+      CHAT_MODEL_PROVIDER: "openrouter"
+      CHAT_MODEL_NAME: "anthropic/claude-3.5-sonnet"
+
+      UTIL_MODEL_PROVIDER: "openrouter"
+      UTIL_MODEL_NAME: "anthropic/claude-3.5-haiku"
+
+      # ============================================
+      # API Keys
+      # ============================================
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+
+      # Backup keys (optional)
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # ============================================
+      # Alternative Claude Models via OpenRouter:
+      # ============================================
+      # anthropic/claude-opus-4              (Most capable, expensive)
+      # anthropic/claude-3.5-sonnet          (Best balance - current)
+      # anthropic/claude-3.5-haiku           (Fast, economical - current)
+      # anthropic/claude-3-opus              (Previous generation)
+      # anthropic/claude-3-sonnet
+      # anthropic/claude-3-haiku
+
+      # ============================================
+      # Docker environment
+      # ============================================
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_TLS_VERIFY: "0"
+
+      # ============================================
+      # Qdrant vector database
+      # ============================================
+      QDRANT_URL: "http://qdrant-gpu:6333"
+      QDRANT_API_KEY: ""
+
+      # ============================================
+      # Agent Zero configuration
+      # ============================================
+      AGENT_PROFILE: "developer"
+      AGENT_MEMORY_SUBDIR: "mlcreator"
+      AGENT_KNOWLEDGE_SUBDIR: "mlcreator"
+
+    restart: unless-stopped
+    networks:
+      - unity-mlcreator-net
+    depends_on:
+      - qdrant-gpu
+      - unity-mcp-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Qdrant vector database for memory storage
+  qdrant-gpu:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-gpu
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__SERVICE__HTTP_PORT=6333
+    restart: unless-stopped
+    networks:
+      - unity-mlcreator-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Unity MCP Server for Unity integration
+  unity-mcp-server:
+    container_name: mlcreator-unity-mcp
+    image: ivanmurzakdev/unity-mcp-server:latest
+    volumes:
+      - ./usr/projects/unitymlcreator:/unity-project
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9050:8080"
+    environment:
+      UNITY_PROJECT_PATH: "/unity-project"
+      UNITY_EDITOR_VERSION: "6000.2.10f1"
+      MCP_SERVER_PORT: "8080"
+      DOCKER_HOST: unix:///var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - unity-mlcreator-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  unity-mlcreator-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  agent-zero-fresh:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+  qdrant_storage:
+    driver: local

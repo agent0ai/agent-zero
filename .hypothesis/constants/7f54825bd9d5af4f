@@ -1,4 +1,0 @@
-# file: D:\GithubRepos\agent-zero\python\unity_memory\__init__.py
-# hypothesis_version: 6.148.2
-
-['AssetData', 'AssetFilters', 'ClassData', 'ComponentData', 'FieldData', 'GameObjectData', 'GameObjectFilters', 'MethodData', 'SceneData', 'ScriptData', 'ScriptFilters', 'Task', 'TestScenario', 'UnityMemoryEntry']
