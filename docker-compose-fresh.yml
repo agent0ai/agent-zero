@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  # Main Agent Zero service with full Docker access
+  agent-zero-fresh:
+    container_name: agent-zero-fresh
+    image: agent-zero-unity:latest
+    privileged: true
+    user: root
+    volumes:
+      # Create a completely fresh volume for workspace
+      - agent-zero-fresh:/a0
+      # Mount host project directory for full access
+      - ./:/host_data:rw
+      # CRITICAL: Mount Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount Unity project specifically
+      - ./usr/projects/unitymlcreator:/a0/usr/projects/unitymlcreator
+    ports:
+      - "50001:80"
+      - "22:22"    # SSH access for code execution
+      - "9000-9009:9000-9009"  # Additional ports
+    environment:
+      # Unity ML-Creator project configuration
+      UNITY_PROJECT_NAME: "UnityMLcreator"
+      UNITY_PROJECT_PATH: "/a0/usr/projects/unitymlcreator"
+      UNITY_EDITOR_VERSION: "6000.2.10f1"
+
+      # API Keys
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-AIzaSyA8QWnuYKEhPUw8mN6YxCsTm6e01yXn78E}
+      GOOGLE_API_KEY: ${GEMINI_API_KEY:-AIzaSyA8QWnuYKEhPUw8mN6YxCsTm6e01yXn78E}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # Docker environment
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_TLS_VERIFY: "0"
+
+      # Qdrant vector database
+      QDRANT_URL: "http://qdrant-gpu:6333"
+      QDRANT_API_KEY: ""
+
+      # Agent Zero configuration
+      AGENT_PROFILE: "developer"
+      AGENT_MEMORY_SUBDIR: "mlcreator"
+      AGENT_KNOWLEDGE_SUBDIR: "mlcreator"
+
+      # Override LLM provider settings to use Gemini instead of Ollama
+      CHAT_MODEL_PROVIDER: "gemini"
+      CHAT_MODEL_NAME: "gemini/gemini-1.5-pro"
+      UTIL_MODEL_PROVIDER: "gemini"
+      UTIL_MODEL_NAME: "gemini/gemini-1.5-flash"
+
+    restart: unless-stopped
+    networks:
+      - unity-mlcreator-net
+    depends_on:
+      - qdrant-gpu
+      - unity-mcp-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Qdrant vector database for memory storage
+  qdrant-gpu:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-gpu
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__SERVICE__HTTP_PORT=6333
+    restart: unless-stopped
+    networks:
+      - unity-mlcreator-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Unity MCP Server for Unity integration
+  unity-mcp-server:
+    container_name: mlcreator-unity-mcp
+    image: ivanmurzakdev/unity-mcp-server:latest
+    volumes:
+      # Mount Unity project
+      - ./usr/projects/unitymlcreator:/unity-project
+      # Mount host Docker socket for Unity operations
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9050:8080"
+    environment:
+      UNITY_PROJECT_PATH: "/unity-project"
+      UNITY_EDITOR_VERSION: "6000.2.10f1"
+      MCP_SERVER_PORT: "8080"
+      DOCKER_HOST: unix:///var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - unity-mlcreator-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Custom network for Unity ML-Creator ecosystem
+networks:
+  unity-mlcreator-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Persistent volumes
+volumes:
+  agent-zero-fresh:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+  qdrant_storage:
+    driver: local

@@ -19,6 +19,9 @@ RUN bash /ins/install_A0.sh $BRANCH
 # install additional software
 RUN bash /ins/install_additional.sh $BRANCH
 
+# install Docker CLI to enable Docker commands from within the container
+RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+
 # cleanup repo and install A0 without caching, this speeds up builds
 ARG CACHE_DATE=none
 RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
