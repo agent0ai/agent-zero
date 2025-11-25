@@ -1,26 +1,66 @@
-# Memory backend configuration
-# backend: faiss | qdrant | hybrid (qdrant with faiss mirror)
-backend: faiss
+# Memory Backend Configuration for Unity Development
+# Optimized for high-performance Unity project management
 
+# Backend selection: faiss | qdrant | hybrid
+backend: qdrant
+
+# Qdrant Configuration - Optimized for Unity Development
 qdrant:
   url: http://localhost:6333
   api_key: ""
-  collection: agent-zero
+  collection: agent-zero-unity
   prefer_hybrid: true
-  score_threshold: 0.55  # Optimized: Lower from 0.6 for better recall
-  limit: 30  # Optimized: Increased from 20 for more context
-  timeout: 15  # Optimized: Increased from 10 for complex queries
-  # optional payload keys to keep for full-text / keyword filters
+  score_threshold: 0.50
+  limit: 50
+  timeout: 20
+
+  # Unity-Optimized Payload Indexes
   searchable_payload_keys:
+    # Core areas
     - area
     - source
     - project
     - tags
     - consolidation_action
-    - entity_type  # Added: For Unity entities
-    - scene_name   # Added: For scene tracking
-    - entity_name  # Added: For entity search
-    - file_path    # Added: For file-based queries
+    # Unity entities
+    - entity_type
+    - entity_name
+    - scene_name
+    - file_path
+    # Scripts & Code
+    - namespace
+    - class_name
+    - method_name
+    - base_classes
+    # Assets & Components
+    - asset_type
+    - guid
+    - component_type
+    - tag
+    - layer
+    # Development tracking
+    - status
+    - priority
+    - error_type
+    - has_solution
+    # Relationships
+    - source_entity
+    - target_entity
+    - relationship_type
+    # Build
+    - build_target
+    - unity_version
 
 fallback_to_faiss: true
 mirror_to_faiss: false
+
+# Caching Configuration
+cache:
+  entity_cache_size: 5000
+  embedding_cache_size: 50000
+  query_cache_size: 1000
+
+# Batch Operations
+batch:
+  size: 100
+  flush_interval_seconds: 5
