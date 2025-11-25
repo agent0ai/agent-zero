@@ -46,11 +46,11 @@ services:
       AGENT_KNOWLEDGE_SUBDIR: "mlcreator"
 
 
-      # Override LLM provider settings to use Gemini
+      # Override LLM provider settings to use Gemini 2.5 (latest generation)
       CHAT_MODEL_PROVIDER: "google"
-      CHAT_MODEL_NAME: "gemini-1.5-pro"
+      CHAT_MODEL_NAME: "gemini-2.5-pro"
       UTIL_MODEL_PROVIDER: "google"
-      UTIL_MODEL_NAME: "gemini-1.5-flash"
+      UTIL_MODEL_NAME: "gemini-2.5-flash"
 
     restart: unless-stopped
     networks:
