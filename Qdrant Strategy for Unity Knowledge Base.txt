@@ -1,0 +1,314 @@
+﻿Architectural Strategy for Unity Documentation RAG Systems using Qdrant
+
+
+
+
+1. Introduction to Context-Aware Retrieval in Game Development
+
+
+The paradigm of software development is undergoing a fundamental shift driven by the integration of Large Language Models (LLMs) into the coding workflow. However, the efficacy of these AI agents is strictly bounded by the context they possess. In the domain of game development, specifically within the Unity Engine ecosystem, this challenge is exacerbated by the proprietary, component-based architecture that defines the engine. A standard "Chat with your Codebase" implementation, which typically treats a repository as a loose collection of text files, fails to capture the directed acyclic graph (DAG) nature of a Unity project. Unity projects are not merely code; they are a complex interplay of C# scripts, serialized YAML metadata, shader languages (HLSL/ShaderLab), and strict compilation boundaries defined by Assembly Definitions (.asmdef).
+To empower an AI coding agent to function not just as a syntax auto-completer but as a coherent systems architect, the Retrieval-Augmented Generation (RAG) backend must mirror the structural complexity of the engine itself. This requires a move away from naive text chunking toward a structured, semantically aware vector database strategy. This report outlines a comprehensive architectural strategy for building such a knowledge base using Qdrant. Qdrant is selected as the vector engine of choice due to its specialized support for Hybrid Search—the combination of dense semantic vectors and sparse keyword vectors—and its robust filtering mechanism, both of which are prerequisites for solving the "Lexical Gap" inherent in technical documentation retrieval.
+The following analysis will deconstruct the Unity data domain, evaluate embedding model performance based on recent benchmarks, and propose a rigorous schema for Qdrant collections, payloads, and indexing strategies. The ultimate goal is to provide a blueprint that transforms a static folder of assets into a dynamic, queryable knowledge graph that an AI agent can navigate with precision.
+
+
+2. Analysis of the Unity Data Domain
+
+
+Designing a database schema requires a profound understanding of the data it aims to represent. Unity projects possess unique characteristics that dictate how data must be parsed, indexed, and retrieved. Unlike general software repositories where the file system hierarchy is the primary organizational structure, Unity projects rely on an internal abstraction layer known as the Asset Database.
+
+
+2.1 The Primacy of the Asset Database and GUIDs
+
+
+In a standard software project, a file's identity is often tied to its path (e.g., src/main/java/com/example/App.java). In Unity, the file path is mutable and secondary. The primary identifier for any asset—be it a C# script, a texture, or a Prefab—is a Global Unique Identifier (GUID). This 128-bit hash is generated when an asset is first imported and is stored in a companion .meta file located alongside the asset.1
+This distinction is critical for RAG system stability. If an AI agent relies on file paths to index code, simple refactoring operations—such as moving a script from Assets/Scripts/ to Assets/Scripts/Core/—will break the index. The vector database would view the moved file as a new entry, leading to data duplication or "ghost" references to files that no longer exist at the old location.
+Therefore, the strategy for the Qdrant knowledge base must utilize the Unity GUID as the foundational element of its identity generation logic. By parsing the .meta files during the ingestion phase, the ingestion pipeline can extract this immutable ID. This ensures that the vector database remains synchronized with the Unity project's internal state, allowing for idempotent updates where the system recognizes that a moved file is effectively the same entity, preserving its history and relationships.1
+
+
+2.2 Assembly Definitions: The Compilation Graph
+
+
+Unity compiles scripts into managed assemblies. By default, all scripts are compiled into Assembly-CSharp.dll. However, professional production environments invariably utilize Assembly Definition files (.asmdef) to partition code into modular libraries. This reduces compilation times and enforces architectural boundaries. For example, scripts in a Gameplay assembly may reference the Core assembly, but the Core assembly cannot reference Gameplay without creating a circular dependency, which causes compilation failure.3
+For an AI coding agent, understanding this graph is non-negotiable. If a user asks the agent to "implement a health bar in the UI," and the agent retrieves context from a gameplay script that relies on internal physics logic not exposed to the UI assembly, the generated code will fail to compile. The RAG system must therefore capture the assembly context of every script.
+.asmdef files are JSON-formatted configuration files that define these relationships. During the ingestion process, the system must traverse the directory tree upwards from any given script to locate the controlling .asmdef file. The name of this assembly, along with its list of references (dependencies), must be injected into the vector payload. This allows the AI agent to perform "scoped retrieval," filtering its search space to only those assemblies that are visible to the code currently being generated.4
+
+
+2.3 The Lexical Gap in Technical Retrieval
+
+
+Code retrieval suffers from a phenomenon known as the "Lexical Gap." Semantic search, driven by dense vector embeddings, is excellent at understanding intent. A query for "function to stop the game" might successfully retrieve Time.timeScale = 0; because they are conceptually related. However, technical development often requires precise specificity. If a developer queries for usage of a specific variable named _globalGameStateManager, a purely semantic model might struggle. The dense vector for _globalGameStateManager might be very close to GameController or LevelManager, leading the system to retrieve irrelevant generic classes while missing the specific instance the user requested.
+To bridge this gap, the database architecture must support Hybrid Search. This involves maintaining two distinct indices:
+1. Dense Vector Index: Captures the semantic meaning and conceptual relationships (e.g., "Input System," "Player Movement").
+2. Sparse Vector Index: Captures the frequency and specificity of exact keywords (e.g., OnTriggerEnter, ``).
+Qdrant's architecture is uniquely suited for this, as it supports multiple named vectors per point, allowing a single document chunk to be indexed simultaneously by a Transformer model (for dense) and a BM25 or SPLADE model (for sparse).6
+
+
+3. Vector Database Theory and Qdrant Architecture
+
+
+The selection of Qdrant is predicated on its architectural decisions regarding graph traversal and storage optimization, which align closely with the needs of a code knowledge base.
+
+
+3.1 Hierarchical Navigable Small World (HNSW) Graphs
+
+
+Qdrant utilizes the HNSW algorithm for approximate nearest neighbor search. This constructs a multi-layered graph where the upper layers serve as a "highway" to quickly traverse the vector space, and the lower layers provide fine-grained navigation to the exact node. For a Unity project, which may contain tens of thousands of code chunks, HNSW offers logarithmic search complexity ($O(\log N)$), ensuring low latency even as the project scales.8
+Crucially, Qdrant implements "Filterable HNSW." In many vector databases, filtering is a post-processing step (retrieve $k$ neighbors, then check if they match the filter). If the filter is restrictive (e.g., "only scripts in the 'Editor' folder"), a post-filtering approach might return zero results if the top $k$ neighbors happened to be runtime scripts. Qdrant integrates filtering into the graph traversal itself, ensuring that the search algorithm only explores nodes that satisfy the metadata conditions (Payload Filters). This is essential for the "scoped retrieval" strategy required by Assembly Definitions.9
+
+
+3.2 Collection Configuration Strategy
+
+
+Contrary to traditional relational database normalization, where data is split into many tables, vector databases often perform best with fewer, larger collections that utilize metadata for partitioning. We advocate for a Unified Collection Strategy for the Unity Knowledge Base.
+Creating separate collections for Scripts, Documentation, and Shaders creates rigid silos. A developer querying "How do I implement a dissolve effect?" needs context from the Shader code (HLSL), the C# script controlling the material properties, and potentially a Markdown design document describing the effect. A unified collection allows the dense vector space to model the semantic proximity between these disparate file types. If the documentation describes the shader accurately, its vector will lie close to the shader code's vector. Separating them would require the AI agent to perform complex multi-hop queries or client-side fusion of results from different collections, adding latency and complexity.
+Instead, we define a single collection—e.g., unity_knowledge_base—and use specific Payload fields (file_type, code_type) to create virtual partitions. This preserves the global semantic space while allowing for granular filtering.8
+
+
+3.3 Hybrid Search Configuration
+
+
+The collection must be explicitly configured to support dual-vector indexing. This is defined in the vectors_config and sparse_vectors_config parameters of the collection creation API.
+The Dense Vector configuration requires a decision on dimensionality and distance metric. Given the benchmarks analyzed (see Section 4), a dimensionality of 1536 (matching Voyage AI or OpenAI models) utilizing Cosine Similarity is the optimal standard. Cosine similarity is preferred over Euclidean distance for text embeddings because it measures the orientation (semantic alignment) rather than the magnitude (length) of the vectors, making it robust to variations in document length.10
+The Sparse Vector configuration is critical for the keyword matching component. Qdrant allows the sparse index to be stored either in RAM or on disk (on_disk: true/false). For a typical Unity project codebase, which rarely exceeds a few gigabytes of text, keeping the sparse index in RAM (on_disk: false) is recommended to maximize retrieval speed. Sparse vectors are essentially lists of non-zero indices (token IDs) and their weights, which are highly compressible, minimizing the memory footprint compared to dense vectors.10
+
+
+3.4 Storage Optimization and Quantization
+
+
+As the project grows, the memory footprint of dense vectors can become substantial. A float32 vector of 1536 dimensions takes roughly 6KB per chunk. With 100,000 chunks, this approaches 600MB of RAM just for vectors, excluding the graph links and payload. For massive enterprise Unity projects, Qdrant supports Scalar Quantization (int8), which compresses vectors by a factor of 4x with minimal loss in retrieval accuracy (typically <1% recall loss). While not strictly necessary for small indie projects, enabling quantization in the collection configuration ensures the architecture is future-proof for AA or AAA scale development.12
+
+
+4. Embedding Model Selection and Benchmarking
+
+
+The intelligence of the RAG system is fundamentally limited by the quality of its embeddings. The model must "understand" C# syntax, Unity-specific API nomenclature, and the relationship between code and natural language comments.
+
+
+4.1 The Contenders: Voyage AI vs. OpenAI
+
+
+Recent benchmarks in the domain of code retrieval highlight distinct performance tiers among embedding providers.
+* Voyage-Code-2 / Voyage-Code-3: Voyage AI has released models specifically optimized for code retrieval. Benchmark data indicates that voyage-code-2 outperforms generalist models like OpenAI's text-embedding-3-large and Cohere's embed-english-v3 by approximately 14-15% on code retrieval tasks (CoIR benchmarks). This superiority stems from training on massive datasets of GitHub repositories and technical documentation, allowing the model to grasp the semantic weight of programming constructs like inheritance and function signatures better than models trained primarily on web prose.14
+* OpenAI Text-Embedding-3-Large: This model offers a high dimensionality (up to 3072) and strong general performance. It is a viable fallback, particularly if the project involves a significant amount of non-technical narrative design documentation. However, for the specific task of retrieving C# logic, it trails Voyage in precision.12
+* Open Source (e.g., BAAI/bge-m3, Nomic-Embed): While cost-effective, local models often struggle with the specific jargon of Unity APIs unless specifically fine-tuned. They typically have smaller context windows (512-8192 tokens) compared to the commercial APIs.
+
+
+4.2 Context Window Considerations
+
+
+Code chunks can be large. A complex PlayerController class might span 2000 lines. Splitting this arbitrarily destroys context. Voyage-code-2 supports a context window of 16,000 tokens, and Voyage-code-3 extends this to 32,000 tokens. This capability allows the ingestion pipeline to embed entire classes or large functional blocks as single units, preserving the holistic logic that smaller context windows (like the 8k limit of older OpenAI models or 512 of BERT-based models) would fragment. This "large chunk" strategy significantly reduces the complexity of retrieval, as the agent retrieves the whole class context rather than a disjointed fragment.15
+
+
+4.3 Recommendation
+
+
+The strategy employs Voyage-Code-2 (or Code-3) as the primary dense embedding model due to its dominant performance benchmarks in code retrieval and sufficient context window. For the sparse embedding (keyword search), we utilize SPLADE (Sparse Lexical and Expansion Model) or BM25, computed locally during ingestion. This combination provides the state-of-the-art balance between semantic understanding and lexical precision.7
+
+
+5. Schema Design Strategy: Collections, Points, and Payloads
+
+
+The structural design of the data within Qdrant is the interface through which the AI agent interacts with the knowledge base. A poorly designed schema forces the agent to make broad, inefficient queries. A well-designed schema allows for surgical precision.
+
+
+5.1 Deterministic Point Identity (ID) Generation
+
+
+In vector databases, handling updates is a complex problem. If a user modifies PlayerMovement.cs and re-runs the ingestion script, the system must update the existing vectors for that file, not append new ones. Using random UUIDs makes this impossible without first querying the database to find the old IDs (a "read-before-write" pattern that is slow).
+The strategy dictates the use of Deterministic UUIDs (UUID v5). The ID for any given chunk should be generated by hashing a combination of the Asset GUID and the Chunk Index.
+
+
+
+
+$$ID = \text{UUID5}(\text{Namespace}, \text{AssetGUID} + "\_" + \text{ChunkIndex})$$
+
+
+By using the Unity Asset GUID (from the .meta file) as the seed, the ID remains constant even if the file is renamed or moved. If the content changes, the ingestion script simply regenerates the same ID and performs an upsert operation, which Qdrant handles as an overwrite. This guarantees data consistency and idempotency without expensive lookup operations.1
+
+
+5.2 The Payload Schema
+
+
+The Payload is a JSON object attached to each vector. It must capture the multifaceted nature of Unity assets. The following fields are mandatory:
+Field Name
+	Data Type
+	Purpose & Rationale
+	Indexing
+	asset_guid
+	Keyword
+	The immutable link to the Unity Asset Database. Allows linking chunks back to the source file reliably.
+	Yes
+	assembly_name
+	Keyword
+	The name of the assembly (e.g., Unity.RenderPipelines.Core) derived from the nearest .asmdef. Essential for scoping queries to compilation boundaries.
+	Yes
+	file_path
+	Keyword
+	The relative path (e.g., Assets/Scripts/Player.cs). Used for citing sources to the user.
+	No
+	class_name
+	Keyword
+	The C# class defined in the chunk. Allows queries like "Find the class definition of PlayerController".
+	Yes
+	code_type
+	Keyword
+	Categorical: runtime, editor, test, shader. Prevents the agent from suggesting Editor-only APIs for runtime code.
+	Yes
+	inheritance
+	Keyword
+	A list of base classes and interfaces (e.g., ``). Enables polymorphic queries ("Find all damageable objects").
+	Yes
+	chunk_index
+	Integer
+	The sequence number of the chunk in the file. Allows the agent to reconstruct the full file by sorting chunks.
+	No
+	content_hash
+	Keyword
+	A hash of the text content. Used to skip re-embedding if the code hasn't changed since the last run.
+	No
+	
+
+5.3 Indexing Strategy
+
+
+Qdrant requires explicit definition of payload indexes for fields used in filtering. Without an index, filtering requires a full scan of the payload data, which is computationally expensive ($O(N)$). We must create Keyword Indices for asset_guid, assembly_name, class_name, and code_type. Keyword indices are optimized for exact string matching, which aligns with the categorical nature of these fields. For fields like inheritance which are arrays of strings, Qdrant's keyword index supports any operators, allowing efficient checks for interface implementation.21
+
+
+6. Ingestion Pipeline and Chunking Strategy
+
+
+The quality of the retrieval is effectively determined by the quality of the chunking. "Garbage In, Garbage Out" applies strictly here. Code cannot be treated as plain text.
+
+
+6.1 Recursive Character Splitting with C# Semantics
+
+
+Standard chunking splits text by fixed token counts (e.g., 500 tokens). This is disastrous for code, as it can split a method signature from its body or a decorator attribute (``) from the method it modifies.
+The strategy employs a Recursive Character Text Splitter configured with a hierarchy of C#-specific separators. The splitter attempts to break the text using the highest-priority separator first. If the resulting chunk is still too large, it moves to the next separator.
+Separator Hierarchy for C#:
+1. \nnamespace (Top-level namespace declarations)
+2. \nclass , \nstruct , \ninterface (Type definitions)
+3. \npublic void , \nprivate int , etc. (Method boundaries - utilizing Regex for robustness)
+4. \n\n (Double line breaks, usually separating methods)
+5. \n (Single line breaks)
+6. } (Closing braces)
+This hierarchy prioritizes keeping entire classes intact. If a class is too large, it keeps entire methods intact. This ensures that a retrieved chunk is syntactically complete and semantically meaningful.22
+
+
+6.2 Context Enrichment: The "Header" Injection
+
+
+When a large class is split into multiple chunks, the individual chunks lose their enclosing context. A chunk containing only the Update() method of PlayerController.cs looks generic. To solve this, the ingestion pipeline must perform Context Enrichment.
+Before embedding, the pipeline injects a metadata header into the text content of the chunk.
+Format:
+// File: Assets/Scripts/Player/PlayerController.cs
+// Assembly: Game.Gameplay
+// Class: PlayerController : MonoBehaviour
+// Context: Handles user input and character movement physics.
+[Original Chunk Code Here]
+This header is part of the text sent to the embedding model, "grounding" the generic code within its specific file and architectural context. This technique has been shown to significantly improve retrieval accuracy for large documents.6
+
+
+6.3 Abstract Syntax Tree (AST) Parsing
+
+
+For the highest fidelity, simple text splitting is insufficient. The ingestion pipeline should utilize a lightweight AST parser (using Roslyn for C#) to accurately extract metadata like base_classes, interfaces, and method_names. This extracted data populates the Payload fields defined in Section 5.2. AST parsing is the only reliable way to distinguish between a class named Player and a variable named player.23
+
+
+7. Retrieval Strategy: Hybrid Search and Reranking
+
+
+The retrieval phase is where the AI agent interacts with the stored knowledge. The strategy moves beyond simple "nearest neighbor" lookups.
+
+
+7.1 Two-Stage Retrieval with Hybrid Fusion
+
+
+The agent should employ a hybrid search pattern:
+1. Parallel Querying: The query is sent to both the Dense Index (using the embedding of the user's question) and the Sparse Index (using keyword extraction).
+2. Score Fusion: The results are combined using Reciprocal Rank Fusion (RRF). RRF is a robust algorithm that merges ranked lists by prioritizing items that appear near the top of both lists. It normalizes the disparate scoring scales of Cosine Similarity (0.0 to 1.0) and BM25 (0 to unbounded).
+
+$$\text{RRF\_Score}(d) = \sum_{r \in R} \frac{1}{k + r(d)}$$
+
+This ensures that a document is retrieved if it is either semantically relevant or contains the exact technical keywords, while strongly boosting documents that are both.7
+
+
+7.2 Agentic Pre-Filtering
+
+
+The AI agent must be instructed to parse the user's intent to apply filters before the vector search.
+   * Intent: "How do I write a unit test for movement?"
+   * Filter: must: { key: "code_type", match: { value: "test" } }
+   * Intent: "What shader is used for the water?"
+   * Filter: must: { key: "file_path", match: { text: ".shader" } }
+By applying these filters at the Qdrant graph level, the search space is drastically reduced, improving both speed and relevance.9
+
+
+7.3 The Scroll API for Full Context
+
+
+Sometimes vector search is not the answer. If the agent identifies a specific file as the definitive source of truth (e.g., based on a high-confidence match), it should switch strategies. Instead of relying on the vector chunks, it should query Qdrant's Scroll API, filtering by asset_guid to retrieve all chunks associated with that asset. It can then reconstruct the entire file content in memory. This mimics a developer "opening the file" to read it top-to-bottom, providing the LLM with the complete, unfragmented context necessary for complex refactoring tasks.9
+
+
+8. Concise Prompt for the AI Coding Agent
+
+
+The following prompt is the distilled output of the research, designed to be pasted into an AI agent configuration. It encapsulates the complex architectural decisions (Hybrid Search, AST parsing, Deterministic IDs) into actionable instructions.
+________________
+System Instruction: You are a Unity Infrastructure & DevOps Architect.
+Goal: Write a Python ingestion script to build a Qdrant Vector Knowledge Base for a Unity project.
+Technical Specifications:
+   1. Qdrant Collection Setup:
+   * Name: unity_project_kb
+   * Vectors: Enable Hybrid Search.
+   * text-dense: Size 1536, Metric Cosine (for Voyage-Code-2).
+   * text-sparse: Enable sparse index (RAM-based, on_disk: false).
+   * Payload Indexes: Create Keyword indexes for: asset_guid, assembly, code_type, class_name.
+   2. Ingestion Logic:
+   * Traversal: Walk Assets/ and Packages/. Exclude: Library/, Temp/, Logs/, hidden files (.*).
+   * Metadata Extraction (Crucial):
+   * GUID: Parse the .meta file for every script (.cs, .shader) to get the Unity guid. This is the entity anchor.
+   * Assembly: Walk up the directory tree to find the nearest .asmdef file. Use its name as the assembly field.
+   * Code Type: If path contains /Editor/, set code_type="editor". Else runtime.
+   * Chunking:
+   * Use RecursiveCharacterTextSplitter with C# separators: ["\nnamespace", "\nclass", "\nvoid", "\npublic", "\n\n"].
+   * Context Enrichment: Prepend a header to every chunk's text: // File: {path} | Class: {class_name} | Assembly: {assembly}\n.
+   * ID Generation: Use Deterministic UUID v5. Formula: uuid5(NAMESPACE_DNS, asset_guid + "_" + chunk_index). This ensures idempotent re-indexing.
+   3. Execution:
+   * Use fastembed for local sparse vectors and voyageai (or openai) for dense vectors.
+   * Implement efficient batch upserts.
+________________
+
+
+9. Conclusion
+
+
+The construction of a RAG system for Unity is a specialized engineering challenge that demands adherence to the engine's internal logic. By shifting the retrieval strategy from a file-centric view to an asset-centric view (using GUIDs and Assembly Definitions), and by leveraging Qdrant's hybrid search to resolve the lexical ambiguities of code, developers can build an AI assistant that truly understands the project structure. This architecture moves beyond the limitations of generic LLMs, providing a tool capable of navigating the complex dependency graphs of modern game development with surgical precision. The proposed schema and ingestion pipeline ensure that this knowledge base remains robust, scalable, and synchronized with the evolving codebase.
+Works cited
+   1. Asset metadata - Unity - Manual, accessed November 24, 2025, https://docs.unity3d.com/6000.2/Documentation/Manual/AssetMetadata.html
+   2. Manual: Asset Metadata - Unity, accessed November 24, 2025, https://docs.unity.cn/Manual/AssetMetadata.html
+   3. Manual: Assembly Definitions - Unity, accessed November 24, 2025, https://docs.unity.cn/2019.1/Documentation/Manual/ScriptCompilationAssemblyDefinitionFiles.html
+   4. Assembly definitions - Unity - Manual, accessed November 24, 2025, https://docs.unity3d.com/2023.2/Documentation/Manual/ScriptCompilationAssemblyDefinitionFiles.html
+   5. Assembly definition and packages - Unity - Manual, accessed November 24, 2025, https://docs.unity3d.com/6000.2/Documentation/Manual/cus-asmdef.html
+   6. What is RAG: Understanding Retrieval-Augmented Generation - Qdrant, accessed November 24, 2025, https://qdrant.tech/articles/what-is-rag-in-ai/
+   7. Demo: Implementing a Hybrid Search System - Qdrant, accessed November 24, 2025, https://qdrant.tech/course/essentials/day-3/hybrid-search-demo/
+   8. Collections - Qdrant, accessed November 24, 2025, https://qdrant.tech/documentation/concepts/collections/
+   9. A Complete Guide to Filtering in Vector Search - Qdrant, accessed November 24, 2025, https://qdrant.tech/articles/vector-search-filtering/
+   10. What is a Sparse Vector? How to Achieve Vector-based Hybrid Search - Qdrant, accessed November 24, 2025, https://qdrant.tech/articles/sparse-vectors/
+   11. Vectors - Qdrant, accessed November 24, 2025, https://qdrant.tech/documentation/concepts/vectors/
+   12. voyage-3-large: the new state-of-the-art general-purpose embedding model, accessed November 24, 2025, https://blog.voyageai.com/2025/01/07/voyage-3-large/
+   13. voyage-code-3: More Accurate Code Retrieval With Lower Dimensional, Quantized Embeddings | MongoDB, accessed November 24, 2025, https://www.mongodb.com/company/blog/voyage-code-3-more-accurate-code-retrieval-lower-dimensional-quantized-embeddings
+   14. Code-Embed: A Family of Open Large Language Models for Code Embedding - arXiv, accessed November 24, 2025, https://arxiv.org/html/2411.12644v1
+   15. voyage-code-3: more accurate code retrieval with lower dimensional, quantized embeddings, accessed November 24, 2025, https://blog.voyageai.com/2024/12/04/voyage-code-3/
+   16. voyage-code-2: Elevate Your Code Retrieval, accessed November 24, 2025, https://blog.voyageai.com/2024/01/23/voyage-code-2-elevate-your-code-retrieval/
+   17. AWS Marketplace: voyage-code-2 Embedding Model - Amazon.com, accessed November 24, 2025, https://aws.amazon.com/marketplace/pp/prodview-ofmg2lztgphzy
+   18. GitHub Copilot gets smarter at finding your code: Inside our new embedding model, accessed November 24, 2025, https://github.blog/news-insights/product-news/copilot-new-embedding-model-vs-code/
+   19. Embeddings are underrated - technicalwriting.dev, accessed November 24, 2025, https://technicalwriting.dev/data/embeddings.html
+   20. 6 Best Code Embedding Models Compared: A Complete Guide | Modal Blog, accessed November 24, 2025, https://modal.com/blog/6-best-code-embedding-models-compared
+   21. Indexing - Qdrant, accessed November 24, 2025, https://qdrant.tech/documentation/concepts/indexing/
+   22. Splitting code - Docs by LangChain, accessed November 24, 2025, https://docs.langchain.com/oss/python/integrations/splitters/code_splitter
+   23. Best Chunking Strategies for RAG in 2025 - Firecrawl, accessed November 24, 2025, https://www.firecrawl.dev/blog/best-chunking-strategies-rag-2025
+   24. Understanding LangChain's RecursiveCharacterTextSplitter - DEV Community, accessed November 24, 2025, https://dev.to/eteimz/understanding-langchains-recursivecharactertextsplitter-2846
+   25. 11 Chunking Strategies for RAG — Simplified & Visualized | by Mastering LLM (Large Language Model), accessed November 24, 2025, https://masteringllm.medium.com/11-chunking-strategies-for-rag-simplified-visualized-df0dbec8e373
+   26. Hybrid Queries - Qdrant, accessed November 24, 2025, https://qdrant.tech/documentation/concepts/hybrid-queries/
+   27. Filtering - Qdrant, accessed November 24, 2025, https://qdrant.tech/documentation/concepts/filtering/

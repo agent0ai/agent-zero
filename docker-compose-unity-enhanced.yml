@@ -60,11 +60,11 @@ services:
       AGENT_MEMORY_SUBDIR: unity
       AGENT_KNOWLEDGE_SUBDIR: unity
 
-      # Model Configuration
-      CHAT_MODEL_PROVIDER: ${CHAT_MODEL_PROVIDER:-Google}
-      CHAT_MODEL_NAME: ${CHAT_MODEL_NAME:-gemini-3-pro-preview}
-      UTIL_MODEL_PROVIDER: ${UTIL_MODEL_PROVIDER:-Google}
-      UTIL_MODEL_NAME: ${UTIL_MODEL_NAME:-gemini-3-pro-preview}
+      # Model Configuration - Gemini 2.5 (latest generation)
+      CHAT_MODEL_PROVIDER: ${CHAT_MODEL_PROVIDER:-google}
+      CHAT_MODEL_NAME: ${CHAT_MODEL_NAME:-gemini-2.5-pro}
+      UTIL_MODEL_PROVIDER: ${UTIL_MODEL_PROVIDER:-google}
+      UTIL_MODEL_NAME: ${UTIL_MODEL_NAME:-gemini-2.5-flash}
       EMBEDDINGS_MODEL_PROVIDER: ${EMBEDDINGS_MODEL_PROVIDER:-HuggingFace}
       EMBEDDINGS_MODEL_NAME: ${EMBEDDINGS_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
 
@@ -82,10 +82,8 @@ services:
       unity-net:
         ipv4_address: 172.30.0.10
     depends_on:
-      qdrant-unity:
-        condition: service_healthy
-      unity-mcp-server:
-        condition: service_healthy
+      - qdrant-unity
+      - unity-mcp-server
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
@@ -95,11 +93,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 12G
-          cpus: '6'
+          memory: 8G
+          cpus: '3.5'
         reservations:
-          memory: 4G
-          cpus: '2'
+          memory: 3G
+          cpus: '1.5'
 
   # ============================================================
   # Qdrant Vector Database - Optimized for Unity
@@ -113,7 +111,8 @@ services:
     volumes:
       - qdrant-data:/qdrant/storage
       - qdrant-snapshots:/qdrant/snapshots
-      - ./conf/qdrant_config.yaml:/qdrant/config/config.yaml:ro
+      # Optional: Custom config (comment out if file doesn't exist)
+      # - ./conf/qdrant_config.yaml:/qdrant/config/config.yaml:ro
     environment:
       # Service Configuration
       QDRANT__SERVICE__GRPC_PORT: 6334
@@ -144,12 +143,13 @@ services:
     networks:
       unity-net:
         ipv4_address: 172.30.0.20
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    # Healthcheck disabled - qdrant doesn't have curl/wget by default
+    # healthcheck:
+    #   test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"]
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 30s
     deploy:
       resources:
         limits:
@@ -170,8 +170,8 @@ services:
       - ./usr/projects:/unity-projects:rw
       # Docker socket for Unity operations
       - /var/run/docker.sock:/var/run/docker.sock
-      # MCP configuration
-      - ./conf/unity_mcp_config.json:/app/config.json:ro
+      # Optional: MCP configuration (comment out if file doesn't exist)
+      # - ./conf/unity_mcp_config.json:/app/config.json:ro
     ports:
       - "9050:8080"   # MCP API
       - "9051:8081"   # WebSocket for real-time events
@@ -196,12 +196,13 @@ services:
     networks:
       unity-net:
         ipv4_address: 172.30.0.30
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    # Healthcheck disabled - unity-mcp doesn't have curl/wget by default  
+    # healthcheck:
+    #   test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 30s
     deploy:
       resources:
         limits:
