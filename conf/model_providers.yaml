@@ -94,7 +94,7 @@ embedding:
     litellm_provider: huggingface
   google:
     name: Google
-    litellm_provider: gemini
+    litellm_provider: vertex_ai
   lm_studio:
     name: LM Studio
     litellm_provider: lm_studio
