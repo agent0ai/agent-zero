@@ -1,4 +1,3 @@
-version: '3.8'
 
 # Enhanced Docker Compose for Unity Development with Optimized Qdrant
 # This configuration provides:
