@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   # Main Agent Zero service with full Docker access
@@ -8,25 +7,22 @@ services:
     privileged: true
     user: root
     volumes:
-      # Create a completely fresh volume for workspace
-      - agent-zero-fresh:/a0
-      # Mount host project directory for full access
-      - ./:/host_data:rw
-      # CRITICAL: Mount Docker socket for container management
+      # OPTIMIZED: All volumes now use D: drive paths
+      - D:/GithubRepos/agent-zero/data:/a0
+      - D:/GithubRepos/agent-zero:/host_data:rw
       - /var/run/docker.sock:/var/run/docker.sock
-      # Mount Unity project specifically
-      - ./usr/projects/unitymlcreator:/a0/usr/projects/unitymlcreator
+      - D:/UnityWorkspaces/MLcreator:/a0/usr/projects/unitymlcreator
     ports:
       - "50001:80"
-      - "22:22"    # SSH access for code execution
-      - "9000-9009:9000-9009"  # Additional ports
+      - "22:22"
+      - "9000-9009:9000-9009"
     environment:
       # Unity ML-Creator project configuration
       UNITY_PROJECT_NAME: "UnityMLcreator"
       UNITY_PROJECT_PATH: "/a0/usr/projects/unitymlcreator"
       UNITY_EDITOR_VERSION: "6000.2.10f1"
 
-      # API Keys
+      # API Keys (will use Ollama instead)
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GOOGLE_API_KEY: ${GEMINI_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -40,35 +36,41 @@ services:
       QDRANT_URL: "http://qdrant-gpu:6333"
       QDRANT_API_KEY: ""
 
-      # Agent Zero configuration
+      # Agent Zero configuration - USE unity_developer profile
       AGENT_PROFILE: "unity_developer"
       AGENT_MEMORY_SUBDIR: "mlcreator"
       AGENT_KNOWLEDGE_SUBDIR: "mlcreator"
 
-      # Override LLM provider settings to use Gemini instead of Ollama
+      # Use Ollama (local, no API costs)
       CHAT_MODEL_PROVIDER: "Google"
       CHAT_MODEL_NAME: "gemini-3-pro-preview"
+      CHAT_MODEL_API_BASE: "http://host.docker.internal:11434"
       UTIL_MODEL_PROVIDER: "Google"
       UTIL_MODEL_NAME: "gemini-3-pro-preview"
+      UTIL_MODEL_API_BASE: "http://host.docker.internal:11434"
 
     restart: unless-stopped
     networks:
       - unity-mlcreator-net
     depends_on:
       - qdrant-gpu
-      - unity-mcp-server
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+    # OPTIMIZED: Resource limits to prevent memory leaks
     deploy:
       resources:
         limits:
-          memory: 8G
-          cpus: '4'
+          memory: 6G
+          cpus: '3'
+        reservations:
+          memory: 2G
+          cpus: '1'
 
-  # Qdrant vector database for memory storage
+  # Qdrant vector database - OPTIMIZED
   qdrant-gpu:
     image: qdrant/qdrant:latest
     container_name: qdrant-gpu
@@ -76,10 +78,13 @@ services:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      - qdrant_storage:/qdrant/storage
+      # OPTIMIZED: Store on D: drive
+      - D:/DockerData/qdrant_storage:/qdrant/storage
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
       - QDRANT__SERVICE__HTTP_PORT=6333
+      # OPTIMIZED: Limit memory usage
+      - QDRANT__SERVICE__MAX_REQUEST_SIZE=10485760
     restart: unless-stopped
     networks:
       - unity-mlcreator-net
@@ -88,33 +93,13 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
 
-  # Unity MCP Server for Unity integration
-  unity-mcp-server:
-    container_name: mlcreator-unity-mcp
-    image: ivanmurzakdev/unity-mcp-server:latest
-    volumes:
-      # Mount Unity project
-      - ./usr/projects/unitymlcreator:/unity-project
-      # Mount host Docker socket for Unity operations
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "9050:8080"
-    environment:
-      UNITY_PROJECT_PATH: "/unity-project"
-      UNITY_EDITOR_VERSION: "6000.2.10f1"
-      MCP_SERVER_PORT: "8080"
-      DOCKER_HOST: unix:///var/run/docker.sock
-    restart: unless-stopped
-    networks:
-      - unity-mlcreator-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-# Custom network for Unity ML-Creator ecosystem
+# Custom network
 networks:
   unity-mlcreator-net:
     driver: bridge
@@ -122,13 +107,4 @@ networks:
       config:
         - subnet: 172.20.0.0/16
 
-# Persistent volumes
-volumes:
-  agent-zero-fresh:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data
-  qdrant_storage:
-    driver: local
+# REMOVED: No need for named volumes, using bind mounts to D: drive
