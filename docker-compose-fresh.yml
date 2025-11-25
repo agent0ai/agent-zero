@@ -41,15 +41,15 @@ services:
       QDRANT_API_KEY: ""
 
       # Agent Zero configuration
-      AGENT_PROFILE: "developer"
+      AGENT_PROFILE: "unity_developer"
       AGENT_MEMORY_SUBDIR: "mlcreator"
       AGENT_KNOWLEDGE_SUBDIR: "mlcreator"
 
       # Override LLM provider settings to use Gemini instead of Ollama
-      CHAT_MODEL_PROVIDER: "gemini"
-      CHAT_MODEL_NAME: "gemini/gemini-1.5-pro"
-      UTIL_MODEL_PROVIDER: "gemini"
-      UTIL_MODEL_NAME: "gemini/gemini-1.5-flash"
+      CHAT_MODEL_PROVIDER: "google"
+      CHAT_MODEL_NAME: "gemini-1.5-pro"
+      UTIL_MODEL_PROVIDER: "google"
+      UTIL_MODEL_NAME: "gemini-1.5-flash"
 
     restart: unless-stopped
     networks:
@@ -62,6 +62,11 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
 
   # Qdrant vector database for memory storage
   qdrant-gpu:
