@@ -1,0 +1,367 @@
+# =============================================================================
+# Agent Zero - Consolidated Docker Compose
+# =============================================================================
+# Unified configuration for Unity game development with Qdrant knowledge base
+#
+# Services:
+#   - agent-zero-unity    : Main AI assistant (port 50001)
+#   - qdrant-unity        : Vector database (ports 6333, 6334)
+#   - qdrant-mcp-server   : Qdrant admin MCP server (port 9060)
+#   - unity-mcp-server    : Unity Editor integration (port 9050)
+#   - redis-cache         : Session and embedding cache (port 6379)
+#
+# Usage:
+#   docker compose up -d                    # Start all services
+#   docker compose up -d --build            # Rebuild and start
+#   docker compose logs -f agent-zero-unity # Follow logs
+#   docker compose down                     # Stop all services
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Agent Zero - Main AI Assistant
+  # ===========================================================================
+  agent-zero-unity:
+    container_name: agent-zero-unity
+    image: agent-zero-unity:latest
+    privileged: true
+    user: root
+    hostname: agent-zero
+
+    volumes:
+      # Persistent workspace
+      - agent-zero-data:/a0
+      # Host data access
+      - ./:/host_data:rw
+      # Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Unity project mount
+      - ./usr/projects:/a0/usr/projects:rw
+      # Persistent memory cache
+      - unity-memory-cache:/a0/memory
+      # Knowledge base
+      - ./knowledge:/a0/knowledge:rw
+
+    ports:
+      - "50001:80"              # Web UI
+      - "22:22"                 # SSH access
+      - "9000-9009:9000-9009"   # Additional services
+
+    environment:
+      # Unity Configuration
+      UNITY_PROJECT_NAME: ${UNITY_PROJECT_NAME:-UnityProject}
+      UNITY_PROJECT_PATH: /a0/usr/projects/${UNITY_PROJECT_NAME:-UnityProject}
+      UNITY_EDITOR_VERSION: ${UNITY_EDITOR_VERSION:-6000.2.10f1}
+
+      # API Keys (from .env)
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # Docker
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_TLS_VERIFY: "0"
+
+      # Qdrant Configuration - DNS-based discovery
+      QDRANT_URL: http://qdrant-unity:6333
+      QDRANT_API_KEY: ""
+      A0_MEMORY_BACKEND: qdrant
+      A0_QDRANT_URL: http://qdrant-unity:6333
+      A0_QDRANT_COLLECTION: agent-zero-unity
+
+      # Agent Zero Configuration
+      AGENT_PROFILE: unity_developer
+      AGENT_MEMORY_SUBDIR: unity
+      AGENT_KNOWLEDGE_SUBDIR: unity
+
+      # Model Configuration
+      CHAT_MODEL_PROVIDER: ${CHAT_MODEL_PROVIDER:-google}
+      CHAT_MODEL_NAME: ${CHAT_MODEL_NAME:-gemini-2.5-pro}
+      UTIL_MODEL_PROVIDER: ${UTIL_MODEL_PROVIDER:-google}
+      UTIL_MODEL_NAME: ${UTIL_MODEL_NAME:-gemini-2.5-flash}
+      EMBEDDINGS_MODEL_PROVIDER: ${EMBEDDINGS_MODEL_PROVIDER:-HuggingFace}
+      EMBEDDINGS_MODEL_NAME: ${EMBEDDINGS_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+
+      # MCP Integration - DNS-based URLs
+      UNITY_MCP_URL: http://unity-mcp-server:8080
+      UNITY_MCP_ENABLED: "true"
+      QDRANT_MCP_URL: http://qdrant-mcp-server:8080
+
+      # Redis Cache
+      REDIS_URL: redis://redis-cache:6379
+
+      # Performance tuning
+      MEMORY_BATCH_SIZE: "100"
+      MEMORY_CACHE_SIZE: "10000"
+      EMBEDDING_CACHE_SIZE: "50000"
+
+    restart: unless-stopped
+    networks:
+      - unity-network
+
+    depends_on:
+      qdrant-unity:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '3.5'
+        reservations:
+          memory: 3G
+          cpus: '1.5'
+
+  # ===========================================================================
+  # Qdrant Vector Database - Optimized for Unity Knowledge
+  # ===========================================================================
+  qdrant-unity:
+    image: qdrant/qdrant:v1.12.1
+    container_name: qdrant-unity
+    hostname: qdrant-unity
+
+    ports:
+      - "6333:6333"   # HTTP API
+      - "6334:6334"   # gRPC API
+
+    volumes:
+      - qdrant-data:/qdrant/storage
+      - qdrant-snapshots:/qdrant/snapshots
+
+    environment:
+      # Service Configuration
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__MAX_REQUEST_SIZE_MB: 64
+      QDRANT__SERVICE__ENABLE_TLS: "false"
+
+      # Storage Configuration - Optimized for performance
+      QDRANT__STORAGE__WAL_CAPACITY_MB: 128
+      QDRANT__STORAGE__PERFORMANCE__OPTIMIZERS_MODE: always
+
+      # Collection Configuration
+      QDRANT__COLLECTION__REPLICATION_FACTOR: 1
+      QDRANT__COLLECTION__WRITE_CONSISTENCY_FACTOR: 1
+
+      # HNSW Index Configuration - Optimized for Unity knowledge
+      QDRANT__HNSW__M: 32
+      QDRANT__HNSW__EF_CONSTRUCT: 256
+      QDRANT__HNSW__FULL_SCAN_THRESHOLD: 10000
+
+      # Memory Configuration
+      QDRANT__STORAGE__MEMMAP_THRESHOLD_KB: 20000
+      QDRANT__STORAGE__INDEXING_THRESHOLD: 50000
+
+      # Telemetry
+      QDRANT__TELEMETRY_DISABLED: "true"
+
+    restart: unless-stopped
+    networks:
+      - unity-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/6333' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # ===========================================================================
+  # Qdrant MCP Server - Collection Administration
+  # ===========================================================================
+  qdrant-mcp-server:
+    build:
+      context: ./qdrant-mcp-server
+      dockerfile: Dockerfile
+    container_name: qdrant-mcp-server
+    hostname: qdrant-mcp-server
+
+    ports:
+      - "9060:8080"   # MCP SSE endpoint
+
+    environment:
+      # Qdrant Connection
+      QDRANT_URL: http://qdrant-unity:6333
+      QDRANT_GRPC_URL: http://qdrant-unity:6334
+      QDRANT_API_KEY: ""
+
+      # MCP Server Configuration
+      MCP_SERVER_NAME: qdrant-admin
+      MCP_SERVER_PORT: 8080
+      MCP_LOG_LEVEL: info
+
+      # Default collection
+      DEFAULT_COLLECTION: unity_project_kb
+
+      # Redis for caching (optional)
+      REDIS_URL: redis://redis-cache:6379
+
+    restart: unless-stopped
+    networks:
+      - unity-network
+
+    depends_on:
+      qdrant-unity:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # ===========================================================================
+  # Unity MCP Server - Editor Integration
+  # ===========================================================================
+  unity-mcp-server:
+    container_name: unity-mcp-server
+    image: ivanmurzakdev/unity-mcp-server:latest
+    hostname: unity-mcp-server
+
+    volumes:
+      # Mount Unity projects
+      - ./usr/projects:/unity-projects:rw
+      # Docker socket for Unity operations
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    ports:
+      - "9050:8080"   # MCP API
+      - "9051:8081"   # WebSocket for real-time events
+
+    environment:
+      # Unity Configuration
+      UNITY_PROJECTS_PATH: /unity-projects
+      UNITY_EDITOR_VERSION: ${UNITY_EDITOR_VERSION:-6000.2.10f1}
+
+      # MCP Server
+      MCP_SERVER_PORT: 8080
+      MCP_WEBSOCKET_PORT: 8081
+      MCP_LOG_LEVEL: info
+
+      # Docker
+      DOCKER_HOST: unix:///var/run/docker.sock
+
+      # Integration - DNS-based URLs
+      QDRANT_URL: http://qdrant-unity:6333
+      AGENT_ZERO_URL: http://agent-zero-unity:80
+
+    restart: unless-stopped
+    networks:
+      - unity-network
+
+    depends_on:
+      - qdrant-unity
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+
+  # ===========================================================================
+  # Redis Cache - Session, Query, and Embedding Caching
+  # ===========================================================================
+  redis-cache:
+    image: redis:7-alpine
+    container_name: redis-cache
+    hostname: redis-cache
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data
+
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 100
+      --loglevel notice
+
+    restart: unless-stopped
+    networks:
+      - unity-network
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+# =============================================================================
+# Networks - DNS-based Service Discovery
+# =============================================================================
+networks:
+  unity-network:
+    driver: bridge
+    name: unity-network
+    # No static IPs - use DNS-based discovery via container hostnames
+
+# =============================================================================
+# Volumes - Persistent Storage
+# =============================================================================
+volumes:
+  # Agent Zero persistent data
+  agent-zero-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+
+  # Unity memory cache
+  unity-memory-cache:
+    driver: local
+
+  # Qdrant storage
+  qdrant-data:
+    driver: local
+
+  # Qdrant snapshots for backup
+  qdrant-snapshots:
+    driver: local
+
+  # Redis cache data
+  redis-data:
+    driver: local

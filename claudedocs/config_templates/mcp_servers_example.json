@@ -1,0 +1,32 @@
+{
+  "description": "Example MCP servers configuration for Agent Zero with Qdrant",
+  "usage": "Copy the 'mcp_servers' value (as a JSON string) to your tmp/settings.json",
+  "mcp_servers": [
+    {
+      "name": "qdrant-admin",
+      "description": "Qdrant collection administration and management",
+      "type": "sse",
+      "url": "http://qdrant-mcp-server:8080/sse",
+      "disabled": false,
+      "init_timeout": 30,
+      "tool_timeout": 60
+    },
+    {
+      "name": "sequential-thinking",
+      "description": "Multi-step reasoning and analysis",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["--yes", "--package", "@modelcontextprotocol/server-sequential-thinking", "mcp-server-sequential-thinking"],
+      "disabled": false
+    },
+    {
+      "name": "fetch",
+      "description": "Web content fetching and extraction",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["--yes", "--package", "@tokenizin/mcp-npx-fetch", "mcp-npx-fetch", "--ignore-robots-txt"],
+      "disabled": false
+    }
+  ],
+  "mcp_servers_string": "[{\"name\": \"qdrant-admin\", \"description\": \"Qdrant collection administration and management\", \"type\": \"sse\", \"url\": \"http://qdrant-mcp-server:8080/sse\", \"disabled\": false}, {\"name\": \"sequential-thinking\", \"description\": \"Multi-step reasoning and analysis\", \"type\": \"stdio\", \"command\": \"npx\", \"args\": [\"--yes\", \"--package\", \"@modelcontextprotocol/server-sequential-thinking\", \"mcp-server-sequential-thinking\"], \"disabled\": false}]"
+}

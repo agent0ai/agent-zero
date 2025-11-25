@@ -1,0 +1,26 @@
+# =============================================================================
+# Qdrant MCP Server Dependencies
+# =============================================================================
+
+# MCP Framework
+fastmcp>=0.4.0
+mcp>=1.0.0
+
+# Qdrant Client
+qdrant-client>=1.12.0
+
+# Web Framework (for health endpoint)
+starlette>=0.27.0
+uvicorn>=0.24.0
+
+# HTTP Client
+httpx>=0.25.0
+
+# Data Validation
+pydantic>=2.0.0
+
+# Redis (optional caching)
+redis>=5.0.0
+
+# Utilities
+python-dotenv>=1.0.0
