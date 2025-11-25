@@ -45,11 +45,12 @@ services:
       AGENT_MEMORY_SUBDIR: "mlcreator"
       AGENT_KNOWLEDGE_SUBDIR: "mlcreator"
 
-      # Override LLM provider settings to use Gemini instead of Ollama
-      CHAT_MODEL_PROVIDER: "Google"
-      CHAT_MODEL_NAME: "gemini-3-pro-preview"
-      UTIL_MODEL_PROVIDER: "Google"
-      UTIL_MODEL_NAME: "gemini-3-pro-preview"
+
+      # Override LLM provider settings to use Gemini
+      CHAT_MODEL_PROVIDER: "google"
+      CHAT_MODEL_NAME: "gemini-1.5-pro"
+      UTIL_MODEL_PROVIDER: "google"
+      UTIL_MODEL_NAME: "gemini-1.5-flash"
 
     restart: unless-stopped
     networks:

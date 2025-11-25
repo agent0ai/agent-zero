@@ -41,12 +41,12 @@ services:
       AGENT_MEMORY_SUBDIR: "mlcreator"
       AGENT_KNOWLEDGE_SUBDIR: "mlcreator"
 
-      # Use Ollama (local, no API costs)
-      CHAT_MODEL_PROVIDER: "Google"
-      CHAT_MODEL_NAME: "gemini-3-pro-preview"
-      CHAT_MODEL_API_BASE: "http://host.docker.internal:11434"
-      UTIL_MODEL_PROVIDER: "Google"
-      UTIL_MODEL_NAME: "gemini-3-pro-preview"
+      # Use Google Gemini (free tier API)
+      CHAT_MODEL_PROVIDER: "google"
+      CHAT_MODEL_NAME: "gemini-1.5-pro"
+      CHAT_MODEL_API_BASE: ""
+      UTIL_MODEL_PROVIDER: "google"
+      UTIL_MODEL_NAME: "gemini-1.5-flash"
       UTIL_MODEL_API_BASE: "http://host.docker.internal:11434"
 
     restart: unless-stopped
