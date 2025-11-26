@@ -213,6 +213,11 @@ Agent Zero supports creating specialized subagents with customized behavior. The
    - `/agents/{agent_profile}/extensions/` - for custom extensions
    - `/agents/{agent_profile}/tools/` - for custom tools
    - `/agents/{agent_profile}/prompts/` - for custom prompts
+   - `/agents/{agent_profile}/settings.json` - for agent-specific configuration overrides
+
+The `settings.json` file for an agent uses the same structure as `tmp/settings.json`, but you only need to specify the fields you want to override. Any field omitted from the agent-specific `settings.json` will continue to use the global value.
+
+This allows power users to, for example, change the AI model, context window size, or other settings for a single agent without affecting the rest of the system.
 
 ### Example Subagent Structure
 
@@ -223,15 +228,71 @@ Agent Zero supports creating specialized subagents with customized behavior. The
 │       └── _10_example_extension.py
 ├── prompts/
 │   └── ...
-└── tools/
-    ├── example_tool.py
-    └── response.py
+├── tools/
+│   ├── example_tool.py
+│   └── response.py
+└── settings.json
 ```
 
 In this example:
 - `_10_example_extension.py` is an extension that renames the agent when initialized
 - `response.py` overrides the default response tool with custom behavior
 - `example_tool.py` is a new tool specific to this agent
+- `settings.json` overrides any global settings for this specific agent (only for the fields defined in this file)
+
+## Projects
+
+Projects provide isolated workspaces for individual chats, keeping prompts, memory, knowledge, files, and secrets scoped to a specific use case.
+
+### Project Location and Structure
+
+- Projects are located under `/a0/usr/projects/`
+- Each project has its own subdirectory, created by users via the UI
+- A project can be backed up or restored by copying or downloading its entire directory
+
+Each project directory contains a hidden `.a0proj` folder with project metadata and configuration:
+
+```
+/a0/usr/projects/{project_name}/
+└── .a0proj/
+    ├── project.json          # project metadata and settings
+    ├── instructions/         # additional prompt/instruction files
+    ├── knowledge/            # files to be imported into memory
+    ├── memory/               # project-specific memory storage
+    ├── secrets.env           # sensitive variables (secrets)
+    └── variables.env         # non-sensitive variables
+```
+
+### Behavior When a Project Is Active in a Chat
+
+When a project is activated for a chat:
+
+- The agent is instructed to work **inside the project directory**
+- Project prompts (instructions) from `.a0proj/instructions/` are **automatically injected** into the context window (all text files are imported)
+- Memory can be configured as **project-specific**, meaning:
+  - It does not mix with global memory
+  - The memory file is stored under `.a0proj/memory/`
+- Files created or modified by the agent are located within the project directory
+
+The `.a0proj/knowledge/` folder contains files that are imported into the project’s memory, enabling project-focused knowledge bases.
+
+### Secrets and Variables
+
+Each project manages its own configuration values via environment files in `.a0proj/`:
+
+- `secrets.env` – **sensitive variables**, such as API keys or passwords
+- `variables.env` – **non-sensitive variables**, such as configuration flags or identifiers
+
+These files allow you to keep credentials and configuration tightly scoped to a single project.
+
+### When to Use Projects
+
+Projects are the recommended way to create specialized workflows in Agent Zero when you need to:
+
+- Add specific instructions without affecting global behavior
+- Isolate file context, knowledge, and memory for a particular task or client
+- Keep passwords and other secrets scoped to a single workspace
+- Run multiple independent flows side by side under the same Agent Zero installation
 
 ## Best Practices
 - Keep extensions focused on a single responsibility

@@ -86,4 +86,4 @@ class WaitTool(Tool):
         done_icon = " icon://done_all" if done else ""
         if not text:
             text = f"Waiting..."
-        return f"icon://timer wait: {text}{done_icon}"
+        return f"icon://timer Wait: {text}{done_icon}"

@@ -29,14 +29,8 @@ Or see DeepWiki generated documentation:
 
 <div align="center">
 
-> ### 🚨 **IMPORTANT ANNOUNCEMENT** 🚨
-
-The original GitHub and DockerHub repositories for Agent Zero have been transferred to a new namespace:
-
-- **GitHub & DockerHub:** `agent0ai/agent-zero`
-
-From now on, please use this name for both `git clone` and `docker pull` commands.
-
+> ### 🚨 **PROJECTS!** 🚨
+Agent Zero now supports **Projects** – isolated workspaces with their own prompts, files, memory, and secrets, so you can create dedicated setups for each use case without mixing contexts.
 </div>
 
 
@@ -171,6 +165,26 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 
 ## 🎯 Changelog
+
+### v0.9.7 - Projects
+[Release video](https://youtu.be/RrTDp_v9V1c)
+- Projects management
+    - Support for custom instructions
+    - Integration with memory, knowledge, files
+    - Project specific secrets 
+- New Welcome screen/Dashboard
+- New Wait tool
+- Subordinate agent configuration override support
+- Support for multiple documents at once in document_query_tool
+- Improved context on interventions
+- Openrouter embedding support
+- Frontend components refactor and polishing
+- SSH metadata output fix
+- Support for windows powershell in local TTY utility
+- More efficient selective streaming for LLMs
+- UI output length limit improvements
+
+
 
 ### v0.9.6 - Memory Dashboard
 [Release video](https://youtu.be/sizjAq2-d9s)

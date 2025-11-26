@@ -420,15 +420,14 @@ h4 {
 /* Message attachments with unified tile system */
 .attachments-container {
   margin-top: 0.75em;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
   padding: var(--spacing-sm);
   /* background-color: var(--color-input); */
   border-radius: 8px;
-  max-width: 600px; /* Limits to ~5 columns at 120px each */
   overflow: visible;
-  justify-items: end;
 }
 
 .attachment-item {
@@ -783,10 +782,8 @@ input:checked + .slider:before {
   }
 
   .attachments-container {
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-    gap: 8px;
+    gap: 6px;
     padding: var(--spacing-xs);
-    max-width: 300px; /* Limits to ~3 columns at 90px each */
   }
 
   .preview-item,
