@@ -3,7 +3,7 @@
  * Manages scheduled and ad-hoc tasks through a dedicated settings tab
  */
 
-import { formatDateTime, getUserTimezone } from './time-utils.js';
+import { formatDateTime } from './time-utils.js';
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js"
 import { store as  notificationsStore } from "/components/notifications/notification-store.js"
 import { store as projectsStore } from "/components/projects/projects-store.js"
@@ -97,8 +97,7 @@ const fullComponentImplementation = function() {
                 hour: '*',
                 day: '*',
                 month: '*',
-                weekday: '*',
-                timezone: getUserTimezone()
+                weekday: '*'
             },
             token: '',
             plan: {
@@ -179,8 +178,7 @@ const fullComponentImplementation = function() {
                     hour: '*',
                     day: '*',
                     month: '*',
-                    weekday: '*',
-                    timezone: getUserTimezone()
+                    weekday: '*'
                 },
                 token: this.generateRandomToken ? this.generateRandomToken() : '',
                 plan: {
@@ -276,9 +274,7 @@ const fullComponentImplementation = function() {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        timezone: getUserTimezone()
-                    })
+                    body: JSON.stringify({})
                 });
 
                 if (!response.ok) {
@@ -557,8 +553,7 @@ const fullComponentImplementation = function() {
                     hour: '*',
                     day: '*',
                     month: '*',
-                    weekday: '*',
-                    timezone: getUserTimezone()
+                    weekday: '*'
                 },
                 token: this.generateRandomToken(), // Generate token even for scheduled tasks to prevent undefined errors
                 plan: { // Initialize plan for all task types to prevent undefined errors
@@ -620,8 +615,7 @@ const fullComponentImplementation = function() {
                     hour: '*',
                     day: '*',
                     month: '*',
-                    weekday: '*',
-                    timezone: getUserTimezone()
+                    weekday: '*'
                 };
 
                 // If it's a string, parse it
@@ -637,11 +631,6 @@ const fullComponentImplementation = function() {
                 }
 
                 this.editingTask.schedule = scheduleObj;
-            } else {
-                // Ensure timezone exists in the schedule
-                if (!this.editingTask.schedule.timezone) {
-                    this.editingTask.schedule.timezone = getUserTimezone();
-                }
             }
 
             // Ensure attachments is always an array
@@ -756,8 +745,7 @@ const fullComponentImplementation = function() {
                     hour: '*',
                     day: '*',
                     month: '*',
-                    weekday: '*',
-                    timezone: getUserTimezone()
+                    weekday: '*'
                 },
                 token: '',
                 plan: { // Initialize plan for planned tasks
@@ -794,8 +782,7 @@ const fullComponentImplementation = function() {
                     name: this.editingTask.name,
                     system_prompt: this.editingTask.system_prompt || '',
                     prompt: this.editingTask.prompt || '',
-                    state: this.editingTask.state || 'idle', // Include state in task data
-                    timezone: getUserTimezone()
+                    state: this.editingTask.state || 'idle' // Include state in task data
                 };
 
                 if (this.isCreating && this.editingTask.project) {
@@ -825,14 +812,12 @@ const fullComponentImplementation = function() {
                             hour: parts[1] || '*',
                             day: parts[2] || '*',
                             month: parts[3] || '*',
-                            weekday: parts[4] || '*',
-                            timezone: getUserTimezone() // Add timezone to schedule object
+                            weekday: parts[4] || '*'
                         };
                     } else {
-                        // Use object schedule directly but ensure timezone is included
+                        // Use object schedule directly
                         taskData.schedule = {
-                            ...this.editingTask.schedule,
-                            timezone: this.editingTask.schedule.timezone || getUserTimezone()
+                            ...this.editingTask.schedule
                         };
                     }
                     // Don't send token or plan for scheduled tasks
@@ -985,8 +970,7 @@ const fullComponentImplementation = function() {
                         hour: '*',
                         day: '*',
                         month: '*',
-                        weekday: '*',
-                        timezone: getUserTimezone()
+                        weekday: '*'
                     },
                     token: '',
                     plan: {
@@ -1018,8 +1002,7 @@ const fullComponentImplementation = function() {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        task_id: taskId,
-                        timezone: getUserTimezone()
+                        task_id: taskId
                     })
                 });
 
@@ -1066,8 +1049,7 @@ const fullComponentImplementation = function() {
                     },
                     body: JSON.stringify({
                         task_id: taskId,
-                        state: 'idle',  // Always reset to idle state
-                        timezone: getUserTimezone()
+                        state: 'idle'  // Always reset to idle state
                     })
                 });
 
@@ -1106,8 +1088,7 @@ const fullComponentImplementation = function() {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        task_id: taskId,
-                        timezone: getUserTimezone()
+                        task_id: taskId
                     })
                 });
 

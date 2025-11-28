@@ -2,14 +2,15 @@ from datetime import datetime, timezone as dt_timezone, timedelta
 import pytz  # type: ignore
 
 from python.helpers.print_style import PrintStyle
+from python.helpers import dotenv
 
 
 
 class Localization:
     """
     Localization class for handling timezone conversions.
-    Timezone is locked to UTC so any user-facing timestamps reflect the
-    container's system time consistently across the application.
+    Timezone is initialized from .env (DEFAULT_USER_TIMEZONE) on startup.
+    User-facing timestamps reflect the container's configured system time.
     """
 
     # singleton
@@ -22,14 +23,24 @@ class Localization:
         return cls._instance
 
     def __init__(self, timezone: str | None = None):
-        self.timezone: str = "UTC"
-        self._offset_minutes: int = 0
+        # Load timezone from .env if not provided
+        if timezone is None:
+            timezone = dotenv.get_dotenv_value("DEFAULT_USER_TIMEZONE", "UTC")
+            offset_str = dotenv.get_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", "0")
+            try:
+                offset_minutes = int(offset_str)
+            except (ValueError, TypeError):
+                offset_minutes = 0
+        else:
+            offset_minutes = self._compute_offset_minutes(timezone) if timezone != "UTC" else 0
+
+        self.timezone: str = timezone
+        self._offset_minutes: int = offset_minutes
         self._last_timezone_change: datetime | None = None
 
-        if timezone and timezone != "UTC":
-            PrintStyle.debug(
-                f"Requested timezone '{timezone}' ignored. Localization is locked to UTC."
-            )
+        PrintStyle.debug(
+            f"Localization initialized with timezone: {timezone} (offset: {offset_minutes} minutes)"
+        )
 
     def get_timezone(self) -> str:
         return self.timezone
@@ -52,15 +63,18 @@ class Localization:
         return time_diff >= timedelta(hours=1)
 
     def set_timezone(self, timezone: str) -> None:
-        """Timezone is locked to UTC. Any requested change is ignored."""
-        if timezone != "UTC":
+        """Set timezone and compute offset. Rate limited to once per hour."""
+        if not self._can_change_timezone():
             PrintStyle.debug(
-                f"Timezone change to '{timezone}' ignored. Localization remains locked to UTC."
+                f"Timezone change to '{timezone}' rejected. Rate limit active (max once per hour)."
             )
+            return
 
-        # Always enforce UTC regardless of input
-        self.timezone = "UTC"
-        self._offset_minutes = 0
+        self.timezone = timezone
+        self._offset_minutes = self._compute_offset_minutes(timezone) if timezone != "UTC" else 0
+        self._last_timezone_change = datetime.now()
+
+        PrintStyle.hint(f"Timezone changed to {timezone} (offset: {self._offset_minutes} minutes)")
 
     def localtime_str_to_utc_dt(self, localtime_str: str | None) -> datetime | None:
         """

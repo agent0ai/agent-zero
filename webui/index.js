@@ -2,6 +2,7 @@ import * as msgs from "/js/messages.js";
 import * as api from "/js/api.js";
 import * as css from "/js/css.js";
 import { sleep } from "/js/sleep.js";
+import * as initializer from "/js/initializer.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
@@ -567,7 +568,7 @@ async function startPolling() {
 }
 
 // All initializations and event listeners are now consolidated here
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   // Assign DOM elements to variables now that the DOM is ready
   leftPanel = document.getElementById("left-panel");
   rightPanel = document.getElementById("right-panel");
@@ -580,6 +581,9 @@ document.addEventListener("DOMContentLoaded", function () {
   progressBar = document.getElementById("progress-bar");
   autoScrollSwitch = document.getElementById("auto-scroll-switch");
   timeDate = document.getElementById("time-date-container");
+
+  // Initialize application (timezone, device detection, etc.)
+  await initializer.initialize();
 
   // Sidebar and input event listeners are now handled by their respective stores
 
