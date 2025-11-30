@@ -71,12 +71,25 @@ def initialize_agent(override_settings: dict | None = None):
         vision=current_settings["browser_model_vision"],
         kwargs=_normalize_model_kwargs(current_settings["browser_model_kwargs"]),
     )
+    # vision model from user settings
+    vision_llm = models.ModelConfig(
+        type=models.ModelType.CHAT,
+        provider=current_settings["vision_model_provider"],
+        name=current_settings["vision_model_name"],
+        api_base=current_settings["vision_model_api_base"],
+        ctx_length=current_settings["vision_model_ctx_length"],
+        limit_requests=current_settings["vision_model_rl_requests"],
+        limit_input=current_settings["vision_model_rl_input"],
+        limit_output=current_settings["vision_model_rl_output"],
+        kwargs=_normalize_model_kwargs(current_settings["vision_model_kwargs"]),
+    )
     # agent configuration
     config = AgentConfig(
         chat_model=chat_llm,
         utility_model=utility_llm,
         embeddings_model=embedding_llm,
         browser_model=browser_llm,
+        vision_model=vision_llm,
         profile=current_settings["agent_profile"],
         memory_subdir=current_settings["agent_memory_subdir"],
         knowledge_subdirs=[current_settings["agent_knowledge_subdir"], "default"],

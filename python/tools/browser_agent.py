@@ -152,6 +152,15 @@ class State:
         model = self.agent.get_browser_model()
 
         try:
+            # Get browser vision strategy
+            from python.helpers.settings import get_settings
+            settings = get_settings()
+            browser_vision_strategy = settings.get("browser_vision_strategy", "native")
+            
+            # Determine if vision should be used based on strategy
+            # native: use browser model's vision if supported
+            # dedicated: browser-use framework doesn't support separate vision model, so disable vision
+            use_vision = (browser_vision_strategy == "native" and self.agent.config.browser_model.vision)
 
             secrets_manager = get_secrets_manager(self.agent.context)
             secrets_dict = secrets_manager.load_secrets()
@@ -160,7 +169,7 @@ class State:
                 task=task,
                 browser_session=self.browser_session,
                 llm=model,
-                use_vision=self.agent.config.browser_model.vision,
+                use_vision=use_vision,
                 extend_system_message=self.agent.read_prompt(
                     "prompts/browser_agent.system.md"
                 ),

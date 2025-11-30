@@ -56,6 +56,18 @@ class Settings(TypedDict):
     browser_model_kwargs: dict[str, Any]
     browser_http_headers: dict[str, Any]
 
+    vision_model_provider: str
+    vision_model_name: str
+    vision_model_api_base: str
+    vision_model_ctx_length: int
+    vision_model_rl_requests: int
+    vision_model_rl_input: int
+    vision_model_rl_output: int
+    vision_model_kwargs: dict[str, Any]
+
+    chat_vision_strategy: str
+    browser_vision_strategy: str
+
     agent_profile: str
     agent_memory_subdir: str
     agent_knowledge_subdir: str
@@ -230,6 +242,20 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Models capable of Vision can for example natively see the content of image attachments.",
             "type": "switch",
             "value": settings["chat_model_vision"],
+        }
+    )
+
+    chat_model_fields.append(
+        {
+            "id": "chat_vision_strategy",
+            "title": "Vision Strategy",
+            "description": "Choose how vision should be handled: Native (use this model's vision if 'Supports Vision' is enabled), or Dedicated (always use dedicated vision model).",
+            "type": "select",
+            "value": settings["chat_vision_strategy"],
+            "options": [
+                {"value": "native", "label": "Native (use this model's vision)"},
+                {"value": "dedicated", "label": "Dedicated (use vision model)"},
+            ],
         }
     )
 
@@ -475,6 +501,20 @@ def convert_out(settings: Settings) -> SettingsOutput:
 
     browser_model_fields.append(
         {
+            "id": "browser_vision_strategy",
+            "title": "Vision Strategy",
+            "description": "Choose how vision should be handled: Native (use this model's vision if 'Use Vision' is enabled), or Dedicated (always use dedicated vision model).",
+            "type": "select",
+            "value": settings["browser_vision_strategy"],
+            "options": [
+                {"value": "native", "label": "Native (use this model's vision)"},
+                {"value": "dedicated", "label": "Dedicated (use vision model)"},
+            ],
+        }
+    )
+
+    browser_model_fields.append(
+        {
             "id": "browser_model_rl_requests",
             "title": "Web Browser model rate limit requests",
             "description": "Rate limit requests for web browser model.",
@@ -528,6 +568,96 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "title": "Web Browser Model",
         "description": "Settings for the web browser model. Agent Zero uses <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> agentic framework to handle web interactions.",
         "fields": browser_model_fields,
+        "tab": "agent",
+    }
+
+    # vision model section
+    vision_model_fields: list[SettingsField] = []
+    vision_model_fields.append(
+        {
+            "id": "vision_model_provider",
+            "title": "Vision model provider",
+            "description": "Select provider for dedicated vision model",
+            "type": "select",
+            "value": settings["vision_model_provider"],
+            "options": cast(list[FieldOption], get_providers("chat")),
+        }
+    )
+    vision_model_fields.append(
+        {
+            "id": "vision_model_name",
+            "title": "Vision model name",
+            "description": "Exact name of model from selected provider",
+            "type": "text",
+            "value": settings["vision_model_name"],
+        }
+    )
+
+    vision_model_fields.append(
+        {
+            "id": "vision_model_api_base",
+            "title": "Vision model API base URL",
+            "description": "API base URL for vision model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
+            "type": "text",
+            "value": settings["vision_model_api_base"],
+        }
+    )
+
+    vision_model_fields.append(
+        {
+            "id": "vision_model_ctx_length",
+            "title": "Vision model context length",
+            "description": "Maximum number of tokens in the context window for vision model.",
+            "type": "number",
+            "value": settings["vision_model_ctx_length"],
+        }
+    )
+
+    vision_model_fields.append(
+        {
+            "id": "vision_model_rl_requests",
+            "title": "Requests per minute limit",
+            "description": "Limits the number of requests per minute to the vision model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
+            "type": "number",
+            "value": settings["vision_model_rl_requests"],
+        }
+    )
+
+    vision_model_fields.append(
+        {
+            "id": "vision_model_rl_input",
+            "title": "Input tokens per minute limit",
+            "description": "Limits the number of input tokens per minute to the vision model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
+            "type": "number",
+            "value": settings["vision_model_rl_input"],
+        }
+    )
+
+    vision_model_fields.append(
+        {
+            "id": "vision_model_rl_output",
+            "title": "Output tokens per minute limit",
+            "description": "Limits the number of output tokens per minute to the vision model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
+            "type": "number",
+            "value": settings["vision_model_rl_output"],
+        }
+    )
+
+    vision_model_fields.append(
+        {
+            "id": "vision_model_kwargs",
+            "title": "Vision model additional parameters",
+            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
+            "type": "textarea",
+            "value": _dict_to_env(settings["vision_model_kwargs"]),
+        }
+    )
+
+    vision_model_section: SettingsSection = {
+        "id": "vision_model",
+        "title": "Vision Model",
+        "description": "Dedicated vision model for image analysis when chat or browser models don't support vision natively. Configure vision strategy in Chat Model and Web Browser Model sections to choose between native model vision, dedicated vision model, or disabled.",
+        "fields": vision_model_fields,
         "tab": "agent",
     }
 
@@ -1281,6 +1411,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             chat_model_section,
             util_model_section,
             browser_model_section,
+            vision_model_section,
             embed_model_section,
             memory_section,
             speech_section,
@@ -1490,6 +1621,16 @@ def get_default_settings() -> Settings:
         browser_model_rl_output=0,
         browser_model_kwargs={"temperature": "0"},
         browser_http_headers={},
+        vision_model_provider="other",
+        vision_model_name="minicpm-v",
+        vision_model_api_base="",
+        vision_model_ctx_length=8000,
+        vision_model_rl_requests=0,
+        vision_model_rl_input=0,
+        vision_model_rl_output=0,
+        vision_model_kwargs={"temperature": "0"},
+        chat_vision_strategy="native",
+        browser_vision_strategy="native",
         memory_recall_enabled=True,
         memory_recall_delayed=False,
         memory_recall_interval=3,

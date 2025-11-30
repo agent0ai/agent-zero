@@ -917,3 +917,13 @@ def get_embedding_model(
     orig = provider.lower()
     provider_name, kwargs = _merge_provider_defaults("embedding", orig, kwargs)
     return _get_litellm_embedding(name, provider_name, model_config, **kwargs)
+
+
+def get_vision_model(
+    provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
+) -> LiteLLMChatWrapper:
+    orig = provider.lower()
+    provider_name, kwargs = _merge_provider_defaults("chat", orig, kwargs)
+    return _get_litellm_chat(
+        LiteLLMChatWrapper, name, provider_name, model_config, **kwargs
+    )
