@@ -46,6 +46,11 @@ class _HandlerExecution:
     duration_ms: float
 
 
+DIAGNOSTIC_EVENT = "ws_dev_console_event"
+LIFECYCLE_CONNECT_EVENT = "ws_lifecycle_connect"
+LIFECYCLE_DISCONNECT_EVENT = "ws_lifecycle_disconnect"
+
+
 class WebSocketManager:
     def __init__(self, socketio: socketio.AsyncServer, lock) -> None:
         self.socketio = socketio
@@ -60,11 +65,105 @@ class WebSocketManager:
         self.sid_to_user: Dict[str, str | None] = {}
         self._ALL_USERS_BUCKET = "allUsers"
         self._server_restart_enabled: bool = False
+        self._diagnostic_watchers: Set[str] = set()
+        self._diagnostics_enabled: bool = runtime.is_development()
 
     # Internal: development-only debug logging to avoid noise in production
     def _debug(self, message: str) -> None:
         if runtime.is_development():
             PrintStyle.debug(message)
+
+    def _copy_diagnostic_watchers(self) -> list[str]:
+        with self.lock:
+            return list(self._diagnostic_watchers)
+
+    def register_diagnostic_watcher(self, sid: str) -> bool:
+        if not self._diagnostics_enabled:
+            return False
+        with self.lock:
+            if sid not in self.connections:
+                return False
+            self._diagnostic_watchers.add(sid)
+        return True
+
+    def unregister_diagnostic_watcher(self, sid: str) -> None:
+        with self.lock:
+            self._diagnostic_watchers.discard(sid)
+
+    def _timestamp(self) -> str:
+        return _utcnow().isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+    def _summarize_payload(self, payload: dict[str, Any] | None) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        summary: dict[str, Any] = {}
+        for key in list(payload.keys())[:5]:
+            value = payload[key]
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                preview = value
+            elif isinstance(value, dict):
+                preview = f"dict({len(value)})"
+            elif isinstance(value, list):
+                preview = f"list({len(value)})"
+            else:
+                preview = value.__class__.__name__
+            summary[key] = preview
+        summary["__sizeBytes__"] = len(str(payload).encode("utf-8"))
+        return summary
+
+    def _summarize_results(self, results: List[dict[str, Any]]) -> dict[str, Any]:
+        summary = {"ok": 0, "error": 0, "handlers": []}
+        for result in results:
+            handler_id = result.get("handlerId")
+            ok = bool(result.get("ok"))
+            if ok:
+                summary["ok"] += 1
+            else:
+                summary["error"] += 1
+            summary["handlers"].append(
+                {
+                    "handlerId": handler_id,
+                    "ok": ok,
+                    "errorCode": (result.get("error") or {}).get("code"),
+                    "durationMs": result.get("durationMs"),
+                }
+            )
+        summary["handlerCount"] = len(summary["handlers"])
+        return summary
+
+    async def _publish_diagnostic_event(self, payload: dict[str, Any]) -> None:
+        if not self._diagnostics_enabled:
+            return
+        watchers = self._copy_diagnostic_watchers()
+        if not watchers:
+            return
+
+        async def _emit_to_watcher(sid: str) -> None:
+            try:
+                await self.emit_to(
+                    sid,
+                    DIAGNOSTIC_EVENT,
+                    payload,
+                    handler_id=self._identifier,
+                    diagnostic=True,
+                )
+            except ValueError:
+                self.unregister_diagnostic_watcher(sid)
+
+        await asyncio.gather(*(_emit_to_watcher(sid) for sid in watchers))
+
+    def _schedule_lifecycle_broadcast(self, event_type: str, payload: dict[str, Any]) -> None:
+        async def _broadcast() -> None:
+            try:
+                await self.broadcast(
+                    event_type,
+                    payload,
+                    diagnostic=True,
+                )
+            except Exception as exc:  # pragma: no cover - diagnostic
+                self._debug(f"Failed to broadcast lifecycle event {event_type}: {exc}")
+
+        asyncio.create_task(_broadcast())
 
     def _normalize_handler_filter(
         self, value: Any, field_name: str
@@ -197,6 +296,7 @@ class WebSocketManager:
             self.sid_to_user[sid] = user_bucket
             self.user_to_sids[self._ALL_USERS_BUCKET].add(sid)
             self.user_to_sids[user_bucket].add(sid)
+            connection_count = len(self.connections)
         PrintStyle.info(f"WebSocket connected: {sid}")
         await self._run_lifecycle(lambda h: h.on_connect(sid))
         await self._flush_buffer(sid)
@@ -213,6 +313,19 @@ class WebSocketManager:
                 handler_id=self._identifier,
             )
             PrintStyle.info(f"server_restart broadcast emitted to {sid}")
+        lifecycle_payload = {
+            "sid": sid,
+            "connectionCount": connection_count,
+            "timestamp": self._timestamp(),
+        }
+        await self._publish_diagnostic_event(
+            {
+                "kind": "lifecycle",
+                "event": "connect",
+                **lifecycle_payload,
+            }
+        )
+        self._schedule_lifecycle_broadcast(LIFECYCLE_CONNECT_EVENT, lifecycle_payload)
 
     async def handle_disconnect(self, sid: str) -> None:
         with self.lock:
@@ -227,8 +340,25 @@ class WebSocketManager:
                 self.user_to_sids[user_bucket].discard(sid)
                 if not self.user_to_sids[user_bucket]:
                     self.user_to_sids.pop(user_bucket, None)
+            connection_count = len(self.connections)
+        self.unregister_diagnostic_watcher(sid)
         PrintStyle.info(f"WebSocket disconnected: {sid}")
         await self._run_lifecycle(lambda h: h.on_disconnect(sid))
+        lifecycle_payload = {
+            "sid": sid,
+            "connectionCount": connection_count,
+            "timestamp": self._timestamp(),
+        }
+        await self._publish_diagnostic_event(
+            {
+                "kind": "lifecycle",
+                "event": "disconnect",
+                **lifecycle_payload,
+            }
+        )
+        self._schedule_lifecycle_broadcast(
+            LIFECYCLE_DISCONNECT_EVENT, lifecycle_payload
+        )
 
     async def route_event(
         self,
@@ -417,6 +547,20 @@ class WebSocketManager:
                     duration_ms=duration_ms,
                 )
             )
+
+        await self._publish_diagnostic_event(
+            {
+                "kind": "inbound",
+                "eventType": event_type,
+                "sid": sid,
+                "correlationId": correlation_id,
+                "timestamp": self._timestamp(),
+                "handlerCount": len(selected_handlers),
+                "durationMs": sum(exec.duration_ms for exec in executions),
+                "resultSummary": self._summarize_results(results),
+                "payloadSummary": self._summarize_payload(payload),
+            }
+        )
 
         response_payload = {"correlationId": correlation_id, "results": results}
         if ack:
@@ -635,13 +779,17 @@ class WebSocketManager:
         *,
         handler_id: str | None = None,
         correlation_id: str | None = None,
+        diagnostic: bool = False,
     ) -> None:
+        envelope = self._wrap_envelope(
+            handler_id,
+            data,
+            correlation_id=correlation_id,
+        )
+        delivered = False
+        buffered = False
+
         if sid in self.connections:
-            envelope = self._wrap_envelope(
-                handler_id,
-                data,
-                correlation_id=correlation_id,
-            )
             self._debug(
                 "Emit to sid=%s event=%s eventId=%s correlationId=%s handlerId=%s"
                 % (
@@ -653,12 +801,34 @@ class WebSocketManager:
                 )
             )
             await self.socketio.emit(event_type, envelope, to=sid)
-            return
+            delivered = True
+        else:
+            if sid not in self._known_sids and sid not in self.buffers:
+                raise ValueError(f"Unknown WebSocket sid '{sid}'")
+            self._buffer_event(
+                sid,
+                event_type,
+                data,
+                handler_id,
+                envelope["correlationId"],
+            )
+            buffered = True
 
-        if sid not in self._known_sids and sid not in self.buffers:
-            raise ValueError(f"Unknown WebSocket sid '{sid}'")
-
-        self._buffer_event(sid, event_type, data, handler_id, correlation_id)
+        if not diagnostic:
+            await self._publish_diagnostic_event(
+                {
+                    "kind": "outbound",
+                    "direction": "emit_to",
+                    "eventType": event_type,
+                    "sid": sid,
+                    "correlationId": envelope["correlationId"],
+                    "handlerId": envelope["handlerId"],
+                    "timestamp": self._timestamp(),
+                    "delivered": delivered,
+                    "buffered": buffered,
+                    "payloadSummary": self._summarize_payload(data),
+                }
+            )
 
     async def broadcast(
         self,
@@ -668,18 +838,37 @@ class WebSocketManager:
         exclude_sids: str | Iterable[str] | None = None,
         handler_id: str | None = None,
         correlation_id: str | None = None,
+        diagnostic: bool = False,
     ) -> None:
         excluded = self._normalize_sid_filter(exclude_sids)
 
+        targets: list[str] = []
         for sid in list(self.connections.keys()):
             if sid in excluded:
                 continue
+            targets.append(sid)
             await self.emit_to(
                 sid,
                 event_type,
                 data,
                 handler_id=handler_id,
                 correlation_id=correlation_id,
+                diagnostic=diagnostic,
+            )
+
+        if not diagnostic:
+            await self._publish_diagnostic_event(
+                {
+                    "kind": "outbound",
+                    "direction": "broadcast",
+                    "eventType": event_type,
+                    "targets": targets[:10],
+                    "targetCount": len(targets),
+                    "correlationId": correlation_id,
+                    "handlerId": handler_id or self._identifier,
+                    "timestamp": self._timestamp(),
+                    "payloadSummary": self._summarize_payload(data),
+                }
             )
 
     async def _run_lifecycle(self, fn: Callable[[WebSocketHandler], Any]) -> None:

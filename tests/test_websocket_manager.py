@@ -12,7 +12,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from python.helpers.websocket import WebSocketHandler, WebSocketResult
-from python.helpers.websocket_manager import WebSocketManager, BUFFER_TTL
+from python.helpers.websocket_manager import (
+    WebSocketManager,
+    BUFFER_TTL,
+    DIAGNOSTIC_EVENT,
+    LIFECYCLE_CONNECT_EVENT,
+    LIFECYCLE_DISCONNECT_EVENT,
+)
 
 
 class FakeSocketIOServer:
@@ -100,7 +106,8 @@ async def test_route_event_invokes_handler_and_ack():
     manager = WebSocketManager(socketio, threading.RLock())
 
     results = []
-    handler = DummyHandler(socketio, threading.RLock(), results)
+    DummyHandler._reset_instance_for_testing()
+    handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
     manager.register_handlers([handler])
     await manager.handle_connect("sid-1")
 
@@ -158,7 +165,8 @@ async def test_route_event_all_aggregates_results():
         async def process_event(self, event_type: str, data: dict[str, Any], sid: str):
             return {"sid": sid, "echo": data}
 
-    handler = EchoHandler(socketio, threading.RLock())
+    EchoHandler._reset_instance_for_testing()
+    handler = EchoHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
 
     await manager.handle_connect("sid-1")
@@ -194,7 +202,8 @@ async def test_route_event_all_timeout_marks_error():
             await asyncio.sleep(0.2)
             return {"status": "done"}
 
-    handler = SlowHandler(socketio, threading.RLock())
+    SlowHandler._reset_instance_for_testing()
+    handler = SlowHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
     await manager.handle_connect("sid-1")
 
@@ -221,7 +230,8 @@ async def test_route_event_exception_standardizes_error_payload():
         async def process_event(self, event_type: str, data: dict[str, Any], sid: str):
             raise RuntimeError("kaboom")
 
-    handler = FailingHandler(socketio, threading.RLock())
+    FailingHandler._reset_instance_for_testing()
+    handler = FailingHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
     await manager.handle_connect("sid-1")
 
@@ -448,8 +458,10 @@ def test_register_handlers_warns_on_duplicates(monkeypatch):
         "python.helpers.print_style.PrintStyle.warning", staticmethod(capture_warning)
     )
 
-    handler_a = DuplicateHandler(socketio, threading.RLock())
-    handler_b = AnotherDuplicateHandler(socketio, threading.RLock())
+    DuplicateHandler._reset_instance_for_testing()
+    AnotherDuplicateHandler._reset_instance_for_testing()
+    handler_a = DuplicateHandler.get_instance(socketio, threading.RLock())
+    handler_b = AnotherDuplicateHandler.get_instance(socketio, threading.RLock())
 
     manager.register_handlers([handler_a, handler_b])
 
@@ -470,7 +482,8 @@ async def test_route_event_standardizes_success_payload():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    handler = NonDictHandler(socketio, threading.RLock())
+    NonDictHandler._reset_instance_for_testing()
+    handler = NonDictHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
 
     response = await manager.route_event("non_dict", {}, "sid-123")
@@ -509,7 +522,8 @@ async def test_route_event_standardizes_error_payload():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    handler = ErrorHandler(socketio, threading.RLock())
+    ErrorHandler._reset_instance_for_testing()
+    handler = ErrorHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
 
     response = await manager.route_event("boom", {}, "sid-123")
@@ -526,7 +540,8 @@ async def test_route_event_accepts_websocket_result_instances():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    handler = ResultHandler(socketio, threading.RLock())
+    ResultHandler._reset_instance_for_testing()
+    handler = ResultHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
 
     response = await manager.route_event("result_event", {}, "sid-123")
@@ -544,7 +559,8 @@ async def test_route_event_preserves_websocket_result_errors():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    handler = ResultHandler(socketio, threading.RLock())
+    ResultHandler._reset_instance_for_testing()
+    handler = ResultHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
 
     response = await manager.route_event("result_error", {}, "sid-123")
@@ -577,8 +593,10 @@ async def test_route_event_include_handlers_filters_results():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    alpha = AlphaFilterHandler(socketio, threading.RLock())
-    beta = BetaFilterHandler(socketio, threading.RLock())
+    AlphaFilterHandler._reset_instance_for_testing()
+    BetaFilterHandler._reset_instance_for_testing()
+    alpha = AlphaFilterHandler.get_instance(socketio, threading.RLock())
+    beta = BetaFilterHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([alpha, beta])
     await manager.handle_connect("sid-filter")
 
@@ -603,7 +621,8 @@ async def test_route_event_rejects_exclude_handlers_without_permission():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    handler = AlphaFilterHandler(socketio, threading.RLock())
+    AlphaFilterHandler._reset_instance_for_testing()
+    handler = AlphaFilterHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
     await manager.handle_connect("sid-exclude")
 
@@ -623,8 +642,10 @@ async def test_route_event_all_respects_exclude_handlers():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    alpha = AlphaFilterHandler(socketio, threading.RLock())
-    beta = BetaFilterHandler(socketio, threading.RLock())
+    AlphaFilterHandler._reset_instance_for_testing()
+    BetaFilterHandler._reset_instance_for_testing()
+    alpha = AlphaFilterHandler.get_instance(socketio, threading.RLock())
+    beta = BetaFilterHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([alpha, beta])
 
     await manager.handle_connect("sid-a")
@@ -649,7 +670,8 @@ async def test_route_event_preserves_correlation_id():
     manager = WebSocketManager(socketio, threading.RLock())
 
     results = []
-    handler = DummyHandler(socketio, threading.RLock(), results)
+    DummyHandler._reset_instance_for_testing()
+    handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
     manager.register_handlers([handler])
     await manager.handle_connect("sid-correlation")
 
@@ -669,7 +691,8 @@ async def test_request_preserves_explicit_correlation_id():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    handler = DummyHandler(socketio, threading.RLock(), [])
+    DummyHandler._reset_instance_for_testing()
+    handler = DummyHandler.get_instance(socketio, threading.RLock(), [])
     manager.register_handlers([handler])
     await manager.handle_connect("sid-request")
 
@@ -690,7 +713,8 @@ async def test_request_all_entries_include_correlation_id():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    handler = DummyHandler(socketio, threading.RLock(), [])
+    DummyHandler._reset_instance_for_testing()
+    handler = DummyHandler.get_instance(socketio, threading.RLock(), [])
     manager.register_handlers([handler])
 
     await manager.handle_connect("sid-1")
@@ -726,3 +750,41 @@ def test_debug_logging_respects_runtime_flag(monkeypatch):
     monkeypatch.setattr("python.helpers.websocket_manager.runtime.is_development", lambda: True)
     manager._debug("should-log")  # noqa: SLF001
     assert logs == ["should-log"]
+
+
+@pytest.mark.asyncio
+async def test_diagnostic_event_emitted_for_inbound():
+    socketio = FakeSocketIOServer()
+    manager = WebSocketManager(socketio, threading.RLock())
+
+    results: list[dict[str, Any]] = []
+    DummyHandler._reset_instance_for_testing()
+    handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
+    manager.register_handlers([handler])
+
+    await manager.handle_connect("observer")
+    assert manager.register_diagnostic_watcher("observer") is True
+    await manager.handle_connect("sid-client")
+
+    await manager.route_event("dummy", {"payload": "value"}, "sid-client")
+
+    emitted_events = [call.args[0] for call in socketio.emit.await_args_list]
+    assert DIAGNOSTIC_EVENT in emitted_events
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_events_broadcast(monkeypatch):
+    socketio = FakeSocketIOServer()
+    manager = WebSocketManager(socketio, threading.RLock())
+
+    broadcast_mock = AsyncMock()
+    monkeypatch.setattr(manager, "broadcast", broadcast_mock)
+
+    await manager.handle_connect("sid-life")
+    await asyncio.sleep(0)
+    await manager.handle_disconnect("sid-life")
+    await asyncio.sleep(0)
+
+    events = [call.args[0] for call in broadcast_mock.await_args_list]
+    assert LIFECYCLE_CONNECT_EVENT in events
+    assert LIFECYCLE_DISCONNECT_EVENT in events

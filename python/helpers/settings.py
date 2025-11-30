@@ -124,6 +124,7 @@ class Settings(TypedDict):
 
     shell_interface: Literal['local','ssh']
     websocket_server_restart_enabled: bool
+    uvicorn_access_logs_enabled: bool
 
     stt_model_size: str
     stt_language: str
@@ -248,9 +249,8 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 {"value": "medium", "label": "Medium (769M, English)"},
                 {"value": "large", "label": "Large (1.5B, Multilingual)"},
                 {"value": "turbo", "label": "Turbo (Multilingual)"},
-            ]
-
-        )
+            ],
+        ),
     )
 
     # ensure dropdown options include currently selected values
@@ -517,6 +517,7 @@ def get_default_settings() -> Settings:
         rfc_port_ssh=get_default_value("rfc_port_ssh", 55022),
         shell_interface=get_default_value("shell_interface", "local" if runtime.is_dockerized() else "ssh"),
         websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
+        uvicorn_access_logs_enabled=get_default_value("uvicorn_access_logs_enabled", False),
         stt_model_size=get_default_value("stt_model_size", "base"),
         stt_language=get_default_value("stt_language", "en"),
         stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),

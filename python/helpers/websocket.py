@@ -54,6 +54,14 @@ def set_ws_csrf_flag(session_store: Any, now_ts: float, ttl_seconds: int = WS_CS
     return expiry
 
 
+class SingletonInstantiationError(RuntimeError):
+    """Raised when a WebSocketHandler subclass is instantiated directly.
+
+    Handlers must be retrieved via ``get_instance`` to guarantee singleton
+    semantics and consistent lifecycle behaviour.
+    """
+
+
 class WebSocketResult:
     """Helper wrapper for standardized handler results.
 
@@ -178,12 +186,69 @@ class WebSocketHandler(ABC):
     conventions.
     """
 
+    _instances: dict[type["WebSocketHandler"], "WebSocketHandler"] = {}
+    _construction_tokens: dict[type["WebSocketHandler"], bool] = {}
+    _singleton_lock = threading.RLock()
+
     def __init__(self, socketio: socketio.AsyncServer, lock: threading.RLock) -> None:
         """Create a handler bound to the shared Socket.IO instance."""
+
+        cls = self.__class__
+        if not WebSocketHandler._construction_tokens.get(cls):
+            raise SingletonInstantiationError(
+                f"{cls.__name__} must be instantiated via {cls.__name__}.get_instance()"
+            )
 
         self.socketio: socketio.AsyncServer = socketio
         self.lock: threading.RLock = lock
         self._manager: Optional[WebSocketManager] = None
+
+    @classmethod
+    def get_instance(
+        cls,
+        socketio: socketio.AsyncServer | None = None,
+        lock: threading.RLock | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> "WebSocketHandler":
+        """Return the singleton instance for ``cls``.
+
+        Args:
+            socketio: Shared AsyncServer instance (required on first call).
+            lock: Shared threading lock (required on first call).
+            *args: Optional subclass-specific constructor args.
+            **kwargs: Optional subclass-specific constructor kwargs.
+        """
+
+        if cls is WebSocketHandler:
+            raise TypeError("WebSocketHandler must be subclassed before use")
+
+        with WebSocketHandler._singleton_lock:
+            instance = WebSocketHandler._instances.get(cls)
+            if instance is not None:
+                return instance
+
+            if socketio is None or lock is None:
+                raise ValueError(
+                    f"{cls.__name__}.get_instance() requires socketio and lock on first call"
+                )
+
+            WebSocketHandler._construction_tokens[cls] = True
+            try:
+                instance = cls(socketio, lock, *args, **kwargs)
+            finally:
+                WebSocketHandler._construction_tokens.pop(cls, None)
+
+            WebSocketHandler._instances[cls] = instance
+            return instance
+
+    @classmethod
+    def _reset_instance_for_testing(cls) -> None:
+        """Reset the cached singleton instance (testing helper)."""
+
+        with WebSocketHandler._singleton_lock:
+            WebSocketHandler._instances.pop(cls, None)
+            WebSocketHandler._construction_tokens.pop(cls, None)
 
     @classmethod
     @abstractmethod
