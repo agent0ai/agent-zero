@@ -55,7 +55,8 @@ def app_context(monkeypatch):
 
     monkeypatch.setattr(runtime, "get_runtime_id", lambda: "test-runtime", raising=False)
 
-    handler = DummyHandler(sio, lock)
+    DummyHandler._reset_instance_for_testing()
+    handler = DummyHandler.get_instance(sio, lock)
     manager.register_handlers([handler])
 
     csrf_handler = GetCsrfToken(app, lock)

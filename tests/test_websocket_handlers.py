@@ -8,7 +8,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from python.helpers.websocket import WebSocketHandler, WebSocketResult
+from python.helpers.websocket import (
+    WebSocketHandler,
+    WebSocketResult,
+    SingletonInstantiationError,
+)
 
 
 class _FakeSocketIO:
@@ -29,7 +33,8 @@ class _TestHandler(WebSocketHandler):
 
 
 def _make_handler() -> _TestHandler:
-    return _TestHandler(_FakeSocketIO(), threading.RLock())
+    _TestHandler._reset_instance_for_testing()
+    return _TestHandler.get_instance(_FakeSocketIO(), threading.RLock())
 
 
 def test_websocket_result_ok_clones_payload():
@@ -117,3 +122,17 @@ def test_result_error_requires_error_payload():
 
     with pytest.raises(ValueError):
         WebSocketResult.error(code="", message="boom")
+
+
+def test_handler_direct_instantiation_disallowed():
+    with pytest.raises(SingletonInstantiationError):
+        _TestHandler(_FakeSocketIO(), threading.RLock())
+
+
+def test_get_instance_returns_singleton():
+    _TestHandler._reset_instance_for_testing()
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    first = _TestHandler.get_instance(socketio, lock)
+    second = _TestHandler.get_instance(None, None)
+    assert first is second

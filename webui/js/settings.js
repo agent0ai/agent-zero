@@ -298,6 +298,8 @@ const settingsModalProxy = {
             openModal("settings/memory/memory-dashboard.html");
         } else if (field.id === "websocket_tester") {
             openModal("settings/developer/websocket-tester.html");
+        } else if (field.id === "websocket_event_console") {
+            openModal("settings/developer/websocket-event-console.html");
         }
     }
 };

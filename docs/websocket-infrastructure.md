@@ -27,6 +27,8 @@ This guide consolidates everything you need to design, implement, and troublesho
 ## Architecture at a Glance
 
 - **Runtime (`run_ui.py`)** – boots `python-socketio.AsyncServer` inside an ASGI stack served by uvicorn. Flask routes and Socket.IO share the same process so session cookies and CSRF semantics stay aligned.
+- **Singleton handlers** – every `WebSocketHandler` subclass exposes `get_instance()` and is registered exactly once. Direct instantiation raises `SingletonInstantiationError`, keeping shared state and lifecycle hooks deterministic.
+- **Dispatcher instrumentation** – handler executions run inside the asyncio event loop but are measured (`durationMs`) per handler. Aggregated timings stream to the WebSocket Event Console so developers can prove the dispatcher stays non-blocking; no `DeferredTask` shim is required unless future instrumentation shows regressions.
 - **`python/helpers/websocket_manager.py`** – orchestrates routing, buffering, filtering, aggregation, metadata envelopes, and session tracking. Think of it as the “switchboard” for every WebSocket event.
 - **`python/helpers/websocket.py`** – base class for application handlers. Provides lifecycle hooks, helper methods (`emit_to`, `broadcast`, `request`, `request_all`) and identifier metadata.
 - **`webui/js/websocket.js`** – frontend singleton that mirrors backend capabilities (`emit`, `broadcast`, `request`, `requestAll`, `on`, `off`) with lazy connection management, CSRF preflight, and development-only logging.
@@ -570,18 +572,50 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 
 ## Diagnostics, Harness & Logging
 
-- **Developer Harness** (`Settings → Developer → WebSocket Test Harness`):
-  - Automatic suite runs emit, request, timeout, subscription persistence, requestAll aggregation, and now explicitly validates envelope metadata (handlerId, eventId, correlationId, ISO8601 timestamps), correlation carryover, filter semantics (`includeHandlers`/`excludeHandlers`/`excludeSids`), and the default unlimited timeout behaviour.
-  - Manual buttons let you trigger individual scenarios and inspect the last aggregated response or broadcast payloads.
-  - Harness is automatically hidden when `runtime.isDevelopment` is `false`.
-  - Helper usage (`createCorrelationId`, `normalizeProducerOptions`, `validateServerEnvelope`) is exercised end-to-end; subscription logs now record the `server_restart` broadcast emitted after startup.
-- **Backend Logging**: Use `PrintStyle.debug()` inside handlers or the manager to include `eventId`/`correlationId`. The manager already logs connection events and warnings (unknown filters, timeouts, missing handlers).
-- **Frontend Logging**: `websocket.debugLog()` mirrors backend debug messages, but only with `isDevelopment` true (the CSRF preflight response refreshes the flag before every connect/reconnect and the harness asserts the gating).
-- **Common Issues**:
-  1. **`INVALID_FILTER`** – triggered when unsupported filters are provided or handler IDs are unknown. Check the include/exclude sets.
-  2. **`CONNECTION_NOT_FOUND`** – `emit_to` called with an SID that never existed or expired long ago. Use `get_sids_for_user` to validate targets prior to emitting.
-  3. **Timeout Rejections** – `request()` and `requestAll()` reject only when the transport times out, not when a handler takes too long. Inspect the returned result arrays for `TIMEOUT` entries.
-  4. **Missing CSRF Flag** – indicates the automatic preflight failed (usually the user is logged out or `/csrf_token` returned an error). Check network logs; you can manually `await websocket.connect()` to inspect the rejection message. The harness logs when preflights fail.
+### Developer Harness
+
+- Location: `Settings → Developer → WebSocket Test Harness`.
+- Automatic mode drives emit, request, delayed request (default unlimited timeout), subscription persistence, requestAll aggregation, and filter validation (`includeHandlers`/`excludeHandlers`/`excludeSids`). It now asserts envelope metadata (handlerId, eventId, correlationId, ISO8601 timestamps) and correlation carryover.
+- Manual buttons let you trigger individual flows and inspect the last aggregated response/broadcast payload.
+- Harness hides itself when `runtime.isDevelopment` is false so production builds incur zero overhead.
+- Helper APIs (`createCorrelationId`, `normalizeProducerOptions`, `validateServerEnvelope`) are exercised end to end; subscription logs record the `server_restart` broadcast emitted on first connection after a runtime restart.
+
+### WebSocket Event Console
+
+- Location: `Settings → Developer → WebSocket Event Console`.
+- Opening the modal calls `websocket.request("ws_event_console_subscribe", { requestedAt })`. The handler (`DevWebsocketTestHandler`) refuses the subscription outside development mode and registers the SID as a **diagnostic watcher** by calling `WebSocketManager.register_diagnostic_watcher`. Only connected SIDs can subscribe.
+- Closing the modal (or navigating away) calls `websocket.request("ws_event_console_unsubscribe", {})`. Disconnecting also triggers `WebSocketManager.unregister_diagnostic_watcher`, so stranded watchers never accumulate.
+- While at least one watcher exists, the manager streams `ws_dev_console_event` envelopes (documented in `contracts/event-schemas.md`). Each payload contains:
+  - `kind`: `"inbound" | "outbound" | "lifecycle"`
+  - `eventType`, `sid`, `targets[]`, delivery/buffer flags
+  - `resultSummary` (handler counts, per-handler status, durationMs)
+  - `payloadSummary` (first few keys + byte size)
+- Lifecycle broadcasts (`ws_lifecycle_connect` / `ws_lifecycle_disconnect`) are emitted asynchronously via `broadcast(..., diagnostic=True)` so long-running handlers can’t block dispatch.
+- The modal UI exposes:
+  - Reconnect button (detach + resubscribe) to recover gracefully after Socket.IO reconnects.
+  - Clear button (resets the in-memory ring buffer).
+  - “Handled-only” toggle that filters inbound entries to ones that resolved to registered handlers or produced errors.
+- When the watcher set becomes empty the manager immediately stops streaming diagnostics, guaranteeing zero steady-state overhead outside development.
+
+### Instrumentation & Logging
+
+- `WebSocketManager` records `durationMs` for every handler invocation and aggregates totals per inbound event. These metrics flow into both the Event Console stream and `request()/request_all()` responses, so developers can prove dispatcher latency stays within the event-loop budget without introducing `DeferredTask` shims.
+- Lifecycle events capture `connectionCount`, ISO8601 timestamps, and SID so dashboards can correlate UI behaviour with connection churn.
+- Backend logging: use `PrintStyle.debug/info/warning` and always include `handlerId`, `eventType`, `sid`, and `correlationId`. The manager already logs connection events, invalid filters, missing handlers, and buffer overflows.
+- Frontend logging: `websocket.debugLog()` mirrors backend debug messages but only when `runtimeInfo.isDevelopment` is true (refreshed by every CSRF preflight).
+
+### Access Logs & Transport Troubleshooting
+
+- Settings → Developer now includes a persisted `uvicorn_access_logs_enabled` switch. When enabled, `run_ui.py` passes `access_log=True` to uvicorn so transport issues (CORS, handshake failures) can be traced without restarting the server. Turn it off once troubleshooting is complete; production builds ignore the toggle.
+- The long-standing `websocket_server_restart_enabled` switch (same section) controls whether newly connected clients receive the `server_restart` broadcast that carries `runtimeId` metadata.
+
+### Common Issues
+
+1. **`INVALID_FILTER`** – triggered when unsupported filters are provided or handler IDs are unknown. Check the include/exclude sets (client or server helpers) and update tests/contracts if you add new handlers.
+2. **`CONNECTION_NOT_FOUND`** – `emit_to` called with an SID that never existed or expired long ago. Use `get_sids_for_user` before emitting or guard on connection presence.
+3. **Timeout Rejections** – `request()` and `request_all()` reject only when the transport times out, not when a handler takes too long. Inspect the returned result arrays for `TIMEOUT` entries and consider increasing `timeoutMs`.
+4. **Missing CSRF Flag** – indicates the automatic preflight failed (user logged out or `/csrf_token` returned an error). Check network logs; manually `await websocket.connect()` to inspect the rejection message. The harness logs when preflights fail.
+5. **Diagnostics Subscriptions Failing** – only available in development mode and for connected SIDs. Verify the browser tab still holds an active session and that `runtimeInfo.isDevelopment` is true before opening the modal.
 
 ---
 

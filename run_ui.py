@@ -249,11 +249,12 @@ def run():
     for handler in handlers:
         register_api_handler(webapp, handler)
 
+    websocket_handler_classes = load_classes_from_folder(
+        "python/websocket_handlers", "*.py", WebSocketHandler
+    )
     websocket_handlers = [
-        handler(socketio_server, lock)
-        for handler in load_classes_from_folder(
-            "python/websocket_handlers", "*.py", WebSocketHandler
-        )
+        handler_cls.get_instance(socketio_server, lock)
+        for handler_cls in websocket_handler_classes
     ]
     websocket_manager.register_handlers(websocket_handlers)
 
@@ -337,7 +338,7 @@ def run():
         host=host,
         port=port,
         log_level="error",
-        access_log=False,
+        access_log=_settings.get("uvicorn_access_logs_enabled", False),
         ws="wsproto",
     )
     server = uvicorn.Server(config)
