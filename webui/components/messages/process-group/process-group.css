@@ -153,29 +153,29 @@
   background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Utility/Info/Hint steps have different background tint */
+/* Utility/Info/Hint steps have subtle background tint */
 .process-step[data-type="util"],
 .process-step[data-type="info"],
 .process-step[data-type="hint"] {
-  background-color: rgba(35, 33, 26, 0.3);
+  background-color: rgba(120, 115, 100, 0);
 }
 
 .process-step[data-type="util"]:hover,
 .process-step[data-type="info"]:hover,
 .process-step[data-type="hint"]:hover {
-  background-color: rgba(35, 33, 26, 0.5);
+  background-color: rgba(120, 115, 100, 0.18);
 }
 
 .light-mode .process-step[data-type="util"],
 .light-mode .process-step[data-type="info"],
 .light-mode .process-step[data-type="hint"] {
-  background-color: rgba(91, 85, 64, 0.08);
+  background-color: rgba(91, 85, 64, 0.06);
 }
 
 .light-mode .process-step[data-type="util"]:hover,
 .light-mode .process-step[data-type="info"]:hover,
 .light-mode .process-step[data-type="hint"]:hover {
-  background-color: rgba(91, 85, 64, 0.12);
+  background-color: rgba(91, 85, 64, 0.1);
 }
 
 /* Step Header (clickable) */
@@ -250,12 +250,12 @@
 
 .process-step-detail > .process-step-detail-content {
   min-height: 0;
-  overflow: hidden;
 }
 
 .process-step.step-expanded .process-step-detail {
   grid-template-rows: 1fr;
   opacity: 1;
+  overflow: visible;
 }
 
 .process-step-detail-content {
