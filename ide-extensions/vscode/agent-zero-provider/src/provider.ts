@@ -357,6 +357,12 @@ export class AgentZeroChatModelProvider
       throw new Error("No text content in message");
     }
 
+    // Check if this is a new chat window (only 1 user message, no assistant messages)
+    const assistantMessages = messages.filter(
+      (m) => m.role === vscode.LanguageModelChatMessageRole.Assistant
+    );
+    const isNewChatWindow = userMessages.length === 1 && assistantMessages.length === 0;
+    
     // Use first message hash as stable session identifier
     // This remains constant as the conversation continues
     const firstUserMessage = userMessages[0];
@@ -387,29 +393,41 @@ export class AgentZeroChatModelProvider
       }
     }
     
-    // Simple logic: Look up session by first message hash
-    // If found and has contextId, continue it; otherwise start fresh
-    const foundSessionId = this.conversationFingerprintToSession.get(firstMessageHash);
+    // Determine session: new chat windows always start fresh
     let sessionId: string;
     let sessionContextId: string | undefined;
     
-    if (foundSessionId && 
-        this.sessionContexts.has(foundSessionId) && 
-        this.sessionContexts.get(foundSessionId) &&
-        this.sessionTimestamps.get(foundSessionId) && 
-        this.sessionTimestamps.get(foundSessionId)! > oneHourAgo) {
-      // Continue existing session
-      sessionId = foundSessionId;
-      sessionContextId = this.sessionContexts.get(sessionId);
-      this.sessionMessageCounts.set(sessionId, userMessages.length);
-    } else {
-      // Start new session
+    if (isNewChatWindow) {
+      // New chat window - always start fresh, even if same first message as old chat
       const timestamp = Date.now();
       const random = crypto.randomBytes(8).toString("hex");
       sessionId = `${timestamp}-${random}`;
       this.conversationFingerprintToSession.set(firstMessageHash, sessionId);
       this.sessionMessageCounts.set(sessionId, userMessages.length);
       sessionContextId = undefined;
+    } else {
+      // Continuing conversation - look up session by first message hash
+      const foundSessionId = this.conversationFingerprintToSession.get(firstMessageHash);
+      
+      // If found session has contextId and is recent -> continue, otherwise -> start fresh
+      if (foundSessionId && 
+          this.sessionContexts.has(foundSessionId) && 
+          this.sessionContexts.get(foundSessionId) &&
+          this.sessionTimestamps.get(foundSessionId) && 
+          this.sessionTimestamps.get(foundSessionId)! > oneHourAgo) {
+        // Continue existing session
+        sessionId = foundSessionId;
+        sessionContextId = this.sessionContexts.get(sessionId);
+        this.sessionMessageCounts.set(sessionId, userMessages.length);
+      } else {
+        // Start new session
+        const timestamp = Date.now();
+        const random = crypto.randomBytes(8).toString("hex");
+        sessionId = `${timestamp}-${random}`;
+        this.conversationFingerprintToSession.set(firstMessageHash, sessionId);
+        this.sessionMessageCounts.set(sessionId, userMessages.length);
+        sessionContextId = undefined;
+      }
     }
     
     this.sessionTimestamps.set(sessionId, now);
@@ -446,8 +464,59 @@ export class AgentZeroChatModelProvider
           this.sessionContexts.set(sessionId, newContextId);
         }
       } catch (error) {
-        // If streaming fails due to CSRF/auth requirements, fall back to API endpoint
-        if (
+        // If context not found, retry as new session (contextId expired)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("Context not found") || 
+            (errorMessage.includes("404") && errorMessage.includes("Context"))) {
+          console.log(
+            "Context not found, retrying as new session"
+          );
+          // Clear the invalid contextId and retry
+          sessionContextId = undefined;
+          this.sessionContexts.delete(sessionId);
+          // Retry without contextId
+          try {
+            const newContextId = await this.streamResponse(
+              apiHost,
+              apiKey,
+              messageText,
+              undefined,
+              pollInterval,
+              timeout,
+              progress,
+              token
+            );
+            if (newContextId) {
+              this.sessionContexts.set(sessionId, newContextId);
+            }
+          } catch (retryError) {
+            // If streaming fails due to CSRF/auth requirements, fall back to API endpoint
+            if (
+              retryError instanceof Error &&
+              (retryError.message.includes("CSRF") ||
+                retryError.message.includes("302") ||
+                retryError.message.includes("login"))
+            ) {
+              console.log(
+                "Streaming mode failed (likely CSRF/auth issue), falling back to non-streaming API endpoint"
+              );
+              const fallbackContextId = await this.sendSyncMessage(
+                apiHost,
+                apiKey,
+                messageText,
+                undefined,
+                timeout,
+                progress,
+                token
+              );
+              if (fallbackContextId) {
+                this.sessionContexts.set(sessionId, fallbackContextId);
+              }
+            } else {
+              throw retryError;
+            }
+          }
+        } else if (
           error instanceof Error &&
           (error.message.includes("CSRF") ||
             error.message.includes("302") ||
@@ -476,18 +545,46 @@ export class AgentZeroChatModelProvider
       }
     } else {
       // Use non-streaming mode (original implementation)
-      const syncContextId = await this.sendSyncMessage(
-        apiHost,
-        apiKey,
-        messageText,
-        sessionContextId,
-        timeout,
-        progress,
-        token
-      );
-      // Update session contextId if Agent Zero returned a new one
-      if (syncContextId) {
-        this.sessionContexts.set(sessionId, syncContextId);
+      try {
+        const syncContextId = await this.sendSyncMessage(
+          apiHost,
+          apiKey,
+          messageText,
+          sessionContextId,
+          timeout,
+          progress,
+          token
+        );
+        // Update session contextId if Agent Zero returned a new one
+        if (syncContextId) {
+          this.sessionContexts.set(sessionId, syncContextId);
+        }
+      } catch (error) {
+        // If context not found, retry as new session (contextId expired)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("Context not found") || 
+            (errorMessage.includes("404") && errorMessage.includes("Context"))) {
+          console.log(
+            "Context not found, retrying as new session"
+          );
+          // Clear the invalid contextId and retry
+          sessionContextId = undefined;
+          this.sessionContexts.delete(sessionId);
+          const syncContextId = await this.sendSyncMessage(
+            apiHost,
+            apiKey,
+            messageText,
+            undefined,
+            timeout,
+            progress,
+            token
+          );
+          if (syncContextId) {
+            this.sessionContexts.set(sessionId, syncContextId);
+          }
+        } else {
+          throw error;
+        }
       }
     }
   }
@@ -544,10 +641,17 @@ export class AgentZeroChatModelProvider
       if (error instanceof Error && error.message === "Request cancelled") {
         throw error;
       }
+      // Check if this is a "Context not found" error - preserve it for retry logic
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Context not found") || 
+          (errorMessage.includes("404") && errorMessage.includes("Context"))) {
+        // Throw a specific error that can be caught and handled
+        const contextNotFoundError = new Error("Context not found");
+        (contextNotFoundError as any).originalError = error;
+        throw contextNotFoundError;
+      }
       throw new Error(
-        `Agent Zero request failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+        `Agent Zero request failed: ${errorMessage}`
       );
     }
   }
