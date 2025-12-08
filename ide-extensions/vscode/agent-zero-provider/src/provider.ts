@@ -51,13 +51,12 @@ export class AgentZeroChatModelProvider
   readonly onDidChangeLanguageModelChatInformation =
     this._onDidChangeLanguageModelChatInformation.event;
 
-  private contextId: string | undefined;
   private context: vscode.ExtensionContext;
+  // Track contextId per chat session (keyed by first user message)
+  private sessionContexts: Map<string, string> = new Map();
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
-    // Restore context ID from storage
-    this.contextId = context.globalState.get("agentZero.contextId");
   }
 
   refreshModels(): void {
@@ -306,7 +305,6 @@ export class AgentZeroChatModelProvider
           imageInput: false, // Could be true if Agent Zero supports it
           toolCalling: true, // Agent Zero has extensive tool capabilities
         },
-        contextId: this.contextId,
       },
     ];
   }
@@ -351,6 +349,22 @@ export class AgentZeroChatModelProvider
       throw new Error("No text content in message");
     }
 
+    // Get session ID from first user message to track context per chat session
+    const firstUserMessage = userMessages[0];
+    const sessionId = firstUserMessage
+      ? firstUserMessage.content
+          .filter(
+            (part): part is vscode.LanguageModelTextPart =>
+              part instanceof vscode.LanguageModelTextPart
+          )
+          .map((part) => part.value)
+          .join("\n")
+          .substring(0, 100) // Use first 100 chars as session identifier
+      : messageText.substring(0, 100);
+    
+    // Get contextId for this session (undefined for new sessions)
+    const sessionContextId = this.sessionContexts.get(sessionId);
+
     // Append workspace context so Agent Zero knows where files are
     const workspaceContext = await this.getWorkspaceContext();
     if (workspaceContext) {
@@ -366,16 +380,20 @@ export class AgentZeroChatModelProvider
       // Try streaming mode via async message + polling
       // If it fails (e.g., CSRF token required when login is enabled), fall back to sync mode
       try {
-        await this.streamResponse(
+        const newContextId = await this.streamResponse(
           apiHost,
           apiKey,
           messageText,
-          this.contextId,
+          sessionContextId,
           pollInterval,
           timeout,
           progress,
           token
         );
+        // Update session contextId if Agent Zero returned a new one
+        if (newContextId) {
+          this.sessionContexts.set(sessionId, newContextId);
+        }
       } catch (error) {
         // If streaming fails due to CSRF/auth requirements, fall back to API endpoint
         if (
@@ -387,15 +405,19 @@ export class AgentZeroChatModelProvider
           console.log(
             "Streaming mode failed (likely CSRF/auth issue), falling back to non-streaming API endpoint"
           );
-          await this.sendSyncMessage(
+          const fallbackContextId = await this.sendSyncMessage(
             apiHost,
             apiKey,
             messageText,
-            this.contextId,
+            sessionContextId,
             timeout,
             progress,
             token
           );
+          // Update session contextId if Agent Zero returned a new one
+          if (fallbackContextId) {
+            this.sessionContexts.set(sessionId, fallbackContextId);
+          }
         } else {
           // Re-throw other errors
           throw error;
@@ -403,15 +425,19 @@ export class AgentZeroChatModelProvider
       }
     } else {
       // Use non-streaming mode (original implementation)
-      await this.sendSyncMessage(
+      const syncContextId = await this.sendSyncMessage(
         apiHost,
         apiKey,
         messageText,
-        this.contextId,
+        sessionContextId,
         timeout,
         progress,
         token
       );
+      // Update session contextId if Agent Zero returned a new one
+      if (syncContextId) {
+        this.sessionContexts.set(sessionId, syncContextId);
+      }
     }
   }
 
@@ -423,7 +449,7 @@ export class AgentZeroChatModelProvider
     timeout: number,
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
     token: vscode.CancellationToken
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     const requestBody: {
       message: string;
       lifetime_hours: number;
@@ -457,17 +483,12 @@ export class AgentZeroChatModelProvider
         throw new Error(`Agent Zero error: ${response.error}`);
       }
 
-      if (response.context_id) {
-        this.contextId = response.context_id;
-        await this.context.globalState.update(
-          "agentZero.contextId",
-          this.contextId
-        );
-      }
-
       if (response.response) {
         progress.report(new vscode.LanguageModelTextPart(response.response));
       }
+
+      // Return contextId for session tracking
+      return response.context_id;
     } catch (error) {
       if (error instanceof Error && error.message === "Request cancelled") {
         throw error;
@@ -489,7 +510,7 @@ export class AgentZeroChatModelProvider
     timeout: number,
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
     token: vscode.CancellationToken
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     // Step 1: Send async message
     const requestBody: {
       text: string;
@@ -520,23 +541,19 @@ export class AgentZeroChatModelProvider
       }
 
       const newContextId = asyncResponse.context;
-      if (newContextId) {
-        this.contextId = newContextId;
-        await this.context.globalState.update(
-          "agentZero.contextId",
-          this.contextId
-        );
-      }
 
       // Step 2: Poll for streaming updates
       await this.pollForUpdates(
         apiHost,
-        newContextId,
+        newContextId || contextId || "",
         pollInterval,
         timeout,
         progress,
         token
       );
+
+      // Return contextId for session tracking
+      return newContextId || contextId;
     } catch (error) {
       if (error instanceof Error && error.message === "Request cancelled") {
         throw error;
