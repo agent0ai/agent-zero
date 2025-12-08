@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
 from datetime import datetime
-from python.helpers.task_queue import TaskQueue, TaskStatus
+from python.helpers.task_queue import TaskQueue
 
 
 async def mock_agent_factory(profile=None):

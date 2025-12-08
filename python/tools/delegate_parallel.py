@@ -6,10 +6,9 @@ Allows agents to delegate multiple tasks to subordinate agents in parallel.
 
 from agent import Agent, UserMessage
 from python.helpers.tool import Tool, Response
-from python.helpers.task_queue import TaskQueue, TaskStatus
+from python.helpers.task_queue import TaskQueue
 from initialize import initialize_agent
 from typing import Any, Dict, List, Optional
-import asyncio
 
 
 class DelegateParallel(Tool):
@@ -28,17 +27,11 @@ class DelegateParallel(Tool):
         if not hasattr(self.agent.context, '_parallel_agent_counter'):
             self.agent.context._parallel_agent_counter = 0
 
-    async def execute(
-        self,
-        tasks: List[Dict[str, Any]],
-        wait_for_all: bool = True,
-        timeout: Optional[float] = None,
-        **kwargs
-    ) -> Response:
+    async def execute(self, **kwargs) -> Response:
         """
         Execute multiple tasks in parallel using subordinate agents.
 
-        Args:
+        Args (from kwargs or self.args):
             tasks: List of task dictionaries, each with:
                 - id: Unique task identifier
                 - message: Task description
@@ -51,6 +44,19 @@ class DelegateParallel(Tool):
         Returns:
             Response with aggregated results
         """
+        # Extract from kwargs (passed from tool_args) or self.args (for compatibility)
+        tasks = kwargs.get("tasks") or self.args.get("tasks", [])
+        wait_for_all = kwargs.get("wait_for_all", self.args.get("wait_for_all", True))
+        timeout = kwargs.get("timeout", self.args.get("timeout", None))
+        
+        # Handle boolean strings from JSON
+        if isinstance(wait_for_all, str):
+            wait_for_all = wait_for_all.lower() in ("true", "1", "yes")
+        if isinstance(timeout, str):
+            try:
+                timeout = float(timeout)
+            except ValueError:
+                timeout = None
         if not tasks:
             return Response(
                 message="No tasks provided for parallel delegation.",

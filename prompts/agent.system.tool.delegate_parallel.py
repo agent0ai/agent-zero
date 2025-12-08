@@ -1,4 +1,3 @@
-import json
 from typing import Any
 from python.helpers.files import VariablesPlugin
 from python.helpers import files

@@ -67,8 +67,9 @@ class GenerateVsixScript(ApiHandler):
                     package_data = json.load(f)
                     version = package_data.get("version", "0.0.1")
                     vsix_name = f"agent-zero-provider-{version}.vsix"
-            except Exception:
-                pass
+            except Exception as e:
+                # Failed to read or parse package.json; using default version and vsix_name.
+                pass  # Silently use defaults if package.json can't be read
         
         # Get configuration values
         # For the script running on host, use localhost with common port mapping

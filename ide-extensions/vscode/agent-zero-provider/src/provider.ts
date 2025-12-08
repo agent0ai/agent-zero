@@ -95,49 +95,45 @@ export class AgentZeroChatModelProvider
     
     contextParts.push("\n\n[WORKSPACE CONTEXT]");
 
-    // Calculate workspace paths
-    const workspacePaths = workspaceFolders.map((folder) => {
-      const localPath = folder.uri.fsPath;
-      let containerMappedPath = localPath;
-      
-      // Normalize container path (remove trailing slashes)
-      const normalizedContainer = containerPath.replace(/\/+$/, "");
-      
-      // Expand ~ in hostPath if present
-      let expandedHostPath = hostPath;
-      if (hostPath && hostPath.startsWith("~/")) {
-        const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-        expandedHostPath = hostPath.replace("~", homeDir);
-      }
-      
-      // Map host path to container path if configured
-      if (expandedHostPath && localPath.startsWith(expandedHostPath)) {
-        // Direct replacement: replace hostPath with containerPath
-        const remainingPath = localPath.substring(expandedHostPath.length).replace(/^\/+/, "");
-        containerMappedPath = remainingPath ? `${normalizedContainer}/${remainingPath}` : normalizedContainer;
-      } else if (expandedHostPath) {
-        // If hostPath is configured but workspace is not directly under it,
-        // try to extract the actual directory name from the path
-        // First, try to see if workspace path contains hostPath as a parent
-        // If not, extract the last directory component from localPath
-        const pathParts = localPath.split(/[/\\]/).filter(p => p.length > 0);
-        const lastDirName = pathParts[pathParts.length - 1];
+      // Calculate workspace paths
+      const workspacePaths = workspaceFolders.map((folder) => {
+        const localPath = folder.uri.fsPath;
+        let containerMappedPath: string;
         
-        // Try multiple possibilities:
-        // 1. Last directory name from path
-        // 2. Workspace folder display name
-        // Store both as alternatives
-        const workspaceName = folder.name;
-        containerMappedPath = `${normalizedContainer}/${lastDirName}`;
-      } else {
-        // If hostPath not configured, extract directory name from path
-        const pathParts = localPath.split(/[/\\]/).filter(p => p.length > 0);
-        const lastDirName = pathParts[pathParts.length - 1];
-        containerMappedPath = `${normalizedContainer}/${lastDirName}`;
-      }
-      
-      return containerMappedPath;
-    });
+        // Normalize container path (remove trailing slashes)
+        const normalizedContainer = containerPath.replace(/\/+$/, "");
+        
+        // Expand ~ in hostPath if present
+        let expandedHostPath = hostPath;
+        if (hostPath && hostPath.startsWith("~/")) {
+          const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+          expandedHostPath = hostPath.replace("~", homeDir);
+        }
+        
+        // Map host path to container path if configured
+        if (expandedHostPath && localPath.startsWith(expandedHostPath)) {
+          // Direct replacement: replace hostPath with containerPath
+          const remainingPath = localPath.substring(expandedHostPath.length).replace(/^\/+/, "");
+          containerMappedPath = remainingPath ? `${normalizedContainer}/${remainingPath}` : normalizedContainer;
+        } else if (expandedHostPath) {
+          // If hostPath is configured but workspace is not directly under it,
+          // try to extract the actual directory name from the path
+          // First, try to see if workspace path contains hostPath as a parent
+          // If not, extract the last directory component from localPath
+          const pathParts = localPath.split(/[/\\]/).filter(p => p.length > 0);
+          const lastDirName = pathParts[pathParts.length - 1];
+          
+          // Use last directory name from path
+          containerMappedPath = `${normalizedContainer}/${lastDirName}`;
+        } else {
+          // If hostPath not configured, extract directory name from path
+          const pathParts = localPath.split(/[/\\]/).filter(p => p.length > 0);
+          const lastDirName = pathParts[pathParts.length - 1];
+          containerMappedPath = `${normalizedContainer}/${lastDirName}`;
+        }
+        
+        return containerMappedPath;
+      });
 
     // CRITICAL: File search paths (first, most prominent)
     const normalizedContainer = containerPath.replace(/\/+$/, "");
