@@ -20,9 +20,13 @@ class DelegateParallel(Tool):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Create or reuse task queue for this agent context
+        # Set higher concurrency limit for true parallel execution
         if not hasattr(self.agent.context, '_task_queue'):
-            self.agent.context._task_queue = TaskQueue(max_concurrent=5)
+            self.agent.context._task_queue = TaskQueue(max_concurrent=10)
         self.task_queue = self.agent.context._task_queue
+        # Track agent numbers for unique numbering
+        if not hasattr(self.agent.context, '_parallel_agent_counter'):
+            self.agent.context._parallel_agent_counter = 0
 
     async def execute(
         self,
@@ -132,7 +136,7 @@ class DelegateParallel(Tool):
 
     def _create_agent(self, profile: Optional[str] = None) -> Agent:
         """
-        Create a subordinate agent for task execution.
+        Create a subordinate agent for task execution with isolated context.
 
         Args:
             profile: Optional agent profile name
@@ -140,16 +144,30 @@ class DelegateParallel(Tool):
         Returns:
             Agent instance
         """
+        from agent import AgentContext, AgentContextType
+        
         config = initialize_agent()
         if profile:
             config.profile = profile
 
-        # Create subordinate agent
-        sub_number = self.agent.number + 1
-        sub = Agent(sub_number, config, self.agent.context)
+        # Create isolated context for parallel execution
+        # This ensures agents don't interfere with each other
+        isolated_context = AgentContext(
+            config=config,
+            type=AgentContextType.TASK,  # Mark as task context
+            name=f"Parallel Task Agent ({profile or 'default'})",
+        )
 
-        # Register superior/subordinate relationship
+        # Create subordinate agent with isolated context
+        # Use unique agent number for each parallel agent
+        self.agent.context._parallel_agent_counter += 1
+        sub_number = self.agent.number + self.agent.context._parallel_agent_counter
+        sub = Agent(sub_number, config, isolated_context)
+
+        # Register superior/subordinate relationship (but keep contexts separate)
         sub.set_data(Agent.DATA_NAME_SUPERIOR, self.agent)
+        # Store reference to parent context for coordination if needed
+        sub.set_data("_parent_context_id", self.agent.context.id)
 
         return sub
 
@@ -164,11 +182,28 @@ class DelegateParallel(Tool):
         Returns:
             Task result
         """
+        import time
+        start_time = time.time()
+        
+        # Log task start
+        agent.context.log.log(
+            type="tool",
+            heading=f"{agent.agent_name}: Starting Parallel Task",
+            content=f"Task: {message[:100]}...",
+        )
+        
         # Add user message to agent
         agent.hist_add_user_message(UserMessage(message=message, attachments=[]))
 
-        # Run agent monologue
+        # Run agent monologue - this should run independently in parallel
         result = await agent.monologue()
+        
+        duration = time.time() - start_time
+        agent.context.log.log(
+            type="tool",
+            heading=f"{agent.agent_name}: Completed Parallel Task",
+            content=f"Completed in {duration:.2f}s",
+        )
 
         return result
 
