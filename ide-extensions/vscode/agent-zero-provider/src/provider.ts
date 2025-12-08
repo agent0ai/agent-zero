@@ -87,44 +87,143 @@ export class AgentZeroChatModelProvider
     const contextParts: string[] = [];
     
     contextParts.push("\n\n[WORKSPACE CONTEXT]");
-    contextParts.push("You are connected via VS Code extension. The user's workspace is mapped to the container as follows:\n");
 
+    // Calculate workspace paths
     const workspacePaths = workspaceFolders.map((folder) => {
       const localPath = folder.uri.fsPath;
       let containerMappedPath = localPath;
       
-      // Map host path to container path if configured
-      if (hostPath && localPath.startsWith(hostPath)) {
-        containerMappedPath = localPath.replace(hostPath, containerPath);
-      } else if (hostPath) {
-        // If hostPath is configured but doesn't match, construct path
-        containerMappedPath = `${containerPath}${localPath.replace(/^\/+/, "")}`;
+      // Normalize container path (remove trailing slashes)
+      const normalizedContainer = containerPath.replace(/\/+$/, "");
+      
+      // Expand ~ in hostPath if present
+      let expandedHostPath = hostPath;
+      if (hostPath && hostPath.startsWith("~/")) {
+        const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+        expandedHostPath = hostPath.replace("~", homeDir);
       }
       
-      contextParts.push(`- Local: ${localPath}`);
-      contextParts.push(`  Container: ${containerMappedPath}`);
+      // Map host path to container path if configured
+      if (expandedHostPath && localPath.startsWith(expandedHostPath)) {
+        // Direct replacement: replace hostPath with containerPath
+        const remainingPath = localPath.substring(expandedHostPath.length).replace(/^\/+/, "");
+        containerMappedPath = remainingPath ? `${normalizedContainer}/${remainingPath}` : normalizedContainer;
+      } else if (expandedHostPath) {
+        // If hostPath is configured but workspace is not directly under it,
+        // try to extract the actual directory name from the path
+        // First, try to see if workspace path contains hostPath as a parent
+        // If not, extract the last directory component from localPath
+        const pathParts = localPath.split(/[/\\]/).filter(p => p.length > 0);
+        const lastDirName = pathParts[pathParts.length - 1];
+        
+        // Try multiple possibilities:
+        // 1. Last directory name from path
+        // 2. Workspace folder display name
+        // Store both as alternatives
+        const workspaceName = folder.name;
+        containerMappedPath = `${normalizedContainer}/${lastDirName}`;
+      } else {
+        // If hostPath not configured, extract directory name from path
+        const pathParts = localPath.split(/[/\\]/).filter(p => p.length > 0);
+        const lastDirName = pathParts[pathParts.length - 1];
+        containerMappedPath = `${normalizedContainer}/${lastDirName}`;
+      }
       
       return containerMappedPath;
     });
 
-    contextParts.push(`\n⚠️ CRITICAL: When the user asks about files, ALWAYS search in these container paths FIRST:`);
+    // CRITICAL: File search paths (first, most prominent)
+    const normalizedContainer = containerPath.replace(/\/+$/, "");
+    contextParts.push("\nCRITICAL - File Search Paths:");
+    contextParts.push("When user mentions a file, ALWAYS search in these container paths FIRST (in order):");
     workspacePaths.forEach((path, index) => {
       contextParts.push(`  ${index + 1}. ${path}`);
     });
-    contextParts.push(`\nDo NOT search in /root, /home, or other locations unless explicitly asked.`);
-    contextParts.push(`All user files are in the mounted volumes above.`);
-    contextParts.push(`\nWorking directories: ${workspacePaths.join(", ")}`);
+    // Add alternative paths based on workspace folder name and directory name
+    workspaceFolders.forEach((folder) => {
+      const folderNamePath = `${normalizedContainer}/${folder.name}`;
+      const localPathParts = folder.uri.fsPath.split(/[/\\]/).filter(p => p.length > 0);
+      const lastDirName = localPathParts[localPathParts.length - 1];
+      const lastDirPath = `${normalizedContainer}/${lastDirName}`;
+      
+      // Add alternatives if they differ from the primary path
+      const alternatives: string[] = [];
+      if (!workspacePaths.includes(folderNamePath) && folderNamePath !== workspacePaths[0]) {
+        alternatives.push(folderNamePath);
+      }
+      if (!workspacePaths.includes(lastDirPath) && lastDirPath !== workspacePaths[0] && lastDirPath !== folderNamePath) {
+        alternatives.push(lastDirPath);
+      }
+      
+      if (alternatives.length > 0) {
+        contextParts.push(`  Alternative paths to try if primary path doesn't exist:`);
+        alternatives.forEach(alt => {
+          contextParts.push(`    - ${alt}`);
+        });
+        contextParts.push(`  If paths don't exist, run: ls -la ${normalizedContainer} | grep -i "${folder.name.replace(/\s+/g, '.*')}" to find similar directory names`);
+      }
+    });
+    contextParts.push("For simple filenames (e.g., 'inquiries.docx'), check workspace root first:");
+    workspacePaths.forEach((path) => {
+      // Check if path contains spaces and show quoted version
+      const needsQuoting = path.includes(" ");
+      const quotedPath = needsQuoting ? `"${path}"` : path;
+      contextParts.push(`  - ${quotedPath}/inquiries.docx`);
+    });
+    contextParts.push("Do NOT search in /root, /home, or other locations unless explicitly asked.");
+    contextParts.push("\nIf primary path doesn't exist:");
+    contextParts.push("  1. First, verify the workspace directory exists: ls -la <primary_path>");
+    contextParts.push("  2. If it doesn't exist, list /a0-01 to find the actual directory name:");
+    workspaceFolders.forEach((folder) => {
+      const searchTerm = folder.name.replace(/\s+/g, ".*");
+      contextParts.push(`     ls -la ${normalizedContainer} | grep -i "${searchTerm}"`);
+    });
+    contextParts.push("  3. Once you find the correct directory, use that path for all file operations.");
     
+    // Add warning about spaces in paths
+    const hasSpaces = workspacePaths.some(p => p.includes(" "));
+    if (hasSpaces) {
+      contextParts.push("\nIMPORTANT - Paths contain spaces:");
+      contextParts.push("ALWAYS quote paths with spaces when using them in shell commands.");
+      workspacePaths.forEach((path) => {
+        if (path.includes(" ")) {
+          contextParts.push(`  Use: "${path}" (with quotes)`);
+          contextParts.push(`  NOT: ${path} (without quotes)`);
+        }
+      });
+    }
+
+    // CRITICAL: Output location (second, prominent)
+    const primaryWorkspacePath = workspacePaths[0];
+    const needsQuoting = primaryWorkspacePath.includes(" ");
+    const quotedWorkspacePath = needsQuoting ? `"${primaryWorkspacePath}"` : primaryWorkspacePath;
+    
+    contextParts.push(`\nCRITICAL - Output Location:`);
+    contextParts.push(`NEVER save files to /root, /home, or any other directory.`);
+    contextParts.push(`ALWAYS save ALL output files to this workspace directory:`);
+    contextParts.push(`  ${primaryWorkspacePath}`);
+    if (needsQuoting) {
+      contextParts.push(`Example: If creating 'output.pdf', save to: ${quotedWorkspacePath}/output.pdf`);
+      contextParts.push(`Example: If creating 'inquiries.pdf', save to: ${quotedWorkspacePath}/inquiries.pdf`);
+    } else {
+      contextParts.push(`Example: If creating 'output.pdf', save to: ${primaryWorkspacePath}/output.pdf`);
+      contextParts.push(`Example: If creating 'inquiries.pdf', save to: ${primaryWorkspacePath}/inquiries.pdf`);
+    }
+    contextParts.push(`Before saving any file, verify the path starts with: ${primaryWorkspacePath}`);
+
+    // Working directory
+    contextParts.push(`\nWorking directory: ${primaryWorkspacePath}`);
+    contextParts.push(`Change to this directory before running commands: cd ${quotedWorkspacePath}`);
+    if (needsQuoting) {
+      contextParts.push(`Always use quotes when referencing this path in commands: ${quotedWorkspacePath}`);
+    }
+
+    // Path mapping (if configured, concise)
     if (hostPath) {
       contextParts.push(`\nPath mapping: ${hostPath} → ${containerPath}`);
-      contextParts.push(`If a file path starts with "${hostPath}", replace it with "${containerPath}"`);
     }
-    
-    contextParts.push("\nIMPORTANT: If these paths don't exist in the container, the workspace may not be mounted.");
-    contextParts.push("To mount the workspace, ensure Docker was started with: -v <hostPath>:<containerPath>");
-    contextParts.push(`Example: docker run -v ${hostPath || "/path/to/projects"}:${containerPath} ...`);
 
-    // Add git repository information if available
+    // Git repository info (condensed)
     for (const folder of workspaceFolders) {
       try {
         const gitUri = vscode.Uri.joinPath(folder.uri, ".git");
@@ -137,47 +236,31 @@ export class AgentZeroChatModelProvider
           const repoName = folder.name;
           const repoIndex = workspaceFolders.indexOf(folder);
           const repoContainerPath = workspacePaths[repoIndex];
-          contextParts.push(`\n📁 Git Repository: ${repoName}`);
-          contextParts.push(`   Repository root (container): ${repoContainerPath}`);
-          contextParts.push(`   ⚠️ When asked about files in "${repoName}", search in: ${repoContainerPath}`);
-          contextParts.push(`   You can read and modify files in this repository using container paths.`);
-          contextParts.push(`   Example: If user asks about "src/index.ts", look for: ${repoContainerPath}/src/index.ts`);
+          contextParts.push(`\nGit repo: ${repoName} → ${repoContainerPath}`);
         }
       } catch (e) {
         // Ignore errors checking for git
       }
     }
 
-    // Add active file information
-    const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
-    if (activeFile) {
-      let activeFilePath = activeFile;
-      if (hostPath && activeFile.startsWith(hostPath)) {
-        activeFilePath = activeFile.replace(hostPath, containerPath);
-      } else if (hostPath) {
-        activeFilePath = `${containerPath}${activeFile}`;
-      }
-      contextParts.push(`\nCurrently open file: ${activeFilePath}`);
-    }
-
-    // Add file tree information (list some files to help Agent Zero understand the structure)
+    // Sample files (reduced to 5-8 most relevant)
     try {
       const files = await vscode.workspace.findFiles(
         "**/*",
         "**/{node_modules,.git,.venv,__pycache__}/**",
-        20 // Limit to 20 files to avoid huge context
+        10 // Reduced limit
       );
       if (files.length > 0) {
-        contextParts.push("\n📄 Sample files in workspace (use these as reference for path structure):");
-        for (const file of files.slice(0, 15)) {
-          let filePath = file.fsPath;
+        // Prioritize root-level files and common file types
+        const rootFiles = files.filter(f => {
+          const relative = vscode.workspace.asRelativePath(f);
+          return !relative.includes('/') || relative.split('/').length === 2;
+        });
+        const prioritizedFiles = [...rootFiles, ...files].slice(0, 8);
+        
+        contextParts.push("\nSample files in workspace:");
+        for (const file of prioritizedFiles) {
           const relativePath = vscode.workspace.asRelativePath(file);
-          
-          if (hostPath && filePath.startsWith(hostPath)) {
-            filePath = filePath.replace(hostPath, containerPath);
-          } else if (hostPath) {
-            filePath = `${containerPath}${filePath.replace(/^\/+/, "")}`;
-          }
           
           // Find which workspace folder this file belongs to
           const folder = workspaceFolders.find(f => file.fsPath.startsWith(f.uri.fsPath));
@@ -185,16 +268,12 @@ export class AgentZeroChatModelProvider
             const folderIndex = workspaceFolders.indexOf(folder);
             const folderContainerPath = workspacePaths[folderIndex];
             const relativeToFolder = file.fsPath.replace(folder.uri.fsPath, "").replace(/^\//, "");
-            contextParts.push(`  - ${relativePath}`);
-            contextParts.push(`    → Container: ${folderContainerPath}/${relativeToFolder}`);
-          } else {
-            contextParts.push(`  - ${relativePath} → ${filePath}`);
+            contextParts.push(`  ${relativePath} → ${folderContainerPath}/${relativeToFolder}`);
           }
         }
-        if (files.length > 15) {
-          contextParts.push(`  ... and ${files.length - 15} more files`);
+        if (files.length > 8) {
+          contextParts.push(`  ... and ${files.length - 8} more files`);
         }
-        contextParts.push(`\n💡 When user mentions a file, search in the container paths listed above, not elsewhere.`);
       }
     } catch (e) {
       // Ignore errors getting file list
