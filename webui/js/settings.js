@@ -285,18 +285,44 @@ const settingsModalProxy = {
             openModal("settings/memory/memory-dashboard.html");
         } else if (field.id === "generate_vsix_script") {
             // Generate and download VSIX packaging script
-            const link = document.createElement("a");
-            link.href = "/vsix_script_generate";
-            link.download = "package-vsix.sh";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            // Show success notification
-            if (window.Alpine && window.Alpine.store && window.Alpine.store('notificationStore')) {
-                const store = window.Alpine.store('notificationStore');
-                store.frontendInfo("VSIX packaging script downloaded. Run it to package and install the extension.", "VSIX Script", 5);
-            }
+            fetch("/vsix_script_generate")
+                .then(response => {
+                    if (!response.ok) {
+                        // If error response, read as text for error message
+                        return response.text().then(text => {
+                            throw new Error(text || "Failed to generate script");
+                        });
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = "package-vsix.sh";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                    
+                    // Show success notification with instructions
+                    if (window.Alpine && window.Alpine.store && window.Alpine.store('notificationStore')) {
+                        const store = window.Alpine.store('notificationStore');
+                        store.frontendInfo(
+                            "VSIX script downloaded. Place it in your Docker-mounted directory and run from Agent Zero repository root. Supports macOS, Linux, and Windows (Git Bash).", 
+                            "VSIX Script", 
+                            8
+                        );
+                    }
+                })
+                .catch(error => {
+                    // Show error notification
+                    if (window.Alpine && window.Alpine.store && window.Alpine.store('notificationStore')) {
+                        const store = window.Alpine.store('notificationStore');
+                        store.frontendError(error.message || "Failed to generate VSIX script", "VSIX Script Error", 10);
+                    } else {
+                        alert("Error: " + error.message);
+                    }
+                });
         }
     }
 };
