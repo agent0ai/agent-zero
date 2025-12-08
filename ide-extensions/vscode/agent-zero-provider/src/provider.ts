@@ -77,33 +77,102 @@ export class AgentZeroChatModelProvider
     };
   }
 
-  private getWorkspaceContext(): string {
+  private async getWorkspaceContext(): Promise<string> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
       return "";
     }
 
     const { hostPath, containerPath } = this.getConfig();
+    const contextParts: string[] = [];
+    
+    contextParts.push("\n\n[WORKSPACE CONTEXT]");
+    contextParts.push("You are connected via VS Code extension. The user's workspace is mapped to the container as follows:\n");
+
     const workspacePaths = workspaceFolders.map((folder) => {
       const localPath = folder.uri.fsPath;
-      // Map host path to container path
-      if (localPath.startsWith(hostPath)) {
-        return localPath.replace(hostPath, containerPath);
+      let containerMappedPath = localPath;
+      
+      // Map host path to container path if configured
+      if (hostPath && localPath.startsWith(hostPath)) {
+        containerMappedPath = localPath.replace(hostPath, containerPath);
+      } else if (hostPath) {
+        // If hostPath is configured but doesn't match, warn
+        containerMappedPath = `${containerPath}${localPath}`;
       }
-      return localPath;
+      
+      contextParts.push(`- Local: ${localPath}`);
+      contextParts.push(`  Container: ${containerMappedPath}`);
+      
+      return containerMappedPath;
     });
 
-    const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
-    let activeFilePath = "";
-    if (activeFile && activeFile.startsWith(hostPath)) {
-      activeFilePath = activeFile.replace(hostPath, containerPath);
+    contextParts.push(`\nWorking directories (use these container paths in your responses): ${workspacePaths.join(", ")}`);
+    contextParts.push("\nIMPORTANT: If these paths don't exist in the container, the workspace may not be mounted.");
+    contextParts.push("To mount the workspace, ensure Docker was started with: -v <hostPath>:<containerPath>");
+    contextParts.push(`Example: docker run -v ${hostPath || "/path/to/projects"}:${containerPath} ...`);
+
+    // Add git repository information if available
+    for (const folder of workspaceFolders) {
+      try {
+        const gitUri = vscode.Uri.joinPath(folder.uri, ".git");
+        const gitExists = await vscode.workspace.fs.stat(gitUri).then(
+          () => true,
+          () => false
+        );
+        
+        if (gitExists) {
+          const repoName = folder.name;
+          contextParts.push(`\nGit Repository: ${repoName}`);
+          contextParts.push(`Repository root (container): ${workspacePaths[workspaceFolders.indexOf(folder)]}`);
+          contextParts.push("You can read and modify files in this repository. Use the container paths above.");
+        }
+      } catch (e) {
+        // Ignore errors checking for git
+      }
     }
 
-    return `\n\n[WORKSPACE CONTEXT]\nWorking directories (container paths): ${workspacePaths.join(
-      ", "
-    )}${
-      activeFilePath ? `\nCurrently open file: ${activeFilePath}` : ""
-    }\n[/WORKSPACE CONTEXT]\n`;
+    // Add active file information
+    const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
+    if (activeFile) {
+      let activeFilePath = activeFile;
+      if (hostPath && activeFile.startsWith(hostPath)) {
+        activeFilePath = activeFile.replace(hostPath, containerPath);
+      } else if (hostPath) {
+        activeFilePath = `${containerPath}${activeFile}`;
+      }
+      contextParts.push(`\nCurrently open file: ${activeFilePath}`);
+    }
+
+    // Add file tree information (list some files to help Agent Zero understand the structure)
+    try {
+      const files = await vscode.workspace.findFiles(
+        "**/*",
+        "**/{node_modules,.git,.venv,__pycache__}/**",
+        20 // Limit to 20 files to avoid huge context
+      );
+      if (files.length > 0) {
+        contextParts.push("\nSample files in workspace:");
+        for (const file of files.slice(0, 10)) {
+          let filePath = file.fsPath;
+          if (hostPath && filePath.startsWith(hostPath)) {
+            filePath = filePath.replace(hostPath, containerPath);
+          } else if (hostPath) {
+            filePath = `${containerPath}${filePath}`;
+          }
+          const relativePath = vscode.workspace.asRelativePath(file);
+          contextParts.push(`  - ${relativePath} → ${filePath}`);
+        }
+        if (files.length > 10) {
+          contextParts.push(`  ... and ${files.length - 10} more files`);
+        }
+      }
+    } catch (e) {
+      // Ignore errors getting file list
+    }
+
+    contextParts.push("\n[/WORKSPACE CONTEXT]\n");
+    return contextParts.join("\n");
   }
 
   async provideLanguageModelChatInformation(
@@ -225,7 +294,7 @@ export class AgentZeroChatModelProvider
     }
 
     // Append workspace context so Agent Zero knows where files are
-    const workspaceContext = this.getWorkspaceContext();
+    const workspaceContext = await this.getWorkspaceContext();
     if (workspaceContext) {
       messageText = messageText + workspaceContext;
     }
