@@ -283,6 +283,20 @@ const settingsModalProxy = {
             openModal("settings/external/api-examples.html");
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
+        } else if (field.id === "generate_vsix_script") {
+            // Generate and download VSIX packaging script
+            const link = document.createElement("a");
+            link.href = "/vsix_script_generate";
+            link.download = "package-vsix.sh";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Show success notification
+            if (window.Alpine && window.Alpine.store && window.Alpine.store('notificationStore')) {
+                const store = window.Alpine.store('notificationStore');
+                store.frontendInfo("VSIX packaging script downloaded. Run it to package and install the extension.", "VSIX Script", 5);
+            }
         }
     }
 };

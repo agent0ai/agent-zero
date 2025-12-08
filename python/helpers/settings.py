@@ -914,6 +914,16 @@ def convert_out(settings: Settings) -> SettingsOutput:
             }
         )
 
+    dev_fields.append(
+        {
+            "id": "generate_vsix_script",
+            "title": "Generate VSIX Packaging Script",
+            "description": "Generate a script to package the Agent Zero VS Code extension as a VSIX file and install it in your VS Code session.",
+            "type": "button",
+            "value": "Generate Script",
+        }
+    )
+
     dev_section: SettingsSection = {
         "id": "dev",
         "title": "Development",
