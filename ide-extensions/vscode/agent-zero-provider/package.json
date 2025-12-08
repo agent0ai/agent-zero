@@ -1,0 +1,86 @@
+{
+  "name": "agent-zero-provider",
+  "displayName": "Agent Zero Language Model Provider",
+  "description": "Use Agent Zero as a language model in VS Code Chat",
+  "version": "0.0.1",
+  "publisher": "nick",
+  "engines": {
+    "vscode": "^1.106.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "agent-zero",
+        "displayName": "Agent Zero",
+        "managementCommand": "agent-zero.configure"
+      }
+    ],
+    "commands": [
+      {
+        "command": "agent-zero.configure",
+        "title": "Configure Agent Zero"
+      }
+    ],
+    "configuration": {
+      "title": "Agent Zero",
+      "properties": {
+        "agentZero.apiHost": {
+          "type": "string",
+          "default": "http://localhost:55000",
+          "description": "Agent Zero API host URL"
+        },
+        "agentZero.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Agent Zero API key (from Settings in web UI)"
+        },
+        "agentZero.timeout": {
+          "type": "number",
+          "default": 300000,
+          "description": "Request timeout in milliseconds (default: 5 minutes)"
+        },
+        "agentZero.hostPath": {
+          "type": "string",
+          "default": "",
+          "description": "Host machine path prefix for your projects (mapped to container)"
+        },
+        "agentZero.containerPath": {
+          "type": "string",
+          "default": "/a0-01",
+          "description": "Container path where host projects are mounted"
+        },
+        "agentZero.useStreaming": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable streaming responses (recommended - avoids timeouts)"
+        },
+        "agentZero.pollInterval": {
+          "type": "number",
+          "default": 100,
+          "description": "Polling interval in milliseconds for streaming mode (default: 100ms)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.106.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+

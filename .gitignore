@@ -46,3 +46,8 @@ instruments/**
 # for browser-use
 agent_history.gif
 
+# IDE extensions build artifacts
+ide-extensions/**/node_modules/
+ide-extensions/**/out/
+ide-extensions/**/*.vsix
+
