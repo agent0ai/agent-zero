@@ -349,6 +349,12 @@ export class AgentZeroChatModelProvider
       throw new Error("No text content in message");
     }
 
+    // Check if this is a new VS Code chat session (first message with no assistant responses)
+    const assistantMessages = messages.filter(
+      (m) => m.role === vscode.LanguageModelChatMessageRole.Assistant
+    );
+    const isNewSession = userMessages.length === 1 && assistantMessages.length === 0;
+    
     // Get session ID from first user message to track context per chat session
     const firstUserMessage = userMessages[0];
     const sessionId = firstUserMessage
@@ -362,8 +368,8 @@ export class AgentZeroChatModelProvider
           .substring(0, 100) // Use first 100 chars as session identifier
       : messageText.substring(0, 100);
     
-    // Get contextId for this session (undefined for new sessions)
-    const sessionContextId = this.sessionContexts.get(sessionId);
+    // Get contextId for this session (undefined for new sessions or if this is a new VS Code chat)
+    const sessionContextId = isNewSession ? undefined : this.sessionContexts.get(sessionId);
 
     // Append workspace context so Agent Zero knows where files are
     const workspaceContext = await this.getWorkspaceContext();
