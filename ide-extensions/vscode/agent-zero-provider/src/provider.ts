@@ -243,42 +243,6 @@ export class AgentZeroChatModelProvider
       }
     }
 
-    // Sample files (reduced to 5-8 most relevant)
-    try {
-      const files = await vscode.workspace.findFiles(
-        "**/*",
-        "**/{node_modules,.git,.venv,__pycache__}/**",
-        10 // Reduced limit
-      );
-      if (files.length > 0) {
-        // Prioritize root-level files and common file types
-        const rootFiles = files.filter(f => {
-          const relative = vscode.workspace.asRelativePath(f);
-          return !relative.includes('/') || relative.split('/').length === 2;
-        });
-        const prioritizedFiles = [...rootFiles, ...files].slice(0, 8);
-        
-        contextParts.push("\nSample files in workspace:");
-        for (const file of prioritizedFiles) {
-          const relativePath = vscode.workspace.asRelativePath(file);
-          
-          // Find which workspace folder this file belongs to
-          const folder = workspaceFolders.find(f => file.fsPath.startsWith(f.uri.fsPath));
-          if (folder) {
-            const folderIndex = workspaceFolders.indexOf(folder);
-            const folderContainerPath = workspacePaths[folderIndex];
-            const relativeToFolder = file.fsPath.replace(folder.uri.fsPath, "").replace(/^\//, "");
-            contextParts.push(`  ${relativePath} → ${folderContainerPath}/${relativeToFolder}`);
-          }
-        }
-        if (files.length > 8) {
-          contextParts.push(`  ... and ${files.length - 8} more files`);
-        }
-      }
-    } catch (e) {
-      // Ignore errors getting file list
-    }
-
     contextParts.push("\n[/WORKSPACE CONTEXT]\n");
     return contextParts.join("\n");
   }
