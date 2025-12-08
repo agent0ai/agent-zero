@@ -76,7 +76,7 @@ export class AgentZeroChatModelProvider
     return {
       apiHost: config.get<string>("apiHost") || "http://localhost:55000",
       apiKey: config.get<string>("apiKey") || "",
-      timeout: config.get<number>("timeout") || 300000, // 5 minute default
+      timeout: config.get<number>("timeout") || Number.MAX_SAFE_INTEGER, // Effectively no timeout (for very long tasks)
       hostPath: config.get<string>("hostPath") || "",
       containerPath: config.get<string>("containerPath") || "/a0-01",
       useStreaming: config.get<boolean>("useStreaming") ?? true, // Default to streaming
@@ -737,10 +737,8 @@ export class AgentZeroChatModelProvider
     const seenLogIds = new Set<string>();
 
     while (!isComplete && !token.isCancellationRequested) {
-      // Check timeout
-      if (Date.now() - startTime > timeout) {
-        throw new Error("Request timeout - Agent Zero task took too long");
-      }
+      // No timeout for streaming mode - tasks can run indefinitely
+      // The user can cancel via VSCode's cancellation token if needed
 
       try {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -889,7 +887,7 @@ export class AgentZeroChatModelProvider
     body?: object,
     headers?: Record<string, string>,
     cancellationToken?: vscode.CancellationToken,
-    timeout: number = 300000 // 5 minute default
+    timeout: number = Number.MAX_SAFE_INTEGER // Effectively no timeout (for very long tasks)
   ): Promise<T | null> {
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url);
