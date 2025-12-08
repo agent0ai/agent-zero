@@ -25,8 +25,13 @@ class GenerateVsixScript(ApiHandler):
             # In development, use the actual path
             abs_extension_dir = os.path.abspath(extension_dir)
         else:
-            # In docker, map to host path if available
-            abs_extension_dir = extension_dir
+            # In docker, we need to map container path to host path
+            # The script will run on the host, so we need the host path
+            # Try to detect from environment or use relative path from repo root
+            base_dir = files.get_base_dir()
+            # In Docker, base_dir is /a0, so we need to map it to host
+            # Use relative path from repo root - user should run script from repo root
+            abs_extension_dir = "ide-extensions/vscode/agent-zero-provider"
         
         # Read package.json to get version
         package_json_path = os.path.join(abs_extension_dir, "package.json")
@@ -43,9 +48,19 @@ class GenerateVsixScript(ApiHandler):
                 pass
         
         # Get configuration values
-        api_host = runtime.get_arg("host") or "localhost"
+        # For the script running on host, use localhost with common port mapping
+        # Default to 55000 (common Docker port mapping) or use port from runtime
         api_port = runtime.get_web_ui_port()
-        api_url = f"http://{api_host}:{api_port}"
+        # If port is 80 (container default), use 55000 (common host mapping)
+        # Otherwise use the port as-is (might be custom)
+        if api_port == 80:
+            api_url = "http://localhost:55000"
+        else:
+            api_host = runtime.get_arg("host") or "localhost"
+            # Replace 0.0.0.0 with localhost for host access
+            if api_host == "0.0.0.0":
+                api_host = "localhost"
+            api_url = f"http://{api_host}:{api_port}"
         
         # Get API key (mcp_server_token is used for external API)
         api_key = current_settings.get("mcp_server_token", "")
@@ -62,7 +77,8 @@ class GenerateVsixScript(ApiHandler):
             host_path = "~/Projects"  # Common default
         
         # Generate the script content
-        vsix_full_path = os.path.join(abs_extension_dir, vsix_name)
+        # Note: vsix_full_path will be set in the script itself since we use relative paths
+        vsix_full_path = "$EXTENSION_DIR/" + vsix_name
         
         # Escape values for shell script
         def escape_shell(value):
@@ -89,8 +105,36 @@ echo "Agent Zero VS Code Extension Setup"
 echo "==================================="
 echo ""
 
+# Determine extension directory path
+# Try to find the extension directory relative to script location or current directory
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+EXTENSION_DIR=""
+
+# Try multiple possible locations
+if [ -d "$SCRIPT_DIR/ide-extensions/vscode/agent-zero-provider" ]; then
+    EXTENSION_DIR="$SCRIPT_DIR/ide-extensions/vscode/agent-zero-provider"
+elif [ -d "$SCRIPT_DIR/../ide-extensions/vscode/agent-zero-provider" ]; then
+    EXTENSION_DIR="$SCRIPT_DIR/../ide-extensions/vscode/agent-zero-provider"
+elif [ -d "./ide-extensions/vscode/agent-zero-provider" ]; then
+    EXTENSION_DIR="./ide-extensions/vscode/agent-zero-provider"
+elif [ -d "$HOME/Projects/a0/agent-zero/ide-extensions/vscode/agent-zero-provider" ]; then
+    EXTENSION_DIR="$HOME/Projects/a0/agent-zero/ide-extensions/vscode/agent-zero-provider"
+elif [ -d "$HOME/Projects/agent-zero/ide-extensions/vscode/agent-zero-provider" ]; then
+    EXTENSION_DIR="$HOME/Projects/agent-zero/ide-extensions/vscode/agent-zero-provider"
+else
+    echo "Error: Could not find extension directory."
+    echo "Please run this script from the Agent Zero repository root directory,"
+    echo "or place it in the repository root and run it from there."
+    echo ""
+    echo "Expected location: ide-extensions/vscode/agent-zero-provider"
+    exit 1
+fi
+
+echo "Found extension directory: $EXTENSION_DIR"
+echo ""
+
 # Navigate to extension directory
-cd "{abs_extension_dir}"
+cd "$EXTENSION_DIR"
 
 # Check if vsce is installed
 if ! command -v vsce &> /dev/null; then
@@ -103,8 +147,15 @@ echo "Packaging VSIX extension..."
 vsce package
 
 # Install the extension
+VSIX_FILE="$EXTENSION_DIR/{vsix_name}"
+if [ ! -f "$VSIX_FILE" ]; then
+    echo "Error: VSIX file not found at $VSIX_FILE"
+    echo "Packaging may have failed. Check the output above."
+    exit 1
+fi
+
 echo "Installing extension in VS Code..."
-code --install-extension "{vsix_full_path}" --force
+code --install-extension "$VSIX_FILE" --force
 
 echo ""
 echo "Configuring VS Code extension settings..."
@@ -191,7 +242,7 @@ fi
 echo ""
 echo "==================================="
 echo "Extension installed successfully!"
-echo "VSIX file location: {vsix_full_path}"
+echo "VSIX file location: $VSIX_FILE"
 echo ""
 echo "Configuration:"
 echo "  API Host: $API_HOST_URL"

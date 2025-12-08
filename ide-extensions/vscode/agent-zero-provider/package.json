@@ -4,6 +4,12 @@
   "description": "Use Agent Zero as a language model in VS Code Chat",
   "version": "0.0.1",
   "publisher": "nick",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agent0ai/agent-zero.git",
+    "directory": "ide-extensions/vscode/agent-zero-provider"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.106.0"
   },
