@@ -729,7 +729,6 @@ export class AgentZeroChatModelProvider
     let logGuid = "";
     let lastResponseContent = "";
     let isComplete = false;
-    const startTime = Date.now();
     const seenLogIds = new Set<string>();
 
     while (!isComplete && !token.isCancellationRequested) {
