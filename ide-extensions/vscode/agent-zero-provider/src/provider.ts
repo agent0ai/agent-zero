@@ -308,20 +308,6 @@ export class AgentZeroChatModelProvider
         },
         contextId: this.contextId,
       },
-      {
-        id: "agent-zero-fresh",
-        name: "Agent Zero (New Session)",
-        family: "agent-zero",
-        version: "1.0.0",
-        maxInputTokens: 128000,
-        maxOutputTokens: 16000,
-        tooltip: "Start a fresh Agent Zero session",
-        detail: "New conversation context",
-        capabilities: {
-          imageInput: false,
-          toolCalling: true,
-        },
-      },
     ];
   }
 
@@ -384,7 +370,7 @@ export class AgentZeroChatModelProvider
           apiHost,
           apiKey,
           messageText,
-          model.id === "agent-zero" ? this.contextId : undefined,
+          this.contextId,
           pollInterval,
           timeout,
           progress,
@@ -405,7 +391,7 @@ export class AgentZeroChatModelProvider
             apiHost,
             apiKey,
             messageText,
-            model.id === "agent-zero" ? this.contextId : undefined,
+            this.contextId,
             timeout,
             progress,
             token
@@ -421,7 +407,7 @@ export class AgentZeroChatModelProvider
         apiHost,
         apiKey,
         messageText,
-        model.id === "agent-zero" ? this.contextId : undefined,
+        this.contextId,
         timeout,
         progress,
         token
