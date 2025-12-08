@@ -97,8 +97,8 @@ export class AgentZeroChatModelProvider
       if (hostPath && localPath.startsWith(hostPath)) {
         containerMappedPath = localPath.replace(hostPath, containerPath);
       } else if (hostPath) {
-        // If hostPath is configured but doesn't match, warn
-        containerMappedPath = `${containerPath}${localPath}`;
+        // If hostPath is configured but doesn't match, construct path
+        containerMappedPath = `${containerPath}${localPath.replace(/^\/+/, "")}`;
       }
       
       contextParts.push(`- Local: ${localPath}`);
@@ -107,7 +107,19 @@ export class AgentZeroChatModelProvider
       return containerMappedPath;
     });
 
-    contextParts.push(`\nWorking directories (use these container paths in your responses): ${workspacePaths.join(", ")}`);
+    contextParts.push(`\n⚠️ CRITICAL: When the user asks about files, ALWAYS search in these container paths FIRST:`);
+    workspacePaths.forEach((path, index) => {
+      contextParts.push(`  ${index + 1}. ${path}`);
+    });
+    contextParts.push(`\nDo NOT search in /root, /home, or other locations unless explicitly asked.`);
+    contextParts.push(`All user files are in the mounted volumes above.`);
+    contextParts.push(`\nWorking directories: ${workspacePaths.join(", ")}`);
+    
+    if (hostPath) {
+      contextParts.push(`\nPath mapping: ${hostPath} → ${containerPath}`);
+      contextParts.push(`If a file path starts with "${hostPath}", replace it with "${containerPath}"`);
+    }
+    
     contextParts.push("\nIMPORTANT: If these paths don't exist in the container, the workspace may not be mounted.");
     contextParts.push("To mount the workspace, ensure Docker was started with: -v <hostPath>:<containerPath>");
     contextParts.push(`Example: docker run -v ${hostPath || "/path/to/projects"}:${containerPath} ...`);
@@ -123,9 +135,13 @@ export class AgentZeroChatModelProvider
         
         if (gitExists) {
           const repoName = folder.name;
-          contextParts.push(`\nGit Repository: ${repoName}`);
-          contextParts.push(`Repository root (container): ${workspacePaths[workspaceFolders.indexOf(folder)]}`);
-          contextParts.push("You can read and modify files in this repository. Use the container paths above.");
+          const repoIndex = workspaceFolders.indexOf(folder);
+          const repoContainerPath = workspacePaths[repoIndex];
+          contextParts.push(`\n📁 Git Repository: ${repoName}`);
+          contextParts.push(`   Repository root (container): ${repoContainerPath}`);
+          contextParts.push(`   ⚠️ When asked about files in "${repoName}", search in: ${repoContainerPath}`);
+          contextParts.push(`   You can read and modify files in this repository using container paths.`);
+          contextParts.push(`   Example: If user asks about "src/index.ts", look for: ${repoContainerPath}/src/index.ts`);
         }
       } catch (e) {
         // Ignore errors checking for git
@@ -152,20 +168,33 @@ export class AgentZeroChatModelProvider
         20 // Limit to 20 files to avoid huge context
       );
       if (files.length > 0) {
-        contextParts.push("\nSample files in workspace:");
-        for (const file of files.slice(0, 10)) {
+        contextParts.push("\n📄 Sample files in workspace (use these as reference for path structure):");
+        for (const file of files.slice(0, 15)) {
           let filePath = file.fsPath;
+          const relativePath = vscode.workspace.asRelativePath(file);
+          
           if (hostPath && filePath.startsWith(hostPath)) {
             filePath = filePath.replace(hostPath, containerPath);
           } else if (hostPath) {
-            filePath = `${containerPath}${filePath}`;
+            filePath = `${containerPath}${filePath.replace(/^\/+/, "")}`;
           }
-          const relativePath = vscode.workspace.asRelativePath(file);
-          contextParts.push(`  - ${relativePath} → ${filePath}`);
+          
+          // Find which workspace folder this file belongs to
+          const folder = workspaceFolders.find(f => file.fsPath.startsWith(f.uri.fsPath));
+          if (folder) {
+            const folderIndex = workspaceFolders.indexOf(folder);
+            const folderContainerPath = workspacePaths[folderIndex];
+            const relativeToFolder = file.fsPath.replace(folder.uri.fsPath, "").replace(/^\//, "");
+            contextParts.push(`  - ${relativePath}`);
+            contextParts.push(`    → Container: ${folderContainerPath}/${relativeToFolder}`);
+          } else {
+            contextParts.push(`  - ${relativePath} → ${filePath}`);
+          }
         }
-        if (files.length > 10) {
-          contextParts.push(`  ... and ${files.length - 10} more files`);
+        if (files.length > 15) {
+          contextParts.push(`  ... and ${files.length - 15} more files`);
         }
+        contextParts.push(`\n💡 When user mentions a file, search in the container paths listed above, not elsewhere.`);
       }
     } catch (e) {
       // Ignore errors getting file list
