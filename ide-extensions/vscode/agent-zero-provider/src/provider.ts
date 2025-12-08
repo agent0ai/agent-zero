@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as https from "https";
 import * as http from "http";
+import * as crypto from "crypto";
 
 interface AgentZeroResponse {
   context_id: string;
@@ -52,8 +53,10 @@ export class AgentZeroChatModelProvider
     this._onDidChangeLanguageModelChatInformation.event;
 
   private context: vscode.ExtensionContext;
-  // Track contextId per chat session (keyed by first user message)
+  // Track contextId per chat session (keyed by session hash)
   private sessionContexts: Map<string, string> = new Map();
+  // Track when each session was last accessed (to detect stale sessions)
+  private sessionTimestamps: Map<string, number> = new Map();
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -349,15 +352,10 @@ export class AgentZeroChatModelProvider
       throw new Error("No text content in message");
     }
 
-    // Check if this is a new VS Code chat session (first message with no assistant responses)
-    const assistantMessages = messages.filter(
-      (m) => m.role === vscode.LanguageModelChatMessageRole.Assistant
-    );
-    const isNewSession = userMessages.length === 1 && assistantMessages.length === 0;
-    
-    // Get session ID from first user message to track context per chat session
+    // Create a unique session ID based on the conversation history
+    // Hash the first user message and message count to create a unique session identifier
     const firstUserMessage = userMessages[0];
-    const sessionId = firstUserMessage
+    const firstUserText = firstUserMessage
       ? firstUserMessage.content
           .filter(
             (part): part is vscode.LanguageModelTextPart =>
@@ -365,11 +363,33 @@ export class AgentZeroChatModelProvider
           )
           .map((part) => part.value)
           .join("\n")
-          .substring(0, 100) // Use first 100 chars as session identifier
-      : messageText.substring(0, 100);
+      : messageText;
     
-    // Get contextId for this session (undefined for new sessions or if this is a new VS Code chat)
+    // Create session ID: hash of first message + message count
+    // This ensures each VS Code chat session gets a unique ID
+    const sessionKey = `${firstUserText.substring(0, 200)}|${messages.length}`;
+    const sessionId = crypto.createHash("sha256").update(sessionKey).digest("hex").substring(0, 16);
+    
+    // Check if this is a new VS Code chat session
+    // New session = only one message total (the current user message)
+    // This is the most reliable way to detect a truly new chat session
+    const isNewSession = messages.length === 1;
+    
+    // Clean up old sessions (older than 1 hour) to prevent memory leaks
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+    for (const [sid, timestamp] of this.sessionTimestamps.entries()) {
+      if (timestamp < oneHourAgo) {
+        this.sessionContexts.delete(sid);
+        this.sessionTimestamps.delete(sid);
+      }
+    }
+    
+    // Get contextId for this session (always undefined for new sessions)
     const sessionContextId = isNewSession ? undefined : this.sessionContexts.get(sessionId);
+    
+    // Update session timestamp
+    this.sessionTimestamps.set(sessionId, now);
 
     // Append workspace context so Agent Zero knows where files are
     const workspaceContext = await this.getWorkspaceContext();
