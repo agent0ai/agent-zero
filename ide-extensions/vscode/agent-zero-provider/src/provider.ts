@@ -352,8 +352,8 @@ export class AgentZeroChatModelProvider
       throw new Error("No text content in message");
     }
 
-    // Create a unique session ID based on the conversation history
-    // Hash the first user message and message count to create a unique session identifier
+    // Create a unique session ID based on the first user message
+    // Use ONLY the first message text (not message count) so all messages in same chat share same ID
     const firstUserMessage = userMessages[0];
     const firstUserText = firstUserMessage
       ? firstUserMessage.content
@@ -365,14 +365,12 @@ export class AgentZeroChatModelProvider
           .join("\n")
       : messageText;
     
-    // Create session ID: hash of first message + message count
-    // This ensures each VS Code chat session gets a unique ID
-    const sessionKey = `${firstUserText.substring(0, 200)}|${messages.length}`;
-    const sessionId = crypto.createHash("sha256").update(sessionKey).digest("hex").substring(0, 16);
+    // Create session ID: hash of first message ONLY (not message count)
+    // This ensures all messages in the same VS Code chat share the same session ID
+    const sessionId = crypto.createHash("sha256").update(firstUserText.substring(0, 500)).digest("hex").substring(0, 16);
     
     // Check if this is a new VS Code chat session
     // New session = only one message total (the current user message)
-    // This is the most reliable way to detect a truly new chat session
     const isNewSession = messages.length === 1;
     
     // Clean up old sessions (older than 1 hour) to prevent memory leaks
@@ -385,8 +383,19 @@ export class AgentZeroChatModelProvider
       }
     }
     
-    // Get contextId for this session (always undefined for new sessions)
-    const sessionContextId = isNewSession ? undefined : this.sessionContexts.get(sessionId);
+    // Get contextId for this session
+    // If it's a new session, start fresh (undefined)
+    // Otherwise, look up the stored contextId for this session
+    let sessionContextId: string | undefined;
+    if (isNewSession) {
+      // New session - start fresh and clear any old contextId for this session ID
+      // (in case user started a new chat with same first message)
+      this.sessionContexts.delete(sessionId);
+      sessionContextId = undefined;
+    } else {
+      // Continuing existing session - use stored contextId
+      sessionContextId = this.sessionContexts.get(sessionId);
+    }
     
     // Update session timestamp
     this.sessionTimestamps.set(sessionId, now);
