@@ -583,3 +583,108 @@ To connect another agent to your Agent Zero instance, use the following URL form
 ```
 YOUR_AGENT_ZERO_URL/a2a/t-YOUR_API_TOKEN
 ```
+
+---
+
+## VS Code Extension
+
+Agent Zero includes a VS Code extension that integrates Agent Zero directly into VS Code's chat interface, allowing you to use Agent Zero as a Language Model Chat Provider.
+
+### Overview
+
+The Agent Zero VS Code extension allows you to:
+- Use Agent Zero directly in VS Code Chat (Cmd+Shift+I)
+- Execute code in the Docker container
+- Access files in mounted volumes
+- Browse the web and install packages
+- Run system commands through Agent Zero
+
+### Installation
+
+#### Quick Setup (Recommended)
+
+1. **Generate VSIX Script**: In Agent Zero web UI, go to `Settings > Developer` and click "Generate VSIX Packaging Script"
+2. **Run the Script**: Execute the downloaded script to automatically package and install the extension
+3. **Configure**: The script will automatically configure VS Code settings, or you can configure manually (see below)
+
+#### Manual Installation
+
+1. **Package the Extension**:
+   ```bash
+   cd ide-extensions/vscode/agent-zero-provider
+   npm install
+   npm run compile
+   npm install -g @vscode/vsce
+   vsce package
+   ```
+
+2. **Install in VS Code**:
+   ```bash
+   code --install-extension agent-zero-provider-0.0.1.vsix
+   ```
+
+### Configuration
+
+Configure the extension in VS Code Settings (Cmd+,) or via the command palette (`Agent Zero: Configure Agent Zero`):
+
+**Required Settings:**
+- **API Host**: Your Agent Zero URL (e.g., `http://localhost:55000`)
+- **API Key**: Your API key from Agent Zero (Settings → API Key in web UI)
+
+**Optional Settings:**
+- **Host Path**: Your local projects path (e.g., `~/Projects`)
+- **Container Path**: Container mount path (e.g., `/a0-01`)
+- **Use Streaming**: Enable real-time streaming (default: true, recommended)
+- **Poll Interval**: Polling interval for streaming mode (default: 100ms)
+- **Timeout**: Request timeout in milliseconds (default: 300000)
+
+### Usage
+
+1. Open VS Code Chat (Cmd+Shift+I or click the chat icon)
+2. Click the model selector dropdown
+3. Select **"Agent Zero"** (continues conversation) or **"Agent Zero (New Session)"** (fresh start)
+4. Start chatting!
+
+### Features
+
+- **Streaming Mode**: Real-time responses as Agent Zero works (default: enabled)
+- **Workspace Context**: Automatically sends workspace paths mapped to container paths
+- **Session Management**: Separate contexts per VS Code chat session
+- **Path Mapping**: Automatic mapping between local and container paths
+
+### Prerequisites
+
+- Agent Zero running in Docker with API access
+- VS Code 1.106.0 or later
+- API key from Agent Zero web UI
+
+### Example Prompts
+
+```
+Create a Python script that fetches the weather for San Francisco
+
+Read /a0-01/my-project/src/app.py and explain what it does
+
+Install pandas and analyze the CSV file at /a0-01/data/sales.csv
+```
+
+### Troubleshooting
+
+**"Request timeout"**
+- Enable streaming mode (default) to avoid timeouts
+- Check if Agent Zero is responding via web UI
+
+**"Cannot connect to Agent Zero"**
+- Verify Docker container is running: `docker ps | grep agent-zero`
+- Check API host setting matches your Docker port mapping
+
+**"API key not configured"**
+- Run: `Agent Zero: Configure Agent Zero` command
+- Or set in Settings → Agent Zero → API Key
+
+**Agent Zero can't find files**
+- Verify Host Path matches your local projects directory
+- Verify Container Path matches Docker volume mount
+- Ensure files are in a mounted volume
+
+For more details, see the [VS Code Extension README](../ide-extensions/vscode/agent-zero-provider/README.md).

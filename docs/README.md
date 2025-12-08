@@ -4,9 +4,10 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
 
 - **[Installation](installation.md):** Set up (or [update](installation.md#how-to-update-agent-zero)) Agent Zero on your system.
 - **[Usage Guide](usage.md):** Explore GUI features and usage scenarios.
+- **[Parallel Agent Delegation](parallel-agent-delegation.md):** Learn about parallel task execution and delegation system.
 - **[Development](development.md):** Set up a development environment for Agent Zero.
 - **[Extensibility](extensibility.md):** Learn how to create custom extensions for Agent Zero.
-- **[Connectivity](connectivity.md):** Learn how to connect to Agent Zero from other applications.
+- **[Connectivity](connectivity.md):** Learn how to connect to Agent Zero from other applications, including VS Code extension, External API, MCP servers, and A2A protocol.
 - **[Architecture Overview](architecture.md):** Understand the internal workings of the framework.
 - **[Contributing](contribution.md):** Learn how to contribute to the Agent Zero project.
 - **[Troubleshooting and FAQ](troubleshooting.md):** Find answers to common issues and questions.
@@ -44,6 +45,15 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
   - [Mathematical Expressions](usage.md#mathematical-expressions)
   - [File Browser](usage.md#file-browser)
   - [Backup & Restore](usage.md#backup--restore)
+- [Parallel Agent Delegation](parallel-agent-delegation.md)
+  - [Architecture Overview](parallel-agent-delegation.md#current-architecture-review)
+  - [Implementation Details](parallel-delegation-implementation.md)
+  - [Testing Guide](testing-parallel-delegation.md)
+- [Connectivity Guide](connectivity.md)
+  - [External API Endpoints](connectivity.md#external-api-endpoints)
+  - [MCP Server Connectivity](connectivity.md#mcp-server-connectivity)
+  - [A2A (Agent-to-Agent) Connectivity](connectivity.md#a2a-agent-to-agent-connectivity)
+  - [VS Code Extension](connectivity.md#vs-code-extension)
 - [Architecture Overview](architecture.md)
   - [System Architecture](architecture.md#system-architecture)
   - [Runtime Architecture](architecture.md#runtime-architecture)

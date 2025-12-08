@@ -91,6 +91,22 @@ Agent Zero now supports **Projects** – isolated workspaces with their own prom
 - The terminal interface is real-time streamed and interactive. You can stop and intervene at any point. If you see your agent heading in the wrong direction, just stop and tell it right away.
 - There is a lot of freedom in this framework. You can instruct your agents to regularly report back to superiors asking for permission to continue. You can instruct them to use point-scoring systems when deciding when to delegate subtasks. Superiors can double-check subordinates' results and dispute. The possibilities are endless.
 
+6. **VS Code Integration**
+
+- Use Agent Zero directly in VS Code Chat as a Language Model Provider
+- Seamless integration with your development workflow
+- Automatic workspace context mapping between local and container paths
+- Real-time streaming responses with progress visibility
+- Execute code, browse files, and run commands through Agent Zero from your IDE
+
+7. **Parallel Agent Delegation**
+
+- Delegate multiple tasks to subordinate agents simultaneously
+- Handle complex workflows with dependency management
+- Improved performance for multi-faceted tasks
+- Automatic task decomposition and parallelization
+- Better resource utilization and faster completion times
+
 ## 🚀 Things you can build with Agent Zero
 
 - **Development Projects** - `"Create a React dashboard with real-time data visualization"`
@@ -165,6 +181,22 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 
 ## 🎯 Changelog
+
+### v0.9.8 - VS Code Extension & Parallel Delegation
+
+- **VS Code Extension**
+  - Agent Zero Language Model Provider for VS Code Chat
+  - Direct integration with VS Code's chat interface
+  - Automatic workspace context mapping
+  - Real-time streaming responses
+  - VSIX packaging script generator in Developer settings
+- **Parallel Agent Delegation**
+  - New `delegate_parallel` tool for simultaneous task execution
+  - Task dependency management
+  - Improved performance for complex multi-task workflows
+  - Task queue system with concurrent execution limits
+  - Comprehensive documentation and testing guides
+- Performance optimizations and bug fixes
 
 ### v0.9.7 - Projects
 [Release video](https://youtu.be/RrTDp_v9V1c)
