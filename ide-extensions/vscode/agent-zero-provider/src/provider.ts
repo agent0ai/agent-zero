@@ -236,17 +236,44 @@ export class AgentZeroChatModelProvider
     }
 
     if (useStreaming) {
-      // Use streaming mode via async message + polling
-      await this.streamResponse(
-        apiHost,
-        apiKey,
-        messageText,
-        model.id === "agent-zero" ? this.contextId : undefined,
-        pollInterval,
-        timeout,
-        progress,
-        token
-      );
+      // Try streaming mode via async message + polling
+      // If it fails (e.g., CSRF token required when login is enabled), fall back to sync mode
+      try {
+        await this.streamResponse(
+          apiHost,
+          apiKey,
+          messageText,
+          model.id === "agent-zero" ? this.contextId : undefined,
+          pollInterval,
+          timeout,
+          progress,
+          token
+        );
+      } catch (error) {
+        // If streaming fails due to CSRF/auth requirements, fall back to API endpoint
+        if (
+          error instanceof Error &&
+          (error.message.includes("CSRF") ||
+            error.message.includes("302") ||
+            error.message.includes("login"))
+        ) {
+          console.log(
+            "Streaming mode failed (likely CSRF/auth issue), falling back to non-streaming API endpoint"
+          );
+          await this.sendSyncMessage(
+            apiHost,
+            apiKey,
+            messageText,
+            model.id === "agent-zero" ? this.contextId : undefined,
+            timeout,
+            progress,
+            token
+          );
+        } else {
+          // Re-throw other errors
+          throw error;
+        }
+      }
     } else {
       // Use non-streaming mode (original implementation)
       await this.sendSyncMessage(
@@ -346,6 +373,8 @@ export class AgentZeroChatModelProvider
     };
 
     try {
+      // Try to use message_async endpoint (requires CSRF if login is enabled)
+      // If it fails, the caller will fall back to api_message
       const asyncResponse = await this.makeRequest<AgentZeroAsyncResponse>(
         `${apiHost}/message_async`,
         "POST",
