@@ -53,10 +53,15 @@ export class AgentZeroChatModelProvider
     this._onDidChangeLanguageModelChatInformation.event;
 
   private context: vscode.ExtensionContext;
-  // Track contextId per chat session (keyed by session hash)
+  // Track contextId per chat session (keyed by session ID)
   private sessionContexts: Map<string, string> = new Map();
   // Track when each session was last accessed (to detect stale sessions)
   private sessionTimestamps: Map<string, number> = new Map();
+  // Map from conversation fingerprint to session ID (for finding existing sessions)
+  // Fingerprint is based on first user message + message count to make it more unique
+  private conversationFingerprintToSession: Map<string, string> = new Map();
+  // Track message counts per session to help identify sessions
+  private sessionMessageCounts: Map<string, number> = new Map();
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -352,8 +357,8 @@ export class AgentZeroChatModelProvider
       throw new Error("No text content in message");
     }
 
-    // Create a unique session ID based on the first user message
-    // Use ONLY the first message text (not message count) so all messages in same chat share same ID
+    // Use first message hash as stable session identifier
+    // This remains constant as the conversation continues
     const firstUserMessage = userMessages[0];
     const firstUserText = firstUserMessage
       ? firstUserMessage.content
@@ -364,46 +369,57 @@ export class AgentZeroChatModelProvider
           .map((part) => part.value)
           .join("\n")
       : messageText;
+    const firstMessageHash = crypto.createHash("sha256").update(firstUserText.substring(0, 500)).digest("hex").substring(0, 16);
     
-    // Create session ID: hash of first message ONLY (not message count)
-    // This ensures all messages in the same VS Code chat share the same session ID
-    const sessionId = crypto.createHash("sha256").update(firstUserText.substring(0, 500)).digest("hex").substring(0, 16);
-    
-    // Check if this is a new VS Code chat session
-    // New session = only one message total (the current user message)
-    const isNewSession = messages.length === 1;
-    
-    // Clean up old sessions (older than 1 hour) to prevent memory leaks
+    // Clean up old sessions
     const now = Date.now();
     const oneHourAgo = now - 60 * 60 * 1000;
     for (const [sid, timestamp] of this.sessionTimestamps.entries()) {
       if (timestamp < oneHourAgo) {
         this.sessionContexts.delete(sid);
         this.sessionTimestamps.delete(sid);
+        this.sessionMessageCounts.delete(sid);
+        for (const [hash, mappedSid] of this.conversationFingerprintToSession.entries()) {
+          if (mappedSid === sid) {
+            this.conversationFingerprintToSession.delete(hash);
+          }
+        }
       }
     }
     
-    // Get contextId for this session
-    // If it's a new session, start fresh (undefined)
-    // Otherwise, look up the stored contextId for this session
+    // Simple logic: Look up session by first message hash
+    // If found and has contextId, continue it; otherwise start fresh
+    const foundSessionId = this.conversationFingerprintToSession.get(firstMessageHash);
+    let sessionId: string;
     let sessionContextId: string | undefined;
-    if (isNewSession) {
-      // New session - start fresh and clear any old contextId for this session ID
-      // (in case user started a new chat with same first message)
-      this.sessionContexts.delete(sessionId);
-      sessionContextId = undefined;
-    } else {
-      // Continuing existing session - use stored contextId
+    
+    if (foundSessionId && 
+        this.sessionContexts.has(foundSessionId) && 
+        this.sessionContexts.get(foundSessionId) &&
+        this.sessionTimestamps.get(foundSessionId) && 
+        this.sessionTimestamps.get(foundSessionId)! > oneHourAgo) {
+      // Continue existing session
+      sessionId = foundSessionId;
       sessionContextId = this.sessionContexts.get(sessionId);
+      this.sessionMessageCounts.set(sessionId, userMessages.length);
+    } else {
+      // Start new session
+      const timestamp = Date.now();
+      const random = crypto.randomBytes(8).toString("hex");
+      sessionId = `${timestamp}-${random}`;
+      this.conversationFingerprintToSession.set(firstMessageHash, sessionId);
+      this.sessionMessageCounts.set(sessionId, userMessages.length);
+      sessionContextId = undefined;
     }
     
-    // Update session timestamp
     this.sessionTimestamps.set(sessionId, now);
 
-    // Append workspace context so Agent Zero knows where files are
-    const workspaceContext = await this.getWorkspaceContext();
-    if (workspaceContext) {
-      messageText = messageText + workspaceContext;
+    // Send workspace context only if no contextId (new session)
+    if (!sessionContextId) {
+      const workspaceContext = await this.getWorkspaceContext();
+      if (workspaceContext) {
+        messageText = messageText + workspaceContext;
+      }
     }
 
     // Check for cancellation
