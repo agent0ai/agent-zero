@@ -6,7 +6,7 @@
   margin: var(--spacing-sm) 0;
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--border-radius);
-  background: rgba(31, 60, 30, 0.3);
+  background: #1f3c1e;
   border: 1px solid rgba(255, 255, 255, 0.06);
   min-width: 200px;
   max-width: 100%;
@@ -23,7 +23,7 @@
   margin: 0;
   border-radius: var(--border-radius) var(--border-radius) 0 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(31, 60, 30, 0.4);
+  background: transparent;
 }
 
 /* Message container with embedded process group */
@@ -87,21 +87,41 @@
 }
 
 .process-group-header .group-title {
+  flex: 1;
   font-size: var(--font-size-smaller);
   font-weight: 400;
   color: var(--color-text);
   opacity: 0.7;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .process-group-header .step-count {
   font-size: 0.7rem;
   color: var(--color-text);
-  opacity: 0.5;
+  opacity: 0.6;
   flex-shrink: 0;
   background-color: rgba(255, 255, 255, 0.06);
   padding: 1px 6px;
   border-radius: 8px;
+}
+
+.process-group-header .group-timestamp {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.65);
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  margin-left: auto;
+}
+
+.process-group-header .group-duration {
+  font-size: 0.7rem;
+  color: #81c784;
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  min-width: 40px;
+  text-align: right;
 }
 
 /* Process Group Content - Animated expand/collapse */
@@ -163,19 +183,14 @@
 .process-step[data-type="util"]:hover,
 .process-step[data-type="info"]:hover,
 .process-step[data-type="hint"]:hover {
-  background-color: rgba(120, 115, 100, 0.18);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
-.light-mode .process-step[data-type="util"],
-.light-mode .process-step[data-type="info"],
-.light-mode .process-step[data-type="hint"] {
-  background-color: rgba(91, 85, 64, 0.06);
-}
 
 .light-mode .process-step[data-type="util"]:hover,
 .light-mode .process-step[data-type="info"]:hover,
 .light-mode .process-step[data-type="hint"]:hover {
-  background-color: rgba(91, 85, 64, 0.1);
+  background-color: rgba(0, 0, 0, 0.04);
 }
 
 /* Step Header (clickable) */
@@ -223,6 +238,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.process-step-header .step-time {
+  font-size: 0.65rem;
+  color: #81c784;
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  min-width: 35px;
+  text-align: right;
 }
 
 .process-step-header .step-expand-icon {
@@ -351,6 +375,18 @@
 .light-mode .process-step-header .step-title,
 .light-mode .process-step-header .step-type {
   color: #188216;
+}
+
+.light-mode .process-group-header .group-timestamp {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.light-mode .process-group-header .group-duration {
+  color: #2e7d32;
+}
+
+.light-mode .process-step-header .step-time {
+  color: #388e3c;
 }
 
 /* Animation for loading state */

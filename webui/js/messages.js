@@ -19,7 +19,7 @@ const MAIN_TYPES = ['user', 'response', 'warning', 'error', 'rate_limit'];
 
 // Simplified implementation - no complex interactions needed
 
-export function setMessage(id, type, heading, content, temp, kvps = null) {
+export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null) {
   // Check if this is a process type message
   const isProcessType = PROCESS_TYPES.includes(type);
   const isMainType = MAIN_TYPES.includes(type);
@@ -49,7 +49,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null) {
     }
     
     // Add step to current process group
-    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps);
+    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp);
     return processStepElement;
   }
 
@@ -1136,6 +1136,7 @@ function createProcessGroup(id) {
     <span class="material-symbols-outlined group-icon">neurology</span>
     <span class="group-title">Processing...</span>
     <span class="step-count">0 steps</span>
+    <span class="group-timestamp"></span>
   `;
   
   // Add click handler for expansion
@@ -1164,7 +1165,7 @@ function createProcessGroup(id) {
 /**
  * Add a step to a process group
  */
-function addProcessStep(group, id, type, heading, content, kvps) {
+function addProcessStep(group, id, type, heading, content, kvps, timestamp = null) {
   const groupId = group.getAttribute("data-group-id");
   const stepsContainer = group.querySelector(".process-steps");
   
@@ -1174,6 +1175,21 @@ function addProcessStep(group, id, type, heading, content, kvps) {
   step.classList.add("process-step");
   step.setAttribute("data-type", type);
   step.setAttribute("data-step-id", id);
+  
+  // Store timestamp for duration calculation
+  if (timestamp) {
+    step.setAttribute("data-timestamp", timestamp);
+    
+    // Set group start time from first step
+    if (!group.getAttribute("data-start-timestamp")) {
+      group.setAttribute("data-start-timestamp", timestamp);
+      // Update header with formatted datetime
+      const timestampEl = group.querySelector(".group-timestamp");
+      if (timestampEl) {
+        timestampEl.textContent = formatDateTime(timestamp);
+      }
+    }
+  }
   
   // Add message-util class for utility/info types (controlled by showUtils preference)
   if (type === "util" || type === "info" || type === "hint") {
@@ -1198,10 +1214,22 @@ function addProcessStep(group, id, type, heading, content, kvps) {
   // Create step header
   const stepHeader = document.createElement("div");
   stepHeader.classList.add("process-step-header");
+  
+  // Calculate relative time from group start
+  let relativeTimeStr = "";
+  if (timestamp) {
+    const groupStartTime = parseFloat(group.getAttribute("data-start-timestamp") || "0");
+    if (groupStartTime > 0) {
+      const relativeMs = (timestamp - groupStartTime) * 1000;
+      relativeTimeStr = formatRelativeTime(relativeMs);
+    }
+  }
+  
   stepHeader.innerHTML = `
     <span class="material-symbols-outlined step-icon">${icon}</span>
     <span class="step-type">${label}</span>
     <span class="step-title">${escapeHTML(title)}</span>
+    ${relativeTimeStr ? `<span class="step-time">${relativeTimeStr}</span>` : ""}
     <span class="material-symbols-outlined step-expand-icon">expand_more</span>
   `;
   
@@ -1425,4 +1453,34 @@ function truncateText(text, maxLength) {
 export function resetProcessGroups() {
   currentProcessGroup = null;
   messageGroup = null;
+}
+
+/**
+ * Format Unix timestamp as date-time string (YYYY-MM-DD HH:MM:SS)
+ */
+function formatDateTime(timestamp) {
+  const date = new Date(timestamp * 1000); // Convert seconds to milliseconds
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Format relative time for steps (e.g., +0.5s, +2.3s)
+ */
+function formatRelativeTime(ms) {
+  if (ms < 100) {
+    return "+0s";
+  }
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `+${seconds.toFixed(1)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `+${minutes}m${remainingSeconds}s`;
 }
