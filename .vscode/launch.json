@@ -1,8 +1,6 @@
 {
   "version": "0.2.0",
   "configurations": [
-
-
     {
       "name": "Debug run_ui.py",
       "type": "debugpy",
@@ -10,7 +8,10 @@
       "program": "${workspaceFolder}/run_ui.py",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["--development=true", "-Xfrozen_modules=off"]
+      "args": ["--development=true", "-Xfrozen_modules=off"],
+      "python": "${command:python.interpreterPath}",
+      "cwd": "${workspaceFolder}",
+      "env": {"PYTHONPATH": "${workspaceFolder}"}
     },
     {
       "name": "Debug current file",
@@ -19,7 +20,10 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["--development=true", "-Xfrozen_modules=off"]
+      "args": ["--development=true", "-Xfrozen_modules=off"],
+      "python": "${command:python.interpreterPath}",
+      "cwd": "${workspaceFolder}",
+      "env": {"PYTHONPATH": "${workspaceFolder}"}
     }
   ]
 }
