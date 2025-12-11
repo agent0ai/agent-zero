@@ -147,7 +147,7 @@ def csrf_protect(f):
     return decorated
 
 @webapp.route("/login", methods=["GET", "POST"])
-async def login_handler():
+def login_handler():
     error = None
     if request.method == 'POST':
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
@@ -163,14 +163,14 @@ async def login_handler():
     return render_template_string(login_page_content, error=error)
 
 @webapp.route("/logout")
-async def logout_handler():
+def logout_handler():
     session.pop('authentication', None)
     return redirect(url_for('login_handler'))
 
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
 @requires_auth
-async def serve_index():
+def serve_index():
     gitinfo = None
     try:
         gitinfo = git.get_git_info()
