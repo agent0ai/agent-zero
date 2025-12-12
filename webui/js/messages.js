@@ -17,7 +17,17 @@ const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'info', 'hint', '
 // Main types that should always be visible (not collapsed)
 const MAIN_TYPES = ['user', 'response', 'warning', 'error', 'rate_limit'];
 
-// Simplified implementation - no complex interactions needed
+/**
+ * Check if a response is from the main agent (A0)
+ * Subordinate agents (A1, A2, ...) responses should be treated as process steps
+ */
+function isMainAgentResponse(heading) {
+  if (!heading) return true; // Default to main agent
+  // Check for subordinate agent patterns like "A1:", "A2:", etc.
+  const match = heading.match(/\bA(\d+):/);
+  if (!match) return true; // No agent marker = main agent
+  return match[1] === "0"; // Only A0 is the main agent
+}
 
 export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null) {
   // Check if this is a process type message
@@ -53,7 +63,25 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     return processStepElement;
   }
 
-  // For response type, embed the current process group inside (but keep reference)
+  // For subordinate agent responses (A1, A2, ...), treat as a process step instead of main response
+  if (type === "response" && !isMainAgentResponse(heading)) {
+    if (processStepElement) {
+      updateProcessStep(processStepElement, id, "agent", heading, content, kvps);
+      return processStepElement;
+    }
+    
+    // Create or get process group for current interaction
+    if (!currentProcessGroup || !document.getElementById(currentProcessGroup.id)) {
+      currentProcessGroup = createProcessGroup(id);
+      chatHistory.appendChild(currentProcessGroup);
+    }
+    
+    // Add subordinate response as a step (type "agent" for appropriate styling)
+    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp);
+    return processStepElement;
+  }
+
+  // For main agent (A0) response, embed the current process group
   if (type === "response" && currentProcessGroup) {
     const processGroupToEmbed = currentProcessGroup;
     // Keep currentProcessGroup reference - subsequent process messages go to same group
@@ -1317,7 +1345,8 @@ function getStepTitle(heading, kvps, type) {
 }
 
 /**
- * Clean step title by removing icon:// prefixes and agent markers
+ * Clean step title by removing icon:// prefixes
+ * Preserves agent markers (A0:, A1:, etc.) so users can see which agent is executing
  */
 function cleanStepTitle(text, maxLength) {
   if (!text) return "";
@@ -1326,8 +1355,9 @@ function cleanStepTitle(text, maxLength) {
   // Remove icon:// patterns (e.g., "icon://network_intelligence")
   cleaned = cleaned.replace(/icon:\/\/[a-zA-Z0-9_]+\s*/g, "");
   
-  // Remove agent markers like "A0:" or similar
-  cleaned = cleaned.replace(/^[A-Z]\d+:\s*/i, "");
+  // Keep agent markers (A0:, A1:, etc.) - users need to see which agent is executing
+  // Only remove "A0:" as it's the main agent (implied)
+  cleaned = cleaned.replace(/^A0:\s*/i, "");
   
   // Trim whitespace
   cleaned = cleaned.trim();
