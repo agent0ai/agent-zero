@@ -127,6 +127,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     //force new group on these types
     const groupStart = {
       response: true, // response starts a new group
+      user: true, // user message starts a new group (each user message should be separate)
       // anything else is false
     };
 
