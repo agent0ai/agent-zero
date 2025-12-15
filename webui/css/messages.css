@@ -79,9 +79,12 @@
 
 .message-user {
   background-color: #4a4a4a;
+  border-radius: var(--border-radius) !important;
   /* border-bottom-right-radius: var(--spacing-xxs); */
   /* min-width: 195px; */
   text-align: end;
+  box-shadow: inset 0 2rem 2rem -2rem rgba(0, 0, 0, 0.3),
+    inset 0 -2rem 2rem -2rem rgba(0, 0, 0, 0.1);
 }
 
 .message-user > div {
@@ -116,7 +119,7 @@
 }
 
 .message-followup .message {
-  border-radius: 1.125em; /* 18px */
+  border-radius: 0;
   /* border-top-left-radius: var(--spacing-xxs); */
 }
 
@@ -137,31 +140,34 @@
 .message-warning,
 .message-error {
   color: #e0e0e0;
+  background-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .message-default {
-  background-color: #1a242f;
+  background-color: transparent;
 }
 
 .message-agent {
-  background-color: #34506b;
+  background-color: transparent;
 }
 
 .message-agent-response {
   min-width: 255px;
-  background-color: #1f3c1e;
+  background-color: transparent;
 }
 
 .message-agent-delegation {
-  background-color: #12685e;
+  background-color: transparent;
 }
 
 .message-tool {
-  background-color: #2a4170;
+  background-color: transparent;
 }
 
 .message-code-exe {
-  background-color: #4b3a69;
+  background-color: transparent;
 }
 
 .message-body .message-markdown-table-wrap {
@@ -186,24 +192,24 @@
 }
 
 .message-browser {
-  background-color: #4b3a69;
+  background-color: transparent;
 }
 
 .message-info {
-  background-color: var(--color-panel);
+  background-color: transparent;
 }
 
 .message-util {
-  background-color: #23211a;
+  background-color: transparent;
   display: none;
 }
 
 .message-warning {
-  background-color: #bc8036;
+  background-color: transparent;
 }
 
 .message-error {
-  background-color: #af2222;
+  background-color: transparent;
 }
 
 .message-code-exe .message-body {
@@ -419,63 +425,66 @@
 }
 
 .light-mode .message-default {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #1a242f;
 }
 
 .light-mode .message-agent {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #356ca3;
 }
 
 .light-mode .message-agent-response {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #188216;
 }
 
 .light-mode .message-agent-delegation {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #12685e;
 }
 
 .light-mode .message-tool {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #1c3c88;
 }
 
 .light-mode .message-code-exe {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #6c43b0;
 }
 
 .light-mode .message-browser {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #6c43b0;
 }
 
 .light-mode .message-info {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #3f3f3f;
 }
 
 .light-mode .message-util {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #5b5540;
 }
 
 .light-mode .message-warning {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #8f4800;
 }
 
 .light-mode .message-error {
-  background-color: var(--color-panel);
+  background-color: transparent;
   color: #8f1010;
 }
 
 .light-mode .message-user {
   background-color: var(--color-panel);
   color: #4e4e4e;
+  border-radius: var(--border-radius);
+  box-shadow: inset 0 2rem 2rem -2rem rgba(0, 0, 0, 0.15),
+    inset 0 -2rem 2rem -2rem rgba(0, 0, 0, 0.05);
 }
 
 /* Markdown in messages */
@@ -604,18 +613,18 @@
 }
 
 /* 1. FIRST child’s .message – clear ONLY bottom corners          */
-.message-group > *:first-child:not(:last-child) > .message {
+.message-group > *:first-child:not(:last-child) > .message-user {
   border-bottom-left-radius: var(--spacing-xxs);
   border-bottom-right-radius: var(--spacing-xxs);
 }
 
 /* 2. MIDDLE children’s .message – clear ALL corners              */
-.message-group > *:not(:first-child):not(:last-child) > .message {
+.message-group > *:not(:first-child):not(:last-child) > .message-user {
   border-radius: var(--spacing-xxs);
 }
 
 /* 3. LAST child’s .message – clear ONLY top corners              */
-.message-group > *:last-child:not(:first-child) > .message {
+.message-group > *:last-child:not(:first-child) > .message-user {
   border-top-left-radius: var(--spacing-xxs);
   border-top-right-radius: var(--spacing-xxs);
 }
@@ -630,7 +639,7 @@
 
 .message {
   /* background-color: var(--color-message-bg); */
-  border-radius: var(--border-radius);
+  border-radius: 0;
   padding: 0.9rem var(--spacing-sm) 0.7rem var(--spacing-sm);
   overflow-x: auto;
   width: auto;
@@ -639,10 +648,10 @@
   /* display: block; */
   word-break: break-word;
   overflow-wrap: anywhere;
+  box-shadow: none;
 }
 
 /* shades */
 .dark-mode .message {
-  box-shadow: inset 0 2rem 2rem -2rem rgba(0, 0, 0, 0.3),
-    inset 0 -2rem 2rem -2rem rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }

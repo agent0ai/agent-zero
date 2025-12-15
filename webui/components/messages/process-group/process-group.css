@@ -4,10 +4,7 @@
   position: relative;
   z-index: 1;
   margin: var(--spacing-sm) 0;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--border-radius);
-  background: #1f3c1e;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: var(--spacing-sm) 0;
   min-width: 200px;
   max-width: 100%;
   box-sizing: border-box;
@@ -30,9 +27,6 @@
 .message-container.has-process-group {
   display: inline-flex;
   flex-direction: column;
-  background: #1f3c1e;
-  border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 0;
   overflow: hidden;
   min-width: 200px;
@@ -40,14 +34,9 @@
 }
 
 .message-container.has-process-group > .message {
-  border-radius: 0 0 var(--border-radius) var(--border-radius);
   border: none;
   background: transparent;
   margin: 0;
-}
-
-.process-group:hover {
-  border-color: rgba(255, 255, 255, 0.10);
 }
 
 /* Process Group Header */
@@ -102,9 +91,7 @@
   color: var(--color-text);
   opacity: 0.6;
   flex-shrink: 0;
-  background-color: rgba(255, 255, 255, 0.06);
   padding: 1px 6px;
-  border-radius: 8px;
 }
 
 .process-group-header .group-timestamp {
@@ -167,10 +154,6 @@
   padding: var(--spacing-xxs) var(--spacing-xs);
   border-radius: 4px;
   transition: background-color 0.15s ease;
-}
-
-.process-step:hover {
-  background-color: rgba(255, 255, 255, 0.03);
 }
 
 /* Utility/Info/Hint steps have subtle background tint */
@@ -335,7 +318,7 @@
 /* Light mode adjustments */
 .light-mode .process-group {
   background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.08);
+  border: none;
 }
 
 .light-mode .process-group.embedded {

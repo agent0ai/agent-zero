@@ -1244,13 +1244,20 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   const stepHeader = document.createElement("div");
   stepHeader.classList.add("process-step-header");
   
-  // Calculate relative time from group start
+  // Calculate relative time from previous step (hide if <5s)
   let relativeTimeStr = "";
   if (timestamp) {
-    const groupStartTime = parseFloat(group.getAttribute("data-start-timestamp") || "0");
-    if (groupStartTime > 0) {
-      const relativeMs = (timestamp - groupStartTime) * 1000;
-      relativeTimeStr = formatRelativeTime(relativeMs);
+    const previousStep = stepsContainer.querySelector(".process-step:last-of-type");
+    const previousTimestamp = previousStep?.getAttribute("data-timestamp");
+    const anchorSeconds = previousTimestamp
+      ? parseFloat(previousTimestamp)
+      : parseFloat(group.getAttribute("data-start-timestamp") || "0");
+
+    if (anchorSeconds > 0) {
+      const deltaMs = (timestamp - anchorSeconds) * 1000;
+      if (deltaMs >= 5000) {
+        relativeTimeStr = formatRelativeTime(deltaMs);
+      }
     }
   }
   
