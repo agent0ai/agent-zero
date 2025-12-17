@@ -11,6 +11,11 @@ const chatHistory = document.getElementById("chat-history");
 
 let messageGroup = null;
 let currentProcessGroup = null; // Track current process group for collapsible UI
+const stepDurationTimers = new Map(); // Live duration timers for in-progress steps
+
+// Duration display thresholds
+const DURATION_DISPLAY_THRESHOLD_MS = 5000; // Only show duration if >= 5 seconds
+const DURATION_TIMER_INTERVAL_MS = 100; // Update interval for live duration counter
 
 // Process types that should be grouped into collapsible sections
 const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'info', 'hint', 'util'];
@@ -29,7 +34,7 @@ function isMainAgentResponse(heading) {
   return match[1] === "0"; // Only A0 is the main agent
 }
 
-export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null) {
+export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null) {
   // Check if this is a process type message
   const isProcessType = PROCESS_TYPES.includes(type);
   const isMainType = MAIN_TYPES.includes(type);
@@ -48,7 +53,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
   if (isProcessType) {
     if (processStepElement) {
       // Update existing process step
-      updateProcessStep(processStepElement, id, type, heading, content, kvps);
+      updateProcessStep(processStepElement, id, type, heading, content, kvps, durationMs);
       return processStepElement;
     }
     
@@ -59,14 +64,14 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     }
     
     // Add step to current process group
-    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp);
+    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp, durationMs);
     return processStepElement;
   }
 
   // For subordinate agent responses (A1, A2, ...), treat as a process step instead of main response
   if (type === "response" && !isMainAgentResponse(heading)) {
     if (processStepElement) {
-      updateProcessStep(processStepElement, id, "agent", heading, content, kvps);
+      updateProcessStep(processStepElement, id, "agent", heading, content, kvps, durationMs);
       return processStepElement;
     }
     
@@ -77,7 +82,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     }
     
     // Add subordinate response as a step (type "agent" for appropriate styling)
-    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp);
+    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp, durationMs);
     return processStepElement;
   }
 
@@ -1194,7 +1199,7 @@ function createProcessGroup(id) {
 /**
  * Add a step to a process group
  */
-function addProcessStep(group, id, type, heading, content, kvps, timestamp = null) {
+function addProcessStep(group, id, type, heading, content, kvps, timestamp = null, durationMs = null) {
   const groupId = group.getAttribute("data-group-id");
   const stepsContainer = group.querySelector(".process-steps");
   
@@ -1244,30 +1249,27 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   const stepHeader = document.createElement("div");
   stepHeader.classList.add("process-step-header");
   
-  // Calculate relative time from previous step (hide if <5s)
-  let relativeTimeStr = "";
-  if (timestamp) {
-    const previousStep = stepsContainer.querySelector(".process-step:last-of-type");
-    const previousTimestamp = previousStep?.getAttribute("data-timestamp");
-    const anchorSeconds = previousTimestamp
-      ? parseFloat(previousTimestamp)
-      : parseFloat(group.getAttribute("data-start-timestamp") || "0");
-
-    if (anchorSeconds > 0) {
-      const deltaMs = (timestamp - anchorSeconds) * 1000;
-      if (deltaMs >= 5000) {
-        relativeTimeStr = formatRelativeTime(deltaMs);
-      }
-    }
-  }
+  // Duration display: use backend-provided durationMs if finalized
+  const durationStr = (durationMs !== null && durationMs >= DURATION_DISPLAY_THRESHOLD_MS) ? formatRelativeTime(durationMs) : "";
   
   stepHeader.innerHTML = `
     <span class="material-symbols-outlined step-icon">${icon}</span>
     <span class="step-type">${label}</span>
     <span class="step-title">${escapeHTML(title)}</span>
-    ${relativeTimeStr ? `<span class="step-time">${relativeTimeStr}</span>` : ""}
+    <span class="step-time">${durationStr}</span>
     <span class="material-symbols-outlined step-expand-icon">expand_more</span>
   `;
+  
+  // Start live duration timer if step is in-progress (no duration yet)
+  if (durationMs === null && timestamp) {
+    const startTimeMs = timestamp * 1000;
+    const timeEl = stepHeader.querySelector(".step-time");
+    const timerId = setInterval(() => {
+      const elapsedMs = Date.now() - startTimeMs;
+      timeEl.textContent = elapsedMs >= DURATION_DISPLAY_THRESHOLD_MS ? formatRelativeTime(elapsedMs) : "";
+    }, DURATION_TIMER_INTERVAL_MS);
+    stepDurationTimers.set(id, timerId);
+  }
   
   // Add click handler for step expansion
   stepHeader.addEventListener("click", (e) => {
@@ -1302,7 +1304,7 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
 /**
  * Update an existing process step
  */
-function updateProcessStep(stepElement, id, type, heading, content, kvps) {
+function updateProcessStep(stepElement, id, type, heading, content, kvps, durationMs = null) {
   // Update title
   const titleEl = stepElement.querySelector(".step-title");
   if (titleEl) {
@@ -1314,6 +1316,18 @@ function updateProcessStep(stepElement, id, type, heading, content, kvps) {
   const detailContent = stepElement.querySelector(".process-step-detail-content");
   if (detailContent) {
     renderStepDetailContent(detailContent, content, kvps);
+  }
+  
+  // Finalize duration: stop live timer and display backend-provided duration
+  if (stepDurationTimers.has(id)) {
+    clearInterval(stepDurationTimers.get(id));
+    stepDurationTimers.delete(id);
+  }
+  if (durationMs !== null) {
+    const timeEl = stepElement.querySelector(".step-time");
+    if (timeEl) {
+      timeEl.textContent = durationMs >= DURATION_DISPLAY_THRESHOLD_MS ? formatRelativeTime(durationMs) : "";
+    }
   }
   
   // Update parent group header
@@ -1491,6 +1505,11 @@ function truncateText(text, maxLength) {
 export function resetProcessGroups() {
   currentProcessGroup = null;
   messageGroup = null;
+  // Clear all live duration timers
+  for (const timerId of stepDurationTimers.values()) {
+    clearInterval(timerId);
+  }
+  stepDurationTimers.clear();
 }
 
 /**

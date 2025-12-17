@@ -133,6 +133,7 @@ class LogItem:
     id: Optional[str] = None  # Add id field
     guid: str = ""
     timestamp: float = 0.0  # Unix timestamp in seconds
+    duration_ms: Optional[int] = None  # Duration until next step (set by Log.log)
 
     def __post_init__(self):
         self.guid = self.log.guid
@@ -185,6 +186,7 @@ class LogItem:
             "temp": self.temp,
             "kvps": self.kvps,
             "timestamp": self.timestamp,  # Unix timestamp in seconds
+            "duration_ms": self.duration_ms,  # Duration until next step
         }
 
 
@@ -215,6 +217,11 @@ class Log:
             no=len(self.logs),
             type=type,
         )
+        # Set duration on previous item and mark it as updated
+        if self.logs:
+            prev = self.logs[-1]
+            prev.duration_ms = int((item.timestamp - prev.timestamp) * 1000)
+            self.updates += [prev.no]
         self.logs.append(item)
 
         # and update it (to have just one implementation)

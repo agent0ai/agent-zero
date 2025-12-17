@@ -185,8 +185,8 @@ async function updateUserTime() {
 updateUserTime();
 setInterval(updateUserTime, 1000);
 
-function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null) {
-  const result = msgs.setMessage(id, type, heading, content, temp, kvps, timestamp);
+function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null) {
+  const result = msgs.setMessage(id, type, heading, content, temp, kvps, timestamp, durationMs);
   const chatHistoryEl = document.getElementById("chat-history");
   if (preferencesStore.autoScroll && chatHistoryEl) {
     chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
@@ -311,7 +311,8 @@ export async function poll() {
           log.content,
           log.temp,
           log.kvps,
-          log.timestamp
+          log.timestamp,
+          log.duration_ms
         );
       }
       afterMessagesUpdate(response.logs);
