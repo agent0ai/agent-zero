@@ -67,6 +67,32 @@
                         </p>
                     </div>
                 </div>
+
+                <!-- Banner Section -->
+                <div class="welcome-banners" x-show="banners && banners.length > 0">
+                    <template x-for="banner in sortedBanners" :key="banner.id">
+                        <div class="welcome-banner" :class="getBannerClass(banner.type)">
+                            <!-- Banner Icon -->
+                            <div class="welcome-banner-icon">
+                                <span class="material-symbols-outlined" x-text="getBannerIcon(banner.type)"></span>
+                            </div>
+                            
+                            <!-- Banner Content -->
+                            <div class="welcome-banner-content">
+                                <div class="welcome-banner-title" x-text="banner.title"></div>
+                                <div class="welcome-banner-html" x-html="banner.html"></div>
+                            </div>
+                            
+                            <!-- Dismiss Button -->
+                            <button class="welcome-banner-dismiss" 
+                                    x-show="banner.dismissible !== false"
+                                    @click.stop="dismissBanner(banner.id)"
+                                    title="Dismiss">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                    </template>
+                </div>
             </div>
         </template>
     </div>
@@ -168,6 +194,134 @@
             line-height: 1.3;
         }
 
+        /* Banner Styles */
+        .welcome-banners {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 520px;
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        .welcome-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            text-align: left;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .welcome-banner:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Banner Type Styles */
+        .welcome-banner.banner-info {
+            border-left: 4px solid #2196F3;
+        }
+
+        .welcome-banner.banner-warning {
+            border-left: 4px solid #FF9800;
+        }
+
+        .welcome-banner.banner-error {
+            border-left: 4px solid #F44336;
+        }
+
+        /* Banner Icon */
+        .welcome-banner-icon {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin-top: 2px;
+        }
+
+        .welcome-banner-icon .material-symbols-outlined {
+            font-size: 1.25rem;
+        }
+
+        .banner-info .welcome-banner-icon {
+            color: #2196F3;
+        }
+
+        .banner-warning .welcome-banner-icon {
+            color: #FF9800;
+        }
+
+        .banner-error .welcome-banner-icon {
+            color: #F44336;
+        }
+
+        /* Banner Content */
+        .welcome-banner-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .welcome-banner-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--color-text);
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+
+        .welcome-banner-html {
+            font-size: 0.85rem;
+            color: var(--color-secondary);
+            line-height: 1.5;
+        }
+
+        .welcome-banner-html a {
+            color: var(--color-primary);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .welcome-banner-html a:hover {
+            color: var(--color-highlight-dark);
+        }
+
+        .welcome-banner-html strong {
+            color: var(--color-text);
+            font-weight: 600;
+        }
+
+        /* Banner Dismiss Button */
+        .welcome-banner-dismiss {
+            flex-shrink: 0;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            color: var(--color-secondary);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            opacity: 0.6;
+        }
+
+        .welcome-banner-dismiss:hover {
+            background: var(--color-border);
+            color: var(--color-text);
+            opacity: 1;
+        }
+
+        .welcome-banner-dismiss .material-symbols-outlined {
+            font-size: 1.1rem;
+        }
+
         /* Light mode adjustments */
         .light-mode .welcome-title {
             color: #2d2d2d;
@@ -186,6 +340,18 @@
         }
 
         .light-mode .welcome-footer {
+            color: #666;
+        }
+
+        .light-mode .welcome-banner {
+            background: #fff;
+        }
+
+        .light-mode .welcome-banner-title {
+            color: #2d2d2d;
+        }
+
+        .light-mode .welcome-banner-html {
             color: #666;
         }
 
@@ -233,6 +399,22 @@
 
             .welcome-action-title {
                 font-size: 1.1rem;
+            }
+
+            .welcome-banners {
+                max-width: 100%;
+            }
+
+            .welcome-banner {
+                padding: 12px 14px;
+            }
+
+            .welcome-banner-title {
+                font-size: 0.85rem;
+            }
+
+            .welcome-banner-html {
+                font-size: 0.8rem;
             }
         }
     </style>
