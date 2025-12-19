@@ -53,8 +53,11 @@ export function checkMissingApiKey(context) {
   
   if (!modelProviders) return null;
   
-  // These providers run locally, no API key needed
-  const localProviders = ['ollama', 'lm_studio', 'huggingface'];
+  // Providers that run locally, no API key needed
+  const localProviders = ['ollama', 'lm_studio'];
+  
+  // HuggingFace runs locally for embedding, but needs API key for chat/utility/browser
+  const huggingfaceLocalForEmbedding = ['huggingface'];
   
   const modelTypeNames = {
     chat: 'Chat Model',
@@ -69,7 +72,10 @@ export function checkMissingApiKey(context) {
     if (!provider) continue;
     
     const providerLower = provider.toLowerCase();
+    
     if (localProviders.includes(providerLower)) continue;
+    
+    if (modelType === 'embedding' && huggingfaceLocalForEmbedding.includes(providerLower)) continue;
     
     // Backend returns '************' placeholder for existing keys
     const apiKeyValue = apiKeys && apiKeys[providerLower];
