@@ -102,6 +102,9 @@ const model = {
   extractSettingsForBanners(settingsOutput) {
     const result = {
       chat_model_provider: '',
+      util_model_provider: '',
+      browser_model_provider: '',
+      embed_model_provider: '',
       api_keys: {},
       auth_login: '',
       auth_password: '',
@@ -113,16 +116,31 @@ const model = {
     
     for (const section of settingsOutput.sections) {
       for (const field of section.fields || []) {
-        if (field.id === 'chat_model_provider') {
-          result.chat_model_provider = field.value || '';
-        } else if (field.id === 'auth_login') {
-          result.auth_login = field.value || '';
-        } else if (field.id === 'auth_password') {
-          result.auth_password = field.value || '';
-        } else if (field.id && field.id.startsWith('api_key_')) {
-          // Extract API keys (e.g., api_key_openai -> openai)
-          const provider = field.id.replace('api_key_', '');
-          result.api_keys[provider] = field.value || '';
+        switch (field.id) {
+          case 'chat_model_provider':
+            result.chat_model_provider = field.value || '';
+            break;
+          case 'util_model_provider':
+            result.util_model_provider = field.value || '';
+            break;
+          case 'browser_model_provider':
+            result.browser_model_provider = field.value || '';
+            break;
+          case 'embed_model_provider':
+            result.embed_model_provider = field.value || '';
+            break;
+          case 'auth_login':
+            result.auth_login = field.value || '';
+            break;
+          case 'auth_password':
+            result.auth_password = field.value || '';
+            break;
+          default:
+            if (field.id && field.id.startsWith('api_key_')) {
+              // Extract API keys (e.g., api_key_openai -> openai)
+              const provider = field.id.replace('api_key_', '');
+              result.api_keys[provider] = field.value || '';
+            }
         }
       }
     }

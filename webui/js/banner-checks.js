@@ -1,19 +1,9 @@
-/**
- * Frontend Banner Checks
- * Modular system for generating banners based on frontend context
- */
-
-/** Returns true if hostname is local/private */
 function isLocalhost(hostname) {
-  const localPatterns = [
-    'localhost',
-    '127.0.0.1',
-    '::1',
-    '0.0.0.0',
-  ];
+  const localPatterns = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
   
   if (localPatterns.includes(hostname)) return true;
   
+  // RFC1918 private ranges
   if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
   if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
   if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
@@ -23,13 +13,11 @@ function isLocalhost(hostname) {
   return false;
 }
 
-/** Frontend check: unsecured / unsafe connections */
 export function checkUnsecuredConnection(context) {
   const { hostname, protocol, hasCredentials } = context;
   const isLocal = isLocalhost(hostname);
   const isHttps = protocol === 'https:';
   
-  // Unsecured access scenarios
   if (!isLocal && !hasCredentials) {
     return {
       id: 'unsecured-connection',
@@ -60,55 +48,65 @@ export function checkUnsecuredConnection(context) {
   return null;
 }
 
-/** Frontend check: missing API keys */
 export function checkMissingApiKey(context) {
-  const { selectedProvider, apiKeys } = context;
+  const { modelProviders, apiKeys } = context;
   
-  if (!selectedProvider) return null;
+  if (!modelProviders) return null;
   
-  const localProviders = ['ollama', 'lm_studio'];
+  // These providers run locally, no API key needed
+  const localProviders = ['ollama', 'lm_studio', 'huggingface'];
   
-  if (localProviders.includes(selectedProvider.toLowerCase())) {
-    return null;
+  const modelTypeNames = {
+    chat: 'Chat Model',
+    utility: 'Utility Model',
+    browser: 'Web Browser Model',
+    embedding: 'Embedding Model',
+  };
+  
+  const missingProviders = [];
+  
+  for (const [modelType, provider] of Object.entries(modelProviders)) {
+    if (!provider) continue;
+    
+    const providerLower = provider.toLowerCase();
+    if (localProviders.includes(providerLower)) continue;
+    
+    // Backend returns '************' placeholder for existing keys
+    const apiKeyValue = apiKeys && apiKeys[providerLower];
+    const hasApiKey = apiKeyValue && apiKeyValue.trim() !== '';
+    
+    if (!hasApiKey) {
+      missingProviders.push({
+        modelType: modelTypeNames[modelType] || modelType,
+        provider: provider,
+      });
+    }
   }
   
-  // Note: Backend returns '************' placeholder for existing keys
-  const providerKey = selectedProvider.toLowerCase();
-  const apiKeyValue = apiKeys && apiKeys[providerKey];
-  const hasApiKey = apiKeyValue && 
-                    apiKeyValue.trim() !== '' && 
-                    apiKeyValue !== '************';  // Placeholder means key exists
+  if (missingProviders.length === 0) return null;
   
-  const hasPlaceholder = apiKeyValue === '************';
+  const modelList = missingProviders.map(p => `${p.modelType} (${p.provider})`).join(', ');
   
-  if (!hasApiKey && !hasPlaceholder) {
-    return {
-      id: 'missing-api-key',
-      type: 'error',
-      priority: 100,
-      title: 'Missing API Key',
-      html: `No API key configured for <strong>${selectedProvider}</strong>. 
-             Agent Zero will not be able to function properly. 
-             <a href="#" onclick="document.getElementById('settings').click(); return false;">
-             Add your API key</a> in Settings → External Services → API Keys.`,
-      dismissible: false,
-      source: 'frontend'
-    };
-  }
-  
-  return null;
+  return {
+    id: 'missing-api-key',
+    type: 'error',
+    priority: 100,
+    title: 'Missing API Key',
+    html: `No API key configured for: ${modelList}. 
+           Agent Zero will not be able to function properly. 
+           <a href="#" onclick="document.getElementById('settings').click(); return false;">
+           Add your API key</a> in Settings → External Services → API Keys.`,
+    dismissible: false,
+    source: 'frontend'
+  };
 }
 
-/**
- * Registry of all frontend banner checks
- * Add new check functions here to extend the system
- */
+// Add new check functions here to extend
 const bannerChecks = [
   checkUnsecuredConnection,
   checkMissingApiKey,
 ];
 
-/** Run all registered banner checks */
 export function runAllChecks(context) {
   const banners = [];
   
@@ -119,21 +117,28 @@ export function runAllChecks(context) {
         banners.push(result);
       }
     } catch (error) {
-      console.error(`Banner check failed:`, error);
+      console.error('Banner check failed:', error);
     }
   }
   
   return banners;
 }
 
-/** Build frontend banner-check context */
 export function buildFrontendContext(settings = {}) {
+  // '****PSWD****' placeholder means password IS configured
   const hasCredentials = Boolean(
     settings?.auth_login && 
+    settings?.auth_login.trim() !== '' &&
     settings?.auth_password && 
-    settings.auth_password !== '' &&
-    settings.auth_password !== '****PSWD****'
+    settings.auth_password !== ''
   );
+  
+  const modelProviders = {
+    chat: settings?.chat_model_provider || '',
+    utility: settings?.util_model_provider || '',
+    browser: settings?.browser_model_provider || '',
+    embedding: settings?.embed_model_provider || '',
+  };
   
   return {
     url: window.location.href,
@@ -143,6 +148,7 @@ export function buildFrontendContext(settings = {}) {
     browser: navigator.userAgent,
     timestamp: new Date().toISOString(),
     selectedProvider: settings?.chat_model_provider || '',
+    modelProviders: modelProviders,
     apiKeys: settings?.api_keys || {},
     hasCredentials: hasCredentials,
   };
