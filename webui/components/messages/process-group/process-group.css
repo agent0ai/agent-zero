@@ -3,8 +3,8 @@
   flex-direction: column;
   position: relative;
   z-index: 1;
-  margin: var(--spacing-sm) 0;
-  padding: var(--spacing-sm) 0;
+  margin: var(--spacing-xs) 0;
+  padding: var(--spacing-xs) 0;
   min-width: 200px;
   max-width: 100%;
   box-sizing: border-box;
@@ -47,8 +47,8 @@
   cursor: pointer;
   user-select: none;
   transition: opacity 0.15s ease;
-  min-height: 24px;
-  gap: var(--spacing-xs);
+  min-height: 22px;
+  gap: 6px;
   white-space: nowrap;
 }
 
@@ -56,50 +56,233 @@
   opacity: 0.85;
 }
 
+/* Expand/collapse triangle - CSS-only (no Material Icons) */
 .process-group-header .expand-icon {
-  font-size: 1rem;
-  color: var(--color-text);
-  transition: transform 0.2s ease;
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent var(--color-text);
   opacity: 0.5;
+  transition: transform 0.2s ease, opacity 0.15s ease;
   flex-shrink: 0;
+  font-size: 0; /* Hide any text content */
+  margin-right: 2px;
+}
+
+.process-group-header:hover .expand-icon {
+  opacity: 0.8;
 }
 
 .process-group.expanded .process-group-header .expand-icon {
   transform: rotate(90deg);
 }
 
+/* Group icon removed - using status badges */
 .process-group-header .group-icon {
-  font-size: 0.95rem;
-  color: var(--color-primary);
-  opacity: 0.7;
-  flex-shrink: 0;
+  display: none;
 }
 
+/* Group title - prominent display */
 .process-group-header .group-title {
-  flex: 1;
+  flex: 0 1 auto;
   font-size: var(--font-size-smaller);
-  font-weight: 400;
+  font-weight: 500;
   color: var(--color-text);
-  opacity: 0.7;
+  opacity: 0.9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 350px;
 }
 
+/* Step count badge */
 .process-group-header .step-count {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--color-text);
-  opacity: 0.6;
+  opacity: 0.5;
   flex-shrink: 0;
   padding: 1px 6px;
+  font-family: var(--font-family-code);
 }
 
+/* ===========================================
+   3-Letter Status Code Badges
+   =========================================== */
+
+/* Base status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: var(--font-family-code);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Status badge with icon */
+.status-badge .material-symbols-outlined {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+/* GEN - Generating (blue/cyan) */
+.status-gen {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* EXE - Executing (magenta/purple) */
+.status-exe {
+  background-color: rgba(186, 104, 200, 0.15);
+  color: #ba68c8;
+  border: 1px solid rgba(186, 104, 200, 0.3);
+}
+
+/* MCP - MCP Tool Call (amber/yellow) */
+.status-mcp {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* MEM - Memory (blue) */
+.status-mem {
+  background-color: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+/* END - Done (green) */
+.status-end {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* ERR - Error (red) */
+.status-err {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* WRN - Warning (orange) */
+.status-wrn {
+  background-color: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+/* SUB - Subagent (teal) */
+.status-sub {
+  background-color: rgba(20, 184, 166, 0.15);
+  color: #14b8a6;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+}
+
+/* INF - Info (gray) */
+.status-inf {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* UTL - Utility (gray-blue) */
+.status-utl {
+  background-color: rgba(100, 116, 139, 0.15);
+  color: #64748b;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+/* Animated spinner for active status (CSS-only, no Material Icons) */
+.status-badge.status-active::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Don't show spinner pseudo-element on END/ERR (they have their own indicators) */
+.status-badge.status-end::after,
+.status-badge.status-err::after {
+  display: none;
+}
+
+/* END status with checkmark icon (like sketch) - use ::before only */
+.status-end::before {
+  content: "✓";
+  margin-right: 2px;
+  font-weight: bold;
+}
+
+/* Completed process group styling */
+.process-group-completed {
+  opacity: 0.95;
+}
+
+.process-group-completed .group-status {
+  font-weight: 700;
+}
+
+/* Subtle completion indicator on the expand icon */
+.process-group-completed .expand-icon {
+  color: #22c55e;
+}
+
+/* Group status badge in header */
+.process-group-header .group-status {
+  margin-left: var(--spacing-xs);
+}
+
+/* Metrics row */
+.process-group-header .group-metrics {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-family: var(--font-family-code);
+  color: var(--color-text);
+  opacity: 0.6;
+}
+
+.process-group-header .group-metrics span[class^="metric-"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.process-group-header .group-metrics .metric-value {
+  opacity: 0.8;
+}
+
+/* Legacy timestamp/duration (for backwards compatibility) */
 .process-group-header .group-timestamp {
   font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.65);
   flex-shrink: 0;
   font-family: var(--font-family-code);
-  margin-left: auto;
+  display: none; /* Hidden, replaced by metrics */
 }
 
 .process-group-header .group-duration {
@@ -109,6 +292,7 @@
   font-family: var(--font-family-code);
   min-width: 40px;
   text-align: right;
+  display: none; /* Hidden, replaced by metrics */
 }
 
 /* Process Group Content - Animated expand/collapse */
@@ -134,8 +318,8 @@
 .process-group.expanded .process-group-content {
   grid-template-rows: 1fr;
   opacity: 1;
-  margin-top: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
   border-top-color: rgba(255, 255, 255, 0.06);
 }
 
@@ -151,7 +335,7 @@
 .process-step {
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-xxs) var(--spacing-xs);
+  padding: 1px var(--spacing-xs);
   border-radius: 4px;
   transition: background-color 0.15s ease;
 }
@@ -182,60 +366,45 @@
   align-items: center;
   cursor: pointer;
   user-select: none;
-  gap: var(--spacing-xs);
-  min-height: 20px;
+  gap: 4px;
+  min-height: 18px;
 }
 
+/* Step icon removed - using status badges instead */
 .process-step-header .step-icon {
-  font-size: 0.85rem;
-  opacity: 0.6;
-  width: 16px;
-  text-align: center;
+  display: none;
 }
 
-/* Step type colors */
-.process-step[data-type="agent"] .step-icon { color: #64b5f6; }
-.process-step[data-type="tool"] .step-icon { color: #81c784; }
-.process-step[data-type="code_exe"] .step-icon { color: #ba68c8; }
-.process-step[data-type="browser"] .step-icon { color: #ffb74d; }
-.process-step[data-type="info"] .step-icon { color: #90a4ae; }
-.process-step[data-type="util"] .step-icon { color: #78909c; }
-.process-step[data-type="hint"] .step-icon { color: #aed581; }
-.process-step[data-type="warning"] .step-icon { color: #ffd54f; }
-.process-step[data-type="error"] .step-icon { color: #e57373; }
-
+/* Step type label removed - using status badges instead */
 .process-step-header .step-type {
-  font-size: 0.7rem;
-  font-weight: 500;
-  opacity: 0.5;
-  min-width: 50px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  display: none;
 }
 
+/* Step title */
 .process-step-header .step-title {
   flex: 1;
   font-size: 0.75rem;
   color: var(--color-text);
-  opacity: 0.7;
+  opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-left: var(--spacing-xs);
 }
 
-.process-step-header .step-time {
-  font-size: 0.65rem;
-  color: #81c784;
-  flex-shrink: 0;
-  font-family: var(--font-family-code);
-  min-width: 35px;
-  text-align: right;
-}
-
+/* Step expand icon - CSS triangle (no Material Icons) */
 .process-step-header .step-expand-icon {
-  font-size: 0.8rem;
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 3px 0 3px 5px;
+  border-color: transparent transparent transparent var(--color-text);
   opacity: 0.4;
   transition: transform 0.2s ease, opacity 0.15s ease;
+  flex-shrink: 0;
+  font-size: 0; /* Hide any text content */
+  margin-right: 2px;
 }
 
 .process-step-header:hover .step-expand-icon {
@@ -243,7 +412,7 @@
 }
 
 .process-step.step-expanded .step-expand-icon {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 
 /* Step Detail Content - Animated expand/collapse */
@@ -354,22 +523,73 @@
 
 /* Light mode text colors for process group */
 .light-mode .process-group-header .group-title,
-.light-mode .process-group-header .step-count,
-.light-mode .process-step-header .step-title,
-.light-mode .process-step-header .step-type {
-  color: #188216;
+.light-mode .process-step-header .step-title {
+  color: var(--color-text);
 }
 
-.light-mode .process-group-header .group-timestamp {
-  color: rgba(0, 0, 0, 0.5);
+.light-mode .process-group-header .group-metrics {
+  color: var(--color-text);
 }
 
-.light-mode .process-group-header .group-duration {
-  color: #2e7d32;
+/* Light mode status badge adjustments for better contrast */
+.light-mode .status-gen {
+  background-color: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+  border-color: rgba(14, 165, 233, 0.25);
 }
 
-.light-mode .process-step-header .step-time {
-  color: #388e3c;
+.light-mode .status-exe {
+  background-color: rgba(147, 51, 234, 0.12);
+  color: #7c3aed;
+  border-color: rgba(147, 51, 234, 0.25);
+}
+
+.light-mode .status-mcp {
+  background-color: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.light-mode .status-mem {
+  background-color: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.light-mode .status-end {
+  background-color: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.25);
+}
+
+.light-mode .status-err {
+  background-color: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+.light-mode .status-wrn {
+  background-color: rgba(234, 88, 12, 0.12);
+  color: #c2410c;
+  border-color: rgba(234, 88, 12, 0.25);
+}
+
+.light-mode .status-sub {
+  background-color: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+  border-color: rgba(13, 148, 136, 0.25);
+}
+
+.light-mode .status-inf {
+  background-color: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.25);
+}
+
+.light-mode .status-utl {
+  background-color: rgba(71, 85, 105, 0.12);
+  color: #334155;
+  border-color: rgba(71, 85, 105, 0.25);
 }
 
 /* Animation for loading state */

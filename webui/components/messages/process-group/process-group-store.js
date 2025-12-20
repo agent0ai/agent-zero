@@ -78,10 +78,10 @@ const model = {
     this._persist();
   },
 
-  // Get icon for step type
+  // Get icon for step type (Material Symbols)
   getStepIcon(type) {
     const icons = {
-      'agent': 'psychology',
+      'agent': 'neurology',
       'tool': 'build',
       'code_exe': 'terminal',
       'browser': 'language',
@@ -89,23 +89,74 @@ const model = {
       'hint': 'lightbulb',
       'util': 'settings',
       'warning': 'warning',
-      'error': 'error'
+      'error': 'error',
+      'mcp': 'api',
+      'memory': 'memory',
+      'done': 'check_circle',
+      'subagent': 'group'
     };
     return icons[type] || 'circle';
   },
 
-  // Get label for step type
+  // Get 3-letter status code for step type
+  getStepCode(type) {
+    const codes = {
+      'agent': 'GEN',
+      'tool': 'MCP',
+      'code_exe': 'EXE',
+      'browser': 'EXE',
+      'info': 'INF',
+      'hint': 'INF',
+      'util': 'UTL',
+      'warning': 'WRN',
+      'error': 'ERR',
+      'mcp': 'MCP',
+      'memory': 'MEM',
+      'done': 'END',
+      'response': 'END',
+      'subagent': 'SUB'
+    };
+    return codes[type] || 'GEN';
+  },
+
+  // Get color class for status code
+  getStatusColorClass(type) {
+    const colors = {
+      'agent': 'status-gen',
+      'tool': 'status-mcp',
+      'code_exe': 'status-exe',
+      'browser': 'status-exe',
+      'info': 'status-inf',
+      'hint': 'status-inf',
+      'util': 'status-utl',
+      'warning': 'status-wrn',
+      'error': 'status-err',
+      'mcp': 'status-mcp',
+      'memory': 'status-mem',
+      'done': 'status-end',
+      'response': 'status-end',
+      'subagent': 'status-sub'
+    };
+    return colors[type] || 'status-gen';
+  },
+
+  // Get label for step type (longer description)
   getStepLabel(type) {
     const labels = {
-      'agent': 'Thinking',
-      'tool': 'Tool',
-      'code_exe': 'Code',
+      'agent': 'Generating',
+      'tool': 'MCP Call',
+      'code_exe': 'Executing',
       'browser': 'Browser',
       'info': 'Info',
       'hint': 'Hint',
       'util': 'Utility',
       'warning': 'Warning',
-      'error': 'Error'
+      'error': 'Error',
+      'mcp': 'MCP',
+      'memory': 'Memory',
+      'done': 'Done',
+      'response': 'Response',
+      'subagent': 'Subagent'
     };
     return labels[type] || 'Process';
   },

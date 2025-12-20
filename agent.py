@@ -413,11 +413,24 @@ class Agent:
                             # Use the potentially modified full text for downstream processing
                             await self.handle_response_stream(stream_data["full"])
 
+                        async def tokens_callback(text: str, token_count: int):
+                            # Update the current log item with token count
+                            log_item = self.loop_data.params_temporary.get("log_item_generating")
+                            if log_item:
+                                log_item.add_tokens(tokens_out=token_count)
+
+                        # Calculate input tokens from prompt
+                        input_token_count = tokens.approximate_tokens(str(prompt))
+                        log_item = self.loop_data.params_temporary.get("log_item_generating")
+                        if log_item:
+                            log_item.add_tokens(tokens_in=input_token_count)
+
                         # call main LLM
                         agent_response, _reasoning = await self.call_chat_model(
                             messages=prompt,
                             response_callback=stream_callback,
                             reasoning_callback=reasoning_callback,
+                            tokens_callback=tokens_callback,
                         )
 
                         # Notify extensions to finalize their stream filters
@@ -730,6 +743,7 @@ class Agent:
         messages: list[BaseMessage],
         response_callback: Callable[[str, str], Awaitable[None]] | None = None,
         reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        tokens_callback: Callable[[str, int], Awaitable[None]] | None = None,
         background: bool = False,
     ):
         response = ""
@@ -742,6 +756,7 @@ class Agent:
             messages=messages,
             reasoning_callback=reasoning_callback,
             response_callback=response_callback,
+            tokens_callback=tokens_callback,
             rate_limiter_callback=self.rate_limiter_callback if not background else None,
         )
 

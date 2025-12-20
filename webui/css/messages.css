@@ -209,7 +209,10 @@
 }
 
 .message-error {
-  background-color: transparent;
+  background-color: rgba(180, 40, 40, 0.25);
+  border: 1px solid rgba(220, 60, 60, 0.5);
+  border-radius: 8px;
+  padding: 12px;
 }
 
 .message-code-exe .message-body {
@@ -475,7 +478,8 @@
 }
 
 .light-mode .message-error {
-  background-color: transparent;
+  background-color: rgba(220, 60, 60, 0.15);
+  border: 1px solid rgba(180, 40, 40, 0.4);
   color: #8f1010;
 }
 
