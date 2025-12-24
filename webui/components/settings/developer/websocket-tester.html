@@ -7,8 +7,8 @@
 </head>
 <body>
   <div x-data>
-    <template x-if="window.runtimeInfo?.isDevelopment && $store.websocketTesterStore">
-      <div class="ws-tester" x-init="$store.websocketTesterStore.init()" x-destroy="$store.websocketTesterStore.clearLog()">
+    <template x-if="$store.root?.isDevelopment && $store.websocketTesterStore">
+      <div class="ws-tester" x-init="$store.websocketTesterStore.init()" x-destroy="$store.websocketTesterStore.detach()">
         <h2>WebSocket Developer Harness</h2>
         <p class="ws-description">
           Run automated and manual validations for the WebSocket client. Automatic tests cover fire-and-forget emit, request/response, timeout handling, subscription persistence, and requestAll aggregation.
@@ -73,7 +73,7 @@
         </div>
       </div>
     </template>
-    <template x-if="!window.runtimeInfo?.isDevelopment">
+    <template x-if="!$store.root?.isDevelopment">
       <div class="ws-tester ws-disabled">
         <h2>WebSocket Developer Harness</h2>
         <p class="ws-description">

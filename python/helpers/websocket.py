@@ -62,6 +62,14 @@ class SingletonInstantiationError(RuntimeError):
     """
 
 
+class ConnectionNotFoundError(RuntimeError):
+    """Raised when attempting to emit to a non-existent WebSocket connection."""
+
+    def __init__(self, sid: str) -> None:
+        self.sid = sid
+        super().__init__(f"Connection not found: {sid}")
+
+
 class WebSocketResult:
     """Helper wrapper for standardized handler results.
 

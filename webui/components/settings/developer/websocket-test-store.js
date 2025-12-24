@@ -61,35 +61,46 @@ const model = {
   lastAggregated: null,
   receivedBroadcasts: [],
   isEnabled: false,
-  _serverRestartCallback: null,
+  _serverRestartHandler: null,
 
   init() {
     const rootStore = window.Alpine?.store ? window.Alpine.store("root") : undefined;
     this.isEnabled = Boolean(window.runtimeInfo?.isDevelopment || rootStore?.isDevelopment);
     if (this.isEnabled) {
       this.appendLog("WebSocket tester harness ready.");
-      if (!this._serverRestartCallback) {
-        this._serverRestartCallback = (payload) => {
-          try {
-            const envelope = validateServerEnvelope(payload);
-            this.appendLog(
-              `server_restart received (runtimeId=${envelope.data.runtimeId ?? "unknown"})`,
-            );
-          } catch (error) {
-            this.appendLog(
-              `server_restart envelope invalid: ${error.message || error}`,
-            );
-          }
-        };
+      if (this._serverRestartHandler) {
+        websocket.off("server_restart", this._serverRestartHandler);
       }
+      this._serverRestartHandler = (payload) => {
+        try {
+          const envelope = validateServerEnvelope(payload);
+          this.appendLog(
+            `server_restart received (runtimeId=${envelope.data.runtimeId ?? "unknown"})`,
+          );
+        } catch (error) {
+          this.appendLog(`server_restart envelope invalid: ${error.message || error}`);
+        }
+      };
       websocket
-        .on("server_restart", this._serverRestartCallback)
+        .on("server_restart", this._serverRestartHandler)
         .catch((error) => {
           this.appendLog(`Failed to subscribe to server_restart: ${error.message || error}`);
         });
     } else {
       this.appendLog("WebSocket tester harness is available only in development runtime.");
     }
+  },
+
+  detach() {
+    if (this._serverRestartHandler) {
+      websocket.off("server_restart", this._serverRestartHandler);
+      this._serverRestartHandler = null;
+    } else {
+      websocket.off("server_restart");
+    }
+    websocket.off("ws_tester_broadcast");
+    websocket.off("ws_tester_persistence");
+    websocket.off("ws_tester_broadcast_demo");
   },
 
   appendLog(message) {

@@ -11,7 +11,6 @@ import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
-import { store as _websocketTesterStore } from "/components/settings/developer/websocket-test-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
