@@ -10,9 +10,10 @@ from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Set
 import socketio
 import uuid
 
+from python.helpers.defer import DeferredTask
 from python.helpers.print_style import PrintStyle
 from python.helpers import runtime
-from python.helpers.websocket import WebSocketHandler, WebSocketResult
+from python.helpers.websocket import ConnectionNotFoundError, WebSocketHandler, WebSocketResult
 
 BUFFER_MAX_SIZE = 100
 BUFFER_TTL = timedelta(hours=1)
@@ -43,7 +44,7 @@ class ConnectionInfo:
 class _HandlerExecution:
     handler: WebSocketHandler
     value: Any
-    duration_ms: float
+    duration_ms: float | None
 
 
 DIAGNOSTIC_EVENT = "ws_dev_console_event"
@@ -67,11 +68,48 @@ class WebSocketManager:
         self._server_restart_enabled: bool = False
         self._diagnostic_watchers: Set[str] = set()
         self._diagnostics_enabled: bool = runtime.is_development()
+        self._dispatcher_loop: asyncio.AbstractEventLoop | None = None
+        self._handler_worker: DeferredTask | None = None
 
     # Internal: development-only debug logging to avoid noise in production
     def _debug(self, message: str) -> None:
         if runtime.is_development():
             PrintStyle.debug(message)
+
+    def _ensure_dispatcher_loop(self) -> None:
+        if self._dispatcher_loop is None:
+            try:
+                self._dispatcher_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                return
+
+    def _get_handler_worker(self) -> DeferredTask:
+        if self._handler_worker is None:
+            self._handler_worker = DeferredTask(thread_name="WebSocketHandlers")
+        return self._handler_worker
+
+    async def _run_on_dispatcher_loop(self, coro: Any) -> Any:
+        self._ensure_dispatcher_loop()
+        dispatcher_loop = self._dispatcher_loop
+        if dispatcher_loop is None:
+            return await coro
+
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop is dispatcher_loop:
+            return await coro
+
+        future = asyncio.run_coroutine_threadsafe(coro, dispatcher_loop)
+        return await asyncio.wrap_future(future)
+
+    def _diagnostics_active(self) -> bool:
+        if not self._diagnostics_enabled:
+            return False
+        with self.lock:
+            return bool(self._diagnostic_watchers)
 
     def _copy_diagnostic_watchers(self) -> list[str]:
         with self.lock:
@@ -131,23 +169,26 @@ class WebSocketManager:
         summary["handlerCount"] = len(summary["handlers"])
         return summary
 
-    async def _publish_diagnostic_event(self, payload: dict[str, Any]) -> None:
+    async def _publish_diagnostic_event(
+        self, payload: dict[str, Any] | Callable[[], dict[str, Any]]
+    ) -> None:
         if not self._diagnostics_enabled:
             return
         watchers = self._copy_diagnostic_watchers()
         if not watchers:
             return
+        effective_payload = payload() if callable(payload) else payload
 
         async def _emit_to_watcher(sid: str) -> None:
             try:
                 await self.emit_to(
                     sid,
                     DIAGNOSTIC_EVENT,
-                    payload,
+                    effective_payload,
                     handler_id=self._identifier,
                     diagnostic=True,
                 )
-            except ValueError:
+            except ConnectionNotFoundError:
                 self.unregister_diagnostic_watcher(sid)
 
         await asyncio.gather(*(_emit_to_watcher(sid) for sid in watchers))
@@ -277,18 +318,26 @@ class WebSocketManager:
         payload: dict[str, Any],
         sid: str,
     ) -> _HandlerExecution:
-        start = time.perf_counter()
+        instrument = self._diagnostics_active()
+        start = time.perf_counter() if instrument else None
         try:
-            value = await handler.process_event(event_type, payload, sid)
+            value = await self._get_handler_worker().execute_inside(
+                handler.process_event, event_type, payload, sid
+            )
         except Exception as exc:  # pragma: no cover - handled by caller
-            duration_ms = (time.perf_counter() - start) * 1000
+            duration_ms = (
+                (time.perf_counter() - start) * 1000 if start is not None else None
+            )
             return _HandlerExecution(handler, exc, duration_ms)
-        duration_ms = (time.perf_counter() - start) * 1000
+        duration_ms = (
+            (time.perf_counter() - start) * 1000 if start is not None else None
+        )
         return _HandlerExecution(handler, value, duration_ms)
 
     async def handle_connect(
         self, sid: str, csrf_expiry: float | None = None, user_id: str | None = None
     ) -> None:
+        self._ensure_dispatcher_loop()
         user_bucket = user_id or "single_user"
         with self.lock:
             self.connections[sid] = ConnectionInfo(sid=sid, csrf_expires_at=csrf_expiry)
@@ -328,6 +377,7 @@ class WebSocketManager:
         self._schedule_lifecycle_broadcast(LIFECYCLE_CONNECT_EVENT, lifecycle_payload)
 
     async def handle_disconnect(self, sid: str) -> None:
+        self._ensure_dispatcher_loop()
         with self.lock:
             self.connections.pop(sid, None)
             # session tracking cleanup
@@ -372,14 +422,24 @@ class WebSocketManager:
         allow_exclude: bool = False,
         handler_id: str | None = None,
     ) -> dict[str, Any]:
-        payload = dict(data or {})
-        correlation_id = self._resolve_correlation_id(payload)
+        self._ensure_dispatcher_loop()
+        incoming = dict(data or {})
+        correlation_id = self._resolve_correlation_id(incoming)
         self._debug(
             f"Routing event '{event_type}' sid={sid} correlation={correlation_id}"
         )
 
-        include_meta_raw = payload.pop("includeHandlers", None)
-        exclude_meta_raw = payload.pop("excludeHandlers", None)
+        include_meta_raw = incoming.pop("includeHandlers", None)
+        exclude_meta_raw = incoming.pop("excludeHandlers", None)
+
+        if "data" in incoming and isinstance(incoming.get("data"), dict):
+            handler_payload = dict(incoming.get("data") or {})
+            if "excludeSids" in incoming:
+                handler_payload["excludeSids"] = incoming.get("excludeSids")
+        else:
+            handler_payload = dict(incoming)
+
+        handler_payload["correlationId"] = correlation_id
 
         try:
             include_meta = self._normalize_handler_filter(
@@ -496,7 +556,7 @@ class WebSocketManager:
 
         executions = await asyncio.gather(
             *[
-                self._invoke_handler(handler, event_type, payload, sid)
+                self._invoke_handler(handler, event_type, dict(handler_payload), sid)
                 for handler in selected_handlers
             ]
         )
@@ -549,16 +609,16 @@ class WebSocketManager:
             )
 
         await self._publish_diagnostic_event(
-            {
+            lambda: {
                 "kind": "inbound",
                 "eventType": event_type,
                 "sid": sid,
                 "correlationId": correlation_id,
                 "timestamp": self._timestamp(),
                 "handlerCount": len(selected_handlers),
-                "durationMs": sum(exec.duration_ms for exec in executions),
+                "durationMs": sum((exec.duration_ms or 0.0) for exec in executions),
                 "resultSummary": self._summarize_results(results),
-                "payloadSummary": self._summarize_payload(payload),
+                "payloadSummary": self._summarize_payload(handler_payload),
             }
         )
 
@@ -583,7 +643,9 @@ class WebSocketManager:
         payload = dict(data or {})
         correlation_id = self._resolve_correlation_id(payload)
 
-        if sid not in self.connections:
+        with self.lock:
+            connected = sid in self.connections
+        if not connected:
             return {
                 "correlationId": correlation_id,
                 "results": [
@@ -682,7 +744,8 @@ class WebSocketManager:
             f"Starting requestAll for '{event_type}' correlation={correlation_id}"
         )
 
-        active_sids = list(self.connections.keys())
+        with self.lock:
+            active_sids = list(self.connections.keys())
         if not active_sids:
             self._debug(
                 f"No active connections for requestAll '{event_type}' correlation={correlation_id}"
@@ -789,7 +852,11 @@ class WebSocketManager:
         delivered = False
         buffered = False
 
-        if sid in self.connections:
+        with self.lock:
+            connected = sid in self.connections
+            known = sid in self._known_sids or sid in self.buffers
+
+        if connected:
             self._debug(
                 "Emit to sid=%s event=%s eventId=%s correlationId=%s handlerId=%s"
                 % (
@@ -800,23 +867,26 @@ class WebSocketManager:
                     envelope.get("handlerId"),
                 )
             )
-            await self.socketio.emit(event_type, envelope, to=sid)
+            await self._run_on_dispatcher_loop(
+                self.socketio.emit(event_type, envelope, to=sid)
+            )
             delivered = True
         else:
-            if sid not in self._known_sids and sid not in self.buffers:
-                raise ValueError(f"Unknown WebSocket sid '{sid}'")
-            self._buffer_event(
-                sid,
-                event_type,
-                data,
-                handler_id,
-                envelope["correlationId"],
-            )
+            if not known:
+                raise ConnectionNotFoundError(sid)
+            with self.lock:
+                self._buffer_event(
+                    sid,
+                    event_type,
+                    data,
+                    handler_id,
+                    envelope["correlationId"],
+                )
             buffered = True
 
         if not diagnostic:
             await self._publish_diagnostic_event(
-                {
+                lambda: {
                     "kind": "outbound",
                     "direction": "emit_to",
                     "eventType": event_type,
@@ -843,7 +913,9 @@ class WebSocketManager:
         excluded = self._normalize_sid_filter(exclude_sids)
 
         targets: list[str] = []
-        for sid in list(self.connections.keys()):
+        with self.lock:
+            current_sids = list(self.connections.keys())
+        for sid in current_sids:
             if sid in excluded:
                 continue
             targets.append(sid)
@@ -858,7 +930,7 @@ class WebSocketManager:
 
         if not diagnostic:
             await self._publish_diagnostic_event(
-                {
+                lambda: {
                     "kind": "outbound",
                     "direction": "broadcast",
                     "eventType": event_type,
@@ -873,13 +945,13 @@ class WebSocketManager:
 
     async def _run_lifecycle(self, fn: Callable[[WebSocketHandler], Any]) -> None:
         seen: Set[WebSocketHandler] = set()
-        coros = []
+        coros: list[Any] = []
         for handler_list in self.handlers.values():
             for handler in handler_list:
                 if handler in seen:
                     continue
                 seen.add(handler)
-                coros.append(fn(handler))
+                coros.append(self._get_handler_worker().execute_inside(fn, handler))
         if coros:
             await asyncio.gather(*coros, return_exceptions=True)
 
@@ -910,6 +982,7 @@ class WebSocketManager:
         )
 
     async def _flush_buffer(self, sid: str) -> None:
+        self._ensure_dispatcher_loop()
         buffer = self.buffers.get(sid)
         if not buffer:
             return
@@ -937,7 +1010,9 @@ class WebSocketManager:
                     envelope.get("handlerId"),
                 )
             )
-            await self.socketio.emit(event.event_type, envelope, to=sid)
+            await self._run_on_dispatcher_loop(
+                self.socketio.emit(event.event_type, envelope, to=sid)
+            )
             delivered += 1
         if sid in self.buffers:
             self.buffers.pop(sid, None)
@@ -953,15 +1028,19 @@ class WebSocketManager:
                 info.csrf_expires_at = expiry
 
     async def validate_session(self, sid: str, now_ts: float) -> bool:
+        self._ensure_dispatcher_loop()
+        should_disconnect = False
         with self.lock:
             info = self.connections.get(sid)
             if not info:
                 return False
-            if info.csrf_expires_at and info.csrf_expires_at <= now_ts:
+            if info.csrf_expires_at is not None and info.csrf_expires_at <= now_ts:
                 self.connections.pop(sid, None)
-                PrintStyle.warning(f"Disconnecting {sid} due to CSRF expiry")
-                await self.socketio.disconnect(sid)
-                return False
+                should_disconnect = True
+        if should_disconnect:
+            PrintStyle.warning(f"Disconnecting {sid} due to CSRF expiry")
+            await self._run_on_dispatcher_loop(self.socketio.disconnect(sid))
+            return False
         return True
 
     def _build_error_result(

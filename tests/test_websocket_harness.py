@@ -26,7 +26,8 @@ class FakeSocketIOServer:
 async def _create_manager() -> tuple[WebSocketManager, DevWebsocketTestHandler, FakeSocketIOServer]:
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
-    handler = DevWebsocketTestHandler(socketio, threading.RLock())
+    DevWebsocketTestHandler._reset_instance_for_testing()
+    handler = DevWebsocketTestHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers([handler])
     await manager.handle_connect("sid-primary")
     return manager, handler, socketio
@@ -43,8 +44,10 @@ async def test_harness_emit_broadcasts_to_active_connections():
     )
 
     socketio.emit.assert_awaited()
-    args, kwargs = socketio.emit.await_args_list[0]
-    assert args[0] == "ws_tester_broadcast"
+    emit_calls = [(call.args, call.kwargs) for call in socketio.emit.await_args_list]
+    match = next((c for c in emit_calls if c[0] and c[0][0] == "ws_tester_broadcast"), None)
+    assert match is not None
+    args, kwargs = match
     envelope = args[1]
     assert envelope["handlerId"].endswith("DevWebsocketTestHandler")
     assert envelope["data"]["message"] == "emit-check"
@@ -105,8 +108,10 @@ async def test_harness_persistence_emit_targets_requesting_sid():
     )
 
     socketio.emit.assert_awaited()
-    args, kwargs = socketio.emit.await_args_list[0]
-    assert args[0] == "ws_tester_persistence"
+    emit_calls = [(call.args, call.kwargs) for call in socketio.emit.await_args_list]
+    match = next((c for c in emit_calls if c[0] and c[0][0] == "ws_tester_persistence"), None)
+    assert match is not None
+    args, kwargs = match
     payload = args[1]
     assert payload["handlerId"] == _handler.identifier
     assert payload["data"] == {"phase": "after", "handler": _handler.identifier}

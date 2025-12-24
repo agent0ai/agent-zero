@@ -28,7 +28,7 @@ This guide consolidates everything you need to design, implement, and troublesho
 
 - **Runtime (`run_ui.py`)** – boots `python-socketio.AsyncServer` inside an ASGI stack served by uvicorn. Flask routes and Socket.IO share the same process so session cookies and CSRF semantics stay aligned.
 - **Singleton handlers** – every `WebSocketHandler` subclass exposes `get_instance()` and is registered exactly once. Direct instantiation raises `SingletonInstantiationError`, keeping shared state and lifecycle hooks deterministic.
-- **Dispatcher instrumentation** – handler executions run inside the asyncio event loop but are measured (`durationMs`) per handler. Aggregated timings stream to the WebSocket Event Console so developers can prove the dispatcher stays non-blocking; no `DeferredTask` shim is required unless future instrumentation shows regressions.
+- **Dispatcher offload** – handler entrypoints (`process_event`, `on_connect`, `on_disconnect`) run in a background worker loop (via `DeferredTask`) so blocking handlers cannot stall the Socket.IO/uvicorn event loop. Socket.IO emits/disconnects are marshalled back to the dispatcher loop. Diagnostic timing and payload summaries are only built when Event Console watchers are subscribed (development mode).
 - **`python/helpers/websocket_manager.py`** – orchestrates routing, buffering, filtering, aggregation, metadata envelopes, and session tracking. Think of it as the “switchboard” for every WebSocket event.
 - **`python/helpers/websocket.py`** – base class for application handlers. Provides lifecycle hooks, helper methods (`emit_to`, `broadcast`, `request`, `request_all`) and identifier metadata.
 - **`webui/js/websocket.js`** – frontend singleton that mirrors backend capabilities (`emit`, `broadcast`, `request`, `requestAll`, `on`, `off`) with lazy connection management, CSRF preflight, and development-only logging.
@@ -55,13 +55,13 @@ Useful mental model: **client ↔ manager ↔ handler**. The manager normalises 
 
 ## Connection Lifecycle
 
-1. **Auto Connect & CSRF Preflight** – `/js/websocket.js` asserts the connection as soon as the UI boots (DOMContentLoaded) and whenever producer APIs run. The internal `websocket.connect()` performs `callJsonApi('/csrf_token')`, setting a 120-second `ws_csrf_ok` flag in the Flask session and returning runtime metadata (`runtime.id`, `isDevelopment`). No manual call is needed, but the promise remains awaitable for diagnostics.
+1. **Lazy Connect & CSRF Preflight** – `/js/websocket.js` connects only when a consumer uses the client API (e.g., `emit`, `request`, `requestAll`, `broadcast`, `on`). The internal `websocket.connect()` performs `callJsonApi('/csrf_token')`, setting a 120-second `ws_csrf_ok` flag in the Flask session and returning runtime metadata (`runtime.id`, `isDevelopment`). Consumers may still explicitly `await websocket.connect()` to block UI until the socket is ready.
 2. **Handshake** – Socket.IO connects using the existing Flask session cookie. Manager checks handler requirements (`requires_auth`, `requires_csrf`) and validates the short-lived CSRF flag before accepting.
 3. **Lifecycle Hooks** – After acceptance, `WebSocketHandler.on_connect(sid)` fires for every registered handler. Use it for initial emits, state bookkeeping, or session tracking.
 4. **Normal Operation** – Client emits events with envelopes containing optional filters. Manager routes them to the appropriate handlers, gathers results, and wraps outbound responses in the mandatory envelope.
 5. **Disconnection & Buffering** – If a tab goes away without a graceful disconnect, fire-and-forget events accumulate (max 100). On reconnect, the manager flushes the buffer via `emit_to`. Request flows respond with explicit `CONNECTION_NOT_FOUND` errors.
 6. **Reconnection Attempts** – Socket.IO handles retries with exponential backoff (defaults). Before each retry we refresh the CSRF flag so the handshake succeeds even if the previous flag expired.
-   - Once the initial page-load handshake runs, Socket.IO keeps this retry loop alive even if no frontend code touches the client again; interruptions are detected automatically and the manager flushes any buffered events as soon as the transport returns.
+   - Once a consumer establishes a connection, Socket.IO keeps the retry loop alive even if no frontend code touches the client again; interruptions are detected automatically and the manager flushes any buffered events as soon as the transport returns.
 7. **Session Expiry** – `WebSocketManager.validate_session()` can be scheduled to close sids whose CSRF flag expired, keeping semantics aligned with HTTP sessions.
 
 ### Thinking in Roles
@@ -91,7 +91,7 @@ Client requestAll() ─▶ Manager route_event_all() ─▶ route_event per sid
 
 Server emit_to() ──▶ Manager.emit_to() ──▶ Socket.IO delivery/buffer
    │                 │                         └── envelope {handlerId,…}
-   └── raises ValueError for unknown sid (never seen)
+   └── raises ConnectionNotFoundError for unknown sid (never seen)
 
 Server broadcast() ─▶ Manager.broadcast()
    │                     └── iterates active sids (respecting exclude_sids)
@@ -263,7 +263,7 @@ await websocket.connect();
 console.log(window.runtimeInfo.id, window.runtimeInfo.isDevelopment);
 ```
 
-- The module automatically kicks off `performPreflight()` → CSRF POST → Socket.IO connect on DOMContentLoaded. Manual calls remain useful when a component wants to block rendering on readiness or re-run diagnostics.
+- The module performs `performPreflight()` -> CSRF POST -> Socket.IO connect as part of `websocket.connect()` (called lazily by producer and consumer APIs). Components may still explicitly `await websocket.connect()` to block rendering on readiness or re-run diagnostics.
 - The singleton stores `runtimeInfo.id` and `isDevelopment` so other modules (settings modal, harness) can react.
 - Reconnection attempts automatically redo the preflight.
 
@@ -599,7 +599,7 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 
 ### Instrumentation & Logging
 
-- `WebSocketManager` records `durationMs` for every handler invocation and aggregates totals per inbound event. These metrics flow into both the Event Console stream and `request()/request_all()` responses, so developers can prove dispatcher latency stays within the event-loop budget without introducing `DeferredTask` shims.
+- `WebSocketManager` offloads handler execution via `DeferredTask` and may record `durationMs` when development diagnostics are active (Event Console watchers subscribed). These metrics flow into the Event Console stream (and may also appear in `request()` / `request_all()` results), keeping steady-state overhead near zero when diagnostics are closed.
 - Lifecycle events capture `connectionCount`, ISO8601 timestamps, and SID so dashboards can correlate UI behaviour with connection churn.
 - Backend logging: use `PrintStyle.debug/info/warning` and always include `handlerId`, `eventType`, `sid`, and `correlationId`. The manager already logs connection events, invalid filters, missing handlers, and buffer overflows.
 - Frontend logging: `websocket.debugLog()` mirrors backend debug messages but only when `runtimeInfo.isDevelopment` is true (refreshed by every CSRF preflight).
@@ -626,7 +626,7 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 - [ ] Propagate `correlationId` through multi-step workflows so logs and envelopes align.
 - [ ] Respect the 50 MB payload cap; prefer HTTP + polling for bulk data transfers.
 - [ ] Ensure long-running operations emit progress via `emit_to` or switch to an async task with periodic updates.
-- [ ] Buffer-sensitive actions (`emit_to`) should handle `ValueError` from unknown SIDs gracefully.
+- [ ] Buffer-sensitive actions (`emit_to`) should handle `ConnectionNotFoundError` from unknown SIDs gracefully.
 - [ ] When adding new handlers, update the developer harness if new scenarios need coverage.
 - [ ] Keep `PrintStyle` logs meaningful—include `handlerId`, `eventType`, `sid`, and `correlationId`.
 - [ ] In Alpine components, call `websocket.off()` during teardown to avoid duplicate subscriptions.
@@ -643,7 +643,7 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 | Client → Server | `request(event, data, { includeHandlers?, timeoutMs?, correlationId? })` | Yes (`{ correlationId, results[] }`) | `includeHandlers` only | Aggregates per handler. Timeout entries appear inside `results`. |
 | Client → Server | `requestAll(event, data, { excludeHandlers?, timeoutMs?, correlationId? })` | Yes (`[{ sid, correlationId, results[] }]`) | `excludeHandlers` only | All sids included even when no handlers matched (standardised error item). |
 | Client → Server | `broadcast(event, data, { excludeSids?, correlationId? })` | No | `excludeSids` only | Delivers to all other tabs by default. |
-| Server → Client | `emit_to(sid, ...)` | No | None | Raises `ValueError` for unknown `sid`. Buffers if disconnected. |
+| Server → Client | `emit_to(sid, ...)` | No | None | Raises `ConnectionNotFoundError` for unknown `sid`. Buffers if disconnected. |
 | Server → Client | `broadcast(...)` | No | `exclude_sids` only | Iterates over current connections; uses the same envelope as `emit_to`. |
 | Server → Client | `request(...)` | Yes (`{ correlationId, results[] }`) | `include_handlers` only | Equivalent of client `request` but targeted at one SID from the server. |
 | Server → Client | `request_all(...)` | Yes (`[{ sid, correlationId, results[] }]`) | `exclude_handlers` only | server-initiated fan-out. |

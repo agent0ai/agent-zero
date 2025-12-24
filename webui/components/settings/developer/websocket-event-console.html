@@ -10,7 +10,7 @@
     <template x-if="$store.root?.isDevelopment && $store.websocketEventConsoleStore">
       <div
         class="ws-console"
-        x-init="$store.websocketEventConsoleStore.init()"
+        x-init="$store.websocketEventConsoleStore.init(); $store.websocketEventConsoleStore.attach().catch(() => {})"
         x-destroy="$store.websocketEventConsoleStore.detach()"
       >
         <h2>WebSocket Event Console</h2>

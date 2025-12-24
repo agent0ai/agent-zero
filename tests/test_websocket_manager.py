@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -11,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from python.helpers.websocket import WebSocketHandler, WebSocketResult
+from python.helpers.websocket import ConnectionNotFoundError, WebSocketHandler, WebSocketResult
 from python.helpers.websocket_manager import (
     WebSocketManager,
     BUFFER_TTL,
@@ -247,11 +248,72 @@ async def test_route_event_exception_standardizes_error_payload():
 
 
 @pytest.mark.asyncio
+async def test_route_event_offloads_blocking_handlers():
+    socketio = FakeSocketIOServer()
+    manager = WebSocketManager(socketio, threading.RLock())
+
+    class BlockingHandler(WebSocketHandler):
+        @classmethod
+        def get_event_types(cls) -> list[str]:
+            return ["block"]
+
+        async def process_event(self, event_type: str, data: dict[str, Any], sid: str):
+            time.sleep(0.2)
+            return {"status": "done"}
+
+    BlockingHandler._reset_instance_for_testing()
+    handler = BlockingHandler.get_instance(socketio, threading.RLock())
+    manager.register_handlers([handler])
+    await manager.handle_connect("sid-1")
+
+    route_task = asyncio.create_task(manager.route_event("block", {}, "sid-1"))
+    await asyncio.sleep(0)
+
+    t0 = time.perf_counter()
+    await asyncio.sleep(0.05)
+    elapsed = time.perf_counter() - t0
+    assert elapsed < 0.15
+
+    response = await route_task
+    assert response["results"]
+
+
+@pytest.mark.asyncio
+async def test_route_event_unwraps_ts_data_envelope_and_preserves_correlation_id():
+    socketio = FakeSocketIOServer()
+    manager = WebSocketManager(socketio, threading.RLock())
+
+    results: list[dict[str, Any]] = []
+    DummyHandler._reset_instance_for_testing()
+    handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
+    manager.register_handlers([handler])
+    await manager.handle_connect("sid-1")
+
+    response = await manager.route_event(
+        "dummy",
+        {
+            "correlationId": "client-1",
+            "ts": "2025-10-29T12:00:00.000Z",
+            "data": {"value": 123},
+        },
+        "sid-1",
+    )
+
+    assert response["correlationId"] == "client-1"
+    assert len(results) == 1
+    handler_payload = results[0]["data"]
+    assert handler_payload["value"] == 123
+    assert handler_payload["correlationId"] == "client-1"
+    assert "ts" not in handler_payload
+    assert "data" not in handler_payload
+
+
+@pytest.mark.asyncio
 async def test_emit_to_unknown_sid_raises_error():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ConnectionNotFoundError):
         await manager.emit_to("unknown", "event", {})
 
 
@@ -425,6 +487,44 @@ async def test_update_csrf_expiry_and_validate_session_disconnects():
 
     assert await manager.validate_session("sid-csrf", now_ts + 15) is False
     socketio.disconnect.assert_awaited_once_with("sid-csrf")
+
+
+@pytest.mark.asyncio
+async def test_validate_session_does_not_await_disconnect_while_holding_lock():
+    socketio = FakeSocketIOServer()
+    manager = WebSocketManager(socketio, threading.RLock())
+
+    class FastHandler(WebSocketHandler):
+        @classmethod
+        def get_event_types(cls) -> list[str]:
+            return ["fast"]
+
+        async def process_event(self, event_type: str, data: dict[str, Any], sid: str):
+            return {"ok": True}
+
+    FastHandler._reset_instance_for_testing()
+    handler = FastHandler.get_instance(socketio, threading.RLock())
+    manager.register_handlers([handler])
+
+    disconnect_started = asyncio.Event()
+    disconnect_continue = asyncio.Event()
+
+    async def slow_disconnect(_sid: str):
+        disconnect_started.set()
+        await disconnect_continue.wait()
+
+    socketio.disconnect.side_effect = slow_disconnect
+
+    await manager.handle_connect("sid-csrf", csrf_expiry=0.0)
+
+    validate_task = asyncio.create_task(manager.validate_session("sid-csrf", 1.0))
+    try:
+        await asyncio.wait_for(disconnect_started.wait(), timeout=1.0)
+        await asyncio.wait_for(manager.route_event("fast", {}, "sid-csrf"), timeout=1.0)
+    finally:
+        disconnect_continue.set()
+
+    assert await asyncio.wait_for(validate_task, timeout=1.0) is False
 
 
 class DuplicateHandler(WebSocketHandler):

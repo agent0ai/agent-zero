@@ -248,11 +248,14 @@ class WebSocketClient {
   }
 
   buildPayload(data) {
-    if (data == null) return {};
+    const ts = new Date().toISOString();
+    if (data == null) {
+      return { ts, data: {} };
+    }
     if (typeof data !== "object" || Array.isArray(data)) {
       throw new Error("WebSocket payload must be a plain object");
     }
-    return { ...data };
+    return { ts, data: { ...data } };
   }
 
   applyProducerOptions(payload, normalizedOptions, allowances) {
@@ -756,24 +759,3 @@ class WebSocketClient {
 }
 
 export const websocket = new WebSocketClient();
-
-function startAutoConnect(client) {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return;
-  }
-
-  const initiate = () => {
-    client.connect().catch((error) => {
-      console.error("Failed to establish WebSocket connection:", error);
-    });
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initiate, { once: true });
-    return;
-  }
-
-  void initiate();
-}
-
-startAutoConnect(websocket);
