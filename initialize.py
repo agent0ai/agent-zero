@@ -167,3 +167,20 @@ def _set_runtime_config(config: AgentConfig, set: settings.Settings):
     for key, value in ssh_conf.items():
         if hasattr(config, key):
             setattr(config, key, value)
+
+def init_a0():
+    try:
+        # initialize contexts and MCP
+        init_chats_task = initialize_chats()
+        # only wait for init chats, otherwise they would seem to disappear for a while on restart
+        init_chats_task.result_sync()
+
+        initialize_mcp()
+        # start job loop
+        initialize_job_loop()
+        # preload
+        initialize_preload()
+    except Exception as e:
+        PrintStyle(font_color="red", padding=True).print(f"Error initializing: {e}")
+        import traceback
+        traceback.print_exc()

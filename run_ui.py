@@ -81,7 +81,7 @@ def is_loopback_address(address):
 
 def requires_api_key(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         # Use the auth token from settings (same as MCP server)
         from python.helpers.settings import get_settings
         valid_api_key = get_settings()["mcp_server_token"]
@@ -94,7 +94,7 @@ def requires_api_key(f):
                 return Response("Invalid API key", 401)
         else:
             return Response("API key required", 401)
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
@@ -102,14 +102,14 @@ def requires_api_key(f):
 # allow only loopback addresses
 def requires_loopback(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         if not is_loopback_address(request.remote_addr):
             return Response(
                 "Access denied.",
                 403,
                 {},
             )
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
@@ -117,29 +117,29 @@ def requires_loopback(f):
 # require authentication for handlers
 def requires_auth(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         user_pass_hash = login.get_credentials_hash()
         # If no auth is configured, just proceed
         if not user_pass_hash:
-            return await f(*args, **kwargs)
+            return f(*args, **kwargs)
 
         if session.get('authentication') != user_pass_hash:
             return redirect(url_for('login_handler'))
         
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
 def csrf_protect(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         token = session.get("csrf_token")
         header = request.headers.get("X-CSRF-Token")
         cookie = request.cookies.get("csrf_token_" + runtime.get_runtime_id())
         sent = header or cookie
         if not token or not sent or token != sent:
             return Response("CSRF token missing or invalid", 403)
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
@@ -212,19 +212,34 @@ def run():
         async def handler_wrap() -> BaseResponse:
             return await instance.handle_request(request=request)
 
+        # Apply decorators in reverse order
+        decorators = []
         if handler.requires_loopback():
-            handler_wrap = requires_loopback(handler_wrap)
+            decorators.append(requires_loopback)
         if handler.requires_auth():
-            handler_wrap = requires_auth(handler_wrap)
+            decorators.append(requires_auth)
         if handler.requires_api_key():
-            handler_wrap = requires_api_key(handler_wrap)
+            decorators.append(requires_api_key)
         if handler.requires_csrf():
-            handler_wrap = csrf_protect(handler_wrap)
+            decorators.append(csrf_protect)
+
+        # Apply decorators to a sync wrapper instead of the async function
+        def sync_wrapper():
+            # This will be decorated with sync decorators
+            pass
+
+        for decorator in decorators:
+            sync_wrapper = decorator(sync_wrapper)
+
+        # Create the final handler that applies sync checks then calls async handler
+        async def final_handler() -> BaseResponse:
+            sync_wrapper()  # Run sync decorators
+            return await instance.handle_request(request=request)
 
         app.add_url_rule(
             f"/{name}",
             f"/{name}",
-            handler_wrap,
+            final_handler,
             methods=handler.get_methods(),
         )
 
