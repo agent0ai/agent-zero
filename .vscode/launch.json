@@ -8,10 +8,10 @@
       "program": "${workspaceFolder}/run_ui.py",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["--development=true", "-Xfrozen_modules=off"],
+      "args": ["--development=true", "-Xfrozen_modules=off", "--port=8695"],
       "python": "${command:python.interpreterPath}",
       "cwd": "${workspaceFolder}",
-      "env": {"PYTHONPATH": "${workspaceFolder}"}
+      "env": {"PYTHONPATH": "${workspaceFolder}", "RFC_PASSWORD": "1123"}
     },
     {
       "name": "Debug current file",
@@ -23,7 +23,7 @@
       "args": ["--development=true", "-Xfrozen_modules=off"],
       "python": "${command:python.interpreterPath}",
       "cwd": "${workspaceFolder}",
-      "env": {"PYTHONPATH": "${workspaceFolder}"}
+      "env": {"PYTHONPATH": "${workspaceFolder}", "RFC_PASSWORD": "1123"}
     }
   ]
 }
