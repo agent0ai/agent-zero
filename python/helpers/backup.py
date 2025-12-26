@@ -64,9 +64,9 @@ class BackupService:
 {agent_root}/knowledge/**
 !{agent_root}/knowledge/default/**
 
-# Agent Zero Instruments (excluding defaults)
-{agent_root}/instruments/**
-!{agent_root}/instruments/default/**
+# Agent Zero Skills (excluding builtins)
+{agent_root}/skills/**
+!{agent_root}/skills/builtin/**
 
 # Memory (excluding embeddings cache)
 {agent_root}/memory/**

@@ -352,5 +352,5 @@ Then follow up with script:
 - Referenced files listed in load response
 - Scripts inject arguments as _skill_args variable
 - All operations return formatted text responses
-- Skills complement instruments system (both can coexist)
-- Use skills for structured procedures, instruments for quick code snippets
+- Skills follow the open SKILL.md standard (cross-platform compatible)
+- Use skills for structured procedures and contextual expertise

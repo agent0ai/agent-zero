@@ -14,10 +14,10 @@ knowledge/**
 !knowledge/default/
 !knowledge/default/**
 
-# Instruments directory – keep only default/
-instruments/**
-!instruments/default/
-!instruments/default/**
+# Skills directory – keep only builtin/
+skills/**
+!skills/builtin/
+!skills/builtin/**
 
 # Keep .gitkeep markers anywhere
 !**/.gitkeep

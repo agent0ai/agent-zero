@@ -511,7 +511,7 @@ ${memory.content_full}
       main: "#3b82f6",
       fragments: "#10b981",
       solutions: "#8b5cf6",
-      instruments: "#f59e0b",
+      skills: "#f59e0b",
     };
     return colors[area] || "#6c757d";
   },

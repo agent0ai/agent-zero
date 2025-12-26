@@ -57,8 +57,7 @@ class Memory:
         MAIN = "main"
         FRAGMENTS = "fragments"
         SOLUTIONS = "solutions"
-        INSTRUMENTS = "instruments"
-        SKILLS = "skills"
+        SKILLS = "skills"  # Open SKILL.md standard (replaces legacy instruments)
 
     index: dict[str, "MyFaiss"] = {}
 
@@ -309,16 +308,7 @@ class Memory:
                     {"area": area.value},
                 )
 
-        # load instruments descriptions
-        index = knowledge_import.load_knowledge(
-            log_item,
-            files.get_abs_path("instruments"),
-            index,
-            {"area": Memory.Area.INSTRUMENTS.value},
-            filename_pattern="**/*.md",
-        )
-
-        # load skills from custom, builtin, and shared directories
+        # load skills from custom, builtin, and shared directories (SKILL.md standard)
         skills_dirs = ["custom", "builtin", "shared"]
         for skills_subdir in skills_dirs:
             skills_path = files.get_abs_path("skills", skills_subdir)
