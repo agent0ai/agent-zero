@@ -1,8 +1,6 @@
-import asyncio
 from datetime import timedelta
 import os
 import secrets
-import hashlib
 import time
 import socket
 import struct
@@ -91,8 +89,7 @@ def requires_api_key(f):
         if api_key := request.headers.get("X-API-KEY"):
             if api_key != valid_api_key:
                 return Response("Invalid API key", 401)
-        elif request.json and request.json.get("api_key"):
-            api_key = request.json.get("api_key")
+        elif request.json is not None and (api_key := request.json.get("api_key")):
             if api_key != valid_api_key:
                 return Response("Invalid API key", 401)
         else:
@@ -207,7 +204,6 @@ def run():
     host = (
         runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     )
-    server = None
 
     def register_api_handler(app, handler: type[ApiHandler]):
         name = handler.__module__.split(".")[-1]

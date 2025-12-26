@@ -6,9 +6,8 @@ nest_asyncio.apply()
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Coroutine, Dict, Literal
+from typing import Any, Awaitable, Coroutine, Dict
 from enum import Enum
-import uuid
 import models
 
 from python.helpers import extract_tools, files, errors, history, tokens, context as context_helper
@@ -44,21 +43,21 @@ class AgentContext:
     def __init__(
         self,
         config: "AgentConfig",
-        id: str | None = None,
+        context_id: str | None = None,
         name: str | None = None,
         agent0: "Agent|None" = None,
         log: Log.Log | None = None,
         paused: bool = False,
         streaming_agent: "Agent|None" = None,
         created_at: datetime | None = None,
-        type: AgentContextType = AgentContextType.USER,
+        context_type: AgentContextType = AgentContextType.USER,
         last_message: datetime | None = None,
         data: dict | None = None,
         output_data: dict | None = None,
         set_current: bool = False,
     ):
         # initialize context
-        self.id = id or AgentContext.generate_id()
+        self.id = context_id or AgentContext.generate_id()
         existing = self._contexts.get(self.id, None)
         if existing:
             AgentContext.remove(self.id)
@@ -76,7 +75,7 @@ class AgentContext:
         self.streaming_agent = streaming_agent
         self.task: DeferredTask | None = None
         self.created_at = created_at or datetime.now(timezone.utc)
-        self.type = type
+        self.type = context_type
         AgentContext._counter += 1
         self.no = AgentContext._counter
         self.last_message = last_message or datetime.now(timezone.utc)
@@ -86,14 +85,14 @@ class AgentContext:
 
 
     @staticmethod
-    def get(id: str):
-        return AgentContext._contexts.get(id, None)
+    def get(context_id: str):
+        return AgentContext._contexts.get(context_id, None)
 
     @staticmethod
-    def use(id: str):
-        context = AgentContext.get(id)
+    def use(context_id: str):
+        context = AgentContext.get(context_id)
         if context:
-            AgentContext.set_current(id)
+            AgentContext.set_current(context_id)
         else:
             AgentContext.set_current("")
         return context
@@ -136,8 +135,8 @@ class AgentContext:
         return cls._notification_manager
 
     @staticmethod
-    def remove(id: str):
-        context = AgentContext._contexts.pop(id, None)
+    def remove(context_id: str):
+        context = AgentContext._contexts.pop(context_id, None)
         if context and context.task:
             context.task.kill()
         return context
@@ -183,20 +182,20 @@ class AgentContext:
 
     @staticmethod
     def log_to_all(
-        type: Log.Type,
+        log_type: Log.Type,
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
         temp: bool | None = None,
         update_progress: Log.ProgressUpdate | None = None,
-        id: str | None = None,  # Add id parameter
+        log_id: str | None = None,  # Add log_id parameter
         **kwargs,
     ) -> list[Log.LogItem]:
         items: list[Log.LogItem] = []
         for context in AgentContext.all():
             items.append(
                 context.log.log(
-                    type, heading, content, kvps, temp, update_progress, id, **kwargs
+                    log_type, heading, content, kvps, temp, update_progress, log_id, **kwargs
                 )
             )
         return items
@@ -255,9 +254,9 @@ class AgentContext:
         try:
             if user:
                 user_msg = msg if isinstance(msg, UserMessage) else UserMessage(message=str(msg))
-                msg_template = await agent.hist_add_user_message(user_msg)
+                await agent.hist_add_user_message(user_msg)
             else:
-                msg_template = await agent.hist_add_tool_result(
+                await agent.hist_add_tool_result(
                     tool_name="call_subordinate", tool_result=str(msg)
                 )
             response = await agent.monologue()  # type: ignore
@@ -730,8 +729,6 @@ class Agent:
         reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
         background: bool = False,
     ):
-        response = ""
-
         # model class
         model = self.get_chat_model()
 
@@ -883,7 +880,7 @@ class Agent:
                     parsed=response,
                 )
 
-        except Exception as e:
+        except Exception:
             pass
 
     def get_tool(
@@ -909,7 +906,7 @@ class Agent:
                 classes = extract_tools.load_classes_from_file(
                     "python/tools/" + name + ".py", Tool  # type: ignore[arg-type]
                 )
-            except Exception as e:
+            except Exception:
                 pass
         tool_class = classes[0] if classes else Unknown
         return tool_class(
