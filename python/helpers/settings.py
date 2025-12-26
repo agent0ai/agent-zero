@@ -132,6 +132,19 @@ class Settings(TypedDict):
 
     tts_kokoro: bool
 
+    # Alerts (WebUI)
+    alert_enabled: bool
+    alert_on_task_complete: bool
+    alert_on_user_input_needed: bool
+    alert_on_subagent_complete: bool
+    alert_sound_type: Literal["chime", "beep", "custom"]
+    alert_custom_sound_path: str
+    alert_tts_enabled: bool
+    alert_tts_use_kokoro: bool
+    alert_tts_message_task_complete: str
+    alert_tts_message_input_needed: str
+    alert_tts_message_subagent_complete: str
+
     mcp_servers: str
     mcp_client_init_timeout: int
     mcp_client_tool_timeout: int
@@ -1092,6 +1105,163 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "agent",
     }
 
+    # Alerts section
+    alerts_fields: list[SettingsField] = []
+
+    alerts_fields.append(
+        {
+            "id": "alert_enabled",
+            "title": "Enable alerts",
+            "description": "Enable audible alerts that play in the Web UI browser when Agent Zero needs your attention.",
+            "type": "switch",
+            "value": settings["alert_enabled"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_on_user_input_needed",
+            "title": "Alert when waiting for your input",
+            "description": "Play an alert after a normal chat response completes (i.e. when it’s your turn to respond).",
+            "type": "switch",
+            "value": settings["alert_on_user_input_needed"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_on_task_complete",
+            "title": "Alert when a scheduler task completes",
+            "description": "Play an alert when a Task Scheduler task finishes.",
+            "type": "switch",
+            "value": settings["alert_on_task_complete"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_on_subagent_complete",
+            "title": "Alert when a subagent completes",
+            "description": "Play an alert when a subordinate agent finishes.",
+            "type": "switch",
+            "value": settings["alert_on_subagent_complete"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_sound_type",
+            "title": "Alert sound",
+            "description": "Sound to play for alerts. Custom uses a browser-fetchable URL/path.",
+            "type": "select",
+            "value": settings["alert_sound_type"],
+            "options": [
+                {"value": "chime", "label": "Chime"},
+                {"value": "beep", "label": "Beep"},
+                {"value": "custom", "label": "Custom (URL/path)"},
+            ],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_custom_sound_path",
+            "title": "Custom sound URL/path",
+            "description": "Browser-accessible URL/path to an audio file (e.g. /public/alert.wav). Used when Alert sound is set to Custom.",
+            "type": "text",
+            "value": settings["alert_custom_sound_path"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_tts_enabled",
+            "title": "Speak alert message",
+            "description": "Speak the alert message after the sound (uses browser TTS or Kokoro depending on Speech settings).",
+            "type": "switch",
+            "value": settings["alert_tts_enabled"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_tts_use_kokoro",
+            "title": "Use Kokoro for alerts",
+            "description": "Force server-side Kokoro TTS for alert speech. When disabled, alerts follow Speech settings (browser TTS or Kokoro).",
+            "type": "switch",
+            "value": settings["alert_tts_use_kokoro"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_tts_message_input_needed",
+            "title": "Message: waiting for input",
+            "description": "Text shown (toast) and optionally spoken when the agent is waiting for your input.",
+            "type": "text",
+            "value": settings["alert_tts_message_input_needed"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_tts_message_task_complete",
+            "title": "Message: task complete",
+            "description": "Text shown (toast) and optionally spoken when a scheduler task completes.",
+            "type": "text",
+            "value": settings["alert_tts_message_task_complete"],
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_tts_message_subagent_complete",
+            "title": "Message: subagent complete",
+            "description": "Text shown (toast) and optionally spoken when a subagent completes.",
+            "type": "text",
+            "value": settings["alert_tts_message_subagent_complete"],
+        }
+    )
+
+    # Test buttons
+    alerts_fields.append(
+        {
+            "id": "alert_test_input_needed",
+            "title": "Test: waiting for input",
+            "description": "Play a test “waiting for input” alert in this browser.",
+            "type": "button",
+            "value": "Test",
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_test_task_complete",
+            "title": "Test: task complete",
+            "description": "Play a test “task complete” alert in this browser.",
+            "type": "button",
+            "value": "Test",
+        }
+    )
+
+    alerts_fields.append(
+        {
+            "id": "alert_test_subagent_complete",
+            "title": "Test: subagent complete",
+            "description": "Play a test “subagent complete” alert in this browser.",
+            "type": "button",
+            "value": "Test",
+        }
+    )
+
+    alerts_section: SettingsSection = {
+        "id": "alerts",
+        "title": "Alerts",
+        "description": "Audible alerts that play in the Web UI browser when Agent Zero needs your attention.",
+        "fields": alerts_fields,
+        "tab": "agent",
+    }
+
     # MCP section
     mcp_client_fields: list[SettingsField] = []
 
@@ -1319,6 +1489,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             embed_model_section,
             memory_section,
             speech_section,
+            alerts_section,
             api_keys_section,
             litellm_section,
             secrets_section,
@@ -1558,6 +1729,23 @@ def get_default_settings() -> Settings:
         stt_silence_duration=get_default_value("stt_silence_duration", 1000),
         stt_waiting_timeout=get_default_value("stt_waiting_timeout", 2000),
         tts_kokoro=get_default_value("tts_kokoro", True),
+        alert_enabled=get_default_value("alert_enabled", True),
+        alert_on_task_complete=get_default_value("alert_on_task_complete", True),
+        alert_on_user_input_needed=get_default_value("alert_on_user_input_needed", True),
+        alert_on_subagent_complete=get_default_value("alert_on_subagent_complete", True),
+        alert_sound_type=get_default_value("alert_sound_type", "chime"),
+        alert_tts_enabled=get_default_value("alert_tts_enabled", True),
+        alert_tts_use_kokoro=get_default_value("alert_tts_use_kokoro", False),
+        alert_tts_message_task_complete=get_default_value(
+            "alert_tts_message_task_complete", "Task completed"
+        ),
+        alert_tts_message_input_needed=get_default_value(
+            "alert_tts_message_input_needed", "Waiting for your input"
+        ),
+        alert_tts_message_subagent_complete=get_default_value(
+            "alert_tts_message_subagent_complete", "Subordinate agent completed"
+        ),
+        alert_custom_sound_path=get_default_value("alert_custom_sound_path", ""),
         mcp_servers=get_default_value("mcp_servers", '{\n    "mcpServers": {}\n}'),
         mcp_client_init_timeout=get_default_value("mcp_client_init_timeout", 10),
         mcp_client_tool_timeout=get_default_value("mcp_client_tool_timeout", 120),

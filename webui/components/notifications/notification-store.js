@@ -2,6 +2,19 @@ import { createStore } from "/js/AlpineStore.js";
 import * as API from "/js/api.js";
 import { openModal } from "/js/modals.js";
 
+// Lazy-load alert store to avoid circular imports (notificationStore is a dependency of shortcuts/speech)
+let _alertStorePromise = null;
+function getAlertStore() {
+  if (_alertStorePromise) return _alertStorePromise;
+  _alertStorePromise = import("/components/alerts/alert-store.js")
+    .then((m) => m.store)
+    .catch((e) => {
+      console.error("Failed to load alert store:", e);
+      return null;
+    });
+  return _alertStorePromise;
+}
+
 export const NotificationType = {
   INFO: "info",
   SUCCESS: "success",
@@ -76,6 +89,19 @@ const model = {
         // Add new unread notifications to toast stack
         if (isNew && shouldToast) {
           this.addToToastStack(notification);
+
+          // Trigger audible alerts for alert.* notifications (WebUI playback)
+          const group = String(notification.group || "");
+          if (group.startsWith("alert.")) {
+            getAlertStore().then((alertStore) => {
+              if (
+                alertStore &&
+                typeof alertStore.handleAlertNotification === "function"
+              ) {
+                alertStore.handleAlertNotification(notification);
+              }
+            });
+          }
         }
       });
     }
