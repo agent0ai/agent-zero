@@ -4,7 +4,7 @@ FROM agent0ai/agent-zero-base:latest
 
 # Check if the argument is provided, else throw an error
 ARG BRANCH
-RUN if [ -z "$BRANCH" ]; then echo "ERROR: BRANCH is not set!" >&2; exit 1; fi
+RUN if [ -z "$BRANCH" ]; then echo ": BRANCH is not set!" >&2 && exit 1; fi
 ENV BRANCH=$BRANCH
 
 # Copy filesystem files to root
@@ -32,4 +32,4 @@ EXPOSE 22 80 9000-9009
 RUN chmod +x /exe/initialize.sh /exe/run_A0.sh /exe/run_searxng.sh /exe/run_tunnel_api.sh
 
 # initialize runtime and switch to supervisord
-CMD ["/exe/initialize.sh", "$BRANCH"]
+CMD ["/exe/initialize.sh"]

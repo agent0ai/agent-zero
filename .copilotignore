@@ -1,0 +1,12 @@
+# Copilot Agent Protected Files
+# These files should NEVER be modified by Copilot agents
+# They define agent behavior and workflows
+
+# Agent definition files
+agents/*.md
+
+# Prompt template files
+prompts/*.md
+
+# Instruction files
+instructions/*.md
