@@ -89,7 +89,7 @@ def requires_api_key(f):
         if api_key := request.headers.get("X-API-KEY"):
             if api_key != valid_api_key:
                 return Response("Invalid API key", 401)
-        elif request.json is not None and (api_key := request.json.get("api_key")):
+        elif request.json is not None and "api_key" in request.json and (api_key := request.json["api_key"]):
             if api_key != valid_api_key:
                 return Response("Invalid API key", 401)
         else:
