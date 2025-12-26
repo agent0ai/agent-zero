@@ -66,7 +66,7 @@ From now on, please use this name for both `git clone` and `docker pull` command
 - Tool usage functionality has been developed from scratch to be the most compatible and reliable, even with very small models.
 - **Default Tools:** Agent Zero includes tools like knowledge, code execution, and communication.
 - **Creating Custom Tools:** Extend Agent Zero's functionality by creating your own custom tools.
-- **Instruments:** Instruments are a new type of tool that allow you to create custom functions and procedures that can be called by Agent Zero.
+- **Skills (SKILL.md Standard):** Skills are contextual expertise loaded dynamically when relevant. They use the open SKILL.md standard (developed by Anthropic), making them compatible with Claude Code, Cursor, Goose, OpenAI Codex CLI, and GitHub Copilot.
 
 3. **Multi-agent Cooperation**
 

@@ -80,7 +80,7 @@ The following user guide provides instructions for installing and running Agent 
 - This directory will contain all your Agent Zero files, like the legacy root folder structure:
   - `/memory` - Agent's memory and learned information
   - `/knowledge` - Knowledge base
-  - `/instruments` - Instruments and functions
+  - `/skills` - Skills (SKILL.md standard)
   - `/prompts` - Prompt files
   - `/work_dir` - Working directory
   - `.env` - Your API keys
@@ -301,12 +301,12 @@ For developers or users who need to run Agent Zero directly on their system,see 
 - To update to the new Docker runtime version, you might want to backup the following files and directories:
   - `/memory` - Agent's memory
   - `/knowledge` - Custom knowledge base (if you imported any custom knowledge files)
-  - `/instruments` - Custom instruments and functions (if you created any custom)
+  - `/skills` - Custom skills (if you created any custom SKILL.md files)
   - `/tmp/settings.json` - Your Agent Zero settings
   - `/tmp/chats/` - Your chat history
 - Once you have saved these files and directories, you can proceed with the Docker runtime [installation instructions above](#windows-macos-and-linux-setup-guide) setup guide.
 - Reach for the folder where you saved your data and copy it to the new Agent Zero folder set during the installation process.
-- Agent Zero will automatically detect your saved data and use it across memory, knowledge, instruments, prompts and settings.
+- Agent Zero will automatically detect your saved data and use it across memory, knowledge, skills, prompts and settings.
 
 > [!IMPORTANT]
 > If you have issues loading your settings, you can try to delete the `/tmp/settings.json` file and let Agent Zero generate a new one.
