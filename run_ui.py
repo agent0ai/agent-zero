@@ -225,23 +225,19 @@ def run():
 
         # Apply decorators to a sync wrapper instead of the async function
         def sync_wrapper():
-            # This will be decorated with sync decorators
-            pass
+            # This will be decorated with sync decorators and may return a Response
+            return None
 
         for decorator in decorators:
             sync_wrapper = decorator(sync_wrapper)
 
         # Create the final handler that applies sync checks then calls async handler
         async def final_handler() -> BaseResponse:
-            sync_wrapper()  # Run sync decorators
-            return await instance.handle_request(request=request)
-
-        app.add_url_rule(
-            f"/{name}",
-            f"/{name}",
-            final_handler,
-            methods=handler.get_methods(),
-        )
+            # Run sync decorators; if any of them returns a Response (e.g. redirect or error),
+            # return it immediately instead of calling the async handler.
+            result = sync_wrapper()
+            if isinstance(result, (Response, BaseResponse)):
+                return result
 
     # initialize and register API handlers
     handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)

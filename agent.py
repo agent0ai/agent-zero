@@ -867,6 +867,28 @@ class Agent:
         )
 
     async def handle_response_stream(self, stream: str):
+
+
+
+        Note:
+            Any exceptions that occur during JSON parsing or extension callback execution
+            are silently caught and ignored, allowing the method to fail gracefully without
+            propagating errors up the call stack.
+        """
+        Handle incoming response stream data asynchronously.
+
+        This method processes streamed response data by parsing it as JSON and triggering
+        extension callbacks. Streams shorter than 25 characters are skipped as they are
+        unlikely to contain meaningful data.
+
+        Args:
+            stream (str): The response stream data to process.
+
+        Raises:
+            Silently catches and ignores all exceptions during JSON parsing and extension
+            callback execution, allowing the method to fail gracefully without propagating
+            errors up the call stack.
+        """
         await self.handle_intervention()
         try:
             if len(stream) < 25:

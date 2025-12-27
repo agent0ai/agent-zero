@@ -109,8 +109,8 @@ embedding:
     name: OpenAI
     litellm_provider: openai
   azure:
-    name: OpenAI 
-    litellm_provider: 
+    name: OpenAI Azure
+    litellm_provider: azure
   # TODO: OpenRouter not yet supported by LiteLLM, replace with native litellm_provider openrouter and remove api_base when ready
   openrouter:
     name: OpenRouter
