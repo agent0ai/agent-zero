@@ -35,8 +35,9 @@ chat:
     litellm_provider: deepseek
   github_copilot:
     name: GitHub Copilot
-    litellm_provider: github_copilot
+    litellm_provider: openai
     kwargs:
+      api_base: https://api.githubcopilot.com/chat/completions
       extra_headers:
         "Editor-Version": "vscode/1.85.1"
         "Copilot-Integration-Id": "vscode-chat"
@@ -108,8 +109,8 @@ embedding:
     name: OpenAI
     litellm_provider: openai
   azure:
-    name: OpenAI Azure
-    litellm_provider: azure
+    name: OpenAI 
+    litellm_provider: 
   # TODO: OpenRouter not yet supported by LiteLLM, replace with native litellm_provider openrouter and remove api_base when ready
   openrouter:
     name: OpenRouter

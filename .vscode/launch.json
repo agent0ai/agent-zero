@@ -8,7 +8,7 @@
       "program": "${workspaceFolder}/run_ui.py",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["-Xfrozen_modules=off", "--port=8695"],
+      "args": ["-Xfrozen_modules=off", "--port=8695", "--dockerized=true"],
       "python": "${command:python.interpreterPath}",
       "cwd": "${workspaceFolder}",
       "env": {"PYTHONPATH": "${workspaceFolder}", "RFC_PASSWORD": "1123"}
@@ -20,7 +20,7 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["-Xfrozen_modules=off"],
+      "args": ["-Xfrozen_modules=off", "--dockerized=true"],
       "python": "${command:python.interpreterPath}",
       "cwd": "${workspaceFolder}",
       "env": {"PYTHONPATH": "${workspaceFolder}", "RFC_PASSWORD": "1123"}
