@@ -23,7 +23,7 @@ Or see DeepWiki generated documentation:
 >
 > Agent Zero now supports **Projects** – isolated workspaces with their own prompts, files, memory, and secrets, so you can create dedicated setups for each use case without mixing contexts.
 
-[![Showcase](/docs/res/showcase-thumb.png)](https://youtu.be/lazLNcEYsiQ)
+[![Showcase](/docs/res/showcase-thumb.png)](https://youtu.be/MdzLhWWoxEs)
 
 ## A personal, organic agentic framework that grows and learns with you
 
