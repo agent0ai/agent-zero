@@ -170,6 +170,80 @@
   background-color: transparent;
 }
 
+/* Terminal-style code execution block */
+.message-code-exe .message-body {
+  background: #0d1117;
+  border: 1px solid rgba(48, 54, 61, 0.8);
+  border-radius: 6px;
+  padding: 0;
+  margin-top: 0.5em;
+  overflow: hidden;
+}
+
+.message-code-exe .msg-heading {
+  background: linear-gradient(180deg, #21262d 0%, #161b22 100%);
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.message-code-exe .msg-heading h4 {
+  font-family: var(--font-family-code);
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message-code-exe .msg-heading h4::before {
+  content: "$";
+  color: #7ee787;
+  font-weight: 600;
+}
+
+.message-code-exe .msg-content {
+  padding: 12px;
+  font-family: var(--font-family-code);
+  font-size: 0.72rem;
+  color: #c9d1d9;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.message-code-exe .msg-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Light mode terminal */
+.light-mode .message-code-exe .message-body {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.light-mode .message-code-exe .msg-heading {
+  background: linear-gradient(180deg, #f6f8fa 0%, #eaeef2 100%);
+  border-bottom-color: #d0d7de;
+}
+
+.light-mode .message-code-exe .msg-heading h4 {
+  color: #57606a;
+}
+
+.light-mode .message-code-exe .msg-heading h4::before {
+  color: #1a7f37;
+}
+
+.light-mode .message-code-exe .msg-content {
+  color: #24292f;
+}
+
 .message-body .message-markdown-table-wrap {
   display: block;
   width: 100%;
@@ -187,9 +261,7 @@
   white-space: break-spaces;
 }
 
-.light-mode .message-code-exe .message-body {
-  border: 1px solid var(--color-border);
-}
+/* Light mode code-exe styling moved to main terminal block above */
 
 .message-browser {
   background-color: transparent;
@@ -215,15 +287,7 @@
   padding: 12px;
 }
 
-.message-code-exe .message-body {
-  min-height: 5em;
-  width: 100%;
-  background-color: var(--color-panel);
-  border-radius: 0.5em;
-  margin-top: 0.5em;
-  padding: 0.3em;
-  font-family: var(--font-family-code);
-}
+/* Terminal styling moved to new terminal block above */
 
 /* Agent and AI Info */
 .agent-start {
@@ -263,7 +327,7 @@
 }
 
 .msg-kvps tr {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: none;
 }
 
 .msg-heading {
@@ -424,7 +488,7 @@
 }
 
 .light-mode .msg-kvps tr {
-  border-bottom: 1px solid rgb(192 192 192 / 50%);
+  border-bottom: none;
 }
 
 .light-mode .message-default {

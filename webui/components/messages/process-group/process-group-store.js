@@ -140,6 +140,27 @@ const model = {
     return colors[type] || 'status-gen';
   },
 
+  // Get icon for badge display (Material Symbols)
+  getStepBadgeIcon(type) {
+    const icons = {
+      'agent': 'public',         // Globe for GEN (network intelligence)
+      'tool': 'build',           // Wrench for MCP
+      'code_exe': 'terminal',    // Terminal for EXE
+      'browser': 'language',     // Globe for browser
+      'info': 'info',
+      'hint': 'lightbulb',
+      'util': 'settings',
+      'warning': 'warning',
+      'error': 'error',
+      'mcp': 'build',            // Wrench for MCP
+      'memory': 'memory',
+      'done': 'check_circle',
+      'response': 'check_circle',
+      'subagent': 'group'
+    };
+    return icons[type] || 'circle';
+  },
+
   // Get label for step type (longer description)
   getStepLabel(type) {
     const labels = {

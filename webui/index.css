@@ -196,14 +196,19 @@ div#right-panel::-webkit-scrollbar-thumb:hover {
 
 #time-date {
   color: var(--color-text);
-  font-size: var(--font-size-normal);
+  font-size: 1.5rem;
+  font-weight: 500;
   text-align: right;
-  line-height: 1.1;
+  line-height: 1.2;
+  font-family: var(--font-family-code);
 }
 
 #user-date {
-  font-size: var(--font-size-small);
-  opacity: 0.6;
+  font-size: 0.7rem;
+  opacity: 0.5;
+  font-weight: 400;
+  display: block;
+  margin-top: 2px;
 }
 
 /* Typography */

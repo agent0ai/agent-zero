@@ -497,14 +497,11 @@ export function drawMessageUser(
     messageDiv.className = "message message-user";
   }
 
-  // Handle heading
+  // Remove heading element if it exists (user messages no longer show label per target design)
   let headingElement = messageDiv.querySelector(".msg-heading");
-  if (!headingElement) {
-    headingElement = document.createElement("h4");
-    headingElement.classList.add("msg-heading");
-    messageDiv.insertBefore(headingElement, messageDiv.firstChild);
+  if (headingElement) {
+    headingElement.remove();
   }
-  headingElement.innerHTML = `${heading} <span class='icon material-symbols-outlined'>person</span>`;
 
   // Handle content
   let textDiv = messageDiv.querySelector(".message-text");
@@ -1165,13 +1162,13 @@ function createProcessGroup(id) {
   header.classList.add("process-group-header");
   header.innerHTML = `
     <span class="expand-icon"></span>
+    <span class="status-badge status-gen status-active group-status"><span class="badge-icon material-symbols-outlined">public</span>GEN</span>
     <span class="group-title">Processing...</span>
-    <span class="status-badge status-gen status-active group-status">GEN</span>
     <span class="group-metrics">
-      <span class="metric-time" title="Start time">⏱<span class="metric-value">--:--</span></span>
-      <span class="metric-steps" title="Steps">🔗<span class="metric-value">0</span></span>
-      <span class="metric-duration" title="Duration">⏳<span class="metric-value">0s</span></span>
-      <span class="metric-tokens" title="Tokens">T<span class="metric-value">--</span></span>
+      <span class="metric-time" title="Start time"><span class="metric-value">--:--</span></span>
+      <span class="metric-steps" title="Steps"><span class="metric-value">0</span></span>
+      <span class="metric-duration" title="Duration"><span class="metric-value">0s</span></span>
+      <span class="metric-tokens" title="Tokens"><span class="metric-value">--</span></span>
     </span>
   `;
   
@@ -1257,9 +1254,12 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   const statusCode = processGroupStore.getStepCode(type);
   const statusColorClass = processGroupStore.getStatusColorClass(type);
   
+  // Get icon for step type
+  const stepIcon = processGroupStore.getStepBadgeIcon(type);
+  
   stepHeader.innerHTML = `
     <span class="step-expand-icon"></span>
-    <span class="status-badge ${statusColorClass} status-active">${statusCode}</span>
+    <span class="status-badge ${statusColorClass} status-active"><span class="badge-icon material-symbols-outlined">${stepIcon}</span>${statusCode}</span>
     <span class="step-title">${escapeHTML(title)}</span>
   `;
   
@@ -1280,7 +1280,7 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   detailContent.classList.add("process-step-detail-content");
   
   // Add content to detail
-  renderStepDetailContent(detailContent, content, kvps);
+  renderStepDetailContent(detailContent, content, kvps, type);
   
   detail.appendChild(detailContent);
   step.appendChild(detail);
@@ -1319,7 +1319,7 @@ function updateProcessStep(stepElement, id, type, heading, content, kvps, durati
   // Update detail content
   const detailContent = stepElement.querySelector(".process-step-detail-content");
   if (detailContent) {
-    renderStepDetailContent(detailContent, content, kvps);
+    renderStepDetailContent(detailContent, content, kvps, type);
   }
   
   // Update parent group header
@@ -1382,8 +1382,47 @@ function cleanStepTitle(text, maxLength) {
 /**
  * Render content for step detail panel
  */
-function renderStepDetailContent(container, content, kvps) {
+function renderStepDetailContent(container, content, kvps, type = null) {
   container.innerHTML = "";
+  
+  // Special handling for code_exe type - render as terminal-style output
+  if (type === "code_exe" && kvps) {
+    const runtime = kvps.runtime || kvps.Runtime || "bash";
+    const code = kvps.code || kvps.Code || "";
+    const output = content || "";
+    
+    if (code || output) {
+      const terminalDiv = document.createElement("div");
+      terminalDiv.classList.add("step-terminal");
+      
+      // Show command line
+      if (code) {
+        const cmdLine = document.createElement("div");
+        cmdLine.classList.add("terminal-cmd");
+        cmdLine.innerHTML = `<span class="terminal-prompt">${escapeHTML(runtime)}></span> <span class="terminal-code">${escapeHTML(code)}</span>`;
+        terminalDiv.appendChild(cmdLine);
+      }
+      
+      // Show output if present
+      if (output && output.trim()) {
+        const outputPre = document.createElement("pre");
+        outputPre.classList.add("terminal-output");
+        outputPre.textContent = truncateText(output, 1000);
+        terminalDiv.appendChild(outputPre);
+      }
+      
+      container.appendChild(terminalDiv);
+    }
+    
+    // Still render thoughts if present
+    if (kvps.thoughts || kvps.thinking || kvps.reasoning) {
+      const thoughtKey = kvps.thoughts ? "thoughts" : (kvps.thinking ? "thinking" : "reasoning");
+      const thoughtValue = kvps[thoughtKey];
+      renderThoughts(container, thoughtValue);
+    }
+    
+    return;
+  }
   
   // Add KVPs if present
   if (kvps && Object.keys(kvps).length > 0) {
@@ -1394,19 +1433,78 @@ function renderStepDetailContent(container, content, kvps) {
       // Skip internal/display keys
       if (key === "finished" || key === "attachments") continue;
       
-      const kvpDiv = document.createElement("div");
-      kvpDiv.classList.add("step-kvp");
+      // Skip code_exe specific keys that we handle specially above
+      if (type === "code_exe" && (key.toLowerCase() === "runtime" || key.toLowerCase() === "session" || key.toLowerCase() === "code")) {
+        continue;
+      }
       
-      // Add msg-thoughts class for thoughts-related keys (controlled by showThoughts preference)
       const lowerKey = key.toLowerCase();
       
-      if (lowerKey === "thoughts" || lowerKey === "thinking" || lowerKey === "reflection") {
-        kvpDiv.classList.add("msg-thoughts");
+      // Special handling for thoughts/reasoning - render with single lightbulb icon
+      if (lowerKey === "thoughts" || lowerKey === "thinking" || lowerKey === "reflection" || lowerKey === "reasoning") {
+        const thoughtsDiv = document.createElement("div");
+        thoughtsDiv.classList.add("step-thoughts", "msg-thoughts");
+        
         // Apply current preference state - hide if showThoughts is false
         if (!preferencesStore.showThoughts) {
-          kvpDiv.classList.add("hide-thoughts");
+          thoughtsDiv.classList.add("hide-thoughts");
         }
+        
+        let thoughtText = value;
+        if (typeof value === "object") {
+          // Handle array of thoughts
+          if (Array.isArray(value)) {
+            thoughtText = value.filter(t => t && String(t).trim() && String(t).trim() !== "[" && String(t).trim() !== "]").join("\n");
+          } else {
+            thoughtText = JSON.stringify(value, null, 2);
+          }
+        }
+        
+        // Clean up the text - remove standalone brackets
+        thoughtText = String(thoughtText).replace(/^\s*[\[\]]\s*$/gm, "").trim();
+        
+        if (thoughtText) {
+          // Single icon + text block
+          thoughtsDiv.innerHTML = `<span class="thought-icon material-symbols-outlined">lightbulb</span><span class="thought-text">${escapeHTML(thoughtText)}</span>`;
+        }
+        
+        kvpsDiv.appendChild(thoughtsDiv);
+        continue;
       }
+      
+      // Special handling for tool_args - render as structured labeled parameters
+      if (lowerKey === "tool_args" && typeof value === "object" && value !== null) {
+        const argsDiv = document.createElement("div");
+        argsDiv.classList.add("step-tool-args");
+        
+        for (const [argKey, argValue] of Object.entries(value)) {
+          const argRow = document.createElement("div");
+          argRow.classList.add("tool-arg-row");
+          
+          const argLabel = document.createElement("span");
+          argLabel.classList.add("tool-arg-label");
+          argLabel.textContent = convertToTitleCase(argKey) + ":";
+          
+          const argVal = document.createElement("span");
+          argVal.classList.add("tool-arg-value");
+          
+          let argText = argValue;
+          if (typeof argValue === "object") {
+            argText = JSON.stringify(argValue, null, 2);
+          }
+          argVal.textContent = truncateText(String(argText), 300);
+          
+          argRow.appendChild(argLabel);
+          argRow.appendChild(argVal);
+          argsDiv.appendChild(argRow);
+        }
+        
+        kvpsDiv.appendChild(argsDiv);
+        continue;
+      }
+      
+      const kvpDiv = document.createElement("div");
+      kvpDiv.classList.add("step-kvp");
       
       const keySpan = document.createElement("span");
       keySpan.classList.add("step-kvp-key");
@@ -1440,6 +1538,35 @@ function renderStepDetailContent(container, content, kvps) {
     }
     pre.textContent = truncateText(content, 1000);
     container.appendChild(pre);
+  }
+}
+
+/**
+ * Helper to render thoughts/reasoning with lightbulb icon
+ */
+function renderThoughts(container, value) {
+  const thoughtsDiv = document.createElement("div");
+  thoughtsDiv.classList.add("step-thoughts", "msg-thoughts");
+  
+  // Apply current preference state - hide if showThoughts is false
+  if (!preferencesStore.showThoughts) {
+    thoughtsDiv.classList.add("hide-thoughts");
+  }
+  
+  let thoughtText = value;
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      thoughtText = value.filter(t => t && String(t).trim() && String(t).trim() !== "[" && String(t).trim() !== "]").join("\n");
+    } else {
+      thoughtText = JSON.stringify(value, null, 2);
+    }
+  }
+  
+  thoughtText = String(thoughtText).replace(/^\s*[\[\]]\s*$/gm, "").trim();
+  
+  if (thoughtText) {
+    thoughtsDiv.innerHTML = `<span class="thought-icon material-symbols-outlined">lightbulb</span><span class="thought-text">${escapeHTML(thoughtText)}</span>`;
+    container.appendChild(thoughtsDiv);
   }
 }
 
@@ -1506,11 +1633,12 @@ function updateProcessGroupHeader(group) {
     const lastType = lastStep.getAttribute("data-type");
     const lastTitle = lastStep.querySelector(".step-title")?.textContent || "";
     
-    // Update status badge (keep status-active during execution)
+    // Update status badge with icon (keep status-active during execution)
     if (statusEl) {
       const statusCode = processGroupStore.getStepCode(lastType);
       const statusColorClass = processGroupStore.getStatusColorClass(lastType);
-      statusEl.textContent = statusCode;
+      const badgeIcon = processGroupStore.getStepBadgeIcon(lastType);
+      statusEl.innerHTML = `<span class="badge-icon material-symbols-outlined">${badgeIcon}</span>${statusCode}`;
       statusEl.className = `status-badge ${statusColorClass} status-active group-status`;
     }
     

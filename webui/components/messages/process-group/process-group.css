@@ -133,6 +133,13 @@
   line-height: 1;
 }
 
+/* Badge icon styling */
+.status-badge .badge-icon {
+  font-size: 0.7rem;
+  margin-right: 2px;
+  opacity: 0.9;
+}
+
 /* GEN - Generating (blue/cyan) */
 .status-gen {
   background-color: rgba(56, 189, 248, 0.15);
@@ -435,16 +442,14 @@
 }
 
 .process-step-detail-content {
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
   margin-top: var(--spacing-xxs);
   margin-left: 20px; /* Align with icon */
-  background-color: rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
+  background-color: transparent;
   font-size: 0.7rem;
   line-height: 1.5;
   max-height: 300px;
   overflow-y: auto;
-  border-left: 2px solid rgba(255, 255, 255, 0.08);
 }
 
 .process-step-detail-content pre {
@@ -484,6 +489,122 @@
   font-size: 0.7rem;
 }
 
+/* Thoughts styling - single icon with plain text */
+.process-step-detail-content .step-thoughts {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: var(--spacing-xs) 0;
+}
+
+.process-step-detail-content .thought-icon {
+  font-size: 0.85rem;
+  color: #fbbf24;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.process-step-detail-content .thought-text {
+  font-size: 0.72rem;
+  color: var(--color-text);
+  opacity: 0.8;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Light mode thoughts */
+.light-mode .process-step-detail-content .thought-icon {
+  color: #b45309;
+}
+
+/* Tool arguments structured display - clean label:value format without boxes */
+.process-step-detail-content .step-tool-args {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--spacing-xs) 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border-left: none;
+}
+
+.process-step-detail-content .tool-arg-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.process-step-detail-content .tool-arg-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.process-step-detail-content .tool-arg-value {
+  font-size: 0.7rem;
+  color: var(--color-text);
+  opacity: 0.85;
+  word-break: break-word;
+  font-family: var(--font-family-code);
+}
+
+/* Light mode tool args - transparent like dark mode */
+.light-mode .process-step-detail-content .step-tool-args {
+  background: transparent;
+  border-left-color: transparent;
+}
+
+/* Terminal-style output for code_exe */
+.process-step-detail-content .step-terminal {
+  margin: var(--spacing-xs) 0;
+  font-family: var(--font-family-code);
+  font-size: 0.72rem;
+}
+
+.process-step-detail-content .terminal-cmd {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--color-text);
+  opacity: 0.9;
+}
+
+.process-step-detail-content .terminal-prompt {
+  color: #7ee787;
+  font-weight: 600;
+}
+
+.process-step-detail-content .terminal-code {
+  color: var(--color-text);
+  opacity: 0.85;
+}
+
+.process-step-detail-content .terminal-output {
+  margin: var(--spacing-xs) 0 0 0;
+  padding: var(--spacing-xs);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Light mode terminal */
+.light-mode .process-step-detail-content .terminal-prompt {
+  color: #1a7f37;
+}
+
+.light-mode .process-step-detail-content .terminal-output {
+  background: rgba(0, 0, 0, 0.05);
+  color: #24292f;
+}
+
 /* Light mode adjustments */
 .light-mode .process-group {
   background: rgba(0, 0, 0, 0.03);
@@ -513,8 +634,7 @@
 }
 
 .light-mode .process-step-detail-content {
-  background-color: rgba(0, 0, 0, 0.03);
-  border-left-color: rgba(0, 0, 0, 0.08);
+  background-color: transparent;
 }
 
 .light-mode .process-group-header .step-count {
