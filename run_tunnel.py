@@ -49,8 +49,7 @@ def run():
         server.serve_forever()
     finally:
         # Clean up tunnel if it was started
-        if tunnel:
-            tunnel.stop()
+        pass
 
 
 # run the internal server

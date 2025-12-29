@@ -13,5 +13,13 @@
     },
     // Optional: point VSCode to jsconfig.json if you add one
     "jsconfig.json": "${workspaceFolder}/jsconfig.json",
-    "postman.settings.dotenv-detection-notification-visibility": false
+    "postman.settings.dotenv-detection-notification-visibility": false,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "python-envs.pythonProjects": [],
+    "python.analysis.autoImportCompletions": true
 }

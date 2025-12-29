@@ -93,7 +93,7 @@ class ApiHandler:
             if got:
                 return got
             if create_if_not_exists:
-                context = AgentContext(config=initialize_agent(), id=ctxid, set_current=True)
+                context = AgentContext(config=initialize_agent(), context_id=ctxid, set_current=True)
                 return context
             else:
                 raise Exception(f"Context {ctxid} not found")

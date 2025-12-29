@@ -126,10 +126,10 @@ def initialize_chats():
     return defer.DeferredTask().start_task(initialize_chats_async)
 
 def initialize_mcp():
-    set = settings.get_settings()
+    mcp_settings = settings.get_settings()
     async def initialize_mcp_async():
         from python.helpers.mcp_handler import initialize_mcp as _initialize_mcp
-        return _initialize_mcp(set["mcp_servers"])
+        return _initialize_mcp(mcp_settings["mcp_servers"])
     return defer.DeferredTask().start_task(initialize_mcp_async)
 
 def initialize_job_loop():
@@ -162,8 +162,25 @@ def _args_override(config):
             setattr(config, key, value)
 
 
-def _set_runtime_config(config: AgentConfig, set: settings.Settings):
-    ssh_conf = settings.get_runtime_config(set)
+def _set_runtime_config(config: AgentConfig, settings_config: settings.Settings):
+    ssh_conf = settings.get_runtime_config(settings_config)
     for key, value in ssh_conf.items():
         if hasattr(config, key):
             setattr(config, key, value)
+
+def init_a0():
+    try:
+        # initialize contexts and MCP
+        init_chats_task = initialize_chats()
+        # only wait for init chats, otherwise they would seem to disappear for a while on restart
+        init_chats_task.result_sync()
+
+        initialize_mcp()
+        # start job loop
+        initialize_job_loop()
+        # preload
+        initialize_preload()
+    except Exception as e:
+        PrintStyle(font_color="red", padding=True).print(f"Error initializing: {e}")
+        import traceback
+        traceback.print_exc()

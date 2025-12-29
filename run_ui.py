@@ -1,8 +1,6 @@
-import asyncio
 from datetime import timedelta
 import os
 import secrets
-import hashlib
 import time
 import socket
 import struct
@@ -83,7 +81,7 @@ def is_loopback_address(address):
 
 def requires_api_key(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         # Use the auth token from settings (same as MCP server)
         from python.helpers.settings import get_settings
         valid_api_key = get_settings()["mcp_server_token"]
@@ -91,13 +89,12 @@ def requires_api_key(f):
         if api_key := request.headers.get("X-API-KEY"):
             if api_key != valid_api_key:
                 return Response("Invalid API key", 401)
-        elif request.json and request.json.get("api_key"):
-            api_key = request.json.get("api_key")
+        elif request.json is not None and "api_key" in request.json and (api_key := request.json["api_key"]):
             if api_key != valid_api_key:
                 return Response("Invalid API key", 401)
         else:
             return Response("API key required", 401)
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
@@ -105,14 +102,14 @@ def requires_api_key(f):
 # allow only loopback addresses
 def requires_loopback(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         if not is_loopback_address(request.remote_addr):
             return Response(
                 "Access denied.",
                 403,
                 {},
             )
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
@@ -120,34 +117,34 @@ def requires_loopback(f):
 # require authentication for handlers
 def requires_auth(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         user_pass_hash = login.get_credentials_hash()
         # If no auth is configured, just proceed
         if not user_pass_hash:
-            return await f(*args, **kwargs)
+            return f(*args, **kwargs)
 
         if session.get('authentication') != user_pass_hash:
             return redirect(url_for('login_handler'))
         
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
 def csrf_protect(f):
     @wraps(f)
-    async def decorated(*args, **kwargs):
+    def decorated(*args, **kwargs):
         token = session.get("csrf_token")
         header = request.headers.get("X-CSRF-Token")
         cookie = request.cookies.get("csrf_token_" + runtime.get_runtime_id())
         sent = header or cookie
         if not token or not sent or token != sent:
             return Response("CSRF token missing or invalid", 403)
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
 @webapp.route("/login", methods=["GET", "POST"])
-async def login_handler():
+def login_handler():
     error = None
     if request.method == 'POST':
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
@@ -163,14 +160,14 @@ async def login_handler():
     return render_template_string(login_page_content, error=error)
 
 @webapp.route("/logout")
-async def logout_handler():
+def logout_handler():
     session.pop('authentication', None)
     return redirect(url_for('login_handler'))
 
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
 @requires_auth
-async def serve_index():
+def serve_index():
     gitinfo = None
     try:
         gitinfo = git.get_git_info()
@@ -207,7 +204,6 @@ def run():
     host = (
         runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     )
-    server = None
 
     def register_api_handler(app, handler: type[ApiHandler]):
         name = handler.__module__.split(".")[-1]
@@ -216,21 +212,32 @@ def run():
         async def handler_wrap() -> BaseResponse:
             return await instance.handle_request(request=request)
 
+        # Apply decorators in reverse order
+        decorators = []
         if handler.requires_loopback():
-            handler_wrap = requires_loopback(handler_wrap)
+            decorators.append(requires_loopback)
         if handler.requires_auth():
-            handler_wrap = requires_auth(handler_wrap)
+            decorators.append(requires_auth)
         if handler.requires_api_key():
-            handler_wrap = requires_api_key(handler_wrap)
+            decorators.append(requires_api_key)
         if handler.requires_csrf():
-            handler_wrap = csrf_protect(handler_wrap)
+            decorators.append(csrf_protect)
 
-        app.add_url_rule(
-            f"/{name}",
-            f"/{name}",
-            handler_wrap,
-            methods=handler.get_methods(),
-        )
+        # Apply decorators to a sync wrapper instead of the async function
+        def sync_wrapper():
+            # This will be decorated with sync decorators and may return a Response
+            return None
+
+        for decorator in decorators:
+            sync_wrapper = decorator(sync_wrapper)
+
+        # Create the final handler that applies sync checks then calls async handler
+        async def final_handler() -> BaseResponse:
+            # Run sync decorators; if any of them returns a Response (e.g. redirect or error),
+            # return it immediately instead of calling the async handler.
+            result = sync_wrapper()
+            if isinstance(result, (Response, BaseResponse)):
+                return result
 
     # initialize and register API handlers
     handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)

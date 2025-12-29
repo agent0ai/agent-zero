@@ -35,8 +35,9 @@ chat:
     litellm_provider: deepseek
   github_copilot:
     name: GitHub Copilot
-    litellm_provider: github_copilot
+    litellm_provider: openai
     kwargs:
+      api_base: https://api.githubcopilot.com/chat/completions
       extra_headers:
         "Editor-Version": "vscode/1.85.1"
         "Copilot-Integration-Id": "vscode-chat"
