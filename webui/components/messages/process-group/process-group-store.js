@@ -78,108 +78,71 @@ const model = {
     this._persist();
   },
 
-  // Get icon for step type (Material Symbols)
+  // Fallback icon for step type when backend doesn't provide one (Material Symbols)
+  // Maps backend log types to appropriate icons
   getStepIcon(type) {
     const icons = {
-      'agent': 'neurology',
-      'tool': 'build',
+      'agent': 'network_intelligence',
+      'response': 'chat',
+      'tool': 'construction',
+      'mcp': 'api',
+      'subagent': 'communication',
       'code_exe': 'terminal',
-      'browser': 'language',
+      'browser': 'captive_portal',
+      'progress': 'timer',
       'info': 'info',
       'hint': 'lightbulb',
-      'util': 'settings',
       'warning': 'warning',
       'error': 'error',
-      'mcp': 'api',
-      'memory': 'memory',
-      'done': 'check_circle',
-      'subagent': 'group'
+      'util': 'memory',
+      'user': 'person',
+      'done': 'done_all'
     };
     return icons[type] || 'circle';
   },
 
-  // Get 3-letter status code for step type
+  // Status code (3-4 letter) for backend log types
   getStepCode(type) {
     const codes = {
       'agent': 'GEN',
-      'tool': 'MCP',
+      'response': 'END',
+      'tool': 'TOOL',
+      'mcp': 'MCP',
+      'subagent': 'SUB',
       'code_exe': 'EXE',
-      'browser': 'EXE',
+      'browser': 'BRW',
+      'progress': 'WAIT',
       'info': 'INF',
-      'hint': 'INF',
-      'util': 'UTL',
+      'hint': 'HNT',
       'warning': 'WRN',
       'error': 'ERR',
-      'mcp': 'MCP',
-      'memory': 'MEM',
-      'done': 'END',
-      'response': 'END',
-      'subagent': 'SUB'
+      'util': 'UTL',
+      'user': 'USR',
+      'done': 'END'
     };
-    return codes[type] || 'GEN';
+    return codes[type] || type?.toUpperCase()?.slice(0, 4) || 'GEN';
   },
 
-  // Get color class for status code
+  // CSS color class for backend log types
   getStatusColorClass(type) {
     const colors = {
       'agent': 'status-gen',
-      'tool': 'status-mcp',
+      'response': 'status-end',
+      'tool': 'status-tool',
+      'mcp': 'status-mcp',
+      'subagent': 'status-sub',
       'code_exe': 'status-exe',
-      'browser': 'status-exe',
+      'browser': 'status-brw',
+      'progress': 'status-wait',
       'info': 'status-inf',
-      'hint': 'status-inf',
-      'util': 'status-utl',
+      'hint': 'status-hnt',
       'warning': 'status-wrn',
       'error': 'status-err',
-      'mcp': 'status-mcp',
-      'memory': 'status-mem',
-      'done': 'status-end',
-      'response': 'status-end',
-      'subagent': 'status-sub'
+      'util': 'status-utl',
+      'user': 'status-usr',
+      'done': 'status-end'
     };
     return colors[type] || 'status-gen';
-  },
-
-  // Get icon for badge display (Material Symbols)
-  getStepBadgeIcon(type) {
-    const icons = {
-      'agent': 'public',         // Globe for GEN (network intelligence)
-      'tool': 'build',           // Wrench for MCP
-      'code_exe': 'terminal',    // Terminal for EXE
-      'browser': 'language',     // Globe for browser
-      'info': 'info',
-      'hint': 'lightbulb',
-      'util': 'settings',
-      'warning': 'warning',
-      'error': 'error',
-      'mcp': 'build',            // Wrench for MCP
-      'memory': 'memory',
-      'done': 'check_circle',
-      'response': 'check_circle',
-      'subagent': 'group'
-    };
-    return icons[type] || 'circle';
-  },
-
-  // Get label for step type (longer description)
-  getStepLabel(type) {
-    const labels = {
-      'agent': 'Generating',
-      'tool': 'MCP Call',
-      'code_exe': 'Executing',
-      'browser': 'Browser',
-      'info': 'Info',
-      'hint': 'Hint',
-      'util': 'Utility',
-      'warning': 'Warning',
-      'error': 'Error',
-      'mcp': 'MCP',
-      'memory': 'Memory',
-      'done': 'Done',
-      'response': 'Response',
-      'subagent': 'Subagent'
-    };
-    return labels[type] || 'Process';
   },
 
   // Clear state for a specific context (when chat is reset)

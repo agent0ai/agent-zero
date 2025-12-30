@@ -218,42 +218,6 @@ export function _drawMessage(
   // Update message classes
   messageDiv.className = `message ${mainClass} ${messageClasses.join(" ")}`;
 
-  // Handle heading
-  if (heading) {
-    let headingElement = messageDiv.querySelector(".msg-heading");
-    if (!headingElement) {
-      headingElement = document.createElement("div");
-      headingElement.classList.add("msg-heading");
-      messageDiv.insertBefore(headingElement, messageDiv.firstChild);
-    }
-
-    let headingH4 = headingElement.querySelector("h4");
-    if (!headingH4) {
-      headingH4 = document.createElement("h4");
-      headingElement.appendChild(headingH4);
-    }
-    headingH4.innerHTML = convertIcons(escapeHTML(heading));
-
-    if (resizeBtns) {
-      let minMaxBtn = headingElement.querySelector(".msg-min-max-btns");
-      if (!minMaxBtn) {
-        minMaxBtn = document.createElement("div");
-        minMaxBtn.classList.add("msg-min-max-btns");
-        minMaxBtn.innerHTML = `
-          <a href="#" class="msg-min-max-btn" @click.prevent="$store.messageResize.minimizeMessageClass('${mainClass}', $event)"><span class="material-symbols-outlined" x-text="$store.messageResize.getSetting('${mainClass}').minimized ? 'expand_content' : 'minimize'"></span></a>
-          <a href="#" class="msg-min-max-btn" x-show="!$store.messageResize.getSetting('${mainClass}').minimized" @click.prevent="$store.messageResize.maximizeMessageClass('${mainClass}', $event)"><span class="material-symbols-outlined" x-text="$store.messageResize.getSetting('${mainClass}').maximized ? 'expand' : 'expand_all'"></span></a>
-        `;
-        headingElement.appendChild(minMaxBtn);
-      }
-    }
-  } else {
-    // Remove heading if it exists but heading is null
-    const existingHeading = messageDiv.querySelector(".msg-heading");
-    if (existingHeading) {
-      existingHeading.remove();
-    }
-  }
-
   // Find existing body div or create new one
   let bodyDiv = messageDiv.querySelector(".message-body");
   if (!bodyDiv) {
@@ -1162,8 +1126,8 @@ function createProcessGroup(id) {
   header.classList.add("process-group-header");
   header.innerHTML = `
     <span class="expand-icon"></span>
-    <span class="status-badge status-gen status-active group-status"><span class="badge-icon material-symbols-outlined">public</span>GEN</span>
     <span class="group-title">Processing...</span>
+    <span class="status-badge status-gen status-active group-status"><span class="badge-icon material-symbols-outlined">public</span>GEN</span>
     <span class="group-metrics">
       <span class="metric-time" title="Start time"><span class="metric-value">--:--</span></span>
       <span class="metric-steps" title="Steps"><span class="metric-value">0</span></span>
@@ -1201,6 +1165,7 @@ function createProcessGroup(id) {
 function addProcessStep(group, id, type, heading, content, kvps, timestamp = null, durationMs = null, tokensIn = 0, tokensOut = 0) {
   const groupId = group.getAttribute("data-group-id");
   const stepsContainer = group.querySelector(".process-steps");
+  const isGroupCompleted = group.classList.contains("process-group-completed");
   
   // Create step element
   const step = document.createElement("div");
@@ -1235,9 +1200,7 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
     }
   }
   
-  // Get step info
-  const icon = processGroupStore.getStepIcon(type);
-  const label = processGroupStore.getStepLabel(type);
+  // Get step info from heading (single source of truth: backend)
   const title = getStepTitle(heading, kvps, type);
   
   // Check if step should be expanded
@@ -1250,16 +1213,17 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   const stepHeader = document.createElement("div");
   stepHeader.classList.add("process-step-header");
   
-  // Get 3-letter status code and color class
+  // Status code and color class from store (maps backend types)
   const statusCode = processGroupStore.getStepCode(type);
   const statusColorClass = processGroupStore.getStatusColorClass(type);
   
-  // Get icon for step type
-  const stepIcon = processGroupStore.getStepBadgeIcon(type);
+  // Icon extracted from heading (backend sends icon://xxx), fallback to type-based
+  const stepIcon = extractIconFromHeading(heading) || processGroupStore.getStepIcon(type);
   
+  const activeClass = isGroupCompleted ? "" : " status-active";
   stepHeader.innerHTML = `
     <span class="step-expand-icon"></span>
-    <span class="status-badge ${statusColorClass} status-active"><span class="badge-icon material-symbols-outlined">${stepIcon}</span>${statusCode}</span>
+    <span class="status-badge ${statusColorClass}${activeClass}"><span class="badge-icon material-symbols-outlined">${stepIcon}</span>${statusCode}</span>
     <span class="step-title">${escapeHTML(title)}</span>
   `;
   
@@ -1355,12 +1319,23 @@ function getStepTitle(heading, kvps, type) {
     }
   }
   
-  return processGroupStore.getStepLabel(type);
+  // Fallback: capitalize type (backend is source of truth)
+  return type ? type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ') : 'Process';
 }
 
 /**
- * Clean step title by removing icon:// prefixes
- * Preserves agent markers (A0:, A1:, etc.) so users can see which agent is executing
+ * Extract icon name from heading with icon:// prefix
+ * Returns the icon name (e.g., "terminal") or null if no prefix found
+ */
+function extractIconFromHeading(heading) {
+  if (!heading) return null;
+  const match = String(heading).match(/^icon:\/\/([a-zA-Z0-9_]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Clean step title by removing icon:// prefixes and status phrases
+ * Preserves agent markers (A1:, A2:, etc.) so users can see which subordinate agent is executing
  */
 function cleanStepTitle(text, maxLength) {
   if (!text) return "";
@@ -1368,10 +1343,6 @@ function cleanStepTitle(text, maxLength) {
   
   // Remove icon:// patterns (e.g., "icon://network_intelligence")
   cleaned = cleaned.replace(/icon:\/\/[a-zA-Z0-9_]+\s*/g, "");
-  
-  // Keep agent markers (A0:, A1:, etc.) - users need to see which agent is executing
-  // Only remove "A0:" as it's the main agent (implied)
-  cleaned = cleaned.replace(/^A0:\s*/i, "");
   
   // Trim whitespace
   cleaned = cleaned.trim();
@@ -1440,6 +1411,12 @@ function renderStepDetailContent(container, content, kvps, type = null) {
       
       const lowerKey = key.toLowerCase();
       
+      // Skip headline and tool_name - they're shown elsewhere
+      if (lowerKey === "headline" || lowerKey === "tool_name") continue;
+      
+      // Skip query in agent steps - it's shown in the tool call step
+      if (type === "agent" && lowerKey === "query") continue;
+      
       // Special handling for thoughts/reasoning - render with single lightbulb icon
       if (lowerKey === "thoughts" || lowerKey === "thinking" || lowerKey === "reflection" || lowerKey === "reasoning") {
         const thoughtsDiv = document.createElement("div");
@@ -1472,10 +1449,30 @@ function renderStepDetailContent(container, content, kvps, type = null) {
         continue;
       }
       
-      // Special handling for tool_args - render as structured labeled parameters
-      if (lowerKey === "tool_args" && typeof value === "object" && value !== null) {
+      // Special handling for tool_args - render only for tool/mcp types (skip for agent)
+      if (lowerKey === "tool_args") {
+        // Skip tool_args for agent steps - it's shown in the tool call step
+        if (type === "agent") continue;
+        
+        if (typeof value !== "object" || value === null) continue;
         const argsDiv = document.createElement("div");
         argsDiv.classList.add("step-tool-args");
+        
+        // Icon mapping for common tool arguments
+        const argIcons = {
+          'query': 'search',
+          'url': 'link',
+          'path': 'folder',
+          'file': 'description',
+          'code': 'code',
+          'command': 'terminal',
+          'message': 'chat',
+          'text': 'notes',
+          'content': 'article',
+          'name': 'label',
+          'id': 'tag',
+          'type': 'category'
+        };
         
         for (const [argKey, argValue] of Object.entries(value)) {
           const argRow = document.createElement("div");
@@ -1483,7 +1480,14 @@ function renderStepDetailContent(container, content, kvps, type = null) {
           
           const argLabel = document.createElement("span");
           argLabel.classList.add("tool-arg-label");
-          argLabel.textContent = convertToTitleCase(argKey) + ":";
+          
+          // Use icon if available, otherwise use text label
+          const lowerArgKey = argKey.toLowerCase();
+          if (argIcons[lowerArgKey]) {
+            argLabel.innerHTML = `<span class="material-symbols-outlined">${argIcons[lowerArgKey]}</span>`;
+          } else {
+            argLabel.textContent = convertToTitleCase(argKey) + ":";
+          }
           
           const argVal = document.createElement("span");
           argVal.classList.add("tool-arg-value");
@@ -1508,7 +1512,31 @@ function renderStepDetailContent(container, content, kvps, type = null) {
       
       const keySpan = document.createElement("span");
       keySpan.classList.add("step-kvp-key");
-      keySpan.textContent = convertToTitleCase(key) + ":";
+      
+      // Icon mapping for common kvp keys
+      const kvpIcons = {
+        'query': 'search',
+        'url': 'link',
+        'path': 'folder',
+        'file': 'description',
+        'code': 'code',
+        'command': 'terminal',
+        'message': 'chat',
+        'text': 'notes',
+        'content': 'article',
+        'name': 'label',
+        'id': 'tag',
+        'type': 'category',
+        'runtime': 'memory',
+        'result': 'output'
+      };
+      
+      // lowerKey already defined above
+      if (kvpIcons[lowerKey]) {
+        keySpan.innerHTML = `<span class="material-symbols-outlined">${kvpIcons[lowerKey]}</span>`;
+      } else {
+        keySpan.textContent = convertToTitleCase(key) + ":";
+      }
       
       const valueSpan = document.createElement("span");
       valueSpan.classList.add("step-kvp-value");
@@ -1578,6 +1606,7 @@ function updateProcessGroupHeader(group) {
   const titleEl = group.querySelector(".group-title");
   const statusEl = group.querySelector(".group-status");
   const metricsEl = group.querySelector(".group-metrics");
+  const isCompleted = group.classList.contains("process-group-completed");
   
   // Update step count in metrics
   const stepsMetricEl = metricsEl?.querySelector(".metric-steps .metric-value");
@@ -1626,6 +1655,14 @@ function updateProcessGroupHeader(group) {
       tokensMetricEl.textContent = "--";
     }
   }
+
+  // Once a group is completed, never re-enable any loading spinners (status-active).
+  // This prevents late util/tool messages from making a completed group look "running".
+  if (isCompleted) {
+    const activeBadges = group.querySelectorAll(".status-badge.status-active");
+    activeBadges.forEach(badge => badge.classList.remove("status-active"));
+    return;
+  }
   
   if (steps.length > 0) {
     // Get the last step's type for status
@@ -1635,9 +1672,12 @@ function updateProcessGroupHeader(group) {
     
     // Update status badge with icon (keep status-active during execution)
     if (statusEl) {
+      // Status code and color class from store (maps backend types)
       const statusCode = processGroupStore.getStepCode(lastType);
       const statusColorClass = processGroupStore.getStatusColorClass(lastType);
-      const badgeIcon = processGroupStore.getStepBadgeIcon(lastType);
+      // Get icon from the last step's badge, fallback to type-based
+      const lastStepBadge = lastStep.querySelector(".badge-icon");
+      const badgeIcon = lastStepBadge?.textContent || processGroupStore.getStepIcon(lastType);
       statusEl.innerHTML = `<span class="badge-icon material-symbols-outlined">${badgeIcon}</span>${statusCode}`;
       statusEl.className = `status-badge ${statusColorClass} status-active group-status`;
     }
@@ -1683,8 +1723,8 @@ function markProcessGroupComplete(group, responseTitle) {
   // Update status badge to END (remove status-active)
   const statusEl = group.querySelector(".group-status");
   if (statusEl) {
-    statusEl.textContent = "END";
-    statusEl.className = "status-badge status-end group-status"; // No status-active
+    statusEl.innerHTML = '<span class="badge-icon material-symbols-outlined">check_circle</span>END';
+    statusEl.className = "status-badge status-response group-status"; // No status-active
   }
   
   // Remove status-active from all step badges (stop spinners)
