@@ -136,10 +136,16 @@ class LogItem:
     duration_ms: Optional[int] = None  # Duration until next step (set by Log.log)
     tokens_in: int = 0  # Input tokens consumed
     tokens_out: int = 0  # Output tokens generated
+    agent_number: int = 0  # Agent number (0 = main agent, 1+ = subordinate agents)
 
     def __post_init__(self):
         self.guid = self.log.guid
         self.timestamp = time.time()  # Record creation time
+        # Capture agent number from context if available
+        if self.log.context and self.log.context.streaming_agent:
+            self.agent_number = self.log.context.streaming_agent.number
+        else:
+            self.agent_number = 0  # Default to main agent
 
     def update(
         self,
@@ -202,6 +208,7 @@ class LogItem:
             "duration_ms": self.duration_ms,  # Duration until next step
             "tokens_in": self.tokens_in,  # Input tokens
             "tokens_out": self.tokens_out,  # Output tokens
+            "agent_number": self.agent_number,  # Agent number for identifying main/subordinate agents
         }
 
 

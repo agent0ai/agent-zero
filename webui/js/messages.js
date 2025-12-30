@@ -17,19 +17,7 @@ const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'info', 'hint', '
 // Main types that should always be visible (not collapsed)
 const MAIN_TYPES = ['user', 'response', 'error', 'rate_limit'];
 
-/**
- * Check if a response is from the main agent (A0)
- * Subordinate agents (A1, A2, ...) responses should be treated as process steps
- */
-function isMainAgentResponse(heading) {
-  if (!heading) return true; // Default to main agent
-  // Check for subordinate agent patterns like "A1:", "A2:", etc.
-  const match = heading.match(/\bA(\d+):/);
-  if (!match) return true; // No agent marker = main agent
-  return match[1] === "0"; // Only A0 is the main agent
-}
-
-export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, tokensIn = 0, tokensOut = 0) {
+export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, tokensIn = 0, tokensOut = 0, agentNumber = 0) {
   // Check if this is a process type message
   const isProcessType = PROCESS_TYPES.includes(type);
   const isMainType = MAIN_TYPES.includes(type);
@@ -64,7 +52,8 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
   }
 
   // For subordinate agent responses (A1, A2, ...), treat as a process step instead of main response
-  if (type === "response" && !isMainAgentResponse(heading)) {
+  // agentNumber: 0 = main agent, 1+ = subordinate agents
+  if (type === "response" && agentNumber !== 0) {
     if (processStepElement) {
       updateProcessStep(processStepElement, id, "agent", heading, content, kvps, durationMs, tokensIn, tokensOut);
       return processStepElement;
@@ -1118,8 +1107,11 @@ function createProcessGroup(id) {
   group.classList.add("process-group");
   group.setAttribute("data-group-id", groupId);
   
-  // Default to collapsed state - don't add 'expanded' class
-  // (Users can expand manually by clicking)
+  // Check initial expansion state from store (respects user preference)
+  const initiallyExpanded = processGroupStore.isGroupExpanded(groupId);
+  if (initiallyExpanded) {
+    group.classList.add('expanded');
+  }
   
   // Create header
   const header = document.createElement("div");
@@ -1724,7 +1716,7 @@ function markProcessGroupComplete(group, responseTitle) {
   const statusEl = group.querySelector(".group-status");
   if (statusEl) {
     statusEl.innerHTML = '<span class="badge-icon material-symbols-outlined">check_circle</span>END';
-    statusEl.className = "status-badge status-response group-status"; // No status-active
+    statusEl.className = "status-badge status-end group-status"; // No status-active
   }
   
   // Remove status-active from all step badges (stop spinners)
