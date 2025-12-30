@@ -2,7 +2,6 @@ from python.helpers.api import ApiHandler, Input, Output, Request
 from python.helpers.task_scheduler import TaskScheduler
 import traceback
 from python.helpers.print_style import PrintStyle
-from python.helpers.localization import Localization
 
 
 class SchedulerTasksList(ApiHandler):
@@ -11,9 +10,7 @@ class SchedulerTasksList(ApiHandler):
         List all tasks in the scheduler with their types
         """
         try:
-            # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
-            if timezone := input.get("timezone", None):
-                Localization.get().set_timezone(timezone)
+            # Timezone is now initialized once from .env, not set on every request
 
             # Get task scheduler
             scheduler = TaskScheduler.get()

@@ -1,10 +1,12 @@
+from datetime import datetime, timezone as dt_timezone
+
 from python.helpers.api import ApiHandler, Request, Response
 
 from agent import AgentContext, AgentContextType
 
 from python.helpers.task_scheduler import TaskScheduler
 from python.helpers.localization import Localization
-from python.helpers.dotenv import get_dotenv_value
+
 
 
 class Poll(ApiHandler):
@@ -14,9 +16,7 @@ class Poll(ApiHandler):
         from_no = input.get("log_from", 0)
         notifications_from = input.get("notifications_from", 0)
 
-        # Get timezone from input (default to dotenv default or UTC if not provided)
-        timezone = input.get("timezone", get_dotenv_value("DEFAULT_USER_TIMEZONE", "UTC"))
-        Localization.get().set_timezone(timezone)
+        localization = Localization.get()
 
         # context instance - get or create only if ctxid is provided
         if ctxid:
@@ -107,6 +107,16 @@ class Poll(ApiHandler):
         ctxs.sort(key=lambda x: x["created_at"], reverse=True)
         tasks.sort(key=lambda x: x["created_at"], reverse=True)
 
+        current_utc_time = datetime.now(dt_timezone.utc)
+        serialized_time = localization.serialize_datetime(current_utc_time)
+        system_time = None
+        if serialized_time:
+            try:
+                local_dt = datetime.fromisoformat(serialized_time)
+                system_time = local_dt.isoformat(timespec="minutes")
+            except ValueError:
+                system_time = serialized_time
+
         # data from this server
         return {
             "deselect_chat": ctxid and not context,
@@ -122,4 +132,5 @@ class Poll(ApiHandler):
             "notifications": notifications,
             "notifications_guid": notification_manager.guid,
             "notifications_version": len(notification_manager.updates),
+            "system_time": system_time,
         }

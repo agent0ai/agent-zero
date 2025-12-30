@@ -3,7 +3,6 @@ from datetime import datetime
 from python.helpers.api import ApiHandler, Input, Output, Request
 from python.helpers.print_style import PrintStyle
 from python.helpers.task_scheduler import TaskScheduler
-from python.helpers.localization import Localization
 
 
 class SchedulerTick(ApiHandler):
@@ -20,9 +19,7 @@ class SchedulerTick(ApiHandler):
         return False
 
     async def process(self, input: Input, request: Request) -> Output:
-        # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
-        if timezone := input.get("timezone", None):
-            Localization.get().set_timezone(timezone)
+        # Timezone is now initialized once from .env, not set on every request
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         printer = PrintStyle(font_color="green", padding=False)

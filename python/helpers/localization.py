@@ -2,15 +2,15 @@ from datetime import datetime, timezone as dt_timezone, timedelta
 import pytz  # type: ignore
 
 from python.helpers.print_style import PrintStyle
-from python.helpers.dotenv import get_dotenv_value, save_dotenv_value
+from python.helpers import dotenv
 
 
 
 class Localization:
     """
-    Localization class for handling timezone conversions between UTC and local time.
-    Now stores a fixed UTC offset (in minutes) derived from the provided timezone name
-    to avoid noisy updates when equivalent timezones share the same offset.
+    Localization class for handling timezone conversions.
+    Timezone is initialized from .env (DEFAULT_USER_TIMEZONE) on startup.
+    User-facing timestamps reflect the container's configured system time.
     """
 
     # singleton
@@ -23,28 +23,24 @@ class Localization:
         return cls._instance
 
     def __init__(self, timezone: str | None = None):
-        self.timezone: str = "UTC"
-        self._offset_minutes: int = 0
-        self._last_timezone_change: datetime | None = None
-        # Load persisted values if available
-        persisted_tz = str(get_dotenv_value("DEFAULT_USER_TIMEZONE", "UTC"))
-        persisted_offset = get_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", None)
-        if timezone is not None:
-            # Explicit override
-            self.set_timezone(timezone)
+        # Load timezone from .env if not provided
+        if timezone is None:
+            timezone = dotenv.get_dotenv_value("DEFAULT_USER_TIMEZONE", "UTC")
+            offset_str = dotenv.get_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", "0")
+            try:
+                offset_minutes = int(offset_str)
+            except (ValueError, TypeError):
+                offset_minutes = 0
         else:
-            # Initialize from persisted values
-            self.timezone = persisted_tz
-            if persisted_offset is not None:
-                try:
-                    self._offset_minutes = int(str(persisted_offset))
-                except Exception:
-                    self._offset_minutes = self._compute_offset_minutes(self.timezone)
-                    save_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", str(self._offset_minutes))
-            else:
-                # Compute from timezone and persist
-                self._offset_minutes = self._compute_offset_minutes(self.timezone)
-                save_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", str(self._offset_minutes))
+            offset_minutes = self._compute_offset_minutes(timezone) if timezone != "UTC" else 0
+
+        self.timezone: str = timezone
+        self._offset_minutes: int = offset_minutes
+        self._last_timezone_change: datetime | None = None
+
+        PrintStyle.debug(
+            f"Localization initialized with timezone: {timezone} (offset: {offset_minutes} minutes)"
+        )
 
     def get_timezone(self) -> str:
         return self.timezone
@@ -67,40 +63,18 @@ class Localization:
         return time_diff >= timedelta(hours=1)
 
     def set_timezone(self, timezone: str) -> None:
-        """Set the timezone name, but internally store and compare by UTC offset minutes."""
-        try:
-            # Validate timezone and compute its current offset
-            _ = pytz.timezone(timezone)
-            new_offset = self._compute_offset_minutes(timezone)
+        """Set timezone and compute offset. Rate limited to once per hour."""
+        if not self._can_change_timezone():
+            PrintStyle.debug(
+                f"Timezone change to '{timezone}' rejected. Rate limit active (max once per hour)."
+            )
+            return
 
-            # If offset changes, check rate limit and update
-            if new_offset != getattr(self, "_offset_minutes", None):
-                if not self._can_change_timezone():
-                    return
+        self.timezone = timezone
+        self._offset_minutes = self._compute_offset_minutes(timezone) if timezone != "UTC" else 0
+        self._last_timezone_change = datetime.now()
 
-                prev_tz = getattr(self, "timezone", "None")
-                prev_off = getattr(self, "_offset_minutes", None)
-                PrintStyle.debug(
-                    f"Changing timezone from {prev_tz} (offset {prev_off}) to {timezone} (offset {new_offset})"
-                )
-                self._offset_minutes = new_offset
-                self.timezone = timezone
-                # Persist both the human-readable tz and the numeric offset
-                save_dotenv_value("DEFAULT_USER_TIMEZONE", timezone)
-                save_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", str(self._offset_minutes))
-
-                # Update rate limit timestamp only when actual change occurs
-                self._last_timezone_change = datetime.now()
-            else:
-                # Offset unchanged: update stored timezone without logging or persisting to avoid churn
-                self.timezone = timezone
-        except pytz.exceptions.UnknownTimeZoneError:
-            PrintStyle.error(f"Unknown timezone: {timezone}, defaulting to UTC")
-            self.timezone = "UTC"
-            self._offset_minutes = 0
-            # save defaults to avoid future errors on startup
-            save_dotenv_value("DEFAULT_USER_TIMEZONE", "UTC")
-            save_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", "0")
+        PrintStyle.hint(f"Timezone changed to {timezone} (offset: {self._offset_minutes} minutes)")
 
     def localtime_str_to_utc_dt(self, localtime_str: str | None) -> datetime | None:
         """

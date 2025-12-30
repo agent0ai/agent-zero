@@ -2,6 +2,7 @@ import * as msgs from "/js/messages.js";
 import * as api from "/js/api.js";
 import * as css from "/js/css.js";
 import { sleep } from "/js/sleep.js";
+import * as initializer from "/js/initializer.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
@@ -10,6 +11,7 @@ import { store as inputStore } from "/components/chat/input/input-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
+import { store as systemClockStore } from "/components/system-clock/system-clock-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -153,36 +155,6 @@ export function updateChatInput(text) {
   console.log("Updated chat input value:", chatInputEl.value);
 }
 
-async function updateUserTime() {
-  let userTimeElement = document.getElementById("time-date");
-
-  while (!userTimeElement) {
-    await sleep(100);
-    userTimeElement = document.getElementById("time-date");
-  }
-
-  const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const seconds = now.getSeconds();
-  const ampm = hours >= 12 ? "pm" : "am";
-  const formattedHours = hours % 12 || 12;
-
-  // Format the time
-  const timeString = `${formattedHours}:${minutes
-    .toString()
-    .padStart(2, "0")}:${seconds.toString().padStart(2, "0")} ${ampm}`;
-
-  // Format the date
-  const options = { year: "numeric", month: "short", day: "numeric" };
-  const dateString = now.toLocaleDateString(undefined, options);
-
-  // Update the HTML
-  userTimeElement.innerHTML = `${timeString}<br><span id="user-date">${dateString}</span>`;
-}
-
-updateUserTime();
-setInterval(updateUserTime, 1000);
 
 function setMessage(id, type, heading, content, temp, kvps = null) {
   const result = msgs.setMessage(id, type, heading, content, temp, kvps);
@@ -257,15 +229,11 @@ let lastSpokenNo = 0;
 export async function poll() {
   let updated = false;
   try {
-    // Get timezone from navigator
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
     const log_from = lastLogVersion;
     const response = await sendJsonData("/poll", {
       log_from: log_from,
       notifications_from: notificationStore.lastNotificationVersion || 0,
       context: context || null,
-      timezone: timezone,
     });
 
     // Check if the response is valid
@@ -321,6 +289,7 @@ export async function poll() {
 
     // Update notifications from response
     notificationStore.updateFromPoll(response);
+    systemClockStore.updateFromPoll(response);
 
     //set ui model vars from backend
     inputStore.paused = response.paused;
@@ -599,7 +568,7 @@ async function startPolling() {
 }
 
 // All initializations and event listeners are now consolidated here
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   // Assign DOM elements to variables now that the DOM is ready
   leftPanel = document.getElementById("left-panel");
   rightPanel = document.getElementById("right-panel");
@@ -612,6 +581,9 @@ document.addEventListener("DOMContentLoaded", function () {
   progressBar = document.getElementById("progress-bar");
   autoScrollSwitch = document.getElementById("auto-scroll-switch");
   timeDate = document.getElementById("time-date-container");
+
+  // Initialize application (timezone, device detection, etc.)
+  await initializer.initialize();
 
   // Sidebar and input event listeners are now handled by their respective stores
 

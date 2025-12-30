@@ -1,6 +1,5 @@
 from python.helpers.api import ApiHandler, Input, Output, Request
 from python.helpers.task_scheduler import TaskScheduler, TaskState
-from python.helpers.localization import Localization
 from agent import AgentContext
 from python.helpers import persist_chat
 
@@ -10,9 +9,7 @@ class SchedulerTaskDelete(ApiHandler):
         """
         Delete a task from the scheduler by ID
         """
-        # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
-        if timezone := input.get("timezone", None):
-            Localization.get().set_timezone(timezone)
+        # Timezone is now initialized once from .env, not set on every request
 
         scheduler = TaskScheduler.get()
         await scheduler.reload()
