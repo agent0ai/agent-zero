@@ -71,6 +71,12 @@ export async function fetchApi(url, request) {
 
 // csrf token stored locally
 let csrfToken = null;
+let csrfTokenPromise = null;
+
+export function invalidateCsrfToken() {
+  csrfToken = null;
+  csrfTokenPromise = null;
+}
 
 /**
  * Get the CSRF token for API requests
@@ -79,6 +85,9 @@ let csrfToken = null;
  */
 async function getCsrfToken() {
   if (csrfToken) return csrfToken;
+  if (csrfTokenPromise) return await csrfTokenPromise;
+
+  csrfTokenPromise = (async () => {
   const response = await fetch("/csrf_token", {
     credentials: "same-origin",
   });
@@ -109,5 +118,12 @@ async function getCsrfToken() {
   } else {
     if (json.error) alert(json.error);
     throw new Error(json.error || "Failed to get CSRF token");
+  }
+  })();
+
+  try {
+    return await csrfTokenPromise;
+  } finally {
+    csrfTokenPromise = null;
   }
 }

@@ -1,0 +1,62 @@
+<html>
+
+<head>
+    <title>Sync Status</title>
+    <script type="module">
+        import { store } from "/components/sync/sync-store.js";
+    </script>
+
+    <style>
+        .status-icon {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .pending-ring {
+            animation: pendingPulse 1.2s infinite ease-in-out;
+        }
+
+        @keyframes pendingPulse {
+            0% {
+                stroke-opacity: 1;
+                stroke-width: 3;
+            }
+
+            50% {
+                stroke-opacity: 0.25;
+                stroke-width: 5;
+            }
+
+            100% {
+                stroke-opacity: 1;
+                stroke-width: 3;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.sync">
+            <div class="status-icon" x-create="$store.sync.init()">
+                <svg viewBox="0 0 30 30" width="20" height="20" aria-label="sync status">
+                    <!-- HEALTHY (filled circle) -->
+                    <circle x-show="$store.sync.mode === 'HEALTHY'" cx="15" cy="15" r="8" fill="#00c340" />
+
+                    <!-- DEGRADED (filled circle) -->
+                    <circle x-show="$store.sync.mode === 'DEGRADED'" cx="15" cy="15" r="8" fill="#ff6b00" />
+
+                    <!-- HANDSHAKE_PENDING (pulsing outline) -->
+                    <circle x-show="$store.sync.mode === 'HANDSHAKE_PENDING'" class="pending-ring" cx="15" cy="15" r="12"
+                        fill="none" stroke="#f0a000" stroke-width="3" />
+
+                    <!-- DISCONNECTED (outline circle) -->
+                    <circle x-show="$store.sync.mode === 'DISCONNECTED'" cx="15" cy="15" r="12"
+                        fill="none" stroke="#e40138" stroke-width="3" />
+                </svg>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

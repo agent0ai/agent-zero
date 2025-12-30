@@ -36,6 +36,10 @@
               <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualRequestTimeout()">Request timeout</button>
               <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualPersistence()">Subscription persistence</button>
               <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualRequestAll()">requestAll aggregation</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualStateSync()">State sync (no poll when healthy)</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualContextSwitch()">Context switching</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualFallbackRecovery()">Fallback + recovery (DEGRADED)</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualResyncTriggers()">Resync triggers (runtime_epoch/seq gap)</button>
               <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.triggerBroadcastDemo()">Broadcast demo</button>
             </div>
             <p class="ws-section-info">
@@ -66,7 +70,7 @@
             <h3>Recent Broadcast Payloads</h3>
           </div>
           <ul class="ws-list">
-            <template x-for="item in $store.websocketTesterStore.receivedBroadcasts.slice(-10)" :key="item.timestamp + item.eventType">
+            <template x-for="item in $store.websocketTesterStore.receivedBroadcasts.slice(-10)" :key="item.id || (item.timestamp + item.eventType)">
               <li><strong x-text="item.eventType"></strong>: <span x-text="JSON.stringify(item.payload)"></span> <em x-text="item.timestamp"></em></li>
             </template>
           </ul>

@@ -136,3 +136,39 @@ def test_get_instance_returns_singleton():
     first = _TestHandler.get_instance(socketio, lock)
     second = _TestHandler.get_instance(None, None)
     assert first is second
+
+
+@pytest.mark.asyncio
+async def test_state_sync_handler_registers_and_routes_state_request():
+    from python.helpers.websocket_manager import WebSocketManager
+    from python.websocket_handlers.state_sync_handler import StateSyncHandler
+    from python.helpers.state_monitor import _reset_state_monitor_for_testing
+
+    _reset_state_monitor_for_testing()
+    StateSyncHandler._reset_instance_for_testing()
+
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    manager = WebSocketManager(socketio, lock)
+    handler = StateSyncHandler.get_instance(socketio, lock)
+    manager.register_handlers([handler])
+    await manager.handle_connect("sid-1")
+
+    response = await manager.route_event(
+        "state_request",
+        {
+            "correlationId": "smoke-1",
+            "ts": "2025-12-28T00:00:00.000Z",
+            "data": {
+                "context": None,
+                "log_from": 0,
+                "notifications_from": 0,
+                "timezone": "UTC",
+            },
+        },
+        "sid-1",
+    )
+
+    assert response["correlationId"] == "smoke-1"
+    assert response["results"] and response["results"][0]["ok"] is True
+    await manager.handle_disconnect("sid-1")

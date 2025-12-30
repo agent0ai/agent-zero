@@ -22,6 +22,7 @@ from python.helpers.websocket import (
     validate_ws_csrf_flag,
 )
 from python.helpers.websocket_manager import WebSocketManager
+from python.helpers.websocket_manager import set_global_websocket_manager
 import socketio
 
 
@@ -52,6 +53,7 @@ def app_context(monkeypatch):
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=[])
     lock = threading.RLock()
     manager = WebSocketManager(sio, lock)
+    set_global_websocket_manager(manager)
 
     monkeypatch.setattr(runtime, "get_runtime_id", lambda: "test-runtime", raising=False)
 
@@ -98,6 +100,7 @@ def app_context(monkeypatch):
     with manager.lock:
         manager.connections.clear()
         manager.handlers.clear()
+    set_global_websocket_manager(None)
 
 
 @pytest.mark.asyncio
@@ -133,3 +136,33 @@ async def test_websocket_reconnect_after_refresh(app_context):
         session["authentication"] = login.get_credentials_hash()
         set_ws_csrf_flag(session, time.time(), WS_CSRF_TTL_SECONDS)
         assert await perform_handshake() is True
+
+
+@pytest.mark.asyncio
+async def test_csrf_token_post_refreshes_active_websocket_session_expiry(app_context):
+    app, manager, _perform_handshake = app_context
+
+    with app.test_request_context("/"):
+        session["authentication"] = login.get_credentials_hash()
+        session["csrf_token"] = "csrf-test-token"
+
+        now_ts = time.time()
+        sid = "test-sid-refresh"
+        await manager.handle_connect(sid, now_ts + 1)
+
+    with app.test_request_context(
+        "/csrf_token",
+        method="POST",
+        headers={
+            "X-CSRF-Token": "csrf-test-token",
+            "Cookie": f"csrf_token_{runtime.get_runtime_id()}=csrf-test-token",
+        },
+    ):
+        session["authentication"] = login.get_credentials_hash()
+        session["csrf_token"] = "csrf-test-token"
+
+        csrf_handler = GetCsrfToken(app, manager.lock)
+        result = await csrf_handler.handle_request(request)
+        assert result.json["ok"] is True  # type: ignore[attr-defined]
+
+    assert await manager.validate_session(sid, now_ts + 2) is True

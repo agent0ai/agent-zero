@@ -44,7 +44,7 @@ def save_tmp_chat(context: AgentContext):
 
 def save_tmp_chats():
     """Save all contexts to the chats folder"""
-    for _, context in AgentContext._contexts.items():
+    for context in AgentContext.all():
         # Skip BACKGROUND contexts as they should be ephemeral
         if context.type == AgentContextType.BACKGROUND:
             continue
@@ -164,13 +164,17 @@ def _serialize_agent(agent: Agent):
 
 
 def _serialize_log(log: Log):
+    # Guard against concurrent log mutations while serializing.
+    with log._lock:
+        logs = [item.output() for item in log.logs[-LOG_SIZE:]]  # serialize LogItem objects
+        guid = log.guid
+        progress = log.progress
+        progress_no = log.progress_no
     return {
-        "guid": log.guid,
-        "logs": [
-            item.output() for item in log.logs[-LOG_SIZE:]
-        ],  # serialize LogItem objects
-        "progress": log.progress,
-        "progress_no": log.progress_no,
+        "guid": guid,
+        "logs": logs,
+        "progress": progress,
+        "progress_no": progress_no,
     }
 
 
