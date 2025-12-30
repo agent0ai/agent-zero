@@ -1275,6 +1275,28 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "external",
     }
 
+    # Skills section (UI-friendly import)
+    skills_fields: list[SettingsField] = []
+    skills_fields.append(
+        {
+            "id": "skills_import",
+            "title": "Import Skills",
+            "description": "Import a Skills pack (.zip) into <code>skills/shared/&lt;namespace&gt;/...</code> "
+            "using the open Agent Skills (SKILL.md) standard.",
+            "type": "button",
+            "value": "Import Skills",
+        }
+    )
+
+    skills_section: SettingsSection = {
+        "id": "skills",
+        "title": "Skills",
+        "description": "Skills are portable bundles of instructions, scripts, and resources that agents can discover and load on demand. "
+        "See the spec at <code>agentskills.io</code>.",
+        "fields": skills_fields,
+        "tab": "agent",
+    }
+    
     # Backup & Restore section
     backup_fields: list[SettingsField] = []
 

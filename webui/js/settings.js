@@ -283,6 +283,8 @@ const settingsModalProxy = {
             openModal("settings/external/api-examples.html");
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
+        } else if (field.id === "skills_import") {
+            openModal("settings/skills/import.html");
         }
     }
 };
