@@ -7,6 +7,8 @@ from flask import Response
 from python.helpers.api import ApiHandler, Input, Output, Request
 from python.helpers import files, runtime
 from python.api import file_info
+from urllib.parse import quote
+
 
 
 def stream_file_download(file_source, download_name, chunk_size=8192):
@@ -63,7 +65,7 @@ def stream_file_download(file_source, download_name, chunk_size=8192):
         content_type=content_type,
         direct_passthrough=True,  # Prevent Flask from buffering the response
         headers={
-            'Content-Disposition': f'attachment; filename="{download_name}"',
+            'Content-Disposition': make_disposition(download_name),
             'Content-Length': str(file_size),  # Critical for browser progress bars
             'Cache-Control': 'no-cache',
             'X-Accel-Buffering': 'no',  # Disable nginx buffering
@@ -72,6 +74,15 @@ def stream_file_download(file_source, download_name, chunk_size=8192):
     )
 
     return response
+
+
+def make_disposition(download_name: str) -> str:
+    # Basic ASCII fallback (strip or replace weird chars)
+    ascii_fallback = download_name.encode("ascii", "ignore").decode("ascii") or "download"
+    utf8_name = quote(download_name)  # URL-encode UTF-8 bytes
+
+    # RFC 5987: filename* with UTF-8
+    return f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{utf8_name}'
 
 
 class DownloadFile(ApiHandler):

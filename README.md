@@ -35,7 +35,7 @@ Agent Zero now supports **Projects** – isolated workspaces with their own prom
 
 
 
-[![Showcase](/docs/res/showcase-thumb.png)](https://youtu.be/lazLNcEYsiQ)
+[![Showcase](/docs/res/showcase-thumb.png)](https://youtu.be/MdzLhWWoxEs)
 
 
 
@@ -81,6 +81,7 @@ Agent Zero now supports **Projects** – isolated workspaces with their own prom
 - The framework does not guide or limit the agent in any way. There are no hard-coded rails that agents have to follow.
 - Every prompt, every small message template sent to the agent in its communication loop can be found in the **prompts/** folder and changed.
 - Every default tool can be found in the **python/tools/** folder and changed or copied to create new predefined tools.
+- **Automated configuration** via `A0_SET_` environment variables for deployment automation and easy setup.
 
 ![Prompts](/docs/res/prompts.png)
 
