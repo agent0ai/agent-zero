@@ -13,6 +13,7 @@ from python.helpers.print_style import PrintStyle
 import fnmatch
 from datetime import datetime, timezone
 from python.helpers.websocket import WS_CSRF_TTL_SECONDS, set_ws_csrf_flag
+from python.helpers.websocket_manager import get_global_websocket_manager
 
 ALLOWED_ORIGINS_KEY = "ALLOWED_ORIGINS"
 
@@ -71,6 +72,11 @@ class GetCsrfToken(ApiHandler):
 
         now = datetime.now(timezone.utc).timestamp()
         expiry = set_ws_csrf_flag(session, now, WS_CSRF_TTL_SECONDS)
+        manager = get_global_websocket_manager()
+        if manager is not None:
+            user_id = session.get("user_id") or "single_user"
+            for sid in manager.get_sids_for_user(user_id):
+                manager.update_csrf_expiry(sid, expiry)
 
         runtime_info = {
             "id": runtime.get_runtime_id(),
@@ -158,7 +164,7 @@ class GetCsrfToken(ApiHandler):
     def initialize_allowed_origins(self, request: Request):
         """
         If A0 is hosted on a server, add the first visit origin to ALLOWED_ORIGINS.
-        This simplifies deployment process as users can access their new instance without 
+        This simplifies deployment process as users can access their new instance without
         additional setup while keeping it secure.
         """
         # dotenv value is already set, do nothing
@@ -183,5 +189,3 @@ class GetCsrfToken(ApiHandler):
         # if not, add it to the allowed origins
         allowed_origins.append(req_origin)
         dotenv.save_dotenv_value(ALLOWED_ORIGINS_KEY, ",".join(allowed_origins))
-
-        

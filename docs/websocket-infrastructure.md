@@ -26,9 +26,9 @@ This guide consolidates everything you need to design, implement, and troublesho
 
 ## Architecture at a Glance
 
-- **Runtime (`run_ui.py`)** – boots `python-socketio.AsyncServer` inside an ASGI stack served by uvicorn. Flask routes and Socket.IO share the same process so session cookies and CSRF semantics stay aligned.
+- **Runtime (`run_ui.py`)** – boots `python-socketio.AsyncServer` inside an ASGI stack served by Hypercorn. Flask routes are mounted via `a2wsgi.WSGIMiddleware`, and Flask + Socket.IO share the same process so session cookies and CSRF semantics stay aligned.
 - **Singleton handlers** – every `WebSocketHandler` subclass exposes `get_instance()` and is registered exactly once. Direct instantiation raises `SingletonInstantiationError`, keeping shared state and lifecycle hooks deterministic.
-- **Dispatcher offload** – handler entrypoints (`process_event`, `on_connect`, `on_disconnect`) run in a background worker loop (via `DeferredTask`) so blocking handlers cannot stall the Socket.IO/uvicorn event loop. Socket.IO emits/disconnects are marshalled back to the dispatcher loop. Diagnostic timing and payload summaries are only built when Event Console watchers are subscribed (development mode).
+- **Dispatcher offload** – handler entrypoints (`process_event`, `on_connect`, `on_disconnect`) run in a background worker loop (via `DeferredTask`) so blocking handlers cannot stall the Socket.IO transport. Socket.IO emits/disconnects are marshalled back to the dispatcher loop. Diagnostic timing and payload summaries are only built when Event Console watchers are subscribed (development mode).
 - **`python/helpers/websocket_manager.py`** – orchestrates routing, buffering, filtering, aggregation, metadata envelopes, and session tracking. Think of it as the “switchboard” for every WebSocket event.
 - **`python/helpers/websocket.py`** – base class for application handlers. Provides lifecycle hooks, helper methods (`emit_to`, `broadcast`, `request`, `request_all`) and identifier metadata.
 - **`webui/js/websocket.js`** – frontend singleton that mirrors backend capabilities (`emit`, `broadcast`, `request`, `requestAll`, `on`, `off`) with lazy connection management, CSRF preflight, and development-only logging.
@@ -60,9 +60,18 @@ Useful mental model: **client ↔ manager ↔ handler**. The manager normalises 
 3. **Lifecycle Hooks** – After acceptance, `WebSocketHandler.on_connect(sid)` fires for every registered handler. Use it for initial emits, state bookkeeping, or session tracking.
 4. **Normal Operation** – Client emits events with envelopes containing optional filters. Manager routes them to the appropriate handlers, gathers results, and wraps outbound responses in the mandatory envelope.
 5. **Disconnection & Buffering** – If a tab goes away without a graceful disconnect, fire-and-forget events accumulate (max 100). On reconnect, the manager flushes the buffer via `emit_to`. Request flows respond with explicit `CONNECTION_NOT_FOUND` errors.
-6. **Reconnection Attempts** – Socket.IO handles retries with exponential backoff (defaults). Before each retry we refresh the CSRF flag so the handshake succeeds even if the previous flag expired.
-   - Once a consumer establishes a connection, Socket.IO keeps the retry loop alive even if no frontend code touches the client again; interruptions are detected automatically and the manager flushes any buffered events as soon as the transport returns.
+6. **Reconnection Attempts** – `/js/websocket.js` schedules reconnect attempts with exponential backoff + jitter (Socket.IO auto-reconnect is disabled). Every connect attempt is gated by CSRF preflight (`/csrf_token`) so reconnect works across backend restarts and idle periods.
+   - Preflight results are cached per runtime and refreshed proactively (timer + jitter) to avoid CSRF expiry disconnects in multi-tab setups.
 7. **Session Expiry** – `WebSocketManager.validate_session()` can be scheduled to close sids whose CSRF flag expired, keeping semantics aligned with HTTP sessions.
+
+### State Sync (Replacing `/poll`)
+
+Agent Zero can also push poll-shaped state snapshots over the WebSocket bus, replacing the legacy 4Hz `/poll` loop while preserving the existing UI update contract.
+
+- **Handshake**: the frontend sync store (`/components/sync/sync-store.js`) calls `websocket.request("state_request", { context, log_from, notifications_from, timezone })` to establish per-tab cursors and a `seq_base`.
+- **Push**: the server emits `state_push` events containing `{ runtime_epoch, seq, snapshot }`, where `snapshot` is exactly the `/poll` payload shape built by `python/helpers/snapshot.py`.
+- **Coalescing**: the backend `StateMonitor` coalesces dirties per SID (25ms window) so streaming updates stay smooth without unbounded trailing-edge debounce.
+- **Degraded fallback**: if the WebSocket handshake/push path is unhealthy, the UI enters `DEGRADED` and uses `/poll` as a fallback; while degraded, push snapshots are ignored to avoid racey double-writes.
 
 ### Thinking in Roles
 
@@ -583,8 +592,8 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 ### WebSocket Event Console
 
 - Location: `Settings → Developer → WebSocket Event Console`.
-- Opening the modal calls `websocket.request("ws_event_console_subscribe", { requestedAt })`. The handler (`DevWebsocketTestHandler`) refuses the subscription outside development mode and registers the SID as a **diagnostic watcher** by calling `WebSocketManager.register_diagnostic_watcher`. Only connected SIDs can subscribe.
-- Closing the modal (or navigating away) calls `websocket.request("ws_event_console_unsubscribe", {})`. Disconnecting also triggers `WebSocketManager.unregister_diagnostic_watcher`, so stranded watchers never accumulate.
+- Enabling capture calls `websocket.request("ws_event_console_subscribe", { requestedAt })`. The handler (`DevWebsocketTestHandler`) refuses the subscription outside development mode and registers the SID as a **diagnostic watcher** by calling `WebSocketManager.register_diagnostic_watcher`. Only connected SIDs can subscribe.
+- Disabling capture calls `websocket.request("ws_event_console_unsubscribe", {})`. Disconnecting also triggers `WebSocketManager.unregister_diagnostic_watcher`, so stranded watchers never accumulate.
 - While at least one watcher exists, the manager streams `ws_dev_console_event` envelopes (documented in `contracts/event-schemas.md`). Each payload contains:
   - `kind`: `"inbound" | "outbound" | "lifecycle"`
   - `eventType`, `sid`, `targets[]`, delivery/buffer flags
@@ -592,7 +601,8 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
   - `payloadSummary` (first few keys + byte size)
 - Lifecycle broadcasts (`ws_lifecycle_connect` / `ws_lifecycle_disconnect`) are emitted asynchronously via `broadcast(..., diagnostic=True)` so long-running handlers can’t block dispatch.
 - The modal UI exposes:
-  - Reconnect button (detach + resubscribe) to recover gracefully after Socket.IO reconnects.
+  - Start/stop capture (explicitly controls subscription state).
+  - Resubscribe button (detach + resubscribe) to recover gracefully after Socket.IO reconnects.
   - Clear button (resets the in-memory ring buffer).
   - “Handled-only” toggle that filters inbound entries to ones that resolved to registered handlers or produced errors.
 - When the watcher set becomes empty the manager immediately stops streaming diagnostics, guaranteeing zero steady-state overhead outside development.
@@ -606,7 +616,7 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 
 ### Access Logs & Transport Troubleshooting
 
-- Settings → Developer now includes a persisted `uvicorn_access_logs_enabled` switch. When enabled, `run_ui.py` passes `access_log=True` to uvicorn so transport issues (CORS, handshake failures) can be traced without restarting the server. Turn it off once troubleshooting is complete; production builds ignore the toggle.
+- Settings → Developer includes a persisted `uvicorn_access_logs_enabled` switch (legacy name). When enabled, `run_ui.py` enables Hypercorn access logs (`accesslog = "-"`) so transport issues (CORS, handshake failures) can be traced without restarting the server. Turn it off once troubleshooting is complete; production builds ignore the toggle.
 - The long-standing `websocket_server_restart_enabled` switch (same section) controls whether newly connected clients receive the `server_restart` broadcast that carries `runtimeId` metadata.
 
 ### Common Issues

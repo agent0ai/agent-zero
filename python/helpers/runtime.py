@@ -33,6 +33,16 @@ def initialize():
     parser.add_argument(
         "--development", type=bool, default=False, help="Development mode"
     )
+    parser.add_argument(
+        "--ssl",
+        nargs="?",
+        const="true",
+        default=None,
+        help=(
+            "Enable TLS for the UI server. Optional value sets the TLS port "
+            "(e.g. --ssl 5443). If omitted/true-ish, uses WEB_UI_SSL_PORT or 5443."
+        ),
+    )
 
     known, unknown = parser.parse_known_args()
     args = vars(known)
@@ -168,6 +178,20 @@ def get_web_ui_port():
         get_arg("port") or int(dotenv.get_dotenv_value("WEB_UI_PORT", 0)) or 5000
     )
     return web_ui_port
+
+
+def get_web_ui_ssl_port() -> int:
+    ssl_raw = get_arg("ssl")
+    if ssl_raw is not None:
+        try:
+            ssl_port = int(str(ssl_raw).strip())
+        except (TypeError, ValueError):
+            ssl_port = 0
+        if ssl_port > 0:
+            return ssl_port
+
+    web_ui_ssl_port = int(dotenv.get_dotenv_value("WEB_UI_SSL_PORT", 0)) or 5443
+    return web_ui_ssl_port
 
 
 def get_tunnel_api_port():

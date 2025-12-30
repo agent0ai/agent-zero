@@ -1,21 +1,18 @@
-from dataclasses import dataclass, field
-import json
-import time
-from typing import Any, Literal, Optional, Dict, TypeVar, TYPE_CHECKING
-
-T = TypeVar("T")
-import uuid
-from collections import OrderedDict  # Import OrderedDict
-from python.helpers.strings import truncate_text_by_ratio
 import copy
-from typing import TypeVar
+import json
+import threading
+import time
+import uuid
+from collections import OrderedDict
+from dataclasses import dataclass
+from typing import Any, Literal, Optional, TYPE_CHECKING
+
 from python.helpers.secrets import get_secrets_manager
+from python.helpers.strings import truncate_text_by_ratio
 
 
 if TYPE_CHECKING:
     from agent import AgentContext
-
-T = TypeVar("T")
 
 Type = Literal[
     "agent",
@@ -60,7 +57,7 @@ def _truncate_key(text: str) -> str:
     return truncate_text_by_ratio(str(text), KEY_MAX_LEN, "...", ratio=1.0)
 
 
-def _truncate_value(val: T) -> T:
+def _truncate_value(val: Any) -> Any:
     # If dict, recursively truncate each value
     if isinstance(val, dict):
         for k in list(val.keys()):
@@ -74,7 +71,7 @@ def _truncate_value(val: T) -> T:
             val[i] = _truncate_value(val[i])
         return val
     if isinstance(val, tuple):
-        return tuple(_truncate_value(x) for x in val) # type: ignore
+        return tuple(_truncate_value(x) for x in val)  # type: ignore
 
     # Convert non-str values to json for consistent length measurement
     if isinstance(val, str):
@@ -117,9 +114,6 @@ def _truncate_content(text: str | None, type: Type) -> str:
     return truncated
 
 
-
-
-
 @dataclass
 class LogItem:
     log: "Log"
@@ -137,7 +131,7 @@ class LogItem:
     agent_number: int = 0
 
     def __post_init__(self):
-        self.guid = self.log.guid
+        self.guid = self.log.get_guid()
         self.timestamp = self.timestamp or time.time()
 
     def update(
@@ -150,7 +144,7 @@ class LogItem:
         update_progress: ProgressUpdate | None = None,
         **kwargs,
     ):
-        if self.guid == self.log.guid:
+        if self.guid == self.log.get_guid():
             self.log._update_item(
                 self.no,
                 type=type,
@@ -195,11 +189,40 @@ class LogItem:
 class Log:
 
     def __init__(self):
-        self.context: "AgentContext|None" = None # set from outside
+        self._lock = threading.RLock()
+        self.context: "AgentContext|None" = None  # set from outside
         self.guid: str = str(uuid.uuid4())
         self.updates: list[int] = []
         self.logs: list[LogItem] = []
         self.set_initial_progress()
+
+    def has_items(self) -> bool:
+        with self._lock:
+            return bool(self.logs)
+
+    def get_guid(self) -> str:
+        with self._lock:
+            return self.guid
+
+    def get_total_items(self) -> int:
+        with self._lock:
+            return len(self.logs)
+
+    def get_version(self) -> int:
+        with self._lock:
+            return len(self.updates)
+
+    def get_progress(self):
+        with self._lock:
+            return self.progress
+
+    def get_progress_active(self) -> bool:
+        with self._lock:
+            return bool(self.progress_active)
+
+    def get_progress_no(self) -> int:
+        with self._lock:
+            return int(self.progress_no)
 
     def log(
         self,
@@ -213,37 +236,41 @@ class Log:
         **kwargs,
     ) -> LogItem:
 
-        # add a minimal item to the log
-        # Determine agent number from streaming agent
-        agent_number = 0
-        if self.context and self.context.streaming_agent:
-            agent_number = self.context.streaming_agent.number
-        
-        item = LogItem(
-            log=self,
-            no=len(self.logs),
-            type=type,
-            agent_number=agent_number,
-        )
-        # Set duration on previous item and mark it as updated
-        if self.logs:
-            prev = self.logs[-1]
-            prev.duration_ms = int((item.timestamp - prev.timestamp) * 1000)
-            self.updates += [prev.no]
-        self.logs.append(item)
+        with self._lock:
+            # add a minimal item to the log
+            # Determine agent number from streaming agent
+            agent_number = 0
+            if self.context and self.context.streaming_agent:
+                agent_number = self.context.streaming_agent.number
 
-        # and update it (to have just one implementation)
-        self._update_item(
-            no=item.no,
-            type=type,
-            heading=heading,
-            content=content,
-            kvps=kvps,
-            temp=temp,
-            update_progress=update_progress,
-            id=id,
-            **kwargs,
-        )
+            item = LogItem(
+                log=self,
+                no=len(self.logs),
+                type=type,
+                agent_number=agent_number,
+            )
+            # Set duration on previous item and mark it as updated
+            if self.logs:
+                prev = self.logs[-1]
+                prev.duration_ms = int((item.timestamp - prev.timestamp) * 1000)
+                self.updates += [prev.no]
+            self.logs.append(item)
+
+            # and update it (to have just one implementation)
+            self._update_item(
+                no=item.no,
+                type=type,
+                heading=heading,
+                content=content,
+                kvps=kvps,
+                temp=temp,
+                update_progress=update_progress,
+                id=id,
+                notify_state_monitor=False,
+                **kwargs,
+            )
+
+        self._notify_state_monitor()
         return item
 
     def _update_item(
@@ -256,78 +283,111 @@ class Log:
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         id: Optional[str] = None,
+        notify_state_monitor: bool = True,
         **kwargs,
     ):
-        item = self.logs[no]
+        with self._lock:
+            item = self.logs[no]
 
-        if id is not None:
-            item.id = id
+            if id is not None:
+                item.id = id
 
-        if type is not None:
-            item.type = type
+            if type is not None:
+                item.type = type
 
-        if temp is not None:
-            item.temp = temp
+            if temp is not None:
+                item.temp = temp
 
-        if update_progress is not None:
-            item.update_progress = update_progress
+            if update_progress is not None:
+                item.update_progress = update_progress
 
+            # adjust all content before processing
+            if heading is not None:
+                heading = self._mask_recursive(heading)
+                heading = _truncate_heading(heading)
+                item.heading = heading
+            if content is not None:
+                content = self._mask_recursive(content)
+                content = _truncate_content(content, item.type)
+                item.content = content
+            if kvps is not None:
+                kvps_out = OrderedDict(copy.deepcopy(kvps))
+                kvps_out = self._mask_recursive(kvps_out)
+                kvps_out = _truncate_value(kvps_out)
+                item.kvps = OrderedDict(kvps_out)
+            elif item.kvps is None:
+                item.kvps = OrderedDict()
+            if kwargs:
+                kwargs = copy.deepcopy(kwargs)
+                kwargs = self._mask_recursive(kwargs)
+                if item.kvps is None:
+                    item.kvps = OrderedDict()
+                item.kvps.update(kwargs)
 
-        # adjust all content before processing
-        if heading is not None:
-            heading = self._mask_recursive(heading)
-            heading = _truncate_heading(heading)
-            item.heading = heading
-        if content is not None:
-            content = self._mask_recursive(content)
-            content = _truncate_content(content, item.type)
-            item.content = content
-        if kvps is not None:
-            kvps = OrderedDict(copy.deepcopy(kvps))
-            kvps = self._mask_recursive(kvps)
-            kvps = _truncate_value(kvps)
-            item.kvps = kvps
-        elif item.kvps is None:
-            item.kvps = OrderedDict()
-        if kwargs:
-            kwargs = copy.deepcopy(kwargs)
-            kwargs = self._mask_recursive(kwargs)
-            item.kvps.update(kwargs)
+            self.updates += [item.no]
+            self._update_progress_from_item(item)
+        if notify_state_monitor:
+            self._notify_state_monitor_for_context_update()
 
-        self.updates += [item.no]
-        self._update_progress_from_item(item)
+    def _notify_state_monitor(self) -> None:
+        ctx = self.context
+        if not ctx:
+            return
+        try:
+            from python.helpers.state_monitor import get_state_monitor
+        except Exception:  # pragma: no cover - optional integration
+            return
+        # Logs update both the active chat stream (sid-bound) and the global chats list
+        # (context metadata like last_message/log_version). Broadcast so all tabs refresh
+        # their chat/task lists without leaking logs (logs are still scoped per-sid).
+        get_state_monitor().mark_dirty_all(reason="log.Log._notify_state_monitor")
+
+    def _notify_state_monitor_for_context_update(self) -> None:
+        ctx = self.context
+        if not ctx:
+            return
+        try:
+            from python.helpers.state_monitor import get_state_monitor
+        except Exception:  # pragma: no cover - optional integration
+            return
+        # Log item updates only need to refresh the active chat stream for any sid
+        # currently projecting this context. Avoid global fanout at high frequency.
+        get_state_monitor().mark_dirty_for_context(ctx.id, reason="log.Log._update_item")
 
     def set_progress(self, progress: str, no: int = 0, active: bool = True):
         progress = self._mask_recursive(progress)
         progress = _truncate_progress(progress)
-        self.progress = progress
-        if not no:
-            no = len(self.logs)
-        self.progress_no = no
-        self.progress_active = active
+        with self._lock:
+            self.progress = progress
+            if not no:
+                no = len(self.logs)
+            self.progress_no = no
+            self.progress_active = active
 
     def set_initial_progress(self):
         self.set_progress("Waiting for input", 0, False)
 
     def output(self, start=None, end=None):
-        if start is None:
-            start = 0
-        if end is None:
-            end = len(self.updates)
+        with self._lock:
+            if start is None:
+                start = 0
+            if end is None:
+                end = len(self.updates)
 
-        out = []
-        seen = set()
-        for update in self.updates[start:end]:
-            if update not in seen:
-                out.append(self.logs[update].output())
-                seen.add(update)
+            out = []
+            seen = set()
+            for update in self.updates[start:end]:
+                if update not in seen:
+                    out.append(self.logs[update].output())
+                    seen.add(update)
 
-        return out
+            return out
 
     def reset(self):
-        self.guid = str(uuid.uuid4())
-        self.updates = []
-        self.logs = []
+        with self._lock:
+            self.guid = str(uuid.uuid4())
+            self.updates = []
+            self.logs = []
         self.set_initial_progress()
 
     def _update_progress_from_item(self, item: LogItem):
@@ -338,7 +398,7 @@ class Log:
                     (item.no if item.update_progress == "persistent" else -1),
                 )
 
-    def _mask_recursive(self, obj: T) -> T:
+    def _mask_recursive(self, obj: Any) -> Any:
         """Recursively mask secrets in nested objects."""
         try:
             from agent import AgentContext
@@ -359,6 +419,6 @@ class Log:
                 return [self._mask_recursive(item) for item in obj]  # type: ignore
             else:
                 return obj
-        except Exception as _e:
+        except Exception:
             # If masking fails, return original object
             return obj

@@ -544,7 +544,7 @@ def _apply_settings(previous: Settings | None):
         from initialize import initialize_agent
 
         config = initialize_agent()
-        for ctx in AgentContext._contexts.values():
+        for ctx in AgentContext.all():
             ctx.config = config  # reinitialize context config with new settings
             # apply config to agents
             agent = ctx.agent0

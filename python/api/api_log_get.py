@@ -38,7 +38,7 @@ class ApiLogGet(ApiHandler):
 
         try:
             # Get total number of log items
-            total_items = len(context.log.logs)
+            total_items = context.log.get_total_items()
 
             # Calculate start position (from newest, so we work backwards)
             start_pos = max(0, total_items - length)
@@ -50,12 +50,12 @@ class ApiLogGet(ApiHandler):
             return {
                 "context_id": context_id,
                 "log": {
-                    "guid": context.log.guid,
+                    "guid": context.log.get_guid(),
                     "total_items": total_items,
                     "returned_items": len(log_items),
                     "start_position": start_pos,
-                    "progress": context.log.progress,
-                    "progress_active": context.log.progress_active,
+                    "progress": context.log.get_progress(),
+                    "progress_active": context.log.get_progress_active(),
                     "items": log_items
                 }
             }

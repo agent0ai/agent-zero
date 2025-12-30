@@ -1,4 +1,4 @@
-import asyncio, random, string
+import asyncio, random, string, threading
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -45,6 +45,7 @@ class AgentContextType(Enum):
 class AgentContext:
 
     _contexts: dict[str, "AgentContext"] = {}
+    _contexts_lock = threading.RLock()
     _counter: int = 0
     _notification_manager = None
 
@@ -66,10 +67,14 @@ class AgentContext:
     ):
         # initialize context
         self.id = id or AgentContext.generate_id()
-        existing = self._contexts.get(self.id, None)
-        if existing:
-            AgentContext.remove(self.id)
-        self._contexts[self.id] = self
+        existing = None
+        with AgentContext._contexts_lock:
+            existing = AgentContext._contexts.get(self.id, None)
+            if existing:
+                AgentContext._contexts.pop(self.id, None)
+            AgentContext._contexts[self.id] = self
+        if existing and existing.task:
+            existing.task.kill()
         if set_current:
             AgentContext.set_current(self.id)
 
@@ -94,7 +99,8 @@ class AgentContext:
 
     @staticmethod
     def get(id: str):
-        return AgentContext._contexts.get(id, None)
+        with AgentContext._contexts_lock:
+            return AgentContext._contexts.get(id, None)
 
     @staticmethod
     def use(id: str):
@@ -118,13 +124,15 @@ class AgentContext:
 
     @staticmethod
     def first():
-        if not AgentContext._contexts:
-            return None
-        return list(AgentContext._contexts.values())[0]
+        with AgentContext._contexts_lock:
+            if not AgentContext._contexts:
+                return None
+            return list(AgentContext._contexts.values())[0]
 
     @staticmethod
     def all():
-        return list(AgentContext._contexts.values())
+        with AgentContext._contexts_lock:
+            return list(AgentContext._contexts.values())
 
     @staticmethod
     def generate_id():
@@ -133,8 +141,9 @@ class AgentContext:
 
         while True:
             short_id = generate_short_id()
-            if short_id not in AgentContext._contexts:
-                return short_id
+            with AgentContext._contexts_lock:
+                if short_id not in AgentContext._contexts:
+                    return short_id
 
     @classmethod
     def get_notification_manager(cls):
@@ -146,7 +155,8 @@ class AgentContext:
 
     @staticmethod
     def remove(id: str):
-        context = AgentContext._contexts.pop(id, None)
+        with AgentContext._contexts_lock:
+            context = AgentContext._contexts.pop(id, None)
         if context and context.task:
             context.task.kill()
         return context
@@ -177,9 +187,9 @@ class AgentContext:
                 else Localization.get().serialize_datetime(datetime.fromtimestamp(0))
             ),
             "no": self.no,
-            "log_guid": self.log.guid,
-            "log_version": len(self.log.updates),
-            "log_length": len(self.log.logs),
+            "log_guid": self.log.get_guid(),
+            "log_version": self.log.get_version(),
+            "log_length": self.log.get_total_items(),
             "paused": self.paused,
             "last_message": (
                 Localization.get().serialize_datetime(self.last_message)

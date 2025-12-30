@@ -25,6 +25,14 @@ class RemoveChat(ApiHandler):
         for task in tasks:
             await scheduler.remove_task_by_uuid(task.uuid)
 
+        # Context removal affects global chat/task lists in all tabs.
+        try:
+            from python.helpers.state_monitor import get_state_monitor
+        except Exception:  # pragma: no cover - optional integration
+            pass
+        else:
+            get_state_monitor().mark_dirty_all(reason="api.chat_remove.RemoveChat")
+
         return {
             "message": "Context removed.",
         }

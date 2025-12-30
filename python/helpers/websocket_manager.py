@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import threading
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -93,6 +94,12 @@ class WebSocketManager:
         dispatcher_loop = self._dispatcher_loop
         if dispatcher_loop is None:
             return await coro
+        if dispatcher_loop.is_closed():
+            try:
+                coro.close()
+            except Exception:  # pragma: no cover - best-effort cleanup
+                pass
+            raise RuntimeError("Dispatcher event loop is closed")
 
         try:
             running_loop = asyncio.get_running_loop()
@@ -1083,3 +1090,24 @@ class WebSocketManager:
         """Enable or disable automatic server restart broadcasts."""
 
         self._server_restart_enabled = bool(enabled)
+
+
+_GLOBAL_WEBSOCKET_MANAGER_LOCK = threading.RLock()
+_GLOBAL_WEBSOCKET_MANAGER: WebSocketManager | None = None
+
+
+def set_global_websocket_manager(manager: WebSocketManager | None) -> None:
+    """Register the active WebSocketManager instance for cross-module integrations.
+
+    This avoids importing `run_ui.py` (and circular imports) from API handlers that
+    need to interact with the live WebSocket bus (e.g. updating CSRF expiry).
+    """
+
+    global _GLOBAL_WEBSOCKET_MANAGER
+    with _GLOBAL_WEBSOCKET_MANAGER_LOCK:
+        _GLOBAL_WEBSOCKET_MANAGER = manager
+
+
+def get_global_websocket_manager() -> WebSocketManager | None:
+    with _GLOBAL_WEBSOCKET_MANAGER_LOCK:
+        return _GLOBAL_WEBSOCKET_MANAGER
