@@ -4,7 +4,7 @@ from python.helpers.extension import Extension
 
 
 class LoadProfileSettings(Extension):
-    
+ 
     async def execute(self, **kwargs) -> None:
 
         if not self.agent or not self.agent.config.profile:
@@ -36,18 +36,18 @@ class LoadProfileSettings(Extension):
         if settings_override:
             # Preserve the original memory_subdir unless it's explicitly overridden
             current_memory_subdir = self.agent.config.memory_subdir
+            # FIX: Also preserve the original profile
+            original_profile = self.agent.config.profile
+            
             new_config = initialize_agent(override_settings=settings_override)
+            
             if (
                 "agent_memory_subdir" not in settings_override
                 and current_memory_subdir != "default"
             ):
                 new_config.memory_subdir = current_memory_subdir
+            
+            # FIX: Restore the original profile
+            new_config.profile = original_profile
+            
             self.agent.config = new_config
-            # self.agent.context.log.log(
-            #     type="info",
-            #     content=(
-            #         "Loaded custom settings for agent "
-            #         f"{self.agent.number} with profile '{self.agent.config.profile}'."
-            #     ),
-            # )
-
