@@ -109,6 +109,9 @@ const settingsModalProxy = {
             modalAD.isOpen = true;
             modalAD.settings = settings;
 
+            // Fetch models for all model fields that only have the custom option
+            this.refreshAllModelOptions(modalAD);
+
             // Now set the active tab after the modal is open
             // This ensures Alpine reactivity works as expected
             setTimeout(() => {
@@ -284,6 +287,182 @@ const settingsModalProxy = {
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
         }
+    },
+
+    // Handle select field changes - refresh model options when provider changes
+    async handleSelectChange(field, section) {
+        // Check if this is a provider field change
+        if (field.id.endsWith('_model_provider')) {
+            const modelType = field.id.includes('embed') ? 'embedding' : 'chat';
+            const modelFieldId = field.id.replace('_provider', '_name');
+            const apiBaseFieldId = field.id.replace('_provider', '_api_base');
+
+            // Find the corresponding model name field
+            const modalEl = document.getElementById('settingsModal');
+            const modalAD = Alpine.$data(modalEl);
+
+            if (!modalAD || !modalAD.settings || !modalAD.settings.sections) return;
+
+            // Collect current API keys and find api_base from settings
+            // Note: '************' placeholder means key EXISTS (it's masked for security)
+            const apiKeys = {};
+            let apiBase = '';
+            for (const sec of modalAD.settings.sections) {
+                for (const f of sec.fields) {
+                    if (f.id.startsWith('api_key_')) {
+                        const provider = f.id.replace('api_key_', '');
+                        // Key exists if it has any value (including placeholder)
+                        if (f.value && f.value.length > 0) {
+                            // We pass the placeholder to backend - it will use env vars
+                            apiKeys[provider] = f.value;
+                        }
+                    }
+                    if (f.id === apiBaseFieldId) {
+                        apiBase = f.value || '';
+                    }
+                }
+            }
+
+            try {
+                // Fetch models dynamically from provider API
+                const response = await sendJsonData("/settings_refresh_models", {
+                    model_type: modelType,
+                    provider: field.value,
+                    api_keys: apiKeys,
+                    api_base: apiBase,
+                    force_refresh: true  // Always fetch fresh when provider changes
+                });
+
+                if (response && response.models) {
+                    // Find and update the model name field
+                    for (const sec of modalAD.settings.sections) {
+                        for (const f of sec.fields) {
+                            if (f.id === modelFieldId) {
+                                // Force Alpine reactivity by modifying array in-place
+                                f.options.splice(0, f.options.length, ...response.models);
+                                // Reset to first option or keep current if valid
+                                const currentValid = response.models.some(m => m.value === f.value);
+                                if (!currentValid && response.models.length > 0) {
+                                    f.value = response.models[0].value;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error fetching models from provider:', e);
+            }
+        }
+    },
+
+    // Apply custom model value when user enters it manually
+    applyCustomModel(field) {
+        if (field.customValue && field.customValue.trim()) {
+            // Add the custom value as an option and select it
+            const customOption = {
+                value: field.customValue.trim(),
+                label: field.customValue.trim()
+            };
+
+            // Insert before the __custom__ option
+            const customIndex = field.options.findIndex(o => o.value === '__custom__');
+            if (customIndex > -1) {
+                field.options.splice(customIndex, 0, customOption);
+            } else {
+                field.options.push(customOption);
+            }
+
+            // Select the custom value
+            field.value = field.customValue.trim();
+            field.customValue = '';
+        }
+    },
+
+    // Refresh model options for all model fields when settings open
+    async refreshAllModelOptions(modalAD) {
+        if (!modalAD || !modalAD.settings || !modalAD.settings.sections) return;
+
+        // Collect API keys
+        // Note: '************' placeholder means key EXISTS (masked for security)
+        const apiKeys = {};
+        for (const sec of modalAD.settings.sections) {
+            for (const f of sec.fields) {
+                if (f.id.startsWith('api_key_')) {
+                    const provider = f.id.replace('api_key_', '');
+                    // Key exists if it has any value (including placeholder)
+                    if (f.value && f.value.length > 0) {
+                        apiKeys[provider] = f.value;
+                    }
+                }
+            }
+        }
+
+        // Find all model name fields and their corresponding providers
+        const modelFields = [];
+        for (const sec of modalAD.settings.sections) {
+            for (const f of sec.fields) {
+                if (f.id.endsWith('_model_name') && f.type === 'select') {
+                    const providerFieldId = f.id.replace('_name', '_provider');
+                    const apiBaseFieldId = f.id.replace('_name', '_api_base');
+                    let provider = '';
+                    let apiBase = '';
+
+                    // Find corresponding provider and api_base
+                    for (const sec2 of modalAD.settings.sections) {
+                        for (const f2 of sec2.fields) {
+                            if (f2.id === providerFieldId) {
+                                provider = f2.value;
+                            }
+                            if (f2.id === apiBaseFieldId) {
+                                apiBase = f2.value || '';
+                            }
+                        }
+                    }
+
+                    if (provider) {
+                        modelFields.push({
+                            field: f,
+                            provider: provider,
+                            apiBase: apiBase,
+                            modelType: f.id.includes('embed') ? 'embedding' : 'chat'
+                        });
+                    }
+                }
+            }
+        }
+
+        // Fetch models for each field in parallel
+        const fetchPromises = modelFields.map(async (mf) => {
+            try {
+                const response = await sendJsonData("/settings_refresh_models", {
+                    model_type: mf.modelType,
+                    provider: mf.provider,
+                    api_keys: apiKeys,
+                    api_base: mf.apiBase
+                });
+
+                if (response && response.models && response.models.length > 1) {
+                    // Keep current value if valid, otherwise add it as option
+                    const currentValid = response.models.some(m => m.value === mf.field.value);
+                    let newOptions = [...response.models];
+                    if (!currentValid && mf.field.value && mf.field.value !== '__custom__') {
+                        // Add current value as an option at the start
+                        newOptions.unshift({
+                            value: mf.field.value,
+                            label: mf.field.value + ' (current)'
+                        });
+                    }
+                    // Force Alpine reactivity by modifying array in-place
+                    mf.field.options.splice(0, mf.field.options.length, ...newOptions);
+                }
+            } catch (e) {
+                console.error(`Error fetching models for ${mf.provider}:`, e);
+            }
+        });
+
+        // Wait for all fetches to complete
+        await Promise.all(fetchPromises);
     }
 };
 

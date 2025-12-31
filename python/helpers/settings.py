@@ -10,7 +10,8 @@ import models
 from python.helpers import runtime, whisper, defer, git
 from . import files, dotenv
 from python.helpers.print_style import PrintStyle
-from python.helpers.providers import get_providers
+from python.helpers.providers import get_providers, FieldOption
+from python.helpers.model_discovery import get_models_for_provider_sync
 from python.helpers.secrets import get_default_secrets_manager
 from python.helpers import dirty_json
 
@@ -152,11 +153,6 @@ class PartialSettings(Settings, total=False):
     pass
 
 
-class FieldOption(TypedDict):
-    value: str
-    label: str
-
-
 class SettingsField(TypedDict, total=False):
     id: str
     title: str
@@ -215,13 +211,28 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "options": cast(list[FieldOption], get_providers("chat")),
         }
     )
+    chat_model_options = get_models_for_provider_sync(
+        "chat",
+        settings["chat_model_provider"],
+        settings["api_keys"],
+    )
+    # Ensure current value is in options (for custom models)
+    current_chat_model = settings["chat_model_name"]
+    if current_chat_model and not any(
+        opt["value"] == current_chat_model for opt in chat_model_options
+    ):
+        chat_model_options.insert(0, {
+            "value": current_chat_model,
+            "label": f"{current_chat_model} (current)",
+        })
     chat_model_fields.append(
         {
             "id": "chat_model_name",
             "title": "Chat model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
+            "description": "Select model from provider, or choose 'Custom' to enter manually",
+            "type": "select",
             "value": settings["chat_model_name"],
+            "options": cast(list[FieldOption], chat_model_options),
         }
     )
 
@@ -328,13 +339,28 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "options": cast(list[FieldOption], get_providers("chat")),
         }
     )
+    util_model_options = get_models_for_provider_sync(
+        "chat",
+        settings["util_model_provider"],
+        settings["api_keys"],
+    )
+    # Ensure current value is in options
+    current_util_model = settings["util_model_name"]
+    if current_util_model and not any(
+        opt["value"] == current_util_model for opt in util_model_options
+    ):
+        util_model_options.insert(0, {
+            "value": current_util_model,
+            "label": f"{current_util_model} (current)",
+        })
     util_model_fields.append(
         {
             "id": "util_model_name",
             "title": "Utility model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
+            "description": "Select model from provider, or choose 'Custom' to enter manually",
+            "type": "select",
             "value": settings["util_model_name"],
+            "options": cast(list[FieldOption], util_model_options),
         }
     )
 
@@ -408,13 +434,28 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "options": cast(list[FieldOption], get_providers("embedding")),
         }
     )
+    embed_model_options = get_models_for_provider_sync(
+        "embedding",
+        settings["embed_model_provider"],
+        settings["api_keys"],
+    )
+    # Ensure current value is in options
+    current_embed_model = settings["embed_model_name"]
+    if current_embed_model and not any(
+        opt["value"] == current_embed_model for opt in embed_model_options
+    ):
+        embed_model_options.insert(0, {
+            "value": current_embed_model,
+            "label": f"{current_embed_model} (current)",
+        })
     embed_model_fields.append(
         {
             "id": "embed_model_name",
             "title": "Embedding model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
+            "description": "Select model from provider, or choose 'Custom' to enter manually",
+            "type": "select",
             "value": settings["embed_model_name"],
+            "options": cast(list[FieldOption], embed_model_options),
         }
     )
 
@@ -478,13 +519,28 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "options": cast(list[FieldOption], get_providers("chat")),
         }
     )
+    browser_model_options = get_models_for_provider_sync(
+        "chat",
+        settings["browser_model_provider"],
+        settings["api_keys"],
+    )
+    # Ensure current value is in options
+    current_browser_model = settings["browser_model_name"]
+    if current_browser_model and not any(
+        opt["value"] == current_browser_model for opt in browser_model_options
+    ):
+        browser_model_options.insert(0, {
+            "value": current_browser_model,
+            "label": f"{current_browser_model} (current)",
+        })
     browser_model_fields.append(
         {
             "id": "browser_model_name",
             "title": "Web Browser model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
+            "description": "Select model from provider, or choose 'Custom' to enter manually",
+            "type": "select",
             "value": settings["browser_model_name"],
+            "options": cast(list[FieldOption], browser_model_options),
         }
     )
 
