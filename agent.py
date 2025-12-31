@@ -299,6 +299,16 @@ class AgentConfig:
     code_exec_ssh_pass: str = ""
     additional: Dict[str, Any] = field(default_factory=dict)
 
+    # Checkpoint configuration
+    checkpoint_enabled: bool = True
+    checkpoint_auto_save: bool = False
+    checkpoint_interval_messages: int = 10
+    checkpoint_interval_tools: int = 5
+    checkpoint_pre_tool: bool = False
+    checkpoint_keep_last_n: int = 5
+    checkpoint_storage_path: str = "tmp/checkpoints"
+    checkpoint_storage_backend: str = "file"  # "file" or "memory"
+
 
 @dataclass
 class UserMessage:

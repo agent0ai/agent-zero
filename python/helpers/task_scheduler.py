@@ -132,6 +132,11 @@ class BaseTask(BaseModel):
     last_run: datetime | None = None
     last_result: str | None = None
 
+    # Checkpoint support fields
+    checkpoint_id: Optional[str] = None  # Last checkpoint for this task
+    checkpoint_enabled: bool = False  # Enable checkpointing for this task
+    checkpoint_interval: int = 10  # Messages between auto-checkpoints
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.context_id:
@@ -777,7 +782,67 @@ class TaskScheduler:
         save_tmp_chat(context)
         return context
 
+    def _create_new_context(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> AgentContext:
+        """Create a new context for task execution"""
+        from agent import AgentContext, AgentContextType, Agent
+
+        if not task.context_id:
+            raise ValueError(f"Task {task.name} has no context ID")
+
+        config = initialize_agent()
+        context = AgentContext(
+            config=config,
+            id=task.context_id,
+            name=task.name,
+            type=AgentContextType.TASK
+        )
+        agent = Agent(0, config, context)
+        context.agent0 = agent
+
+        # Activate project if set
+        if task.project_name:
+            projects.activate_project(context.id, task.project_name)
+
+        return context
+
     async def _get_chat_context(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> AgentContext:
+        # First, check if task has checkpoint support enabled and has a checkpoint_id
+        if task.checkpoint_enabled and task.checkpoint_id:
+            from python.helpers.checkpoint_manager import CheckpointManager
+
+            try:
+                manager = CheckpointManager.get()
+                checkpoint = await manager.load_checkpoint(task.checkpoint_id)
+
+                if checkpoint:
+                    # Validate checkpoint
+                    validation = await manager.validate_checkpoint(checkpoint)
+                    if validation.is_valid:
+                        # Restore context from checkpoint
+                        context = await manager.restore_context(checkpoint)
+                        self._printer.print(
+                            f"Scheduler Task {task.name}: Restored from checkpoint {task.checkpoint_id}"
+                        )
+                        save_tmp_chat(context)
+                        return context
+                    else:
+                        self._printer.print(
+                            f"Scheduler Task {task.name}: Checkpoint validation failed, starting fresh"
+                        )
+                        if validation.errors:
+                            self._printer.print(f"Errors: {', '.join(validation.errors)}")
+                        if validation.warnings:
+                            self._printer.print(f"Warnings: {', '.join(validation.warnings)}")
+                else:
+                    self._printer.print(
+                        f"Scheduler Task {task.name}: Checkpoint {task.checkpoint_id} not found, starting fresh"
+                    )
+            except Exception as e:
+                self._printer.print(
+                    f"Scheduler Task {task.name}: Error loading checkpoint: {e}, starting fresh"
+                )
+
+        # Try to get existing context
         context = AgentContext.get(task.context_id) if task.context_id else None
 
         if context:
