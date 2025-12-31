@@ -938,3 +938,37 @@ nav ul li a img {
 }
 
 /* Token field (for ad-hoc tasks) */
+
+
+/* Select with custom model input */
+.select-with-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.select-with-custom select {
+    width: 100%;
+}
+
+.custom-model-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--color-secondary);
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    background-color: var(--color-background);
+    color: var(--color-text);
+}
+
+.custom-model-input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.7;
+}
+
+.custom-model-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+}

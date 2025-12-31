@@ -311,13 +311,25 @@
 
                                                 <!-- Select field -->
                                                 <template x-if="field.type === 'select'">
-                                                    <select :class="field.classes" x-model="field.value"
-                                                        :disabled="field.readonly === true">
-                                                        <template x-for="option in field.options" :key="option.value">
-                                                            <option :value="option.value" x-text="option.label"
-                                                                :selected="option.value === field.value"></option>
+                                                    <div class="select-with-custom">
+                                                        <select :class="field.classes" x-model="field.value"
+                                                            :disabled="field.readonly === true"
+                                                            @change="handleSelectChange(field, section)">
+                                                            <template x-for="option in field.options" :key="option.value">
+                                                                <option :value="option.value" x-text="option.label"
+                                                                    :selected="option.value === field.value"></option>
+                                                            </template>
+                                                        </select>
+                                                        <!-- Custom model input - appears when __custom__ is selected -->
+                                                        <template x-if="field.id.endsWith('_model_name') && field.value === '__custom__'">
+                                                            <input type="text"
+                                                                class="custom-model-input"
+                                                                :class="field.classes"
+                                                                x-model="field.customValue"
+                                                                placeholder="Enter model name (e.g., gpt-4o)"
+                                                                @blur="applyCustomModel(field)">
                                                         </template>
-                                                    </select>
+                                                    </div>
                                                 </template>
 
                                                 <!-- HTML field -->
