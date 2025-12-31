@@ -19,20 +19,18 @@ import initialize
 from python.helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper
 from python.helpers.files import get_abs_path
 from python.helpers import runtime, dotenv, process
-from python.helpers.websocket import validate_ws_csrf_flag
-from datetime import datetime, timezone
+from python.helpers.websocket import WebSocketHandler, validate_ws_origin
 from python.helpers.extract_tools import load_classes_from_folder
 from python.helpers.api import ApiHandler
 from python.helpers.print_style import PrintStyle
 from python.helpers import login
-import socketio
+import socketio  # type: ignore[import-untyped]
 from socketio import ASGIApp
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from a2wsgi import WSGIMiddleware
 from run_ui_ssl import ensure_dev_ca_and_server_cert, tmp_cert_dir
-from python.helpers.websocket import WebSocketHandler
-from python.helpers.websocket_manager import WebSocketManager, set_global_websocket_manager
+from python.helpers.websocket_manager import WebSocketManager
 
 # disable logging
 import logging
@@ -70,7 +68,6 @@ socketio_server = socketio.AsyncServer(
 )
 
 websocket_manager = WebSocketManager(socketio_server, lock)
-set_global_websocket_manager(websocket_manager)
 _settings = settings_helper.get_settings()
 websocket_manager.set_server_restart_broadcast(
     _settings.get("websocket_server_restart_enabled", True)
@@ -82,9 +79,9 @@ websocket_manager.set_server_restart_broadcast(
 
 def is_loopback_address(address):
     loopback_checker = {
-        socket.AF_INET: lambda x: struct.unpack("!I", socket.inet_aton(x))[0]
-        >> (32 - 8)
-        == 127,
+        socket.AF_INET: lambda x: (
+            struct.unpack("!I", socket.inet_aton(x))[0] >> (32 - 8)
+        ) == 127,
         socket.AF_INET6: lambda x: x == "::1",
     }
     address_type = "hostname"
@@ -112,6 +109,7 @@ def is_loopback_address(address):
                 if not loopback_checker[family](sockaddr[0]):
                     return False
         return True
+
 
 def requires_api_key(f):
     @wraps(f)
@@ -165,6 +163,7 @@ def requires_auth(f):
 
     return decorated
 
+
 def csrf_protect(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
@@ -177,6 +176,7 @@ def csrf_protect(f):
         return await f(*args, **kwargs)
 
     return decorated
+
 
 @webapp.route("/login", methods=["GET", "POST"])
 async def login_handler():
@@ -194,10 +194,12 @@ async def login_handler():
     login_page_content = files.read_file("webui/login.html")
     return render_template_string(login_page_content, error=error)
 
+
 @webapp.route("/logout")
 async def logout_handler():
     session.pop('authentication', None)
     return redirect(url_for('login_handler'))
+
 
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
@@ -232,6 +234,7 @@ async def download_ca_pem():
         as_attachment=True,
         download_name="ca.pem",
     )
+
 
 def run():
     PrintStyle().print("Initializing framework...")
@@ -284,6 +287,13 @@ def run():
     @socketio_server.event
     async def connect(sid, environ, _auth):  # type: ignore[override]
         with webapp.request_context(environ):
+            origin_ok, origin_reason = validate_ws_origin(environ)
+            if not origin_ok:
+                PrintStyle.warning(
+                    f"WebSocket origin validation failed for {sid}: {origin_reason or 'invalid'}"
+                )
+                return False
+
             auth_required = any(
                 handler.requires_auth() for handler in websocket_handlers
             )
@@ -300,48 +310,22 @@ def run():
                         "WebSocket authentication required but credentials not configured; proceeding"
                     )
 
-            csrf_expiry: float | None = None
-            requires_csrf = any(
-                handler.requires_csrf() for handler in websocket_handlers
-            )
-            if requires_csrf:
-                now_ts = datetime.now(timezone.utc).timestamp()
-                ok, reason, expiry = validate_ws_csrf_flag(session, now_ts)
-                if not ok:
-                    PrintStyle.warning(
-                        f"WebSocket CSRF validation failed for {sid}: {reason or 'invalid'}"
-                    )
-                    return False
-                csrf_expiry = expiry
-                PrintStyle.debug(
-                    f"WebSocket CSRF validated for {sid}; expires at {expiry}"
-                )
-
             user_id = session.get("user_id") or "single_user"
-            await websocket_manager.handle_connect(sid, csrf_expiry, user_id=user_id)
+            await websocket_manager.handle_connect(sid, user_id=user_id)
             return True
 
     @socketio_server.event
     async def disconnect(sid):  # type: ignore[override]
         await websocket_manager.handle_disconnect(sid)
 
-    for event_type in websocket_manager.iter_event_types():
+    def register_socketio_event(event_type: str) -> None:
         @socketio_server.on(event_type)
-        async def _event_handler(sid, data, _event_type=event_type):
+        async def _event_handler(sid, data):
             payload = data or {}
-            results = await websocket_manager.route_event(
-                _event_type, payload, sid
-            )
-            return results
+            return await websocket_manager.route_event(event_type, payload, sid)
 
-    async def validate_sessions_loop():
-        while True:
-            await asyncio.sleep(30)
-            now_ts = datetime.now(timezone.utc).timestamp()
-            for sid in list(websocket_manager.connections.keys()):
-                await websocket_manager.validate_session(sid, now_ts)
-
-    socketio_server.start_background_task(validate_sessions_loop)
+    for _event_type in websocket_manager.iter_event_types():
+        register_socketio_event(_event_type)
 
     init_a0()
 
@@ -405,7 +389,6 @@ def run():
         config.quic_bind = [f"{host}:{ssl_port}"]
     else:
         config.bind = [f"{host}:{port}"]
-        config.insecure_bind = [f"{host}:{port}"]
         PrintStyle.info(
             "SSL disabled (no --ssl): serving plain HTTP/1.1 on the configured port."
         )
@@ -432,6 +415,8 @@ def run():
     else:
         PrintStyle().debug(f"Starting server at http://{host}:{port} ...")
     asyncio.run(_main())
+    if process.consume_restart_request():
+        process.restart_process()
 
 
 def init_a0():

@@ -38,7 +38,6 @@ class ConnectionInfo:
     sid: str
     connected_at: datetime = field(default_factory=_utcnow)
     last_activity: datetime = field(default_factory=_utcnow)
-    csrf_expires_at: float | None = None
 
 
 @dataclass
@@ -342,12 +341,12 @@ class WebSocketManager:
         return _HandlerExecution(handler, value, duration_ms)
 
     async def handle_connect(
-        self, sid: str, csrf_expiry: float | None = None, user_id: str | None = None
+        self, sid: str, user_id: str | None = None
     ) -> None:
         self._ensure_dispatcher_loop()
         user_bucket = user_id or "single_user"
         with self.lock:
-            self.connections[sid] = ConnectionInfo(sid=sid, csrf_expires_at=csrf_expiry)
+            self.connections[sid] = ConnectionInfo(sid=sid)
             self._known_sids.add(sid)
             self.sid_to_user[sid] = user_bucket
             self.user_to_sids[self._ALL_USERS_BUCKET].add(sid)
@@ -1028,28 +1027,6 @@ class WebSocketManager:
                 f"Flushed {delivered} buffered event(s) to sid {sid}"
             )
 
-    def update_csrf_expiry(self, sid: str, expiry: float) -> None:
-        with self.lock:
-            info = self.connections.get(sid)
-            if info:
-                info.csrf_expires_at = expiry
-
-    async def validate_session(self, sid: str, now_ts: float) -> bool:
-        self._ensure_dispatcher_loop()
-        should_disconnect = False
-        with self.lock:
-            info = self.connections.get(sid)
-            if not info:
-                return False
-            if info.csrf_expires_at is not None and info.csrf_expires_at <= now_ts:
-                self.connections.pop(sid, None)
-                should_disconnect = True
-        if should_disconnect:
-            PrintStyle.warning(f"Disconnecting {sid} due to CSRF expiry")
-            await self._run_on_dispatcher_loop(self.socketio.disconnect(sid))
-            return False
-        return True
-
     def _build_error_result(
         self,
         *,
@@ -1090,24 +1067,3 @@ class WebSocketManager:
         """Enable or disable automatic server restart broadcasts."""
 
         self._server_restart_enabled = bool(enabled)
-
-
-_GLOBAL_WEBSOCKET_MANAGER_LOCK = threading.RLock()
-_GLOBAL_WEBSOCKET_MANAGER: WebSocketManager | None = None
-
-
-def set_global_websocket_manager(manager: WebSocketManager | None) -> None:
-    """Register the active WebSocketManager instance for cross-module integrations.
-
-    This avoids importing `run_ui.py` (and circular imports) from API handlers that
-    need to interact with the live WebSocket bus (e.g. updating CSRF expiry).
-    """
-
-    global _GLOBAL_WEBSOCKET_MANAGER
-    with _GLOBAL_WEBSOCKET_MANAGER_LOCK:
-        _GLOBAL_WEBSOCKET_MANAGER = manager
-
-
-def get_global_websocket_manager() -> WebSocketManager | None:
-    with _GLOBAL_WEBSOCKET_MANAGER_LOCK:
-        return _GLOBAL_WEBSOCKET_MANAGER

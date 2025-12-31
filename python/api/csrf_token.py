@@ -9,11 +9,7 @@ from python.helpers.api import (
     session,
 )
 from python.helpers import runtime, dotenv, login
-from python.helpers.print_style import PrintStyle
 import fnmatch
-from datetime import datetime, timezone
-from python.helpers.websocket import WS_CSRF_TTL_SECONDS, set_ws_csrf_flag
-from python.helpers.websocket_manager import get_global_websocket_manager
 
 ALLOWED_ORIGINS_KEY = "ALLOWED_ORIGINS"
 
@@ -22,17 +18,13 @@ class GetCsrfToken(ApiHandler):
 
     @classmethod
     def get_methods(cls) -> list[str]:
-        return ["GET", "POST"]
+        return ["GET"]
 
     @classmethod
     def requires_csrf(cls) -> bool:
         return False
 
     async def process(self, input: Input, request: Request) -> Output:
-        if request.method == "POST":
-            return await self._handle_post(request)
-
-
         # check for allowed origin to prevent dns rebinding attacks
         origin_check = await self.check_allowed_origin(request)
         if not origin_check["ok"]:
@@ -54,39 +46,6 @@ class GetCsrfToken(ApiHandler):
         return {
             "ok": True,
             "token": session["csrf_token"],
-            "runtime": runtime_info,
-        }
-
-    async def _handle_post(self, request: Request) -> Output:
-        token = session.get("csrf_token")
-        header = request.headers.get("X-CSRF-Token")
-        cookie = request.cookies.get("csrf_token_" + runtime.get_runtime_id())
-
-        if not token:
-            return {"ok": False, "error": "CSRF token not initialized"}
-        if not header or not cookie:
-            return {"ok": False, "error": "Missing CSRF header or cookie"}
-        if header != cookie or header != token:
-            PrintStyle.warning("CSRF token mismatch on WS preflight")
-            return {"ok": False, "error": "CSRF token mismatch"}
-
-        now = datetime.now(timezone.utc).timestamp()
-        expiry = set_ws_csrf_flag(session, now, WS_CSRF_TTL_SECONDS)
-        manager = get_global_websocket_manager()
-        if manager is not None:
-            user_id = session.get("user_id") or "single_user"
-            for sid in manager.get_sids_for_user(user_id):
-                manager.update_csrf_expiry(sid, expiry)
-
-        runtime_info = {
-            "id": runtime.get_runtime_id(),
-            "isDevelopment": runtime.is_development(),
-        }
-
-        return {
-            "ok": True,
-            "expires_at": expiry,
-            "ttl_seconds": WS_CSRF_TTL_SECONDS,
             "runtime": runtime_info,
         }
 

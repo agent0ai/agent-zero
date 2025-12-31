@@ -31,7 +31,7 @@ This guide consolidates everything you need to design, implement, and troublesho
 - **Dispatcher offload** – handler entrypoints (`process_event`, `on_connect`, `on_disconnect`) run in a background worker loop (via `DeferredTask`) so blocking handlers cannot stall the Socket.IO transport. Socket.IO emits/disconnects are marshalled back to the dispatcher loop. Diagnostic timing and payload summaries are only built when Event Console watchers are subscribed (development mode).
 - **`python/helpers/websocket_manager.py`** – orchestrates routing, buffering, filtering, aggregation, metadata envelopes, and session tracking. Think of it as the “switchboard” for every WebSocket event.
 - **`python/helpers/websocket.py`** – base class for application handlers. Provides lifecycle hooks, helper methods (`emit_to`, `broadcast`, `request`, `request_all`) and identifier metadata.
-- **`webui/js/websocket.js`** – frontend singleton that mirrors backend capabilities (`emit`, `broadcast`, `request`, `requestAll`, `on`, `off`) with lazy connection management, CSRF preflight, and development-only logging.
+- **`webui/js/websocket.js`** – frontend singleton that mirrors backend capabilities (`emit`, `broadcast`, `request`, `requestAll`, `on`, `off`) with lazy connection management and development-only logging.
 - **Developer Harness (`webui/components/settings/developer/websocket-test-store.js`)** – manual & automatic validation suite for emit/broadcast/request/requestAll flows, timeout behaviour (including the default unlimited wait), correlation ID propagation, envelope metadata, and broadcast/filter semantics in development mode.
 - **Specs & Contracts** – canonical definitions live under `specs/003-websocket-event-handlers/`. This guide references those documents but focuses on applied usage.
 
@@ -55,14 +55,12 @@ Useful mental model: **client ↔ manager ↔ handler**. The manager normalises 
 
 ## Connection Lifecycle
 
-1. **Lazy Connect & CSRF Preflight** – `/js/websocket.js` connects only when a consumer uses the client API (e.g., `emit`, `request`, `requestAll`, `broadcast`, `on`). The internal `websocket.connect()` performs `callJsonApi('/csrf_token')`, setting a 120-second `ws_csrf_ok` flag in the Flask session and returning runtime metadata (`runtime.id`, `isDevelopment`). Consumers may still explicitly `await websocket.connect()` to block UI until the socket is ready.
-2. **Handshake** – Socket.IO connects using the existing Flask session cookie. Manager checks handler requirements (`requires_auth`, `requires_csrf`) and validates the short-lived CSRF flag before accepting.
+1. **Lazy Connect** – `/js/websocket.js` connects only when a consumer uses the client API (e.g., `emit`, `request`, `requestAll`, `broadcast`, `on`). Consumers may still explicitly `await websocket.connect()` to block UI until the socket is ready.
+2. **Handshake** – Socket.IO connects using the existing Flask session cookie. The server validates an **Origin allowlist** (RFC 6455 / OWASP CSWSH baseline) and then checks handler requirements (`requires_auth`) before accepting.
 3. **Lifecycle Hooks** – After acceptance, `WebSocketHandler.on_connect(sid)` fires for every registered handler. Use it for initial emits, state bookkeeping, or session tracking.
 4. **Normal Operation** – Client emits events with envelopes containing optional filters. Manager routes them to the appropriate handlers, gathers results, and wraps outbound responses in the mandatory envelope.
 5. **Disconnection & Buffering** – If a tab goes away without a graceful disconnect, fire-and-forget events accumulate (max 100). On reconnect, the manager flushes the buffer via `emit_to`. Request flows respond with explicit `CONNECTION_NOT_FOUND` errors.
-6. **Reconnection Attempts** – `/js/websocket.js` schedules reconnect attempts with exponential backoff + jitter (Socket.IO auto-reconnect is disabled). Every connect attempt is gated by CSRF preflight (`/csrf_token`) so reconnect works across backend restarts and idle periods.
-   - Preflight results are cached per runtime and refreshed proactively (timer + jitter) to avoid CSRF expiry disconnects in multi-tab setups.
-7. **Session Expiry** – `WebSocketManager.validate_session()` can be scheduled to close sids whose CSRF flag expired, keeping semantics aligned with HTTP sessions.
+6. **Reconnection Attempts** – Socket.IO handles reconnect attempts; the manager continues to buffer fire-and-forget events (up to 1 hour) for temporarily disconnected SIDs and flushes them on reconnect.
 
 ### State Sync (Replacing `/poll`)
 
@@ -260,7 +258,7 @@ These helpers are future-proof for multi-tenant evolution and already handy to b
 
 ## Frontend Cookbook (`websocket.js`)
 
-### 1. Connecting & Preflight
+### 1. Connecting
 
 ```javascript
 import { websocket } from "/js/websocket.js";
@@ -272,9 +270,9 @@ await websocket.connect();
 console.log(window.runtimeInfo.id, window.runtimeInfo.isDevelopment);
 ```
 
-- The module performs `performPreflight()` -> CSRF POST -> Socket.IO connect as part of `websocket.connect()` (called lazily by producer and consumer APIs). Components may still explicitly `await websocket.connect()` to block rendering on readiness or re-run diagnostics.
-- The singleton stores `runtimeInfo.id` and `isDevelopment` so other modules (settings modal, harness) can react.
-- Reconnection attempts automatically redo the preflight.
+- The module connects lazily when a consumer uses the client API (e.g., `emit`, `request`, `requestAll`, `broadcast`, `on`). Components may still explicitly `await websocket.connect()` to block rendering on readiness or re-run diagnostics.
+- The server enforces an Origin allowlist during the Socket.IO connect handshake (baseline CSWSH mitigation). The browser session cookie remains the authentication mechanism.
+- Socket.IO handles reconnection attempts automatically.
 
 ### 2. Client Operations
 
@@ -612,7 +610,7 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 - `WebSocketManager` offloads handler execution via `DeferredTask` and may record `durationMs` when development diagnostics are active (Event Console watchers subscribed). These metrics flow into the Event Console stream (and may also appear in `request()` / `request_all()` results), keeping steady-state overhead near zero when diagnostics are closed.
 - Lifecycle events capture `connectionCount`, ISO8601 timestamps, and SID so dashboards can correlate UI behaviour with connection churn.
 - Backend logging: use `PrintStyle.debug/info/warning` and always include `handlerId`, `eventType`, `sid`, and `correlationId`. The manager already logs connection events, invalid filters, missing handlers, and buffer overflows.
-- Frontend logging: `websocket.debugLog()` mirrors backend debug messages but only when `runtimeInfo.isDevelopment` is true (refreshed by every CSRF preflight).
+- Frontend logging: `websocket.debugLog()` mirrors backend debug messages but only when `window.runtimeInfo.isDevelopment` is true.
 
 ### Access Logs & Transport Troubleshooting
 
@@ -624,8 +622,8 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 1. **`INVALID_FILTER`** – triggered when unsupported filters are provided or handler IDs are unknown. Check the include/exclude sets (client or server helpers) and update tests/contracts if you add new handlers.
 2. **`CONNECTION_NOT_FOUND`** – `emit_to` called with an SID that never existed or expired long ago. Use `get_sids_for_user` before emitting or guard on connection presence.
 3. **Timeout Rejections** – `request()` and `request_all()` reject only when the transport times out, not when a handler takes too long. Inspect the returned result arrays for `TIMEOUT` entries and consider increasing `timeoutMs`.
-4. **Missing CSRF Flag** – indicates the automatic preflight failed (user logged out or `/csrf_token` returned an error). Check network logs; manually `await websocket.connect()` to inspect the rejection message. The harness logs when preflights fail.
-5. **Diagnostics Subscriptions Failing** – only available in development mode and for connected SIDs. Verify the browser tab still holds an active session and that `runtimeInfo.isDevelopment` is true before opening the modal.
+4. **Origin Rejected** – the Socket.IO handshake was rejected because the `Origin` header did not match the expected UI origin. Ensure you access the UI and the WebSocket endpoint on the same scheme/host/port, and verify any reverse proxy preserves the `Origin` header.
+5. **Diagnostics Subscriptions Failing** – only available in development mode and for connected SIDs. Verify the browser tab still holds an active session and that `window.runtimeInfo.isDevelopment` is true before opening the modal.
 
 ---
 
@@ -701,15 +699,14 @@ Notes
 
 ### Client-Side Error Codes (Draft)
 
-The frontend can originate errors during validation, preflight, connection, or request execution. Today these surface as thrown exceptions/promise rejections (not as `RequestResultItem`). When server→client request/ack lands in the future, these codes will also be serialised in `RequestResultItem.error.code` for protocol symmetry.
+The frontend can originate errors during validation, connection, or request execution. Today these surface as thrown exceptions/promise rejections (not as `RequestResultItem`). When server→client request/ack lands in the future, these codes will also be serialised in `RequestResultItem.error.code` for protocol symmetry.
 
 | Code | Scope | Current Delivery | Meaning | Typical Remediation | Example |
 |------|-------|------------------|---------|---------------------|---------|
 | `VALIDATION_ERROR` | Producer options / payload | Exception (throw) | Invalid `includeHandlers`/`excludeHandlers`/`excludeSids`, non-object payload, or bad `correlationId` | Fix caller options and payload shapes; follow method-specific filter rules | `new Error("includeHandlers must contain non-empty handler identifiers")` |
 | `PAYLOAD_TOO_LARGE` | Size precheck (50MB cap) | Exception (throw) | Client precheck rejects payloads exceeding cap before emit | Reduce payload or chunk via HTTP; keep binaries off WS | `new Error("Payload size exceeds maximum (.. > .. bytes)")` |
-| `NOT_CONNECTED` | Socket status | Exception (throw) | Auto-connect could not establish a session (user logged out, server offline, CSRF preflight failed) | Check login state or server availability; optional `await websocket.connect()` for diagnostics | `new Error("Not connected")` |
+| `NOT_CONNECTED` | Socket status | Exception (throw) | Auto-connect could not establish a session (user logged out, server offline, handshake rejected) | Check login state, server availability, and Origin policy; optional `await websocket.connect()` for diagnostics | `new Error("Not connected")` |
 | `REQUEST_TIMEOUT` | request()/requestAll() | Promise rejection | Ack did not arrive within `timeoutMs` | Increase timeout, retry, or reduce work | Rejection `Error("Request timeout")` |
-| `PREFLIGHT_FAILED` | CSRF preflight | Exception (throw) | `/csrf_token` preflight failed or rejected | Re-login or retry; ensure backend running | `new Error("CSRF preflight failed: ...")` |
 | `CONNECT_ERROR` | Socket connect_error | Exception (throw/log) | Transport/handshake failure | Check server availability, CORS, or network | `new Error("WebSocket connection failed: ...")` |
 
 Notes
