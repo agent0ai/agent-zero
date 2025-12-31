@@ -1,0 +1,451 @@
+.process-group {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  margin: var(--spacing-sm) 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  background: #1f3c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 200px;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: fit-content;
+}
+
+/* Embedded Process Group inside Response */
+.process-group.embedded {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+/* Message container with embedded process group */
+.message-container.has-process-group {
+  display: inline-flex;
+  flex-direction: column;
+  background: #1f3c1e;
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0;
+  overflow: hidden;
+  min-width: 200px;
+  max-width: 100%;
+}
+
+.message-container.has-process-group > .message {
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+  border: none;
+  background: transparent;
+  margin: 0;
+}
+
+.process-group:hover {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Process Group Header */
+.process-group-header {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease;
+  min-height: 24px;
+  gap: var(--spacing-xs);
+  white-space: nowrap;
+}
+
+.process-group-header:hover {
+  opacity: 0.85;
+}
+
+.process-group-header .expand-icon {
+  font-size: 1rem;
+  color: var(--color-text);
+  transition: transform 0.2s ease;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.process-group.expanded .process-group-header .expand-icon {
+  transform: rotate(90deg);
+}
+
+.process-group-header .group-icon {
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.process-group-header .group-title {
+  flex: 1;
+  font-size: var(--font-size-smaller);
+  font-weight: 400;
+  color: var(--color-text);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.process-group-header .step-count {
+  font-size: 0.7rem;
+  color: var(--color-text);
+  opacity: 0.6;
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.process-group-header .group-timestamp {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.65);
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  margin-left: auto;
+}
+
+.process-group-header .group-duration {
+  font-size: 0.7rem;
+  color: #81c784;
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Process Group Content - Animated expand/collapse */
+.process-group-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px solid transparent;
+  transition: grid-template-rows 0.25s ease-out, 
+              opacity 0.2s ease-out,
+              margin-top 0.25s ease-out,
+              padding-top 0.25s ease-out,
+              border-color 0.2s ease-out;
+  overflow: hidden;
+}
+
+.process-group-content > .process-steps {
+  min-height: 0;
+}
+
+.process-group.expanded .process-group-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Process Steps List */
+.process-steps {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Individual Process Step */
+.process-step {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-xxs) var(--spacing-xs);
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.process-step:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Utility/Info/Hint steps have subtle background tint */
+.process-step[data-type="util"],
+.process-step[data-type="info"],
+.process-step[data-type="hint"] {
+  background-color: rgba(120, 115, 100, 0);
+}
+
+.process-step[data-type="util"]:hover,
+.process-step[data-type="info"]:hover,
+.process-step[data-type="hint"]:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+
+.light-mode .process-step[data-type="util"]:hover,
+.light-mode .process-step[data-type="info"]:hover,
+.light-mode .process-step[data-type="hint"]:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Step Header (clickable) */
+.process-step-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  gap: var(--spacing-xs);
+  min-height: 20px;
+}
+
+.process-step-header .step-icon {
+  font-size: 0.85rem;
+  opacity: 0.6;
+  width: 16px;
+  text-align: center;
+}
+
+/* Step type colors */
+.process-step[data-type="agent"] .step-icon { color: #64b5f6; }
+.process-step[data-type="tool"] .step-icon { color: #81c784; }
+.process-step[data-type="code_exe"] .step-icon { color: #ba68c8; }
+.process-step[data-type="browser"] .step-icon { color: #ffb74d; }
+.process-step[data-type="info"] .step-icon { color: #90a4ae; }
+.process-step[data-type="util"] .step-icon { color: #78909c; }
+.process-step[data-type="hint"] .step-icon { color: #aed581; }
+.process-step[data-type="warning"] .step-icon { color: #ffd54f; }
+.process-step[data-type="error"] .step-icon { color: #e57373; }
+
+.process-step-header .step-type {
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.5;
+  min-width: 50px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.process-step-header .step-title {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--color-text);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.process-step-header .step-time {
+  font-size: 0.65rem;
+  color: #81c784;
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  min-width: 35px;
+  text-align: right;
+}
+
+.process-step-header .step-expand-icon {
+  font-size: 0.8rem;
+  opacity: 0.4;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+}
+
+.process-step-header:hover .step-expand-icon {
+  opacity: 0.7;
+}
+
+.process-step.step-expanded .step-expand-icon {
+  transform: rotate(180deg);
+}
+
+/* Step Detail Content - Animated expand/collapse */
+.process-step-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.2s ease-out, opacity 0.15s ease-out;
+  overflow: hidden;
+}
+
+.process-step-detail > .process-step-detail-content {
+  min-height: 0;
+}
+
+.process-step.step-expanded .process-step-detail {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  overflow: visible;
+}
+
+.process-step-detail-content {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin-top: var(--spacing-xxs);
+  margin-left: 20px; /* Align with icon */
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+  border-left: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.process-step-detail-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-family-code);
+  font-size: 0.7rem;
+  color: var(--color-text);
+  opacity: 0.8;
+}
+
+/* KVPs in step detail */
+.process-step-detail-content .step-kvps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xxs);
+}
+
+.process-step-detail-content .step-kvp {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.process-step-detail-content .step-kvp-key {
+  color: var(--color-primary);
+  font-weight: 500;
+  min-width: 80px;
+  opacity: 0.8;
+}
+
+.process-step-detail-content .step-kvp-value {
+  flex: 1;
+  color: var(--color-text);
+  opacity: 0.75;
+  word-break: break-word;
+  font-size: 0.7rem;
+}
+
+/* Light mode adjustments */
+.light-mode .process-group {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.light-mode .process-group.embedded {
+  background: rgba(0, 0, 0, 0.04);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.light-mode .message-container.has-process-group {
+  background: var(--color-panel);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.light-mode .process-group:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.light-mode .process-group.expanded .process-group-content {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.light-mode .process-step:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.light-mode .process-step-detail-content {
+  background-color: rgba(0, 0, 0, 0.03);
+  border-left-color: rgba(0, 0, 0, 0.08);
+}
+
+.light-mode .process-group-header .step-count {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Light mode text colors for process group */
+.light-mode .process-group-header .group-title,
+.light-mode .process-group-header .step-count,
+.light-mode .process-step-header .step-title,
+.light-mode .process-step-header .step-type {
+  color: #188216;
+}
+
+.light-mode .process-group-header .group-timestamp {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.light-mode .process-group-header .group-duration {
+  color: #2e7d32;
+}
+
+.light-mode .process-step-header .step-time {
+  color: #388e3c;
+}
+
+/* Animation for loading state */
+@keyframes pulse-step {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+.process-step.loading .step-icon {
+  animation: pulse-step 1.2s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .process-group {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .process-step-header .step-type {
+    display: none;
+  }
+  
+  .process-step-header .step-title {
+    font-size: 0.7rem;
+  }
+  
+  .process-step-detail-content {
+    margin-left: 16px;
+  }
+}
+
+/* ===========================================
+   Preferences Visibility Controls
+   These rules work with preferences-store toggles
+   =========================================== */
+
+/* Utility steps - default hidden (controlled by showUtils) */
+.process-step.message-util {
+  display: none;
+}
+
+.process-step.message-util.show-util {
+  display: flex;
+}
+
+/* Thoughts KVP row - default visible (controlled by showThoughts) */
+.step-kvp.msg-thoughts {
+  display: flex;
+}
+
+.step-kvp.msg-thoughts.hide-thoughts {
+  display: none;
+}
+
+/* JSON pre content - default hidden (controlled by showJson) */
+.process-step-detail-content pre.msg-json {
+  display: none;
+}
+
+.process-step-detail-content pre.msg-json.show-json {
+  display: block;
+}

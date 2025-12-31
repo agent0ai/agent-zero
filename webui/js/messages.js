@@ -4,22 +4,102 @@ import { marked } from "../vendor/marked/marked.esm.js";
 import { store as _messageResizeStore } from "/components/messages/resize/message-resize-store.js"; // keep here, required in html
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { addActionButtonsToElement } from "/components/messages/action-buttons/simple-action-buttons.js";
+import { store as processGroupStore } from "/components/messages/process-group/process-group-store.js";
+import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 
 const chatHistory = document.getElementById("chat-history");
 
 let messageGroup = null;
+let currentProcessGroup = null; // Track current process group for collapsible UI
 
-// Simplified implementation - no complex interactions needed
+// Process types that should be grouped into collapsible sections
+const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'info', 'hint', 'util'];
+// Main types that should always be visible (not collapsed)
+const MAIN_TYPES = ['user', 'response', 'warning', 'error', 'rate_limit'];
 
-export function setMessage(id, type, heading, content, temp, kvps = null) {
+/**
+ * Check if a response is from the main agent (A0)
+ * Subordinate agents (A1, A2, ...) responses should be treated as process steps
+ */
+function isMainAgentResponse(heading) {
+  if (!heading) return true; // Default to main agent
+  // Check for subordinate agent patterns like "A1:", "A2:", etc.
+  const match = heading.match(/\bA(\d+):/);
+  if (!match) return true; // No agent marker = main agent
+  return match[1] === "0"; // Only A0 is the main agent
+}
+
+export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null) {
+  // Check if this is a process type message
+  const isProcessType = PROCESS_TYPES.includes(type);
+  const isMainType = MAIN_TYPES.includes(type);
+  
   // Search for the existing message container by id
   let messageContainer = document.getElementById(`message-${id}`);
+  let processStepElement = document.getElementById(`process-step-${id}`);
   let isNewMessage = false;
 
-  if (messageContainer) {
-    // Don't clear innerHTML - we'll do incremental updates
-    // messageContainer.innerHTML = "";
-  } else {
+  // For user messages, close current process group FIRST (start fresh for next interaction)
+  if (type === "user") {
+    currentProcessGroup = null;
+  }
+
+  // For process types, check if we should add to process group
+  if (isProcessType) {
+    if (processStepElement) {
+      // Update existing process step
+      updateProcessStep(processStepElement, id, type, heading, content, kvps);
+      return processStepElement;
+    }
+    
+    // Create or get process group for current interaction
+    if (!currentProcessGroup || !document.getElementById(currentProcessGroup.id)) {
+      currentProcessGroup = createProcessGroup(id);
+      chatHistory.appendChild(currentProcessGroup);
+    }
+    
+    // Add step to current process group
+    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp);
+    return processStepElement;
+  }
+
+  // For subordinate agent responses (A1, A2, ...), treat as a process step instead of main response
+  if (type === "response" && !isMainAgentResponse(heading)) {
+    if (processStepElement) {
+      updateProcessStep(processStepElement, id, "agent", heading, content, kvps);
+      return processStepElement;
+    }
+    
+    // Create or get process group for current interaction
+    if (!currentProcessGroup || !document.getElementById(currentProcessGroup.id)) {
+      currentProcessGroup = createProcessGroup(id);
+      chatHistory.appendChild(currentProcessGroup);
+    }
+    
+    // Add subordinate response as a step (type "agent" for appropriate styling)
+    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp);
+    return processStepElement;
+  }
+
+  // For main agent (A0) response, embed the current process group
+  if (type === "response" && currentProcessGroup) {
+    const processGroupToEmbed = currentProcessGroup;
+    // Keep currentProcessGroup reference - subsequent process messages go to same group
+    
+    if (!messageContainer) {
+      // Create new container with embedded process group
+      messageContainer = createResponseContainerWithProcessGroup(id, processGroupToEmbed);
+      isNewMessage = true;
+    } else {
+      // Check if already embedded
+      const existingEmbedded = messageContainer.querySelector(".process-group");
+      if (!existingEmbedded && processGroupToEmbed) {
+        embedProcessGroup(messageContainer, processGroupToEmbed);
+      }
+    }
+  }
+
+  if (!messageContainer) {
     // Create a new container if not found
     isNewMessage = true;
     const sender = type === "user" ? "user" : "ai";
@@ -46,7 +126,8 @@ export function setMessage(id, type, heading, content, temp, kvps = null) {
     };
     //force new group on these types
     const groupStart = {
-      agent: true,
+      response: true, // response starts a new group
+      user: true, // user message starts a new group (each user message should be separate)
       // anything else is false
     };
 
@@ -1007,4 +1088,430 @@ class Scroller {
   reApplyScroll() {
     if (this.wasAtBottom) this.element.scrollTop = this.element.scrollHeight;
   }
+}
+
+// ============================================
+// Process Group Embedding Functions
+// ============================================
+
+/**
+ * Create a response container with an embedded process group
+ */
+function createResponseContainerWithProcessGroup(id, processGroup) {
+  const messageContainer = document.createElement("div");
+  messageContainer.id = `message-${id}`;
+  messageContainer.classList.add("message-container", "ai-container", "has-process-group");
+  
+  // Move process group from chatHistory into the container
+  if (processGroup && processGroup.parentNode) {
+    processGroup.parentNode.removeChild(processGroup);
+  }
+  
+  // Process group will be the first child
+  if (processGroup) {
+    processGroup.classList.add("embedded");
+    messageContainer.appendChild(processGroup);
+  }
+  
+  return messageContainer;
+}
+
+/**
+ * Embed a process group into an existing message container
+ */
+function embedProcessGroup(messageContainer, processGroup) {
+  if (!messageContainer || !processGroup) return;
+  
+  // Remove from current parent
+  if (processGroup.parentNode) {
+    processGroup.parentNode.removeChild(processGroup);
+  }
+  
+  // Add embedded class
+  processGroup.classList.add("embedded");
+  messageContainer.classList.add("has-process-group");
+  
+  // Insert at the beginning of the container
+  const firstChild = messageContainer.firstChild;
+  if (firstChild) {
+    messageContainer.insertBefore(processGroup, firstChild);
+  } else {
+    messageContainer.appendChild(processGroup);
+  }
+}
+
+// ============================================
+// Process Group Functions
+// ============================================
+
+/**
+ * Create a new collapsible process group
+ */
+function createProcessGroup(id) {
+  const groupId = `process-group-${id}`;
+  const group = document.createElement("div");
+  group.id = groupId;
+  group.classList.add("process-group");
+  group.setAttribute("data-group-id", groupId);
+  
+  // Default to collapsed state - don't add 'expanded' class
+  // (Users can expand manually by clicking)
+  
+  // Create header
+  const header = document.createElement("div");
+  header.classList.add("process-group-header");
+  header.innerHTML = `
+    <span class="material-symbols-outlined expand-icon">chevron_right</span>
+    <span class="material-symbols-outlined group-icon">neurology</span>
+    <span class="group-title">Processing...</span>
+    <span class="step-count">0 steps</span>
+    <span class="group-timestamp"></span>
+  `;
+  
+  // Add click handler for expansion
+  header.addEventListener("click", (e) => {
+    processGroupStore.toggleGroup(groupId);
+    const newState = processGroupStore.isGroupExpanded(groupId);
+    group.classList.toggle("expanded", newState);
+  });
+  
+  group.appendChild(header);
+  
+  // Create content container
+  const content = document.createElement("div");
+  content.classList.add("process-group-content");
+  
+  // Create steps container
+  const steps = document.createElement("div");
+  steps.classList.add("process-steps");
+  content.appendChild(steps);
+  
+  group.appendChild(content);
+  
+  return group;
+}
+
+/**
+ * Add a step to a process group
+ */
+function addProcessStep(group, id, type, heading, content, kvps, timestamp = null) {
+  const groupId = group.getAttribute("data-group-id");
+  const stepsContainer = group.querySelector(".process-steps");
+  
+  // Create step element
+  const step = document.createElement("div");
+  step.id = `process-step-${id}`;
+  step.classList.add("process-step");
+  step.setAttribute("data-type", type);
+  step.setAttribute("data-step-id", id);
+  
+  // Store timestamp for duration calculation
+  if (timestamp) {
+    step.setAttribute("data-timestamp", timestamp);
+    
+    // Set group start time from first step
+    if (!group.getAttribute("data-start-timestamp")) {
+      group.setAttribute("data-start-timestamp", timestamp);
+      // Update header with formatted datetime
+      const timestampEl = group.querySelector(".group-timestamp");
+      if (timestampEl) {
+        timestampEl.textContent = formatDateTime(timestamp);
+      }
+    }
+  }
+  
+  // Add message-util class for utility/info types (controlled by showUtils preference)
+  if (type === "util" || type === "info" || type === "hint") {
+    step.classList.add("message-util");
+    // Apply current preference state
+    if (preferencesStore.showUtils) {
+      step.classList.add("show-util");
+    }
+  }
+  
+  // Get step info
+  const icon = processGroupStore.getStepIcon(type);
+  const label = processGroupStore.getStepLabel(type);
+  const title = getStepTitle(heading, kvps, type);
+  
+  // Check if step should be expanded
+  const isStepExpanded = processGroupStore.isStepExpanded(groupId, id);
+  if (isStepExpanded) {
+    step.classList.add("step-expanded");
+  }
+  
+  // Create step header
+  const stepHeader = document.createElement("div");
+  stepHeader.classList.add("process-step-header");
+  
+  // Calculate relative time from group start
+  let relativeTimeStr = "";
+  if (timestamp) {
+    const groupStartTime = parseFloat(group.getAttribute("data-start-timestamp") || "0");
+    if (groupStartTime > 0) {
+      const relativeMs = (timestamp - groupStartTime) * 1000;
+      relativeTimeStr = formatRelativeTime(relativeMs);
+    }
+  }
+  
+  stepHeader.innerHTML = `
+    <span class="material-symbols-outlined step-icon">${icon}</span>
+    <span class="step-type">${label}</span>
+    <span class="step-title">${escapeHTML(title)}</span>
+    ${relativeTimeStr ? `<span class="step-time">${relativeTimeStr}</span>` : ""}
+    <span class="material-symbols-outlined step-expand-icon">expand_more</span>
+  `;
+  
+  // Add click handler for step expansion
+  stepHeader.addEventListener("click", (e) => {
+    e.stopPropagation();
+    processGroupStore.toggleStep(groupId, id);
+    step.classList.toggle("step-expanded", processGroupStore.isStepExpanded(groupId, id));
+  });
+  
+  step.appendChild(stepHeader);
+  
+  // Create step detail container
+  const detail = document.createElement("div");
+  detail.classList.add("process-step-detail");
+  
+  const detailContent = document.createElement("div");
+  detailContent.classList.add("process-step-detail-content");
+  
+  // Add content to detail
+  renderStepDetailContent(detailContent, content, kvps);
+  
+  detail.appendChild(detailContent);
+  step.appendChild(detail);
+  
+  stepsContainer.appendChild(step);
+  
+  // Update group header
+  updateProcessGroupHeader(group);
+  
+  return step;
+}
+
+/**
+ * Update an existing process step
+ */
+function updateProcessStep(stepElement, id, type, heading, content, kvps) {
+  // Update title
+  const titleEl = stepElement.querySelector(".step-title");
+  if (titleEl) {
+    const title = getStepTitle(heading, kvps, type);
+    titleEl.textContent = title;
+  }
+  
+  // Update detail content
+  const detailContent = stepElement.querySelector(".process-step-detail-content");
+  if (detailContent) {
+    renderStepDetailContent(detailContent, content, kvps);
+  }
+  
+  // Update parent group header
+  const group = stepElement.closest(".process-group");
+  if (group) {
+    updateProcessGroupHeader(group);
+  }
+}
+
+/**
+ * Get a concise title for a process step
+ */
+function getStepTitle(heading, kvps, type) {
+  // Try to get a meaningful title from heading or kvps
+  if (heading && heading.trim()) {
+    return cleanStepTitle(heading, 80);
+  }
+  
+  if (kvps) {
+    // Try common fields for title
+    if (kvps.tool_name) {
+      const headline = kvps.headline ? cleanStepTitle(kvps.headline, 60) : '';
+      return `${kvps.tool_name}${headline ? ': ' + headline : ''}`;
+    }
+    if (kvps.headline) {
+      return cleanStepTitle(kvps.headline, 80);
+    }
+    if (kvps.query) {
+      return truncateText(kvps.query, 80);
+    }
+    if (kvps.thoughts) {
+      return truncateText(String(kvps.thoughts), 80);
+    }
+  }
+  
+  return processGroupStore.getStepLabel(type);
+}
+
+/**
+ * Clean step title by removing icon:// prefixes
+ * Preserves agent markers (A0:, A1:, etc.) so users can see which agent is executing
+ */
+function cleanStepTitle(text, maxLength) {
+  if (!text) return "";
+  let cleaned = String(text);
+  
+  // Remove icon:// patterns (e.g., "icon://network_intelligence")
+  cleaned = cleaned.replace(/icon:\/\/[a-zA-Z0-9_]+\s*/g, "");
+  
+  // Keep agent markers (A0:, A1:, etc.) - users need to see which agent is executing
+  // Only remove "A0:" as it's the main agent (implied)
+  cleaned = cleaned.replace(/^A0:\s*/i, "");
+  
+  // Trim whitespace
+  cleaned = cleaned.trim();
+  
+  return truncateText(cleaned, maxLength);
+}
+
+/**
+ * Render content for step detail panel
+ */
+function renderStepDetailContent(container, content, kvps) {
+  container.innerHTML = "";
+  
+  // Add KVPs if present
+  if (kvps && Object.keys(kvps).length > 0) {
+    const kvpsDiv = document.createElement("div");
+    kvpsDiv.classList.add("step-kvps");
+    
+    for (const [key, value] of Object.entries(kvps)) {
+      // Skip internal/display keys
+      if (key === "finished" || key === "attachments") continue;
+      
+      const kvpDiv = document.createElement("div");
+      kvpDiv.classList.add("step-kvp");
+      
+      // Add msg-thoughts class for thoughts-related keys (controlled by showThoughts preference)
+      const lowerKey = key.toLowerCase();
+      
+      if (lowerKey === "thoughts" || lowerKey === "thinking" || lowerKey === "reflection") {
+        kvpDiv.classList.add("msg-thoughts");
+        // Apply current preference state - hide if showThoughts is false
+        if (!preferencesStore.showThoughts) {
+          kvpDiv.classList.add("hide-thoughts");
+        }
+      }
+      
+      const keySpan = document.createElement("span");
+      keySpan.classList.add("step-kvp-key");
+      keySpan.textContent = convertToTitleCase(key) + ":";
+      
+      const valueSpan = document.createElement("span");
+      valueSpan.classList.add("step-kvp-value");
+      
+      let valueText = value;
+      if (typeof value === "object") {
+        valueText = JSON.stringify(value, null, 2);
+      }
+      
+      valueSpan.textContent = truncateText(String(valueText), 500);
+      
+      kvpDiv.appendChild(keySpan);
+      kvpDiv.appendChild(valueSpan);
+      kvpsDiv.appendChild(kvpDiv);
+    }
+    
+    container.appendChild(kvpsDiv);
+  }
+  
+  // Add main content if present (JSON content - controlled by showJson preference)
+  if (content && content.trim()) {
+    const pre = document.createElement("pre");
+    pre.classList.add("msg-json");
+    // Apply current preference state
+    if (preferencesStore.showJson) {
+      pre.classList.add("show-json");
+    }
+    pre.textContent = truncateText(content, 1000);
+    container.appendChild(pre);
+  }
+}
+
+/**
+ * Update process group header with step count and status
+ */
+function updateProcessGroupHeader(group) {
+  const steps = group.querySelectorAll(".process-step");
+  const countEl = group.querySelector(".step-count");
+  const titleEl = group.querySelector(".group-title");
+  
+  if (countEl) {
+    const count = steps.length;
+    countEl.textContent = `${count} step${count !== 1 ? "s" : ""}`;
+  }
+  
+  if (titleEl && steps.length > 0) {
+    // Get the last step's type for the title
+    const lastStep = steps[steps.length - 1];
+    const lastType = lastStep.getAttribute("data-type");
+    const lastTitle = lastStep.querySelector(".step-title")?.textContent || "";
+    
+    // Prefer agent type steps for the group title as they contain thinking/planning info
+    if (lastType === "agent" && lastTitle) {
+      titleEl.textContent = cleanStepTitle(lastTitle, 50);
+    } else {
+      // Try to find the most recent agent step for a better title
+      const agentSteps = group.querySelectorAll('.process-step[data-type="agent"]');
+      if (agentSteps.length > 0) {
+        const lastAgentStep = agentSteps[agentSteps.length - 1];
+        const agentTitle = lastAgentStep.querySelector(".step-title")?.textContent || "";
+        if (agentTitle) {
+          titleEl.textContent = cleanStepTitle(agentTitle, 50);
+          return;
+        }
+      }
+      titleEl.textContent = `Processing (${processGroupStore.getStepLabel(lastType)})`;
+    }
+  }
+}
+
+/**
+ * Truncate text to a maximum length
+ */
+function truncateText(text, maxLength) {
+  if (!text) return "";
+  text = String(text).trim();
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + "...";
+}
+
+/**
+ * Reset process group state (called on context switch)
+ */
+export function resetProcessGroups() {
+  currentProcessGroup = null;
+  messageGroup = null;
+}
+
+/**
+ * Format Unix timestamp as date-time string (YYYY-MM-DD HH:MM:SS)
+ */
+function formatDateTime(timestamp) {
+  const date = new Date(timestamp * 1000); // Convert seconds to milliseconds
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Format relative time for steps (e.g., +0.5s, +2.3s)
+ */
+function formatRelativeTime(ms) {
+  if (ms < 100) {
+    return "+0s";
+  }
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `+${seconds.toFixed(1)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `+${minutes}m${remainingSeconds}s`;
 }

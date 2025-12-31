@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import json
+import time
 from typing import Any, Literal, Optional, Dict, TypeVar, TYPE_CHECKING
 
 T = TypeVar("T")
@@ -131,9 +132,11 @@ class LogItem:
     kvps: Optional[OrderedDict] = None  # Use OrderedDict for kvps
     id: Optional[str] = None  # Add id field
     guid: str = ""
+    timestamp: float = 0.0  # Unix timestamp in seconds
 
     def __post_init__(self):
         self.guid = self.log.guid
+        self.timestamp = time.time()  # Record creation time
 
     def update(
         self,
@@ -181,6 +184,7 @@ class LogItem:
             "content": self.content,
             "temp": self.temp,
             "kvps": self.kvps,
+            "timestamp": self.timestamp,  # Unix timestamp in seconds
         }
 
 

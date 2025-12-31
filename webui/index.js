@@ -10,6 +10,7 @@ import { store as inputStore } from "/components/chat/input/input-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
+import { store as processGroupStore } from "/components/messages/process-group/process-group-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -184,8 +185,8 @@ async function updateUserTime() {
 updateUserTime();
 setInterval(updateUserTime, 1000);
 
-function setMessage(id, type, heading, content, temp, kvps = null) {
-  const result = msgs.setMessage(id, type, heading, content, temp, kvps);
+function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null) {
+  const result = msgs.setMessage(id, type, heading, content, temp, kvps, timestamp);
   const chatHistoryEl = document.getElementById("chat-history");
   if (preferencesStore.autoScroll && chatHistoryEl) {
     chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
@@ -292,6 +293,7 @@ export async function poll() {
     if (lastLogGuid != response.log_guid) {
       const chatHistoryEl = document.getElementById("chat-history");
       if (chatHistoryEl) chatHistoryEl.innerHTML = "";
+      msgs.resetProcessGroups(); // Reset process groups on chat reset
       lastLogVersion = 0;
       lastLogGuid = response.log_guid;
       await poll();
@@ -308,7 +310,8 @@ export async function poll() {
           log.heading,
           log.content,
           log.temp,
-          log.kvps
+          log.kvps,
+          log.timestamp
         );
       }
       afterMessagesUpdate(response.logs);
@@ -481,6 +484,9 @@ export const setContext = function (id) {
 
   // Stop speech when switching chats
   speechStore.stopAudio();
+
+  // Reset process groups for new context
+  msgs.resetProcessGroups();
 
   // Clear the chat history immediately to avoid showing stale content
   const chatHistoryEl = document.getElementById("chat-history");

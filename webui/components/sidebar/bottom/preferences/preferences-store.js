@@ -59,6 +59,16 @@ const model = {
   },
   _showUtils: false,
 
+  // Process group collapse preference
+  get collapseProcessGroups() {
+    return this._collapseProcessGroups;
+  },
+  set collapseProcessGroups(value) {
+    this._collapseProcessGroups = value;
+    this._applyCollapseProcessGroups(value);
+  },
+  _collapseProcessGroups: true, // Default to collapsed
+
   // Initialize preferences and apply current state
   init() {
     try {
@@ -77,6 +87,14 @@ const model = {
         this._speech = false; // Default to speech off if localStorage is unavailable
       }
 
+      // Load collapse process groups preference
+      try {
+        const storedCollapse = localStorage.getItem("collapseProcessGroups");
+        this._collapseProcessGroups = storedCollapse !== "false"; // Default true
+      } catch {
+        this._collapseProcessGroups = true;
+      }
+
       // Apply all preferences
       this._applyDarkMode(this._darkMode);
       this._applyAutoScroll(this._autoScroll);
@@ -84,6 +102,7 @@ const model = {
       this._applyShowThoughts(this._showThoughts);
       this._applyShowJson(this._showJson);
       this._applyShowUtils(this._showUtils);
+      this._applyCollapseProcessGroups(this._collapseProcessGroups);
     } catch (e) {
       console.error("Failed to initialize preferences store", e);
     }
@@ -110,23 +129,51 @@ const model = {
   },
 
   _applyShowThoughts(value) {
+    // For original messages
     css.toggleCssProperty(
       ".msg-thoughts",
       "display",
       value ? undefined : "none"
     );
+    // For process steps - toggle class on all existing elements
+    document.querySelectorAll(".step-kvp.msg-thoughts").forEach((el) => {
+      el.classList.toggle("hide-thoughts", !value);
+    });
   },
 
   _applyShowJson(value) {
+    // For original messages
     css.toggleCssProperty(".msg-json", "display", value ? "block" : "none");
+    // For process steps - toggle class on pre elements with msg-json
+    document.querySelectorAll(".process-step-detail-content pre.msg-json").forEach((el) => {
+      el.classList.toggle("show-json", value);
+    });
   },
 
   _applyShowUtils(value) {
+    // For original messages
     css.toggleCssProperty(
       ".message-util",
       "display",
       value ? undefined : "none"
     );
+    // For process steps - toggle class on all existing elements
+    document.querySelectorAll(".process-step.message-util").forEach((el) => {
+      el.classList.toggle("show-util", value);
+    });
+  },
+
+  _applyCollapseProcessGroups(value) {
+    localStorage.setItem("collapseProcessGroups", value);
+    // Update process group store default
+    try {
+      const processGroupStore = window.Alpine?.store("processGroup");
+      if (processGroupStore) {
+        processGroupStore.defaultCollapsed = value;
+      }
+    } catch (e) {
+      // Store may not be initialized yet
+    }
   },
 };
 
