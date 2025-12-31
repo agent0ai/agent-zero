@@ -1,5 +1,4 @@
 import { io } from "/vendor/socket.io.esm.min.js";
-import { callJsonApi, invalidateCsrfToken } from "/js/api.js";
 
 const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB hard cap per contract
 const DEFAULT_TIMEOUT_MS = 0;
@@ -245,14 +244,7 @@ class WebSocketClient {
     this.disconnectCallbacks = new Set();
     this.errorCallbacks = new Set();
     this.isDevelopment = Boolean(window.runtimeInfo?.isDevelopment);
-    this.csrfPreflightPromise = null;
-    this.csrfPreflightExpiresAt = null;
-    this.csrfPreflightRuntimeId = null;
-    this.csrfPreflightTtlSeconds = null;
     this._manualDisconnect = false;
-    this._reconnectTimer = null;
-    this._csrfRefreshTimer = null;
-    this._reconnectAttempts = 0;
     this._hasConnectedOnce = false;
     this._lastRuntimeId = null;
   }
@@ -311,91 +303,6 @@ class WebSocketClient {
     }
   }
 
-  invalidatePreflightCache(reason) {
-    this.csrfPreflightExpiresAt = null;
-    this.csrfPreflightRuntimeId = null;
-    this.debugLog("CSRF preflight cache invalidated", { reason });
-  }
-
-  _clearReconnectTimer() {
-    if (this._reconnectTimer) {
-      clearTimeout(this._reconnectTimer);
-      this._reconnectTimer = null;
-    }
-  }
-
-  _clearCsrfRefreshTimer() {
-    if (this._csrfRefreshTimer) {
-      clearTimeout(this._csrfRefreshTimer);
-      this._csrfRefreshTimer = null;
-    }
-  }
-
-  _scheduleCsrfRefresh(reason) {
-    this._clearCsrfRefreshTimer();
-
-    const expiresAt =
-      typeof this.csrfPreflightExpiresAt === "number" ? this.csrfPreflightExpiresAt : null;
-    if (expiresAt == null) return;
-
-    const ttlSeconds =
-      typeof this.csrfPreflightTtlSeconds === "number" && Number.isFinite(this.csrfPreflightTtlSeconds)
-        ? this.csrfPreflightTtlSeconds
-        : null;
-
-    const nowSeconds = Date.now() / 1000.0;
-    const refreshAheadSeconds = ttlSeconds != null ? Math.max(10, Math.floor(ttlSeconds * 0.5)) : 60;
-    const delaySeconds = Math.max(1, Math.floor(expiresAt - nowSeconds - refreshAheadSeconds));
-
-    // Desynchronize tabs so a multi-tab setup does not spike /csrf_token.
-    const jitterMs = Math.floor(Math.random() * 5000);
-    const delayMs = delaySeconds * 1000 + jitterMs;
-
-    this.debugLog("schedule csrf refresh", { reason, delayMs, expiresAt, ttlSeconds });
-    this._csrfRefreshTimer = setTimeout(() => {
-      this._csrfRefreshTimer = null;
-      if (this._manualDisconnect) return;
-      this.performPreflight({ force: true, reason: "timer" }).catch((error) => {
-        this.invokeErrorCallbacks(error);
-      });
-    }, delayMs);
-  }
-
-  _computeReconnectDelayMs() {
-    const baseMs = 1000;
-    const capMs = 10000;
-    const exponent = Math.min(Number(this._reconnectAttempts) || 0, 6);
-    const delayMs = Math.min(capMs, baseMs * (2 ** exponent));
-    const jitterMs = Math.floor(Math.random() * 200);
-    return delayMs + jitterMs;
-  }
-
-  _scheduleReconnect(reason) {
-    if (this._manualDisconnect) return;
-    if (this.connected) return;
-    if (this.connectPromise) return;
-    if (!this.socket) return;
-    if (this._reconnectTimer) return;
-
-    const delayMs = this._computeReconnectDelayMs();
-    this.debugLog("schedule reconnect", {
-      reason,
-      attempt: this._reconnectAttempts,
-      delayMs,
-    });
-
-    this._reconnectTimer = setTimeout(() => {
-      this._reconnectTimer = null;
-      if (this._manualDisconnect || this.connected) return;
-
-      this._reconnectAttempts += 1;
-      this.connect().catch((error) => {
-        this.invokeErrorCallbacks(error);
-        this._scheduleReconnect("connect_failed");
-      });
-    }, delayMs);
-  }
-
   async connect() {
     if (this.connected) return;
     if (this.connectPromise) return this.connectPromise;
@@ -403,8 +310,6 @@ class WebSocketClient {
     this._manualDisconnect = false;
     this.connecting = true;
     this.connectPromise = (async () => {
-      await this.performPreflight();
-
       if (!this.socket) {
         this.initializeSocket();
       }
@@ -427,13 +332,7 @@ class WebSocketClient {
       });
     })()
       .catch((error) => {
-        const wrapped = new Error(`WebSocket connection failed: ${error.message || error}`);
-        // Ensure we do not get stuck offline after backend restarts rotate session cookies.
-        // Auto-reconnect is handled by our own scheduler (socket.io reconnection is disabled).
-        this.invalidatePreflightCache("connect_failed");
-        invalidateCsrfToken();
-        setTimeout(() => this._scheduleReconnect("connect_failed"), 0);
-        throw wrapped;
+        throw new Error(`WebSocket connection failed: ${error.message || error}`);
       })
       .finally(() => {
         this.connecting = false;
@@ -446,10 +345,6 @@ class WebSocketClient {
   async disconnect() {
     if (!this.socket) return;
     this._manualDisconnect = true;
-    this._clearReconnectTimer();
-    this._clearCsrfRefreshTimer();
-    this.invalidatePreflightCache("manual_disconnect");
-    invalidateCsrfToken();
     this.socket.disconnect();
     this.connected = false;
   }
@@ -761,93 +656,16 @@ class WebSocketClient {
     }
   }
 
-  async performPreflight(options = {}) {
-    const { force = false, reason = "" } = options || {};
-    this.setDevelopmentFlag(window.runtimeInfo?.isDevelopment);
-    const nowSeconds = Date.now() / 1000.0;
-    const runtimeId = window.runtimeInfo?.id || null;
-    const expiresAt = typeof this.csrfPreflightExpiresAt === "number" ? this.csrfPreflightExpiresAt : null;
-
-    // If we have a still-valid WS CSRF flag for the current runtime, skip re-preflight.
-    if (
-      !force &&
-      expiresAt != null &&
-      expiresAt > nowSeconds + 5 &&
-      runtimeId &&
-      this.csrfPreflightRuntimeId === runtimeId
-    ) {
-      return;
-    }
-
-    if (this.csrfPreflightPromise) {
-      return await this.csrfPreflightPromise;
-    }
-
-    this.csrfPreflightPromise = (async () => {
-      const attempt = async (allowRetry) => {
-        const response = await callJsonApi("/csrf_token", {});
-        if (!response?.ok) {
-          const message = response?.error || "CSRF preflight rejected";
-          if (allowRetry) {
-            // Backend restarts rotate runtime id and session cookies; cached CSRF may become invalid
-            // without producing a 403. Force-refresh and retry once.
-            invalidateCsrfToken();
-            return await attempt(false);
-          }
-          throw new Error(message);
-        }
-
-        const runtimeInfo = response.runtime || {};
-        if (runtimeInfo.id) {
-          window.runtimeInfo = {
-            ...(window.runtimeInfo || {}),
-            id: runtimeInfo.id,
-          };
-        }
-        if (typeof runtimeInfo.isDevelopment !== "undefined") {
-          this.setDevelopmentFlag(runtimeInfo.isDevelopment);
-        }
-
-        const effectiveRuntimeId = window.runtimeInfo?.id || null;
-        this.csrfPreflightRuntimeId = effectiveRuntimeId;
-        this.csrfPreflightExpiresAt =
-          typeof response.expires_at === "number" ? response.expires_at : null;
-        this.csrfPreflightTtlSeconds =
-          typeof response.ttl_seconds === "number" ? response.ttl_seconds : null;
-
-        this._scheduleCsrfRefresh(force ? `forced:${reason}` : `preflight:${reason || "connect"}`);
-
-        this.debugLog("CSRF preflight complete", {
-          expiresAt: response.expires_at,
-          isDevelopment: this.isDevelopment,
-        });
-      };
-
-      try {
-        await attempt(true);
-      } catch (error) {
-        throw new Error(`CSRF preflight failed: ${error.message || error}`);
-      }
-    })().finally(() => {
-      this.csrfPreflightPromise = null;
-    });
-
-    return await this.csrfPreflightPromise;
-  }
-
   initializeSocket() {
     this.socket = io({
       autoConnect: false,
-      reconnection: false,
+      reconnection: true,
       transports: ["websocket", "polling"],
       withCredentials: true,
     });
 
     this.socket.on("connect", () => {
       this.connected = true;
-      this._reconnectAttempts = 0;
-      this._clearReconnectTimer();
-      this._scheduleCsrfRefresh("socket connect");
 
       const runtimeId = window.runtimeInfo?.id || null;
       const runtimeChanged = Boolean(
@@ -877,7 +695,6 @@ class WebSocketClient {
     this.socket.on("disconnect", (reason) => {
       this.connected = false;
       this.debugLog("socket disconnected", { reason });
-      this._clearCsrfRefreshTimer();
       this.disconnectCallbacks.forEach((cb) => {
         try {
           cb(reason);
@@ -885,32 +702,17 @@ class WebSocketClient {
           console.error("WebSocket onDisconnect callback error:", error);
         }
       });
-
-      // Any disconnect can be a backend restart (rotated runtime id / session).
-      // Force next connect attempt to re-preflight.
-      this.invalidatePreflightCache(`disconnect:${reason}`);
-      invalidateCsrfToken();
-      if (!this._manualDisconnect) {
-        this._scheduleReconnect(`disconnect:${reason}`);
-      }
     });
 
     this.socket.on("connect_error", (error) => {
       this.debugLog("socket connect_error", error);
       this.invokeErrorCallbacks(error);
-
-      // If we get rejected during connect (including CSRF-missing), force a new preflight.
-      this.invalidatePreflightCache("connect_error");
-      invalidateCsrfToken();
-      this._scheduleReconnect("connect_error");
     });
 
     this.socket.on("error", (error) => {
       this.debugLog("socket error", error);
       this.invokeErrorCallbacks(error);
     });
-
-    // Note: socket.io reconnection is disabled. Reconnect attempts are scheduled by WebSocketClient.
   }
 
   invokeErrorCallbacks(error) {

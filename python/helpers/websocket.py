@@ -3,14 +3,13 @@ from __future__ import annotations
 import re
 import threading
 from abc import ABC, abstractmethod
+from urllib.parse import urlparse
 from typing import Any, Iterable, Optional, TYPE_CHECKING
 
 import socketio
 
 if TYPE_CHECKING:  # pragma: no cover - hints only
     from python.helpers.websocket_manager import WebSocketManager
-
-WS_CSRF_TTL_SECONDS = 120
 
 _EVENT_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 _RESERVED_EVENT_NAMES: set[str] = {
@@ -27,31 +26,74 @@ _RESERVED_EVENT_NAMES: set[str] = {
 }
 
 
-def get_ws_csrf_expiry(session_store: Any) -> float | None:
-    value = session_store.get("ws_csrf_ok")
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value)
-        except ValueError:
-            return None
+def _default_port_for_scheme(scheme: str) -> int | None:
+    if scheme == "http":
+        return 80
+    if scheme == "https":
+        return 443
     return None
 
 
-def validate_ws_csrf_flag(session_store: Any, now_ts: float) -> tuple[bool, str | None, float | None]:
-    expiry = get_ws_csrf_expiry(session_store)
-    if expiry is None:
-        return False, "missing", None
-    if expiry <= now_ts:
-        return False, "expired", expiry
-    return True, None, expiry
+def normalize_origin(value: Any) -> str | None:
+    """Normalize an Origin/Referer header value to scheme://host[:port]."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    parsed = urlparse(value.strip())
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    origin = f"{parsed.scheme}://{parsed.hostname}"
+    if parsed.port:
+        origin += f":{parsed.port}"
+    return origin
 
 
-def set_ws_csrf_flag(session_store: Any, now_ts: float, ttl_seconds: int = WS_CSRF_TTL_SECONDS) -> float:
-    expiry = now_ts + ttl_seconds
-    session_store["ws_csrf_ok"] = expiry
-    return expiry
+def _parse_host_header(value: Any) -> tuple[str | None, int | None]:
+    if not isinstance(value, str) or not value.strip():
+        return None, None
+    parsed = urlparse(f"http://{value.strip()}")
+    return parsed.hostname, parsed.port
+
+
+def validate_ws_origin(environ: dict[str, Any]) -> tuple[bool, str | None]:
+    """Validate the browser Origin during the Socket.IO handshake.
+
+    This is the minimum baseline recommended by RFC 6455 (Origin considerations)
+    and OWASP (CSWSH mitigation): reject cross-origin WebSocket handshakes when
+    the server is intended for a specific web UI origin.
+    """
+
+    raw_origin = environ.get("HTTP_ORIGIN") or environ.get("HTTP_REFERER")
+    origin = normalize_origin(raw_origin)
+    if origin is None:
+        return False, "missing_origin"
+
+    origin_parsed = urlparse(origin)
+    origin_host = origin_parsed.hostname.lower() if origin_parsed.hostname else None
+    origin_port = origin_parsed.port or _default_port_for_scheme(origin_parsed.scheme)
+    if origin_host is None or origin_port is None:
+        return False, "invalid_origin"
+
+    raw_host = environ.get("HTTP_HOST")
+    req_host, req_port = _parse_host_header(raw_host)
+    if not req_host:
+        req_host = environ.get("SERVER_NAME")
+    if req_port is None:
+        server_port_raw = environ.get("SERVER_PORT")
+        if isinstance(server_port_raw, str) and server_port_raw.isdigit():
+            req_port = int(server_port_raw)
+    if req_host:
+        req_host = req_host.lower()
+
+    if not req_host:
+        return False, "missing_host"
+    if req_port is None:
+        req_port = origin_port
+
+    if origin_host != req_host:
+        return False, "origin_host_mismatch"
+    if origin_port != req_port:
+        return False, "origin_port_mismatch"
+    return True, None
 
 
 class SingletonInstantiationError(RuntimeError):
@@ -301,9 +343,14 @@ class WebSocketHandler(ABC):
 
     @classmethod
     def requires_csrf(cls) -> bool:
-        """Return whether a CSRF preflight token is required for the handler."""
+        """Return whether additional cross-origin protection is required.
 
-        return cls.requires_auth()
+        WebSocket CSRF protection is enforced through Origin allowlisting in the
+        Socket.IO connect handler. Handlers may opt into stricter checks by
+        overriding this method, but the default is no additional requirement.
+        """
+
+        return False
 
     async def on_connect(self, sid: str) -> None:
         """Lifecycle hook invoked when a client connects."""

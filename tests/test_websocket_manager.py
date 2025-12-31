@@ -470,63 +470,6 @@ async def test_timestamps_are_timezone_aware():
         await manager.route_event("unknown", {}, "sid-utc")
         assert info.last_activity.tzinfo is not None
 
-
-@pytest.mark.asyncio
-async def test_update_csrf_expiry_and_validate_session_disconnects():
-    socketio = FakeSocketIOServer()
-    manager = WebSocketManager(socketio, threading.RLock())
-
-    await manager.handle_connect("sid-csrf")
-
-    now_ts = 1000.0
-    manager.update_csrf_expiry("sid-csrf", now_ts + 10)
-    assert manager.connections["sid-csrf"].csrf_expires_at == now_ts + 10
-
-    assert await manager.validate_session("sid-csrf", now_ts + 5) is True
-    assert socketio.disconnect.await_count == 0
-
-    assert await manager.validate_session("sid-csrf", now_ts + 15) is False
-    socketio.disconnect.assert_awaited_once_with("sid-csrf")
-
-
-@pytest.mark.asyncio
-async def test_validate_session_does_not_await_disconnect_while_holding_lock():
-    socketio = FakeSocketIOServer()
-    manager = WebSocketManager(socketio, threading.RLock())
-
-    class FastHandler(WebSocketHandler):
-        @classmethod
-        def get_event_types(cls) -> list[str]:
-            return ["fast"]
-
-        async def process_event(self, event_type: str, data: dict[str, Any], sid: str):
-            return {"ok": True}
-
-    FastHandler._reset_instance_for_testing()
-    handler = FastHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-
-    disconnect_started = asyncio.Event()
-    disconnect_continue = asyncio.Event()
-
-    async def slow_disconnect(_sid: str):
-        disconnect_started.set()
-        await disconnect_continue.wait()
-
-    socketio.disconnect.side_effect = slow_disconnect
-
-    await manager.handle_connect("sid-csrf", csrf_expiry=0.0)
-
-    validate_task = asyncio.create_task(manager.validate_session("sid-csrf", 1.0))
-    try:
-        await asyncio.wait_for(disconnect_started.wait(), timeout=1.0)
-        await asyncio.wait_for(manager.route_event("fast", {}, "sid-csrf"), timeout=1.0)
-    finally:
-        disconnect_continue.set()
-
-    assert await asyncio.wait_for(validate_task, timeout=1.0) is False
-
-
 class DuplicateHandler(WebSocketHandler):
     @classmethod
     def get_event_types(cls) -> list[str]:

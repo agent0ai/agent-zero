@@ -41,6 +41,16 @@ const model = {
     this.contexts = contextsList.sort(
       (a, b) => (b.created_at || 0) - (a.created_at || 0)
     );
+
+    // Keep selectedContext in sync when the currently selected context's
+    // metadata changes (e.g. project activation/deactivation).
+    if (this.selected) {
+      const selectedId = this.selected;
+      const updated = this.contexts.find((ctx) => ctx.id === selectedId);
+      if (updated) {
+        this.selectedContext = updated;
+      }
+    }
   },
 
   // Select a chat
