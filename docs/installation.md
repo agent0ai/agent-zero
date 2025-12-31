@@ -360,7 +360,6 @@ Agent Zero's Web UI is accessible from any device on your network through the Do
 > using Docker, configure the bind address/ports via flags or environment variables:
 > - Use `--host 0.0.0.0` (or set `WEB_UI_HOST=0.0.0.0` in `.env`) to listen on all interfaces.
 > - Use `--port <PORT>` (or `WEB_UI_PORT`) to pick the HTTP port.
-> - Optional dev TLS: pass `--ssl [PORT]` (uses `WEB_UI_SSL_PORT` when omitted; default 5443) to serve HTTPS (and HTTP in parallel).
 
 For developers or users who need to run Agent Zero directly on their system,see the [In-Depth Guide for Full Binaries Installation](#in-depth-guide-for-full-binaries-installation).
 

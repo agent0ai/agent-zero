@@ -83,7 +83,7 @@ It will not be able to do code execution and few other features requiring the Do
 
 The framework will run at the default port 5000. If you open `http://localhost:5000` in your browser and see `ERR_EMPTY_RESPONSE`, don't panic, you may need to select another port like I did for some reason. If you need to change the default port, you can add `"--port=5555"` to the args in the `.vscode/launch.json` file or you can create a `.env` file in the root directory and set the `WEB_UI_PORT` variable to the desired port.
 
-You can also set the bind host via `"--host=0.0.0.0"` (or `WEB_UI_HOST=0.0.0.0`) and enable local HTTPS for development via `"--ssl"` (or `"--ssl=5443"`). When `--ssl` is enabled, a dev CA is generated under `tmp/` and is available at `http://127.0.0.1:<HTTP_PORT>/ssl/ca.pem` (loopback only).
+You can also set the bind host via `"--host=0.0.0.0"` (or `WEB_UI_HOST=0.0.0.0`).
 
 It may take a while the first time. You should see output like the screenshot below. The RFC error is ok for now as we did not yet connect our local development to another instance in docker.
 ![First run](res/dev/devinst-7.png)

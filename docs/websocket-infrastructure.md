@@ -26,7 +26,7 @@ This guide consolidates everything you need to design, implement, and troublesho
 
 ## Architecture at a Glance
 
-- **Runtime (`run_ui.py`)** – boots `python-socketio.AsyncServer` inside an ASGI stack served by Hypercorn. Flask routes are mounted via `a2wsgi.WSGIMiddleware`, and Flask + Socket.IO share the same process so session cookies and CSRF semantics stay aligned.
+- **Runtime (`run_ui.py`)** – boots `python-socketio.AsyncServer` inside an ASGI stack served by Uvicorn. Flask routes are mounted via `uvicorn.middleware.wsgi.WSGIMiddleware`, and Flask + Socket.IO share the same process so session cookies and CSRF semantics stay aligned.
 - **Singleton handlers** – every `WebSocketHandler` subclass exposes `get_instance()` and is registered exactly once. Direct instantiation raises `SingletonInstantiationError`, keeping shared state and lifecycle hooks deterministic.
 - **Dispatcher offload** – handler entrypoints (`process_event`, `on_connect`, `on_disconnect`) run in a background worker loop (via `DeferredTask`) so blocking handlers cannot stall the Socket.IO transport. Socket.IO emits/disconnects are marshalled back to the dispatcher loop. Diagnostic timing and payload summaries are only built when Event Console watchers are subscribed (development mode).
 - **`python/helpers/websocket_manager.py`** – orchestrates routing, buffering, filtering, aggregation, metadata envelopes, and session tracking. Think of it as the “switchboard” for every WebSocket event.
@@ -614,7 +614,7 @@ The manager normalises filters (rejecting unsupported combinations), resolves/cr
 
 ### Access Logs & Transport Troubleshooting
 
-- Settings → Developer includes a persisted `uvicorn_access_logs_enabled` switch (legacy name). When enabled, `run_ui.py` enables Hypercorn access logs (`accesslog = "-"`) so transport issues (CORS, handshake failures) can be traced without restarting the server. Turn it off once troubleshooting is complete; production builds ignore the toggle.
+- Settings → Developer includes a persisted `uvicorn_access_logs_enabled` switch. When enabled, `run_ui.py` enables Uvicorn access logs so transport issues (CORS, handshake failures) can be traced.
 - The long-standing `websocket_server_restart_enabled` switch (same section) controls whether newly connected clients receive the `server_restart` broadcast that carries `runtimeId` metadata.
 
 ### Common Issues

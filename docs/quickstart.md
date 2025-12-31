@@ -7,26 +7,17 @@ This guide provides a quick introduction to using Agent Zero. We'll cover launch
 3. Run one of the following commands:
 
 ```bash
-# HTTP (default)
 python run_ui.py
-
-# HTTPS (dev TLS, runs HTTPS + HTTP in parallel)
-python run_ui.py --ssl
-
-# Optionally pick a TLS port
-python run_ui.py --ssl 5443
 ```
 
 Notes:
 - HTTP binds to `--host/--port` (or `WEB_UI_HOST`/`WEB_UI_PORT`, default port 5000).
-- TLS is enabled only when `--ssl` is set. If you omit the TLS port, it uses `WEB_UI_SSL_PORT` or 5443.
-- When `--ssl` is enabled, the dev CA is written under `tmp/` and can be downloaded from `http://127.0.0.1:<HTTP_PORT>/ssl/ca.pem` (loopback only) so you can trust it in your browser/OS.
 
 4. A message similar to this will appear in your terminal, indicating the Web UI is running:
 
 ![](res/flask_link.png)
 
-5. Open your web browser and navigate to the URL shown in the terminal (usually `http://127.0.0.1:5000`, or `https://127.0.0.1:5443` when `--ssl` is enabled). You should see the Agent Zero Web UI.
+5. Open your web browser and navigate to the URL shown in the terminal (usually `http://127.0.0.1:5000`). You should see the Agent Zero Web UI.
 
 ![New Chat](res/ui_newchat1.png)
 

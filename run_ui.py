@@ -1,4 +1,3 @@
-import asyncio
 from datetime import timedelta
 import os
 import secrets
@@ -7,12 +6,9 @@ import socket
 import struct
 from functools import wraps
 import threading
-import signal
 
-from hypercorn.asyncio import serve
-from hypercorn.config import Config as HypercornConfig
-
-from flask import Flask, request, Response, session, redirect, url_for, render_template_string, send_file
+import uvicorn
+from flask import Flask, request, Response, session, redirect, url_for, render_template_string
 from werkzeug.wrappers.response import Response as BaseResponse
 
 import initialize
@@ -28,8 +24,7 @@ import socketio  # type: ignore[import-untyped]
 from socketio import ASGIApp
 from starlette.applications import Starlette
 from starlette.routing import Mount
-from a2wsgi import WSGIMiddleware
-from run_ui_ssl import ensure_dev_ca_and_server_cert, tmp_cert_dir
+from uvicorn.middleware.wsgi import WSGIMiddleware
 from python.helpers.websocket_manager import WebSocketManager
 
 # disable logging
@@ -222,20 +217,6 @@ async def serve_index():
     return index
 
 
-@webapp.route("/ssl/ca.pem", methods=["GET"])
-@requires_loopback
-async def download_ca_pem():
-    p = tmp_cert_dir() / "ca.pem"
-    if not p.exists():
-        return Response("CA not generated", 404)
-    return send_file(
-        str(p),
-        mimetype="application/x-pem-file",
-        as_attachment=True,
-        download_name="ca.pem",
-    )
-
-
 def run():
     PrintStyle().print("Initializing framework...")
 
@@ -243,10 +224,6 @@ def run():
     host = (
         runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     )
-    ssl_raw = runtime.get_arg("ssl")
-    ssl_raw_str = str(ssl_raw).strip().lower() if ssl_raw is not None else ""
-    ssl_enabled = bool(ssl_raw_str) and ssl_raw_str not in ("0", "false", "no", "off")
-    ssl_port = runtime.get_web_ui_ssl_port() if ssl_enabled else None
 
     def register_api_handler(app, handler: type[ApiHandler]):
         name = handler.__module__.split(".")[-1]
@@ -340,83 +317,48 @@ def run():
 
     asgi_app = ASGIApp(socketio_server, other_asgi_app=starlette_app)
 
-    async def flush_and_shutdown_callback() -> None:
+    def flush_and_shutdown_callback() -> None:
         """
         TODO(dev): add cleanup + flush-to-disk logic here.
         """
         return
+    flush_ran = False
 
-    def _install_shutdown_signals(shutdown_event: asyncio.Event) -> None:
-        def _handler(*_):
-            shutdown_event.set()
+    def _run_flush(reason: str) -> None:
+        nonlocal flush_ran
+        if flush_ran:
+            return
+        flush_ran = True
+        try:
+            flush_and_shutdown_callback()
+        except Exception as e:
+            PrintStyle.warning(f"Shutdown flush failed ({reason}): {e}")
 
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(signal.SIGTERM, _handler)
-        loop.add_signal_handler(signal.SIGINT, _handler)
+    config = uvicorn.Config(
+        asgi_app,
+        host=host,
+        port=port,
+        log_level="error",
+        access_log=_settings.get("uvicorn_access_logs_enabled", False),
+        ws="wsproto",
+    )
+    server = uvicorn.Server(config)
 
-    async def _shutdown_trigger(shutdown_event: asyncio.Event) -> None:
-        await shutdown_event.wait()
-        await flush_and_shutdown_callback()
+    class _UvicornServerWrapper:
+        def __init__(self, server: uvicorn.Server):
+            self._server = server
 
-    config = HypercornConfig()
-    config.loglevel = "warning"
-    if _settings.get("uvicorn_access_logs_enabled", False):
-        config.accesslog = "-"
-
-    shutdown_event = asyncio.Event()
-
-    if ssl_enabled:
-        assert ssl_port is not None
-        tmp_dir = tmp_cert_dir()
-        certs = ensure_dev_ca_and_server_cert(tmp_dir)
-
-        PrintStyle.info("SSL enabled (--ssl).")
-        PrintStyle.info(f"HTTPS: https://{host}:{ssl_port}/")
-        PrintStyle.info(f"HTTP (parallel): http://{host}:{port}/")
-        PrintStyle.info(f"CA download (HTTP): http://127.0.0.1:{port}/ssl/ca.pem")
-        PrintStyle.info(f"CA path: {certs['ca_cert']}")
-        PrintStyle.info(f"CA key path: {certs['ca_key']}")
-        PrintStyle.info(f"Server fullchain path: {certs['server_fullchain']}")
-        PrintStyle.info(f"Server key path: {certs['server_key']}")
-
-        config.alpn_protocols = ["h2", "http/1.1"]
-        config.alt_svc_headers = [f'h3=":{ssl_port}"; ma=86400']
-
-        config.bind = [f"{host}:{ssl_port}"]
-        config.insecure_bind = [f"{host}:{port}"]
-        config.certfile = str(certs["server_fullchain"])
-        config.keyfile = str(certs["server_key"])
-        config.quic_bind = [f"{host}:{ssl_port}"]
-    else:
-        config.bind = [f"{host}:{port}"]
-        PrintStyle.info(
-            "SSL disabled (no --ssl): serving plain HTTP/1.1 on the configured port."
-        )
-
-    class _HypercornServerWrapper:
         def shutdown(self) -> None:
-            shutdown_event.set()
+            _run_flush("shutdown")
+            self._server.should_exit = True
 
-    process.set_server(_HypercornServerWrapper())
+    process.set_server(_UvicornServerWrapper(server))
 
-    async def _main():
-        _install_shutdown_signals(shutdown_event)
-        await serve(
-            asgi_app,
-            config,
-            shutdown_trigger=lambda: _shutdown_trigger(shutdown_event),
-        )
-
-    if ssl_enabled:
-        assert ssl_port is not None
-        PrintStyle().debug(
-            f"Starting server at https://{host}:{ssl_port} (and http://{host}:{port}) ..."
-        )
-    else:
-        PrintStyle().debug(f"Starting server at http://{host}:{port} ...")
-    asyncio.run(_main())
-    if process.consume_restart_request():
-        process.restart_process()
+    PrintStyle().debug(f"Starting server at http://{host}:{port} ...")
+    try:
+        server.run()
+    finally:
+        _run_flush("server_exit")
 
 
 def init_a0():
