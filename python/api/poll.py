@@ -88,6 +88,8 @@ class Poll(ApiHandler):
                         "last_result": task_details.get("last_result"),
                         "attachments": task_details.get("attachments", []),
                         "context_id": task_details.get("context_id"),
+                        "project": task_details.get("project"),
+
                     })
 
                     # Add type-specific fields

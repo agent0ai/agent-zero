@@ -400,8 +400,8 @@
                                             </div>
                                             <template x-if="isCreating">
                                                 <div class="project-selector">
-                                                    <!-- <span class="project-color-ball"
-                                                          :style="editingTask.project?.color ? { backgroundColor: editingTask.project.color } : { border: '1px solid var(--color-border)' }"></span> -->
+                                                    <span class="project-color-ball"
+                                                          :style="editingTask.project?.color ? { backgroundColor: editingTask.project.color } : { border: '1px solid var(--color-border)' }"></span>
                                                     <select class="scheduler-project-select"
                                                             x-model="selectedProjectSlug"
                                                             @change="onProjectSelect($event.target.value)">
@@ -410,13 +410,6 @@
                                                             <option :value="proj.name" x-text="proj.title"></option>
                                                         </template>
                                                     </select>
-                                                </div>
-                                            </template>
-                                            <template x-if="!isCreating">
-                                                <div class="project-display">
-                                                    <span class="project-color-ball"
-                                                          :style="editingTask.project?.color ? { backgroundColor: editingTask.project.color } : { border: '1px solid var(--color-border)' }"></span>
-                                                    <span x-text="formatProjectLabel(editingTask.project)"></span>
                                                 </div>
                                             </template>
                                         </div>
@@ -695,9 +688,11 @@
                                                 <label class="scheduler-form-label">Project</label>
                                                 <div class="scheduler-form-help" x-text="editingTask.dedicated_context ? 'Dedicated tasks inherit the active chat project.' : 'Shared tasks mirror the project assigned to their context.'"></div>
                                             </div>
-                                            <div class="project-display">
+                                            <div class="project-selector">
                                                 <span class="project-color-ball" :style="editingTask.project?.color ? { backgroundColor: editingTask.project.color } : { border: '1px solid var(--color-border)' }"></span>
-                                                <span x-text="formatProjectLabel(editingTask.project)"></span>
+                                                <select class="scheduler-project-select" disabled>
+                                                    <option x-text="formatProjectLabel(editingTask.project)"></option>
+                                                </select>
                                             </div>
                                         </div>
 
