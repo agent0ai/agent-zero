@@ -283,6 +283,33 @@ const settingsModalProxy = {
             openModal("settings/external/api-examples.html");
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
+        } else if (
+            field.id === "alert_test_input_needed" ||
+            field.id === "alert_test_task_complete" ||
+            field.id === "alert_test_subagent_complete"
+        ) {
+            const typeMap = {
+                alert_test_input_needed: "input_needed",
+                alert_test_task_complete: "task_complete",
+                alert_test_subagent_complete: "subagent_complete",
+            };
+
+            try {
+                const alert_type = typeMap[field.id];
+                const resp = await sendJsonData("/alert_test", { alert_type });
+
+                // Feed poll-shaped response directly into notification store for instant toast + audio
+                const notifStore =
+                    window.Alpine && window.Alpine.store
+                        ? window.Alpine.store("notificationStore")
+                        : null;
+                if (notifStore && typeof notifStore.updateFromPoll === "function") {
+                    notifStore.updateFromPoll(resp);
+                }
+            } catch (e) {
+                if (window.toastFetchError) window.toastFetchError("Error testing alert", e);
+                else console.error("Error testing alert", e);
+            }
         }
     }
 };
