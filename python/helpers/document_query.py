@@ -373,6 +373,27 @@ class DocumentQueryHelper:
             *[self.document_get_content(uri, True) for uri in document_uris]
         )
         await self.agent.handle_intervention()
+
+        # Calculate adaptive threshold based on document sizes
+        # Count total chunks across all documents
+        total_chunks = 0
+        indexed_uris = []
+        for uri in document_uris:
+            norm_uri = self.store.normalize_uri(uri)
+            chunks = await self.store._get_document_chunks(norm_uri)
+            total_chunks += len(chunks)
+            indexed_uris.append(norm_uri)
+
+        # For very small documents, use lower threshold to ensure retrieval
+        if total_chunks < 5:
+            adaptive_threshold = 0.0  # Accept any similarity for tiny docs
+        elif total_chunks < 10:
+            adaptive_threshold = 0.3
+        else:
+            adaptive_threshold = DEFAULT_SEARCH_THRESHOLD
+
+        self.progress_callback(f"Total document chunks: {total_chunks}, Using adaptive search threshold: {adaptive_threshold}")
+
         selected_chunks = {}
         for question in questions:
             self.progress_callback(f"Optimizing query: {question}")
@@ -399,14 +420,23 @@ class DocumentQueryHelper:
             chunks = await self.store.search_documents(
                 query=optimized_query,
                 limit=100,
-                threshold=DEFAULT_SEARCH_THRESHOLD,
+                threshold=adaptive_threshold,
                 filter=doc_filter,
             )
 
             self.progress_callback(f"Found {len(chunks)} chunks")
 
-            for chunk in chunks:
-                selected_chunks[chunk.metadata["id"]] = chunk
+            # FALLBACK: For small documents, if no chunks found, include all chunks
+            if not chunks and total_chunks < 5:
+                self.progress_callback(f"No semantic matches for small document, including all chunks as fallback")
+                for uri in document_uris:
+                    norm_uri = self.store.normalize_uri(uri)
+                    doc_chunks = await self.store._get_document_chunks(norm_uri)
+                    for chunk in doc_chunks:
+                        selected_chunks[chunk.metadata["id"]] = chunk
+            else:
+                for chunk in chunks:
+                    selected_chunks[chunk.metadata["id"]] = chunk
 
         if not selected_chunks:
             self.progress_callback("No relevant content found in the documents")
