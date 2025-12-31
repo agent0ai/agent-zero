@@ -1,4 +1,5 @@
 import { io } from "/vendor/socket.io.esm.min.js";
+import { getCsrfToken, invalidateCsrfToken } from "/js/api.js";
 
 const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB hard cap per contract
 const DEFAULT_TIMEOUT_MS = 0;
@@ -247,6 +248,7 @@ class WebSocketClient {
     this._manualDisconnect = false;
     this._hasConnectedOnce = false;
     this._lastRuntimeId = null;
+    this._csrfInvalidatedForConnectError = false;
   }
 
   buildPayload(data) {
@@ -662,10 +664,19 @@ class WebSocketClient {
       reconnection: true,
       transports: ["websocket", "polling"],
       withCredentials: true,
+      auth: (cb) => {
+        getCsrfToken()
+          .then((token) => cb({ csrf_token: token }))
+          .catch((error) => {
+            console.error("[websocket] failed to fetch CSRF token for connect", error);
+            cb({});
+          });
+      },
     });
 
     this.socket.on("connect", () => {
       this.connected = true;
+      this._csrfInvalidatedForConnectError = false;
 
       const runtimeId = window.runtimeInfo?.id || null;
       const runtimeChanged = Boolean(
@@ -707,6 +718,10 @@ class WebSocketClient {
     this.socket.on("connect_error", (error) => {
       this.debugLog("socket connect_error", error);
       this.invokeErrorCallbacks(error);
+      if (!this._csrfInvalidatedForConnectError) {
+        this._csrfInvalidatedForConnectError = true;
+        invalidateCsrfToken();
+      }
     });
 
     this.socket.on("error", (error) => {

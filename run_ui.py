@@ -287,6 +287,39 @@ def run():
                         "WebSocket authentication required but credentials not configured; proceeding"
                     )
 
+            csrf_required = any(
+                handler.requires_csrf() for handler in websocket_handlers
+            )
+            if csrf_required:
+                expected_token = session.get("csrf_token")
+                if not isinstance(expected_token, str) or not expected_token:
+                    PrintStyle.warning(
+                        f"WebSocket CSRF validation failed for {sid}: csrf_token not initialized"
+                    )
+                    return False
+
+                auth_token = None
+                if isinstance(_auth, dict):
+                    auth_token = _auth.get("csrf_token") or _auth.get("csrfToken")
+                if not isinstance(auth_token, str) or not auth_token:
+                    PrintStyle.warning(
+                        f"WebSocket CSRF validation failed for {sid}: missing csrf_token in auth"
+                    )
+                    return False
+                if auth_token != expected_token:
+                    PrintStyle.warning(
+                        f"WebSocket CSRF validation failed for {sid}: csrf_token mismatch"
+                    )
+                    return False
+
+                cookie_name = f"csrf_token_{runtime.get_runtime_id()}"
+                cookie_token = request.cookies.get(cookie_name)
+                if cookie_token != expected_token:
+                    PrintStyle.warning(
+                        f"WebSocket CSRF validation failed for {sid}: csrf cookie mismatch"
+                    )
+                    return False
+
             user_id = session.get("user_id") or "single_user"
             await websocket_manager.handle_connect(sid, user_id=user_id)
             return True

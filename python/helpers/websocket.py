@@ -343,14 +343,14 @@ class WebSocketHandler(ABC):
 
     @classmethod
     def requires_csrf(cls) -> bool:
-        """Return whether additional cross-origin protection is required.
+        """Return whether CSRF validation is required for the handler.
 
-        WebSocket CSRF protection is enforced through Origin allowlisting in the
-        Socket.IO connect handler. Handlers may opt into stricter checks by
-        overriding this method, but the default is no additional requirement.
+        This mirrors ApiHandler.requires_csrf(): by default, authenticated
+        WebSocket handlers also require CSRF validation during the Socket.IO
+        connect step.
         """
 
-        return False
+        return cls.requires_auth()
 
     async def on_connect(self, sid: str) -> None:
         """Lifecycle hook invoked when a client connects."""

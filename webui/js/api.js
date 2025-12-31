@@ -83,7 +83,7 @@ export function invalidateCsrfToken() {
  * Caches the token after first request
  * @returns {Promise<string>} The CSRF token
  */
-async function getCsrfToken() {
+export async function getCsrfToken() {
   if (csrfToken) return csrfToken;
   if (csrfTokenPromise) return await csrfTokenPromise;
 
