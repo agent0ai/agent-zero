@@ -1,4 +1,4 @@
-[real_ip]
+[botdetection.proxy]
 # Number of values to trust for X-Forwarded-For.
 x_for = 1
 
@@ -6,6 +6,11 @@ x_for = 1
 # to determine whether or not an address is part of a (client) network.
 ipv4_prefix = 32
 ipv6_prefix = 48
+
+trusted_proxies = [
+    "127.0.0.0/8",
+    "::1",
+]
 
 [botdetection.ip_limit]
 # To get unlimited access in a local network, by default link-local addresses
@@ -19,14 +24,8 @@ link_token = false
 # In the limiter, the ip_lists method has priority over all other methods.
 # If an IP is in the pass_ip list, it has unrestricted access and is not
 # checked if, for example, the "user agent" suggests a bot (e.g., curl).
-block_ip = [
-    # '93.184.216.34',  # Example IPv4 address
-    # '257.1.1.1',      # Invalid IP --> will be ignored, logged in ERROR class
-]
-pass_ip = [
-    # '192.168.0.0/16',  # IPv4 private network
-    # 'fe80::/10',       # IPv6 link-local; overrides botdetection.ip_limit.filter_link_local
-]
+block_ip = []
+pass_ip = []
 
 # Activate passlist of (hardcoded) IPs from the SearXNG organization,
 # e.g., `check.searx.space`.

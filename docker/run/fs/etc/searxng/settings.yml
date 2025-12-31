@@ -44,7 +44,7 @@ enabled_plugins:
   - 'Hash plugin'
   - 'Self Informations'
   - 'Tracker URL remover'
-  - 'Ahmia blacklist'
+
   # - 'Hostnames plugin'  # see 'hostnames' configuration below
   # - 'Open Access DOI rewrite'
 
