@@ -14,7 +14,14 @@ def json_parse_dirty(json:str) -> dict[str,Any] | None:
     if ext_json:
         try:
             data = DirtyJson.parse_string(ext_json)
-            if isinstance(data,dict): return data
+            if isinstance(data,dict):
+                # Auto-correct common error: models sometimes use 'args' or 'Args' instead of 'tool_args'
+                # Check for both lowercase 'args' and capitalized 'Args'
+                if 'args' in data and 'tool_args' not in data:
+                    data['tool_args'] = data.pop('args')
+                elif 'Args' in data and 'tool_args' not in data:
+                    data['tool_args'] = data.pop('Args')
+                return data
         except Exception:
             # If parsing fails, return None instead of crashing
             return None

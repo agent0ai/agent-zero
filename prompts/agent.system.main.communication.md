@@ -28,4 +28,22 @@ no text allowed before or after json
 }
 ~~~
 
+### ❌ WRONG - Do NOT output thoughts as plain text
+I need to:
+1. Read all files
+2. Analyze the data
+3. Create a report
+
+### ✅ CORRECT - Always use JSON format
+{
+    "thoughts": [
+        "I need to read all files",
+        "Then analyze the data",
+        "Finally create a report"
+    ],
+    "headline": "Reading and analyzing files",
+    "tool_name": "code_execution_tool",
+    "tool_args": {"code": "..."}
+}
+
 {{ include "agent.system.main.communication_additions.md" }}
