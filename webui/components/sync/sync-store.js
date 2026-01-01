@@ -106,11 +106,15 @@ const model = {
           this._pendingReconnectToast = runtimeChanged ? "restart" : "reconnect";
         }
 
-        if (this.needsHandshake) {
-          this.sendStateRequest({ forceFull: true }).catch((error) => {
-            console.error("[syncStore] reconnect handshake failed:", error);
-          });
-        }
+        // Always re-handshake on every Socket.IO connect.
+        //
+        // The backend StateMonitor tracking is per-sid and starts with seq_base=0 on a
+        // newly connected sid. If a tab misses the 'disconnect' event (e.g. browser
+        // suspended overnight) it can look HEALTHY locally while never sending a
+        // fresh state_request, so pushes are gated and logs appear to stall.
+        this.sendStateRequest({ forceFull: true }).catch((error) => {
+          console.error("[syncStore] connect handshake failed:", error);
+        });
       });
 
       websocket.onDisconnect(() => {

@@ -249,6 +249,37 @@ class WebSocketClient {
     this._hasConnectedOnce = false;
     this._lastRuntimeId = null;
     this._csrfInvalidatedForConnectError = false;
+    this._connectErrorRetryTimer = null;
+    this._connectErrorRetryAttempt = 0;
+  }
+
+  _clearConnectErrorRetryTimer() {
+    if (this._connectErrorRetryTimer) {
+      clearTimeout(this._connectErrorRetryTimer);
+      this._connectErrorRetryTimer = null;
+    }
+  }
+
+  _scheduleConnectErrorRetry(reason) {
+    if (this._manualDisconnect) return;
+    if (this.connected) return;
+    if (!this.socket) return;
+    if (this.socket.connected) return;
+    if (this._connectErrorRetryTimer) return;
+
+    const attempt = Math.max(0, Number(this._connectErrorRetryAttempt) || 0);
+    const baseMs = 250;
+    const capMs = 10000;
+    const delayMs = Math.min(capMs, baseMs * 2 ** attempt);
+    this._connectErrorRetryAttempt = attempt + 1;
+
+    this.debugLog("schedule connect retry", { reason, attempt, delayMs });
+    this._connectErrorRetryTimer = setTimeout(() => {
+      this._connectErrorRetryTimer = null;
+      if (this._manualDisconnect) return;
+      if (this.connected) return;
+      this.connect().catch(() => {});
+    }, delayMs);
   }
 
   buildPayload(data) {
@@ -317,6 +348,11 @@ class WebSocketClient {
       }
 
       if (this.socket.connected) return;
+
+      // Ensure the current runtime-bound session + CSRF cookies exist before initiating
+      // the Engine.IO handshake. This is required for seamless reconnect after backend
+      // restarts that rotate runtime_id and session cookie names.
+      await getCsrfToken();
 
       await new Promise((resolve, reject) => {
         const onConnect = () => {
@@ -677,6 +713,8 @@ class WebSocketClient {
     this.socket.on("connect", () => {
       this.connected = true;
       this._csrfInvalidatedForConnectError = false;
+      this._connectErrorRetryAttempt = 0;
+      this._clearConnectErrorRetryTimer();
 
       const runtimeId = window.runtimeInfo?.id || null;
       const runtimeChanged = Boolean(
@@ -722,6 +760,7 @@ class WebSocketClient {
         this._csrfInvalidatedForConnectError = true;
         invalidateCsrfToken();
       }
+      this._scheduleConnectErrorRetry("connect_error");
     });
 
     this.socket.on("error", (error) => {

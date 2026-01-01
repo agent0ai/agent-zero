@@ -54,7 +54,7 @@ lock = threading.RLock()
 
 socketio_server = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[],
+    cors_allowed_origins=lambda _origin, environ: validate_ws_origin(environ)[0],
     logger=False,
     engineio_logger=False,
     ping_interval=25,  # explicit default to avoid future lib changes
