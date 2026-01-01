@@ -13,8 +13,9 @@ class NotificationsHistory(ApiHandler):
         notification_manager = AgentContext.get_notification_manager()
 
         # Return all notifications for history modal
+        notifications = notification_manager.output_all()
         return {
-            "notifications": [n.output() for n in notification_manager.notifications],
-            "guid": notification_manager.guid,
-            "count": len(notification_manager.notifications),
+            "notifications": notifications,
+            "guid": notification_manager.get_guid(),
+            "count": len(notifications),
         }

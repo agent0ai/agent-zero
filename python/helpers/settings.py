@@ -123,6 +123,8 @@ class Settings(TypedDict):
     rfc_port_ssh: int
 
     shell_interface: Literal['local','ssh']
+    websocket_server_restart_enabled: bool
+    uvicorn_access_logs_enabled: bool
 
     stt_model_size: str
     stt_language: str
@@ -949,6 +951,61 @@ def convert_out(settings: Settings) -> SettingsOutput:
             }
         )
 
+    testing_section: SettingsSection | None = None
+    if runtime.is_development():
+        testing_fields: list[SettingsField] = [
+            {
+                "id": "websocket_tester",
+                "title": "WebSocket Test Harness",
+                "description": "Open the developer harness to run automated and manual WebSocket validation suites.",
+                "type": "button",
+                "value": "Open Harness",
+            }
+        ]
+        testing_fields.append(
+            {
+                "id": "websocket_event_console",
+                "title": "WebSocket Event Console",
+                "description": "Inspect inbound/outbound envelopes and lifecycle events in real time (development only).",
+                "type": "button",
+                "value": "Open Console",
+            }
+        )
+
+        testing_section = {
+            "id": "dev_testing",
+            "title": "Testing",
+            "description": "Utilities for validating WebSocket infrastructure in development environments.",
+            "fields": testing_fields,
+            "tab": "developer",
+        }
+
+    dev_fields.append(
+        {
+            "id": "websocket_server_restart_enabled",
+            "title": "Broadcast server restart event",
+            "description": "Emit a fire-and-forget `server_restart` broadcast to clients after the server starts.",
+            "type": "switch",
+            "value": settings.get(
+                "websocket_server_restart_enabled",
+                default_settings["websocket_server_restart_enabled"],
+            ),
+        }
+    )
+
+    dev_fields.append(
+        {
+            "id": "uvicorn_access_logs_enabled",
+            "title": "Enable uvicorn access logs",
+            "description": "Temporarily enable uvicorn access logs for debugging WebSocket transport issues (default off).",
+            "type": "switch",
+            "value": settings.get(
+                "uvicorn_access_logs_enabled",
+                default_settings["uvicorn_access_logs_enabled"],
+            ),
+        }
+    )
+
     dev_section: SettingsSection = {
         "id": "dev",
         "title": "Development",
@@ -1309,30 +1366,32 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "backup",
     }
 
-    # Add the section to the result
-    result: SettingsOutput = {
-        "sections": [
-            agent_section,
-            chat_model_section,
-            util_model_section,
-            browser_model_section,
-            embed_model_section,
-            memory_section,
-            speech_section,
-            api_keys_section,
-            litellm_section,
-            secrets_section,
-            auth_section,
-            mcp_client_section,
-            mcp_server_section,
-            a2a_section,
-            external_api_section,
-            update_checker_section,
-            backup_section,
-            dev_section,
-            # code_exec_section,
-        ]
-    }
+    sections: list[SettingsSection] = [
+        agent_section,
+        chat_model_section,
+        util_model_section,
+        browser_model_section,
+        embed_model_section,
+        memory_section,
+        speech_section,
+        api_keys_section,
+        litellm_section,
+        secrets_section,
+        auth_section,
+        mcp_client_section,
+        mcp_server_section,
+        a2a_section,
+        external_api_section,
+        update_checker_section,
+        backup_section,
+        dev_section,
+        # code_exec_section,
+    ]
+
+    if testing_section:
+        sections.append(testing_section)
+
+    result: SettingsOutput = {"sections": sections}
     return result
 
 
@@ -1444,6 +1503,7 @@ def _read_settings_file() -> Settings | None:
         content = files.read_file(SETTINGS_FILE)
         parsed = json.loads(content)
         return normalize_settings(parsed)
+    return None
 
 
 def _write_settings_file(settings: Settings):
@@ -1552,6 +1612,8 @@ def get_default_settings() -> Settings:
         rfc_port_http=get_default_value("rfc_port_http", 55080),
         rfc_port_ssh=get_default_value("rfc_port_ssh", 55022),
         shell_interface=get_default_value("shell_interface", "local" if runtime.is_dockerized() else "ssh"),
+        websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
+        uvicorn_access_logs_enabled=get_default_value("uvicorn_access_logs_enabled", False),
         stt_model_size=get_default_value("stt_model_size", "base"),
         stt_language=get_default_value("stt_language", "en"),
         stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
@@ -1578,7 +1640,7 @@ def _apply_settings(previous: Settings | None):
         from initialize import initialize_agent
 
         config = initialize_agent()
-        for ctx in AgentContext._contexts.values():
+        for ctx in AgentContext.all():
             ctx.config = config  # reinitialize context config with new settings
             # apply config to agents
             agent = ctx.agent0
@@ -1684,14 +1746,14 @@ def _env_to_dict(data: str):
         line = line.strip()
         if not line or line.startswith('#'):
             continue
-        
+
         if '=' not in line:
             continue
-            
+
         key, value = line.split('=', 1)
         key = key.strip()
         value = value.strip()
-        
+
         # If quoted, treat as string
         if value.startswith('"') and value.endswith('"'):
             result[key] = value[1:-1].replace('\\"', '"')  # Unescape quotes
@@ -1703,7 +1765,7 @@ def _env_to_dict(data: str):
                 result[key] = json.loads(value)
             except (json.JSONDecodeError, ValueError):
                 result[key] = value
-    
+
     return result
 
 
@@ -1720,7 +1782,7 @@ def _dict_to_env(data_dict):
         else:
             # Numbers and other types as unquoted strings
             lines.append(f'{key}={value}')
-    
+
     return "\n".join(lines)
 
 

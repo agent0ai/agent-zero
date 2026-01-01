@@ -21,15 +21,11 @@ class NotificationsMarkRead(ApiHandler):
         if not notification_ids:
             return {"success": False, "error": "No notification IDs provided"}
 
+        if not isinstance(notification_ids, list):
+            return {"success": False, "error": "notification_ids must be a list"}
+
         # Mark specific notifications as read
-        marked_count = 0
-        for notification_id in notification_ids:
-            # Find notification by ID and mark as read
-            for notification in notification_manager.notifications:
-                if notification.id == notification_id and not notification.read:
-                    notification.mark_read()
-                    marked_count += 1
-                    break
+        marked_count = notification_manager.mark_read_by_ids(notification_ids)
 
         return {
             "success": True,

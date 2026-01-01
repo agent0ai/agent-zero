@@ -68,7 +68,7 @@ Now when you select one of the python files in the project, you should see prope
 ```bash
 pip install -r requirements.txt
 playwright install chromium
-``` 
+```
 These will install all the python packages and browser binaries for playwright (browser agent).
 Errors in the code editor caused by missing packages should now be gone. If not, try reloading the window.
 
@@ -81,7 +81,9 @@ It will not be able to do code execution and few other features requiring the Do
 
 ![VS Code debugging](res/dev/devinst-6.png)
 
-The framework will run at the default port 5000. If you open `http://localhost:5000` in your browser and see `ERR_EMPTY_RESPONSE`, don't panic, you may need to select another port like I did for some reason. If you need to change the defaut port, you can add `"--port=5555"` to the args in the `.vscode/launch.json` file or you can create a `.env` file in the root directory and set the `WEB_UI_PORT` variable to the desired port.
+The framework will run at the default port 5000. If you open `http://localhost:5000` in your browser and see `ERR_EMPTY_RESPONSE`, don't panic, you may need to select another port like I did for some reason. If you need to change the default port, you can add `"--port=5555"` to the args in the `.vscode/launch.json` file or you can create a `.env` file in the root directory and set the `WEB_UI_PORT` variable to the desired port.
+
+You can also set the bind host via `"--host=0.0.0.0"` (or `WEB_UI_HOST=0.0.0.0`).
 
 It may take a while the first time. You should see output like the screenshot below. The RFC error is ok for now as we did not yet connect our local development to another instance in docker.
 ![First run](res/dev/devinst-7.png)
@@ -147,6 +149,7 @@ You're now ready to contribute to Agent Zero, create custom extensions, or modif
 
 ## Next steps
 - See [extensibility](extensibility.md) for instructions on how to create custom extensions.
+- See [websocket infrastructure](websocket-infrastructure.md) for real-time handler patterns, client APIs, and troubleshooting tips.
 - See [contribution](contribution.md) for instructions on how to contribute to the framework.
 
 ## Configuration via Environment Variables

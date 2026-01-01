@@ -10,7 +10,7 @@ The following user guide provides instructions for installing and running Agent 
 ## Windows, macOS and Linux Setup Guide
 
 
-1. **Install Docker Desktop:** 
+1. **Install Docker Desktop:**
 - Docker Desktop provides the runtime environment for Agent Zero, ensuring consistent behavior and security across platforms
 - The entire framework runs within a Docker container, providing isolation and easy deployment
 - Available as a user-friendly GUI application for all major operating systems
@@ -23,8 +23,8 @@ The following user guide provides instructions for installing and running Agent 
 <br><br>
 
 > [!NOTE]
-> **Linux Users:** You can install either Docker Desktop or docker-ce (Community Edition). 
-> For Docker Desktop, follow the instructions for your specific Linux distribution [here](https://docs.docker.com/desktop/install/linux-install/). 
+> **Linux Users:** You can install either Docker Desktop or docker-ce (Community Edition).
+> For Docker Desktop, follow the instructions for your specific Linux distribution [here](https://docs.docker.com/desktop/install/linux-install/).
 > For docker-ce, follow the instructions [here](https://docs.docker.com/engine/install/).
 >
 > If you're using docker-ce, you'll need to add your user to the `docker` group:
@@ -44,14 +44,14 @@ The following user guide provides instructions for installing and running Agent 
 <img src="res/setup/image-12.png" alt="docker install" width="300"/>
 <br><br>
 
-1.4. Once installed, launch Docker Desktop: 
+1.4. Once installed, launch Docker Desktop:
 
 <img src="res/setup/image-11.png" alt="docker installed" height="100"/>
 <img src="res/setup/image-13.png" alt="docker installed" height="100"/>
 <br><br>
 
 > [!NOTE]
-> **MacOS Configuration:** In Docker Desktop's preferences (Docker menu) → Settings → 
+> **MacOS Configuration:** In Docker Desktop's preferences (Docker menu) → Settings →
 > Advanced, enable "Allow the default Docker socket to be used (requires password)."
 
 ![docker socket macOS](res/setup/macsocket.png)
@@ -189,8 +189,8 @@ Optionally you can map local folders for file persistence:
 > You can also access the Web UI by clicking the ports right under the container ID in Docker Desktop.
 
 > [!NOTE]
-> After starting the container, you'll find all Agent Zero files in your chosen 
-> directory. You can access and edit these files directly on your machine, and 
+> After starting the container, you'll find all Agent Zero files in your chosen
+> directory. You can access and edit these files directly on your machine, and
 > the changes will be immediately reflected in the running container.
 
 3. Configure Agent Zero
@@ -306,7 +306,7 @@ ollama pull <model-name>
 2. A CLI message should confirm the model download on your system
 
 #### Selecting your model within Agent Zero
-1. Once you've downloaded your model(s), you must select it in the Settings page of the GUI. 
+1. Once you've downloaded your model(s), you must select it in the Settings page of the GUI.
 
 2. Within the Chat model, Utility model, or Embedding model section, choose Ollama as provider.
 
@@ -321,7 +321,7 @@ ollama pull <model-name>
 #### Managing your downloaded models
 Once you've downloaded some models, you might want to check which ones you have available or remove any you no longer need.
 
-- **Listing downloaded models:** 
+- **Listing downloaded models:**
   To see a list of all the models you've downloaded, use the command:
   ```
   ollama list
@@ -356,8 +356,10 @@ Agent Zero's Web UI is accessible from any device on your network through the Do
 > - The port is automatically assigned by Docker unless you specify one
 
 > [!NOTE]
-> If you're running Agent Zero directly on your system (legacy approach) instead of 
-> using Docker, you'll need to configure the host manually in `run_ui.py` to run on all interfaces using `host="0.0.0.0"`.
+> If you're running Agent Zero directly on your system (legacy approach) instead of
+> using Docker, configure the bind address/ports via flags or environment variables:
+> - Use `--host 0.0.0.0` (or set `WEB_UI_HOST=0.0.0.0` in `.env`) to listen on all interfaces.
+> - Use `--port <PORT>` (or `WEB_UI_PORT`) to pick the HTTP port.
 
 For developers or users who need to run Agent Zero directly on their system,see the [In-Depth Guide for Full Binaries Installation](#in-depth-guide-for-full-binaries-installation).
 
@@ -418,9 +420,8 @@ For developers or users who need to run Agent Zero directly on their system,see 
 > docker run -p $PORT:80 -v /path/to/your/data:/a0 agent0ai/agent-zero
 > ```
 
-      
+
 ### Conclusion
-After following the instructions for your specific operating system, you should have Agent Zero successfully installed and running. You can now start exploring the framework's capabilities and experimenting with creating your own intelligent agents. 
+After following the instructions for your specific operating system, you should have Agent Zero successfully installed and running. You can now start exploring the framework's capabilities and experimenting with creating your own intelligent agents.
 
 If you encounter any issues during the installation process, please consult the [Troubleshooting section](troubleshooting.md) of this documentation or refer to the Agent Zero [Skool](https://www.skool.com/agent-zero) or [Discord](https://discord.gg/B8KZKNsPpj) community for assistance.
-

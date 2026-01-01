@@ -25,7 +25,6 @@ class GetCsrfToken(ApiHandler):
         return False
 
     async def process(self, input: Input, request: Request) -> Output:
-
         # check for allowed origin to prevent dns rebinding attacks
         origin_check = await self.check_allowed_origin(request)
         if not origin_check["ok"]:
@@ -39,10 +38,15 @@ class GetCsrfToken(ApiHandler):
             session["csrf_token"] = secrets.token_urlsafe(32)
 
         # return the csrf token and runtime id
+        runtime_info = {
+            "id": runtime.get_runtime_id(),
+            "isDevelopment": runtime.is_development(),
+        }
+
         return {
             "ok": True,
             "token": session["csrf_token"],
-            "runtime_id": runtime.get_runtime_id(),
+            "runtime": runtime_info,
         }
 
     async def check_allowed_origin(self, request: Request):
@@ -119,7 +123,7 @@ class GetCsrfToken(ApiHandler):
     def initialize_allowed_origins(self, request: Request):
         """
         If A0 is hosted on a server, add the first visit origin to ALLOWED_ORIGINS.
-        This simplifies deployment process as users can access their new instance without 
+        This simplifies deployment process as users can access their new instance without
         additional setup while keeping it secure.
         """
         # dotenv value is already set, do nothing
@@ -144,5 +148,3 @@ class GetCsrfToken(ApiHandler):
         # if not, add it to the allowed origins
         allowed_origins.append(req_origin)
         dotenv.save_dotenv_value(ALLOWED_ORIGINS_KEY, ",".join(allowed_origins))
-
-        

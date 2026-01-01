@@ -71,14 +71,23 @@ export async function fetchApi(url, request) {
 
 // csrf token stored locally
 let csrfToken = null;
+let csrfTokenPromise = null;
+
+export function invalidateCsrfToken() {
+  csrfToken = null;
+  csrfTokenPromise = null;
+}
 
 /**
  * Get the CSRF token for API requests
  * Caches the token after first request
  * @returns {Promise<string>} The CSRF token
  */
-async function getCsrfToken() {
+export async function getCsrfToken() {
   if (csrfToken) return csrfToken;
+  if (csrfTokenPromise) return await csrfTokenPromise;
+
+  csrfTokenPromise = (async () => {
   const response = await fetch("/csrf_token", {
     credentials: "same-origin",
   });
@@ -89,11 +98,32 @@ async function getCsrfToken() {
   }
   const json = await response.json();
   if (json.ok) {
+    const runtimeInfo = json.runtime || {};
+    const runtimeId = typeof runtimeInfo.id === "string" && runtimeInfo.id.length > 0 ? runtimeInfo.id : null;
+    const isDevelopment = Boolean(runtimeInfo.isDevelopment);
+
+    window.runtimeInfo = {
+      ...(window.runtimeInfo || {}),
+      id: runtimeId ?? (window.runtimeInfo && window.runtimeInfo.id) ?? null,
+      isDevelopment,
+    };
+
     csrfToken = json.token;
-    document.cookie = `csrf_token_${json.runtime_id}=${csrfToken}; SameSite=Strict; Path=/`;
+    if (runtimeId) {
+      document.cookie = `csrf_token_${runtimeId}=${csrfToken}; SameSite=Strict; Path=/`;
+    } else {
+      console.warn("CSRF runtime id missing from response; skipping cookie name binding.");
+    }
     return csrfToken;
   } else {
     if (json.error) alert(json.error);
     throw new Error(json.error || "Failed to get CSRF token");
+  }
+  })();
+
+  try {
+    return await csrfTokenPromise;
+  } finally {
+    csrfTokenPromise = null;
   }
 }
