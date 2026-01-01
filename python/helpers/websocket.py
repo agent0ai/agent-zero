@@ -73,27 +73,64 @@ def validate_ws_origin(environ: dict[str, Any]) -> tuple[bool, str | None]:
     if origin_host is None or origin_port is None:
         return False, "invalid_origin"
 
+    # Build candidate request host/port pairs. Prefer explicit Host header, fall back to
+    # forwarded headers (reverse proxies) and finally SERVER_NAME.
     raw_host = environ.get("HTTP_HOST")
     req_host, req_port = _parse_host_header(raw_host)
     if not req_host:
         req_host = environ.get("SERVER_NAME")
+
     if req_port is None:
         server_port_raw = environ.get("SERVER_PORT")
-        if isinstance(server_port_raw, str) and server_port_raw.isdigit():
-            req_port = int(server_port_raw)
+        try:
+            server_port = int(server_port_raw) if server_port_raw is not None else None
+        except (TypeError, ValueError):
+            server_port = None
+        if server_port is not None and server_port > 0:
+            req_port = server_port
+
     if req_host:
         req_host = req_host.lower()
-
-    if not req_host:
-        return False, "missing_host"
     if req_port is None:
         req_port = origin_port
 
-    if origin_host != req_host:
+    forwarded_host_raw = environ.get("HTTP_X_FORWARDED_HOST")
+    forwarded_host = None
+    forwarded_port = None
+    if isinstance(forwarded_host_raw, str) and forwarded_host_raw.strip():
+        first = forwarded_host_raw.split(",")[0].strip()
+        forwarded_host, forwarded_port = _parse_host_header(first)
+        if forwarded_host:
+            forwarded_host = forwarded_host.lower()
+
+    forwarded_proto_raw = environ.get("HTTP_X_FORWARDED_PROTO")
+    forwarded_scheme = None
+    if isinstance(forwarded_proto_raw, str) and forwarded_proto_raw.strip():
+        forwarded_scheme = forwarded_proto_raw.split(",")[0].strip().lower()
+    forwarded_scheme = forwarded_scheme or origin_parsed.scheme
+    forwarded_port = (
+        forwarded_port
+        if forwarded_port is not None
+        else _default_port_for_scheme(forwarded_scheme) or origin_port
+    )
+
+    candidates: list[tuple[str, int]] = []
+    if req_host:
+        candidates.append((req_host, int(req_port)))
+    if forwarded_host:
+        candidates.append((forwarded_host, int(forwarded_port)))
+
+    if not candidates:
+        return False, "missing_host"
+
+    for host, port in candidates:
+        if origin_host == host and origin_port == port:
+            return True, None
+
+    # Preserve the original mismatch semantics for debugging.
+    if origin_host not in {host for host, _ in candidates}:
         return False, "origin_host_mismatch"
-    if origin_port != req_port:
-        return False, "origin_port_mismatch"
-    return True, None
+    return False, "origin_port_mismatch"
 
 
 class SingletonInstantiationError(RuntimeError):
