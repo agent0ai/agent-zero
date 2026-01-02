@@ -140,6 +140,14 @@ def initialize_preload():
     import preload
     return defer.DeferredTask().start_task(preload.preload)
 
+def initialize_migration():
+    from python.helpers import migration, dotenv
+    # run migration
+    migration.migrate_user_data()
+    # reload .env as it might have been moved
+    dotenv.load_dotenv()
+    # reload settings to ensure new paths are picked up
+    settings.reload_settings()
 
 def _args_override(config):
     # update config with runtime args
