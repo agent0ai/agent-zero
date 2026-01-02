@@ -273,6 +273,7 @@ def _deserialize_log(data: dict[str, Any]) -> "Log":
             # Pass metrics directly to constructor
             timestamp=item_data.get("timestamp", 0.0),
             duration_ms=item_data.get("duration_ms"),
+            agent_number=item_data.get("agent_number", 0),
         ))
         log.updates.append(i)
         i += 1

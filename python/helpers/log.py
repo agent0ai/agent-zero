@@ -138,6 +138,7 @@ class LogItem:
 
     def __post_init__(self):
         self.guid = self.log.guid
+        self.timestamp = time.time()
 
     def update(
         self,

@@ -6,6 +6,7 @@ import { store as attachmentsStore } from "/components/chat/attachments/attachme
 import { addActionButtonsToElement } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { store as processGroupStore } from "/components/messages/process-group/process-group-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
+import { formatDuration } from "./time-utils.js";
 
 const chatHistory = document.getElementById("chat-history");
 
@@ -13,7 +14,7 @@ let messageGroup = null;
 let currentProcessGroup = null; // Track current process group for collapsible UI
 
 // Process types that should be grouped into collapsible sections
-const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'info', 'hint', 'util', 'warning'];
+const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'progress', 'info', 'hint', 'util', 'warning'];
 // Main types that should always be visible (not collapsed)
 const MAIN_TYPES = ['user', 'response', 'error', 'rate_limit'];
 
@@ -1620,13 +1621,7 @@ function updateProcessGroupHeader(group) {
   if (durationMetricEl && startTimestamp) {
     const startMs = parseFloat(startTimestamp) * 1000;
     const elapsedMs = Date.now() - startMs;
-    if (elapsedMs < 60000) {
-      durationMetricEl.textContent = `${Math.round(elapsedMs / 1000)}s`;
-    } else {
-      const mins = Math.floor(elapsedMs / 60000);
-      const secs = Math.round((elapsedMs % 60000) / 1000);
-      durationMetricEl.textContent = `${mins}m${secs}s`;
-    }
+    durationMetricEl.textContent = formatDuration(elapsedMs);
   }
   
   if (steps.length > 0) {
@@ -1720,13 +1715,7 @@ function markProcessGroupComplete(group, responseTitle) {
   const metricsEl = group.querySelector(".group-metrics");
   const durationMetricEl = metricsEl?.querySelector(".metric-duration .metric-value");
   if (durationMetricEl && totalDurationMs > 0) {
-    if (totalDurationMs < 60000) {
-      durationMetricEl.textContent = `${Math.round(totalDurationMs / 1000)}s`;
-    } else {
-      const mins = Math.floor(totalDurationMs / 60000);
-      const secs = Math.round((totalDurationMs % 60000) / 1000);
-      durationMetricEl.textContent = `${mins}m${secs}s`;
-    }
+    durationMetricEl.textContent = formatDuration(totalDurationMs);
   }
 }
 

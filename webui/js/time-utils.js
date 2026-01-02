@@ -69,3 +69,20 @@ export function formatDateTime(utcIsoString, format = 'full') {
 export function getUserTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
+
+/**
+ * Format a duration in milliseconds to a human-readable string
+ * @param {number} durationMs - Duration in milliseconds
+ * @returns {string} Formatted duration (e.g., '45s', '2m30s')
+ */
+export function formatDuration(durationMs) {
+  if (durationMs == null || durationMs < 0) return '0s';
+
+  if (durationMs < 60000) {
+    return `${Math.round(durationMs / 1000)}s`;
+  }
+
+  const mins = Math.floor(durationMs / 60000);
+  const secs = Math.round((durationMs % 60000) / 1000);
+  return `${mins}m${secs}s`;
+}

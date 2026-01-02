@@ -669,13 +669,6 @@
   height: 0;
 }
 
-
-    }
-    #chat-input::-webkit-scrollbar { width: 6px; height: 6px; }
-    #chat-input::-webkit-scrollbar-track { background: transparent; margin: 4px 0; border-radius: 6px; }
-    #chat-input::-webkit-scrollbar-thumb { background-color: rgba(155,155,155,0.5); border-radius: 6px; -webkit-transition: background-color 0.2s ease; transition: background-color 0.2s ease; }
-    #chat-input::-webkit-scrollbar-thumb:hover { background-color: rgba(155,155,155,0.7); }
-
 /* Light mode terminal */
 .light-mode .process-step-detail-content .terminal-output {
   background: rgba(0, 0, 0, 0.05);
