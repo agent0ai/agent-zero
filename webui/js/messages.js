@@ -17,7 +17,7 @@ const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'info', 'hint', '
 // Main types that should always be visible (not collapsed)
 const MAIN_TYPES = ['user', 'response', 'error', 'rate_limit'];
 
-export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, tokensIn = 0, tokensOut = 0, agentNumber = 0) {
+export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, /* tokensIn = 0, tokensOut = 0, */ agentNumber = 0) {
   // Check if this is a process type message
   const isProcessType = PROCESS_TYPES.includes(type);
   const isMainType = MAIN_TYPES.includes(type);
@@ -36,7 +36,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
   if (isProcessType) {
     if (processStepElement) {
       // Update existing process step
-      updateProcessStep(processStepElement, id, type, heading, content, kvps, durationMs, tokensIn, tokensOut);
+      updateProcessStep(processStepElement, id, type, heading, content, kvps, durationMs /*, tokensIn, tokensOut */);
       return processStepElement;
     }
     
@@ -47,7 +47,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     }
     
     // Add step to current process group
-    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp, durationMs, tokensIn, tokensOut);
+    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp, durationMs /*, tokensIn, tokensOut */);
     return processStepElement;
   }
 
@@ -55,7 +55,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
   // agentNumber: 0 = main agent, 1+ = subordinate agents
   if (type === "response" && agentNumber !== 0) {
     if (processStepElement) {
-      updateProcessStep(processStepElement, id, "agent", heading, content, kvps, durationMs, tokensIn, tokensOut);
+      updateProcessStep(processStepElement, id, "agent", heading, content, kvps, durationMs /*, tokensIn, tokensOut */);
       return processStepElement;
     }
     
@@ -66,7 +66,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     }
     
     // Add subordinate response as a step (type "agent" for appropriate styling)
-    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp, durationMs, tokensIn, tokensOut);
+    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp, durationMs /*, tokensIn, tokensOut */);
     return processStepElement;
   }
 
@@ -929,6 +929,22 @@ function convertToTitleCase(str) {
     });
 }
 
+/**
+ * Clean text value by removing standalone bracket lines and trimming
+ * Handles both strings and arrays (filters out bracket-only items)
+ */
+function cleanTextValue(value) {
+  if (Array.isArray(value)) {
+    return value
+      .filter(item => item && String(item).trim() && !/^[\[\]]$/.test(String(item).trim()))
+      .join("\n");
+  }
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value).replace(/^\s*[\[\]]\s*$/gm, "").trim();
+}
+
 function convertImageTags(content) {
   // Regular expression to match <image> tags and extract base64 content
   const imageTagRegex = /<image>(.*?)<\/image>/g;
@@ -1124,7 +1140,7 @@ function createProcessGroup(id) {
       <span class="metric-time" title="Start time"><span class="material-symbols-outlined">schedule</span><span class="metric-value">--:--</span></span>
       <span class="metric-steps" title="Steps"><span class="material-symbols-outlined">list_alt</span><span class="metric-value">0</span></span>
       <span class="metric-duration" title="Duration"><span class="material-symbols-outlined">timer</span><span class="metric-value">0s</span></span>
-      <span class="metric-tokens" title="Tokens"><span class="material-symbols-outlined">data_object</span><span class="metric-value">--</span></span>
+      <!-- <span class="metric-tokens" title="Tokens"><span class="material-symbols-outlined">data_object</span><span class="metric-value">--</span></span> -->
     </span>
   `;
   
@@ -1154,7 +1170,7 @@ function createProcessGroup(id) {
 /**
  * Add a step to a process group
  */
-function addProcessStep(group, id, type, heading, content, kvps, timestamp = null, durationMs = null, tokensIn = 0, tokensOut = 0) {
+function addProcessStep(group, id, type, heading, content, kvps, timestamp = null, durationMs = null /*, tokensIn = 0, tokensOut = 0 */) {
   const groupId = group.getAttribute("data-group-id");
   const stepsContainer = group.querySelector(".process-steps");
   const isGroupCompleted = group.classList.contains("process-group-completed");
@@ -1165,8 +1181,8 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   step.classList.add("process-step");
   step.setAttribute("data-type", type);
   step.setAttribute("data-step-id", id);
-  step.setAttribute("data-tokens-in", tokensIn || 0);
-  step.setAttribute("data-tokens-out", tokensOut || 0);
+  // step.setAttribute("data-tokens-in", tokensIn || 0);
+  // step.setAttribute("data-tokens-out", tokensOut || 0);
   
   // Store timestamp for duration calculation
   if (timestamp) {
@@ -1256,7 +1272,7 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
 /**
  * Update an existing process step
  */
-function updateProcessStep(stepElement, id, type, heading, content, kvps, durationMs = null, tokensIn = 0, tokensOut = 0) {
+function updateProcessStep(stepElement, id, type, heading, content, kvps, durationMs = null /*, tokensIn = 0, tokensOut = 0 */) {
   // Update title
   const titleEl = stepElement.querySelector(".step-title");
   if (titleEl) {
@@ -1265,12 +1281,12 @@ function updateProcessStep(stepElement, id, type, heading, content, kvps, durati
   }
   
   // Update token data (use the latest values)
-  if (tokensIn > 0) {
-    stepElement.setAttribute("data-tokens-in", tokensIn);
-  }
-  if (tokensOut > 0) {
-    stepElement.setAttribute("data-tokens-out", tokensOut);
-  }
+  // if (tokensIn > 0) {
+  //   stepElement.setAttribute("data-tokens-in", tokensIn);
+  // }
+  // if (tokensOut > 0) {
+  //   stepElement.setAttribute("data-tokens-out", tokensOut);
+  // }
   
   // Update detail content
   const detailContent = stepElement.querySelector(".process-step-detail-content");
@@ -1357,15 +1373,7 @@ function renderStepDetailContent(container, content, kvps, type = null) {
     if (code || output) {
       const terminalDiv = document.createElement("div");
       terminalDiv.classList.add("step-terminal");
-      
-      // Show command line
-      if (code) {
-        const cmdLine = document.createElement("div");
-        cmdLine.classList.add("terminal-cmd");
-        cmdLine.innerHTML = `<span class="terminal-prompt">${escapeHTML(runtime)}></span> <span class="terminal-code">${escapeHTML(code)}</span>`;
-        terminalDiv.appendChild(cmdLine);
-      }
-      
+  
       // Show output if present
       if (output && output.trim()) {
         const outputPre = document.createElement("pre");
@@ -1419,18 +1427,7 @@ function renderStepDetailContent(container, content, kvps, type = null) {
           thoughtsDiv.classList.add("hide-thoughts");
         }
         
-        let thoughtText = value;
-        if (typeof value === "object") {
-          // Handle array of thoughts
-          if (Array.isArray(value)) {
-            thoughtText = value.filter(t => t && String(t).trim() && String(t).trim() !== "[" && String(t).trim() !== "]").join("\n");
-          } else {
-            thoughtText = JSON.stringify(value, null, 2);
-          }
-        }
-        
-        // Clean up the text - remove standalone brackets
-        thoughtText = String(thoughtText).replace(/^\s*[\[\]]\s*$/gm, "").trim();
+        const thoughtText = cleanTextValue(value);
         
         if (thoughtText) {
           // Single icon + text block
@@ -1463,7 +1460,10 @@ function renderStepDetailContent(container, content, kvps, type = null) {
           'content': 'article',
           'name': 'label',
           'id': 'tag',
-          'type': 'category'
+          'type': 'category',
+          'document': 'description',
+          'documents': 'folder_open',
+          'queries': 'search'
         };
         
         for (const [argKey, argValue] of Object.entries(value)) {
@@ -1484,11 +1484,9 @@ function renderStepDetailContent(container, content, kvps, type = null) {
           const argVal = document.createElement("span");
           argVal.classList.add("tool-arg-value");
           
-          let argText = argValue;
-          if (typeof argValue === "object") {
-            argText = JSON.stringify(argValue, null, 2);
-          }
-          argVal.textContent = truncateText(String(argText), 300);
+          const argText = cleanTextValue(argValue);
+          
+          argVal.textContent = truncateText(argText, 300);
           
           argRow.appendChild(argLabel);
           argRow.appendChild(argVal);
@@ -1520,7 +1518,11 @@ function renderStepDetailContent(container, content, kvps, type = null) {
         'id': 'tag',
         'type': 'category',
         'runtime': 'memory',
-        'result': 'output'
+        'result': 'output',
+        'progress': 'pending',
+        'document': 'description',
+        'documents': 'folder_open',
+        'queries': 'search'
       };
       
       // lowerKey already defined above
@@ -1533,12 +1535,9 @@ function renderStepDetailContent(container, content, kvps, type = null) {
       const valueSpan = document.createElement("span");
       valueSpan.classList.add("step-kvp-value");
       
-      let valueText = value;
-      if (typeof value === "object") {
-        valueText = JSON.stringify(value, null, 2);
-      }
+      const valueText = cleanTextValue(value);
       
-      valueSpan.textContent = truncateText(String(valueText), 500);
+      valueSpan.textContent = truncateText(valueText, 1000);
       
       kvpDiv.appendChild(keySpan);
       kvpDiv.appendChild(valueSpan);
@@ -1573,16 +1572,7 @@ function renderThoughts(container, value) {
     thoughtsDiv.classList.add("hide-thoughts");
   }
   
-  let thoughtText = value;
-  if (typeof value === "object") {
-    if (Array.isArray(value)) {
-      thoughtText = value.filter(t => t && String(t).trim() && String(t).trim() !== "[" && String(t).trim() !== "]").join("\n");
-    } else {
-      thoughtText = JSON.stringify(value, null, 2);
-    }
-  }
-  
-  thoughtText = String(thoughtText).replace(/^\s*[\[\]]\s*$/gm, "").trim();
+  const thoughtText = cleanTextValue(value);
   
   if (thoughtText) {
     thoughtsDiv.innerHTML = `<span class="thought-icon material-symbols-outlined">lightbulb</span><span class="thought-text">${escapeHTML(thoughtText)}</span>`;
@@ -1600,6 +1590,22 @@ function updateProcessGroupHeader(group) {
   const metricsEl = group.querySelector(".group-metrics");
   const isCompleted = group.classList.contains("process-group-completed");
   
+  // Update group title with the latest agent step heading
+  if (titleEl && !isCompleted) {
+    // Find the last "agent" type step
+    const agentSteps = Array.from(steps).filter(step => step.getAttribute("data-type") === "agent");
+    if (agentSteps.length > 0) {
+      const lastAgentStep = agentSteps[agentSteps.length - 1];
+      const lastHeading = lastAgentStep.querySelector(".step-title")?.textContent;
+      if (lastHeading) {
+        const cleanTitle = cleanStepTitle(lastHeading, 50);
+        if (cleanTitle) {
+          titleEl.textContent = cleanTitle;
+        }
+      }
+    }
+  }
+  
   // Update step count in metrics
   const stepsMetricEl = metricsEl?.querySelector(".metric-steps .metric-value");
   if (stepsMetricEl) {
@@ -1616,9 +1622,9 @@ function updateProcessGroupHeader(group) {
     timeMetricEl.textContent = `${hours}:${minutes}`;
   }
   
-  // Update duration metric (elapsed time since start)
+  // Update duration metric (elapsed time since start) - but only if not completed
   const durationMetricEl = metricsEl?.querySelector(".metric-duration .metric-value");
-  if (durationMetricEl && startTimestamp) {
+  if (durationMetricEl && startTimestamp && !isCompleted) {
     const startMs = parseFloat(startTimestamp) * 1000;
     const elapsedMs = Date.now() - startMs;
     if (elapsedMs < 60000) {
@@ -1631,22 +1637,22 @@ function updateProcessGroupHeader(group) {
   }
   
   // Update tokens metric (aggregate from all steps)
-  const tokensMetricEl = metricsEl?.querySelector(".metric-tokens .metric-value");
-  if (tokensMetricEl) {
-    let totalTokensIn = 0;
-    let totalTokensOut = 0;
-    steps.forEach(step => {
-      totalTokensIn += parseInt(step.getAttribute("data-tokens-in") || 0, 10);
-      totalTokensOut += parseInt(step.getAttribute("data-tokens-out") || 0, 10);
-    });
-    const totalTokens = totalTokensIn + totalTokensOut;
-    if (totalTokens > 0) {
-      // Format as compact notation (e.g., 20k/3k for input/output)
-      tokensMetricEl.textContent = formatTokenCount(totalTokensIn, totalTokensOut);
-    } else {
-      tokensMetricEl.textContent = "--";
-    }
-  }
+  // const tokensMetricEl = metricsEl?.querySelector(".metric-tokens .metric-value");
+  // if (tokensMetricEl) {
+  //   let totalTokensIn = 0;
+  //   let totalTokensOut = 0;
+  //   steps.forEach(step => {
+  //     totalTokensIn += parseInt(step.getAttribute("data-tokens-in") || 0, 10);
+  //     totalTokensOut += parseInt(step.getAttribute("data-tokens-out") || 0, 10);
+  //   });
+  //   const totalTokens = totalTokensIn + totalTokensOut;
+  //   if (totalTokens > 0) {
+  //     // Format as compact notation (e.g., 20k/3k for input/output)
+  //     tokensMetricEl.textContent = formatTokenCount(totalTokensIn, totalTokensOut);
+  //   } else {
+  //     tokensMetricEl.textContent = "--";
+  //   }
+  // }
 
   // Once a group is completed, never re-enable any loading spinners (status-active).
   // This prevents late util/tool messages from making a completed group look "running".
@@ -1762,23 +1768,24 @@ export function resetProcessGroups() {
 
 /**
  * Format token counts in compact notation (e.g., "12k/3k" for input/output)
+ * (Currently disabled - token tracking not implemented)
  */
-function formatTokenCount(tokensIn, tokensOut) {
-  const formatCompact = (n) => {
-    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}m`;
-    if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
-    return n.toString();
-  };
-  
-  if (tokensIn > 0 && tokensOut > 0) {
-    return `${formatCompact(tokensIn)}/${formatCompact(tokensOut)}`;
-  } else if (tokensIn > 0) {
-    return `${formatCompact(tokensIn)}↓`;
-  } else if (tokensOut > 0) {
-    return `${formatCompact(tokensOut)}↑`;
-  }
-  return "--";
-}
+// function formatTokenCount(tokensIn, tokensOut) {
+//   const formatCompact = (n) => {
+//     if (n >= 1000000) return `${(n / 1000000).toFixed(1)}m`;
+//     if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+//     return n.toString();
+//   };
+//   
+//   if (tokensIn > 0 && tokensOut > 0) {
+//     return `${formatCompact(tokensIn)}/${formatCompact(tokensOut)}`;
+//   } else if (tokensIn > 0) {
+//     return `${formatCompact(tokensIn)}↓`;
+//   } else if (tokensOut > 0) {
+//     return `${formatCompact(tokensOut)}↑`;
+//   }
+//   return "--";
+// }
 
 /**
  * Format Unix timestamp as date-time string (YYYY-MM-DD HH:MM:SS)
