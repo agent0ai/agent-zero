@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 # New alias-based placeholder format §§secret(KEY)
 ALIAS_PATTERN = r"§§secret\(([A-Za-z_][A-Za-z0-9_]*)\)"
-DEFAULT_SECRETS_FILE = "tmp/secrets.env"
+DEFAULT_SECRETS_FILE = "usr/secrets.env"
 
 
 def alias_for_key(key: str, placeholder: str = "§§secret({key})") -> str:

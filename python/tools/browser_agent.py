@@ -56,7 +56,7 @@ class State:
                 disable_security=True,
                 chromium_sandbox=False,
                 accept_downloads=True,
-                downloads_path=files.get_abs_path("tmp/downloads"),
+                downloads_path=files.get_abs_path("usr/downloads"),
                 allowed_domains=["*", "http://*", "https://*"],
                 executable_path=pw_binary,
                 keep_alive=True,
