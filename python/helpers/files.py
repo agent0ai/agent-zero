@@ -96,7 +96,10 @@ def parse_file(
         content = f.read()
 
     is_json = is_full_json_template(content)
-    content = remove_code_fences(content)
+    # Only strip code fences for full JSON templates - embedded fenced blocks in markdown prompts
+    # should remain intact, otherwise examples/instructions lose structure.
+    if is_json:
+        content = remove_code_fences(content)
     variables = load_plugin_variables(absolute_path, _directories, **kwargs) or {}  # type: ignore
     variables.update(kwargs)
     if is_json:
@@ -333,17 +336,16 @@ def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*"):
 
 
 def remove_code_fences(text):
-    # Pattern to match code fences with optional language specifier
-    pattern = r"(```|~~~)(.*?\n)(.*?)(\1)"
+    # Strip fenced blocks (``` / ~~~) only when the fence marker is at the start of a line.
+    #
+    # This prevents accidental stripping when the fence marker appears inline, e.g.
+    # "... do not wrap ~~~markdown" (which should remain literal text).
+    pattern = r"(?ms)^[ \t]*(```|~~~)[^\n]*\n(.*?)(?:^[ \t]*\1[ \t]*$)"
 
-    # Function to replace the code fences
     def replacer(match):
-        return match.group(3)  # Return the code without fences
+        return match.group(2)  # Return the code without fences
 
-    # Use re.DOTALL to make '.' match newlines
-    result = re.sub(pattern, replacer, text, flags=re.DOTALL)
-
-    return result
+    return re.sub(pattern, replacer, text)
 
 
 def is_full_json_template(text):
@@ -597,4 +599,3 @@ def list_files_in_dir_recursively(relative_path: str) -> list[str]:
             rel_path = os.path.relpath(file_path, abs_path)
             result.append(rel_path)
     return result
-    

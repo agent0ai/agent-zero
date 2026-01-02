@@ -48,11 +48,11 @@
                       <div class="file-size" x-text="$store.fileBrowser.formatFileSize(file.size)"></div>
                       <div class="file-date" x-text="$store.fileBrowser.formatDate(file.modified)"></div>
                       <div class="file-actions">
-                        <button class="action-button download-button" @click.stop="$store.fileBrowser.downloadFile(file)">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.5 19.5"><path d="m.75,14.25v2.25c0,1.24,1.01,2.25,2.25,2.25h13.5c1.24,0,2.25-1.01,2.25-2.25v-2.25m-4.5-4.5l-4.5,4.5m0,0l-4.5-4.5m4.5,4.5V.75" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                        <button class="btn-icon-action" @click.stop="$store.fileBrowser.downloadFile(file)" title="Download file">
+                          <span class="material-symbols-outlined">download</span>
                         </button>
-                        <button class="delete-button" @click.stop="$store.fileBrowser.deleteFile(file)">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15.03 22.53" fill="currentColor"><path d="m14.55,7.82H4.68L14.09,3.19c.83-.41,1.17-1.42.77-2.25-.41-.83-1.42-1.17-2.25-.77l-3.16,1.55-.15-.31c-.22-.44-.59-.76-1.05-.92-.46-.16-.96-.13-1.39.09l-2.08,1.02c-.9.44-1.28,1.54-.83,2.44l.15.31-3.16,1.55c-.83.41-1.17,1.42-.77,2.25.29.59.89.94,1.51.94.25,0,.5-.06.74-.17l.38-.19s.09.03.14.03h11.14v11.43c0,.76-.62,1.38-1.38,1.38h-.46v-11.28c0-.26-.21-.47-.47-.47s-.47.21-.47.47v11.28h-2.39v-11.28c0-.26-.21-.47-.47-.47s-.47.21-.47.47v11.28h-2.39v-11.28c0-.26-.21-.47-.47-.47s-.47.21-.47.47v11.28h-.46c-.76,0-1.38-.62-1.38-1.38v-9.9c0-.26-.21-.47-.47-.47s-.47.21-.47.47v9.9c0,1.28,1.04,2.32,2.32,2.32h8.55c1.28,0,2.32-1.04,2.32-2.32v-11.91c0-.26-.21-.47-.47-.47Z" stroke-width="0"/></svg>
+                        <button class="btn-icon-action" @click.stop="$confirmClick($event, () => $store.fileBrowser.deleteFile(file))" title="Delete file">
+                          <span class="material-symbols-outlined">delete</span>
                         </button>
                       </div>
                     </div>
@@ -279,46 +279,11 @@
     .btn-upload:active {
     background-color: #2b309c;
     }
-    /* Delete Button Styles */
-    .delete-button {
-    background: none;
-    border: none;
-    color: var(--color-primary);
-    cursor: pointer;
-    width: 32px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: opacity 0.2s, background-color 0.2s;
-    }
-    .delete-button:hover {
-    color: #ff7878;
-    }
-    .delete-button:active {
-    opacity: 0.6;
-    }
 
     /* File Actions */
     .file-actions {
     display: flex;
     gap: var(--spacing-xs);
-    }
-    .action-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    width: 32px;
-    padding: 6px 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-    }
-    .download-button {
-    color: var(--color-primary);
-    }
-    .download-button:hover {
-    background-color: var(--color-border);
-    }
-    .light-mode .download-button:hover {
-    background-color: #c6d4de;
     }
     /* Responsive Design */
     @media (max-width: 768px) {

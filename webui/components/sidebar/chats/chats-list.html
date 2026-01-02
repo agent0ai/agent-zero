@@ -22,7 +22,9 @@
                   <span class="chat-name" :title="context.name ? context.name : 'Chat #' + context.no"
                     x-text="context.name ? context.name : 'Chat #' + context.no"></span>
                 </div>
-                <button class="edit-button" @click.stop="$store.chats.killChat(context.id)">X</button>
+                <button class="btn-icon-action" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
               </div>
             </li>
           </template>
@@ -110,28 +112,9 @@
       font-size: var(--font-size-small);
     }
 
-    .edit-button {
+    .chat-container .btn-icon-action {
       flex-shrink: 0;
       margin-right: 8px;
-      background-color: transparent;
-      border: 1px solid var(--color-border);
-      border-radius: 0.1875rem;
-      color: var(--color-primary);
-      cursor: pointer;
-      padding: 0.125rem 0.5rem;
-      transition: all var(--transition-speed) ease-in-out;
-      width: 2rem;
-      height: 2rem;
-    }
-
-    .edit-button:hover {
-      border-color: var(--color-primary);
-      background-color: #32455690;
-    }
-
-    .edit-button:active {
-      background-color: #131a2090;
-      color: rgba(253, 253, 253, 0.35);
     }
 
     .empty-list-message {
