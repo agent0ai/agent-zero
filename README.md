@@ -113,7 +113,16 @@ Click to open a video to learn how to install Agent Zero:
 
 A detailed setup guide for Windows, macOS, and Linux with a video can be found in the Agent Zero Documentation at [this page](./docs/installation.md).
 
-### ⚡ Quick Start
+### Prerequisites
+  ```bash
+  # Install Docker
+  sudo apt-get update
+  sudo apt-get install docker.io
+  sudo usermod -aG docker $USER
+  # Log out and back in for group changes to take effect
+```
+
+## ⚡ Quick Start
 
 ```bash
 # Pull and run with Docker
@@ -122,9 +131,59 @@ docker pull agent0ai/agent-zero
 docker run -p 50001:80 agent0ai/agent-zero
 
 # Visit http://localhost:50001 to start
+git clone https://github.com/agent0ai/agent-zero.git
+cd agent-zero
 ```
 
+### ⚡ Quick Start - Linux Ubuntu
+
+```bash
+# Install Portainer (Optional - Docker GUI)
+  docker volume create portainer_data
+
+  docker run -d \
+    -p 9443:9443 \
+    --name portainer \
+    --restart=always \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v portainer_data:/data \
+    portainer/portainer-ce:latest
+  # Access Portainer at: https://localhost:9443
+
+# Run Agent Zero (with Local LLMs)
+
+  docker run -d \
+    -p 50001:80 \
+    --add-host=host.docker.internal:host-gateway \
+    -v ~/agent-zero-data:/a0 \
+    --name agent0 \
+    agent0ai/agent-zero
+ # Access Agent Zero at: http://localhost:50001
+```
+
+#### Configure Agent Zero for Ollama
+
+```bash
+  # Install Ollama (Local LLMs)
+
+  curl -fsSL https://ollama.com/install.sh | sh
+
+  # Pull a model
+  ollama pull [model]
+```
+
+  1. Open http://localhost:50001 → Settings
+  2. Set Chat model provider: Ollama
+  3. Set Chat model name: [Choose model]
+  4. Set API URL: http://host.docker.internal:11434
+  5. Click Save
+
+
+
+
 ## 🐳 Fully Dockerized, with Speech-to-Text and TTS
+
+```bash
 
 ![Settings](docs/res/settings-page-ui.png)
 
