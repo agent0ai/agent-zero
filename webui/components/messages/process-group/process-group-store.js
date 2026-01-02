@@ -95,7 +95,6 @@ const model = {
       'warning': 'warning',
       'error': 'error',
       'util': 'memory',
-      'user': 'person',
       'done': 'done_all'
     };
     return icons[type] || 'circle';
@@ -117,7 +116,6 @@ const model = {
       'warning': 'WRN',
       'error': 'ERR',
       'util': 'UTL',
-      'user': 'USR',
       'done': 'END'
     };
     return codes[type] || type?.toUpperCase()?.slice(0, 4) || 'GEN';
@@ -139,7 +137,6 @@ const model = {
       'warning': 'status-wrn',
       'error': 'status-err',
       'util': 'status-utl',
-      'user': 'status-usr',
       'done': 'status-end'
     };
     return colors[type] || 'status-gen';
