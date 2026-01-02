@@ -23,7 +23,7 @@
   --color-input-focus-dark: #101010;
 
   /* Light mode */
-  --color-background-light: #dbdbdb;
+  --color-background-light: #f6f6f6;
   --color-text-light: #333333;
   --color-primary-light: #384653;
   --color-secondary-light: #e8eaf6;
@@ -126,7 +126,7 @@ body,
 .switch-label {
   -webkit-transition: background-color 0.3s, color 0.3s, border-color 0.3s;
   transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-  color: var(--color-text);
+  color: var(--color-text) !important;
 }
 
 img {
@@ -196,11 +196,8 @@ div#right-panel::-webkit-scrollbar-thumb:hover {
 
 #time-date {
   color: var(--color-text);
-  font-size: 1.5rem;
-  font-weight: 500;
   text-align: right;
   line-height: 1.2;
-  font-family: var(--font-family-code);
 }
 
 #user-date {

@@ -90,7 +90,6 @@
   font-size: var(--font-size-smaller);
   font-weight: 500;
   color: var(--color-text);
-  opacity: 0.9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -265,12 +264,7 @@
   display: none;
 }
 
-/* END status with checkmark icon - use ::before only */
-.status-end::before {
-  content: "✓";
-  margin-right: 2px;
-  font-weight: bold;
-}
+/* END status with checkmark icon (icon added via JS, no ::before needed) */
 
 /* Completed process group styling */
 .process-group-completed {
@@ -300,17 +294,18 @@
   font-size: 0.65rem;
   font-family: var(--font-family-code);
   color: var(--color-text);
-  opacity: 0.6;
+  opacity: 0.8;
+}
+
+.process-group-header .group-metrics .material-symbols-outlined {
+  font-size: 0.75rem;
+  opacity: 0.7;
 }
 
 .process-group-header .group-metrics span[class^="metric-"] {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-}
-
-.process-group-header .group-metrics .metric-value {
-  opacity: 0.8;
 }
 
 /* Legacy timestamp/duration (for backwards compatibility) */
@@ -422,7 +417,6 @@
   flex: 1;
   font-size: 0.75rem;
   color: var(--color-text);
-  opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -459,6 +453,23 @@
   opacity: 0;
   transition: grid-template-rows 0.2s ease-out, opacity 0.15s ease-out;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  overscroll-behavior: contain; /* avoid scroll chaining */
+}
+  /* Hide scrollbar for Chrome/Safari/Webkit */
+.process-step-detail::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.process-step-detail-content::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .process-step-detail > .process-step-detail-content {
@@ -480,6 +491,11 @@
   line-height: 1.5;
   max-height: 300px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  overscroll-behavior: contain; /* avoid scroll chaining */
 }
 
 .process-step-detail-content pre {
@@ -502,6 +518,7 @@
 .process-step-detail-content .step-kvp {
   display: flex;
   gap: var(--spacing-xs);
+  align-items: flex-start;
 }
 
 .process-step-detail-content .step-kvp-key {
@@ -510,6 +527,8 @@
   opacity: 0.8;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  min-width: fit-content;
 }
 
 .process-step-detail-content .step-kvp-key .material-symbols-outlined {
@@ -521,7 +540,9 @@
   color: var(--color-text);
   opacity: 0.75;
   word-break: break-word;
+  white-space: pre-wrap;
   font-size: 0.7rem;
+  line-height: 1.5;
 }
 
 /* Thoughts styling - single icon with plain text */
@@ -542,7 +563,7 @@
 .process-step-detail-content .thought-text {
   font-size: 0.72rem;
   color: var(--color-text);
-  opacity: 0.8;
+  opacity: 0.65;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -625,24 +646,6 @@
   font-size: 0.72rem;
 }
 
-.process-step-detail-content .terminal-cmd {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  color: var(--color-text);
-  opacity: 0.9;
-}
-
-.process-step-detail-content .terminal-prompt {
-  color: #7ee787;
-  font-weight: 600;
-}
-
-.process-step-detail-content .terminal-code {
-  color: var(--color-text);
-  opacity: 0.85;
-}
-
 .process-step-detail-content .terminal-output {
   margin: var(--spacing-xs) 0 0 0;
   padding: var(--spacing-xs);
@@ -653,61 +656,44 @@
   word-break: break-word;
   max-height: 200px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  overscroll-behavior: contain; /* avoid scroll chaining */
 }
+
+.process-step-detail-content .terminal-output::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+
+    }
+    #chat-input::-webkit-scrollbar { width: 6px; height: 6px; }
+    #chat-input::-webkit-scrollbar-track { background: transparent; margin: 4px 0; border-radius: 6px; }
+    #chat-input::-webkit-scrollbar-thumb { background-color: rgba(155,155,155,0.5); border-radius: 6px; -webkit-transition: background-color 0.2s ease; transition: background-color 0.2s ease; }
+    #chat-input::-webkit-scrollbar-thumb:hover { background-color: rgba(155,155,155,0.7); }
 
 /* Light mode terminal */
-.light-mode .process-step-detail-content .terminal-prompt {
-  color: #1a7f37;
-}
-
 .light-mode .process-step-detail-content .terminal-output {
   background: rgba(0, 0, 0, 0.05);
   color: #24292f;
 }
 
 /* Light mode adjustments */
-.light-mode .process-group {
-  background: rgba(0, 0, 0, 0.03);
-  border: none;
-}
-
-.light-mode .process-group.embedded {
-  background: rgba(0, 0, 0, 0.04);
-  border-bottom-color: rgba(0, 0, 0, 0.08);
-}
-
-.light-mode .message-container.has-process-group {
-  background: var(--color-panel);
-  border-color: rgba(0, 0, 0, 0.08);
-}
-
-.light-mode .process-group:hover {
-  border-color: rgba(0, 0, 0, 0.12);
-}
-
 .light-mode .process-group.expanded .process-group-content {
   border-top-color: rgba(0, 0, 0, 0.06);
-}
-
-.light-mode .process-step:hover {
-  background-color: rgba(0, 0, 0, 0.02);
 }
 
 .light-mode .process-step-detail-content {
   background-color: transparent;
 }
 
-.light-mode .process-group-header .step-count {
-  background-color: rgba(0, 0, 0, 0.06);
-}
-
 /* Light mode text colors for process group */
 .light-mode .process-group-header .group-title,
 .light-mode .process-step-header .step-title {
-  color: var(--color-text);
-}
-
-.light-mode .process-group-header .group-metrics {
   color: var(--color-text);
 }
 

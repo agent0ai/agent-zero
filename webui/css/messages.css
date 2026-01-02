@@ -485,56 +485,6 @@
   border-bottom: none;
 }
 
-.light-mode .message-default {
-  background-color: transparent;
-  color: #1a242f;
-}
-
-.light-mode .message-agent {
-  background-color: transparent;
-  color: #356ca3;
-}
-
-.light-mode .message-agent-response {
-  background-color: transparent;
-  color: #188216;
-}
-
-.light-mode .message-agent-delegation {
-  background-color: transparent;
-  color: #12685e;
-}
-
-.light-mode .message-tool {
-  background-color: transparent;
-  color: #1c3c88;
-}
-
-.light-mode .message-code-exe {
-  background-color: transparent;
-  color: #6c43b0;
-}
-
-.light-mode .message-browser {
-  background-color: transparent;
-  color: #6c43b0;
-}
-
-.light-mode .message-info {
-  background-color: transparent;
-  color: #3f3f3f;
-}
-
-.light-mode .message-util {
-  background-color: transparent;
-  color: #5b5540;
-}
-
-.light-mode .message-warning {
-  background-color: transparent;
-  color: #8f4800;
-}
-
 .light-mode .message-error {
   background-color: rgba(220, 60, 60, 0.15);
   border: 1px solid rgba(180, 40, 40, 0.4);
@@ -542,11 +492,7 @@
 }
 
 .light-mode .message-user {
-  background-color: var(--color-panel);
   color: #4e4e4e;
-  border-radius: var(--border-radius);
-  box-shadow: inset 0 2rem 2rem -2rem rgba(0, 0, 0, 0.15),
-    inset 0 -2rem 2rem -2rem rgba(0, 0, 0, 0.05);
 }
 
 /* Markdown in messages */
