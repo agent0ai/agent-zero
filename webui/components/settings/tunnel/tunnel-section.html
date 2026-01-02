@@ -31,14 +31,47 @@
                             <select id="tunnel-provider" x-model="$store.tunnelStore.provider"
                                 :disabled="$store.tunnelStore.isLoading">
                                 <option value="cloudflared">Cloudflare</option>
+                                <option value="microsoft">Microsoft Dev Tunnels</option>
                                 <option value="serveo">Serveo</option>
                             </select>
                         </div>
                     </div>
-                    <!-- Loading spinner for tunnel operations -->
-                    <div class="loading-spinner" x-show="$store.tunnelStore.isLoading">
+                    <!-- Loading spinner for tunnel operations (hidden when Microsoft login code is displayed) -->
+                    <div class="loading-spinner" x-show="$store.tunnelStore.isLoading && !$store.tunnelStore.microsoftLoginCode">
                         <span class="icon material-symbols-outlined spin">progress_activity</span>
                         <span x-text="$store.tunnelStore.loadingText || 'Processing tunnel request...'"></span>
+                    </div>
+                    <!-- Microsoft login code display -->
+                    <div class="microsoft-login-box" x-show="$store.tunnelStore.microsoftLoginCode" x-transition>
+                        <div class="microsoft-login-header">
+                            <span class="microsoft-login-icon material-symbols-outlined">key</span>
+                            <div class="microsoft-login-title">Microsoft Login Required</div>
+                        </div>
+                        <div class="microsoft-login-steps">
+                            <div class="microsoft-login-step">
+                                <span class="step-number">1</span>
+                                <span class="step-text">Open the authentication page:</span>
+                            </div>
+                            <a class="microsoft-login-link" :href="$store.tunnelStore.microsoftLoginUrl" target="_blank">
+                                <span class="icon material-symbols-outlined">open_in_new</span>
+                                <span x-text="$store.tunnelStore.microsoftLoginUrl"></span>
+                            </a>
+                            <div class="microsoft-login-step">
+                                <span class="step-number">2</span>
+                                <span class="step-text">Enter this code:</span>
+                            </div>
+                        </div>
+                        <div class="microsoft-login-code-container">
+                            <div class="microsoft-login-code" x-text="$store.tunnelStore.microsoftLoginCode"></div>
+                            <button class="btn btn-copy-code" @click="$store.tunnelStore.copyLoginCode()" :class="$store.tunnelStore.codeCopied ? 'copied' : ''">
+                                <span class="icon material-symbols-outlined" x-text="$store.tunnelStore.codeCopied ? 'check' : 'content_copy'"></span>
+                                <span x-text="$store.tunnelStore.codeCopied ? 'Copied!' : 'Copy Code'"></span>
+                            </button>
+                        </div>
+                        <div class="microsoft-login-footer">
+                            <span class="icon material-symbols-outlined spin-slow">sync</span>
+                            <span>Waiting for authentication to complete...</span>
+                        </div>
                     </div>
 
                     <!-- Tunnel content when not loading -->
@@ -363,6 +396,203 @@
         .light-mode .qr-error {
             background-color: rgba(220, 53, 69, 0.05);
             color: #dc3545;
+        }
+
+        /* Microsoft Login Box */
+        .microsoft-login-box {
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(0, 120, 212, 0.12), rgba(0, 120, 212, 0.04));
+            border: 1px solid rgba(0, 120, 212, 0.35);
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 120, 212, 0.1);
+        }
+
+        .microsoft-login-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .microsoft-login-icon {
+            font-size: 1.5rem;
+            color: #0078d4;
+            background: rgba(0, 120, 212, 0.15);
+            padding: 0.5rem;
+            border-radius: 50%;
+        }
+
+        .microsoft-login-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #0078d4;
+        }
+
+        .microsoft-login-steps {
+            text-align: left;
+            margin-bottom: 1rem;
+        }
+
+        .microsoft-login-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 0.75rem 0 0.5rem 0;
+            font-size: 0.9rem;
+            color: var(--text-color);
+        }
+
+        .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background-color: #0078d4;
+            color: white;
+            border-radius: 50%;
+            font-size: 0.8rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            color: var(--text-color-secondary);
+        }
+
+        .microsoft-login-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            margin: 0.5rem 0 0.75rem 2.25rem;
+            background-color: rgba(0, 120, 212, 0.1);
+            border: 1px solid rgba(0, 120, 212, 0.3);
+            border-radius: 8px;
+            color: #0078d4;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            word-break: break-all;
+        }
+
+        .microsoft-login-link:hover {
+            background-color: rgba(0, 120, 212, 0.2);
+            border-color: rgba(0, 120, 212, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .microsoft-login-link .icon {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .microsoft-login-code-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: var(--bg-color-secondary);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .microsoft-login-code {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            color: var(--text-color);
+            background: linear-gradient(135deg, rgba(0, 120, 212, 0.1), transparent);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: 2px dashed rgba(0, 120, 212, 0.4);
+            user-select: all;
+            cursor: text;
+        }
+
+        .btn-copy-code {
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            padding: 0.6rem 1.25rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-copy-code:hover {
+            background-color: #106ebe;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
+        }
+
+        .btn-copy-code.copied {
+            background-color: #28a745;
+        }
+
+        .btn-copy-code.copied:hover {
+            background-color: #218838;
+        }
+
+        .microsoft-login-footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(0, 120, 212, 0.2);
+            font-size: 0.85rem;
+            color: var(--text-color-secondary);
+            font-style: italic;
+        }
+
+        .microsoft-login-footer .icon {
+            font-size: 1.1rem;
+            color: #0078d4;
+        }
+
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .spin-slow {
+            animation: spin-slow 2s linear infinite;
+        }
+
+        /* Responsive adjustments for Microsoft login */
+        @media (max-width: 480px) {
+            .microsoft-login-box {
+                padding: 1rem;
+            }
+
+            .microsoft-login-code {
+                font-size: 1.5rem;
+                letter-spacing: 0.15em;
+                padding: 0.5rem 1rem;
+            }
+
+            .microsoft-login-link {
+                margin-left: 0;
+                font-size: 0.8rem;
+            }
+
+            .microsoft-login-step {
+                font-size: 0.85rem;
+            }
         }
     </style>
 
