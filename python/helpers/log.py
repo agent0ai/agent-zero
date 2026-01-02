@@ -134,8 +134,6 @@ class LogItem:
     guid: str = ""
     timestamp: float = 0.0  # Unix timestamp in seconds
     duration_ms: Optional[int] = None  # Duration until next step (set by Log.log)
-    tokens_in: int = 0  # Input tokens consumed
-    tokens_out: int = 0  # Output tokens generated
     agent_number: int = 0  # Agent number (0 = main agent, 1+ = subordinate agents)
 
     def __post_init__(self):
@@ -155,8 +153,6 @@ class LogItem:
         kvps: dict | None = None,
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
-        tokens_in: int | None = None,
-        tokens_out: int | None = None,
         **kwargs,
     ):
         if self.guid == self.log.guid:
@@ -168,17 +164,8 @@ class LogItem:
                 kvps=kvps,
                 temp=temp,
                 update_progress=update_progress,
-                tokens_in=tokens_in,
-                tokens_out=tokens_out,
                 **kwargs,
             )
-
-    def add_tokens(self, tokens_in: int = 0, tokens_out: int = 0):
-        """Add tokens to this log item (accumulative)."""
-        if self.guid == self.log.guid:
-            self.tokens_in += tokens_in
-            self.tokens_out += tokens_out
-            self.log.updates += [self.no]
 
     def stream(
         self,
@@ -206,8 +193,6 @@ class LogItem:
             "kvps": self.kvps,
             "timestamp": self.timestamp,  # Unix timestamp in seconds
             "duration_ms": self.duration_ms,  # Duration until next step
-            "tokens_in": self.tokens_in,  # Input tokens
-            "tokens_out": self.tokens_out,  # Output tokens
             "agent_number": self.agent_number,  # Agent number for identifying main/subordinate agents
         }
 
@@ -270,8 +255,6 @@ class Log:
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         id: Optional[str] = None,
-        tokens_in: int | None = None,
-        tokens_out: int | None = None,
         **kwargs,
     ):
         item = self.logs[no]
@@ -287,12 +270,6 @@ class Log:
 
         if update_progress is not None:
             item.update_progress = update_progress
-
-        if tokens_in is not None:
-            item.tokens_in = tokens_in
-
-        if tokens_out is not None:
-            item.tokens_out = tokens_out
 
 
         # adjust all content before processing

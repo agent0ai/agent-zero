@@ -1121,10 +1121,10 @@ function createProcessGroup(id) {
     <span class="group-title">Processing...</span>
     <span class="status-badge status-gen status-active group-status"><span class="badge-icon material-symbols-outlined">public</span>GEN</span>
     <span class="group-metrics">
-      <span class="metric-time" title="Start time"><span class="metric-value">--:--</span></span>
-      <span class="metric-steps" title="Steps"><span class="metric-value">0</span></span>
-      <span class="metric-duration" title="Duration"><span class="metric-value">0s</span></span>
-      <span class="metric-tokens" title="Tokens"><span class="metric-value">--</span></span>
+      <span class="metric-time" title="Start time"><span class="material-symbols-outlined">schedule</span><span class="metric-value">--:--</span></span>
+      <span class="metric-steps" title="Steps"><span class="material-symbols-outlined">list_alt</span><span class="metric-value">0</span></span>
+      <span class="metric-duration" title="Duration"><span class="material-symbols-outlined">timer</span><span class="metric-value">0s</span></span>
+      <span class="metric-tokens" title="Tokens"><span class="material-symbols-outlined">data_object</span><span class="metric-value">--</span></span>
     </span>
   `;
   
