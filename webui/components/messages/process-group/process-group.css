@@ -841,4 +841,5 @@
 
 .process-step-detail-content pre.msg-json.show-json {
   display: block;
+  margin-top: var(--spacing-xs);
 }

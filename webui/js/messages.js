@@ -1214,7 +1214,9 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   const title = getStepTitle(heading, kvps, type);
   
   // Check if step should be expanded
-  const isStepExpanded = processGroupStore.isStepExpanded(groupId, id);
+  // Agent (GEN) steps expand based on showThoughts preference
+  const isStepExpanded = processGroupStore.isStepExpanded(groupId, id) || 
+                         (type === "agent" && preferencesStore.showThoughts);
   if (isStepExpanded) {
     step.classList.add("step-expanded");
   }
@@ -1418,22 +1420,7 @@ function renderStepDetailContent(container, content, kvps, type = null) {
       
       // Special handling for thoughts/reasoning - render with single lightbulb icon
       if (lowerKey === "thoughts" || lowerKey === "thinking" || lowerKey === "reflection" || lowerKey === "reasoning") {
-        const thoughtsDiv = document.createElement("div");
-        thoughtsDiv.classList.add("step-thoughts", "msg-thoughts");
-        
-        // Apply current preference state - hide if showThoughts is false
-        if (!preferencesStore.showThoughts) {
-          thoughtsDiv.classList.add("hide-thoughts");
-        }
-        
-        const thoughtText = cleanTextValue(value);
-        
-        if (thoughtText) {
-          // Single icon + text block
-          thoughtsDiv.innerHTML = `<span class="thought-icon material-symbols-outlined">lightbulb</span><span class="thought-text">${escapeHTML(thoughtText)}</span>`;
-        }
-        
-        kvpsDiv.appendChild(thoughtsDiv);
+        renderThoughts(kvpsDiv, value);
         continue;
       }
       

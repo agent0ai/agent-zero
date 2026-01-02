@@ -95,6 +95,14 @@ const model = {
         this._collapseProcessGroups = true;
       }
 
+      // Load show thoughts preference
+      try {
+        const storedShowThoughts = localStorage.getItem("showThoughts");
+        this._showThoughts = storedShowThoughts !== "false"; // Default true
+      } catch {
+        this._showThoughts = true;
+      }
+
       // Apply all preferences
       this._applyDarkMode(this._darkMode);
       this._applyAutoScroll(this._autoScroll);
@@ -129,6 +137,8 @@ const model = {
   },
 
   _applyShowThoughts(value) {
+    localStorage.setItem("showThoughts", value);
+    
     // For original messages
     css.toggleCssProperty(
       ".msg-thoughts",
@@ -138,6 +148,11 @@ const model = {
     // For process steps - toggle class on all existing elements
     document.querySelectorAll(".step-kvp.msg-thoughts").forEach((el) => {
       el.classList.toggle("hide-thoughts", !value);
+    });
+    
+    // Toggle collapse/expand state for all GEN steps (agent type steps with thoughts)
+    document.querySelectorAll('.process-step[data-type="agent"]').forEach((el) => {
+      el.classList.toggle("step-expanded", value);
     });
   },
 
