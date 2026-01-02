@@ -17,7 +17,7 @@ const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'info', 'hint', '
 // Main types that should always be visible (not collapsed)
 const MAIN_TYPES = ['user', 'response', 'error', 'rate_limit'];
 
-export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, /* tokensIn = 0, tokensOut = 0, */ agentNumber = 0) {
+export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, agentNumber = 0) {
   // Check if this is a process type message
   const isProcessType = PROCESS_TYPES.includes(type);
   const isMainType = MAIN_TYPES.includes(type);
@@ -36,7 +36,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
   if (isProcessType) {
     if (processStepElement) {
       // Update existing process step
-      updateProcessStep(processStepElement, id, type, heading, content, kvps, durationMs /*, tokensIn, tokensOut */);
+      updateProcessStep(processStepElement, id, type, heading, content, kvps, durationMs);
       return processStepElement;
     }
     
@@ -47,7 +47,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     }
     
     // Add step to current process group
-    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp, durationMs /*, tokensIn, tokensOut */);
+    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp, durationMs);
     return processStepElement;
   }
 
@@ -55,7 +55,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
   // agentNumber: 0 = main agent, 1+ = subordinate agents
   if (type === "response" && agentNumber !== 0) {
     if (processStepElement) {
-      updateProcessStep(processStepElement, id, "agent", heading, content, kvps, durationMs /*, tokensIn, tokensOut */);
+      updateProcessStep(processStepElement, id, "agent", heading, content, kvps, durationMs);
       return processStepElement;
     }
     
@@ -66,7 +66,7 @@ export function setMessage(id, type, heading, content, temp, kvps = null, timest
     }
     
     // Add subordinate response as a step (type "agent" for appropriate styling)
-    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp, durationMs /*, tokensIn, tokensOut */);
+    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp, durationMs);
     return processStepElement;
   }
 
@@ -1140,7 +1140,6 @@ function createProcessGroup(id) {
       <span class="metric-time" title="Start time"><span class="material-symbols-outlined">schedule</span><span class="metric-value">--:--</span></span>
       <span class="metric-steps" title="Steps"><span class="material-symbols-outlined">list_alt</span><span class="metric-value">0</span></span>
       <span class="metric-duration" title="Duration"><span class="material-symbols-outlined">timer</span><span class="metric-value">0s</span></span>
-      <!-- <span class="metric-tokens" title="Tokens"><span class="material-symbols-outlined">data_object</span><span class="metric-value">--</span></span> -->
     </span>
   `;
   
@@ -1170,7 +1169,7 @@ function createProcessGroup(id) {
 /**
  * Add a step to a process group
  */
-function addProcessStep(group, id, type, heading, content, kvps, timestamp = null, durationMs = null /*, tokensIn = 0, tokensOut = 0 */) {
+function addProcessStep(group, id, type, heading, content, kvps, timestamp = null, durationMs = null) {
   const groupId = group.getAttribute("data-group-id");
   const stepsContainer = group.querySelector(".process-steps");
   const isGroupCompleted = group.classList.contains("process-group-completed");
@@ -1181,8 +1180,6 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   step.classList.add("process-step");
   step.setAttribute("data-type", type);
   step.setAttribute("data-step-id", id);
-  // step.setAttribute("data-tokens-in", tokensIn || 0);
-  // step.setAttribute("data-tokens-out", tokensOut || 0);
   
   // Store timestamp for duration calculation
   if (timestamp) {
@@ -1197,6 +1194,11 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
         timestampEl.textContent = formatDateTime(timestamp);
       }
     }
+  }
+  
+  // Store duration from backend (used for final duration calculation)
+  if (durationMs != null) {
+    step.setAttribute("data-duration-ms", durationMs);
   }
   
   // Add message-util class for utility/info types (controlled by showUtils preference)
@@ -1272,7 +1274,7 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
 /**
  * Update an existing process step
  */
-function updateProcessStep(stepElement, id, type, heading, content, kvps, durationMs = null /*, tokensIn = 0, tokensOut = 0 */) {
+function updateProcessStep(stepElement, id, type, heading, content, kvps, durationMs = null) {
   // Update title
   const titleEl = stepElement.querySelector(".step-title");
   if (titleEl) {
@@ -1280,13 +1282,10 @@ function updateProcessStep(stepElement, id, type, heading, content, kvps, durati
     titleEl.textContent = title;
   }
   
-  // Update token data (use the latest values)
-  // if (tokensIn > 0) {
-  //   stepElement.setAttribute("data-tokens-in", tokensIn);
-  // }
-  // if (tokensOut > 0) {
-  //   stepElement.setAttribute("data-tokens-out", tokensOut);
-  // }
+  // Update duration from backend
+  if (durationMs != null) {
+    stepElement.setAttribute("data-duration-ms", durationMs);
+  }
   
   // Update detail content
   const detailContent = stepElement.querySelector(".process-step-detail-content");
@@ -1590,8 +1589,15 @@ function updateProcessGroupHeader(group) {
   const metricsEl = group.querySelector(".group-metrics");
   const isCompleted = group.classList.contains("process-group-completed");
   
+  // If completed, only remove active badges and exit early (don't update metrics)
+  if (isCompleted) {
+    const activeBadges = group.querySelectorAll(".status-badge.status-active");
+    activeBadges.forEach(badge => badge.classList.remove("status-active"));
+    return;
+  }
+  
   // Update group title with the latest agent step heading
-  if (titleEl && !isCompleted) {
+  if (titleEl) {
     // Find the last "agent" type step
     const agentSteps = Array.from(steps).filter(step => step.getAttribute("data-type") === "agent");
     if (agentSteps.length > 0) {
@@ -1622,9 +1628,9 @@ function updateProcessGroupHeader(group) {
     timeMetricEl.textContent = `${hours}:${minutes}`;
   }
   
-  // Update duration metric (elapsed time since start) - but only if not completed
+  // Update duration metric - live timer while not completed
   const durationMetricEl = metricsEl?.querySelector(".metric-duration .metric-value");
-  if (durationMetricEl && startTimestamp && !isCompleted) {
+  if (durationMetricEl && startTimestamp) {
     const startMs = parseFloat(startTimestamp) * 1000;
     const elapsedMs = Date.now() - startMs;
     if (elapsedMs < 60000) {
@@ -1634,32 +1640,6 @@ function updateProcessGroupHeader(group) {
       const secs = Math.round((elapsedMs % 60000) / 1000);
       durationMetricEl.textContent = `${mins}m${secs}s`;
     }
-  }
-  
-  // Update tokens metric (aggregate from all steps)
-  // const tokensMetricEl = metricsEl?.querySelector(".metric-tokens .metric-value");
-  // if (tokensMetricEl) {
-  //   let totalTokensIn = 0;
-  //   let totalTokensOut = 0;
-  //   steps.forEach(step => {
-  //     totalTokensIn += parseInt(step.getAttribute("data-tokens-in") || 0, 10);
-  //     totalTokensOut += parseInt(step.getAttribute("data-tokens-out") || 0, 10);
-  //   });
-  //   const totalTokens = totalTokensIn + totalTokensOut;
-  //   if (totalTokens > 0) {
-  //     // Format as compact notation (e.g., 20k/3k for input/output)
-  //     tokensMetricEl.textContent = formatTokenCount(totalTokensIn, totalTokensOut);
-  //   } else {
-  //     tokensMetricEl.textContent = "--";
-  //   }
-  // }
-
-  // Once a group is completed, never re-enable any loading spinners (status-active).
-  // This prevents late util/tool messages from making a completed group look "running".
-  if (isCompleted) {
-    const activeBadges = group.querySelectorAll(".status-badge.status-active");
-    activeBadges.forEach(badge => badge.classList.remove("status-active"));
-    return;
   }
   
   if (steps.length > 0) {
@@ -1741,18 +1721,23 @@ function markProcessGroupComplete(group, responseTitle) {
   // Add completed class to group
   group.classList.add("process-group-completed");
   
-  // Update duration to final value
+  // Calculate final duration from backend data (sum of all step durations)
+  const steps = group.querySelectorAll(".process-step");
+  let totalDurationMs = 0;
+  steps.forEach(step => {
+    const durationMs = parseInt(step.getAttribute("data-duration-ms") || "0", 10);
+    totalDurationMs += durationMs;
+  });
+  
+  // Update duration metric with final value from backend
   const metricsEl = group.querySelector(".group-metrics");
   const durationMetricEl = metricsEl?.querySelector(".metric-duration .metric-value");
-  const startTimestamp = group.getAttribute("data-start-timestamp");
-  if (durationMetricEl && startTimestamp) {
-    const startMs = parseFloat(startTimestamp) * 1000;
-    const elapsedMs = Date.now() - startMs;
-    if (elapsedMs < 60000) {
-      durationMetricEl.textContent = `${Math.round(elapsedMs / 1000)}s`;
+  if (durationMetricEl && totalDurationMs > 0) {
+    if (totalDurationMs < 60000) {
+      durationMetricEl.textContent = `${Math.round(totalDurationMs / 1000)}s`;
     } else {
-      const mins = Math.floor(elapsedMs / 60000);
-      const secs = Math.round((elapsedMs % 60000) / 1000);
+      const mins = Math.floor(totalDurationMs / 60000);
+      const secs = Math.round((totalDurationMs % 60000) / 1000);
       durationMetricEl.textContent = `${mins}m${secs}s`;
     }
   }
@@ -1765,27 +1750,6 @@ export function resetProcessGroups() {
   currentProcessGroup = null;
   messageGroup = null;
 }
-
-/**
- * Format token counts in compact notation (e.g., "12k/3k" for input/output)
- * (Currently disabled - token tracking not implemented)
- */
-// function formatTokenCount(tokensIn, tokensOut) {
-//   const formatCompact = (n) => {
-//     if (n >= 1000000) return `${(n / 1000000).toFixed(1)}m`;
-//     if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
-//     return n.toString();
-//   };
-//   
-//   if (tokensIn > 0 && tokensOut > 0) {
-//     return `${formatCompact(tokensIn)}/${formatCompact(tokensOut)}`;
-//   } else if (tokensIn > 0) {
-//     return `${formatCompact(tokensIn)}↓`;
-//   } else if (tokensOut > 0) {
-//     return `${formatCompact(tokensOut)}↑`;
-//   }
-//   return "--";
-// }
 
 /**
  * Format Unix timestamp as date-time string (YYYY-MM-DD HH:MM:SS)

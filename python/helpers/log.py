@@ -138,12 +138,6 @@ class LogItem:
 
     def __post_init__(self):
         self.guid = self.log.guid
-        self.timestamp = time.time()  # Record creation time
-        # Capture agent number from context if available
-        if self.log.context and self.log.context.streaming_agent:
-            self.agent_number = self.log.context.streaming_agent.number
-        else:
-            self.agent_number = 0  # Default to main agent
 
     def update(
         self,
