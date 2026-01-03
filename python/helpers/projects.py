@@ -25,9 +25,11 @@ class FileStructureInjectionSettings(TypedDict):
     max_lines: int
     gitignore: str
 
+
 class SubAgentSettings(TypedDict):
     enabled: bool
-    
+
+
 class BasicProjectData(TypedDict):
     title: str
     description: str
@@ -38,6 +40,7 @@ class BasicProjectData(TypedDict):
     ]  # in the future we can add cutom and point to another existing folder
     file_structure: FileStructureInjectionSettings
 
+
 class EditProjectData(BasicProjectData):
     name: str
     instruction_files_count: int
@@ -45,7 +48,6 @@ class EditProjectData(BasicProjectData):
     variables: str
     secrets: str
     subagents: dict[str, SubAgentSettings]
-
 
 
 def get_projects_parent_folder():
@@ -340,7 +342,7 @@ def save_project_subagents(name: str, subagents_data: dict[str, SubAgentSettings
 
 
 def _normalize_subagents(
-    subagents_data: dict[str, SubAgentSettings]
+    subagents_data: dict[str, SubAgentSettings],
 ) -> dict[str, SubAgentSettings]:
     from python.helpers import subagents
 
@@ -405,25 +407,70 @@ def get_knowledge_files_count(name: str):
     )
     return len(files.list_files_in_dir_recursively(knowledge_folder))
 
-def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str:
+
+MCP_TOOLS_FILE = "mcp_tools.json"
+
+
+def load_project_mcp_tools(name: str) -> dict[str, list[str]]:
+    try:
+        abs_path = files.get_abs_path(get_project_meta_folder(name), MCP_TOOLS_FILE)
+        data = dirty_json.parse(files.read_file(abs_path))
+        if isinstance(data, dict):
+            result: dict[str, list[str]] = {}
+            for server_name, tools in data.items():
+                if isinstance(tools, list):
+                    result[server_name] = [t for t in tools if isinstance(t, str)]
+            return result
+        return {}
+    except Exception:
+        return {}
+
+
+def save_project_mcp_tools(name: str, mcp_tools: dict[str, list[str]]):
+    abs_path = files.get_abs_path(get_project_meta_folder(name), MCP_TOOLS_FILE)
+    content = dirty_json.stringify(mcp_tools)
+    files.write_file(abs_path, content)
+
+
+def toggle_project_mcp_tool(
+    name: str, server_name: str, tool_name: str
+) -> dict[str, list[str]]:
+    mcp_tools = load_project_mcp_tools(name)
+
+    if server_name not in mcp_tools:
+        mcp_tools[server_name] = []
+
+    if tool_name in mcp_tools[server_name]:
+        mcp_tools[server_name] = [t for t in mcp_tools[server_name] if t != tool_name]
+    else:
+        mcp_tools[server_name].append(tool_name)
+
+    if not mcp_tools[server_name]:
+        del mcp_tools[server_name]
+
+    save_project_mcp_tools(name, mcp_tools)
+    return mcp_tools
+
+
+def get_file_structure(name: str, basic_data: BasicProjectData | None = None) -> str:
     project_folder = get_project_folder(name)
     if basic_data is None:
         basic_data = load_basic_project_data(name)
-    
-    tree = str(file_tree.file_tree(
-        project_folder,
-        max_depth=basic_data["file_structure"]["max_depth"],
-        max_files=basic_data["file_structure"]["max_files"],
-        max_folders=basic_data["file_structure"]["max_folders"],
-        max_lines=basic_data["file_structure"]["max_lines"],
-        ignore=basic_data["file_structure"]["gitignore"],
-        output_mode=file_tree.OUTPUT_MODE_STRING
-    ))
+
+    tree = str(
+        file_tree.file_tree(
+            project_folder,
+            max_depth=basic_data["file_structure"]["max_depth"],
+            max_files=basic_data["file_structure"]["max_files"],
+            max_folders=basic_data["file_structure"]["max_folders"],
+            max_lines=basic_data["file_structure"]["max_lines"],
+            ignore=basic_data["file_structure"]["gitignore"],
+            output_mode=file_tree.OUTPUT_MODE_STRING,
+        )
+    )
 
     # empty?
     if "\n" not in tree:
         tree += "\n # Empty"
 
     return tree
-
-    

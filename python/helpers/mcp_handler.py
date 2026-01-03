@@ -58,7 +58,13 @@ def _determine_server_type(config_dict: dict) -> str:
     # First check if type is explicitly specified
     if "type" in config_dict:
         server_type = config_dict["type"].lower()
-        if server_type in ["sse", "http-stream", "streaming-http", "streamable-http", "http-streaming"]:
+        if server_type in [
+            "sse",
+            "http-stream",
+            "streaming-http",
+            "streamable-http",
+            "http-streaming",
+        ]:
             return "MCPServerRemote"
         elif server_type == "stdio":
             return "MCPServerLocal"
@@ -77,7 +83,12 @@ def _determine_server_type(config_dict: dict) -> str:
 
 def _is_streaming_http_type(server_type: str) -> bool:
     """Check if the server type is a streaming HTTP variant."""
-    return server_type.lower() in ["http-stream", "streaming-http", "streamable-http", "http-streaming"]
+    return server_type.lower() in [
+        "http-stream",
+        "streaming-http",
+        "streamable-http",
+        "http-streaming",
+    ]
 
 
 def initialize_mcp(mcp_servers_config: str):
@@ -93,9 +104,9 @@ def initialize_mcp(mcp_servers_config: str):
                 temp=False,
             )
 
-            PrintStyle(
-                background_color="black", font_color="red", padding=True
-            ).print(f"Failed to update MCP settings: {e}")
+            PrintStyle(background_color="black", font_color="red", padding=True).print(
+                f"Failed to update MCP settings: {e}"
+            )
 
 
 class MCPTool(Tool):
@@ -219,7 +230,8 @@ class MCPServerRemote(BaseModel):
     init_timeout: int = Field(default=0)
     tool_timeout: int = Field(default=0)
     verify: bool = Field(default=True, description="Verify SSL certificates")
-    disabled: bool = Field(default=False)
+    # disabled: bool = Field(default=False)
+    disabled_tools: list[str] = Field(default_factory=list)
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __client: Optional["MCPClientRemote"] = PrivateAttr(default=None)
@@ -269,14 +281,14 @@ class MCPServerRemote(BaseModel):
                     "tool_timeout",
                     "disabled",
                     "verify",
+                    "disabled_tools",  # Added so it can be updated via config
                 ]:
                     if key == "name":
                         value = normalize_name(value)
                     if key == "serverUrl":
-                        key = "url"  # remap serverUrl to url
+                        key = "url"
 
                     setattr(self, key, value)
-            # We already run in an event loop, dont believe Pylance
             return asyncio.run(self.__on_update())
 
     async def __on_update(self) -> "MCPServerRemote":
@@ -299,6 +311,7 @@ class MCPServerLocal(BaseModel):
     tool_timeout: int = Field(default=0)
     verify: bool = Field(default=True, description="Verify SSL certificates")
     disabled: bool = Field(default=False)
+    disabled_tools: list[str] = Field(default_factory=list)  # Added field
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __client: Optional["MCPClientLocal"] = PrivateAttr(default=None)
@@ -349,6 +362,7 @@ class MCPServerLocal(BaseModel):
                     "init_timeout",
                     "tool_timeout",
                     "disabled",
+                    "disabled_tools",
                 ]:
                     if key == "name":
                         value = normalize_name(value)
@@ -394,11 +408,8 @@ class MCPConfig(BaseModel):
         with cls.__lock:
             servers_data: List[Dict[str, Any]] = []  # Default to empty list
 
-            if (
-                config_str and config_str.strip()
-            ):  # Only parse if non-empty and not just whitespace
+            if config_str and config_str.strip():
                 try:
-                    # Try with standard json.loads first, as it should handle escaped strings correctly
                     parsed_value = dirty_json.try_parse(config_str)
                     normalized = cls.normalize_config(parsed_value)
 
@@ -423,9 +434,7 @@ class MCPConfig(BaseModel):
                             f"Error: Parsed MCP config (from json.loads) top-level structure is not a list. Config string was: '{config_str}'"
                         )
                         # servers_data remains empty
-                except (
-                    Exception
-                ) as e_json:  # Catch json.JSONDecodeError specifically if possible, or general Exception
+                except Exception as e_json:  # Catch json.JSONDecodeError specifically if possible, or general Exception
                     PrintStyle.error(
                         f"Error parsing MCP config string: {e_json}. Config string was: '{config_str}'"
                     )
@@ -528,11 +537,11 @@ class MCPConfig(BaseModel):
         self.disconnected_servers = []
 
         if not isinstance(servers_list, Iterable):
-            (
-                PrintStyle(
-                    background_color="grey", font_color="red", padding=True
-                ).print("MCPConfig::__init__::servers_list must be a list")
-            )
+            # (
+            #     PrintStyle(
+            #         background_color="grey", font_color="red", padding=True
+            #     ).print("MCPConfig::__init__::servers_list must be a list")
+            # )
             return
 
         for server_item in servers_list:
@@ -676,6 +685,7 @@ class MCPConfig(BaseModel):
                         "name": server.name,
                         "description": server.description,
                         "tools": tools,
+                        "disabled_tools": list(server.disabled_tools),
                     }
             return {}
 
@@ -695,12 +705,18 @@ class MCPConfig(BaseModel):
                     tools.append({f"{server.name}.{tool['name']}": tool_copy})
             return tools
 
-    def get_tools_prompt(self, server_name: str = "") -> str:
-        """Get a prompt for all tools"""
-
-        # just to wait for pending initialization
+    def get_tools_prompt(self, server_name: str = "", project_name: str = "") -> str:
         with self.__lock:
             pass
+
+        project_disabled: dict[str, list[str]] = {}
+        if project_name:
+            try:
+                from python.helpers import projects
+
+                project_disabled = projects.load_project_mcp_tools(project_name)
+            except Exception:
+                pass
 
         prompt = '## "Remote (MCP Server) Agent Tools" available:\n\n'
         server_names = []
@@ -713,41 +729,77 @@ class MCPConfig(BaseModel):
 
         for server in self.servers:
             if server.name in server_names:
-                server_name = server.name
-                prompt += f"### {server_name}\n"
+                current_server_name = server.name
+                disabled_for_project = project_disabled.get(current_server_name, [])
+                tools = [
+                    t
+                    for t in server.get_tools()
+                    if t["name"] not in disabled_for_project
+                ]
+
+                if not tools:
+                    continue
+
+                prompt += f"### {current_server_name}\n"
                 prompt += f"{server.description}\n"
-                tools = server.get_tools()
 
                 for tool in tools:
                     prompt += (
-                        f"\n### {server_name}.{tool['name']}:\n"
+                        f"\n### {current_server_name}.{tool['name']}:\n"
                         f"{tool['description']}\n\n"
-                        # f"#### Categories:\n"
-                        # f"* kind: MCP Server Tool\n"
-                        # f'* server: "{server_name}" ({server.description})\n\n'
-                        # f"#### Arguments:\n"
                     )
-
                     input_schema = (
                         json.dumps(tool["input_schema"]) if tool["input_schema"] else ""
                     )
-
                     prompt += f"#### Input schema for tool_args:\n{input_schema}\n"
-
                     prompt += "\n"
-
                     prompt += (
                         f"#### Usage:\n"
                         f"{{\n"
-                        # f'    "observations": ["..."],\n' # TODO: this should be a prompt file with placeholders
                         f'    "thoughts": ["..."],\n'
-                        # f'    "reflection": ["..."],\n' # TODO: this should be a prompt file with placeholders
-                        f"    \"tool_name\": \"{server_name}.{tool['name']}\",\n"
+                        f'    "tool_name": "{current_server_name}.{tool["name"]}",\n'
                         f'    "tool_args": !follow schema above\n'
                         f"}}\n"
                     )
-
         return prompt
+
+        # for server in self.servers:
+        #     if server.name in server_names:
+        #         server_name = server.name
+        #         prompt += f"### {server_name}\n"
+        #         prompt += f"{server.description}\n"
+        #         tools = server.get_tools()
+
+        #         for tool in tools:
+        #             prompt += (
+        #                 f"\n### {server_name}.{tool['name']}:\n"
+        #                 f"{tool['description']}\n\n"
+        #                 # f"#### Categories:\n"
+        #                 # f"* kind: MCP Server Tool\n"
+        #                 # f'* server: "{server_name}" ({server.description})\n\n'
+        #                 # f"#### Arguments:\n"
+        #             )
+
+        #             input_schema = (
+        #                 json.dumps(tool["input_schema"]) if tool["input_schema"] else ""
+        #             )
+
+        #             prompt += f"#### Input schema for tool_args:\n{input_schema}\n"
+
+        #             prompt += "\n"
+
+        #             prompt += (
+        #                 f"#### Usage:\n"
+        #                 f"{{\n"
+        #                 # f'    "observations": ["..."],\n' # TODO: this should be a prompt file with placeholders
+        #                 f'    "thoughts": ["..."],\n'
+        #                 # f'    "reflection": ["..."],\n' # TODO: this should be a prompt file with placeholders
+        #                 f"    \"tool_name\": \"{server_name}.{tool['name']}\",\n"
+        #                 f'    "tool_args": !follow schema above\n'
+        #                 f"}}\n"
+        #             )
+
+        # return prompt
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
@@ -763,7 +815,36 @@ class MCPConfig(BaseModel):
     def get_tool(self, agent: Any, tool_name: str) -> MCPTool | None:
         if not self.has_tool(tool_name):
             return None
-        return MCPTool(agent=agent, name=tool_name, method=None, args={}, message="", loop_data=None)
+
+        if self._is_tool_disabled_for_project(agent, tool_name):
+            return None
+
+        return MCPTool(
+            agent=agent,
+            name=tool_name,
+            method=None,
+            args={},
+            message="",
+            loop_data=None,
+        )
+
+    def _is_tool_disabled_for_project(self, agent: Any, tool_name: str) -> bool:
+        if "." not in tool_name:
+            return False
+
+        try:
+            from python.helpers import projects
+
+            project_name = projects.get_context_project_name(agent.context)
+            if not project_name:
+                return False
+
+            server_name, tool_name_part = tool_name.split(".", 1)
+            project_disabled = projects.load_project_mcp_tools(project_name)
+            disabled_tools = project_disabled.get(server_name, [])
+            return tool_name_part in disabled_tools
+        except Exception:
+            return False
 
     async def call_tool(
         self, tool_name: str, input_data: Dict[str, Any]
@@ -823,7 +904,6 @@ class MCPClientBase(ABC):
         try:
             async with AsyncExitStack() as temp_stack:
                 try:
-
                     stdio, write = await self._create_stdio_transport(temp_stack)
                     # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name} - {operation_name}): Transport created. Initializing session...")
                     session = await temp_stack.enter_async_context(
@@ -883,6 +963,7 @@ class MCPClientBase(ABC):
                         "input_schema": tool.inputSchema,
                     }
                     for tool in response.tools
+                    if tool.name not in self.server.disabled_tools
                 ]
             PrintStyle(font_color="green").print(
                 f"MCPClientBase ({self.server.name}): Tools updated. Found {len(self.tools)} tools."
@@ -926,11 +1007,14 @@ class MCPClientBase(ABC):
         self, tool_name: str, input_data: Dict[str, Any]
     ) -> CallToolResult:
         # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Preparing for 'call_tool' operation for tool '{tool_name}'.")
+        if tool_name in self.server.disabled_tools:
+            raise PermissionError(f"Tool '{tool_name}' is disabled by configuration.")
+
         if not self.has_tool(tool_name):
             PrintStyle(font_color="orange").print(
                 f"MCPClientBase ({self.server.name}): Tool '{tool_name}' not in cache for 'call_tool', refreshing tools..."
             )
-            await self.update_tools()  # This will use its own properly managed session
+            await self.update_tools()
             if not self.has_tool(tool_name):
                 PrintStyle(font_color="red").print(
                     f"MCPClientBase ({self.server.name}): Tool '{tool_name}' not found after refresh. Raising ValueError."
@@ -944,19 +1028,16 @@ class MCPClientBase(ABC):
 
         async def call_tool_op(current_session: ClientSession):
             set = settings.get_settings()
-            # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Executing 'call_tool' for '{tool_name}' via MCP session...")
             response: CallToolResult = await current_session.call_tool(
                 tool_name,
                 input_data,
                 read_timeout_seconds=timedelta(seconds=set["mcp_client_tool_timeout"]),
             )
-            # PrintStyle(font_color="green").print(f"MCPClientBase ({self.server.name}): Tool '{tool_name}' call successful via session.")
             return response
 
         try:
             return await self._execute_with_session(call_tool_op)
         except Exception as e:
-            # Error logged by _execute_with_session. Re-raise a specific error for the caller.
             PrintStyle(
                 background_color="#AA4455", font_color="white", padding=True
             ).print(
@@ -967,7 +1048,6 @@ class MCPClientBase(ABC):
             )
 
     def get_log(self):
-        # read and return lines from self.log_file, do not close it
         if not hasattr(self, "log_file") or self.log_file is None:
             return ""
         self.log_file.seek(0)
@@ -980,7 +1060,6 @@ class MCPClientBase(ABC):
 
 class MCPClientLocal(MCPClientBase):
     def __del__(self):
-        # close the log file if it exists
         if hasattr(self, "log_file") and self.log_file is not None:
             try:
                 self.log_file.close()
@@ -994,7 +1073,6 @@ class MCPClientLocal(MCPClientBase):
         MemoryObjectReceiveStream[SessionMessage | Exception],
         MemoryObjectSendStream[SessionMessage],
     ]:
-        """Connect to an MCP server, init client and save stdio/write streams"""
         server: MCPServerLocal = cast(MCPServerLocal, self.server)
 
         if not server.command:
@@ -1009,19 +1087,16 @@ class MCPClientLocal(MCPClientBase):
             encoding=server.encoding,
             encoding_error_handler=server.encoding_error_handler,
         )
-        # create a custom error log handler that will capture error output
         import tempfile
 
-        # use a temporary file for error logging (text mode) if not already present
         if not hasattr(self, "log_file") or self.log_file is None:
             self.log_file = tempfile.TemporaryFile(mode="w+", encoding="utf-8")
 
-        # use the stdio_client with our error log file
         stdio_transport = await current_exit_stack.enter_async_context(
             stdio_client(server_params, errlog=self.log_file)
         )
-        # do not read or close the file here, as stdio is async
         return stdio_transport
+
 
 class CustomHTTPClientFactory(ABC):
     def __init__(self, verify: bool = True):
@@ -1033,32 +1108,25 @@ class CustomHTTPClientFactory(ABC):
         timeout: httpx.Timeout | None = None,
         auth: httpx.Auth | None = None,
     ) -> httpx.AsyncClient:
-        # Set MCP defaults
         kwargs: dict[str, Any] = {
             "follow_redirects": True,
         }
-
-        # Handle timeout
         if timeout is None:
             kwargs["timeout"] = httpx.Timeout(30.0)
         else:
             kwargs["timeout"] = timeout
-
-        # Handle headers
         if headers is not None:
             kwargs["headers"] = headers
-
-        # Handle authentication
         if auth is not None:
             kwargs["auth"] = auth
 
         return httpx.AsyncClient(**kwargs, verify=self.verify)
 
-class MCPClientRemote(MCPClientBase):
 
+class MCPClientRemote(MCPClientBase):
     def __init__(self, server: Union[MCPServerLocal, MCPServerRemote]):
         super().__init__(server)
-        self.session_id: Optional[str] = None  # Track session ID for streaming HTTP clients
+        self.session_id: Optional[str] = None
         self.session_id_callback: Optional[Callable[[], Optional[str]]] = None
 
     async def _create_stdio_transport(
@@ -1067,18 +1135,14 @@ class MCPClientRemote(MCPClientBase):
         MemoryObjectReceiveStream[SessionMessage | Exception],
         MemoryObjectSendStream[SessionMessage],
     ]:
-        """Connect to an MCP server, init client and save stdio/write streams"""
         server: MCPServerRemote = cast(MCPServerRemote, self.server)
         set = settings.get_settings()
 
-        # Use lower timeouts for faster failure detection
         init_timeout = min(server.init_timeout or set["mcp_client_init_timeout"], 5)
         tool_timeout = min(server.tool_timeout or set["mcp_client_tool_timeout"], 10)
 
         client_factory = CustomHTTPClientFactory(verify=server.verify)
-        # Check if this is a streaming HTTP type
         if _is_streaming_http_type(server.type):
-            # Use streamable HTTP client
             transport_result = await current_exit_stack.enter_async_context(
                 streamablehttp_client(
                     url=server.url,
@@ -1088,15 +1152,10 @@ class MCPClientRemote(MCPClientBase):
                     httpx_client_factory=client_factory,
                 )
             )
-            # streamablehttp_client returns (read_stream, write_stream, get_session_id_callback)
             read_stream, write_stream, get_session_id_callback = transport_result
-
-            # Store session ID callback for potential future use
             self.session_id_callback = get_session_id_callback
-
             return read_stream, write_stream
         else:
-            # Use traditional SSE client (default behavior)
             stdio_transport = await current_exit_stack.enter_async_context(
                 sse_client(
                     url=server.url,
@@ -1109,7 +1168,6 @@ class MCPClientRemote(MCPClientBase):
             return stdio_transport
 
     def get_session_id(self) -> Optional[str]:
-        """Get the current session ID if available (for streaming HTTP clients)."""
         if self.session_id_callback is not None:
             return self.session_id_callback()
         return None

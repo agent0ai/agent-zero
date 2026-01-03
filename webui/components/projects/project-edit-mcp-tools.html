@@ -1,0 +1,226 @@
+<html>
+<head>
+    <title>Project MCP Tools</title>
+</head>
+<body>
+    <div x-data="{ 
+        servers: [], 
+        loading: true,
+        async loadTools() {
+            this.loading = true;
+            try {
+                const resp = await callJsonApi('project_mcp_tools', {
+                    action: 'list',
+                    project_name: $store.projects.selectedProject.name
+                });
+                if (resp.success) {
+                    this.servers = resp.servers;
+                }
+            } catch (e) {
+                console.error('Failed to load MCP tools:', e);
+            }
+            this.loading = false;
+        },
+        async toggleTool(serverName, toolName) {
+            try {
+                const resp = await callJsonApi('project_mcp_tools', {
+                    action: 'toggle',
+                    project_name: $store.projects.selectedProject.name,
+                    server_name: serverName,
+                    tool_name: toolName
+                });
+                if (resp.success) {
+                    const server = this.servers.find(s => s.name === serverName);
+                    if (server) {
+                        server.project_disabled_tools = resp.disabled_tools[serverName] || [];
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to toggle tool:', e);
+            }
+        },
+        isToolDisabled(server, toolName) {
+            return server.global_disabled_tools.includes(toolName) || 
+                   server.project_disabled_tools.includes(toolName);
+        },
+        isGloballyDisabled(server, toolName) {
+            return server.global_disabled_tools.includes(toolName);
+        }
+    }" x-init="loadTools()">
+        <p class="description">
+            Disable MCP tools for this project. Globally disabled tools are shown but cannot be toggled here.
+        </p>
+
+        <div x-show="loading" class="loading-indicator">
+            Loading MCP tools...
+        </div>
+
+        <div x-show="!loading && servers.length === 0" class="no-servers">
+            No MCP servers with tools available.
+        </div>
+
+        <template x-for="server in servers" :key="server.name">
+            <div class="server-section">
+                <div class="server-header">
+                    <span class="server-name" x-text="server.name"></span>
+                    <span class="server-description" x-text="server.description"></span>
+                </div>
+                <div class="tools-list">
+                    <template x-for="tool in server.tools" :key="tool.name">
+                        <div class="tool-item" :class="{ 'disabled-global': isGloballyDisabled(server, tool.name) }">
+                            <div class="tool-info">
+                                <span class="tool-name" x-text="tool.name"></span>
+                                <span class="tool-description" x-text="tool.description || '-'"></span>
+                            </div>
+                            <div class="tool-toggle">
+                                <template x-if="isGloballyDisabled(server, tool.name)">
+                                    <span class="disabled-badge">Globally disabled</span>
+                                </template>
+                                <template x-if="!isGloballyDisabled(server, tool.name)">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" 
+                                               :checked="!isToolDisabled(server, tool.name)"
+                                               @change="toggleTool(server.name, tool.name)">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .description {
+            color: var(--c-fg2);
+            font-size: 0.9em;
+            margin-bottom: 1em;
+        }
+
+        .loading-indicator, .no-servers {
+            text-align: center;
+            padding: 1em;
+            color: var(--c-fg2);
+        }
+
+        .server-section {
+            margin-bottom: 1.5em;
+            border: 1px solid var(--color-border);
+            border-radius: 0.5em;
+            overflow: hidden;
+        }
+
+        .server-header {
+            background: var(--color-panel-darker);
+            padding: 0.75em 1em;
+            display: flex;
+            align-items: center;
+            gap: 1em;
+        }
+
+        .server-name {
+            font-weight: 600;
+        }
+
+        .server-description {
+            color: var(--c-fg2);
+            font-size: 0.9em;
+        }
+
+        .tools-list {
+            padding: 0.5em;
+        }
+
+        .tool-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5em 0.75em;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .tool-item:last-child {
+            border-bottom: none;
+        }
+
+        .tool-item.disabled-global {
+            opacity: 0.6;
+        }
+
+        .tool-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25em;
+        }
+
+        .tool-name {
+            font-family: monospace;
+            color: var(--c-accent);
+        }
+
+        .tool-description {
+            font-size: 0.85em;
+            color: var(--c-fg2);
+        }
+
+        .tool-toggle {
+            flex-shrink: 0;
+        }
+
+        .disabled-badge {
+            font-size: 0.75em;
+            color: var(--c-fg2);
+            background: var(--color-panel-darker);
+            padding: 0.25em 0.5em;
+            border-radius: 0.25em;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--color-panel-darker);
+            transition: 0.3s;
+            border-radius: 22px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--c-accent);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(18px);
+        }
+    </style>
+</body>
+</html>
