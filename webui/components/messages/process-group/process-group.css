@@ -155,7 +155,7 @@
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
-/* TOOL - tool type (amber/yellow) */
+/* USE - tool usage (amber/yellow) */
 .status-tool {
   background-color: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
@@ -512,7 +512,7 @@
 .process-step-detail-content .step-kvps {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
+  gap: var(--spacing-sm);
 }
 
 .process-step-detail-content .step-kvp {

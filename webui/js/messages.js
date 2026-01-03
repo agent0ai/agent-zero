@@ -13,6 +13,49 @@ const chatHistory = document.getElementById("chat-history");
 let messageGroup = null;
 let currentProcessGroup = null; // Track current process group for collapsible UI
 
+/**
+ * Resolve tool name from kvps, existing attribute, or previous siblings
+ * For 'tool' type steps, inherits from preceding step if not directly available
+ */
+function resolveToolName(type, kvps, stepElement) {
+  // Direct from kvps
+  if (kvps?.tool_name) return kvps.tool_name;
+  
+  // Keep existing if present (for non-tool types during updates)
+  if (type !== 'tool' && stepElement?.hasAttribute('data-tool-name')) {
+    return stepElement.getAttribute('data-tool-name');
+  }
+  
+  // Inherit from previous sibling (for tool steps)
+  if (type === 'tool' && stepElement) {
+    let prev = stepElement.previousElementSibling;
+    while (prev) {
+      if (prev.hasAttribute('data-tool-name')) {
+        return prev.getAttribute('data-tool-name');
+      }
+      prev = prev.previousElementSibling;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Update status badge text content while preserving the icon
+ */
+function updateBadgeText(badge, newCode) {
+  if (!badge) return;
+  
+  // Find and update text node, or append new one
+  for (const node of badge.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+      node.textContent = newCode;
+      return;
+    }
+  }
+  badge.appendChild(document.createTextNode(newCode));
+}
+
 // Process types that should be grouped into collapsible sections
 const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'progress', 'info', 'hint', 'util', 'warning'];
 // Main types that should always be visible (not collapsed)
@@ -1182,6 +1225,19 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   step.setAttribute("data-type", type);
   step.setAttribute("data-step-id", id);
   
+  // Resolve tool name (direct, inherited, or null)
+  // For new steps, pass null as stepElement - inheritance uses stepsContainer query
+  let toolNameToUse = kvps?.tool_name;
+  if (type === 'tool' && !toolNameToUse) {
+    const existingSteps = stepsContainer.querySelectorAll('.process-step[data-tool-name]');
+    if (existingSteps.length > 0) {
+      toolNameToUse = existingSteps[existingSteps.length - 1].getAttribute("data-tool-name");
+    }
+  }
+  if (toolNameToUse) {
+    step.setAttribute("data-tool-name", toolNameToUse);
+  }
+  
   // Store timestamp for duration calculation
   if (timestamp) {
     step.setAttribute("data-timestamp", timestamp);
@@ -1227,7 +1283,7 @@ function addProcessStep(group, id, type, heading, content, kvps, timestamp = nul
   stepHeader.classList.add("process-step-header");
   
   // Status code and color class from store (maps backend types)
-  const statusCode = processGroupStore.getStepCode(type);
+  const statusCode = processGroupStore.getStepCode(type, toolNameToUse);
   const statusColorClass = processGroupStore.getStatusColorClass(type);
   
   // Icon extracted from heading (backend sends icon://xxx), fallback to type-based
@@ -1288,6 +1344,14 @@ function updateProcessStep(stepElement, id, type, heading, content, kvps, durati
   // Update duration from backend
   if (durationMs != null) {
     stepElement.setAttribute("data-duration-ms", durationMs);
+  }
+  
+  // Resolve and update tool name + badge
+  const toolNameToUse = resolveToolName(type, kvps, stepElement);
+  if (toolNameToUse) {
+    stepElement.setAttribute("data-tool-name", toolNameToUse);
+    const newCode = processGroupStore.getStepCode(type, toolNameToUse);
+    updateBadgeText(stepElement.querySelector(".status-badge"), newCode);
   }
   
   // Update detail content
@@ -1628,12 +1692,13 @@ function updateProcessGroupHeader(group) {
     // Get the last step's type for status
     const lastStep = steps[steps.length - 1];
     const lastType = lastStep.getAttribute("data-type");
+    const lastToolName = lastStep.getAttribute("data-tool-name");
     const lastTitle = lastStep.querySelector(".step-title")?.textContent || "";
     
     // Update status badge with icon (keep status-active during execution)
     if (statusEl) {
       // Status code and color class from store (maps backend types)
-      const statusCode = processGroupStore.getStepCode(lastType);
+      const statusCode = processGroupStore.getStepCode(lastType, lastToolName);
       const statusColorClass = processGroupStore.getStatusColorClass(lastType);
       // Get icon from the last step's badge, fallback to type-based
       const lastStepBadge = lastStep.querySelector(".badge-icon");

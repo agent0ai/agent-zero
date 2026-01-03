@@ -1,6 +1,43 @@
 import { createStore } from "/js/AlpineStore.js";
 
 // Process Group Store - manages collapsible process groups in chat
+
+// Unified mapping for both Tool Names and Step Types
+// Specific tool names (keys) take precedence over generic types
+const DISPLAY_CODES = {
+  // --- Specific Tools ---
+  'call_subordinate': 'SUB',
+  'search_engine': 'WEB',
+  'a2a_chat': 'A2A',
+  'behaviour_adjustment': 'ADJ',
+  'document_query': 'DOC',
+  'vision_load': 'EYE',
+  'notify_user': 'NTF',
+  'scheduler': 'SCH',
+  'unknown': 'UNK',
+  // Memory operations group
+  'memory_save': 'MEM',
+  'memory_load': 'MEM',
+  'memory_forget': 'MEM',
+  'memory_delete': 'MEM',
+
+  // --- Step Types ---
+  'agent': 'GEN',
+  'response': 'END',
+  'tool': 'USE',       // Generic fallback for tools
+  'code_exe': 'EXE',
+  'browser': 'BRW',
+  'progress': 'HLD',
+  'subagent': 'SUB',   // Type fallback if tool name missing
+  'mcp': 'MCP',
+  'info': 'INF',
+  'hint': 'HNT',
+  'warning': 'WRN',
+  'error': 'ERR',
+  'util': 'UTL',
+  'done': 'END'
+};
+
 const model = {
   // Track which process groups are expanded (by group ID)
   expandedGroups: {},
@@ -101,24 +138,16 @@ const model = {
   },
 
   // Status code (3-4 letter) for backend log types
-  getStepCode(type) {
-    const codes = {
-      'agent': 'GEN',
-      'response': 'END',
-      'tool': 'TOOL',
-      'mcp': 'MCP',
-      'subagent': 'SUB',
-      'code_exe': 'EXE',
-      'browser': 'BRW',
-      'progress': 'WAIT',
-      'info': 'INF',
-      'hint': 'HNT',
-      'warning': 'WRN',
-      'error': 'ERR',
-      'util': 'UTL',
-      'done': 'END'
-    };
-    return codes[type] || type?.toUpperCase()?.slice(0, 4) || 'GEN';
+  // Looks up tool name first (specific), then falls back to type (generic)
+  getStepCode(type, toolName = null) {
+    // Specific tool codes only apply to generic 'tool' steps
+    if (type === 'tool' && toolName && DISPLAY_CODES[toolName]) {
+      return DISPLAY_CODES[toolName];
+    }
+
+    return DISPLAY_CODES[type] || 
+           type?.toUpperCase()?.slice(0, 4) || 
+           'GEN';
   },
 
   // CSS color class for backend log types
