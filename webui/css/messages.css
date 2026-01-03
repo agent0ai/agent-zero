@@ -96,6 +96,8 @@
 
 .message-user .message-text pre {
   font-family: var(--font-family-main);
+  text-align: right;
+  margin-left: 25%;
 }
 
 .message-ai {

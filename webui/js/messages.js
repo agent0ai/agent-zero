@@ -1680,12 +1680,28 @@ function updateProcessGroupHeader(group) {
     timeMetricEl.textContent = `${hours}:${minutes}`;
   }
   
-  // Update duration metric - live timer while not completed
+  // Update duration metric
   const durationMetricEl = metricsEl?.querySelector(".metric-duration .metric-value");
-  if (durationMetricEl && startTimestamp) {
-    const startMs = parseFloat(startTimestamp) * 1000;
-    const elapsedMs = Date.now() - startMs;
-    durationMetricEl.textContent = formatDuration(elapsedMs);
+  if (durationMetricEl && steps.length > 0) {
+    // Calculate accumulated duration from backend data
+    let accumulatedMs = 0;
+    steps.forEach(step => {
+      accumulatedMs += parseInt(step.getAttribute("data-duration-ms") || "0", 10);
+    });
+    
+    // Check if last step is still in progress (no duration_ms set yet)
+    const lastStep = steps[steps.length - 1];
+    const lastStepDuration = lastStep.getAttribute("data-duration-ms");
+    const lastStepTimestamp = lastStep.getAttribute("data-timestamp");
+    
+    if (lastStepDuration == null && lastStepTimestamp) {
+      // Last step is in progress - add live elapsed time for this step only
+      const lastStepStartMs = parseFloat(lastStepTimestamp) * 1000;
+      const liveElapsedMs = Math.max(0, Date.now() - lastStepStartMs);
+      accumulatedMs += liveElapsedMs;
+    }
+    
+    durationMetricEl.textContent = formatDuration(accumulatedMs);
   }
   
   if (steps.length > 0) {
