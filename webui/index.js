@@ -184,8 +184,8 @@ async function updateUserTime() {
 updateUserTime();
 setInterval(updateUserTime, 1000);
 
-function setMessage(id, type, heading, content, temp, kvps = null) {
-  const result = msgs.setMessage(id, type, heading, content, temp, kvps);
+function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, /* tokensIn = 0, tokensOut = 0, */ agentNumber = 0) {
+  const result = msgs.setMessage(id, type, heading, content, temp, kvps, timestamp, durationMs, /* tokensIn, tokensOut, */ agentNumber);
   const chatHistoryEl = document.getElementById("chat-history");
   if (preferencesStore.autoScroll && chatHistoryEl) {
     chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
@@ -292,6 +292,7 @@ export async function poll() {
     if (lastLogGuid != response.log_guid) {
       const chatHistoryEl = document.getElementById("chat-history");
       if (chatHistoryEl) chatHistoryEl.innerHTML = "";
+      msgs.resetProcessGroups(); // Reset process groups on chat reset
       lastLogVersion = 0;
       lastLogGuid = response.log_guid;
       await poll();
@@ -308,7 +309,12 @@ export async function poll() {
           log.heading,
           log.content,
           log.temp,
-          log.kvps
+          log.kvps,
+          log.timestamp,
+          log.duration_ms,
+          // log.tokens_in,
+          // log.tokens_out,
+          log.agent_number || 0  // Agent number for identifying main/subordinate agents
         );
       }
       afterMessagesUpdate(response.logs);
@@ -481,6 +487,9 @@ export const setContext = function (id) {
 
   // Stop speech when switching chats
   speechStore.stopAudio();
+
+  // Reset process groups for new context
+  msgs.resetProcessGroups();
 
   // Clear the chat history immediately to avoid showing stale content
   const chatHistoryEl = document.getElementById("chat-history");

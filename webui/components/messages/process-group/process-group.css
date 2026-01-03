@@ -1,0 +1,838 @@
+.process-group {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  margin: var(--spacing-xs) 0;
+  padding: var(--spacing-xs) 0;
+  min-width: 200px;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: fit-content;
+}
+
+/* Embedded Process Group inside Response */
+.process-group.embedded {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+/* Message container with embedded process group */
+.message-container.has-process-group {
+  display: inline-flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  min-width: 200px;
+  max-width: 100%;
+}
+
+.message-container.has-process-group > .message {
+  border: none;
+  background: transparent;
+  margin: 0;
+}
+
+/* Process Group Header */
+.process-group-header {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease;
+  min-height: 22px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.process-group-header:hover {
+  opacity: 0.85;
+}
+
+/* Expand/collapse triangle - CSS-only (no Material Icons) */
+.process-group-header .expand-icon {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent var(--color-text);
+  opacity: 0.5;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+  flex-shrink: 0;
+  font-size: 0; /* Hide any text content */
+  margin-right: 2px;
+}
+
+.process-group-header:hover .expand-icon {
+  opacity: 0.8;
+}
+
+.process-group.expanded .process-group-header .expand-icon {
+  transform: rotate(90deg);
+}
+
+/* Group icon removed - using status badges */
+.process-group-header .group-icon {
+  display: none;
+}
+
+/* Group title - prominent display */
+.process-group-header .group-title {
+  flex: 0 1 auto;
+  font-size: var(--font-size-smaller);
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 350px;
+}
+
+/* Step count badge */
+.process-group-header .step-count {
+  font-size: 0.65rem;
+  color: var(--color-text);
+  opacity: 0.5;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  font-family: var(--font-family-code);
+}
+
+/* ===========================================
+   3-Letter Status Code Badges
+   =========================================== */
+
+/* Base status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: var(--font-family-code);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Status badge with icon */
+.status-badge .material-symbols-outlined {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+/* Badge icon styling */
+.status-badge .badge-icon {
+  font-size: 0.7rem;
+  margin-right: 2px;
+  opacity: 0.9;
+}
+
+/* Status colors - mapped from backend types via store */
+
+/* GEN - agent type (blue/cyan) */
+.status-gen {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* END - response/done type (green) */
+.status-end {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* USE - tool usage (amber/yellow) */
+.status-tool {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* MCP - mcp type (amber/yellow) */
+.status-mcp {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* SUB - subagent type (teal) */
+.status-sub {
+  background-color: rgba(20, 184, 166, 0.15);
+  color: #14b8a6;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+}
+
+/* EXE - code_exe type (magenta/purple) */
+.status-exe {
+  background-color: rgba(186, 104, 200, 0.15);
+  color: #ba68c8;
+  border: 1px solid rgba(186, 104, 200, 0.3);
+}
+
+/* BRW - browser type (indigo) */
+.status-brw {
+  background-color: rgba(129, 140, 248, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(129, 140, 248, 0.3);
+}
+
+/* WAIT - progress type (slate) */
+.status-wait {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* INF - info type (gray) */
+.status-inf {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* HNT - hint type (yellow-green) */
+.status-hnt {
+  background-color: rgba(163, 230, 53, 0.15);
+  color: #a3e635;
+  border: 1px solid rgba(163, 230, 53, 0.3);
+}
+
+/* WRN - warning type (orange) */
+.status-wrn {
+  background-color: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+/* ERR - error type (red) */
+.status-err {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* UTL - util type (gray-blue) */
+.status-utl {
+  background-color: rgba(100, 116, 139, 0.15);
+  color: #64748b;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+/* USR - user type (sky) */
+.status-usr {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Animated spinner for active status (CSS-only, no Material Icons) */
+.status-badge.status-active::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Don't show spinner pseudo-element on END/ERR (they have their own indicators) */
+.status-badge.status-end::after,
+.status-badge.status-err::after {
+  display: none;
+}
+
+/* END status with checkmark icon (icon added via JS, no ::before needed) */
+
+/* Completed process group styling */
+.process-group-completed {
+  opacity: 0.95;
+}
+
+.process-group-completed .group-status {
+  font-weight: 700;
+}
+
+/* Subtle completion indicator on the expand icon */
+.process-group-completed .expand-icon {
+  color: #22c55e;
+}
+
+/* Group status badge in header */
+.process-group-header .group-status {
+  margin-left: var(--spacing-xs);
+}
+
+/* Metrics row */
+.process-group-header .group-metrics {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-family: var(--font-family-code);
+  color: var(--color-text);
+  opacity: 0.8;
+}
+
+.process-group-header .group-metrics .material-symbols-outlined {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.process-group-header .group-metrics span[class^="metric-"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Legacy timestamp/duration (for backwards compatibility) */
+.process-group-header .group-timestamp {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.65);
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  display: none; /* Hidden, replaced by metrics */
+}
+
+.process-group-header .group-duration {
+  font-size: 0.7rem;
+  color: #81c784;
+  flex-shrink: 0;
+  font-family: var(--font-family-code);
+  min-width: 40px;
+  text-align: right;
+  display: none; /* Hidden, replaced by metrics */
+}
+
+/* Process Group Content - Animated expand/collapse */
+.process-group-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px solid transparent;
+  transition: grid-template-rows 0.25s ease-out, 
+              opacity 0.2s ease-out,
+              margin-top 0.25s ease-out,
+              padding-top 0.25s ease-out,
+              border-color 0.2s ease-out;
+  overflow: hidden;
+}
+
+.process-group-content > .process-steps {
+  min-height: 0;
+}
+
+.process-group.expanded .process-group-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Process Steps List */
+.process-steps {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Individual Process Step */
+.process-step {
+  display: flex;
+  flex-direction: column;
+  padding: 1px var(--spacing-xs);
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+/* Utility/Info/Hint steps have subtle background tint */
+.process-step[data-type="util"],
+.process-step[data-type="info"],
+.process-step[data-type="hint"] {
+  background-color: rgba(120, 115, 100, 0);
+}
+
+.process-step[data-type="util"]:hover,
+.process-step[data-type="info"]:hover,
+.process-step[data-type="hint"]:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+
+.light-mode .process-step[data-type="util"]:hover,
+.light-mode .process-step[data-type="info"]:hover,
+.light-mode .process-step[data-type="hint"]:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Step Header (clickable) */
+.process-step-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  gap: 4px;
+  min-height: 18px;
+}
+
+/* Step icon removed - using status badges instead */
+.process-step-header .step-icon {
+  display: none;
+}
+
+/* Step type label removed - using status badges instead */
+.process-step-header .step-type {
+  display: none;
+}
+
+/* Step title */
+.process-step-header .step-title {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: var(--spacing-xs);
+}
+
+/* Step expand icon - CSS triangle (no Material Icons) */
+.process-step-header .step-expand-icon {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 3px 0 3px 5px;
+  border-color: transparent transparent transparent var(--color-text);
+  opacity: 0.4;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+  flex-shrink: 0;
+  font-size: 0; /* Hide any text content */
+  margin-right: 2px;
+}
+
+.process-step-header:hover .step-expand-icon {
+  opacity: 0.7;
+}
+
+.process-step.step-expanded .step-expand-icon {
+  transform: rotate(90deg);
+}
+
+/* Step Detail Content - Animated expand/collapse */
+.process-step-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.2s ease-out, opacity 0.15s ease-out;
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  overscroll-behavior: contain; /* avoid scroll chaining */
+}
+  /* Hide scrollbar for Chrome/Safari/Webkit */
+.process-step-detail::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.process-step-detail-content::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.process-step-detail > .process-step-detail-content {
+  min-height: 0;
+}
+
+.process-step.step-expanded .process-step-detail {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  overflow: visible;
+}
+
+.process-step-detail-content {
+  padding: var(--spacing-xs) 0;
+  margin-top: var(--spacing-xxs);
+  margin-left: 20px; /* Align with icon */
+  background-color: transparent;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  overscroll-behavior: contain; /* avoid scroll chaining */
+}
+
+.process-step-detail-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-family-code);
+  font-size: 0.7rem;
+  color: var(--color-text);
+  opacity: 0.8;
+}
+
+/* KVPs in step detail */
+.process-step-detail-content .step-kvps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.process-step-detail-content .step-kvp {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: flex-start;
+}
+
+.process-step-detail-content .step-kvp-key {
+  color: var(--color-primary);
+  font-weight: 500;
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: fit-content;
+}
+
+.process-step-detail-content .step-kvp-key .material-symbols-outlined {
+  font-size: 0.9rem;
+}
+
+.process-step-detail-content .step-kvp-value {
+  flex: 1;
+  color: var(--color-text);
+  opacity: 0.75;
+  word-break: break-word;
+  white-space: pre-wrap;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+/* Thoughts styling - single icon with plain text */
+.process-step-detail-content .step-thoughts {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: var(--spacing-xs) 0;
+}
+
+.process-step-detail-content .thought-icon {
+  font-size: 0.85rem;
+  color: #fbbf24;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.process-step-detail-content .thought-text {
+  font-size: 0.72rem;
+  color: var(--color-text);
+  opacity: 0.65;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Light mode thoughts */
+.light-mode .process-step-detail-content .thought-icon {
+  color: #b45309;
+}
+
+/* Tool arguments structured display - clean label:value format without boxes */
+.process-step-detail-content .step-tool-args {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--spacing-xs) 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border-left: none;
+}
+
+.process-step-detail-content .tool-arg-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.process-step-detail-content .tool-arg-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.process-step-detail-content .tool-arg-label .material-symbols-outlined {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.process-step-detail-content .tool-arg-value {
+  font-size: 0.7rem;
+  color: var(--color-text);
+  opacity: 0.85;
+  word-break: break-word;
+  font-family: var(--font-family-code);
+}
+
+/* Light mode tool args - transparent like dark mode */
+.light-mode .process-step-detail-content .step-tool-args {
+  background: transparent;
+  border-left-color: transparent;
+}
+
+.process-step-detail-content .step-tool-header .tool-icon {
+  font-size: 0.85rem;
+  color: var(--color-warning);
+  opacity: 0.85;
+}
+
+.process-step-detail-content .step-tool-header .tool-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-warning);
+  opacity: 0.85;
+}
+
+.process-step-detail-content .step-tool-header .tool-name {
+  font-size: 0.72rem;
+  color: var(--color-text);
+  opacity: 0.85;
+}
+
+/* Terminal-style output for code_exe */
+.process-step-detail-content .step-terminal {
+  margin: var(--spacing-xs) 0;
+  font-family: var(--font-family-code);
+  font-size: 0.72rem;
+}
+
+.process-step-detail-content .terminal-output {
+  margin: var(--spacing-xs) 0 0 0;
+  padding: var(--spacing-xs);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  overscroll-behavior: contain; /* avoid scroll chaining */
+}
+
+.process-step-detail-content .terminal-output::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Light mode terminal */
+.light-mode .process-step-detail-content .terminal-output {
+  background: rgba(0, 0, 0, 0.05);
+  color: #24292f;
+}
+
+/* Light mode adjustments */
+.light-mode .process-group.expanded .process-group-content {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.light-mode .process-step-detail-content {
+  background-color: transparent;
+}
+
+/* Light mode text colors for process group */
+.light-mode .process-group-header .group-title,
+.light-mode .process-step-header .step-title {
+  color: var(--color-text);
+}
+
+/* Light mode status badge adjustments for better contrast */
+.light-mode .status-gen {
+  background-color: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+  border-color: rgba(14, 165, 233, 0.25);
+}
+
+.light-mode .status-end {
+  background-color: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.25);
+}
+
+.light-mode .status-tool {
+  background-color: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.light-mode .status-mcp {
+  background-color: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.light-mode .status-sub {
+  background-color: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+  border-color: rgba(13, 148, 136, 0.25);
+}
+
+.light-mode .status-exe {
+  background-color: rgba(147, 51, 234, 0.12);
+  color: #7c3aed;
+  border-color: rgba(147, 51, 234, 0.25);
+}
+
+.light-mode .status-brw {
+  background-color: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.light-mode .status-wait {
+  background-color: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.25);
+}
+
+.light-mode .status-inf {
+  background-color: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.25);
+}
+
+.light-mode .status-hnt {
+  background-color: rgba(132, 204, 22, 0.12);
+  color: #65a30d;
+  border-color: rgba(132, 204, 22, 0.25);
+}
+
+.light-mode .status-wrn {
+  background-color: rgba(234, 88, 12, 0.12);
+  color: #c2410c;
+  border-color: rgba(234, 88, 12, 0.25);
+}
+
+.light-mode .status-err {
+  background-color: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+.light-mode .status-utl {
+  background-color: rgba(71, 85, 105, 0.12);
+  color: #334155;
+  border-color: rgba(71, 85, 105, 0.25);
+}
+
+.light-mode .status-usr {
+  background-color: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+  border-color: rgba(14, 165, 233, 0.25);
+}
+
+/* Animation for loading state */
+@keyframes pulse-step {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+.process-step.loading .step-icon {
+  animation: pulse-step 1.2s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .process-group {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .process-step-header .step-type {
+    display: none;
+  }
+  
+  .process-step-header .step-title {
+    font-size: 0.7rem;
+  }
+  
+  .process-step-detail-content {
+    margin-left: 16px;
+  }
+}
+
+/* ===========================================
+   Preferences Visibility Controls
+   These rules work with preferences-store toggles
+   =========================================== */
+
+/* Utility steps - default hidden (controlled by showUtils) */
+.process-step.message-util {
+  display: none;
+}
+
+.process-step.message-util.show-util {
+  display: flex;
+}
+
+/* Thoughts KVP row - default visible (controlled by showThoughts) */
+.step-kvp.msg-thoughts {
+  display: flex;
+}
+
+.step-kvp.msg-thoughts.hide-thoughts {
+  display: none;
+}
+
+/* JSON pre content - default hidden (controlled by showJson) */
+.process-step-detail-content pre.msg-json {
+  display: none;
+}
+
+.process-step-detail-content pre.msg-json.show-json {
+  display: block;
+  margin-top: var(--spacing-xs);
+}

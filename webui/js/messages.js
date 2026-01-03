@@ -4,22 +4,138 @@ import { marked } from "../vendor/marked/marked.esm.js";
 import { store as _messageResizeStore } from "/components/messages/resize/message-resize-store.js"; // keep here, required in html
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { addActionButtonsToElement } from "/components/messages/action-buttons/simple-action-buttons.js";
+import { store as processGroupStore } from "/components/messages/process-group/process-group-store.js";
+import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
+import { formatDuration } from "./time-utils.js";
 
 const chatHistory = document.getElementById("chat-history");
 
 let messageGroup = null;
+let currentProcessGroup = null; // Track current process group for collapsible UI
 
-// Simplified implementation - no complex interactions needed
+/**
+ * Resolve tool name from kvps, existing attribute, or previous siblings
+ * For 'tool' type steps, inherits from preceding step if not directly available
+ */
+function resolveToolName(type, kvps, stepElement) {
+  // Direct from kvps
+  if (kvps?.tool_name) return kvps.tool_name;
+  
+  // Keep existing if present (for non-tool types during updates)
+  if (type !== 'tool' && stepElement?.hasAttribute('data-tool-name')) {
+    return stepElement.getAttribute('data-tool-name');
+  }
+  
+  // Inherit from previous sibling (for tool steps)
+  if (type === 'tool' && stepElement) {
+    let prev = stepElement.previousElementSibling;
+    while (prev) {
+      if (prev.hasAttribute('data-tool-name')) {
+        return prev.getAttribute('data-tool-name');
+      }
+      prev = prev.previousElementSibling;
+    }
+  }
+  
+  return null;
+}
 
-export function setMessage(id, type, heading, content, temp, kvps = null) {
+/**
+ * Update status badge text content while preserving the icon
+ */
+function updateBadgeText(badge, newCode) {
+  if (!badge) return;
+  
+  // Find and update text node, or append new one
+  for (const node of badge.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+      node.textContent = newCode;
+      return;
+    }
+  }
+  badge.appendChild(document.createTextNode(newCode));
+}
+
+// Process types that should be grouped into collapsible sections
+const PROCESS_TYPES = ['agent', 'tool', 'code_exe', 'browser', 'progress', 'info', 'hint', 'util', 'warning'];
+// Main types that should always be visible (not collapsed)
+const MAIN_TYPES = ['user', 'response', 'error', 'rate_limit'];
+
+export function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, agentNumber = 0) {
+  // Check if this is a process type message
+  const isProcessType = PROCESS_TYPES.includes(type);
+  const isMainType = MAIN_TYPES.includes(type);
+  
   // Search for the existing message container by id
   let messageContainer = document.getElementById(`message-${id}`);
+  let processStepElement = document.getElementById(`process-step-${id}`);
   let isNewMessage = false;
 
-  if (messageContainer) {
-    // Don't clear innerHTML - we'll do incremental updates
-    // messageContainer.innerHTML = "";
-  } else {
+  // For user messages, close current process group FIRST (start fresh for next interaction)
+  if (type === "user") {
+    currentProcessGroup = null;
+  }
+
+  // For process types, check if we should add to process group
+  if (isProcessType) {
+    if (processStepElement) {
+      // Update existing process step
+      updateProcessStep(processStepElement, id, type, heading, content, kvps, durationMs);
+      return processStepElement;
+    }
+    
+    // Create or get process group for current interaction
+    if (!currentProcessGroup || !document.getElementById(currentProcessGroup.id)) {
+      currentProcessGroup = createProcessGroup(id);
+      chatHistory.appendChild(currentProcessGroup);
+    }
+    
+    // Add step to current process group
+    processStepElement = addProcessStep(currentProcessGroup, id, type, heading, content, kvps, timestamp, durationMs);
+    return processStepElement;
+  }
+
+  // For subordinate agent responses (A1, A2, ...), treat as a process step instead of main response
+  // agentNumber: 0 = main agent, 1+ = subordinate agents
+  if (type === "response" && agentNumber !== 0) {
+    if (processStepElement) {
+      updateProcessStep(processStepElement, id, "agent", heading, content, kvps, durationMs);
+      return processStepElement;
+    }
+    
+    // Create or get process group for current interaction
+    if (!currentProcessGroup || !document.getElementById(currentProcessGroup.id)) {
+      currentProcessGroup = createProcessGroup(id);
+      chatHistory.appendChild(currentProcessGroup);
+    }
+    
+    // Add subordinate response as a step (type "agent" for appropriate styling)
+    processStepElement = addProcessStep(currentProcessGroup, id, "agent", heading, content, kvps, timestamp, durationMs);
+    return processStepElement;
+  }
+
+  // For main agent (A0) response, embed the current process group and mark as complete
+  if (type === "response" && currentProcessGroup) {
+    const processGroupToEmbed = currentProcessGroup;
+    // Keep currentProcessGroup reference - subsequent process messages go to same group
+    
+    // Mark process group as complete (END state)
+    markProcessGroupComplete(processGroupToEmbed, heading);
+    
+    if (!messageContainer) {
+      // Create new container with embedded process group
+      messageContainer = createResponseContainerWithProcessGroup(id, processGroupToEmbed);
+      isNewMessage = true;
+    } else {
+      // Check if already embedded
+      const existingEmbedded = messageContainer.querySelector(".process-group");
+      if (!existingEmbedded && processGroupToEmbed) {
+        embedProcessGroup(messageContainer, processGroupToEmbed);
+      }
+    }
+  }
+
+  if (!messageContainer) {
     // Create a new container if not found
     isNewMessage = true;
     const sender = type === "user" ? "user" : "ai";
@@ -46,7 +162,8 @@ export function setMessage(id, type, heading, content, temp, kvps = null) {
     };
     //force new group on these types
     const groupStart = {
-      agent: true,
+      response: true, // response starts a new group
+      user: true, // user message starts a new group (each user message should be separate)
       // anything else is false
     };
 
@@ -133,42 +250,6 @@ export function _drawMessage(
 
   // Update message classes
   messageDiv.className = `message ${mainClass} ${messageClasses.join(" ")}`;
-
-  // Handle heading
-  if (heading) {
-    let headingElement = messageDiv.querySelector(".msg-heading");
-    if (!headingElement) {
-      headingElement = document.createElement("div");
-      headingElement.classList.add("msg-heading");
-      messageDiv.insertBefore(headingElement, messageDiv.firstChild);
-    }
-
-    let headingH4 = headingElement.querySelector("h4");
-    if (!headingH4) {
-      headingH4 = document.createElement("h4");
-      headingElement.appendChild(headingH4);
-    }
-    headingH4.innerHTML = convertIcons(escapeHTML(heading));
-
-    if (resizeBtns) {
-      let minMaxBtn = headingElement.querySelector(".msg-min-max-btns");
-      if (!minMaxBtn) {
-        minMaxBtn = document.createElement("div");
-        minMaxBtn.classList.add("msg-min-max-btns");
-        minMaxBtn.innerHTML = `
-          <a href="#" class="msg-min-max-btn" @click.prevent="$store.messageResize.minimizeMessageClass('${mainClass}', $event)"><span class="material-symbols-outlined" x-text="$store.messageResize.getSetting('${mainClass}').minimized ? 'expand_content' : 'minimize'"></span></a>
-          <a href="#" class="msg-min-max-btn" x-show="!$store.messageResize.getSetting('${mainClass}').minimized" @click.prevent="$store.messageResize.maximizeMessageClass('${mainClass}', $event)"><span class="material-symbols-outlined" x-text="$store.messageResize.getSetting('${mainClass}').maximized ? 'expand' : 'expand_all'"></span></a>
-        `;
-        headingElement.appendChild(minMaxBtn);
-      }
-    }
-  } else {
-    // Remove heading if it exists but heading is null
-    const existingHeading = messageDiv.querySelector(".msg-heading");
-    if (existingHeading) {
-      existingHeading.remove();
-    }
-  }
 
   // Find existing body div or create new one
   let bodyDiv = messageDiv.querySelector(".message-body");
@@ -413,14 +494,11 @@ export function drawMessageUser(
     messageDiv.className = "message message-user";
   }
 
-  // Handle heading
+  // Remove heading element if it exists (user messages no longer show label per target design)
   let headingElement = messageDiv.querySelector(".msg-heading");
-  if (!headingElement) {
-    headingElement = document.createElement("h4");
-    headingElement.classList.add("msg-heading");
-    messageDiv.insertBefore(headingElement, messageDiv.firstChild);
+  if (headingElement) {
+    headingElement.remove();
   }
-  headingElement.innerHTML = `${heading} <span class='icon material-symbols-outlined'>person</span>`;
 
   // Handle content
   let textDiv = messageDiv.querySelector(".message-text");
@@ -895,6 +973,22 @@ function convertToTitleCase(str) {
     });
 }
 
+/**
+ * Clean text value by removing standalone bracket lines and trimming
+ * Handles both strings and arrays (filters out bracket-only items)
+ */
+function cleanTextValue(value) {
+  if (Array.isArray(value)) {
+    return value
+      .filter(item => item && String(item).trim() && !/^[\[\]]$/.test(String(item).trim()))
+      .join("\n");
+  }
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value).replace(/^\s*[\[\]]\s*$/gm, "").trim();
+}
+
 function convertImageTags(content) {
   // Regular expression to match <image> tags and extract base64 content
   const imageTagRegex = /<image>(.*?)<\/image>/g;
@@ -1008,3 +1102,723 @@ class Scroller {
     if (this.wasAtBottom) this.element.scrollTop = this.element.scrollHeight;
   }
 }
+
+// ============================================
+// Process Group Embedding Functions
+// ============================================
+
+/**
+ * Create a response container with an embedded process group
+ */
+function createResponseContainerWithProcessGroup(id, processGroup) {
+  const messageContainer = document.createElement("div");
+  messageContainer.id = `message-${id}`;
+  messageContainer.classList.add("message-container", "ai-container", "has-process-group");
+  
+  // Move process group from chatHistory into the container
+  if (processGroup && processGroup.parentNode) {
+    processGroup.parentNode.removeChild(processGroup);
+  }
+  
+  // Process group will be the first child
+  if (processGroup) {
+    processGroup.classList.add("embedded");
+    messageContainer.appendChild(processGroup);
+  }
+  
+  return messageContainer;
+}
+
+/**
+ * Embed a process group into an existing message container
+ */
+function embedProcessGroup(messageContainer, processGroup) {
+  if (!messageContainer || !processGroup) return;
+  
+  // Remove from current parent
+  if (processGroup.parentNode) {
+    processGroup.parentNode.removeChild(processGroup);
+  }
+  
+  // Add embedded class
+  processGroup.classList.add("embedded");
+  messageContainer.classList.add("has-process-group");
+  
+  // Insert at the beginning of the container
+  const firstChild = messageContainer.firstChild;
+  if (firstChild) {
+    messageContainer.insertBefore(processGroup, firstChild);
+  } else {
+    messageContainer.appendChild(processGroup);
+  }
+}
+
+// ============================================
+// Process Group Functions
+// ============================================
+
+/**
+ * Create a new collapsible process group
+ */
+function createProcessGroup(id) {
+  const groupId = `process-group-${id}`;
+  const group = document.createElement("div");
+  group.id = groupId;
+  group.classList.add("process-group");
+  group.setAttribute("data-group-id", groupId);
+  
+  // Check initial expansion state from store (respects user preference)
+  const initiallyExpanded = processGroupStore.isGroupExpanded(groupId);
+  if (initiallyExpanded) {
+    group.classList.add('expanded');
+  }
+  
+  // Create header
+  const header = document.createElement("div");
+  header.classList.add("process-group-header");
+  header.innerHTML = `
+    <span class="expand-icon"></span>
+    <span class="group-title">Processing...</span>
+    <span class="status-badge status-gen status-active group-status"><span class="badge-icon material-symbols-outlined">public</span>GEN</span>
+    <span class="group-metrics">
+      <span class="metric-time" title="Start time"><span class="material-symbols-outlined">schedule</span><span class="metric-value">--:--</span></span>
+      <span class="metric-steps" title="Steps"><span class="material-symbols-outlined">list_alt</span><span class="metric-value">0</span></span>
+      <span class="metric-duration" title="Duration"><span class="material-symbols-outlined">timer</span><span class="metric-value">0s</span></span>
+    </span>
+  `;
+  
+  // Add click handler for expansion
+  header.addEventListener("click", (e) => {
+    processGroupStore.toggleGroup(groupId);
+    const newState = processGroupStore.isGroupExpanded(groupId);
+    group.classList.toggle("expanded", newState);
+  });
+  
+  group.appendChild(header);
+  
+  // Create content container
+  const content = document.createElement("div");
+  content.classList.add("process-group-content");
+  
+  // Create steps container
+  const steps = document.createElement("div");
+  steps.classList.add("process-steps");
+  content.appendChild(steps);
+  
+  group.appendChild(content);
+  
+  return group;
+}
+
+/**
+ * Add a step to a process group
+ */
+function addProcessStep(group, id, type, heading, content, kvps, timestamp = null, durationMs = null) {
+  const groupId = group.getAttribute("data-group-id");
+  const stepsContainer = group.querySelector(".process-steps");
+  const isGroupCompleted = group.classList.contains("process-group-completed");
+  
+  // Create step element
+  const step = document.createElement("div");
+  step.id = `process-step-${id}`;
+  step.classList.add("process-step");
+  step.setAttribute("data-type", type);
+  step.setAttribute("data-step-id", id);
+  
+  // Resolve tool name (direct, inherited, or null)
+  // For new steps, pass null as stepElement - inheritance uses stepsContainer query
+  let toolNameToUse = kvps?.tool_name;
+  if (type === 'tool' && !toolNameToUse) {
+    const existingSteps = stepsContainer.querySelectorAll('.process-step[data-tool-name]');
+    if (existingSteps.length > 0) {
+      toolNameToUse = existingSteps[existingSteps.length - 1].getAttribute("data-tool-name");
+    }
+  }
+  if (toolNameToUse) {
+    step.setAttribute("data-tool-name", toolNameToUse);
+  }
+  
+  // Store timestamp for duration calculation
+  if (timestamp) {
+    step.setAttribute("data-timestamp", timestamp);
+    
+    // Set group start time from first step
+    if (!group.getAttribute("data-start-timestamp")) {
+      group.setAttribute("data-start-timestamp", timestamp);
+      // Update header with formatted datetime
+      const timestampEl = group.querySelector(".group-timestamp");
+      if (timestampEl) {
+        timestampEl.textContent = formatDateTime(timestamp);
+      }
+    }
+  }
+  
+  // Store duration from backend (used for final duration calculation)
+  if (durationMs != null) {
+    step.setAttribute("data-duration-ms", durationMs);
+  }
+  
+  // Add message-util class for utility/info types (controlled by showUtils preference)
+  if (type === "util" || type === "info" || type === "hint") {
+    step.classList.add("message-util");
+    // Apply current preference state
+    if (preferencesStore.showUtils) {
+      step.classList.add("show-util");
+    }
+  }
+  
+  // Get step info from heading (single source of truth: backend)
+  const title = getStepTitle(heading, kvps, type);
+  
+  // Check if step should be expanded
+  // Agent (GEN) steps expand based on showThoughts preference
+  const isStepExpanded = processGroupStore.isStepExpanded(groupId, id) || 
+                         (type === "agent" && preferencesStore.showThoughts);
+  if (isStepExpanded) {
+    step.classList.add("step-expanded");
+  }
+  
+  // Create step header
+  const stepHeader = document.createElement("div");
+  stepHeader.classList.add("process-step-header");
+  
+  // Status code and color class from store (maps backend types)
+  const statusCode = processGroupStore.getStepCode(type, toolNameToUse);
+  const statusColorClass = processGroupStore.getStatusColorClass(type);
+  
+  // Icon extracted from heading (backend sends icon://xxx), fallback to type-based
+  const stepIcon = extractIconFromHeading(heading) || processGroupStore.getStepIcon(type);
+  
+  const activeClass = isGroupCompleted ? "" : " status-active";
+  stepHeader.innerHTML = `
+    <span class="step-expand-icon"></span>
+    <span class="status-badge ${statusColorClass}${activeClass}"><span class="badge-icon material-symbols-outlined">${stepIcon}</span>${statusCode}</span>
+    <span class="step-title">${escapeHTML(title)}</span>
+  `;
+  
+  // Add click handler for step expansion
+  stepHeader.addEventListener("click", (e) => {
+    e.stopPropagation();
+    processGroupStore.toggleStep(groupId, id);
+    step.classList.toggle("step-expanded", processGroupStore.isStepExpanded(groupId, id));
+  });
+  
+  step.appendChild(stepHeader);
+  
+  // Create step detail container
+  const detail = document.createElement("div");
+  detail.classList.add("process-step-detail");
+  
+  const detailContent = document.createElement("div");
+  detailContent.classList.add("process-step-detail-content");
+  
+  // Add content to detail
+  renderStepDetailContent(detailContent, content, kvps, type);
+  
+  detail.appendChild(detailContent);
+  step.appendChild(detail);
+  
+  // Remove status-active from all previous steps (only the current step is active)
+  const prevSteps = stepsContainer.querySelectorAll(".process-step .status-badge.status-active");
+  prevSteps.forEach(badge => badge.classList.remove("status-active"));
+  
+  stepsContainer.appendChild(step);
+  
+  // Update group header
+  updateProcessGroupHeader(group);
+  
+  return step;
+}
+
+/**
+ * Update an existing process step
+ */
+function updateProcessStep(stepElement, id, type, heading, content, kvps, durationMs = null) {
+  // Update title
+  const titleEl = stepElement.querySelector(".step-title");
+  if (titleEl) {
+    const title = getStepTitle(heading, kvps, type);
+    titleEl.textContent = title;
+  }
+  
+  // Update duration from backend
+  if (durationMs != null) {
+    stepElement.setAttribute("data-duration-ms", durationMs);
+  }
+  
+  // Resolve and update tool name + badge
+  const toolNameToUse = resolveToolName(type, kvps, stepElement);
+  if (toolNameToUse) {
+    stepElement.setAttribute("data-tool-name", toolNameToUse);
+    const newCode = processGroupStore.getStepCode(type, toolNameToUse);
+    updateBadgeText(stepElement.querySelector(".status-badge"), newCode);
+  }
+  
+  // Update detail content
+  const detailContent = stepElement.querySelector(".process-step-detail-content");
+  if (detailContent) {
+    renderStepDetailContent(detailContent, content, kvps, type);
+  }
+  
+  // Update parent group header
+  const group = stepElement.closest(".process-group");
+  if (group) {
+    updateProcessGroupHeader(group);
+  }
+}
+
+/**
+ * Get a concise title for a process step
+ */
+function getStepTitle(heading, kvps, type) {
+  // Try to get a meaningful title from heading or kvps
+  if (heading && heading.trim()) {
+    return cleanStepTitle(heading, 80);
+  }
+  
+  if (kvps) {
+    // Try common fields for title
+    if (kvps.tool_name) {
+      const headline = kvps.headline ? cleanStepTitle(kvps.headline, 60) : '';
+      return `${kvps.tool_name}${headline ? ': ' + headline : ''}`;
+    }
+    if (kvps.headline) {
+      return cleanStepTitle(kvps.headline, 80);
+    }
+    if (kvps.query) {
+      return truncateText(kvps.query, 80);
+    }
+    if (kvps.thoughts) {
+      return truncateText(String(kvps.thoughts), 80);
+    }
+  }
+  
+  // Fallback: capitalize type (backend is source of truth)
+  return type ? type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ') : 'Process';
+}
+
+/**
+ * Extract icon name from heading with icon:// prefix
+ * Returns the icon name (e.g., "terminal") or null if no prefix found
+ */
+function extractIconFromHeading(heading) {
+  if (!heading) return null;
+  const match = String(heading).match(/^icon:\/\/([a-zA-Z0-9_]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Clean step title by removing icon:// prefixes and status phrases
+ * Preserves agent markers (A1:, A2:, etc.) so users can see which subordinate agent is executing
+ */
+function cleanStepTitle(text, maxLength) {
+  if (!text) return "";
+  let cleaned = String(text);
+  
+  // Remove icon:// patterns (e.g., "icon://network_intelligence")
+  cleaned = cleaned.replace(/icon:\/\/[a-zA-Z0-9_]+\s*/g, "");
+  
+  // Trim whitespace
+  cleaned = cleaned.trim();
+  
+  return truncateText(cleaned, maxLength);
+}
+
+/**
+ * Render content for step detail panel
+ */
+function renderStepDetailContent(container, content, kvps, type = null) {
+  container.innerHTML = "";
+  
+  // Special handling for code_exe type - render as terminal-style output
+  if (type === "code_exe" && kvps) {
+    const runtime = kvps.runtime || kvps.Runtime || "bash";
+    const code = kvps.code || kvps.Code || "";
+    const output = content || "";
+    
+    if (code || output) {
+      const terminalDiv = document.createElement("div");
+      terminalDiv.classList.add("step-terminal");
+  
+      // Show output if present
+      if (output && output.trim()) {
+        const outputPre = document.createElement("pre");
+        outputPre.classList.add("terminal-output");
+        outputPre.textContent = truncateText(output, 1000);
+        terminalDiv.appendChild(outputPre);
+      }
+      
+      container.appendChild(terminalDiv);
+    }
+    
+    // Still render thoughts if present
+    if (kvps.thoughts || kvps.thinking || kvps.reasoning) {
+      const thoughtKey = kvps.thoughts ? "thoughts" : (kvps.thinking ? "thinking" : "reasoning");
+      const thoughtValue = kvps[thoughtKey];
+      renderThoughts(container, thoughtValue);
+    }
+    
+    return;
+  }
+  
+  // Add KVPs if present
+  if (kvps && Object.keys(kvps).length > 0) {
+    const kvpsDiv = document.createElement("div");
+    kvpsDiv.classList.add("step-kvps");
+    
+    for (const [key, value] of Object.entries(kvps)) {
+      // Skip internal/display keys
+      if (key === "finished" || key === "attachments") continue;
+      
+      // Skip code_exe specific keys that we handle specially above
+      if (type === "code_exe" && (key.toLowerCase() === "runtime" || key.toLowerCase() === "session" || key.toLowerCase() === "code")) {
+        continue;
+      }
+      
+      const lowerKey = key.toLowerCase();
+      
+      // Skip headline and tool_name - they're shown elsewhere
+      if (lowerKey === "headline" || lowerKey === "tool_name") continue;
+      
+      // Skip query in agent steps - it's shown in the tool call step
+      if (type === "agent" && lowerKey === "query") continue;
+      
+      // Special handling for thoughts/reasoning - render with single lightbulb icon
+      if (lowerKey === "thoughts" || lowerKey === "thinking" || lowerKey === "reflection" || lowerKey === "reasoning") {
+        renderThoughts(kvpsDiv, value);
+        continue;
+      }
+      
+      // Special handling for tool_args - render only for tool/mcp types (skip for agent)
+      if (lowerKey === "tool_args") {
+        // Skip tool_args for agent steps - it's shown in the tool call step
+        if (type === "agent") continue;
+        
+        if (typeof value !== "object" || value === null) continue;
+        const argsDiv = document.createElement("div");
+        argsDiv.classList.add("step-tool-args");
+        
+        // Icon mapping for common tool arguments
+        const argIcons = {
+          'query': 'search',
+          'url': 'link',
+          'path': 'folder',
+          'file': 'description',
+          'code': 'code',
+          'command': 'terminal',
+          'message': 'chat',
+          'text': 'notes',
+          'content': 'article',
+          'name': 'label',
+          'id': 'tag',
+          'type': 'category',
+          'document': 'description',
+          'documents': 'folder_open',
+          'queries': 'search'
+        };
+        
+        for (const [argKey, argValue] of Object.entries(value)) {
+          const argRow = document.createElement("div");
+          argRow.classList.add("tool-arg-row");
+          
+          const argLabel = document.createElement("span");
+          argLabel.classList.add("tool-arg-label");
+          
+          // Use icon if available, otherwise use text label
+          const lowerArgKey = argKey.toLowerCase();
+          if (argIcons[lowerArgKey]) {
+            argLabel.innerHTML = `<span class="material-symbols-outlined">${argIcons[lowerArgKey]}</span>`;
+          } else {
+            argLabel.textContent = convertToTitleCase(argKey) + ":";
+          }
+          
+          const argVal = document.createElement("span");
+          argVal.classList.add("tool-arg-value");
+          
+          const argText = cleanTextValue(argValue);
+          
+          argVal.textContent = truncateText(argText, 300);
+          
+          argRow.appendChild(argLabel);
+          argRow.appendChild(argVal);
+          argsDiv.appendChild(argRow);
+        }
+        
+        kvpsDiv.appendChild(argsDiv);
+        continue;
+      }
+      
+      const kvpDiv = document.createElement("div");
+      kvpDiv.classList.add("step-kvp");
+      
+      const keySpan = document.createElement("span");
+      keySpan.classList.add("step-kvp-key");
+      
+      // Icon mapping for common kvp keys
+      const kvpIcons = {
+        'query': 'search',
+        'url': 'link',
+        'path': 'folder',
+        'file': 'description',
+        'code': 'code',
+        'command': 'terminal',
+        'message': 'chat',
+        'text': 'notes',
+        'content': 'article',
+        'name': 'label',
+        'id': 'tag',
+        'type': 'category',
+        'runtime': 'memory',
+        'result': 'output',
+        'progress': 'pending',
+        'document': 'description',
+        'documents': 'folder_open',
+        'queries': 'search'
+      };
+      
+      // lowerKey already defined above
+      if (kvpIcons[lowerKey]) {
+        keySpan.innerHTML = `<span class="material-symbols-outlined">${kvpIcons[lowerKey]}</span>`;
+      } else {
+        keySpan.textContent = convertToTitleCase(key) + ":";
+      }
+      
+      const valueSpan = document.createElement("span");
+      valueSpan.classList.add("step-kvp-value");
+      
+      const valueText = cleanTextValue(value);
+      
+      valueSpan.textContent = truncateText(valueText, 1000);
+      
+      kvpDiv.appendChild(keySpan);
+      kvpDiv.appendChild(valueSpan);
+      kvpsDiv.appendChild(kvpDiv);
+    }
+    
+    container.appendChild(kvpsDiv);
+  }
+  
+  // Add main content if present (JSON content - controlled by showJson preference)
+  if (content && content.trim()) {
+    const pre = document.createElement("pre");
+    pre.classList.add("msg-json");
+    // Apply current preference state
+    if (preferencesStore.showJson) {
+      pre.classList.add("show-json");
+    }
+    pre.textContent = truncateText(content, 1000);
+    container.appendChild(pre);
+  }
+}
+
+/**
+ * Helper to render thoughts/reasoning with lightbulb icon
+ */
+function renderThoughts(container, value) {
+  const thoughtsDiv = document.createElement("div");
+  thoughtsDiv.classList.add("step-thoughts", "msg-thoughts");
+  
+  // Apply current preference state - hide if showThoughts is false
+  if (!preferencesStore.showThoughts) {
+    thoughtsDiv.classList.add("hide-thoughts");
+  }
+  
+  const thoughtText = cleanTextValue(value);
+  
+  if (thoughtText) {
+    thoughtsDiv.innerHTML = `<span class="thought-icon material-symbols-outlined">lightbulb</span><span class="thought-text">${escapeHTML(thoughtText)}</span>`;
+    container.appendChild(thoughtsDiv);
+  }
+}
+
+/**
+ * Update process group header with step count, status, and metrics
+ */
+function updateProcessGroupHeader(group) {
+  const steps = group.querySelectorAll(".process-step");
+  const titleEl = group.querySelector(".group-title");
+  const statusEl = group.querySelector(".group-status");
+  const metricsEl = group.querySelector(".group-metrics");
+  const isCompleted = group.classList.contains("process-group-completed");
+  
+  // If completed, only remove active badges and exit early (don't update metrics)
+  if (isCompleted) {
+    const activeBadges = group.querySelectorAll(".status-badge.status-active");
+    activeBadges.forEach(badge => badge.classList.remove("status-active"));
+    return;
+  }
+  
+  // Update group title with the latest agent step heading
+  if (titleEl) {
+    // Find the last "agent" type step
+    const agentSteps = Array.from(steps).filter(step => step.getAttribute("data-type") === "agent");
+    if (agentSteps.length > 0) {
+      const lastAgentStep = agentSteps[agentSteps.length - 1];
+      const lastHeading = lastAgentStep.querySelector(".step-title")?.textContent;
+      if (lastHeading) {
+        const cleanTitle = cleanStepTitle(lastHeading, 50);
+        if (cleanTitle) {
+          titleEl.textContent = cleanTitle;
+        }
+      }
+    }
+  }
+  
+  // Update step count in metrics
+  const stepsMetricEl = metricsEl?.querySelector(".metric-steps .metric-value");
+  if (stepsMetricEl) {
+    stepsMetricEl.textContent = steps.length.toString();
+  }
+  
+  // Update time metric
+  const timeMetricEl = metricsEl?.querySelector(".metric-time .metric-value");
+  const startTimestamp = group.getAttribute("data-start-timestamp");
+  if (timeMetricEl && startTimestamp) {
+    const date = new Date(parseFloat(startTimestamp) * 1000);
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    timeMetricEl.textContent = `${hours}:${minutes}`;
+  }
+  
+  // Update duration metric
+  const durationMetricEl = metricsEl?.querySelector(".metric-duration .metric-value");
+  if (durationMetricEl && steps.length > 0) {
+    // Calculate accumulated duration from backend data
+    let accumulatedMs = 0;
+    steps.forEach(step => {
+      accumulatedMs += parseInt(step.getAttribute("data-duration-ms") || "0", 10);
+    });
+    
+    // Check if last step is still in progress (no duration_ms set yet)
+    const lastStep = steps[steps.length - 1];
+    const lastStepDuration = lastStep.getAttribute("data-duration-ms");
+    const lastStepTimestamp = lastStep.getAttribute("data-timestamp");
+    
+    if (lastStepDuration == null && lastStepTimestamp) {
+      // Last step is in progress - add live elapsed time for this step only
+      const lastStepStartMs = parseFloat(lastStepTimestamp) * 1000;
+      const liveElapsedMs = Math.max(0, Date.now() - lastStepStartMs);
+      accumulatedMs += liveElapsedMs;
+    }
+    
+    durationMetricEl.textContent = formatDuration(accumulatedMs);
+  }
+  
+  if (steps.length > 0) {
+    // Get the last step's type for status
+    const lastStep = steps[steps.length - 1];
+    const lastType = lastStep.getAttribute("data-type");
+    const lastToolName = lastStep.getAttribute("data-tool-name");
+    const lastTitle = lastStep.querySelector(".step-title")?.textContent || "";
+    
+    // Update status badge with icon (keep status-active during execution)
+    if (statusEl) {
+      // Status code and color class from store (maps backend types)
+      const statusCode = processGroupStore.getStepCode(lastType, lastToolName);
+      const statusColorClass = processGroupStore.getStatusColorClass(lastType);
+      // Get icon from the last step's badge, fallback to type-based
+      const lastStepBadge = lastStep.querySelector(".badge-icon");
+      const badgeIcon = lastStepBadge?.textContent || processGroupStore.getStepIcon(lastType);
+      statusEl.innerHTML = `<span class="badge-icon material-symbols-outlined">${badgeIcon}</span>${statusCode}`;
+      statusEl.className = `status-badge ${statusColorClass} status-active group-status`;
+    }
+    
+    // Update title
+    if (titleEl) {
+      // Prefer agent type steps for the group title as they contain thinking/planning info
+      if (lastType === "agent" && lastTitle) {
+        titleEl.textContent = cleanStepTitle(lastTitle, 50);
+      } else {
+        // Try to find the most recent agent step for a better title
+        const agentSteps = group.querySelectorAll('.process-step[data-type="agent"]');
+        if (agentSteps.length > 0) {
+          const lastAgentStep = agentSteps[agentSteps.length - 1];
+          const agentTitle = lastAgentStep.querySelector(".step-title")?.textContent || "";
+          if (agentTitle) {
+            titleEl.textContent = cleanStepTitle(agentTitle, 50);
+            return;
+          }
+        }
+        titleEl.textContent = cleanStepTitle(lastTitle, 50) || `Processing...`;
+      }
+    }
+  }
+}
+
+/**
+ * Truncate text to a maximum length
+ */
+function truncateText(text, maxLength) {
+  if (!text) return "";
+  text = String(text).trim();
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + "...";
+}
+
+/**
+ * Mark a process group as complete (END state)
+ */
+function markProcessGroupComplete(group, responseTitle) {
+  if (!group) return;
+  
+  // Update status badge to END (remove status-active)
+  const statusEl = group.querySelector(".group-status");
+  if (statusEl) {
+    statusEl.innerHTML = '<span class="badge-icon material-symbols-outlined">check_circle</span>END';
+    statusEl.className = "status-badge status-end group-status"; // No status-active
+  }
+  
+  // Remove status-active from all step badges (stop spinners)
+  const stepBadges = group.querySelectorAll(".process-step .status-badge.status-active");
+  stepBadges.forEach(badge => badge.classList.remove("status-active"));
+  
+  // Update title if response title is available
+  const titleEl = group.querySelector(".group-title");
+  if (titleEl && responseTitle) {
+    const cleanTitle = cleanStepTitle(responseTitle, 50);
+    if (cleanTitle) {
+      titleEl.textContent = cleanTitle;
+    }
+  }
+  
+  // Add completed class to group
+  group.classList.add("process-group-completed");
+  
+  // Calculate final duration from backend data (sum of all step durations)
+  const steps = group.querySelectorAll(".process-step");
+  let totalDurationMs = 0;
+  steps.forEach(step => {
+    const durationMs = parseInt(step.getAttribute("data-duration-ms") || "0", 10);
+    totalDurationMs += durationMs;
+  });
+  
+  // Update duration metric with final value from backend
+  const metricsEl = group.querySelector(".group-metrics");
+  const durationMetricEl = metricsEl?.querySelector(".metric-duration .metric-value");
+  if (durationMetricEl && totalDurationMs > 0) {
+    durationMetricEl.textContent = formatDuration(totalDurationMs);
+  }
+}
+
+/**
+ * Reset process group state (called on context switch)
+ */
+export function resetProcessGroups() {
+  currentProcessGroup = null;
+  messageGroup = null;
+}
+
+/**
+ * Format Unix timestamp as date-time string (YYYY-MM-DD HH:MM:SS)
+ */
+function formatDateTime(timestamp) {
+  const date = new Date(timestamp * 1000); // Convert seconds to milliseconds
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+

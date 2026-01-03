@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import json
+import time
 from typing import Any, Literal, Optional, Dict, TypeVar, TYPE_CHECKING
 
 T = TypeVar("T")
@@ -131,9 +132,13 @@ class LogItem:
     kvps: Optional[OrderedDict] = None  # Use OrderedDict for kvps
     id: Optional[str] = None  # Add id field
     guid: str = ""
+    timestamp: float = 0.0  # Unix timestamp in seconds
+    duration_ms: Optional[int] = None  # Duration until next step (set by Log.log)
+    agent_number: int = 0  # Agent number (0 = main agent, 1+ = subordinate agents)
 
     def __post_init__(self):
         self.guid = self.log.guid
+        self.timestamp = time.time()
 
     def update(
         self,
@@ -181,6 +186,9 @@ class LogItem:
             "content": self.content,
             "temp": self.temp,
             "kvps": self.kvps,
+            "timestamp": self.timestamp,  # Unix timestamp in seconds
+            "duration_ms": self.duration_ms,  # Duration until next step
+            "agent_number": self.agent_number,  # Agent number for identifying main/subordinate agents
         }
 
 
@@ -211,6 +219,11 @@ class Log:
             no=len(self.logs),
             type=type,
         )
+        # Set duration on previous item and mark it as updated
+        if self.logs:
+            prev = self.logs[-1]
+            prev.duration_ms = int((item.timestamp - prev.timestamp) * 1000)
+            self.updates += [prev.no]
         self.logs.append(item)
 
         # and update it (to have just one implementation)
