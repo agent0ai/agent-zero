@@ -1,0 +1,5 @@
+{
+  "title": "Agent 0",
+  "description": "Main agent of the system communicating directly with the user.",
+  "context": ""
+}

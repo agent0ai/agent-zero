@@ -15,6 +15,7 @@ import importlib.util
 import inspect
 import glob
 import mimetypes
+from simpleeval import simple_eval
 
 
 class VariablesPlugin(ABC):
@@ -95,7 +96,10 @@ def parse_file(
         content = f.read()
 
     is_json = is_full_json_template(content)
-    content = remove_code_fences(content)
+    # Only strip code fences for full JSON templates - embedded fenced blocks in markdown prompts
+    # should remain intact, otherwise examples/instructions lose structure.
+    if is_json:
+        content = remove_code_fences(content)
     variables = load_plugin_variables(absolute_path, _directories, **kwargs) or {}  # type: ignore
     variables.update(kwargs)
     if is_json:
@@ -138,6 +142,9 @@ def read_prompt_file(
     variables = load_plugin_variables(_file, _directories, **kwargs) or {}  # type: ignore
     variables.update(kwargs)
 
+    # evaluate conditions
+    content = evaluate_text_conditions(content, **variables)
+
     # Replace placeholders with values from kwargs
     content = replace_placeholders_text(content, **variables)
 
@@ -150,6 +157,53 @@ def read_prompt_file(
     )
 
     return content
+
+
+def evaluate_text_conditions(_content: str, **kwargs):
+    # search for {{if ...}} ... {{endif}} blocks and evaluate conditions with nesting support
+    if_pattern = re.compile(r"{{\s*if\s+(.*?)}}", flags=re.DOTALL)
+    token_pattern = re.compile(r"{{\s*(if\b.*?|endif)\s*}}", flags=re.DOTALL)
+
+    def _process(text: str) -> str:
+        m_if = if_pattern.search(text)
+        if not m_if:
+            return text
+
+        depth = 1
+        pos = m_if.end()
+        while True:
+            m = token_pattern.search(text, pos)
+            if not m:
+                # Unterminated if-block, do not modify text
+                return text
+            token = m.group(1)
+            depth += 1 if token.startswith("if ") else -1
+            if depth == 0:
+                break
+            pos = m.end()
+
+        before = text[: m_if.start()]
+        condition = m_if.group(1).strip()
+        inner = text[m_if.end() : m.start()]
+        after = text[m.end() :]
+
+        try:
+            result = simple_eval(condition, names=kwargs)
+        except Exception:
+            # On evaluation error, do not modify this block
+            return text
+
+        if result:
+            # Keep inner content (processed recursively), remove if/endif markers
+            kept = before + _process(inner)
+        else:
+            # Skip entire block, including inner content and markers
+            kept = before
+
+        # Continue processing the remaining text after this block
+        return kept + _process(after)
+
+    return _process(_content)
 
 
 def read_file(relative_path: str, encoding="utf-8"):
@@ -192,8 +246,9 @@ def replace_placeholders_json(_content: str, **kwargs):
     # Replace placeholders with values from kwargs
     for key, value in kwargs.items():
         placeholder = "{{" + key + "}}"
-        strval = json.dumps(value)
-        _content = _content.replace(placeholder, strval)
+        if placeholder in _content:
+            strval = json.dumps(value)
+            _content = _content.replace(placeholder, strval)
     return _content
 
 
@@ -281,17 +336,16 @@ def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*"):
 
 
 def remove_code_fences(text):
-    # Pattern to match code fences with optional language specifier
-    pattern = r"(```|~~~)(.*?\n)(.*?)(\1)"
+    # Strip fenced blocks (``` / ~~~) only when the fence marker is at the start of a line.
+    #
+    # This prevents accidental stripping when the fence marker appears inline, e.g.
+    # "... do not wrap ~~~markdown" (which should remain literal text).
+    pattern = r"(?ms)^[ \t]*(```|~~~)[^\n]*\n(.*?)(?:^[ \t]*\1[ \t]*$)"
 
-    # Function to replace the code fences
     def replacer(match):
-        return match.group(3)  # Return the code without fences
+        return match.group(2)  # Return the code without fences
 
-    # Use re.DOTALL to make '.' match newlines
-    result = re.sub(pattern, replacer, text, flags=re.DOTALL)
-
-    return result
+    return re.sub(pattern, replacer, text)
 
 
 def is_full_json_template(text):
@@ -508,7 +562,7 @@ def safe_file_name(filename: str) -> str:
 
 
 def read_text_files_in_dir(
-    dir_path: str, max_size: int = 1024 * 1024
+    dir_path: str, max_size: int = 1024 * 1024, pattern: str = "*"
 ) -> dict[str, str]:
 
     abs_path = get_abs_path(dir_path)
@@ -519,7 +573,9 @@ def read_text_files_in_dir(
         try:
             if not os.path.isfile(file_path):
                 continue
-            if os.path.getsize(file_path) > max_size:
+            if not fnmatch(os.path.basename(file_path), pattern):
+                continue
+            if max_size > 0 and os.path.getsize(file_path) > max_size:
                 continue
             mime, _ = mimetypes.guess_type(file_path)
             if mime is not None and not mime.startswith("text"):
@@ -543,4 +599,3 @@ def list_files_in_dir_recursively(relative_path: str) -> list[str]:
             rel_path = os.path.relpath(file_path, abs_path)
             result.append(rel_path)
     return result
-    

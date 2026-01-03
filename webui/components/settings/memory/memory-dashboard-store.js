@@ -554,14 +554,6 @@ ${memory.content_full}
   },
 
   async deleteMemory(memory) {
-    if (
-      !confirm(
-        `Are you sure you want to delete this memory from ${memory.area}?`
-      )
-    ) {
-      return;
-    }
-
     try {
       // Check if this is the memory currently being viewed in detail modal
       const isViewingThisMemory =

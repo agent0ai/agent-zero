@@ -236,7 +236,7 @@
                                                 </button>
 
                                                 <button class="btn btn-action delete"
-                                                    @click="$store.memoryDashboardStore.deleteMemory(memory)"
+                                                    @click="$confirmClick($event, () => $store.memoryDashboardStore.deleteMemory(memory))"
                                                     title="Delete Memory">
                                                     <span class="material-symbols-outlined">delete</span>
                                                 </button>
@@ -806,6 +806,8 @@
             right: 0;
             bottom: 0;
             display: flex;
+            gap: 0.375rem;
+            margin-left: auto;
             flex-direction: column;
             align-items: center;
             justify-content: center;

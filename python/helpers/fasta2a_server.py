@@ -6,7 +6,7 @@ from typing import Any, List
 import contextlib
 import threading
 
-from python.helpers import settings
+from python.helpers import settings, projects
 from starlette.requests import Request
 
 # Local imports
@@ -83,6 +83,14 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
             # Always create new temporary context for this A2A conversation
             cfg = initialize_agent()
             context = AgentContext(cfg, type=AgentContextType.BACKGROUND)
+
+            # Retrieve project from message.metadata (standard A2A pattern)
+            metadata = message.get('metadata', {}) or {}
+            project_name = metadata.get('project')
+         
+            # Activate project if specified
+            if project_name:
+                projects.activate_project(context.id, project_name)
 
             # Log user message so it appears instantly in UI chat window
             context.log.log(
@@ -424,6 +432,9 @@ class DynamicA2AProxy:
         if path.startswith('/a2a'):
             path = path[4:]  # Remove '/a2a' prefix
 
+        # Initialize project name
+        project_name = None
+
         # Check if path matches token pattern /t-{token}/
         if path.startswith('/t-'):
             # Extract token from path
@@ -431,6 +442,14 @@ class DynamicA2AProxy:
                 path_parts = path[3:].split('/', 1)  # Remove '/t-' prefix
                 request_token = path_parts[0]
                 remaining_path = '/' + path_parts[1] if len(path_parts) > 1 else '/'
+
+                # Check for project pattern /p-{project}/
+                if remaining_path.startswith('/p-'):
+                    project_parts = remaining_path[3:].split('/', 1)
+                    if project_parts[0]:
+                        project_name = project_parts[0]
+                        remaining_path = '/' + project_parts[1] if len(project_parts) > 1 else '/'
+                        _PRINTER.print(f"[A2A] Extracted project from URL: {project_name}")
             else:
                 request_token = path[3:]
                 remaining_path = '/'
@@ -451,6 +470,54 @@ class DynamicA2AProxy:
                     'body': b'Unauthorized',
                 })
                 return
+
+            # If project specified, inject it into the request payload
+            if project_name:
+                # Buffer messages and modify before returning the complete body
+                received_messages = []
+                body_modified = False
+                original_receive = receive
+
+                async def receive_wrapper():
+                    nonlocal body_modified
+
+                    # Receive and buffer the next message
+                    message = await original_receive()
+                    received_messages.append(message)
+
+                    # When we get the complete body, inject project into JSON
+                    if message['type'] == 'http.request' and not message.get('more_body', False) and not body_modified:
+                        body_modified = True
+                        try:
+                            import json
+                            # Reconstruct full body from all buffered messages
+                            body_parts = [msg.get('body', b'') for msg in received_messages if msg['type'] == 'http.request']
+                            full_body = b''.join(body_parts)
+                            data = json.loads(full_body)
+
+                            # INJECT project into message.metadata (standard A2A pattern)
+                            if 'params' in data and 'message' in data['params']:
+                                msg_data = data['params']['message']
+                                # Initialize metadata if it doesn't exist
+                                if 'metadata' not in msg_data or msg_data['metadata'] is None:
+                                    msg_data['metadata'] = {}
+                                msg_data['metadata']['project'] = project_name
+
+                            # Serialize back to JSON
+                            modified_body = json.dumps(data).encode('utf-8')
+
+                            # Return modified message IMMEDIATELY (before FastA2A processes it)
+                            return {
+                                'type': 'http.request',
+                                'body': modified_body,
+                                'more_body': False
+                            }
+                        except Exception as e:
+                            _PRINTER.print(f"[A2A] Failed to inject project into payload: {e}")
+
+                    return message
+
+                receive = receive_wrapper
 
             # Update scope with cleaned path
             scope = dict(scope)

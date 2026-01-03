@@ -17,6 +17,10 @@
   box-sizing: border-box;
 }
 
+.material-symbols-outlined{
+  word-spacing: -1.35em;
+}
+
 .button.confirm {
   background: var(--color-highlight);
   color: #fff;
@@ -60,4 +64,47 @@
 .icon-button {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
+}
+
+/* Inline Confirmation State */
+.confirming {
+  border-color: var(--color-accent) !important;
+  background-color: var(--color-accent) !important;
+  color: #fff !important;
+}
+
+.confirming:hover {
+  filter: brightness(1.1);
+}
+
+/* Standard icon-only action button for destructive actions */
+.btn-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.btn-icon-action .material-symbols-outlined,
+.btn-icon-action .material-icons-outlined {
+  font-size: 1rem;
+}
+
+.btn-icon-action:hover {
+  border-color: var(--color-primary);
+  background-color: rgba(50, 69, 86, 0.56);
+}
+
+.btn-icon-action:active {
+  background-color: rgba(19, 26, 32, 0.56);
+  color: rgba(253, 253, 253, 0.35);
 }

@@ -1090,11 +1090,6 @@ const fullComponentImplementation = function() {
 
         // Delete a task
         async deleteTask(taskId) {
-            // Confirm deletion
-            if (!confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-                return;
-            }
-
             try {
 
                 // if we delete selected context, switch to another first
