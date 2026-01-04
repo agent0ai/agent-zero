@@ -110,13 +110,19 @@ def initialize_mcp(mcp_servers_config: str):
 
 
 class MCPTool(Tool):
-    """MCP Tool wrapper"""
-
     async def execute(self, **kwargs: Any):
+        from python.helpers import projects
+
+        project_name = ""
+        try:
+            project_name = projects.get_context_project_name(self.agent.context) or ""
+        except Exception:
+            pass
+
         error = ""
         try:
             response: CallToolResult = await MCPConfig.get_instance().call_tool(
-                self.name, kwargs
+                self.name, kwargs, project_name=project_name
             )
             message = "\n\n".join(
                 [item.text for item in response.content if item.type == "text"]
@@ -387,6 +393,7 @@ MCPServer = Annotated[
 class MCPConfig(BaseModel):
     servers: list[MCPServer] = Field(default_factory=list)
     disconnected_servers: list[dict[str, Any]] = Field(default_factory=list)
+    project_servers: dict[str, list[MCPServer]] = Field(default_factory=dict)
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __instance: ClassVar[Any] = PrivateAttr(default=None)
     __initialized: ClassVar[bool] = PrivateAttr(default=False)
@@ -619,10 +626,57 @@ class MCPConfig(BaseModel):
                         f"MCPConfig::__init__: Failed to create MCPServer '{server_name}': {error_msg}"
                     )
                 )
-                # add to failed servers
                 self.disconnected_servers.append(
                     {"config": server_item, "error": error_msg, "name": server_name}
                 )
+
+    def load_project_servers(self, project_name: str, config_str: str):
+        with self.__lock:
+            self.unload_project_servers_unlocked(project_name)
+
+            if not config_str or not config_str.strip():
+                return
+
+            try:
+                parsed = dirty_json.try_parse(config_str)
+                servers_data = self.normalize_config(parsed)
+            except Exception:
+                return
+
+            project_server_list: list[MCPServer] = []
+            for server_item in servers_data:
+                if not isinstance(server_item, dict):
+                    continue
+                if server_item.get("disabled", False):
+                    continue
+
+                server_name = server_item.get("name", "")
+                if not server_name:
+                    continue
+
+                try:
+                    if server_item.get("url") or server_item.get("serverUrl"):
+                        project_server_list.append(MCPServerRemote(server_item))
+                    else:
+                        project_server_list.append(MCPServerLocal(server_item))
+                except Exception as e:
+                    PrintStyle(
+                        background_color="grey", font_color="red", padding=True
+                    ).print(f"Project MCP server '{server_name}' failed: {e}")
+
+            self.project_servers[project_name] = project_server_list
+
+    def unload_project_servers(self, project_name: str):
+        with self.__lock:
+            self.unload_project_servers_unlocked(project_name)
+
+    def unload_project_servers_unlocked(self, project_name: str):
+        if project_name in self.project_servers:
+            del self.project_servers[project_name]
+
+    def get_project_servers(self, project_name: str) -> list[MCPServer]:
+        with self.__lock:
+            return list(self.project_servers.get(project_name, []))
 
     def get_server_log(self, server_name: str) -> str:
         with self.__lock:
@@ -673,10 +727,20 @@ class MCPConfig(BaseModel):
 
         return result
 
-    def get_server_detail(self, server_name: str) -> dict[str, Any]:
+    def get_server_detail(
+        self, server_name: str, project_name: str = ""
+    ) -> dict[str, Any]:
         with self.__lock:
-            for server in self.servers:
-                if server.name == server_name:
+            # When project is active, use ONLY project servers (they are separate from global)
+            # This matches the UI design: "These are separate from global MCP servers"
+            if project_name and project_name in self.project_servers:
+                all_servers = list(self.project_servers[project_name])
+            else:
+                all_servers = list(self.servers)
+
+            normalized_search_name = normalize_name(server_name)
+            for server in all_servers:
+                if server.name == normalized_search_name:
                     try:
                         tools = server.get_tools()
                     except Exception:
@@ -709,39 +773,28 @@ class MCPConfig(BaseModel):
         with self.__lock:
             pass
 
-        project_disabled: dict[str, list[str]] = {}
-        if project_name:
-            try:
-                from python.helpers import projects
-
-                project_disabled = projects.load_project_mcp_tools(project_name)
-            except Exception:
-                pass
+        # When project is active, use ONLY project servers (they are separate from global)
+        # This matches the UI design: "These are separate from global MCP servers"
+        if project_name and project_name in self.project_servers:
+            all_servers = list(self.project_servers[project_name])
+        else:
+            all_servers = list(self.servers)
 
         prompt = '## "Remote (MCP Server) Agent Tools" available:\n\n'
         server_names = []
-        for server in self.servers:
+        for server in all_servers:
             if not server_name or server.name == server_name:
                 server_names.append(server.name)
 
         if server_name and server_name not in server_names:
             raise ValueError(f"Server {server_name} not found")
 
-        for server in self.servers:
+        for server in all_servers:
             if server.name in server_names:
                 current_server_name = server.name
-                disabled_for_project = project_disabled.get(current_server_name, [])
-                tools = [
-                    t
-                    for t in server.get_tools()
-                    if t["name"] not in disabled_for_project
-                ]
-
-                if not tools:
-                    continue
-
                 prompt += f"### {current_server_name}\n"
                 prompt += f"{server.description}\n"
+                tools = server.get_tools()
 
                 for tool in tools:
                     prompt += (
@@ -801,24 +854,34 @@ class MCPConfig(BaseModel):
 
         # return prompt
 
-    def has_tool(self, tool_name: str) -> bool:
-        """Check if a tool is available"""
+    def has_tool(self, tool_name: str, project_name: str = "") -> bool:
         if "." not in tool_name:
             return False
         server_name_part, tool_name_part = tool_name.split(".")
         with self.__lock:
-            for server in self.servers:
-                if server.name == server_name_part:
-                    return server.has_tool(tool_name_part)
+            # When project is active, use ONLY project servers (they are separate from global)
+            # This matches the UI design: "These are separate from global MCP servers"
+            if project_name and project_name in self.project_servers:
+                for server in self.project_servers[project_name]:
+                    if server.name == server_name_part:
+                        return server.has_tool(tool_name_part)
+            else:
+                for server in self.servers:
+                    if server.name == server_name_part:
+                        return server.has_tool(tool_name_part)
             return False
 
     def get_tool(self, agent: Any, tool_name: str) -> MCPTool | None:
-        if not self.has_tool(tool_name):
-            return None
+        from python.helpers import projects
 
-        if self._is_tool_disabled_for_project(agent, tool_name):
-            return None
+        project_name = ""
+        try:
+            project_name = projects.get_context_project_name(agent.context) or ""
+        except Exception:
+            pass
 
+        if not self.has_tool(tool_name, project_name):
+            return None
         return MCPTool(
             agent=agent,
             name=tool_name,
@@ -828,35 +891,27 @@ class MCPConfig(BaseModel):
             loop_data=None,
         )
 
-    def _is_tool_disabled_for_project(self, agent: Any, tool_name: str) -> bool:
-        if "." not in tool_name:
-            return False
-
-        try:
-            from python.helpers import projects
-
-            project_name = projects.get_context_project_name(agent.context)
-            if not project_name:
-                return False
-
-            server_name, tool_name_part = tool_name.split(".", 1)
-            project_disabled = projects.load_project_mcp_tools(project_name)
-            disabled_tools = project_disabled.get(server_name, [])
-            return tool_name_part in disabled_tools
-        except Exception:
-            return False
-
     async def call_tool(
-        self, tool_name: str, input_data: Dict[str, Any]
+        self, tool_name: str, input_data: Dict[str, Any], project_name: str = ""
     ) -> CallToolResult:
-        """Call a tool with the given input data"""
         if "." not in tool_name:
             raise ValueError(f"Tool {tool_name} not found")
         server_name_part, tool_name_part = tool_name.split(".")
         with self.__lock:
-            for server in self.servers:
-                if server.name == server_name_part and server.has_tool(tool_name_part):
-                    return await server.call_tool(tool_name_part, input_data)
+            # When project is active, use ONLY project servers (they are separate from global)
+            # This matches the UI design: "These are separate from global MCP servers"
+            if project_name and project_name in self.project_servers:
+                for server in self.project_servers[project_name]:
+                    if server.name == server_name_part and server.has_tool(
+                        tool_name_part
+                    ):
+                        return await server.call_tool(tool_name_part, input_data)
+            else:
+                for server in self.servers:
+                    if server.name == server_name_part and server.has_tool(
+                        tool_name_part
+                    ):
+                        return await server.call_tool(tool_name_part, input_data)
             raise ValueError(f"Tool {tool_name} not found")
 
 

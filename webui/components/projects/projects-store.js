@@ -257,12 +257,19 @@ const model = {
       for (const kvp of Object.entries(data))
         if (kvp[0].startsWith("_")) delete data[kvp[0]];
 
-      // call backend
       const response = await api.callJsonApi("projects", {
         action: creating ? "create" : "update",
         project: data,
       });
-      // notifications
+
+      if (!creating && this.selectedProject._mcpServers) {
+        await api.callJsonApi("project_mcp_servers", {
+          action: "save",
+          project_name: this.selectedProject.name,
+          config: this.selectedProject._mcpServers,
+        });
+      }
+
       if (response.ok) {
         notifications.toastFrontendSuccess(
           "Project saved successfully",
@@ -425,6 +432,279 @@ const model = {
         displayTime: 3,
         frontendOnly: true,
       });
+    }
+  },
+
+  mcpEditor: null,
+  mcpGlobalServers: {},
+  mcpLoading: true,
+  mcpApplying: false,
+  mcpServerToolsCache: {},
+  mcpExpandedServers: {},
+  mcpServerStatus: [],
+
+  async initMcpEditor() {
+    this.mcpLoading = true;
+    this.mcpEditor = null;
+    this.mcpApplying = false;
+    this.mcpServerToolsCache = {};
+    this.mcpExpandedServers = {};
+    this.mcpServerStatus = [];
+    
+    await this._loadMcpConfig();
+    await this._loadGlobalServers();
+
+    const container = document.getElementById("project-mcp-editor");
+    if (!container) {
+      this.mcpLoading = false;
+      return;
+    }
+
+    const editor = ace.edit("project-mcp-editor");
+    const dark = localStorage.getItem("darkMode");
+    editor.setTheme(dark !== "false" ? "ace/theme/github_dark" : "ace/theme/tomorrow");
+    editor.session.setMode("ace/mode/json");
+    editor.setValue(this.selectedProject._mcpServers || '{\n    "mcpServers": {}\n}');
+    editor.clearSelection();
+    this.mcpEditor = editor;
+
+    editor.session.on("change", () => {
+      this.selectedProject._mcpServers = editor.getValue();
+    });
+    this.mcpLoading = false;
+  },
+
+  async _loadMcpConfig() {
+    try {
+      const resp = await api.callJsonApi("project_mcp_servers", {
+        action: "load",
+        project_name: this.selectedProject.name,
+      });
+      if (resp.success) {
+        this.selectedProject._mcpServers = resp.config;
+      }
+    } catch (e) {
+      console.error("Failed to load project MCP config:", e);
+      this.selectedProject._mcpServers = '{\n    "mcpServers": {}\n}';
+    }
+  },
+
+  async _loadGlobalServers() {
+    try {
+      const resp = await api.callJsonApi("project_mcp_servers", {
+        action: "list_global",
+      });
+      if (resp.success) {
+        this.mcpGlobalServers = resp.servers || {};
+      }
+    } catch (e) {
+      console.error("Failed to load global MCP servers:", e);
+      this.mcpGlobalServers = {};
+    }
+  },
+
+  formatMcpJson() {
+    if (!this.mcpEditor) return;
+    try {
+      const parsed = JSON.parse(this.mcpEditor.getValue());
+      const formatted = JSON.stringify(parsed, null, 2);
+      this.mcpEditor.setValue(formatted);
+      this.mcpEditor.clearSelection();
+    } catch (e) {
+      alert("Invalid JSON: " + e.message);
+    }
+  },
+
+  getMcpGlobalServerNames() {
+    return Object.keys(this.mcpGlobalServers);
+  },
+
+  isMcpServerImported(serverName) {
+    if (!this.mcpEditor) return false;
+    try {
+      const current = JSON.parse(this.mcpEditor.getValue());
+      return !!(current.mcpServers && current.mcpServers[serverName]);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  toggleMcpServerImport(serverName) {
+    if (!this.mcpEditor) return;
+    try {
+      const current = JSON.parse(this.mcpEditor.getValue());
+      if (!current.mcpServers) current.mcpServers = {};
+
+      if (current.mcpServers[serverName]) {
+        delete current.mcpServers[serverName];
+        delete this.mcpExpandedServers[serverName];
+      } else if (this.mcpGlobalServers[serverName]) {
+        current.mcpServers[serverName] = JSON.parse(
+          JSON.stringify(this.mcpGlobalServers[serverName])
+        );
+      }
+
+      const formatted = JSON.stringify(current, null, 2);
+      this.mcpEditor.setValue(formatted);
+      this.mcpEditor.clearSelection();
+    } catch (e) {
+      alert("Failed to toggle server: " + e.message);
+    }
+  },
+
+  getProjectImportedServers() {
+    if (!this.mcpEditor) return [];
+    try {
+      const current = JSON.parse(this.mcpEditor.getValue());
+      return Object.keys(current.mcpServers || {});
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async toggleServerExpanded(serverName) {
+    if (this.mcpExpandedServers[serverName]) {
+      delete this.mcpExpandedServers[serverName];
+      this.mcpExpandedServers = { ...this.mcpExpandedServers };
+    } else {
+      if (!this.mcpServerToolsCache[serverName]) {
+        await this.fetchServerTools(serverName);
+      }
+      this.mcpExpandedServers[serverName] = true;
+      this.mcpExpandedServers = { ...this.mcpExpandedServers };
+    }
+  },
+
+  isServerExpanded(serverName) {
+    return !!this.mcpExpandedServers[serverName];
+  },
+
+  async fetchServerTools(serverName, retries = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const resp = await api.callJsonApi("mcp_server_get_detail", {
+          server_name: serverName,
+          project_name: this.selectedProject?.name || "",
+        });
+        if (resp.success && resp.detail) {
+          const tools = resp.detail.tools || [];
+          this.mcpServerToolsCache[serverName] = {
+            tools: tools,
+            description: resp.detail.description || "",
+          };
+          this.mcpServerToolsCache = { ...this.mcpServerToolsCache };
+          if (tools.length > 0) return;
+          if (attempt < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch server tools:", e);
+        if (attempt < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      }
+    }
+  },
+
+  async applyProjectMcp() {
+    if (!this.mcpEditor || !this.selectedProject) return;
+    this.mcpApplying = true;
+    try {
+      const config = this.mcpEditor.getValue();
+      const resp = await api.callJsonApi("project_mcp_servers", {
+        action: "apply",
+        project_name: this.selectedProject.name,
+        config: config,
+      });
+      if (resp.success) {
+        this.mcpServerStatus = resp.status || [];
+        this.mcpServerToolsCache = {};
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const allServers = this.getProjectImportedServers();
+        for (const serverName of allServers) {
+          this.mcpExpandedServers[serverName] = true;
+        }
+        this.mcpExpandedServers = { ...this.mcpExpandedServers };
+        for (const serverName of allServers) {
+          await this.fetchServerTools(serverName);
+        }
+        notifications.toastFrontendSuccess(
+          "MCP servers applied successfully",
+          "MCP Applied",
+          3,
+          "mcp",
+          notifications.NotificationPriority.NORMAL,
+          true
+        );
+      } else {
+        notifications.toastFrontendError(
+          resp.error || "Failed to apply MCP servers",
+          "MCP Error",
+          5,
+          "mcp",
+          notifications.NotificationPriority.NORMAL,
+          true
+        );
+      }
+    } catch (e) {
+      console.error("Failed to apply project MCP:", e);
+      notifications.toastFrontendError(
+        "Failed to apply MCP servers: " + e.message,
+        "MCP Error",
+        5,
+        "mcp",
+        notifications.NotificationPriority.NORMAL,
+        true
+      );
+    } finally {
+      this.mcpApplying = false;
+    }
+  },
+
+  getServerTools(serverName) {
+    return this.mcpServerToolsCache[serverName]?.tools || [];
+  },
+
+  getServerDescription(serverName) {
+    return this.mcpServerToolsCache[serverName]?.description || "";
+  },
+
+  isProjectToolDisabled(serverName, toolName) {
+    if (!this.mcpEditor) return false;
+    try {
+      const current = JSON.parse(this.mcpEditor.getValue());
+      const server = current.mcpServers?.[serverName];
+      if (!server || !server.disabled_tools) return false;
+      return server.disabled_tools.includes(toolName);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  toggleProjectTool(serverName, toolName) {
+    if (!this.mcpEditor) return;
+    try {
+      const current = JSON.parse(this.mcpEditor.getValue());
+      if (!current.mcpServers?.[serverName]) return;
+
+      const server = current.mcpServers[serverName];
+      if (!server.disabled_tools) {
+        server.disabled_tools = [];
+      }
+
+      const idx = server.disabled_tools.indexOf(toolName);
+      if (idx >= 0) {
+        server.disabled_tools.splice(idx, 1);
+      } else {
+        server.disabled_tools.push(toolName);
+      }
+
+      const formatted = JSON.stringify(current, null, 2);
+      this.mcpEditor.setValue(formatted);
+      this.mcpEditor.clearSelection();
+    } catch (e) {
+      alert("Failed to toggle tool: " + e.message);
     }
   },
 };
