@@ -1,5 +1,5 @@
 import yaml
-from python.helpers import files
+from python.helpers import files, provider_registry
 from typing import List, Dict, Optional, TypedDict
 
 
@@ -26,6 +26,7 @@ class ProviderManager:
     def _load_providers(self):
         """Loads provider configurations from the YAML file and normalises them."""
         try:
+            provider_registry.update_model_providers()
             config_path = files.get_abs_path("conf/model_providers.yaml")
             with open(config_path, "r", encoding="utf-8") as f:
                 raw_yaml = yaml.safe_load(f) or {}
