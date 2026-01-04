@@ -162,27 +162,9 @@ const model = {
       // Find the auth_login and auth_password in the settings
       let hasAuth = false;
 
-      if (authData && authData.settings && authData.settings.sections) {
-        for (const section of authData.settings.sections) {
-          if (section.fields) {
-            const authLoginField = section.fields.find(
-              (field) => field.id === "auth_login"
-            );
-            const authPasswordField = section.fields.find(
-              (field) => field.id === "auth_password"
-            );
-
-            if (
-              authLoginField &&
-              authPasswordField &&
-              authLoginField.value &&
-              authPasswordField.value
-            ) {
-              hasAuth = true;
-              break;
-            }
-          }
-        }
+      if (authData && authData.settings) {
+        const { auth_login, auth_password } = authData.settings;
+        hasAuth = Boolean(auth_login && auth_password);
       }
 
       // If no authentication is set, warn the user

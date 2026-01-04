@@ -16,7 +16,7 @@
                 <div class="buttons-container" style="margin: var(--spacing-md) var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);">
                     <div class="buttons-left">
                         <button type="button" class="button cancel"
-                            @click="$store.projects.deleteProjectAndCloseModal()">Delete</button>
+                            @click="$confirmClick($event, () => $store.projects.deleteProjectAndCloseModal())">Delete</button>
                     </div>
                     <div class="buttons-right">
                         <button type="button" class="button cancel"
@@ -69,7 +69,7 @@
                 <div class="buttons-container" style="margin: var(--spacing-md) var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);">
                     <div class="buttons-left">
                         <button type="button" class="button cancel"
-                            @click="$store.projects.deleteProjectAndCloseModal()">Delete</button>
+                            @click="$confirmClick($event, () => $store.projects.deleteProjectAndCloseModal())">Delete</button>
                     </div>
                     <div class="buttons-right">
                         <button type="button" class="button cancel"

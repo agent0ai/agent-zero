@@ -1,5 +1,4 @@
 from typing import Any, List, Sequence
-import uuid
 from langchain_community.vectorstores import FAISS
 
 # faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
@@ -17,6 +16,7 @@ from langchain.embeddings import CacheBackedEmbeddings
 from simpleeval import simple_eval
 
 from agent import Agent
+from python.helpers import guids
 
 
 class MyFaiss(FAISS):
@@ -99,7 +99,7 @@ class VectorDB:
         return result
 
     async def insert_documents(self, docs: list[Document]):
-        ids = [str(uuid.uuid4()) for _ in range(len(docs))]
+        ids = [guids.generate_id() for _ in range(len(docs))]
 
         if ids:
             for doc, id in zip(docs, ids):

@@ -68,6 +68,28 @@
             position: relative;
         }
 
+        /* Unified scrollbar styling for modal content */
+        .image-display-wrapper::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .image-display-wrapper::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 4px 0;
+            border-radius: 6px;
+        }
+
+        .image-display-wrapper::-webkit-scrollbar-thumb {
+            background-color: rgba(155, 155, 155, 0.5);
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .image-display-wrapper::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(155, 155, 155, 0.7);
+        }
+
         .modal-image {
             max-width: 100%;
             max-height: 100%;

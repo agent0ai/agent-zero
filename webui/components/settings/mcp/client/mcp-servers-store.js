@@ -1,7 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
-import { scrollModal } from "/js/modals.js";
 import sleep from "/js/sleep.js";
 import * as API from "/js/api.js";
+import { store as settingsStore } from "/components/settings/settings-store.js";
 
 const model = {
   editor: null,
@@ -24,7 +24,7 @@ const model = {
       }
 
       editor.session.setMode("ace/mode/json");
-      const json = this.getSettingsFieldConfigJson().value;
+      const json = this.getSettingsFieldConfigJson();
       editor.setValue(json);
       editor.clearSelection();
       this.editor = editor;
@@ -59,14 +59,16 @@ const model = {
   },
 
   getSettingsFieldConfigJson() {
-    return settingsModalProxy.settings.sections
-      .filter((x) => x.id == "mcp_client")[0]
-      .fields.filter((x) => x.id == "mcp_servers")[0];
+    return settingsStore.settings?.mcp_servers
+      ?? settingsStore.settings?.mcpServers
+      ?? "{\n    \"mcpServers\": {}\n}";
   },
 
   onClose() {
     const val = this.getEditorValue();
-    this.getSettingsFieldConfigJson().value = val;
+    if (settingsStore.settings) {
+      settingsStore.settings.mcp_servers = val;
+    }
     this.stopStatusCheck();
   },
 

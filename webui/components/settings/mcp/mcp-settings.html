@@ -1,0 +1,46 @@
+<html>
+  <head>
+    <title>MCP/A2A</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore">
+        <div>
+          <nav>
+            <ul>
+              <li>
+                <a href="#section-mcp-client">
+                  <img src="/public/mcp_client.svg" alt="External MCP Servers" />
+                  <span>External MCP Servers</span>
+                </a>
+              </li>
+              <li>
+                <a href="#section-mcp-server">
+                  <img src="/public/mcp_server.svg" alt="A0 MCP Server" />
+                  <span>A0 MCP Server</span>
+                </a>
+              </li>
+              <li>
+                <a href="#section-a2a-server">
+                  <img src="/public/a2a_server.svg" alt="A0 A2A Server" />
+                  <span>A0 A2A Server</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+
+          <div id="section-mcp-client" class="section">
+            <x-component path="settings/mcp/mcp_client.html"></x-component>
+          </div>
+          <div id="section-mcp-server" class="section">
+            <x-component path="settings/mcp/mcp_server.html"></x-component>
+          </div>
+          <div id="section-a2a-server" class="section">
+            <x-component path="settings/a2a/a2a-server.html"></x-component>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

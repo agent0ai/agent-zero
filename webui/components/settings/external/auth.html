@@ -1,0 +1,57 @@
+<html>
+  <head>
+    <title>Authentication</title>
+  </head>
+
+  <body>
+    <div
+      x-data="{
+        get settings() { return $store.settingsStore.settings },
+        get additional() { return $store.settingsStore.additional || {} }
+      }"
+    >
+      <template x-if="settings">
+        <div>
+          <div class="section-title">Authentication</div>
+          <div class="section-description">
+            Settings for authentication to use Agent Zero Web UI.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">UI Login</div>
+              <div class="field-description">Set user name for web UI</div>
+            </div>
+            <div class="field-control">
+              <input type="text" x-model="settings.auth_login" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">UI Password</div>
+              <div class="field-description">Set user password for web UI</div>
+            </div>
+            <div class="field-control">
+              <input type="password" autocomplete="off" x-model="settings.auth_password" />
+            </div>
+          </div>
+
+          <template x-if="additional.is_dockerized">
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">root Password</div>
+                <div class="field-description">
+                  Change linux root password in docker container. This password can be used for SSH access. Original password was randomly generated during setup.
+                </div>
+              </div>
+              <div class="field-control">
+                <input type="password" autocomplete="off" x-model="settings.root_password" />
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

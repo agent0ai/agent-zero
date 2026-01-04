@@ -4,6 +4,7 @@
     import { store } from "/components/chat/input/input-store.js";
     import { store as historyStore } from "/components/modals/history/history-store.js";
     import { store as contextStore } from "/components/modals/context/context-store.js";
+    import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
   </script>
 </head>
 <body>
@@ -22,6 +23,20 @@
                 </svg>
             </template>
             <span x-text="$store.chatInput.paused ? 'Resume Agent' : 'Pause Agent'"></span>
+        </button>
+
+        <button class="text-button" @click="$store.chats.resetChat()" :disabled="!$store.chats.selected">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                <path d="M19.36 2.72l1.42 1.42-5.72 5.71c1.07 1.54 1.22 3.39.32 4.59L9.06 8.12c1.2-.9 3.05-.75 4.59.32l5.71-5.72M5.93 17.57c-2.01-2.01-3.24-4.41-3.58-6.65l4.88-2.09 7.44 7.44-2.09 4.88c-2.24-.34-4.64-1.57-6.65-3.58z"/>
+            </svg>
+            <p>Clear Chat</p>
+        </button>
+
+        <button class="text-button" @click="$store.chats.saveChat()" :disabled="!$store.chats.selected">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+            </svg>
+            <p>Save Chat</p>
         </button>
 
         <button class="text-button" @click="$store.chatInput.loadKnowledge()">
@@ -69,8 +84,9 @@
   <style>
         .text-buttons-row { width: 100%; display: flex; padding-top: var(--spacing-xs); margin-left: var(--spacing-xs); }
         .text-button { background-color: transparent; border: none; border-radius: 5px; color: var(--color-text); font-family: "Rubik", Arial, Helvetica, sans-serif; font-size: 0.6rem; padding: 6px var(--spacing-sm); cursor: pointer; opacity: 0.8; -webkit-transition: all 0.3s; transition: all 0.3s; display: flex; align-items: center; gap: var(--spacing-xs); }
-        .text-button:hover { opacity: 1; background-color: var(--color-secondary); border-radius: 4px; }
-        .text-button:active { opacity: 0.5; }
+        .text-button:hover:not(:disabled) { opacity: 1; background-color: var(--color-background-hover); border-radius: 4px; }
+        .text-button:active:not(:disabled) { opacity: 0.5; }
+        .text-button:disabled { opacity: 0.4; cursor: not-allowed; }
         .text-button svg { width: 14px; height: 14px; flex-shrink: 0; }
         .text-button p { margin-block: 0; }
 

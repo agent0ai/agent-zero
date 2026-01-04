@@ -59,7 +59,7 @@
     <button type="button" class="button icon-button" title="Edit" @click="$store.projects.openEditModal(project.name)">
       <span class="icon material-symbols-outlined">edit</span>
     </button>
-    <button type="button" class="button cancel icon-button" title="Delete" @click="$store.projects.deleteProject(project.name)">
+    <button type="button" class="button cancel icon-button" title="Delete" @click="$confirmClick($event, () => $store.projects.deleteProject(project.name))">
       <span class="icon material-symbols-outlined">delete</span>
     </button>
   </div>

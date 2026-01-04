@@ -10,7 +10,18 @@
   <div x-data>
     <template x-if="$store.chats">
       <div class="chats-list-container" x-data>
-        <h3 class="section-header">Chats</h3>
+        <div class="section-header-row">
+          <h3 class="section-header">Chats</h3>
+          <!-- New Chat Button -->
+          <button id="newChat" @click="$store.tooltips.hideAll(); $store.chats.newChat()" aria-label="New Chat" title="New Chat" data-bs-placement="top">
+            <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 110 135" width="32" height="32">
+              <path d="m38.3 81.3 3.2-9.1 3.1-9v-.1c0-.2.1-.3.2-.4.1-.2.2-.3.3-.4L82.4 25c1.6-1.6 3.7-2.4 5.7-2.4h.2c2 0 4 .8 5.6 2.4l3.7 3.7.1.2c1.5 1.6 2.2 3.6 2.2 5.6v.2c0 2-.8 4-2.4 5.6l-.1.1-3.8 3.6-.1.1-.1.1-32.9 33-.1.1q-.45.45-.9.6l-9.1 3.2h-.1l-9.1 3.1c-1.2.4-2.5-.2-2.9-1.4q-.3-.75 0-1.5m7.5-7.6-1.6 4.6 4.6-1.6 5.7-2-3.4-3.4-3.3-3.3zm4.2-9.9 4.3 4.3 4.3 4.3 30-30-8.6-8.5zm35.7-35.7-2.5 2.5 8.6 8.6 2.4-2.4.1-.1c.6-.6 1-1.5 1-2.3v-.1c0-.9-.3-1.8-1-2.4l-3.7-3.7c-.6-.6-1.5-1-2.3-1h-.1c-.9-.1-1.8.3-2.5.9m.4 44.1c0-1.3 1-2.3 2.3-2.3s2.3 1 2.3 2.3V101c0 3.2-1.3 6.1-3.4 8.2s-5 3.4-8.2 3.4H21.6c-3.2 0-6.1-1.3-8.2-3.4s-3.4-5-3.4-8.2V43.4c0-3.2 1.3-6.1 3.4-8.2s5-3.4 8.2-3.4h28.8c1.3 0 2.3 1 2.3 2.3s-1 2.3-2.3 2.3H21.6c-1.9 0-3.7.8-4.9 2-1.3 1.3-2 3-2 4.9v57.6c0 1.9.8 3.6 2 4.9 1.3 1.3 3 2 4.9 2h57.6c1.9 0 3.7-.8 4.9-2 1.3-1.3 2-3 2-4.9z" style="fill:currentColor"></path>
+            </svg>
+          </button>
+        </div>
+
+
+
         <ul class="config-list chats-config-list" x-show="$store.chats.contexts.length > 0">
           <template x-for="context in $store.chats.contexts" :key="context.id">
             <li>
@@ -22,7 +33,9 @@
                   <span class="chat-name" :title="context.name ? context.name : 'Chat #' + context.no"
                     x-text="context.name ? context.name : 'Chat #' + context.no"></span>
                 </div>
-                <button class="edit-button" @click.stop="$store.chats.killChat(context.id)">X</button>
+                <button class="btn-icon-action" title="Close chat" @click.stop="$store.tooltips.hideAll(); $confirmClick($event, () => $store.chats.killChat(context.id))">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
               </div>
             </li>
           </template>
@@ -35,11 +48,18 @@
   </div>
 
   <style>
-    .chats-list-container .section-header {
+    .chats-list-container .section-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       position: sticky;
       top: 0;
       flex-shrink: 0;
       z-index: 10;
+    }
+
+    .chats-list-container .section-header {
+      margin: 0;
     }
 
     /* Chats list container and items */
@@ -110,28 +130,9 @@
       font-size: var(--font-size-small);
     }
 
-    .edit-button {
+    .chat-container .btn-icon-action {
       flex-shrink: 0;
       margin-right: 8px;
-      background-color: transparent;
-      border: 1px solid var(--color-border);
-      border-radius: 0.1875rem;
-      color: var(--color-primary);
-      cursor: pointer;
-      padding: 0.125rem 0.5rem;
-      transition: all var(--transition-speed) ease-in-out;
-      width: 2rem;
-      height: 2rem;
-    }
-
-    .edit-button:hover {
-      border-color: var(--color-primary);
-      background-color: #32455690;
-    }
-
-    .edit-button:active {
-      background-color: #131a2090;
-      color: rgba(253, 253, 253, 0.35);
     }
 
     .empty-list-message {

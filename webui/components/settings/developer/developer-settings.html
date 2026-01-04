@@ -1,0 +1,28 @@
+<html>
+  <head>
+    <title>Developer</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore">
+        <div>
+          <nav>
+            <ul>
+              <li>
+                <a href="#section-dev">
+                  <img src="/public/dev.svg" alt="Development" />
+                  <span>Development</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+
+          <div id="section-dev" class="section">
+            <x-component path="settings/developer/dev.html"></x-component>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

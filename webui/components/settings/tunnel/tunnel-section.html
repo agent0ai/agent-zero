@@ -36,7 +36,7 @@
                         </div>
                     </div>
                     <!-- Loading spinner for tunnel operations -->
-                    <div class="loading-spinner" x-show="$store.tunnelStore.isLoading">
+                    <div class="tunnel-loading-status" x-show="$store.tunnelStore.isLoading">
                         <span class="icon material-symbols-outlined spin">progress_activity</span>
                         <span x-text="$store.tunnelStore.loadingText || 'Processing tunnel request...'"></span>
                     </div>
@@ -164,7 +164,7 @@
             line-height: 1.5;
         }
 
-        .loading-spinner {
+        .tunnel-loading-status {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -175,7 +175,7 @@
             color: var(--text-color-secondary);
         }
 
-        .loading-spinner i {
+        .tunnel-loading-status .icon {
             font-size: 1.5rem;
             margin-right: 10px;
             color: var(--accent-color);
