@@ -6,6 +6,8 @@
 
 #Ignore cursor rules
 .cursor/
+.windsurf/
+.serena/
 
 # ignore test files in root dir
 /*.test.py
