@@ -108,7 +108,7 @@ Agent Zero uses a **hierarchical multi-agent system** with these core components
    - Recommends new tools to build based on observed needs
    - Automatic versioning with rollback capabilities
    - Optional auto-apply mode for autonomous evolution
-   - See `/docs/meta_learning.md` for comprehensive guide
+   - See `/docs/meta_learning/` directory for comprehensive guides
 
 ### Directory Structure (Key Paths)
 
@@ -556,7 +556,7 @@ rollback_prompts("20260105_143022")
 
 ### Documentation
 
-For comprehensive guide, see `/docs/meta_learning.md`:
+For comprehensive guide, see `/docs/meta_learning/README.md`:
 - Detailed architecture
 - Configuration profiles
 - Usage patterns
@@ -636,5 +636,5 @@ Enable verbose logging by modifying `python/helpers/log.py` or pass `--debug` fl
 - Development guide: `/docs/development.md`
 - Extensibility guide: `/docs/extensibility.md`
 - API connectivity: `/docs/connectivity.md`
-- Meta-learning system: `/docs/meta_learning.md` (comprehensive guide)
+- Meta-learning system: `/docs/meta_learning/README.md` (comprehensive guide)
 - Troubleshooting: `/docs/troubleshooting.md`
