@@ -15,8 +15,12 @@ if TYPE_CHECKING:  # pragma: no cover - hints only
     from python.helpers.websocket_manager import WebSocketManager
 
 
+ConnectionIdentity = tuple[str, str]  # (namespace, sid)
+
+
 @dataclass
 class ConnectionProjection:
+    namespace: str
     sid: str
     active_context_id: str | None = None
     log_from: int = 0
@@ -40,9 +44,9 @@ class StateMonitor:
     def __init__(self, debounce_seconds: float = 0.025) -> None:
         self.debounce_seconds = float(debounce_seconds)
         self._lock = threading.RLock()
-        self._projections: dict[str, ConnectionProjection] = {}
-        self._debounce_handles: dict[str, asyncio.TimerHandle] = {}
-        self._push_tasks: dict[str, asyncio.Task[None]] = {}
+        self._projections: dict[ConnectionIdentity, ConnectionProjection] = {}
+        self._debounce_handles: dict[ConnectionIdentity, asyncio.TimerHandle] = {}
+        self._push_tasks: dict[ConnectionIdentity, asyncio.Task[None]] = {}
         self._manager: WebSocketManager | None = None
         self._emit_handler_id: str | None = None
         self._dispatcher_loop: asyncio.AbstractEventLoop | None = None
@@ -61,23 +65,29 @@ class StateMonitor:
                 f"[StateMonitor] bind_manager handler_id={handler_id or self._emit_handler_id}"
             )
 
-    def register_sid(self, sid: str) -> None:
+    def register_sid(self, namespace: str, sid: str) -> None:
+        identity: ConnectionIdentity = (namespace, sid)
         with self._lock:
-            self._projections.setdefault(sid, ConnectionProjection(sid=sid))
+            self._projections.setdefault(
+                identity, ConnectionProjection(namespace=namespace, sid=sid)
+            )
         if runtime.is_development():
-            PrintStyle.debug(f"[StateMonitor] register_sid sid={sid}")
+            PrintStyle.debug(f"[StateMonitor] register_sid namespace={namespace} sid={sid}")
 
-    def unregister_sid(self, sid: str) -> None:
+    def unregister_sid(self, namespace: str, sid: str) -> None:
+        identity: ConnectionIdentity = (namespace, sid)
         with self._lock:
-            handle = self._debounce_handles.pop(sid, None)
+            handle = self._debounce_handles.pop(identity, None)
             if handle is not None:
                 handle.cancel()
-            task = self._push_tasks.pop(sid, None)
+            task = self._push_tasks.pop(identity, None)
             if task is not None:
                 task.cancel()
-            self._projections.pop(sid, None)
+            self._projections.pop(identity, None)
         if runtime.is_development():
-            PrintStyle.debug(f"[StateMonitor] unregister_sid sid={sid}")
+            PrintStyle.debug(
+                f"[StateMonitor] unregister_sid namespace={namespace} sid={sid}"
+            )
 
     def mark_dirty_all(self, *, reason: str | None = None) -> None:
         wave_id = None
@@ -86,9 +96,9 @@ class StateMonitor:
                 self._dirty_wave_seq += 1
                 wave_id = f"all_{self._dirty_wave_seq}"
         with self._lock:
-            sids = list(self._projections.keys())
-        for sid in sids:
-            self.mark_dirty(sid, reason=reason, wave_id=wave_id)
+            identities = list(self._projections.keys())
+        for namespace, sid in identities:
+            self.mark_dirty(namespace, sid, reason=reason, wave_id=wave_id)
 
     def mark_dirty_for_context(self, context_id: str, *, reason: str | None = None) -> None:
         if not isinstance(context_id, str) or not context_id.strip():
@@ -100,16 +110,17 @@ class StateMonitor:
                 self._dirty_wave_seq += 1
                 wave_id = f"ctx_{self._dirty_wave_seq}"
         with self._lock:
-            sids = [
-                sid
-                for sid, projection in self._projections.items()
+            identities = [
+                identity
+                for identity, projection in self._projections.items()
                 if projection.active_context_id == target
             ]
-        for sid in sids:
-            self.mark_dirty(sid, reason=reason, wave_id=wave_id)
+        for namespace, sid in identities:
+            self.mark_dirty(namespace, sid, reason=reason, wave_id=wave_id)
 
     def update_projection(
         self,
+        namespace: str,
         sid: str,
         *,
         context: str | None,
@@ -118,9 +129,10 @@ class StateMonitor:
         timezone: str,
         seq_base: int,
     ) -> None:
+        identity: ConnectionIdentity = (namespace, sid)
         with self._lock:
             projection = self._projections.setdefault(
-                sid, ConnectionProjection(sid=sid)
+                identity, ConnectionProjection(namespace=namespace, sid=sid)
             )
             projection.active_context_id = context
             projection.log_from = log_from
@@ -130,18 +142,20 @@ class StateMonitor:
             projection.seq = seq_base
         if runtime.is_development():
             PrintStyle.debug(
-                f"[StateMonitor] update_projection sid={sid} context={context!r} "
+                f"[StateMonitor] update_projection namespace={namespace} sid={sid} context={context!r} "
                 f"log_from={log_from} notifications_from={notifications_from} "
                 f"timezone={timezone!r} seq_base={seq_base}"
             )
 
     def mark_dirty(
         self,
+        namespace: str,
         sid: str,
         *,
         reason: str | None = None,
         wave_id: str | None = None,
     ) -> None:
+        identity: ConnectionIdentity = (namespace, sid)
         loop = self._dispatcher_loop
         if loop is None or loop.is_closed():
             try:
@@ -155,19 +169,19 @@ class StateMonitor:
             running_loop = None
 
         if running_loop is loop:
-            self._mark_dirty_on_loop(sid, reason=reason, wave_id=wave_id)
+            self._mark_dirty_on_loop(identity, reason=reason, wave_id=wave_id)
             return
 
-        loop.call_soon_threadsafe(self._mark_dirty_on_loop, sid, reason, wave_id)
+        loop.call_soon_threadsafe(self._mark_dirty_on_loop, identity, reason, wave_id)
 
     def _mark_dirty_on_loop(
         self,
-        sid: str,
+        identity: ConnectionIdentity,
         reason: str | None = None,
         wave_id: str | None = None,
     ) -> None:
         with self._lock:
-            projection = self._projections.get(sid)
+            projection = self._projections.get(identity)
             if projection is None:
                 return
             projection.dirty_version += 1
@@ -178,12 +192,12 @@ class StateMonitor:
                     else "unknown"
                 )
                 projection.dirty_wave_id = wave_id
-        self._schedule_debounce_on_loop(sid)
+        self._schedule_debounce_on_loop(identity)
 
-    def _schedule_debounce_on_loop(self, sid: str) -> None:
+    def _schedule_debounce_on_loop(self, identity: ConnectionIdentity) -> None:
         loop = asyncio.get_running_loop()
         with self._lock:
-            projection = self._projections.get(sid)
+            projection = self._projections.get(identity)
             if projection is None:
                 return
             # INVARIANT.STATE.GATING: do not schedule pushes until a successful state_request
@@ -194,40 +208,44 @@ class StateMonitor:
             # Throttled coalescing: schedule at most one push per debounce window.
             # Do not postpone the scheduled push on subsequent dirties; this keeps
             # streaming updates smooth while still capping to <= 1 push / 100ms / sid.
-            existing = self._debounce_handles.get(sid)
+            existing = self._debounce_handles.get(identity)
             if existing is not None and not existing.cancelled():
                 return
 
-            running = self._push_tasks.get(sid)
+            running = self._push_tasks.get(identity)
             if running is not None and not running.done():
                 return
 
-            handle = loop.call_later(self.debounce_seconds, self._on_debounce_fire, sid)
-            self._debounce_handles[sid] = handle
+            handle = loop.call_later(
+                self.debounce_seconds, self._on_debounce_fire, identity
+            )
+            self._debounce_handles[identity] = handle
             if runtime.is_development():
                 PrintStyle.debug(
-                    f"[StateMonitor] schedule_push sid={sid} delay_s={self.debounce_seconds} "
+                    f"[StateMonitor] schedule_push namespace={projection.namespace} sid={projection.sid} "
+                    f"delay_s={self.debounce_seconds} "
                     f"dirty={projection.dirty_version} pushed={projection.pushed_version} "
                     f"reason={projection.dirty_reason!r} wave={projection.dirty_wave_id!r}"
                 )
 
-    def _on_debounce_fire(self, sid: str) -> None:
+    def _on_debounce_fire(self, identity: ConnectionIdentity) -> None:
         with self._lock:
-            self._debounce_handles.pop(sid, None)
-            existing = self._push_tasks.get(sid)
+            self._debounce_handles.pop(identity, None)
+            existing = self._push_tasks.get(identity)
             if existing is not None and not existing.done():
                 return
-            task = asyncio.create_task(self._flush_push(sid))
-            self._push_tasks[sid] = task
+            task = asyncio.create_task(self._flush_push(identity))
+            self._push_tasks[identity] = task
 
-    async def _flush_push(self, sid: str) -> None:
+    async def _flush_push(self, identity: ConnectionIdentity) -> None:
+        namespace, sid = identity
         task = asyncio.current_task()
         base_version = 0
         dirty_reason: str | None = None
         dirty_wave_id: str | None = None
         try:
             with self._lock:
-                projection = self._projections.get(sid)
+                projection = self._projections.get(identity)
                 manager = self._manager
                 handler_id = self._emit_handler_id
 
@@ -257,7 +275,7 @@ class StateMonitor:
             )
 
             with self._lock:
-                projection = self._projections.get(sid)
+                projection = self._projections.get(identity)
                 if projection is None:
                     return
 
@@ -297,11 +315,12 @@ class StateMonitor:
                         else None
                     )
                     PrintStyle.debug(
-                        f"[StateMonitor] emit state_push sid={sid} seq={seq} "
+                        f"[StateMonitor] emit state_push namespace={namespace} sid={sid} seq={seq} "
                         f"context={active_context_id!r} logs_len={logs_len} "
                         f"reason={dirty_reason!r} wave={dirty_wave_id!r}"
                     )
                 await manager.emit_to(
+                    namespace,
                     sid,
                     "state_push",
                     payload,
@@ -310,21 +329,25 @@ class StateMonitor:
             except ConnectionNotFoundError:
                 # Sid was removed before the emit; treat as benign.
                 if runtime.is_development():
-                    PrintStyle.debug(f"[StateMonitor] emit skipped: sid not found sid={sid}")
+                    PrintStyle.debug(
+                        f"[StateMonitor] emit skipped: sid not found namespace={namespace} sid={sid}"
+                    )
                 return
             except RuntimeError:
                 # Dispatcher loop may be closing (e.g., during shutdown or test teardown).
                 if runtime.is_development():
-                    PrintStyle.debug(f"[StateMonitor] emit skipped: dispatcher closing sid={sid}")
+                    PrintStyle.debug(
+                        f"[StateMonitor] emit skipped: dispatcher closing namespace={namespace} sid={sid}"
+                    )
                 return
         finally:
             follow_up = False
             dirty_version = 0
             pushed_version = 0
             with self._lock:
-                if task is not None and self._push_tasks.get(sid) is task:
-                    self._push_tasks.pop(sid, None)
-                projection = self._projections.get(sid)
+                if task is not None and self._push_tasks.get(identity) is task:
+                    self._push_tasks.pop(identity, None)
+                projection = self._projections.get(identity)
                 if projection is not None:
                     dirty_version = projection.dirty_version
                     pushed_version = projection.pushed_version
@@ -338,7 +361,7 @@ class StateMonitor:
 
         if runtime.is_development():
             PrintStyle.debug(
-                f"[StateMonitor] follow_up_push sid={sid} dirty={dirty_version} pushed={pushed_version}"
+                f"[StateMonitor] follow_up_push namespace={namespace} sid={sid} dirty={dirty_version} pushed={pushed_version}"
             )
         try:
             loop = self._dispatcher_loop or asyncio.get_running_loop()
@@ -346,13 +369,13 @@ class StateMonitor:
             return
         if loop.is_closed():
             return
-        loop.call_soon_threadsafe(self._schedule_debounce_on_loop, sid)
+        loop.call_soon_threadsafe(self._schedule_debounce_on_loop, identity)
 
     # Testing hook: keep argument surface stable for future extensions
     def _debug_state(self) -> dict[str, Any]:  # pragma: no cover - helper
         with self._lock:
             return {
-                "sids": list(self._projections.keys()),
+                "identities": list(self._projections.keys()),
                 "handles": list(self._debounce_handles.keys()),
             }
 

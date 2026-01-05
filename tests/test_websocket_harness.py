@@ -14,6 +14,8 @@ from python.websocket_handlers.dev_websocket_test_handler import (
     DevWebsocketTestHandler,
 )
 
+NAMESPACE = "/dev_websocket_test"
+
 
 class FakeSocketIOServer:
     def __init__(self) -> None:
@@ -28,8 +30,8 @@ async def _create_manager() -> tuple[WebSocketManager, DevWebsocketTestHandler, 
     manager = WebSocketManager(socketio, threading.RLock())
     DevWebsocketTestHandler._reset_instance_for_testing()
     handler = DevWebsocketTestHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-primary")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-primary")
     return manager, handler, socketio
 
 
@@ -38,6 +40,7 @@ async def test_harness_emit_broadcasts_to_active_connections():
     manager, _handler, socketio = await _create_manager()
 
     await manager.route_event(
+        NAMESPACE,
         "ws_tester_emit",
         {"message": "emit-check", "timestamp": "2025-10-29T12:00:00Z"},
         "sid-primary",
@@ -51,7 +54,7 @@ async def test_harness_emit_broadcasts_to_active_connections():
     envelope = args[1]
     assert envelope["handlerId"].endswith("DevWebsocketTestHandler")
     assert envelope["data"]["message"] == "emit-check"
-    assert kwargs == {"to": "sid-primary"}
+    assert kwargs == {"to": "sid-primary", "namespace": NAMESPACE}
 
 
 @pytest.mark.asyncio
@@ -59,6 +62,7 @@ async def test_harness_request_returns_per_handler_result():
     manager, _handler, _socketio = await _create_manager()
 
     response = await manager.route_event(
+        NAMESPACE,
         "ws_tester_request",
         {"value": 42},
         "sid-primary",
@@ -89,6 +93,7 @@ async def test_harness_request_delayed_waits_for_sleep(monkeypatch):
     )
 
     await manager.route_event(
+        NAMESPACE,
         "ws_tester_request_delayed",
         {"delay_ms": 1500},
         "sid-primary",
@@ -102,6 +107,7 @@ async def test_harness_persistence_emit_targets_requesting_sid():
     manager, _handler, socketio = await _create_manager()
 
     await manager.route_event(
+        NAMESPACE,
         "ws_tester_trigger_persistence",
         {"phase": "after"},
         "sid-primary",
@@ -115,15 +121,16 @@ async def test_harness_persistence_emit_targets_requesting_sid():
     payload = args[1]
     assert payload["handlerId"] == _handler.identifier
     assert payload["data"] == {"phase": "after", "handler": _handler.identifier}
-    assert kwargs == {"to": "sid-primary"}
+    assert kwargs == {"to": "sid-primary", "namespace": NAMESPACE}
 
 
 @pytest.mark.asyncio
 async def test_harness_request_all_aggregates_all_connections():
     manager, _handler, _socketio = await _create_manager()
-    await manager.handle_connect("sid-secondary")
+    await manager.handle_connect(NAMESPACE, "sid-secondary")
 
     response = await manager.route_event(
+        NAMESPACE,
         "ws_tester_request_all",
         {"marker": "aggregate"},
         "sid-primary",
@@ -147,9 +154,10 @@ async def test_harness_request_all_aggregates_all_connections():
 @pytest.mark.asyncio
 async def test_harness_request_all_respects_exclude_handlers():
     manager, handler, _socketio = await _create_manager()
-    await manager.handle_connect("sid-secondary")
+    await manager.handle_connect(NAMESPACE, "sid-secondary")
 
     response = await manager.route_event(
+        NAMESPACE,
         "ws_tester_request_all",
         {
             "marker": "exclude",

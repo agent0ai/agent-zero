@@ -16,11 +16,11 @@ class StateSyncHandler(WebSocketHandler):
     async def on_connect(self, sid: str) -> None:
         monitor = get_state_monitor()
         monitor.bind_manager(self.manager, handler_id=self.identifier)
-        monitor.register_sid(sid)
+        monitor.register_sid(self.namespace, sid)
         PrintStyle.info(f"[StateSyncHandler] connect sid={sid}")
 
     async def on_disconnect(self, sid: str) -> None:
-        get_state_monitor().unregister_sid(sid)
+        get_state_monitor().unregister_sid(self.namespace, sid)
         PrintStyle.info(f"[StateSyncHandler] disconnect sid={sid}")
 
     async def process_event(self, event_type: str, data: dict, sid: str) -> dict | WebSocketResult | None:
@@ -96,6 +96,7 @@ class StateSyncHandler(WebSocketHandler):
         seq_base = 1
         monitor = get_state_monitor()
         monitor.update_projection(
+            self.namespace,
             sid,
             context=(context.strip() or None) if isinstance(context, str) else None,
             log_from=log_from,
@@ -104,7 +105,11 @@ class StateSyncHandler(WebSocketHandler):
             seq_base=seq_base,
         )
         # INVARIANT.STATE.INITIAL_SNAPSHOT: schedule a full snapshot quickly after handshake.
-        monitor.mark_dirty(sid, reason="state_sync_handler.StateSyncHandler.state_request")
+        monitor.mark_dirty(
+            self.namespace,
+            sid,
+            reason="state_sync_handler.StateSyncHandler.state_request",
+        )
         PrintStyle.debug(f"[StateSyncHandler] state_request accepted sid={sid} seq_base={seq_base}")
 
         return self.result_ok(

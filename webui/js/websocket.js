@@ -5,12 +5,7 @@ const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB hard cap per contract
 const DEFAULT_TIMEOUT_MS = 0;
 
 const _UUID_HEX = [..."0123456789abcdef"];
-const _OPTION_KEYS = new Set([
-  "includeHandlers",
-  "excludeHandlers",
-  "excludeSids",
-  "correlationId",
-]);
+const _OPTION_KEYS = new Set(["correlationId"]);
 
 /**
  * @param {unknown} value
@@ -100,6 +95,24 @@ function normalizeCorrelationId(value) {
     throw new Error("correlationId must be a non-empty string");
   }
   return trimmed;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function normalizeNamespace(value) {
+  if (typeof value !== "string") {
+    throw new Error("namespace must be a non-empty string");
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("namespace must be a non-empty string");
+  }
+  if (trimmed === "/") {
+    return "/";
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
 /**
@@ -235,7 +248,8 @@ export function validateServerEnvelope(envelope) {
 }
 
 class WebSocketClient {
-  constructor() {
+  constructor(namespace = "/") {
+    this.namespace = normalizeNamespace(namespace);
     this.socket = null;
     this.connected = false;
     this.connecting = false;
@@ -332,7 +346,7 @@ class WebSocketClient {
 
   debugLog(...args) {
     if (this.isDevelopment) {
-      console.debug("[websocket]", ...args);
+      console.debug(`[websocket:${this.namespace}]`, ...args);
     }
   }
 
@@ -392,51 +406,14 @@ class WebSocketClient {
   }
 
   async emit(eventType, data, options = {}) {
-    const normalized = normalizeProducerOptions({
-      includeHandlers: options.includeHandlers,
-      correlationId: options.correlationId,
-    });
-    const payload = this.applyProducerOptions(
-      this.buildPayload(data),
-      normalized,
-      { includeHandlers: true, excludeHandlers: false, excludeSids: false },
-    );
-    if (!payload.correlationId) {
-      payload.correlationId = createCorrelationId("emit");
-    }
+    const correlationId =
+      normalizeCorrelationId(options?.correlationId) || createCorrelationId("emit");
+    const payload = this.buildPayload(data);
+    payload.correlationId = correlationId;
+
     this.debugLog("emit", {
       eventType,
-      correlationId: payload.correlationId,
-      includeHandlers: payload.includeHandlers,
-    });
-    this.ensurePayloadSize(payload);
-    await this.connect();
-    if (!this.isConnected()) {
-      throw new Error("Not connected");
-    }
-    this.socket.emit(eventType, payload);
-  }
-
-  async broadcast(eventType, data, options = {}) {
-    const normalized = normalizeProducerOptions({
-      excludeSids: options.excludeSids,
-      correlationId: options.correlationId,
-    });
-    if (normalized.includeHandlers || normalized.excludeHandlers) {
-      throw new Error("broadcast supports excludeSids only");
-    }
-    const payload = this.applyProducerOptions(
-      this.buildPayload(data),
-      normalized,
-      { includeHandlers: false, excludeHandlers: false, excludeSids: true },
-    );
-    if (!payload.correlationId) {
-      payload.correlationId = createCorrelationId("broadcast");
-    }
-    this.debugLog("broadcast", {
-      eventType,
-      correlationId: payload.correlationId,
-      excludeSids: payload.excludeSids,
+      correlationId,
     });
     this.ensurePayloadSize(payload);
     await this.connect();
@@ -447,20 +424,14 @@ class WebSocketClient {
   }
 
   async request(eventType, data, options = {}) {
-    const normalized = normalizeProducerOptions({
-      includeHandlers: options.includeHandlers,
-      correlationId: options.correlationId,
-    });
-    const payload = this.applyProducerOptions(
-      this.buildPayload(data),
-      normalized,
-      { includeHandlers: true, excludeHandlers: false, excludeSids: false },
-    );
-    if (!payload.correlationId) {
-      payload.correlationId = createCorrelationId("request");
-    }
+    const correlationId =
+      normalizeCorrelationId(options?.correlationId) ||
+      createCorrelationId("request");
+    const payload = this.buildPayload(data);
+    payload.correlationId = correlationId;
+
     const timeoutMs = Number(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-    this.debugLog("request", { eventType, correlationId: payload.correlationId, includeHandlers: payload.includeHandlers, timeoutMs });
+    this.debugLog("request", { eventType, correlationId, timeoutMs });
     if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
       throw new Error("timeoutMs must be a non-negative number");
     }
@@ -490,53 +461,6 @@ class WebSocketClient {
     });
   }
 
-  async requestAll(eventType, data, options = {}) {
-    const normalized = normalizeProducerOptions({
-      excludeHandlers: options.excludeHandlers,
-      correlationId: options.correlationId,
-    });
-    if (normalized.includeHandlers) {
-      throw new Error("requestAll supports excludeHandlers only");
-    }
-    const payload = this.applyProducerOptions(
-      this.buildPayload(data),
-      normalized,
-      { includeHandlers: false, excludeHandlers: true, excludeSids: false },
-    );
-    if (!payload.correlationId) {
-      payload.correlationId = createCorrelationId("requestAll");
-    }
-    const timeoutMs = Number(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-    this.debugLog("requestAll", { eventType, correlationId: payload.correlationId, excludeHandlers: payload.excludeHandlers, timeoutMs });
-    if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
-      throw new Error("timeoutMs must be a non-negative number");
-    }
-    this.ensurePayloadSize(payload);
-    await this.connect();
-    if (!this.isConnected()) {
-      throw new Error("Not connected");
-    }
-
-    return new Promise((resolve, reject) => {
-      if (timeoutMs > 0) {
-      this.socket
-          .timeout(timeoutMs)
-          .emit(eventType, payload, (err, response) => {
-          if (err) {
-            reject(new Error("Request timeout"));
-            return;
-          }
-            resolve(this.normalizeRequestAllResponse(response));
-          });
-        return;
-      }
-
-      this.socket.emit(eventType, payload, (response) => {
-          resolve(this.normalizeRequestAllResponse(response));
-        });
-    });
-  }
-
   normalizeRequestResponse(response) {
     if (!response || typeof response !== "object") {
       return { correlationId: null, results: [] };
@@ -547,74 +471,6 @@ class WebSocketClient {
         : null;
     const results = Array.isArray(response.results) ? response.results : [];
     return { correlationId, results };
-  }
-
-  normalizeRequestAllResponse(response) {
-    const normalizeEntry = (entry, fallbackCorrelationId = null) => {
-      const sid = typeof entry?.sid === "string" ? entry.sid.trim() : "";
-      const correlationId =
-        typeof entry?.correlationId === "string" && entry.correlationId.trim().length > 0
-          ? entry.correlationId.trim()
-          : fallbackCorrelationId;
-
-      return {
-        sid: sid.length > 0 ? sid : null,
-        correlationId: correlationId ?? null,
-        results: Array.isArray(entry?.results) ? entry.results : [],
-      };
-    };
-
-    if (Array.isArray(response)) {
-      return response.map((entry) => normalizeEntry(entry));
-    }
-
-    if (response && typeof response === "object") {
-      const fallbackCorrelationId =
-        typeof response.correlationId === "string" && response.correlationId.trim().length > 0
-          ? response.correlationId.trim()
-          : null;
-      const results = Array.isArray(response.results) ? response.results : [];
-      const aggregated = [];
-
-      for (const item of results) {
-        if (!item) continue;
-
-        const itemCorrelationId =
-          typeof item.correlationId === "string" && item.correlationId.trim().length > 0
-            ? item.correlationId.trim()
-            : fallbackCorrelationId;
-
-        if (item.ok === true && item.data) {
-          const nestedResults = Array.isArray(item.data.results)
-            ? item.data.results
-            : Array.isArray(item.data.result)
-            ? item.data.result
-            : null;
-
-          if (nestedResults) {
-            for (const entry of nestedResults) {
-              aggregated.push(normalizeEntry(entry, itemCorrelationId));
-            }
-            continue;
-          }
-        }
-
-        aggregated.push(
-          normalizeEntry(
-            {
-              sid: item.sid ?? "__manager__",
-              correlationId: itemCorrelationId,
-              results: [item],
-            },
-            itemCorrelationId,
-          ),
-        );
-      }
-
-      return aggregated;
-    }
-
-    return [];
   }
 
   async on(eventType, callback) {
@@ -695,7 +551,7 @@ class WebSocketClient {
   }
 
   initializeSocket() {
-    this.socket = io({
+    this.socket = io(this.namespace, {
       autoConnect: false,
       reconnection: true,
       transports: ["websocket", "polling"],
@@ -797,4 +653,31 @@ class WebSocketClient {
   }
 }
 
-export const websocket = new WebSocketClient();
+const _namespacedClients = new Map();
+
+/**
+ * Create a new Socket.IO client bound to a specific namespace.
+ *
+ * @param {string} namespace
+ * @returns {WebSocketClient}
+ */
+export function createNamespacedClient(namespace) {
+  return new WebSocketClient(namespace);
+}
+
+/**
+ * Return a cached Socket.IO client for the given namespace (one per browser tab/window).
+ *
+ * @param {string} namespace
+ * @returns {WebSocketClient}
+ */
+export function getNamespacedClient(namespace) {
+  const key = normalizeNamespace(namespace);
+  const existing = _namespacedClients.get(key);
+  if (existing) return existing;
+  const client = new WebSocketClient(key);
+  _namespacedClients.set(key, client);
+  return client;
+}
+
+export const websocket = getNamespacedClient("/");

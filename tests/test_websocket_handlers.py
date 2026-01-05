@@ -151,10 +151,12 @@ async def test_state_sync_handler_registers_and_routes_state_request():
     lock = threading.RLock()
     manager = WebSocketManager(socketio, lock)
     handler = StateSyncHandler.get_instance(socketio, lock)
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    namespace = "/state_sync"
+    manager.register_handlers({namespace: [handler]})
+    await manager.handle_connect(namespace, "sid-1")
 
     response = await manager.route_event(
+        namespace,
         "state_request",
         {
             "correlationId": "smoke-1",
@@ -171,4 +173,4 @@ async def test_state_sync_handler_registers_and_routes_state_request():
 
     assert response["correlationId"] == "smoke-1"
     assert response["results"] and response["results"][0]["ok"] is True
-    await manager.handle_disconnect("sid-1")
+    await manager.handle_disconnect(namespace, "sid-1")

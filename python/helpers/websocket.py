@@ -144,9 +144,13 @@ class SingletonInstantiationError(RuntimeError):
 class ConnectionNotFoundError(RuntimeError):
     """Raised when attempting to emit to a non-existent WebSocket connection."""
 
-    def __init__(self, sid: str) -> None:
+    def __init__(self, sid: str, *, namespace: str | None = None) -> None:
         self.sid = sid
-        super().__init__(f"Connection not found: {sid}")
+        self.namespace = namespace
+        if namespace:
+            super().__init__(f"Connection not found: namespace={namespace} sid={sid}")
+        else:
+            super().__init__(f"Connection not found: {sid}")
 
 
 class WebSocketResult:
@@ -289,6 +293,7 @@ class WebSocketHandler(ABC):
         self.socketio: socketio.AsyncServer = socketio
         self.lock: threading.RLock = lock
         self._manager: Optional[WebSocketManager] = None
+        self._namespace: str | None = None
 
     @classmethod
     def get_instance(
@@ -412,10 +417,17 @@ class WebSocketHandler(ABC):
         dictionary includes the payload in the Socket.IO acknowledgement.
         """
 
-    def bind_manager(self, manager: WebSocketManager) -> None:
+    def bind_manager(self, manager: WebSocketManager, *, namespace: str) -> None:
         """Associate this handler instance with the shared WebSocket manager."""
 
         self._manager = manager
+        self._namespace = namespace
+
+    @property
+    def namespace(self) -> str:
+        if not self._namespace:
+            raise RuntimeError("WebSocketHandler is missing namespace binding")
+        return self._namespace
 
     @property
     def manager(self) -> WebSocketManager:
@@ -445,6 +457,7 @@ class WebSocketHandler(ABC):
     ) -> None:
         """Emit an event to a specific connection or buffer it if offline."""
         await self.manager.emit_to(
+            self.namespace,
             sid,
             event_type,
             data,
@@ -462,6 +475,7 @@ class WebSocketHandler(ABC):
     ) -> None:
         """Broadcast an event to all connections, optionally excluding one."""
         await self.manager.broadcast(
+            self.namespace,
             event_type,
             data,
             exclude_sids=exclude_sids,
@@ -522,6 +536,7 @@ class WebSocketHandler(ABC):
         """
 
         return await self.manager.request_for_sid(
+            namespace=self.namespace,
             sid=sid,
             event_type=event_type,
             data=data,
@@ -544,6 +559,7 @@ class WebSocketHandler(ABC):
         """
 
         return await self.manager.route_event_all(
+            self.namespace,
             event_type=event_type,
             data=data,
             timeout_ms=timeout_ms,

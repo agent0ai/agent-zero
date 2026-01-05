@@ -12,6 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from python.helpers.websocket_manager import WebSocketManager
 
+NAMESPACE = "/state_sync"
+
 
 class FakeSocketIOServer:
     def __init__(self) -> None:
@@ -31,8 +33,8 @@ async def _create_manager() -> WebSocketManager:
     _reset_state_monitor_for_testing()
     StateSyncHandler._reset_instance_for_testing()
     handler = StateSyncHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-1")
     return manager
 
 
@@ -46,8 +48,8 @@ async def _create_manager_with_socketio() -> tuple[WebSocketManager, FakeSocketI
     _reset_state_monitor_for_testing()
     StateSyncHandler._reset_instance_for_testing()
     handler = StateSyncHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-1")
     return manager, socketio
 
 
@@ -56,6 +58,7 @@ async def test_state_request_success_returns_wire_level_shape_and_contract_paylo
     manager = await _create_manager()
 
     response = await manager.route_event(
+        NAMESPACE,
         "state_request",
         {
             "correlationId": "client-1",
@@ -88,6 +91,7 @@ async def test_state_request_invalid_payload_returns_invalid_request_error():
     manager = await _create_manager()
 
     response = await manager.route_event(
+        NAMESPACE,
         "state_request",
         {
             "correlationId": "client-2",
@@ -127,12 +131,13 @@ async def test_state_push_gating_and_initial_snapshot_delivery():
     socketio.emit.side_effect = _emit
 
     # INVARIANT.STATE.GATING: no push before a successful state_request.
-    get_state_monitor().mark_dirty("sid-1")
+    get_state_monitor().mark_dirty(NAMESPACE, "sid-1")
     await asyncio.sleep(0.2)
     assert not push_ready.is_set()
 
     start = time.monotonic()
     await manager.route_event(
+        NAMESPACE,
         "state_request",
         {
             "correlationId": "client-gating",
@@ -160,4 +165,4 @@ async def test_state_push_gating_and_initial_snapshot_delivery():
     assert isinstance(data["snapshot"], dict)
     validate_snapshot_schema_v1(data["snapshot"])
 
-    await manager.handle_disconnect("sid-1")
+    await manager.handle_disconnect(NAMESPACE, "sid-1")

@@ -1,8 +1,10 @@
 import { createStore } from "/js/AlpineStore.js";
-import { websocket } from "/js/websocket.js";
+import { getNamespacedClient } from "/js/websocket.js";
 import { applySnapshot, buildStateRequestPayload } from "/index.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+
+const stateSocket = getNamespacedClient("/state_sync");
 
 const SYNC_MODES = {
   DISCONNECTED: "DISCONNECTED",
@@ -94,7 +96,7 @@ const model = {
     this.initialized = true;
 
     try {
-      websocket.onConnect((info) => {
+      stateSocket.onConnect((info) => {
         chatTopStore.connected = true;
         debug("[syncStore] websocket connected", { needsHandshake: this.needsHandshake });
 
@@ -117,7 +119,7 @@ const model = {
         });
       });
 
-      websocket.onDisconnect(() => {
+      stateSocket.onDisconnect(() => {
         chatTopStore.connected = false;
         this._setMode(SYNC_MODES.DISCONNECTED, "ws disconnect");
         this.needsHandshake = true;
@@ -135,7 +137,7 @@ const model = {
         }
       });
 
-      await websocket.on("state_push", (envelope) => {
+      await stateSocket.on("state_push", (envelope) => {
         this._handlePush(envelope).catch((error) => {
           console.error("[syncStore] state_push handler failed:", error);
         });
@@ -168,13 +170,13 @@ const model = {
       try {
         const payload = buildStateRequestPayload({ forceFull });
         debug("[syncStore] state_request sent", payload);
-        response = await websocket.request("state_request", payload, { timeoutMs: 2000 });
+        response = await stateSocket.request("state_request", payload, { timeoutMs: 2000 });
       } catch (error) {
         this.needsHandshake = true;
         // If the socket isn't connected, we are disconnected (poll may or may not work).
         // If the socket is connected but the request failed/timed out, treat as degraded (poll fallback).
         this._setMode(
-          websocket.isConnected() ? SYNC_MODES.DEGRADED : SYNC_MODES.DISCONNECTED,
+          stateSocket.isConnected() ? SYNC_MODES.DEGRADED : SYNC_MODES.DISCONNECTED,
           "state_request failed",
         );
         throw error;

@@ -1,14 +1,16 @@
 import { createStore } from "/js/AlpineStore.js";
 import {
-  websocket,
+  getNamespacedClient,
   createCorrelationId,
-  normalizeProducerOptions,
   validateServerEnvelope,
 } from "/js/websocket.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 
 const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024;
 const TOAST_DURATION = 5;
+
+const websocket = getNamespacedClient("/dev_websocket_test");
+const stateSocket = getNamespacedClient("/state_sync");
 
 function now() {
   return new Date().toISOString();
@@ -20,6 +22,13 @@ function payloadSize(value) {
   } catch (_error) {
     return String(value ?? "").length * 2;
   }
+}
+
+function clientForEventType(eventType) {
+  if (typeof eventType === "string" && eventType.startsWith("state_")) {
+    return stateSocket;
+  }
+  return websocket;
 }
 
 async function showToast(type, message, title) {
@@ -131,7 +140,7 @@ const model = {
     if (this._subscriptionHandlers && typeof this._subscriptionHandlers === "object") {
       for (const [eventType, handler] of Object.entries(this._subscriptionHandlers)) {
         if (typeof handler === "function") {
-          websocket.off(eventType, handler);
+          clientForEventType(eventType).off(eventType, handler);
         }
       }
       this._subscriptionHandlers = null;
@@ -146,6 +155,7 @@ const model = {
     websocket.off("ws_tester_broadcast");
     websocket.off("ws_tester_persistence");
     websocket.off("ws_tester_broadcast_demo");
+    stateSocket.off("state_push");
   },
 
   appendLog(message) {
@@ -255,9 +265,9 @@ const model = {
     try {
       this.appendLog("Testing fire-and-forget emit...");
       await this.ensureSubscribed("ws_tester_broadcast", true);
-      const emitOptions = normalizeProducerOptions({
+      const emitOptions = {
         correlationId: createCorrelationId("harness-emit"),
-      });
+      };
       await websocket.emit(
         "ws_tester_emit",
         { message: "emit-check", timestamp: now() },
@@ -284,9 +294,9 @@ const model = {
     const label = "Request-response";
     try {
       this.appendLog("Testing request-response...");
-      const requestOptions = normalizeProducerOptions({
+      const requestOptions = {
         correlationId: createCorrelationId("harness-request"),
-      });
+      };
       const response = await websocket.request(
         "ws_tester_request",
         { value: 42 },
@@ -330,9 +340,9 @@ const model = {
       this.appendLog("Testing request timeout...");
       let threw = false;
       try {
-        const timeoutOptions = normalizeProducerOptions({
+        const timeoutOptions = {
           correlationId: createCorrelationId("harness-timeout"),
-        });
+        };
         await websocket.request(
           "ws_tester_request_delayed",
           { delay_ms: 2000 },
@@ -361,9 +371,9 @@ const model = {
     try {
       this.appendLog("Testing subscription persistence across reconnect...");
       await this.ensureSubscribed("ws_tester_persistence", true);
-      const emitOptions = normalizeProducerOptions({
+      const emitOptions = {
         correlationId: createCorrelationId("harness-persistence"),
-      });
+      };
       await websocket.emit("ws_tester_trigger_persistence", { phase: "before" }, emitOptions);
       await this.waitForEvent("ws_tester_persistence", (data) => data?.phase === "before");
       this.appendLog("Initial subscription event received.");
@@ -391,30 +401,30 @@ const model = {
     const label = "requestAll aggregation";
     try {
       this.appendLog("Testing requestAll aggregation...");
-      const options = normalizeProducerOptions({
+      const options = {
         correlationId: createCorrelationId("harness-requestAll"),
-      });
-      const response = await websocket.requestAll(
+      };
+      const response = await websocket.request(
         "ws_tester_request_all",
         { marker: "aggregate" },
         { timeoutMs: 2000, ...options },
       );
       this.lastAggregated = response;
-      const ok = Array.isArray(response) &&
-        response.length > 0 &&
-        response.every((entry) =>
-          typeof entry?.sid === "string" &&
-          typeof entry?.correlationId === "string" &&
-          Array.isArray(entry.results) &&
-          entry.results.length > 0 &&
-          entry.results.every((result) =>
-            typeof result?.handlerId === "string" &&
-            typeof result?.ok === "boolean" &&
-            (result.ok || typeof result?.error?.code === "string") &&
-            result?.correlationId === entry.correlationId,
-          ),
+
+      const first = response?.results?.[0];
+      const aggregated = first?.ok === true ? first?.data?.results : null;
+      const ok =
+        Array.isArray(aggregated) &&
+        aggregated.length > 0 &&
+        aggregated.every(
+          (entry) =>
+            typeof entry?.sid === "string" &&
+            typeof entry?.correlationId === "string" &&
+            Array.isArray(entry.results) &&
+            entry.results.length > 0,
         );
-      this.appendLog(`requestAll response: ${JSON.stringify(response)}`);
+
+      this.appendLog(`ws_tester_request_all response: ${JSON.stringify(response)}`);
       return { ok, label, error: ok ? undefined : "Aggregation payload missing expected metadata" };
     } catch (error) {
       this.appendLog(`${label} failed: ${error.message || error}`);
@@ -440,7 +450,7 @@ const model = {
       this.appendLog("Subscribed to state_push.");
 
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const response = await websocket.request(
+      const response = await stateSocket.request(
         "state_request",
         {
           context: globalThis.getContext ? globalThis.getContext() : null,
@@ -635,7 +645,7 @@ const model = {
   async testFallbackRecoveryDegraded() {
     const label = "Fallback + recovery (DEGRADED polling, ignore pushes)";
     const originalPoll = globalThis.poll;
-    const originalRequest = websocket.request;
+    const originalRequest = stateSocket.request;
     try {
       const syncStore =
         globalThis.Alpine && typeof globalThis.Alpine.store === "function"
@@ -662,11 +672,11 @@ const model = {
       };
 
       // Simulate state_request failures to force DEGRADED mode.
-      websocket.request = async (eventType, payload, options) => {
+      stateSocket.request = async (eventType, payload, options) => {
         if (eventType === "state_request") {
           throw new Error("Request timeout");
         }
-        return await originalRequest.call(websocket, eventType, payload, options);
+        return await originalRequest.call(stateSocket, eventType, payload, options);
       };
 
       let threw = false;
@@ -705,7 +715,7 @@ const model = {
       this.appendLog("Verified state_push ignored while DEGRADED.");
 
       // Recover: restore request path and confirm we return to HEALTHY and polling stops.
-      websocket.request = originalRequest;
+      stateSocket.request = originalRequest;
       await syncStore.sendStateRequest({ forceFull: true });
       if (syncStore.mode !== "HEALTHY") {
         return { ok: false, label, error: `Expected HEALTHY after recovery, got ${syncStore.mode}` };
@@ -722,7 +732,7 @@ const model = {
       this.appendLog(`${label} failed: ${error.message || error}`);
       return { ok: false, label, error: error.message || error };
     } finally {
-      websocket.request = originalRequest;
+      stateSocket.request = originalRequest;
       globalThis.poll = originalPoll;
     }
   },
@@ -794,7 +804,7 @@ const model = {
 
     const existing = this._subscriptionHandlers[eventType];
     if (reset && typeof existing === "function") {
-      websocket.off(eventType, existing);
+      clientForEventType(eventType).off(eventType, existing);
       delete this._subscriptionHandlers[eventType];
     } else if (!reset && typeof existing === "function") {
       return;
@@ -822,11 +832,12 @@ const model = {
     };
 
     this._subscriptionHandlers[eventType] = handler;
-    await websocket.on(eventType, handler);
+    await clientForEventType(eventType).on(eventType, handler);
   },
 
   waitForEvent(eventType, predicate, timeout = 1500) {
     return new Promise((resolve) => {
+      const client = clientForEventType(eventType);
       let timer;
       let done = false;
       let handler = null;
@@ -836,7 +847,7 @@ const model = {
         done = true;
         if (timer) clearTimeout(timer);
         if (typeof handler === "function") {
-          websocket.off(eventType, handler);
+          client.off(eventType, handler);
         }
         resolve(ok);
       };
@@ -855,7 +866,7 @@ const model = {
         }
       };
 
-      const onPromise = websocket.on(eventType, handler);
+      const onPromise = client.on(eventType, handler);
       if (onPromise && typeof onPromise.then === "function") {
         onPromise.catch((error) => {
           this.appendLog(`Failed to subscribe to ${eventType}: ${error.message || error}`);
@@ -910,9 +921,9 @@ const model = {
     try {
       await this.ensureConnected();
       await this.ensureSubscribed("ws_tester_broadcast_demo");
-      const options = normalizeProducerOptions({
+      const options = {
         correlationId: createCorrelationId("harness-demo"),
-      });
+      };
       await websocket.emit(
         "ws_tester_broadcast_demo_trigger",
         { requested_at: now() },

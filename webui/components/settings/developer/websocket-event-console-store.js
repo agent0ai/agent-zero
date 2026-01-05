@@ -1,6 +1,8 @@
 import { createStore } from "/js/AlpineStore.js";
-import { websocket } from "/js/websocket.js";
+import { getNamespacedClient } from "/js/websocket.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+
+const websocket = getNamespacedClient("/dev_websocket_test");
 
 const DIAGNOSTIC_EVENT = "ws_dev_console_event";
 const SUBSCRIBE_EVENT = "ws_event_console_subscribe";
@@ -191,6 +193,7 @@ const model = {
     const payload = envelope?.data || {};
     const entry = {
       kind: payload.kind || "unknown",
+      sourceNamespace: payload.sourceNamespace || payload.namespace || null,
       eventType: payload.eventType || payload.event || "unknown",
       eventId: envelope?.eventId || null,
       sid: payload.sid || null,

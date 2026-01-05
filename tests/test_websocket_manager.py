@@ -21,6 +21,8 @@ from python.helpers.websocket_manager import (
     LIFECYCLE_DISCONNECT_EVENT,
 )
 
+NAMESPACE = "/test"
+
 
 class FakeSocketIOServer:
     def __init__(self):
@@ -48,11 +50,11 @@ async def test_connect_disconnect_updates_registry():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    await manager.handle_connect("abc")
-    assert "abc" in manager.connections
+    await manager.handle_connect(NAMESPACE, "abc")
+    assert (NAMESPACE, "abc") in manager.connections
 
-    await manager.handle_disconnect("abc")
-    assert "abc" not in manager.connections
+    await manager.handle_disconnect(NAMESPACE, "abc")
+    assert (NAMESPACE, "abc") not in manager.connections
 
 
 @pytest.mark.asyncio
@@ -61,7 +63,7 @@ async def test_server_restart_broadcast_emitted_when_enabled():
     manager = WebSocketManager(socketio, threading.RLock())
     manager.set_server_restart_broadcast(True)
 
-    await manager.handle_connect("sid-restart")
+    await manager.handle_connect(NAMESPACE, "sid-restart")
 
     socketio.emit.assert_awaited()
     args, kwargs = socketio.emit.await_args_list[0]
@@ -69,7 +71,7 @@ async def test_server_restart_broadcast_emitted_when_enabled():
     envelope = args[1]
     assert envelope["handlerId"] == manager._identifier  # noqa: SLF001
     assert envelope["data"]["runtimeId"]
-    assert kwargs == {"to": "sid-restart"}
+    assert kwargs == {"to": "sid-restart", "namespace": NAMESPACE}
 
 
 @pytest.mark.asyncio
@@ -78,7 +80,7 @@ async def test_server_restart_broadcast_skipped_when_disabled():
     manager = WebSocketManager(socketio, threading.RLock())
     manager.set_server_restart_broadcast(False)
 
-    await manager.handle_connect("sid-no-restart")
+    await manager.handle_connect(NAMESPACE, "sid-no-restart")
 
     assert socketio.emit.await_count == 0
 
@@ -89,12 +91,12 @@ async def test_broadcast_performance_smoke(monkeypatch):
     manager = WebSocketManager(socketio, threading.RLock())
 
     for idx in range(50):
-        await manager.handle_connect(f"sid-{idx}")
+        await manager.handle_connect(NAMESPACE, f"sid-{idx}")
 
     import time
 
     start = time.perf_counter()
-    await manager.broadcast("perf_event", {"ok": True})
+    await manager.broadcast(NAMESPACE, "perf_event", {"ok": True})
     duration_ms = (time.perf_counter() - start) * 1000
 
     assert socketio.emit.await_count == 50
@@ -109,10 +111,10 @@ async def test_route_event_invokes_handler_and_ack():
     results = []
     DummyHandler._reset_instance_for_testing()
     handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-1")
 
-    response = await manager.route_event("dummy", {"foo": "bar"}, "sid-1")
+    response = await manager.route_event(NAMESPACE, "dummy", {"foo": "bar"}, "sid-1")
 
     assert results[0]["sid"] == "sid-1"
     assert results[0]["data"]["foo"] == "bar"
@@ -131,16 +133,19 @@ async def test_route_event_invokes_handler_and_ack():
 async def test_route_event_no_handler_returns_standard_error():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
-    await manager.handle_connect("sid-1")
+    await manager.handle_connect(NAMESPACE, "sid-1")
 
-    response = await manager.route_event("missing", {}, "sid-1")
+    response = await manager.route_event(NAMESPACE, "missing", {}, "sid-1")
 
     assert len(response["results"]) == 1
     result = response["results"][0]
     assert result["handlerId"].endswith("WebSocketManager")
     assert result["ok"] is False
     assert result["error"]["code"] == "NO_HANDLERS"
-    assert result["error"]["error"] == "No handler for 'missing'"
+    assert (
+        result["error"]["error"]
+        == f"No handler for namespace '{NAMESPACE}' event 'missing'"
+    )
 
 
 @pytest.mark.asyncio
@@ -148,7 +153,7 @@ async def test_route_event_all_returns_empty_when_no_connections():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    results = await manager.route_event_all("event", {}, timeout_ms=1000)
+    results = await manager.route_event_all(NAMESPACE, "event", {}, timeout_ms=1000)
 
     assert results == []
 
@@ -168,12 +173,14 @@ async def test_route_event_all_aggregates_results():
 
     EchoHandler._reset_instance_for_testing()
     handler = EchoHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
+    manager.register_handlers({NAMESPACE: [handler]})
 
-    await manager.handle_connect("sid-1")
-    await manager.handle_connect("sid-2")
+    await manager.handle_connect(NAMESPACE, "sid-1")
+    await manager.handle_connect(NAMESPACE, "sid-2")
 
-    aggregated = await manager.route_event_all("multi", {"value": 42}, timeout_ms=1000)
+    aggregated = await manager.route_event_all(
+        NAMESPACE, "multi", {"value": 42}, timeout_ms=1000
+    )
 
     assert len(aggregated) == 2
     by_sid = {entry["sid"]: entry for entry in aggregated}
@@ -205,10 +212,10 @@ async def test_route_event_all_timeout_marks_error():
 
     SlowHandler._reset_instance_for_testing()
     handler = SlowHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-1")
 
-    aggregated = await manager.route_event_all("slow", {}, timeout_ms=50)
+    aggregated = await manager.route_event_all(NAMESPACE, "slow", {}, timeout_ms=50)
 
     assert len(aggregated) == 1
     first_entry = aggregated[0]
@@ -233,10 +240,10 @@ async def test_route_event_exception_standardizes_error_payload():
 
     FailingHandler._reset_instance_for_testing()
     handler = FailingHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-1")
 
-    response = await manager.route_event("boom", {}, "sid-1")
+    response = await manager.route_event(NAMESPACE, "boom", {}, "sid-1")
 
     assert len(response["results"]) == 1
     result = response["results"][0]
@@ -263,10 +270,12 @@ async def test_route_event_offloads_blocking_handlers():
 
     BlockingHandler._reset_instance_for_testing()
     handler = BlockingHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-1")
 
-    route_task = asyncio.create_task(manager.route_event("block", {}, "sid-1"))
+    route_task = asyncio.create_task(
+        manager.route_event(NAMESPACE, "block", {}, "sid-1")
+    )
     await asyncio.sleep(0)
 
     t0 = time.perf_counter()
@@ -286,10 +295,11 @@ async def test_route_event_unwraps_ts_data_envelope_and_preserves_correlation_id
     results: list[dict[str, Any]] = []
     DummyHandler._reset_instance_for_testing()
     handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-1")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-1")
 
     response = await manager.route_event(
+        NAMESPACE,
         "dummy",
         {
             "correlationId": "client-1",
@@ -314,20 +324,22 @@ async def test_emit_to_unknown_sid_raises_error():
     manager = WebSocketManager(socketio, threading.RLock())
 
     with pytest.raises(ConnectionNotFoundError):
-        await manager.emit_to("unknown", "event", {})
+        await manager.emit_to(NAMESPACE, "unknown", "event", {})
 
 
 @pytest.mark.asyncio
 async def test_emit_to_known_disconnected_sid_buffers():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
-    await manager.handle_connect("sid-1")
-    await manager.handle_disconnect("sid-1")
+    await manager.handle_connect(NAMESPACE, "sid-1")
+    await manager.handle_disconnect(NAMESPACE, "sid-1")
 
-    await manager.emit_to("sid-1", "event", {"a": 1}, correlation_id="corr-1")
+    await manager.emit_to(
+        NAMESPACE, "sid-1", "event", {"a": 1}, correlation_id="corr-1"
+    )
 
-    assert "sid-1" in manager.buffers
-    buffered = list(manager.buffers["sid-1"])
+    assert (NAMESPACE, "sid-1") in manager.buffers
+    buffered = list(manager.buffers[(NAMESPACE, "sid-1")])
     assert len(buffered) == 1
     assert buffered[0].event_type == "event"
     assert buffered[0].data == {"a": 1}
@@ -339,16 +351,16 @@ async def test_buffer_overflow_drops_oldest(monkeypatch):
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    await manager.handle_connect("offline")
-    await manager.handle_disconnect("offline")
+    await manager.handle_connect(NAMESPACE, "offline")
+    await manager.handle_disconnect(NAMESPACE, "offline")
 
     monkeypatch.setattr("python.helpers.websocket_manager.BUFFER_MAX_SIZE", 2)
 
-    await manager.emit_to("offline", "event", {"idx": 0})
-    await manager.emit_to("offline", "event", {"idx": 1})
-    await manager.emit_to("offline", "event", {"idx": 2})
+    await manager.emit_to(NAMESPACE, "offline", "event", {"idx": 0})
+    await manager.emit_to(NAMESPACE, "offline", "event", {"idx": 1})
+    await manager.emit_to(NAMESPACE, "offline", "event", {"idx": 2})
 
-    buffer = manager.buffers["offline"]
+    buffer = manager.buffers[(NAMESPACE, "offline")]
     assert len(buffer) == 2
     assert buffer[0].data["idx"] == 1
     assert buffer[1].data["idx"] == 2
@@ -359,16 +371,16 @@ async def test_expired_buffer_entries_are_discarded(monkeypatch):
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    await manager.handle_connect("sid-expired")
-    await manager.handle_disconnect("sid-expired")
+    await manager.handle_connect(NAMESPACE, "sid-expired")
+    await manager.handle_disconnect(NAMESPACE, "sid-expired")
 
     from datetime import timedelta, timezone, datetime
 
     past = datetime.now(timezone.utc) - (BUFFER_TTL + timedelta(seconds=5))
     future = past + BUFFER_TTL + timedelta(seconds=10)
 
-    await manager.emit_to("sid-expired", "event", {"a": 1})
-    manager.buffers["sid-expired"][0].timestamp = past
+    await manager.emit_to(NAMESPACE, "sid-expired", "event", {"a": 1})
+    manager.buffers[(NAMESPACE, "sid-expired")][0].timestamp = past
 
     socketio.emit.reset_mock()
 
@@ -376,22 +388,22 @@ async def test_expired_buffer_entries_are_discarded(monkeypatch):
         "python.helpers.websocket_manager._utcnow",
         lambda: future,
     )
-    await manager.handle_connect("sid-expired")
+    await manager.handle_connect(NAMESPACE, "sid-expired")
 
     assert socketio.emit.await_count == 0
-    assert "sid-expired" not in manager.buffers
+    assert (NAMESPACE, "sid-expired") not in manager.buffers
 
 
 @pytest.mark.asyncio
 async def test_flush_buffer_delivers_and_logs(monkeypatch):
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
-    await manager.handle_connect("sid-1")
-    await manager.handle_disconnect("sid-1")
+    await manager.handle_connect(NAMESPACE, "sid-1")
+    await manager.handle_disconnect(NAMESPACE, "sid-1")
 
-    await manager.emit_to("sid-1", "event", {"a": 1})
+    await manager.emit_to(NAMESPACE, "sid-1", "event", {"a": 1})
 
-    await manager.handle_connect("sid-1")
+    await manager.handle_connect(NAMESPACE, "sid-1")
 
     assert len(socketio.emit.await_args_list) == 1
     awaited_call = socketio.emit.await_args_list[0]
@@ -399,8 +411,8 @@ async def test_flush_buffer_delivers_and_logs(monkeypatch):
     envelope = awaited_call.args[1]
     assert envelope["data"] == {"a": 1}
     assert "eventId" in envelope and "handlerId" in envelope and "ts" in envelope
-    assert awaited_call.kwargs == {"to": "sid-1"}
-    assert "sid-1" not in manager.buffers
+    assert awaited_call.kwargs == {"to": "sid-1", "namespace": NAMESPACE}
+    assert (NAMESPACE, "sid-1") not in manager.buffers
 
 
 @pytest.mark.asyncio
@@ -409,9 +421,10 @@ async def test_broadcast_excludes_multiple_sids():
     manager = WebSocketManager(socketio, threading.RLock())
 
     for sid in ("sid-1", "sid-2", "sid-3"):
-        await manager.handle_connect(sid)
+        await manager.handle_connect(NAMESPACE, sid)
 
     await manager.broadcast(
+        NAMESPACE,
         "event",
         {"foo": "bar"},
         exclude_sids={"sid-1", "sid-3"},
@@ -427,16 +440,17 @@ async def test_broadcast_excludes_multiple_sids():
     assert envelope["handlerId"] == "custom.broadcast"
     assert envelope["correlationId"] == "corr-b"
     assert "eventId" in envelope and "ts" in envelope
-    assert awaited_call.kwargs == {"to": "sid-2"}
+    assert awaited_call.kwargs == {"to": "sid-2", "namespace": NAMESPACE}
 
 
 @pytest.mark.asyncio
 async def test_emit_to_wraps_envelope_with_metadata():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
-    await manager.handle_connect("sid-meta")
+    await manager.handle_connect(NAMESPACE, "sid-meta")
 
     await manager.emit_to(
+        NAMESPACE,
         "sid-meta",
         "meta_event",
         {"payload": True},
@@ -451,7 +465,7 @@ async def test_emit_to_wraps_envelope_with_metadata():
     assert envelope["handlerId"] == "custom.handler"
     assert envelope["correlationId"] == "corr-meta"
     assert envelope["data"] == {"payload": True}
-    assert kwargs == {"to": "sid-meta"}
+    assert kwargs == {"to": "sid-meta", "namespace": NAMESPACE}
 
 
 @pytest.mark.asyncio
@@ -459,15 +473,15 @@ async def test_timestamps_are_timezone_aware():
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    await manager.handle_connect("sid-utc")
-    info = manager.connections["sid-utc"]
+    await manager.handle_connect(NAMESPACE, "sid-utc")
+    info = manager.connections[(NAMESPACE, "sid-utc")]
 
     assert info.connected_at.tzinfo is not None
     assert info.last_activity.tzinfo is not None
 
     with patch("python.helpers.websocket_manager._utcnow") as mocked_now:
         mocked_now.return_value = info.last_activity
-        await manager.route_event("unknown", {}, "sid-utc")
+        await manager.route_event(NAMESPACE, "unknown", {}, "sid-utc")
         assert info.last_activity.tzinfo is not None
 
 class DuplicateHandler(WebSocketHandler):
@@ -506,7 +520,7 @@ def test_register_handlers_warns_on_duplicates(monkeypatch):
     handler_a = DuplicateHandler.get_instance(socketio, threading.RLock())
     handler_b = AnotherDuplicateHandler.get_instance(socketio, threading.RLock())
 
-    manager.register_handlers([handler_a, handler_b])
+    manager.register_handlers({NAMESPACE: [handler_a, handler_b]})
 
     assert any("Duplicate handler registration" in msg for msg in warnings)
 
@@ -527,9 +541,9 @@ async def test_route_event_standardizes_success_payload():
 
     NonDictHandler._reset_instance_for_testing()
     handler = NonDictHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
+    manager.register_handlers({NAMESPACE: [handler]})
 
-    response = await manager.route_event("non_dict", {}, "sid-123")
+    response = await manager.route_event(NAMESPACE, "non_dict", {}, "sid-123")
 
     assert len(response["results"]) == 1
     assert response["results"][0]["ok"] is True
@@ -567,9 +581,9 @@ async def test_route_event_standardizes_error_payload():
 
     ErrorHandler._reset_instance_for_testing()
     handler = ErrorHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
+    manager.register_handlers({NAMESPACE: [handler]})
 
-    response = await manager.route_event("boom", {}, "sid-123")
+    response = await manager.route_event(NAMESPACE, "boom", {}, "sid-123")
 
     assert len(response["results"]) == 1
     payload = response["results"][0]
@@ -585,9 +599,9 @@ async def test_route_event_accepts_websocket_result_instances():
 
     ResultHandler._reset_instance_for_testing()
     handler = ResultHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
+    manager.register_handlers({NAMESPACE: [handler]})
 
-    response = await manager.route_event("result_event", {}, "sid-123")
+    response = await manager.route_event(NAMESPACE, "result_event", {}, "sid-123")
 
     assert response["results"]
     payload = response["results"][0]
@@ -604,9 +618,9 @@ async def test_route_event_preserves_websocket_result_errors():
 
     ResultHandler._reset_instance_for_testing()
     handler = ResultHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
+    manager.register_handlers({NAMESPACE: [handler]})
 
-    response = await manager.route_event("result_error", {}, "sid-123")
+    response = await manager.route_event(NAMESPACE, "result_error", {}, "sid-123")
 
     payload = response["results"][0]
     assert payload["ok"] is False
@@ -640,10 +654,11 @@ async def test_route_event_include_handlers_filters_results():
     BetaFilterHandler._reset_instance_for_testing()
     alpha = AlphaFilterHandler.get_instance(socketio, threading.RLock())
     beta = BetaFilterHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([alpha, beta])
-    await manager.handle_connect("sid-filter")
+    manager.register_handlers({NAMESPACE: [alpha, beta]})
+    await manager.handle_connect(NAMESPACE, "sid-filter")
 
     response = await manager.route_event(
+        NAMESPACE,
         "filter_event",
         {
             "includeHandlers": [alpha.identifier],
@@ -666,10 +681,11 @@ async def test_route_event_rejects_exclude_handlers_without_permission():
 
     AlphaFilterHandler._reset_instance_for_testing()
     handler = AlphaFilterHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-exclude")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-exclude")
 
     response = await manager.route_event(
+        NAMESPACE,
         "filter_event",
         {"excludeHandlers": [handler.identifier]},
         "sid-exclude",
@@ -689,12 +705,13 @@ async def test_route_event_all_respects_exclude_handlers():
     BetaFilterHandler._reset_instance_for_testing()
     alpha = AlphaFilterHandler.get_instance(socketio, threading.RLock())
     beta = BetaFilterHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers([alpha, beta])
+    manager.register_handlers({NAMESPACE: [alpha, beta]})
 
-    await manager.handle_connect("sid-a")
-    await manager.handle_connect("sid-b")
+    await manager.handle_connect(NAMESPACE, "sid-a")
+    await manager.handle_connect(NAMESPACE, "sid-b")
 
     aggregated = await manager.route_event_all(
+        NAMESPACE,
         "filter_event",
         {"excludeHandlers": [beta.identifier]},
         handler_id="test.manager",
@@ -715,10 +732,11 @@ async def test_route_event_preserves_correlation_id():
     results = []
     DummyHandler._reset_instance_for_testing()
     handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-correlation")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-correlation")
 
     response = await manager.route_event(
+        NAMESPACE,
         "dummy",
         {"foo": "bar", "correlationId": "manual-correlation"},
         "sid-correlation",
@@ -736,10 +754,11 @@ async def test_request_preserves_explicit_correlation_id():
 
     DummyHandler._reset_instance_for_testing()
     handler = DummyHandler.get_instance(socketio, threading.RLock(), [])
-    manager.register_handlers([handler])
-    await manager.handle_connect("sid-request")
+    manager.register_handlers({NAMESPACE: [handler]})
+    await manager.handle_connect(NAMESPACE, "sid-request")
 
     response = await manager.request_for_sid(
+        namespace=NAMESPACE,
         sid="sid-request",
         event_type="dummy",
         data={"payload": True, "correlationId": "req-correlation"},
@@ -758,12 +777,13 @@ async def test_request_all_entries_include_correlation_id():
 
     DummyHandler._reset_instance_for_testing()
     handler = DummyHandler.get_instance(socketio, threading.RLock(), [])
-    manager.register_handlers([handler])
+    manager.register_handlers({NAMESPACE: [handler]})
 
-    await manager.handle_connect("sid-1")
-    await manager.handle_connect("sid-2")
+    await manager.handle_connect(NAMESPACE, "sid-1")
+    await manager.handle_connect(NAMESPACE, "sid-2")
 
     aggregated = await manager.route_event_all(
+        NAMESPACE,
         "dummy",
         {"value": 1, "correlationId": "agg-correlation"},
     )
@@ -803,13 +823,13 @@ async def test_diagnostic_event_emitted_for_inbound():
     results: list[dict[str, Any]] = []
     DummyHandler._reset_instance_for_testing()
     handler = DummyHandler.get_instance(socketio, threading.RLock(), results)
-    manager.register_handlers([handler])
+    manager.register_handlers({NAMESPACE: [handler]})
 
-    await manager.handle_connect("observer")
-    assert manager.register_diagnostic_watcher("observer") is True
-    await manager.handle_connect("sid-client")
+    await manager.handle_connect(NAMESPACE, "observer")
+    assert manager.register_diagnostic_watcher(NAMESPACE, "observer") is True
+    await manager.handle_connect(NAMESPACE, "sid-client")
 
-    await manager.route_event("dummy", {"payload": "value"}, "sid-client")
+    await manager.route_event(NAMESPACE, "dummy", {"payload": "value"}, "sid-client")
 
     emitted_events = [call.args[0] for call in socketio.emit.await_args_list]
     assert DIAGNOSTIC_EVENT in emitted_events
@@ -823,11 +843,11 @@ async def test_lifecycle_events_broadcast(monkeypatch):
     broadcast_mock = AsyncMock()
     monkeypatch.setattr(manager, "broadcast", broadcast_mock)
 
-    await manager.handle_connect("sid-life")
+    await manager.handle_connect(NAMESPACE, "sid-life")
     await asyncio.sleep(0)
-    await manager.handle_disconnect("sid-life")
+    await manager.handle_disconnect(NAMESPACE, "sid-life")
     await asyncio.sleep(0)
 
-    events = [call.args[0] for call in broadcast_mock.await_args_list]
+    events = [call.args[1] for call in broadcast_mock.await_args_list]
     assert LIFECYCLE_CONNECT_EVENT in events
     assert LIFECYCLE_DISCONNECT_EVENT in events

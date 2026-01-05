@@ -21,11 +21,12 @@ from python.helpers.api import ApiHandler
 from python.helpers.print_style import PrintStyle
 from python.helpers import login
 import socketio  # type: ignore[import-untyped]
-from socketio import ASGIApp
+from socketio import ASGIApp, packet
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from uvicorn.middleware.wsgi import WSGIMiddleware
 from python.helpers.websocket_manager import WebSocketManager
+from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
 
 # disable logging
 import logging
@@ -54,6 +55,7 @@ lock = threading.RLock()
 
 socketio_server = socketio.AsyncServer(
     async_mode="asgi",
+    namespaces="*",
     cors_allowed_origins=lambda _origin, environ: validate_ws_origin(environ)[0],
     logger=False,
     engineio_logger=False,
@@ -217,6 +219,165 @@ async def serve_index():
     return index
 
 
+def _build_websocket_handlers_by_namespace(
+    socketio_server: socketio.AsyncServer,
+    lock: threading.RLock,
+) -> dict[str, list[WebSocketHandler]]:
+    discoveries = discover_websocket_namespaces(
+        handlers_folder="python/websocket_handlers",
+        include_root_default=True,
+    )
+
+    handlers_by_namespace: dict[str, list[WebSocketHandler]] = {}
+    for discovery in discoveries:
+        namespace = discovery.namespace
+        for handler_cls in discovery.handler_classes:
+            handler = handler_cls.get_instance(socketio_server, lock)
+            handlers_by_namespace.setdefault(namespace, []).append(handler)
+
+    return handlers_by_namespace
+
+
+def configure_websocket_namespaces(
+    *,
+    webapp: Flask,
+    socketio_server: socketio.AsyncServer,
+    websocket_manager: WebSocketManager,
+    handlers_by_namespace: dict[str, list[WebSocketHandler]],
+) -> set[str]:
+    namespace_map: dict[str, list[WebSocketHandler]] = {
+        namespace: list(handlers) for namespace, handlers in handlers_by_namespace.items()
+    }
+
+    # Always include the reserved root namespace. It is unhandled for application events by
+    # default, but request-style calls must resolve deterministically with NO_HANDLERS.
+    namespace_map.setdefault("/", [])
+
+    websocket_manager.register_handlers(namespace_map)
+
+    allowed_namespaces = set(namespace_map.keys())
+    original_handle_connect = socketio_server._handle_connect  # type: ignore[attr-defined]
+
+    async def _handle_connect_with_namespace_gatekeeper(eio_sid, namespace, data):
+        requested = namespace or "/"
+        if requested not in allowed_namespaces:
+            await socketio_server._send_packet(
+                eio_sid,
+                socketio_server.packet_class(
+                    packet.CONNECT_ERROR,
+                    data={
+                        "message": "UNKNOWN_NAMESPACE",
+                        "data": {"code": "UNKNOWN_NAMESPACE", "namespace": requested},
+                    },
+                    namespace=requested,
+                ),
+            )
+            return
+        await original_handle_connect(eio_sid, namespace, data)
+
+    socketio_server._handle_connect = _handle_connect_with_namespace_gatekeeper  # type: ignore[assignment]
+
+    def _register_namespace_handlers(
+        namespace: str, namespace_handlers: list[WebSocketHandler]
+    ) -> None:
+        auth_required = any(handler.requires_auth() for handler in namespace_handlers)
+        csrf_required = any(handler.requires_csrf() for handler in namespace_handlers)
+
+        @socketio_server.on("connect", namespace=namespace)
+        async def _connect(  # type: ignore[override]
+            sid,
+            environ,
+            _auth,
+            _namespace: str = namespace,
+            _auth_required: bool = auth_required,
+            _csrf_required: bool = csrf_required,
+        ):
+            with webapp.request_context(environ):
+                origin_ok, origin_reason = validate_ws_origin(environ)
+                if not origin_ok:
+                    PrintStyle.warning(
+                        f"WebSocket origin validation failed for {_namespace} {sid}: {origin_reason or 'invalid'}"
+                    )
+                    return False
+
+                if _auth_required:
+                    credentials_hash = login.get_credentials_hash()
+                    if credentials_hash:
+                        if session.get("authentication") != credentials_hash:
+                            PrintStyle.warning(
+                                f"WebSocket authentication failed for {_namespace} {sid}: session not valid"
+                            )
+                            return False
+                    else:
+                        PrintStyle.debug(
+                            "WebSocket authentication required but credentials not configured; proceeding"
+                        )
+
+                if _csrf_required:
+                    expected_token = session.get("csrf_token")
+                    if not isinstance(expected_token, str) or not expected_token:
+                        PrintStyle.warning(
+                            f"WebSocket CSRF validation failed for {_namespace} {sid}: csrf_token not initialized"
+                        )
+                        return False
+
+                    auth_token = None
+                    if isinstance(_auth, dict):
+                        auth_token = _auth.get("csrf_token") or _auth.get("csrfToken")
+                    if not isinstance(auth_token, str) or not auth_token:
+                        PrintStyle.warning(
+                            f"WebSocket CSRF validation failed for {_namespace} {sid}: missing csrf_token in auth"
+                        )
+                        return False
+                    if auth_token != expected_token:
+                        PrintStyle.warning(
+                            f"WebSocket CSRF validation failed for {_namespace} {sid}: csrf_token mismatch"
+                        )
+                        return False
+
+                    cookie_name = f"csrf_token_{runtime.get_runtime_id()}"
+                    cookie_token = request.cookies.get(cookie_name)
+                    if cookie_token != expected_token:
+                        PrintStyle.warning(
+                            f"WebSocket CSRF validation failed for {_namespace} {sid}: csrf cookie mismatch"
+                        )
+                        return False
+
+                user_id = session.get("user_id") or "single_user"
+                await websocket_manager.handle_connect(_namespace, sid, user_id=user_id)
+                return True
+
+        @socketio_server.on("disconnect", namespace=namespace)
+        async def _disconnect(sid, _namespace: str = namespace):  # type: ignore[override]
+            await websocket_manager.handle_disconnect(_namespace, sid)
+
+        def _register_socketio_event(event_type: str) -> None:
+            @socketio_server.on(event_type, namespace=namespace)
+            async def _event_handler(
+                sid,
+                data,
+                _event_type: str = event_type,
+                _namespace: str = namespace,
+            ):
+                payload = data or {}
+                return await websocket_manager.route_event(
+                    _namespace, _event_type, payload, sid
+                )
+
+        for _event_type in websocket_manager.iter_event_types(namespace):
+            _register_socketio_event(_event_type)
+
+        @socketio_server.on("*", namespace=namespace)
+        async def _catch_all(event, sid, data, _namespace: str = namespace):
+            payload = data or {}
+            return await websocket_manager.route_event(_namespace, event, payload, sid)
+
+    for namespace, namespace_handlers in namespace_map.items():
+        _register_namespace_handlers(namespace, namespace_handlers)
+
+    return allowed_namespaces
+
+
 def run():
     PrintStyle().print("Initializing framework...")
 
@@ -252,90 +413,13 @@ def run():
     for handler in handlers:
         register_api_handler(webapp, handler)
 
-    websocket_handler_classes = load_classes_from_folder(
-        "python/websocket_handlers", "*.py", WebSocketHandler
+    handlers_by_namespace = _build_websocket_handlers_by_namespace(socketio_server, lock)
+    configure_websocket_namespaces(
+        webapp=webapp,
+        socketio_server=socketio_server,
+        websocket_manager=websocket_manager,
+        handlers_by_namespace=handlers_by_namespace,
     )
-    websocket_handlers = [
-        handler_cls.get_instance(socketio_server, lock)
-        for handler_cls in websocket_handler_classes
-    ]
-    websocket_manager.register_handlers(websocket_handlers)
-
-    @socketio_server.event
-    async def connect(sid, environ, _auth):  # type: ignore[override]
-        with webapp.request_context(environ):
-            origin_ok, origin_reason = validate_ws_origin(environ)
-            if not origin_ok:
-                PrintStyle.warning(
-                    f"WebSocket origin validation failed for {sid}: {origin_reason or 'invalid'}"
-                )
-                return False
-
-            auth_required = any(
-                handler.requires_auth() for handler in websocket_handlers
-            )
-            if auth_required:
-                credentials_hash = login.get_credentials_hash()
-                if credentials_hash:
-                    if session.get("authentication") != credentials_hash:
-                        PrintStyle.warning(
-                            f"WebSocket authentication failed for {sid}: session not valid"
-                        )
-                        return False
-                else:
-                    PrintStyle.debug(
-                        "WebSocket authentication required but credentials not configured; proceeding"
-                    )
-
-            csrf_required = any(
-                handler.requires_csrf() for handler in websocket_handlers
-            )
-            if csrf_required:
-                expected_token = session.get("csrf_token")
-                if not isinstance(expected_token, str) or not expected_token:
-                    PrintStyle.warning(
-                        f"WebSocket CSRF validation failed for {sid}: csrf_token not initialized"
-                    )
-                    return False
-
-                auth_token = None
-                if isinstance(_auth, dict):
-                    auth_token = _auth.get("csrf_token") or _auth.get("csrfToken")
-                if not isinstance(auth_token, str) or not auth_token:
-                    PrintStyle.warning(
-                        f"WebSocket CSRF validation failed for {sid}: missing csrf_token in auth"
-                    )
-                    return False
-                if auth_token != expected_token:
-                    PrintStyle.warning(
-                        f"WebSocket CSRF validation failed for {sid}: csrf_token mismatch"
-                    )
-                    return False
-
-                cookie_name = f"csrf_token_{runtime.get_runtime_id()}"
-                cookie_token = request.cookies.get(cookie_name)
-                if cookie_token != expected_token:
-                    PrintStyle.warning(
-                        f"WebSocket CSRF validation failed for {sid}: csrf cookie mismatch"
-                    )
-                    return False
-
-            user_id = session.get("user_id") or "single_user"
-            await websocket_manager.handle_connect(sid, user_id=user_id)
-            return True
-
-    @socketio_server.event
-    async def disconnect(sid):  # type: ignore[override]
-        await websocket_manager.handle_disconnect(sid)
-
-    def register_socketio_event(event_type: str) -> None:
-        @socketio_server.on(event_type)
-        async def _event_handler(sid, data):
-            payload = data or {}
-            return await websocket_manager.route_event(event_type, payload, sid)
-
-    for _event_type in websocket_manager.iter_event_types():
-        register_socketio_event(_event_type)
 
     init_a0()
 
