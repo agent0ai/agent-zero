@@ -6,6 +6,7 @@
     <!-- Import the alpine store -->
     <script type="module">
         import { store } from "/components/chat/top-section/chat-top-store.js";
+        import { store as modelGroupsStore } from "/components/model-groups/model-group-store.js";
     </script>
 </head>
 
@@ -33,10 +34,15 @@
                 <x-component path="notifications/notification-icons.html"></x-component>
                 <!-- Project Selector -->
                 <x-component path="projects/project-selector.html"></x-component>
+                <!-- Model Groups Switcher -->
+                <x-component path="model-groups/model-group-switcher.html"></x-component>
             </div>
 
         </template>
     </div>
+
+    <!-- Model Groups Modal -->
+    <x-component path="model-groups/model-group-modal.html"></x-component>
 
 </body>
 

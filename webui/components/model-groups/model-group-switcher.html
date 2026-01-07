@@ -1,0 +1,576 @@
+<html>
+<head>
+    <script type="module">
+        import { store } from "/components/model-groups/model-group-store.js";
+    </script>
+</head>
+<body>
+    <div class="model-group-switcher" x-data="{ updateDropdownPosition() { if (!this.$refs.dropdownMenu || !this.$refs.toggleBtn) return; const btn = this.$refs.toggleBtn.getBoundingClientRect(); const menu = this.$refs.dropdownMenu; menu.style.top = (btn.bottom + 8) + 'px'; menu.style.left = Math.max(8, Math.min(btn.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + 'px'; } }" @click.outside="$store.modelGroups.closeDropdown()" @resize.window="updateDropdownPosition()">
+        <template x-if="$store.modelGroups">
+            <div>
+                <!-- Toggle Button -->
+                <button class="model-group-button" x-ref="toggleBtn"
+                        @click="$store.modelGroups.toggleDropdown(); $nextTick(() => updateDropdownPosition())"
+                        :title="$store.modelGroups.activeGroupName || 'Default Configuration'"
+                        :class="{ 'has-active': $store.modelGroups.activeGroupId }">
+                    <!-- Provider Icon -->
+                    <span class="model-group-icon" x-html="$store.modelGroups.getProviderIcon()"></span>
+                    <span class="model-group-label" x-text="$store.modelGroups.activeGroupName || 'Models'"></span>
+                    <!-- Dropdown Arrow -->
+                    <span class="material-symbols-outlined dropdown-arrow" :class="{ 'open': $store.modelGroups.dropdownOpen }">expand_more</span>
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div class="model-group-dropdown" x-ref="dropdownMenu" x-show="$store.modelGroups.dropdownOpen" x-transition>
+                    <div class="dropdown-header">
+                        <span>Model Groups</span>
+                        <button class="icon-btn" @click="$store.modelGroups.openManager()" title="Manage Model Groups">
+                            <span class="material-symbols-outlined">settings</span>
+                        </button>
+                    </div>
+                    
+                    <div class="dropdown-list">
+                        <!-- Default Configuration Option -->
+                        <div class="dropdown-item" 
+                             :class="{ 'active': !$store.modelGroups.activeGroupId }"
+                             @click="$store.modelGroups.switchGroup(null)">
+                            <div class="item-icon">
+                                <span class="material-symbols-outlined">layers</span>
+                            </div>
+                            <div class="item-content">
+                                <span class="item-name">Default</span>
+                                <span class="item-desc">Manual configuration</span>
+                            </div>
+                            <template x-if="!$store.modelGroups.activeGroupId">
+                                <span class="material-symbols-outlined check-icon">check</span>
+                            </template>
+                        </div>
+                        
+                        <!-- Separator -->
+                        <template x-if="$store.modelGroups.groups.length > 0">
+                            <div class="dropdown-divider"></div>
+                        </template>
+                        
+                        <!-- Model Groups List -->
+                        <template x-for="group in $store.modelGroups.groups" :key="group.id">
+                            <div class="dropdown-item" 
+                                 :class="{ 'active': $store.modelGroups.activeGroupId === group.id }"
+                                 @click="$store.modelGroups.switchGroup(group.id)">
+                                <div class="item-icon" x-html="$store.modelGroups.getProviderIconForGroup(group)">
+                                </div>
+                                <div class="item-content">
+                                    <span class="item-name" x-text="group.name"></span>
+                                    <span class="item-desc" x-text="group.chat_model_name || 'No chat model'"></span>
+                                </div>
+                                <template x-if="$store.modelGroups.activeGroupId === group.id">
+                                    <span class="material-symbols-outlined check-icon">check</span>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <div class="dropdown-footer">
+                        <button class="footer-btn" @click="$store.modelGroups.saveCurrentAsNew()">
+                            <span class="material-symbols-outlined">save</span>
+                            Save current as group
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Save Dialog -->
+                <div class="save-dialog-overlay" x-show="$store.modelGroups.saveDialogOpen" x-transition.opacity
+                     @click.self="$store.modelGroups.closeSaveDialog()">
+                    <div class="save-dialog" @click.stop>
+                        <div class="save-dialog-header">
+                            <span>Save Current Configuration</span>
+                            <button class="close-btn" @click="$store.modelGroups.closeSaveDialog()">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div class="save-dialog-body">
+                            <div class="form-group">
+                                <label for="save-name">Name *</label>
+                                <input type="text" id="save-name" 
+                                       x-model="$store.modelGroups.saveDialogName" 
+                                       placeholder="e.g., My Claude Setup"
+                                       @keydown.enter="$store.modelGroups.confirmSave()">
+                            </div>
+                            <div class="form-group">
+                                <label for="save-desc">Description</label>
+                                <input type="text" id="save-desc" 
+                                       x-model="$store.modelGroups.saveDialogDesc" 
+                                       placeholder="Optional description"
+                                       @keydown.enter="$store.modelGroups.confirmSave()">
+                            </div>
+                        </div>
+                        <div class="save-dialog-footer">
+                            <button class="btn-cancel" @click="$store.modelGroups.closeSaveDialog()">Cancel</button>
+                            <button class="btn-save" @click="$store.modelGroups.confirmSave()" 
+                                    :disabled="!$store.modelGroups.saveDialogName?.trim() || $store.modelGroups.loading">
+                                <template x-if="$store.modelGroups.loading">
+                                    <span>Saving...</span>
+                                </template>
+                                <template x-if="!$store.modelGroups.loading">
+                                    <span>Save</span>
+                                </template>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+    .model-group-switcher {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .model-group-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 0 10px;
+        height: 36px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        color: var(--color-text);
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .model-group-button:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: scale(1.05);
+    }
+
+    .model-group-button.has-active {
+        border-color: var(--color-primary);
+    }
+
+    .model-group-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+    }
+
+    .model-group-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .model-group-label {
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dropdown-arrow {
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+        font-size: 18px;
+    }
+
+    .dropdown-arrow.open {
+        transform: rotate(180deg);
+    }
+
+    .model-group-dropdown {
+        position: fixed;
+        min-width: 280px;
+        max-width: 320px;
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        z-index: 1100;
+        overflow: hidden;
+    }
+
+    .dropdown-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--color-border);
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--color-text-secondary, var(--color-text));
+    }
+
+    .dropdown-header .icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        color: var(--color-text);
+        cursor: pointer;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+    }
+
+    .dropdown-header .icon-btn .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    .dropdown-header .icon-btn:hover {
+        background: var(--color-secondary);
+        opacity: 1;
+    }
+
+    .dropdown-list {
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 6px;
+    }
+
+    .dropdown-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .dropdown-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .dropdown-list::-webkit-scrollbar-thumb {
+        background: rgba(155, 155, 155, 0.3);
+        border-radius: 6px;
+    }
+
+    .dropdown-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(155, 155, 155, 0.5);
+    }
+
+    .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .dropdown-item:hover {
+        background: var(--color-secondary);
+    }
+
+    .dropdown-item.active {
+        background: var(--color-primary-bg, rgba(var(--color-primary-rgb, 59, 130, 246), 0.1));
+    }
+
+    .dropdown-item .item-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+    }
+
+    .dropdown-item .item-icon svg {
+        width: 18px;
+        height: 18px;
+        opacity: 0.7;
+    }
+
+    .dropdown-item:hover .item-icon {
+        border-color: var(--color-primary);
+        background: rgba(50, 69, 86, 0.56);
+    }
+
+    .dropdown-item.active .item-icon {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: white;
+    }
+
+    .dropdown-item.active .item-icon svg {
+        opacity: 1;
+    }
+
+    .dropdown-item .item-content {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .dropdown-item .item-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .dropdown-item .item-desc {
+        font-size: 11px;
+        color: var(--color-text-secondary, #888);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .dropdown-item .check-icon {
+        flex-shrink: 0;
+        color: var(--color-primary);
+    }
+
+    .dropdown-divider {
+        height: 1px;
+        background: var(--color-border);
+        margin: 6px 0;
+    }
+
+    .dropdown-footer {
+        padding: 8px;
+        border-top: 1px solid var(--color-border);
+    }
+
+    .dropdown-footer .footer-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 8px 12px;
+        background: var(--color-background);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        color: var(--color-text);
+        font-size: 12px;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: all 0.2s ease;
+    }
+
+    .dropdown-footer .footer-btn .material-symbols-outlined {
+        font-size: 16px;
+    }
+
+    .dropdown-footer .footer-btn:hover {
+        background: var(--color-secondary);
+        opacity: 1;
+    }
+
+    /* Save Dialog */
+    .save-dialog-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2200;
+    }
+
+    .save-dialog {
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        width: 100%;
+        max-width: 380px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .save-dialog-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--color-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .save-dialog-header span {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--color-text);
+    }
+
+    .save-dialog-header .close-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        color: var(--color-text);
+        cursor: pointer;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+    }
+
+    .save-dialog-header .close-btn:hover {
+        background: var(--color-secondary);
+        opacity: 1;
+    }
+
+    .save-dialog-header .close-btn .material-symbols-outlined {
+        font-size: 20px;
+    }
+
+    .save-dialog-body {
+        padding: 16px;
+    }
+
+    .save-dialog .form-group {
+        margin-bottom: 14px;
+    }
+
+    .save-dialog .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .save-dialog .form-group label {
+        display: block;
+        font-size: 12px;
+        color: var(--color-text-secondary);
+        margin-bottom: 6px;
+    }
+
+    .save-dialog .form-group input,
+    .save-dialog .form-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        color: var(--color-text);
+        font-size: 13px;
+        box-sizing: border-box;
+    }
+
+    .save-dialog .form-group input:focus,
+    .save-dialog .form-group textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+    }
+
+    .save-dialog .form-group textarea {
+        resize: vertical;
+        min-height: 60px;
+    }
+
+    .save-dialog-footer {
+        padding: 12px 16px;
+        border-top: 1px solid var(--color-border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .save-dialog .btn-cancel,
+    .save-dialog .btn-save {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .save-dialog .btn-cancel {
+        background: transparent;
+        border: 1px solid var(--color-border);
+        color: var(--color-text);
+    }
+
+    .save-dialog .btn-cancel:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .save-dialog .btn-save {
+        background: #2196f3;
+        border: 1px solid #2196f3;
+        color: white;
+    }
+
+    .save-dialog .btn-save:hover {
+        background: #1976d2;
+        border-color: #1976d2;
+    }
+
+    /* Light mode */
+    .light-mode .model-group-button {
+        background: rgba(0, 0, 0, 0.05);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .light-mode .model-group-button:hover {
+        background: rgba(0, 0, 0, 0.1);
+        border-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .light-mode .model-group-dropdown {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .light-mode .dropdown-header .icon-btn:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .light-mode .dropdown-item:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .light-mode .dropdown-footer .footer-btn:hover {
+        background: #d6dae8;
+    }
+
+    .light-mode .save-dialog-overlay {
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .light-mode .save-dialog {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .light-mode .save-dialog .btn-cancel:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .model-group-label {
+            display: none;
+        }
+        
+        .model-group-button {
+            padding: 0 8px;
+        }
+
+        .model-group-dropdown {
+            min-width: 260px;
+        }
+
+        .save-dialog {
+            max-width: calc(100% - 32px);
+            margin: 16px;
+        }
+    }
+    </style>
+</body>
+</html>

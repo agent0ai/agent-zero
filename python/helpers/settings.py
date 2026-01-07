@@ -49,6 +49,33 @@ def get_default_value(name: str, value: T) -> T:
         )
         return value
 
+class ModelGroupConfig(TypedDict):
+    """Model group configuration, including provider, name, and api_base for four types of models"""
+    id: str                          # Unique ID (UUID)
+    name: str                        # Display name
+    description: str                 # Description (optional)
+    created_at: str                  # Creation time
+    
+    # Chat Model
+    chat_model_provider: str
+    chat_model_name: str
+    chat_model_api_base: str
+    
+    # Utility Model
+    util_model_provider: str
+    util_model_name: str
+    util_model_api_base: str
+    
+    # Browser Model
+    browser_model_provider: str
+    browser_model_name: str
+    browser_model_api_base: str
+    
+    # Embedding Model
+    embed_model_provider: str
+    embed_model_name: str
+    embed_model_api_base: str
+
 
 class Settings(TypedDict):
     version: str
@@ -147,6 +174,10 @@ class Settings(TypedDict):
     litellm_global_kwargs: dict[str, Any]
 
     update_check_enabled: bool
+
+    # Model groups
+    model_groups: list[ModelGroupConfig]
+    active_model_group_id: str
 
 class PartialSettings(Settings, total=False):
     pass
@@ -1568,6 +1599,8 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
+        model_groups=get_default_value("model_groups", []),
+        active_model_group_id=get_default_value("active_model_group_id", ""),
     )
 
 
