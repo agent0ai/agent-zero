@@ -105,25 +105,30 @@ class ChatGenerationResult:
             self.add_chunk(chunk)
 
     def add_chunk(self, chunk: ChatChunk) -> ChatChunk:
-        if chunk["reasoning_delta"]:
+        # Normalize None deltas to empty strings to prevent TypeError on concatenation
+        reasoning_delta = chunk["reasoning_delta"] or ""
+        response_delta = chunk["response_delta"] or ""
+
+        if reasoning_delta:
             self.native_reasoning = True
 
         # if native reasoning detection works, there's no need to worry about thinking tags
         if self.native_reasoning:
-            processed_chunk = ChatChunk(response_delta=chunk["response_delta"], reasoning_delta=chunk["reasoning_delta"])
+            processed_chunk = ChatChunk(response_delta=response_delta, reasoning_delta=reasoning_delta)
         else:
-            # if the model outputs thinking tags, we ned to parse them manually as reasoning
-            processed_chunk = self._process_thinking_chunk(chunk)
+            # if the model outputs thinking tags, we need to parse them manually as reasoning
+            processed_chunk = self._process_thinking_chunk(ChatChunk(response_delta=response_delta, reasoning_delta=reasoning_delta))
 
-        self.reasoning += processed_chunk["reasoning_delta"]
-        self.response += processed_chunk["response_delta"]
+        # Normalize processed chunk values as well
+        self.reasoning += processed_chunk["reasoning_delta"] or ""
+        self.response += processed_chunk["response_delta"] or ""
 
         return processed_chunk
 
     def _process_thinking_chunk(self, chunk: ChatChunk) -> ChatChunk:
-        response_delta = self.unprocessed + chunk["response_delta"]
+        response_delta = self.unprocessed + (chunk["response_delta"] or "")
         self.unprocessed = ""
-        return self._process_thinking_tags(response_delta, chunk["reasoning_delta"])
+        return self._process_thinking_tags(response_delta, chunk["reasoning_delta"] or "")
 
     def _process_thinking_tags(self, response: str, reasoning: str) -> ChatChunk:
         if self.thinking:
@@ -561,7 +566,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 attempt += 1
                 await asyncio.sleep(retry_delay_s)
 
-
 class AsyncAIChatReplacement:
     class _Completions:
         def __init__(self, wrapper):
@@ -656,6 +660,7 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
             pass
 
         return resp
+
 
 class LiteLLMEmbeddingWrapper(Embeddings):
     model_name: str
@@ -825,7 +830,6 @@ def _parse_chunk(chunk: Any) -> ChatChunk:
     )
 
     return ChatChunk(reasoning_delta=reasoning_delta, response_delta=response_delta)
-
 
 
 def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):
