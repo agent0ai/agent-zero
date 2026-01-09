@@ -25,8 +25,8 @@
   width: 26px;
   height: 26px;
   cursor: pointer;
-  background-color: var(--color-background);
-  /* border: 1px solid var(--color-border); */
+  background-color: var(--color-chat-background);
+  border: 1px solid var(--color-border);
   /* transition: background-color var(--transition-speed) ease-in-out; */
   color: var(--color-text);
   padding: 0;

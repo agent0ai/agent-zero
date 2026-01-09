@@ -93,8 +93,54 @@ The following user guide provides instructions for installing and running Agent 
   - `/tmp/settings.json` - Your Agent Zero settings
 
 > [!TIP]
-> Choose a location that's easy to access and backup. All your Agent Zero data 
+> Choose a location that's easy to access and backup. All your Agent Zero data
 > will be directly accessible in this directory.
+
+### Automated Configuration via Environment Variables
+
+Agent Zero settings can be automatically configured using environment variables with the `A0_SET_` prefix in your `.env` file. This enables automated deployments without manual configuration.
+
+**Usage:**
+Add variables to your `.env` file in the format:
+```
+A0_SET_{setting_name}={value}
+```
+
+**Examples:**
+```env
+# Model configuration
+A0_SET_chat_model_provider=anthropic
+A0_SET_chat_model_name=claude-3-5-sonnet-20241022
+A0_SET_chat_model_ctx_length=200000
+
+# Memory settings
+A0_SET_memory_recall_enabled=true
+A0_SET_memory_recall_interval=5
+
+# Agent configuration
+A0_SET_agent_profile=custom
+A0_SET_agent_memory_subdir=production
+```
+
+**Docker usage:**
+When running Docker, you can pass these as environment variables:
+```bash
+docker run -p 50080:80 \
+  -e A0_SET_chat_model_provider=anthropic \
+  -e A0_SET_chat_model_name=claude-3-5-sonnet-20241022 \
+  agent0ai/agent-zero
+```
+
+**Type conversion:**
+- Strings are used as-is
+- Numbers are automatically converted (e.g., "100000" becomes integer 100000)
+- Booleans accept: true/false, 1/0, yes/no, on/off (case-insensitive)
+- Dictionaries must be valid JSON (e.g., `{"temperature": "0"}`)
+
+**Notes:**
+- These provide initial default values when settings.json doesn't exist or when new settings are added to the application. Once a value is saved in settings.json, it takes precedence over these environment variables.
+- Sensitive settings (API keys, passwords) use their existing environment variables
+- Container/process restart required for changes to take effect
 
 2.3. Run the container:
 - In Docker Desktop, go back to the "Images" tab

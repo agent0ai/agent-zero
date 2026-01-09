@@ -7,9 +7,11 @@ from python.helpers import runtime, settings, kokoro_tts
 class Synthesize(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         text = input.get("text", "")
-        # ctxid = input.get("ctxid", "")
+        ctxid = input.get("ctxid", "")
         
-        # context = self.get_context(ctxid)
+        if ctxid:
+            context = self.use_context(ctxid)
+
         # if not await kokoro_tts.is_downloaded():
         #     context.log.log(type="info", content="Kokoro TTS model is currently being initialized, please wait...")
 

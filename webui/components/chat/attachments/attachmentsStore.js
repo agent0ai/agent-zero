@@ -1,18 +1,12 @@
 import { createStore } from "/js/AlpineStore.js";
 import { fetchApi } from "/js/api.js";
+import { store as imageViewerStore } from "../../modals/image-viewer/image-viewer-store.js";
 
 const model = {
   // State properties
   attachments: [],
   hasAttachments: false,
   dragDropOverlayVisible: false,
-
-  // Image modal properties
-  currentImageUrl: null,
-  currentImageName: null,
-  imageLoaded: false,
-  imageError: false,
-  zoomLevel: 1,
 
   async init() {
     await this.initialize();
@@ -358,7 +352,7 @@ const model = {
         previewUrl: previewUrl,
         clickHandler: () => {
           if (this.isImageFile(filename)) {
-            this.openImageModal(this.getServerImgUrl(filename), filename);
+            imageViewerStore.open(this.getServerImgUrl(filename), { name: filename });
           } else {
             this.downloadAttachment(filename);
           }
@@ -380,7 +374,7 @@ const model = {
         clickHandler: () => {
           if (attachment.type === "image") {
             const imageUrl = this.getServerImgUrl(attachment.name);
-            this.openImageModal(imageUrl, attachment.name);
+            imageViewerStore.open(imageUrl, { name: attachment.name });
           } else {
             this.downloadAttachment(attachment.name);
           }
@@ -425,50 +419,6 @@ const model = {
     );
   },
 
-  // Image modal methods
-  openImageModal(imageUrl, imageName) {
-    this.currentImageUrl = imageUrl;
-    this.currentImageName = imageName;
-    this.imageLoaded = false;
-    this.imageError = false;
-    this.zoomLevel = 1;
-
-    // Open the modal using the modals system
-    if (window.openModal) {
-      window.openModal("chat/attachments/imageModal.html");
-    }
-  },
-
-  closeImageModal() {
-    this.currentImageUrl = null;
-    this.currentImageName = null;
-    this.imageLoaded = false;
-    this.imageError = false;
-    this.zoomLevel = 1;
-  },
-
-  // Zoom controls
-  zoomIn() {
-    this.zoomLevel = Math.min(this.zoomLevel * 1.2, 5); // Max 5x zoom
-    this.updateImageZoom();
-  },
-
-  zoomOut() {
-    this.zoomLevel = Math.max(this.zoomLevel / 1.2, 0.1); // Min 0.1x zoom
-    this.updateImageZoom();
-  },
-
-  resetZoom() {
-    this.zoomLevel = 1;
-    this.updateImageZoom();
-  },
-
-  updateImageZoom() {
-    const img = document.querySelector(".modal-image");
-    if (img) {
-      img.style.transform = `scale(${this.zoomLevel})`;
-    }
-  },
 };
 
 const store = createStore("chatAttachments", model);

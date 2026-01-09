@@ -1,0 +1,81 @@
+<html>
+
+<head>
+    <title>Create a new project</title>
+    <script type="module">
+        import { store } from "/components/projects/projects-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject">
+            <div>
+
+                <div class="projects-setting-row" style="padding: 1rem 0;">
+                    <div class="projects-setting-text">
+                        <label class="projects-form-label">Project-specific memory</label>
+                        <span class="projects-form-description">When turned on, the agent's memory while working on this
+                            project will be isolated from the global memory. The memory will be stored in <strong><span
+                                    x-text="$store.projects.getSelectedAbsPath('.a0proj','memory')"></span></strong>.
+                                <br>
+                            Project-specific knowledge files can be used only when project-specific memory is turned on.</span>
+                    </div>
+                    <div class="projects-setting-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="$store.projects.selectedProject._ownMemory">
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="projects-form-group" x-show="$store.projects.selectedProject._ownMemory">
+                    <label class="projects-form-label">Knowledge files</label>
+                    <div class="projects-input-with-button-wrapper">
+                        <span class="projects-form-description">Additional knowledge files in <strong><span
+                                    x-text="$store.projects.getSelectedAbsPath('.a0proj','knowledge')"></span></strong>.
+                            Knowledge files are imported into memory and are used when relevant based on the context of the conversation.</span>
+                        <span class="projects-form-description">Currently there are <strong><span
+                                    x-text="$store.projects.selectedProject.knowledge_files_count || 0"></span></strong>
+                            knowledge files.</span>
+                        <button class="button icon-button" x-on:click="$store.projects.browseKnowledgeFiles()">
+                            <span class="icon material-symbols-outlined">folder</span>
+                            <span>Browse</span>
+                        </button>
+                    </div>
+                </div>
+
+                <style>
+                    .projects-setting-row {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 2rem;
+                    }
+
+                    .projects-setting-text {
+                        flex-grow: 1;
+                        flex-shrink: 1;
+                        min-width: 0;
+                    }
+
+                    .projects-setting-control {
+                        flex-grow: 0;
+                        flex-shrink: 0;
+                    }
+
+                    .projects-form-label {
+                        display: block;
+                    }
+                </style>
+
+            </div>
+
+
+        </template>
+    </div>
+</body>
+<style>
+</style>
+
+</html>

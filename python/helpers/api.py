@@ -57,7 +57,9 @@ class ApiHandler:
                     PrintStyle().print(f"Error parsing JSON: {str(e)}")
                     input_data = {}
             else:
-                input_data = {"data": request.get_data(as_text=True)}
+                # input_data = {"data": request.get_data(as_text=True)}
+                input_data = {}
+
 
             # process via handler
             output = await self.process(input_data, request)
@@ -78,14 +80,21 @@ class ApiHandler:
             return Response(response=error, status=500, mimetype="text/plain")
 
     # get context to run agent zero in
-    def get_context(self, ctxid: str):
+    def use_context(self, ctxid: str, create_if_not_exists: bool = True):
         with self.thread_lock:
             if not ctxid:
                 first = AgentContext.first()
                 if first:
+                    AgentContext.use(first.id)
                     return first
-                return AgentContext(config=initialize_agent())
-            got = AgentContext.get(ctxid)
+                context = AgentContext(config=initialize_agent(), set_current=True)
+                return context
+            got = AgentContext.use(ctxid)
             if got:
                 return got
-            return AgentContext(config=initialize_agent(), id=ctxid)
+            if create_if_not_exists:
+                context = AgentContext(config=initialize_agent(), id=ctxid, set_current=True)
+                return context
+            else:
+                raise Exception(f"Context {ctxid} not found")
+            

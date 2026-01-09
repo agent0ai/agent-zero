@@ -2,10 +2,12 @@
 **/.DS_Store
 **/.env
 **/__pycache__/
+*.py[cod]
 **/.conda/
 
-#Ignore cursor rules
+#Ignore IDE files
 .cursor/
+.windsurf/
 
 # ignore test files in root dir
 /*.test.py
@@ -20,8 +22,9 @@ memory/**
 # Handle logs directory
 logs/*
 
-# Handle tmp directory
+# Handle tmp and usr directory
 tmp/*
+usr/*
 
 # Handle knowledge directory
 knowledge/**
@@ -39,4 +42,7 @@ instruments/**
 
 # Global rule to include .gitkeep files anywhere
 !**/.gitkeep
+
+# for browser-use
 agent_history.gif
+

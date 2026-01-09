@@ -1,4 +1,5 @@
 from python.helpers.extension import Extension
+from python.helpers.secrets import get_secrets_manager
 
 
 class MaskReasoningStreamChunk(Extension):
@@ -10,8 +11,7 @@ class MaskReasoningStreamChunk(Extension):
             return
 
         try:
-            from python.helpers.secrets import SecretsManager
-            secrets_mgr = SecretsManager.get_instance()
+            secrets_mgr = get_secrets_manager(self.agent.context)
 
             # Initialize filter if not exists
             filter_key = "_reason_stream_filter"

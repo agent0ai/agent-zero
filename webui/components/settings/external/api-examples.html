@@ -34,7 +34,8 @@
                     • <code>context_id</code> (string, optional): Existing chat context ID<br>
                     • <code>message</code> (string, required): The message to send<br>
                     • <code>attachments</code> (array, optional): Array of {filename, base64} objects<br>
-                    • <code>lifetime_hours</code> (number, optional): Chat lifetime in hours (default: 24)
+                    • <code>lifetime_hours</code> (number, optional): Chat lifetime in hours (default: 24)<br>
+                    • <code>project</code> (string, optional): Project name to activate (only on first message)
                 </p>
                 <p style="margin: 0; color: var(--color-text-secondary); font-size: 14px;">
                     <strong>Headers:</strong> <code>X-API-KEY</code> (required), <code>Content-Type: application/json</code>
@@ -52,6 +53,9 @@
 
             <h4>File Attachment Example</h4>
             <div id="api-attachment-example"></div>
+
+            <h4>Project Usage Example</h4>
+            <div id="api-project-example"></div>
         </div>
 
         <!-- Section 2: api_log_get Endpoint -->
@@ -186,10 +190,20 @@
         </div>
         -->
 
-        <script>
-            setTimeout(() => {
+        <script type="module">
+            import * as API from "/js/api.js";
+
+            setTimeout(async () => {
                 const url = window.location.origin;
-                const token = settingsModalProxy.settings.sections.filter(x => x.id == "mcp_server")[0].fields.filter(x => x.id == "mcp_server_token")[0].value;
+
+                // Fetch token from settings API
+                let token = "";
+                try {
+                    const response = await API.callJsonApi("settings_get", null);
+                    token = response?.settings?.mcp_server_token || "";
+                } catch (e) {
+                    console.error("Failed to fetch token:", e);
+                }
 
                 // Basic usage example
                 const basicExample = `// Basic message example
@@ -602,11 +616,66 @@ async function attachmentWorkflow() {
 // Run the complete workflow
 attachmentWorkflow();`;
 
+                // Project usage example
+                const projectExample = `// Working with projects
+async function sendMessageWithProject() {
+    try {
+        // First message - activate project
+        const response = await fetch('${url}/api_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': '${token}'
+            },
+            body: JSON.stringify({
+                message: "Analyze the project structure",
+                project: "my-web-app"  // Activates this project
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('✅ Project activated!');
+            console.log('Context ID:', data.context_id);
+            console.log('Response:', data.response);
+
+            // Continue conversation - project already set
+            const followUp = await fetch('${url}/api_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': '${token}'
+                },
+                body: JSON.stringify({
+                    context_id: data.context_id,
+                    message: "What files are in the project?"
+                    // Do NOT include project field here - already set on first message
+                })
+            });
+
+            const followUpData = await followUp.json();
+            console.log('Follow-up response:', followUpData.response);
+            return followUpData;
+        } else {
+            console.error('❌ Error:', data.error);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Request failed:', error);
+        return null;
+    }
+}
+
+// Call the function
+sendMessageWithProject();`;
+
                 // Initialize ACE editors
                 const editors = [
                     { id: "api-basic-example", content: basicExample },
                     { id: "api-continuation-example", content: continuationExample },
                     { id: "api-attachment-example", content: attachmentExample },
+                    { id: "api-project-example", content: projectExample },
                     { id: "api-log-get-example", content: logGetExample },
                     { id: "api-log-post-example", content: logPostExample },
                     { id: "api-terminate-example", content: terminateExample },
@@ -635,6 +704,7 @@ attachmentWorkflow();`;
         #api-basic-example,
         #api-continuation-example,
         #api-attachment-example,
+        #api-project-example,
         #api-log-get-example,
         #api-log-post-example,
         #api-terminate-example,

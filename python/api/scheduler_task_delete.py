@@ -30,10 +30,11 @@ class SchedulerTaskDelete(ApiHandler):
 
         context = None
         if task.context_id:
-            context = self.get_context(task.context_id)
+            context = self.use_context(task.context_id)
 
         # If the task is running, update its state to IDLE first
         if task.state == TaskState.RUNNING:
+            scheduler.cancel_running_task(task_id, terminate_thread=True)
             if context:
                 context.reset()
             # Update the state to IDLE so any ongoing processes know to terminate

@@ -1,0 +1,57 @@
+<html>
+  <head>
+    <title>External MCP Servers</title>
+  </head>
+
+  <body>
+    <div x-data="{ get settings() { return $store.settingsStore.settings } }">
+      <template x-if="settings">
+        <div>
+          <div class="section-title">External MCP Servers</div>
+          <div class="section-description">
+            Agent Zero can use external MCP servers, local or remote as tools.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">MCP Servers Configuration</div>
+              <div class="field-description">External MCP servers can be configured here.</div>
+            </div>
+            <div class="field-control">
+              <button
+                class="btn btn-field"
+                @click="$store.settingsStore.handleFieldButton({ id: 'mcp_servers_config' })"
+              >
+                Open
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">MCP Client Init Timeout</div>
+              <div class="field-description">
+                Timeout for MCP client initialization (in seconds). Higher values might be required for complex MCPs, but might also slowdown system startup.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="settings.mcp_client_init_timeout" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">MCP Client Tool Timeout</div>
+              <div class="field-description">
+                Timeout for MCP client tool execution. Higher values might be required for complex tools, but might also result in long responses with failing tools.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="settings.mcp_client_tool_timeout" />
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

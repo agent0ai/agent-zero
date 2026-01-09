@@ -13,7 +13,7 @@ class ImportKnowledge(ApiHandler):
         if not ctxid:
             raise Exception("No context id provided")
 
-        context = self.get_context(ctxid)
+        context = self.use_context(ctxid)
 
         file_list = request.files.getlist("files[]")
         KNOWLEDGE_FOLDER = files.get_abs_path(memory.get_custom_knowledge_subdir_abs(context.agent0), "main")

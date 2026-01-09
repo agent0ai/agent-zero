@@ -123,6 +123,10 @@ def _serialize_context(context: AgentContext):
         agents.append(_serialize_agent(agent))
         agent = agent.data.get(Agent.DATA_NAME_SUBORDINATE, None)
 
+
+    data = {k: v for k, v in context.data.items() if not k.startswith("_")}
+    output_data = {k: v for k, v in context.output_data.items() if not k.startswith("_")}
+
     return {
         "id": context.id,
         "name": context.name,
@@ -142,6 +146,8 @@ def _serialize_context(context: AgentContext):
             context.streaming_agent.number if context.streaming_agent else 0
         ),
         "log": _serialize_log(context.log),
+        "data": data,
+        "output_data": output_data,
     }
 
 
@@ -190,6 +196,8 @@ def _deserialize_context(data):
         ),
         log=log,
         paused=False,
+        data=data.get("data", {}),
+        output_data=data.get("output_data", {}),
         # agent0=agent0,
         # streaming_agent=straming_agent,
     )
@@ -254,17 +262,19 @@ def _deserialize_log(data: dict[str, Any]) -> "Log":
     # Deserialize the list of LogItem objects
     i = 0
     for item_data in data.get("logs", []):
-        log.logs.append(
-            LogItem(
-                log=log,  # restore the log reference
-                no=i,  # item_data["no"],
-                type=item_data["type"],
-                heading=item_data.get("heading", ""),
-                content=item_data.get("content", ""),
-                kvps=OrderedDict(item_data["kvps"]) if item_data["kvps"] else None,
-                temp=item_data.get("temp", False),
-            )
-        )
+        log.logs.append(LogItem(
+            log=log,  # restore the log reference
+            no=i,  # item_data["no"],
+            type=item_data["type"],
+            heading=item_data.get("heading", ""),
+            content=item_data.get("content", ""),
+            kvps=OrderedDict(item_data["kvps"]) if item_data["kvps"] else None,
+            temp=item_data.get("temp", False),
+            # Pass metrics directly to constructor
+            timestamp=item_data.get("timestamp", 0.0),
+            duration_ms=item_data.get("duration_ms"),
+            agent_number=item_data.get("agent_number", 0),
+        ))
         log.updates.append(i)
         i += 1
 

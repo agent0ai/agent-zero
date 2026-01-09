@@ -4,19 +4,25 @@ import time
 import os
 from io import StringIO
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Literal, Set, Callable
+from typing import Dict, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHECKING
 from dotenv.parser import parse_stream
 from python.helpers.errors import RepairableException
 from python.helpers import files
 
+if TYPE_CHECKING:
+    from agent import AgentContext
+
 
 # New alias-based placeholder format §§secret(KEY)
 ALIAS_PATTERN = r"§§secret\(([A-Za-z_][A-Za-z0-9_]*)\)"
+DEFAULT_SECRETS_FILE = "tmp/secrets.env"
+
 
 def alias_for_key(key: str, placeholder: str = "§§secret({key})") -> str:
     # Return alias string for given key in upper-case
     key = key.upper()
     return placeholder.format(key=key)
+
 
 @dataclass
 class EnvLine:
@@ -24,7 +30,6 @@ class EnvLine:
     type: Literal["pair", "comment", "blank", "other"]
     key: Optional[str] = None
     value: Optional[str] = None
-    key_part: Optional[str] = None  # original left side including whitespace up to '='
     inline_comment: Optional[str] = (
         None  # preserves trailing inline comment including leading spaces and '#'
     )
@@ -118,44 +123,55 @@ class StreamingSecretsFilter:
 
 
 class SecretsManager:
-    SECRETS_FILE = "tmp/secrets.env"
     PLACEHOLDER_PATTERN = ALIAS_PATTERN
     MASK_VALUE = "***"
 
-    _instance: Optional["SecretsManager"] = None
+    _instances: Dict[Tuple[str, ...], "SecretsManager"] = {}
     _secrets_cache: Optional[Dict[str, str]] = None
     _last_raw_text: Optional[str] = None
 
     @classmethod
-    def get_instance(cls) -> "SecretsManager":
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+    def get_instance(cls, *secrets_files: str) -> "SecretsManager":
+        if not secrets_files:
+            secrets_files = (DEFAULT_SECRETS_FILE,)
+        key = tuple(secrets_files)
+        if key not in cls._instances:
+            cls._instances[key] = cls(*secrets_files)
+        return cls._instances[key]
 
-    def __init__(self):
+    def __init__(self, *files: str):
         self._lock = threading.RLock()
-        # instance-level override for secrets file
-        self._secrets_file_rel = self.SECRETS_FILE
-
-    def set_secrets_file(self, relative_path: str):
-        """Override the relative secrets file location (useful for tests)."""
-        with self._lock:
-            self._secrets_file_rel = relative_path
-            self.clear_cache()
+        # instance-level list of secrets files
+        self._files: Tuple[str, ...] = tuple(files) if files else (DEFAULT_SECRETS_FILE,)
+        self._raw_snapshots: Dict[str, str] = {}
+        self._secrets_cache = None
+        self._last_raw_text = None
 
     def read_secrets_raw(self) -> str:
         """Read raw secrets file content from local filesystem (same system)."""
-        try:
-            content = files.read_file(self._secrets_file_rel)
-            self._last_raw_text = content
-            return content
-        except Exception:
-            self._last_raw_text = ""
-            return ""
+        parts: List[str] = []
+        self._raw_snapshots = {}
+
+        for path in self._files:
+            try:
+                content = files.read_file(path)
+            except Exception:
+                content = ""
+
+            self._raw_snapshots[path] = content
+            parts.append(content)
+
+        combined = "\n".join(parts)
+        self._last_raw_text = combined
+        return combined
 
     def _write_secrets_raw(self, content: str):
         """Write raw secrets file content to local filesystem."""
-        files.write_file(self._secrets_file_rel, content)
+        if len(self._files) != 1:
+            raise RuntimeError(
+                "Saving secrets content is only supported for a single secrets file"
+            )
+        files.write_file(self._files[0], content)
 
     def load_secrets(self) -> Dict[str, str]:
         """Load secrets from file, return key-value dict"""
@@ -163,29 +179,27 @@ class SecretsManager:
             if self._secrets_cache is not None:
                 return self._secrets_cache
 
-            secrets: Dict[str, str] = {}
-            try:
-                content = self.read_secrets_raw()
-                # keep raw snapshot for future save merge without reading again
-                self._last_raw_text = content
-                if content:
-                    secrets = self.parse_env_content(content)
-            except Exception as e:
-                # On unexpected failure, keep empty cache rather than crash
-                secrets = {}
+            combined_raw = self.read_secrets_raw()
+            merged_secrets = (
+                self.parse_env_content(combined_raw) if combined_raw else {}
+            )
 
-            self._secrets_cache = secrets
-            return secrets
+            # Only track the first file's raw text for single-file setups
+            if len(self._files) != 1:
+                self._last_raw_text = None
+
+            self._secrets_cache = merged_secrets
+            return merged_secrets
 
     def save_secrets(self, secrets_content: str):
         """Save secrets content to file and update cache"""
+        if len(self._files) != 1:
+            raise RuntimeError(
+                "Saving secrets is disabled when multiple files are configured"
+            )
         with self._lock:
-            # Ensure write to local filesystem (UTF-8)
             self._write_secrets_raw(secrets_content)
-            # Update cache
-            self._secrets_cache = self.parse_env_content(secrets_content)
-            # Update raw snapshot
-            self._last_raw_text = secrets_content
+        self._invalidate_all_caches()
 
     def save_secrets_with_merge(self, submitted_content: str):
         """Merge submitted content with existing file preserving comments, order and supporting deletion.
@@ -193,13 +207,19 @@ class SecretsManager:
         - Keys present in existing but omitted from submitted are deleted.
         - New keys with non-masked values are appended at the end.
         """
+        if len(self._files) != 1:
+            raise RuntimeError(
+                "Merging secrets is disabled when multiple files are configured"
+            )
         with self._lock:
             # Prefer in-memory snapshot to avoid disk reads during save
+            primary_path = self._files[0]
             if self._last_raw_text is not None:
                 existing_text = self._last_raw_text
             else:
                 try:
-                    existing_text = self.read_secrets_raw()
+                    existing_text = files.read_file(primary_path)
+                    self._raw_snapshots[primary_path] = existing_text
                 except Exception as e:
                     # If read fails and submitted contains masked values, abort to avoid losing values/comments
                     if self.MASK_VALUE in submitted_content:
@@ -210,7 +230,8 @@ class SecretsManager:
                     existing_text = ""
             merged_lines = self._merge_env(existing_text, submitted_content)
             merged_text = self._serialize_env_lines(merged_lines)
-            self.save_secrets(merged_text)
+            self._write_secrets_raw(merged_text)
+        self._invalidate_all_caches()
 
     def get_keys(self) -> List[str]:
         """Get list of secret keys"""
@@ -219,7 +240,7 @@ class SecretsManager:
 
     def get_secrets_for_prompt(self) -> str:
         """Get formatted string of secret keys for system prompt"""
-        content = self._last_raw_text or self.read_secrets_raw()
+        content = self.read_secrets_raw()
         if not content:
             return ""
 
@@ -251,9 +272,7 @@ class SecretsManager:
                 return secrets[key]
             else:
                 available_keys = ", ".join(secrets.keys())
-                error_msg = (
-                    f"Secret placeholder '{alias_for_key(key)}' not found in secrets store.\n"
-                )
+                error_msg = f"Secret placeholder '{alias_for_key(key)}' not found in secrets store.\n"
                 error_msg += f"Available secrets: {available_keys}"
 
                 raise RepairableException(error_msg)
@@ -276,7 +295,9 @@ class SecretsManager:
 
         return result
 
-    def mask_values(self, text: str, min_length: int = 4, placeholder: str = "§§secret({key})") -> str:
+    def mask_values(
+        self, text: str, min_length: int = 4, placeholder: str = "§§secret({key})"
+    ) -> str:
         """Replace actual secret values with placeholders in text"""
         if not text:
             return text
@@ -295,18 +316,21 @@ class SecretsManager:
 
     def get_masked_secrets(self) -> str:
         """Get content with values masked for frontend display (preserves comments and unrecognized lines)"""
-        if not (content:=self.read_secrets_raw()):
+        content = self.read_secrets_raw()
+        if not content:
             return ""
 
         # Parse content for known keys using python-dotenv
         secrets_map = self.parse_env_content(content)
         env_lines = self.parse_env_lines(content)
+
         # Replace values with mask for keys present
         for ln in env_lines:
             if ln.type == "pair" and ln.key is not None:
                 ln.key = ln.key.upper()
                 if ln.key in secrets_map and secrets_map[ln.key] != "":
                     ln.value = self.MASK_VALUE
+
         return self._serialize_env_lines(env_lines)
 
     def parse_env_content(self, content: str) -> Dict[str, str]:
@@ -325,6 +349,13 @@ class SecretsManager:
         """Clear the secrets cache"""
         with self._lock:
             self._secrets_cache = None
+            self._raw_snapshots = {}
+            self._last_raw_text = None
+
+    @classmethod
+    def _invalidate_all_caches(cls):
+        for instance in cls._instances.values():
+            instance.clear_cache()
 
     # ---------------- Internal helpers for parsing/merging ----------------
 
@@ -342,9 +373,7 @@ class SecretsManager:
                 # Fallback to composed key_part if original not available
                 if "=" in line_text:
                     left, right = line_text.split("=", 1)
-                    key_part = left
                 else:
-                    key_part = binding.key
                     right = ""
                 # Try to extract inline comment by scanning right side to comment start, respecting quotes
                 in_single = False
@@ -376,7 +405,6 @@ class SecretsManager:
                         type="pair",
                         key=binding.key,
                         value=binding.value or "",
-                        key_part=key_part,
                         inline_comment=inline_comment,
                     )
                 )
@@ -404,11 +432,15 @@ class SecretsManager:
         out: List[str] = []
         for ln in lines:
             if ln.type == "pair" and ln.key is not None:
-                left_raw = ln.key_part if ln.key_part is not None else ln.key
+                left_raw = ln.key
                 left = left_raw.upper()
                 val = ln.value if ln.value is not None else ""
                 comment = ln.inline_comment or ""
-                formatted_key = key_formatter(left) if key_formatter else f"{key_delimiter}{left}{key_delimiter}"
+                formatted_key = (
+                    key_formatter(left)
+                    if key_formatter
+                    else f"{key_delimiter}{left}{key_delimiter}"
+                )
                 val_part = f'="{val}"' if with_values else ""
                 comment_part = f" {comment}" if with_comments and comment else ""
                 out.append(f"{formatted_key}{val_part}{comment_part}")
@@ -455,11 +487,10 @@ class SecretsManager:
                 existing_val = existing_pairs[key].value or ""
                 merged.append(
                     EnvLine(
-                        raw=f"{(sub.key_part or key)}={existing_val}",
+                        raw=f"{key}={existing_val}",
                         type="pair",
                         key=key,
                         value=existing_val,
-                        key_part=sub.key_part or key,
                         inline_comment=sub.inline_comment,
                     )
                 )
@@ -471,3 +502,40 @@ class SecretsManager:
                 merged.append(sub)
 
         return merged
+
+
+def get_secrets_manager(context: "AgentContext|None" = None) -> SecretsManager:
+    from python.helpers import projects
+
+    # default secrets file
+    secret_files = [DEFAULT_SECRETS_FILE]
+
+    # use AgentContext from contextvars if no context provided
+    if not context:
+        from agent import AgentContext
+        context = AgentContext.current()
+
+    # merged with project secrets if active
+    if context:
+        project = projects.get_context_project_name(context)
+        if project:
+            secret_files.append(files.get_abs_path(projects.get_project_meta_folder(project), "secrets.env"))
+
+    return SecretsManager.get_instance(*secret_files)
+
+def get_project_secrets_manager(project_name: str, merge_with_global: bool = False) -> SecretsManager:
+    from python.helpers import projects
+
+    # default secrets file
+    secret_files = []
+
+    if merge_with_global:
+        secret_files.append(DEFAULT_SECRETS_FILE)
+
+    # merged with project secrets if active
+    secret_files.append(files.get_abs_path(projects.get_project_meta_folder(project_name), "secrets.env"))
+
+    return SecretsManager.get_instance(*secret_files)
+
+def get_default_secrets_manager() -> SecretsManager:
+    return SecretsManager.get_instance()

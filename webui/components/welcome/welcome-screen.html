@@ -1,0 +1,423 @@
+<html>
+
+<head>
+    <script type="module">
+        import { store } from "/components/welcome/welcome-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
+        <template x-if="$store.welcomeStore">
+            <div x-data="$store.welcomeStore" class="welcome-container">
+                <!-- Agent Zero Logo -->
+                <div class="welcome-logo-container">
+                    <img src="./public/darkSymbol.svg" alt="Agent Zero Logo" class="welcome-logo" />
+                </div>
+
+                <!-- Welcome Title -->
+                <h1 class="welcome-title">Welcome to Agent Zero</h1>
+                <p class="welcome-subtitle">
+                    Start a new conversation or explore the features below.
+                </p>
+
+                <!-- Action Cards -->
+                <div class="welcome-actions">
+                    <div class="welcome-action-card" @click="executeAction('new-chat')">
+                        <span class="material-symbols-outlined welcome-action-icon">add_circle</span>
+                        <h3 class="welcome-action-title">New Chat</h3>
+                        <p class="welcome-action-description">
+                            Start a new conversation
+                        </p>
+                    </div>
+
+                    <div class="welcome-action-card" @click="executeAction('projects')">
+                        <span class="material-symbols-outlined welcome-action-icon">folder</span>
+                        <h3 class="welcome-action-title">Projects</h3>
+                        <p class="welcome-action-description">
+                            Manage your projects
+                        </p>
+                    </div>
+                    <div class="welcome-action-card" @click="executeAction('memory')">
+                        <span class="material-symbols-outlined welcome-action-icon">memory</span>
+                        <h3 class="welcome-action-title">Memory</h3>
+                        <p class="welcome-action-description">
+                            Open Memory Dashboard
+                        </p>
+                    </div>
+                    <div class="welcome-action-card" @click="executeAction('settings')">
+                        <span class="material-symbols-outlined welcome-action-icon">settings</span>
+                        <h3 class="welcome-action-title">Settings</h3>
+                        <p class="welcome-action-description">
+                            Configure Agent Zero
+                        </p>
+                    </div>
+                    <div class="welcome-action-card" @click="executeAction('website')">
+                        <span class="material-symbols-outlined welcome-action-icon">language</span>
+                        <h3 class="welcome-action-title">Visit Website</h3>
+                        <p class="welcome-action-description">
+                            Learn more about Agent Zero
+                        </p>
+                    </div>
+                    <div class="welcome-action-card" @click="executeAction('github')">
+                        <span class="material-symbols-outlined welcome-action-icon">code</span>
+                        <h3 class="welcome-action-title">Visit GitHub</h3>
+                        <p class="welcome-action-description">
+                            View source code and documentation
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Banner Section -->
+                <div class="welcome-banners" x-show="banners && banners.length > 0">
+                    <template x-for="banner in sortedBanners" :key="banner.id">
+                        <div class="welcome-banner" :class="getBannerClass(banner.type)">
+                            <!-- Banner Icon -->
+                            <div class="welcome-banner-icon">
+                                <span class="material-symbols-outlined" x-text="getBannerIcon(banner.type)"></span>
+                            </div>
+                            
+                            <!-- Banner Content -->
+                            <div class="welcome-banner-content">
+                                <div class="welcome-banner-title" x-text="banner.title"></div>
+                                <div class="welcome-banner-html" x-html="banner.html"></div>
+                            </div>
+                            
+                            <!-- Dismiss Button -->
+                            <button class="welcome-banner-dismiss" 
+                                    x-show="banner.dismissible !== false"
+                                    @click.stop="dismissBanner(banner.id)"
+                                    title="Dismiss">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        /* Welcome Screen Styles */
+        .welcome-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3%;
+            text-align: center;
+            background: var(--color-background);
+            color: var(--color-text);
+            min-height: 100vh;
+        }
+
+        /* Welcome container styles */
+        .welcome-logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .welcome-logo {
+            width: 7rem;
+            height: 7rem;
+        }
+
+        /* Themes adjustments for logo */
+        .light-mode .welcome-logo {
+            filter: invert(0.5);
+        }
+
+        .dark-mode .welcome-logo {
+            filter: invert(0.8);
+        }
+
+        .welcome-title {
+            font-size: 2rem;
+            font-weight: 400;
+            margin: var(--spacing-xs) 0 0 0;
+            color: var(--color-text);
+        }
+
+        .welcome-action-title {
+            margin-bottom: 0;
+        }
+
+        .welcome-subtitle {
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            color: var(--color-secondary);
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        .welcome-actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.2rem;
+            max-width: 520px;
+            width: 100%;
+            margin: 1.5rem 0;
+        }
+
+        .welcome-action-card {
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-height: 10rem;
+            justify-content: center;
+        }
+
+        .welcome-action-card:hover {
+            border-color: var(--color-primary);
+            background: var(--color-message-bg);
+        }
+
+        .welcome-action-icon {
+            font-size: 2rem;
+            margin-bottom: 0;
+            color: var(--color-highlight-dark);
+        }
+
+        .welcome-action-description {
+            font-size: 0.8rem;
+            color: var(--color-secondary);
+            line-height: 1.3;
+        }
+
+        /* Banner Styles */
+        .welcome-banners {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 520px;
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        .welcome-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            text-align: left;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .welcome-banner:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Banner Type Styles */
+        .welcome-banner.banner-info {
+            border-left: 4px solid #2196F3;
+        }
+
+        .welcome-banner.banner-warning {
+            border-left: 4px solid #FF9800;
+        }
+
+        .welcome-banner.banner-error {
+            border-left: 4px solid #F44336;
+        }
+
+        /* Banner Icon */
+        .welcome-banner-icon {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin-top: 2px;
+        }
+
+        .welcome-banner-icon .material-symbols-outlined {
+            font-size: 1.25rem;
+        }
+
+        .banner-info .welcome-banner-icon {
+            color: #2196F3;
+        }
+
+        .banner-warning .welcome-banner-icon {
+            color: #FF9800;
+        }
+
+        .banner-error .welcome-banner-icon {
+            color: #F44336;
+        }
+
+        /* Banner Content */
+        .welcome-banner-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .welcome-banner-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--color-text);
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+
+        .welcome-banner-html {
+            font-size: 0.85rem;
+            color: var(--color-secondary);
+            line-height: 1.5;
+        }
+
+        .welcome-banner-html a {
+            color: var(--color-primary);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .welcome-banner-html a:hover {
+            color: var(--color-highlight-dark);
+        }
+
+        .welcome-banner-html strong {
+            color: var(--color-text);
+            font-weight: 600;
+        }
+
+        /* Banner Dismiss Button */
+        .welcome-banner-dismiss {
+            flex-shrink: 0;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            color: var(--color-secondary);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            opacity: 0.6;
+        }
+
+        .welcome-banner-dismiss:hover {
+            background: var(--color-border);
+            color: var(--color-text);
+            opacity: 1;
+        }
+
+        .welcome-banner-dismiss .material-symbols-outlined {
+            font-size: 1.1rem;
+        }
+
+        /* Light mode adjustments */
+        .light-mode .welcome-title {
+            color: #2d2d2d;
+        }
+
+        .light-mode .welcome-subtitle {
+            color: #666;
+        }
+
+        .light-mode .welcome-action-title {
+            color: #2d2d2d;
+        }
+
+        .light-mode .welcome-action-description {
+            color: #666;
+        }
+
+        .light-mode .welcome-footer {
+            color: #666;
+        }
+
+        .light-mode .welcome-banner {
+            background: var(--color-panel);
+        }
+
+        .light-mode .welcome-banner-title {
+            color: var(--color-text);
+        }
+
+        .light-mode .welcome-banner-html {
+            color: var(--color-primary);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .welcome-container {
+                padding: 1rem;
+                padding-top: 3rem;
+            }
+
+            .welcome-logo {
+                width: 5rem;
+                height: 5rem;
+            }
+
+            .welcome-logo-container {
+                margin-top: 2rem;
+            }
+
+            .welcome-title {
+                font-size: 1.5rem;
+                margin: 0 !important;
+            }
+
+            .welcome-subtitle {
+                font-size: 1rem;
+                margin-top: var(--spacing-xs);
+                margin-bottom: 0;
+            }
+
+            .welcome-actions {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                margin-bottom: 2rem;
+            }
+
+            .welcome-action-card {
+                padding: 1.5rem;
+                min-height: 120px;
+            }
+
+            .welcome-action-icon {
+                font-size: 2rem;
+            }
+
+            .welcome-action-title {
+                font-size: 1.1rem;
+            }
+
+            .welcome-banners {
+                max-width: 100%;
+            }
+
+            .welcome-banner {
+                padding: 12px 14px;
+            }
+
+            .welcome-banner-title {
+                font-size: 0.85rem;
+            }
+
+            .welcome-banner-html {
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</body>
+
+</html>

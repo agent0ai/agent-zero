@@ -6,7 +6,7 @@ class Nudge(ApiHandler):
         if not ctxid:
             raise Exception("No context id provided")
 
-        context = self.get_context(ctxid)
+        context = self.use_context(ctxid)
         context.nudge()
 
         msg = "Process reset, agent nudged."

@@ -1,7 +1,7 @@
 from agent import AgentContext, UserMessage
 from python.helpers.api import ApiHandler, Request, Response
 
-from python.helpers import files
+from python.helpers import files, extension
 import os
 from werkzeug.utils import secure_filename
 from python.helpers.defer import DeferredTask
@@ -53,7 +53,13 @@ class Message(ApiHandler):
         message = text
 
         # Obtain agent context
-        context = self.get_context(ctxid)
+        context = self.use_context(ctxid)
+
+        # call extension point, alow it to modify data
+        data = { "message": message, "attachment_paths": attachment_paths }
+        await extension.call_extensions("user_message_ui", agent=context.get_agent(), data=data)
+        message = data.get("message", "")
+        attachment_paths = data.get("attachment_paths", [])
 
         # Store attachments in agent data
         # context.agent0.set_data("attachments", attachment_paths)

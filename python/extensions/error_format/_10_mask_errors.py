@@ -1,5 +1,5 @@
 from python.helpers.extension import Extension
-from python.helpers.secrets import SecretsManager
+from python.helpers.secrets import get_secrets_manager
 
 
 class MaskErrorSecrets(Extension):
@@ -10,7 +10,7 @@ class MaskErrorSecrets(Extension):
         if not msg:
             return
 
-        secrets_mgr = SecretsManager.get_instance()
+        secrets_mgr = get_secrets_manager(self.agent.context)
 
         # Mask the error message
         if "message" in msg:

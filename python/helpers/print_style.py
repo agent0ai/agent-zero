@@ -95,9 +95,10 @@ class PrintStyle:
         
         # Automatically mask secrets in all print output
         try:
-            from python.helpers.secrets import SecretsManager
-            secrets_mgr = SecretsManager.get_instance()
-            text = secrets_mgr.mask_values(text)
+            if not hasattr(self, "secrets_mgr"):
+                from python.helpers.secrets import get_secrets_manager
+                self.secrets_mgr = get_secrets_manager()
+            text = self.secrets_mgr.mask_values(text)
         except Exception:
             # If masking fails, proceed without masking to avoid breaking functionality
             pass

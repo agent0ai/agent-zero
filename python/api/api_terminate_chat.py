@@ -35,7 +35,7 @@ class ApiTerminateChat(ApiHandler):
                 )
 
             # Check if context exists
-            context = AgentContext.get(context_id)
+            context = AgentContext.use(context_id)
             if not context:
                 return Response(
                     '{"error": "Chat context not found"}',

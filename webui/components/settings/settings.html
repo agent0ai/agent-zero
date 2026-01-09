@@ -1,0 +1,135 @@
+<html>
+<head>
+  <title>Settings</title>
+</head>
+
+<body>
+<script type="module">
+  import { store as settingsStore } from "/components/settings/settings-store.js";
+</script>
+
+<div x-data>
+  <template x-if="$store.settingsStore">
+    <div x-init="$store.settingsStore.onOpen()" x-destroy="$store.settingsStore.cleanup()">
+
+      <!-- Loading state -->
+      <div x-show="$store.settingsStore.isLoading && !$store.settingsStore.settings" class="settings-loading">
+        <span class="material-symbols-outlined spinning">progress_activity</span>
+        <span>Loading settings...</span>
+      </div>
+
+      <!-- Error state -->
+      <div x-show="$store.settingsStore.error && !$store.settingsStore.settings" class="settings-error">
+        <span class="material-symbols-outlined">error</span>
+        <span x-text="$store.settingsStore.error"></span>
+        <button class="btn btn-retry" @click="$store.settingsStore.onOpen()">Retry</button>
+      </div>
+
+      <!-- Settings content -->
+      <div x-show="$store.settingsStore.settings" class="settings-content">
+        <!-- Tab Navigation -->
+        <div class="settings-tabs-container">
+          <div class="settings-tabs">
+            <div class="settings-tab" 
+                 :class="{'active': $store.settingsStore.activeTab === 'agent'}"
+                 @click="$store.settingsStore.switchTab('agent')" 
+                 title="Agent Settings">Agent Settings</div>
+            <div class="settings-tab" 
+                 :class="{'active': $store.settingsStore.activeTab === 'external'}"
+                 @click="$store.settingsStore.switchTab('external')" 
+                 title="External Services">External Services</div>
+            <div class="settings-tab" 
+                 :class="{'active': $store.settingsStore.activeTab === 'mcp'}"
+                 @click="$store.settingsStore.switchTab('mcp')" 
+                 title="MCP">MCP/A2A</div>
+            <div class="settings-tab" 
+                 :class="{'active': $store.settingsStore.activeTab === 'developer'}"
+                 @click="$store.settingsStore.switchTab('developer')" 
+                 title="Developer">Developer</div>
+            <div class="settings-tab" 
+                 :class="{'active': $store.settingsStore.activeTab === 'backup'}"
+                 @click="$store.settingsStore.switchTab('backup')" 
+                 title="Backup & Restore">Backup & Restore</div>
+          </div>
+        </div>
+
+        <!-- Settings sections for agent, external, developer, mcp, backup tabs -->
+        <div id="settings-sections">
+          <div x-show="$store.settingsStore.activeTab === 'agent'">
+            <x-component path="settings/agent/agent-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settingsStore.activeTab === 'external'">
+            <x-component path="settings/external/external-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settingsStore.activeTab === 'mcp'">
+            <x-component path="settings/mcp/mcp-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settingsStore.activeTab === 'developer'">
+            <x-component path="settings/developer/developer-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settingsStore.activeTab === 'backup'">
+            <x-component path="settings/backup/backup-settings.html"></x-component>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer" data-modal-footer x-show="$store.settingsStore.settings">
+        <button class="btn btn-ok" 
+            @click="$store.settingsStore.saveAndClose()"
+            :disabled="$store.settingsStore?.isLoading">
+        Save
+        </button>
+        <button class="btn btn-cancel" 
+                @click="$store.settingsStore.closeSettings()">
+          Cancel
+        </button>
+      </div>
+
+    </div>
+  </template>
+</div>
+</body>
+</html>
+
+<style>
+.settings-loading,
+.settings-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: var(--color-text-secondary, #999);
+  font-size: 1rem;
+}
+
+.settings-error {
+  flex-direction: column;
+  color: var(--color-error, #e74c3c);
+}
+
+.settings-error .material-symbols-outlined {
+  font-size: 2rem;
+}
+
+.settings-error .btn-retry {
+  margin-top: 1rem;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
+

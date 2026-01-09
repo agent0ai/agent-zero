@@ -1,0 +1,249 @@
+<html>
+
+<head>
+  <script type="module">
+    import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    import { store as projectsStore } from "/components/projects/projects-store.js";
+    import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
+  </script>
+</head>
+
+<body>
+  <div class="wrapper" x-data="{ dropdownOpen: false }" @click.outside="dropdownOpen = false" @keydown.escape.window="dropdownOpen = false" x-init="$watch('dropdownOpen', v => v && $store.sidebar.updateDropdownPosition($el))">
+    <div id="quick-actions">
+      <!-- Dashboard -->
+      <button class="config-button" id="dashboard" @click="deselectChat()" title="Dashboard">
+        <span class="material-symbols-outlined">home</span>
+      </button>
+
+      <!-- Memory -->
+      <button class="config-button" id="memory-dash" @click="openModal('modals/memory/memory-dashboard.html')" title="Memory">
+        <span class="material-symbols-outlined">psychology</span>
+      </button>
+
+      <!-- Scheduler -->
+      <button class="config-button" id="scheduler" @click="openModal('modals/scheduler/scheduler-modal.html')" title="Scheduler">
+        <span class="material-symbols-outlined">schedule</span>
+      </button>
+
+      <!-- Settings -->
+      <button class="config-button" id="settings" @click="openModal('settings/settings.html')" title="Settings">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+
+      <!-- Dropdown Toggle -->
+      <button class="config-button dropdown-toggle" @click="dropdownOpen = !dropdownOpen" title="More options">
+        <span class="material-symbols-outlined" :class="dropdownOpen ? 'rotated' : ''">expand_more</span>
+      </button>
+    </div>
+
+    <!-- Dropdown Menu -->
+    <div class="dropdown-menu quick-actions-dropdown" 
+         x-show="dropdownOpen"
+         :style="$store.sidebar.dropdownStyle">
+      
+      <div class="dropdown-header">Navigation</div>
+      
+      <button class="dropdown-item" @click="deselectChat(); dropdownOpen = false">
+        <span class="material-symbols-outlined">home</span>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="dropdown-item" @click="$store.projects.openProjectsModal(); dropdownOpen = false">
+        <span class="material-symbols-outlined">snippet_folder</span>
+        <span>Projects</span>
+      </button>
+      
+      <button class="dropdown-item" @click="openModal('modals/memory/memory-dashboard.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">psychology</span>
+        <span>Memories</span>
+      </button>
+      
+      <button class="dropdown-item" @click="openModal('modals/scheduler/scheduler-modal.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Scheduler</span>
+      </button>
+      
+      <button class="dropdown-item" @click="openModal('settings/settings.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">settings</span>
+        <span>Settings</span>
+      </button>
+      
+      <div class="dropdown-separator"></div>
+      <div class="dropdown-header">Chat Actions</div>
+      
+      <button class="dropdown-item" @click="$store.chats.newChat(); dropdownOpen = false">
+        <span class="material-symbols-outlined">edit_square</span>
+        <span>New Chat</span>
+      </button>
+      
+      <button class="dropdown-item" @click="$store.chats.loadChats(); dropdownOpen = false">
+        <span class="material-symbols-outlined">folder_open</span>
+        <span>Load Chat</span>
+      </button>
+      
+      <button class="dropdown-item" @click="$store.chats.saveChat(); dropdownOpen = false" :disabled="!$store.chats.selected">
+        <span class="material-symbols-outlined">save</span>
+        <span>Save Chat</span>
+      </button>
+
+      <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.resetChat(); dropdownOpen = false })" :disabled="!$store.chats.selected">
+        <span class="material-symbols-outlined">delete_sweep</span>
+        <span>Clear Chat</span>
+      </button>
+      
+      <div class="dropdown-separator"></div>
+      
+      <button class="dropdown-item" @click="$store.chats.restart(); dropdownOpen = false">
+        <span class="material-symbols-outlined">restart_alt</span>
+        <span>Restart A0</span>
+      </button>
+
+    </div>
+  </div>
+</body>
+
+<style>
+  /* Wrapper container for icon toolbar */
+  .wrapper {
+    position: relative;
+    border-radius: 0.6rem;
+    z-index: 100;
+    /* Ensure dropdown appears above all sidebar content */
+  }
+
+  /* Icon toolbar layout */
+  #quick-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0;
+    gap: 0;
+  }
+
+  /* Config button - icon only style */
+  .config-button {
+    background-color: var(--color-panel);
+    border: 0.05rem solid var(--color-border);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    padding: var(--spacing-xs);
+    flex: 1;
+    min-width: 0;
+    transition: all var(--transition-speed), transform 0.1s ease-in-out;
+  }
+
+  .config-button .material-symbols-outlined {
+    font-size: 22px;
+    transition: transform 0.2s ease;
+  }
+
+  .config-button .material-symbols-outlined.rotated {
+    transform: rotate(180deg);
+  }
+
+  /* Connected button borders */
+  .config-button:not(:last-child) {
+    margin-right: -1px;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .config-button:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .config-button:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  .config-button:not(:first-child):not(:last-child) {
+    border-radius: 0;
+  }
+
+  .config-button:hover {
+    background-color: var(--color-background-hover);
+    opacity: 1;
+    z-index: 1;
+    position: relative;
+  }
+
+  .config-button:active {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+
+  /* Dropdown specific positioning - fixed to escape overflow:hidden */
+  .quick-actions-dropdown {
+    position: fixed;
+    z-index: 9999;
+  }
+
+  /* Unified scrollbar styling for dropdown */
+  .quick-actions-dropdown::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .quick-actions-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+    border-radius: 6px;
+  }
+
+  .quick-actions-dropdown::-webkit-scrollbar-thumb {
+    background-color: rgba(155, 155, 155, 0.5);
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+  }
+
+  .quick-actions-dropdown::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(155, 155, 155, 0.7);
+  }
+
+  /* Dropdown item icon sizing */
+  .dropdown-item .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  /* New Chat Button */
+  #newChat {
+  display: flex;
+  flex-wrap: nowrap;
+  background-color: transparent;
+  border: none;
+  align-items: center;
+  opacity: 0.6;
+  cursor: pointer;
+  -webkit-transition: all 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
+  transition: all 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
+  }
+  #newChat:hover { opacity: 0.85; transform: scale(1.04); }
+  #newChat:active { opacity: 0.5; transform: scale(0.98); }
+  #newChat .material-symbols-outlined { 
+    color: var(--color-text); 
+    font-size: 24px;
+  }
+
+  /* Light mode */
+  .light-mode .config-button {
+    background-color: var(--color-background);
+    color: #333333;
+  }
+
+  .light-mode .config-button:hover { background-color: var(--color-background-hover); }
+  .light-mode .config-button:active { background-color: var(--color-background-hover); }
+
+  /* Transition helpers */
+  .-translate-y-1 { transform: translateY(-0.25rem); }
+  .translate-y-0 { transform: translateY(0); }
+</style>
+
+</html>

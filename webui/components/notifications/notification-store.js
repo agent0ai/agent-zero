@@ -17,8 +17,8 @@ export const NotificationPriority = {
 
 export const defaultPriority = NotificationPriority.NORMAL;
 
-const maxNotifications = 100
-const maxToasts = 5
+const maxNotifications = 100;
+const maxToasts = 5;
 
 const model = {
   notifications: [],
@@ -30,7 +30,7 @@ const model = {
 
   // NEW: Toast stack management
   toastStack: [],
-  
+
   init() {
     this.initialize();
   },
@@ -615,35 +615,38 @@ const model = {
     title = "",
     display_time = 5,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    frontendOnly = false
   ) {
     // Try to send to backend first if connected
-    if (this.isConnected()) {
-      try {
-        const notificationId = await this.createNotification(
-          type,
-          message,
-          title,
-          "",
-          display_time,
-          group,
-          priority
-        );
-        if (notificationId) {
-          // Backend handled it, notification will arrive via polling
-          return notificationId;
+    if (!frontendOnly) {
+      if (this.isConnected()) {
+        try {
+          const notificationId = await this.createNotification(
+            type,
+            message,
+            title,
+            "",
+            display_time,
+            group,
+            priority
+          );
+          if (notificationId) {
+            // Backend handled it, notification will arrive via polling
+            return notificationId;
+          }
+        } catch (error) {
+          console.log(
+            `Backend unavailable for notification, showing as frontend-only: ${
+              error.message || error
+            }`
+          );
         }
-      } catch (error) {
-        console.log(
-          `Backend unavailable for notification, showing as frontend-only: ${
-            error.message || error
-          }`
-        );
+      } else {
+        console.log("Backend disconnected, showing as frontend-only toast");
       }
-    } else {
-      console.log("Backend disconnected, showing as frontend-only toast");
     }
-
+    
     // Fallback to frontend-only toast
     return this.addFrontendToastOnly(
       type,
@@ -661,7 +664,8 @@ const model = {
     title = "Connection Error",
     display_time = 8,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    frontendOnly = false
   ) {
     return await this.addFrontendToast(
       NotificationType.ERROR,
@@ -669,7 +673,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
   },
 
@@ -686,7 +691,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
   },
 
@@ -695,7 +701,8 @@ const model = {
     title = "Info",
     display_time = 3,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    frontendOnly = false
   ) {
     return await this.addFrontendToast(
       NotificationType.INFO,
@@ -703,7 +710,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
   },
 
@@ -712,7 +720,8 @@ const model = {
     title = "Success",
     display_time = 3,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    frontendOnly = false
   ) {
     return await this.addFrontendToast(
       NotificationType.SUCCESS,
@@ -720,8 +729,53 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      frontendOnly
     );
+  },
+
+  async frontendProgress(
+    message,
+    title = "Progress",
+    display_time = 3,
+    group = "",
+    priority = defaultPriority,
+    frontendOnly = false
+  ) {
+    return await this.addFrontendToast(
+      NotificationType.PROGRESS,
+      message,
+      title,
+      display_time,
+      group,
+      priority,
+      frontendOnly
+    );
+  },
+
+  // NEW: Enhanced frontend toast with object parameters and type annotations
+  /**
+   * Adds a frontend toast notification with object parameters.
+   * @param {Object} options - The options for the toast notification.
+   * @param {string} options.type - The type of notification (e.g., info, success, error).
+   * @param {string} options.message - The message content of the notification.
+   * @param {string} [options.title=''] - The title of the notification.
+   * @param {number} [options.displayTime=5] - The display duration in seconds.
+   * @param {string} [options.group=''] - The group identifier for the notification.
+   * @param {string} [options.priority='medium'] - The priority of the notification.
+   * @param {boolean} [options.frontendOnly=false] - Whether to show only on frontend.
+   * @returns {Promise<string>} The ID of the added notification.
+   */
+  async frontendNotification({
+    type,
+    message,
+    title = '',
+    displayTime = 5,
+    group = '',
+    priority = defaultPriority,
+    frontendOnly = false
+  }) {
+    return await this.addFrontendToast(type, message, title, displayTime, group, priority, frontendOnly);
   },
 };
 
@@ -729,8 +783,24 @@ const model = {
 const store = createStore("notificationStore", model);
 export { store };
 
+// export toast functions
+const toastFrontendInfo = store.frontendInfo.bind(store);
+const toastFrontendSuccess = store.frontendSuccess.bind(store);
+const toastFrontendWarning = store.frontendWarning.bind(store);
+const toastFrontendError = store.frontendError.bind(store);
+const toastFrontendProgress = store.frontendProgress.bind(store);
+
+export {
+  toastFrontendInfo,
+  toastFrontendSuccess,
+  toastFrontendWarning,
+  toastFrontendError,
+  toastFrontendProgress,
+};
+
 // add toasts to global for backward compatibility with older scripts
-globalThis.toastFrontendInfo = store.frontendInfo.bind(store);
-globalThis.toastFrontendSuccess = store.frontendSuccess.bind(store);
-globalThis.toastFrontendWarning = store.frontendWarning.bind(store);
-globalThis.toastFrontendError = store.frontendError.bind(store);
+globalThis.toastFrontendInfo = toastFrontendInfo;
+globalThis.toastFrontendSuccess = toastFrontendSuccess;
+globalThis.toastFrontendWarning = toastFrontendWarning;
+globalThis.toastFrontendError = toastFrontendError;
+globalThis.toastFrontendProgress = toastFrontendProgress;

@@ -1,0 +1,68 @@
+<html>
+
+<head>
+    <script type="module">
+        import { store as projectsStore } from "/components/projects/projects-store.js";
+        import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false" class="dropdown project-dropdown-container">
+        <template x-if="$store.projects && $store.chats && $store.chats.selectedContext">
+            <div>
+                <template x-if="$store.chats.selectedContext.project?.name">
+                    <button @click="open = !open" type="button" class="button project-dropdown-button">
+                        <span class="project-color-ball" :style="$store.chats.selectedContext.project.color ? { backgroundColor: $store.chats.selectedContext.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                        <span x-text="$store.chats.selectedContext.project.title"></span>
+                        <span class="icon material-symbols-outlined">arrow_drop_down</span>
+                    </button>
+                </template>
+                <template x-if="!$store.chats.selectedContext.project?.name">
+                    <button @click="open = !open" type="button" class="button project-dropdown-button">
+                        No project
+                        <span class="icon material-symbols-outlined">arrow_drop_down</span>
+                    </button>
+                </template>
+
+                <div x-show="open" x-init="$store.projects.loadProjectsList()" class="dropdown-menu" style="display: none;" x-transition>
+                    <button type="button" @click="$store.projects.openProjectsModal(); open = false;" class="dropdown-item">
+                        <span class="icon material-symbols-outlined">snippet_folder</span>
+                        <span>Projects</span>
+                    </button>
+
+                    <button type="button" x-show="$store.chats.selectedContext.project?.name" @click="$store.projects.editActiveProject(); open = false;" class="dropdown-item">
+                        <span class="icon material-symbols-outlined">edit</span>
+                        <span>Edit <span x-text="$store.chats.selectedContext.project?.title"></span></span>
+                    </button>
+
+                    <button type="button" x-show="$store.chats.selectedContext.project?.name" @click="$store.projects.deactivateProject(); open = false;" class="dropdown-item">
+                        <span class="icon material-symbols-outlined">close</span>
+                        <span>Deactivate</span>
+                    </button>
+
+                    <div x-show="$store.projects.projectList.length > 0" class="dropdown-separator"></div>
+                    <div x-show="$store.projects.projectList.length > 0" class="dropdown-header">Switch Project</div>
+
+                    <template x-for="project in $store.projects.projectList" :key="project.name">
+                        <button type="button" @click="$store.projects.activateProject(project.name); open = false;" class="dropdown-item">
+                            <span class="project-color-ball" :style="project.color ? { backgroundColor: project.color } : { border: '1px solid var(--color-border)' }"></span>
+                            <span x-text="project.title"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+<style>
+    .project-dropdown-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3em;
+        padding-left: 0.5em;
+        padding-right: 0.5em;
+    }
+</style>
+</html>

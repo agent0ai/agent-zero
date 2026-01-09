@@ -32,7 +32,7 @@ class ApiLogGet(ApiHandler):
             return Response('{"error": "context_id is required"}', status=400, mimetype="application/json")
 
         # Get context
-        context = AgentContext.get(context_id)
+        context = AgentContext.use(context_id)
         if not context:
             return Response('{"error": "Context not found"}', status=404, mimetype="application/json")
 

@@ -3,8 +3,8 @@ import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import models
 
-provider = "openai"
-name = "gpt-4.1-mini"
+provider = "openrouter"
+name = "deepseek/deepseek-r1"
 
 model = models.get_chat_model(
     provider=provider,

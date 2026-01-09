@@ -1,6 +1,6 @@
 from python.helpers.extension import Extension
-from python.helpers.secrets import SecretsManager
 from agent import Agent, LoopData
+from python.helpers.secrets import get_secrets_manager
 
 
 class MaskResponseStreamChunk(Extension):
@@ -13,8 +13,7 @@ class MaskResponseStreamChunk(Extension):
             return
 
         try:
-            from python.helpers.secrets import SecretsManager
-            secrets_mgr = SecretsManager.get_instance()
+            secrets_mgr = get_secrets_manager(self.agent.context)
 
             # Initialize filter if not exists
             filter_key = "_resp_stream_filter"

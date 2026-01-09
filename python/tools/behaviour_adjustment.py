@@ -52,13 +52,13 @@ async def update_behaviour(agent: Agent, log_item: LogItem, adjustments: str):
 
 
 def get_custom_rules_file(agent: Agent):
-    return memory.get_memory_subdir_abs(agent) + f"/behaviour.md"
+    return files.get_abs_path(memory.get_memory_subdir_abs(agent), "behaviour.md")
 
 
 def read_rules(agent: Agent):
     rules_file = get_custom_rules_file(agent)
     if files.exists(rules_file):
-        rules = files.read_prompt_file(rules_file)
+        rules = agent.read_prompt(rules_file)
         return agent.read_prompt("agent.system.behaviour.md", rules=rules)
     else:
         rules = agent.read_prompt("agent.system.behaviour_default.md")

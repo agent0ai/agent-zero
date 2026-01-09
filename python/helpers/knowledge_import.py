@@ -36,6 +36,7 @@ def load_knowledge(
     index: Dict[str, KnowledgeImport],
     metadata: dict[str, Any] = {},
     filename_pattern: str = "**/*",
+    recursive: bool = True,
 ) -> Dict[str, KnowledgeImport]:
     """
     Load knowledge files from a directory with change detection and metadata enhancement.
@@ -96,7 +97,7 @@ def load_knowledge(
 
     # Fetch all files in the directory with specified extensions
     try:
-        kn_files = glob.glob(os.path.join(knowledge_dir, filename_pattern), recursive=True)
+        kn_files = glob.glob(os.path.join(knowledge_dir, filename_pattern), recursive=recursive)
         kn_files = [f for f in kn_files if os.path.isfile(f) and not os.path.basename(f).startswith('.')]
     except Exception as e:
         PrintStyle(font_color="red").print(f"Error scanning knowledge directory {knowledge_dir}: {e}")

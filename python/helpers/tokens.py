@@ -13,7 +13,7 @@ def count_tokens(text: str, encoding_name="cl100k_base") -> int:
     encoding = tiktoken.get_encoding(encoding_name)
 
     # Encode the text and count the tokens
-    tokens = encoding.encode(text)
+    tokens = encoding.encode(text, disallowed_special=())
     token_count = len(tokens)
 
     return token_count

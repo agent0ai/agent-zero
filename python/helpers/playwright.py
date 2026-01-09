@@ -1,4 +1,6 @@
 
+import os
+import sys
 from pathlib import Path
 import subprocess
 from python.helpers import files
@@ -9,8 +11,14 @@ from python.helpers import files
 
 def get_playwright_binary():
     pw_cache = Path(get_playwright_cache_dir())
-    headless_shell = next(pw_cache.glob("chromium_headless_shell-*/chrome-*/headless_shell"), None)
-    return headless_shell
+    for pattern in (
+        "chromium_headless_shell-*/chrome-*/headless_shell",
+        "chromium_headless_shell-*/chrome-*/headless_shell.exe",
+    ):
+        binary = next(pw_cache.glob(pattern), None)
+        if binary:
+            return binary
+    return None
 
 def get_playwright_cache_dir():
     return files.get_abs_path("tmp/playwright")
@@ -19,7 +27,6 @@ def ensure_playwright_binary():
     bin = get_playwright_binary()
     if not bin:
         cache = get_playwright_cache_dir()
-        import os
         env = os.environ.copy()
         env["PLAYWRIGHT_BROWSERS_PATH"] = cache
         subprocess.check_call(

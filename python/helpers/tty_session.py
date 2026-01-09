@@ -204,53 +204,66 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
 
 
 async def _spawn_winpty(cmd, cwd, env, echo):
-    # A quick way to silence command echo in cmd.exe is /Q (quiet)
-    if not echo and cmd.strip().lower().startswith("cmd") and "/q" not in cmd.lower():
-        cmd = cmd.replace("cmd.exe", "cmd.exe /Q")
+    # Clean PowerShell startup: no logo, no profile, bypass execution policy for deterministic behavior
+    if cmd.strip().lower().startswith("powershell"):
+        if "-nolog" not in cmd.lower():
+            cmd = cmd.replace("powershell.exe", "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass", 1)
 
     cols, rows = 80, 25
-    pty = winpty.PTY(cols, rows)  # type: ignore
-    child = pty.spawn(cmd, cwd=cwd or os.getcwd(), env=env)
-
-    master_r_fd = msvcrt.open_osfhandle(child.conout_pipe, os.O_RDONLY)  # type: ignore
-    master_w_fd = msvcrt.open_osfhandle(child.conin_pipe, 0)  # type: ignore
+    child = winpty.PtyProcess.spawn(cmd, dimensions=(rows, cols), cwd=cwd or os.getcwd(), env=env) # type: ignore
 
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader()
 
-    def _on_data():
-        try:
-            data = os.read(master_r_fd, 1 << 16)
-        except OSError:
-            data = b""
-        if data:
-            reader.feed_data(data)
-        else:
-            reader.feed_eof()
-            loop.remove_reader(master_r_fd)
+    async def _on_data():
+        while child.isalive():
+            try:
+                # Run blocking read in executor to not block event loop
+                data = await loop.run_in_executor(None, child.read, 1 << 16)
+                if data:
+                    reader.feed_data(data.encode('utf-8') if isinstance(data, str) else data)
+            except EOFError:
+                break
+            except Exception:
+                await asyncio.sleep(0.01)
+        reader.feed_eof()
 
-    loop.add_reader(master_r_fd, _on_data)
+    # Start pumping output in background
+    asyncio.create_task(_on_data())
 
     class _Stdin:
         def write(self, d):
-            os.write(master_w_fd, d)
+            # Use winpty's write method, not os.write
+            if isinstance(d, bytes):
+                d = d.decode('utf-8', errors='replace')
+            # Windows needs \r\n for proper line endings
+            if _IS_WIN:
+              d = d.replace('\n', '\r\n')
+            child.write(d)
 
         async def drain(self):
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.01)  # Give write time to complete
 
-    class _Proc(asyncio.subprocess.Process):
+    class _Proc:
         def __init__(self):
             self.stdin = _Stdin()  # type: ignore
             self.stdout = reader
             self.pid = child.pid
+            self.returncode = None
 
         async def wait(self):
             while child.isalive():
                 await asyncio.sleep(0.2)
+            self.returncode = 0
             return 0
 
+        def terminate(self):
+            if child.isalive():
+                child.terminate()
+
         def kill(self):
-            child.kill()
+            if child.isalive():
+                child.kill()
 
     return _Proc()
 
@@ -259,7 +272,7 @@ async def _spawn_winpty(cmd, cwd, env, echo):
 if __name__ == "__main__":
 
     async def interactive_shell():
-        shell_cmd, prompt_hint = ("cmd.exe", "$") if _IS_WIN else ("/bin/bash", "$")
+        shell_cmd, prompt_hint = ("powershell.exe", ">") if _IS_WIN else ("/bin/bash", "$")
 
         # echo=False → suppress the shell’s own echo of commands
         term = TTYSession(shell_cmd)

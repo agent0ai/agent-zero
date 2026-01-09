@@ -168,6 +168,7 @@ def replace_file_includes(text: str, placeholder_pattern: str = r"§§include\((
         path = match.group(1)
         try:
             # read file content
+            path = files.fix_dev_path(path)
             return files.read_file(path)
         except Exception:
             # if file not readable keep original placeholder

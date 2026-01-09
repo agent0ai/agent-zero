@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 import json
-from typing import Any, Literal, Optional, Dict, TypeVar
+import time
+from typing import Any, Literal, Optional, Dict, TypeVar, TYPE_CHECKING
 
 T = TypeVar("T")
 import uuid
@@ -8,6 +9,11 @@ from collections import OrderedDict  # Import OrderedDict
 from python.helpers.strings import truncate_text_by_ratio
 import copy
 from typing import TypeVar
+from python.helpers.secrets import get_secrets_manager
+
+
+if TYPE_CHECKING:
+    from agent import AgentContext
 
 T = TypeVar("T")
 
@@ -31,9 +37,10 @@ ProgressUpdate = Literal["persistent", "temporary", "none"]
 
 
 HEADING_MAX_LEN: int = 120
-CONTENT_MAX_LEN: int = 10000
+CONTENT_MAX_LEN: int = 15_000
+RESPONSE_CONTENT_MAX_LEN: int = 250_000
 KEY_MAX_LEN: int = 60
-VALUE_MAX_LEN: int = 3000
+VALUE_MAX_LEN: int = 5000
 PROGRESS_MAX_LEN: int = 120
 
 
@@ -88,18 +95,21 @@ def _truncate_value(val: T) -> T:
     return truncated
 
 
-def _truncate_content(text: str | None) -> str:
+def _truncate_content(text: str | None, type: Type) -> str:
+
+    max_len = CONTENT_MAX_LEN if type != "response" else RESPONSE_CONTENT_MAX_LEN
+
     if text is None:
         return ""
     raw = str(text)
-    if len(raw) <= CONTENT_MAX_LEN:
+    if len(raw) <= max_len:
         return raw
 
     # Same dynamic replacement logic as value truncation
-    removed = len(raw) - CONTENT_MAX_LEN
+    removed = len(raw) - max_len
     while True:
         replacement = f"\n\n<< {removed} Characters hidden >>\n\n"
-        truncated = truncate_text_by_ratio(raw, CONTENT_MAX_LEN, replacement, ratio=0.3)
+        truncated = truncate_text_by_ratio(raw, max_len, replacement, ratio=0.3)
         new_removed = len(raw) - (len(truncated) - len(replacement))
         if new_removed == removed:
             break
@@ -107,31 +117,14 @@ def _truncate_content(text: str | None) -> str:
     return truncated
 
 
-def _mask_recursive(obj: T) -> T:
-    """Recursively mask secrets in nested objects."""
-    try:
-        from python.helpers.secrets import SecretsManager
 
-        secrets_mgr = SecretsManager.get_instance()
-
-        if isinstance(obj, str):
-            return secrets_mgr.mask_values(obj)
-        elif isinstance(obj, dict):
-            return {k: _mask_recursive(v) for k, v in obj.items()}  # type: ignore
-        elif isinstance(obj, list):
-            return [_mask_recursive(item) for item in obj]  # type: ignore
-        else:
-            return obj
-    except Exception as _e:
-        # If masking fails, return original object
-        return obj
 
 
 @dataclass
 class LogItem:
     log: "Log"
     no: int
-    type: str
+    type: Type
     heading: str = ""
     content: str = ""
     temp: bool = False
@@ -139,9 +132,13 @@ class LogItem:
     kvps: Optional[OrderedDict] = None  # Use OrderedDict for kvps
     id: Optional[str] = None  # Add id field
     guid: str = ""
+    timestamp: float = 0.0
+    duration_ms: Optional[int] = None
+    agent_number: int = 0
 
     def __post_init__(self):
         self.guid = self.log.guid
+        self.timestamp = self.timestamp or time.time()
 
     def update(
         self,
@@ -189,12 +186,16 @@ class LogItem:
             "content": self.content,
             "temp": self.temp,
             "kvps": self.kvps,
+            "timestamp": self.timestamp,
+            "duration_ms": self.duration_ms,
+            "agent_number": self.agent_number,
         }
 
 
 class Log:
 
     def __init__(self):
+        self.context: "AgentContext|None" = None # set from outside
         self.guid: str = str(uuid.uuid4())
         self.updates: list[int] = []
         self.logs: list[LogItem] = []
@@ -208,16 +209,27 @@ class Log:
         kvps: dict | None = None,
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
-        id: Optional[str] = None,  # Add id parameter
+        id: Optional[str] = None,
         **kwargs,
     ) -> LogItem:
 
         # add a minimal item to the log
+        # Determine agent number from streaming agent
+        agent_number = 0
+        if self.context and self.context.streaming_agent:
+            agent_number = self.context.streaming_agent.number
+        
         item = LogItem(
             log=self,
             no=len(self.logs),
             type=type,
+            agent_number=agent_number,
         )
+        # Set duration on previous item and mark it as updated
+        if self.logs:
+            prev = self.logs[-1]
+            prev.duration_ms = int((item.timestamp - prev.timestamp) * 1000)
+            self.updates += [prev.no]
         self.logs.append(item)
 
         # and update it (to have just one implementation)
@@ -237,55 +249,56 @@ class Log:
     def _update_item(
         self,
         no: int,
-        type: str | None = None,
+        type: Type | None = None,
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
-        id: Optional[str] = None,  # Add id parameter
+        id: Optional[str] = None,
         **kwargs,
     ):
         item = self.logs[no]
 
+        if id is not None:
+            item.id = id
+
+        if type is not None:
+            item.type = type
+
+        if temp is not None:
+            item.temp = temp
+
+        if update_progress is not None:
+            item.update_progress = update_progress
+
+
         # adjust all content before processing
         if heading is not None:
-            heading = _mask_recursive(heading)
+            heading = self._mask_recursive(heading)
             heading = _truncate_heading(heading)
             item.heading = heading
         if content is not None:
-            content = _mask_recursive(content)
-            content = _truncate_content(content)
+            content = self._mask_recursive(content)
+            content = _truncate_content(content, item.type)
             item.content = content
         if kvps is not None:
             kvps = OrderedDict(copy.deepcopy(kvps))
-            kvps = _mask_recursive(kvps)
+            kvps = self._mask_recursive(kvps)
             kvps = _truncate_value(kvps)
             item.kvps = kvps
         elif item.kvps is None:
             item.kvps = OrderedDict()
         if kwargs:
             kwargs = copy.deepcopy(kwargs)
-            kwargs = _mask_recursive(kwargs)
+            kwargs = self._mask_recursive(kwargs)
             item.kvps.update(kwargs)
-
-        if type is not None:
-            item.type = type
-
-        if update_progress is not None:
-            item.update_progress = update_progress
-
-        if temp is not None:
-            item.temp = temp
-
-        if id is not None:
-            item.id = id
 
         self.updates += [item.no]
         self._update_progress_from_item(item)
 
     def set_progress(self, progress: str, no: int = 0, active: bool = True):
-        progress = _mask_recursive(progress)
+        progress = self._mask_recursive(progress)
         progress = _truncate_progress(progress)
         self.progress = progress
         if not no:
@@ -324,3 +337,28 @@ class Log:
                     item.heading,
                     (item.no if item.update_progress == "persistent" else -1),
                 )
+
+    def _mask_recursive(self, obj: T) -> T:
+        """Recursively mask secrets in nested objects."""
+        try:
+            from agent import AgentContext
+            secrets_mgr = get_secrets_manager(self.context or AgentContext.current())
+
+            # debug helper to identify context mismatch
+            # self_id = self.context.id if self.context else None
+            # current_ctx = AgentContext.current()
+            # current_id = current_ctx.id if current_ctx else None
+            # if self_id != current_id:
+            #     print(f"Context ID mismatch: {self_id} != {current_id}")
+
+            if isinstance(obj, str):
+                return secrets_mgr.mask_values(obj)
+            elif isinstance(obj, dict):
+                return {k: self._mask_recursive(v) for k, v in obj.items()}  # type: ignore
+            elif isinstance(obj, list):
+                return [self._mask_recursive(item) for item in obj]  # type: ignore
+            else:
+                return obj
+        except Exception as _e:
+            # If masking fails, return original object
+            return obj

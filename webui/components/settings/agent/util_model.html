@@ -1,0 +1,116 @@
+<html>
+  <head>
+    <title>Utility Model</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore.settings">
+        <div>
+          <div class="section-title">Utility model</div>
+          <div class="section-description">
+            Smaller, cheaper, faster model for handling utility tasks like organizing memory, preparing prompts, summarizing.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Utility model provider</div>
+              <div class="field-description">Select provider for utility model used by the framework</div>
+            </div>
+            <div class="field-control">
+              <select x-model="$store.settingsStore.settings.util_model_provider"
+                      @change="$store.settingsStore.handleProviderChange('util')">
+                <template x-for="option in $store.settingsStore.additional?.chat_providers" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.util_model_provider" x-text="option.label"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Utility model name</div>
+              <div class="field-description">Select model from provider, or choose 'Custom' to enter manually</div>
+            </div>
+            <div class="field-control">
+              <div class="select-with-custom">
+                <select x-model="$store.settingsStore.settings.util_model_name">
+                  <template x-for="option in $store.settingsStore.utilModels" :key="option.value">
+                    <option :value="option.value" x-text="option.label"></option>
+                  </template>
+                </select>
+                <template x-if="$store.settingsStore.settings.util_model_name === '__custom__'">
+                  <input type="text"
+                         class="custom-model-input"
+                         placeholder="Enter model name (e.g., gpt-4.1-mini)"
+                         @blur="$store.settingsStore.applyCustomModel('util', $event.target.value); $event.target.value = ''"
+                         @keydown.enter="$store.settingsStore.applyCustomModel('util', $event.target.value); $event.target.value = ''">
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Utility model API base URL</div>
+              <div class="field-description">
+                API base URL for utility model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="text" x-model="$store.settingsStore.settings.util_model_api_base" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Requests per minute limit</div>
+              <div class="field-description">
+                Limits the number of requests per minute to the utility model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.util_model_rl_requests" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Input tokens per minute limit</div>
+              <div class="field-description">
+                Limits the number of input tokens per minute to the utility model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.util_model_rl_input" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Output tokens per minute limit</div>
+              <div class="field-description">
+                Limits the number of output tokens per minute to the utility model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.util_model_rl_output" />
+            </div>
+          </div>
+
+          <div class="field field-full">
+            <div class="field-label">
+              <div class="field-title">Utility model additional parameters</div>
+              <div class="field-description">
+                Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.
+              </div>
+            </div>
+            <div class="field-control">
+              <textarea x-model="$store.settingsStore.settings.util_model_kwargs"></textarea>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

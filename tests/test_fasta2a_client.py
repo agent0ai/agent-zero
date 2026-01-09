@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 import asyncio
+import pytest
 from python.helpers import settings
 
 
@@ -143,6 +144,7 @@ def validate_token_format():
         return False
 
 
+@pytest.mark.asyncio
 async def test_server_connectivity():
     """Test basic server connectivity."""
     try:

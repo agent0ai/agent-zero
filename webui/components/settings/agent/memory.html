@@ -1,0 +1,234 @@
+<html>
+  <head>
+    <title>Memory</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore.settings">
+        <div>
+          <div class="section-title">Memory</div>
+          <div class="section-description">
+            Configuration of A0's memory system. A0 memorizes and recalls memories automatically to help its context awareness.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory Subdirectory</div>
+              <div class="field-description">
+                Subdirectory of /memory folder to use for agent memory storage. Used to separate memory storage between different instances.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="text" x-model="$store.settingsStore.settings.agent_memory_subdir" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory Dashboard</div>
+              <div class="field-description">
+                View and explore all stored memories in a table format with filtering and search capabilities.
+              </div>
+            </div>
+            <div class="field-control">
+              <button
+                class="btn btn-field"
+                @click="openModal('modals/memory/memory-dashboard.html');"
+              >
+                Open Dashboard
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall enabled</div>
+              <div class="field-description">Agent Zero will automatically recall memories based on convesation context.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_enabled" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall delayed</div>
+              <div class="field-description">
+                The agent will not wait for auto memory recall. Memories will be delivered one message later. This speeds up agent's response time but may result in less relevant first step.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_delayed" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Auto-recall AI query preparation</div>
+              <div class="field-description">
+                Enables vector DB query preparation from conversation context by utility LLM for auto-recall. Improves search quality, adds 1 utility LLM call per auto-recall.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_query_prep" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Auto-recall AI post-filtering</div>
+              <div class="field-description">
+                Enables memory relevance filtering by utility LLM for auto-recall. Improves search quality, adds 1 utility LLM call per auto-recall.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_post_filter" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall interval</div>
+              <div class="field-description">
+                Memories are recalled after every user or superior agent message. During agent's monologue, memories are recalled every X turns based on this parameter.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="1" max="10" step="1" x-model.number="$store.settingsStore.settings.memory_recall_interval" />
+              <span class="range-value" x-text="$store.settingsStore.settings.memory_recall_interval"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall history length</div>
+              <div class="field-description">
+                The length of conversation history passed to memory recall LLM for context (in characters).
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_history_len" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall similarity threshold</div>
+              <div class="field-description">
+                The threshold for similarity search in memory recall (0 = no similarity, 1 = exact match).
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settingsStore.settings.memory_recall_similarity_threshold" />
+              <span class="range-value" x-text="$store.settingsStore.settings.memory_recall_similarity_threshold"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall max memories to search</div>
+              <div class="field-description">
+                The maximum number of memories returned by vector DB for further processing.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_memories_max_search" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall max memories to use</div>
+              <div class="field-description">
+                The maximum number of memories to inject into A0's context window.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_memories_max_result" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall max solutions to search</div>
+              <div class="field-description">
+                The maximum number of solutions returned by vector DB for further processing.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_solutions_max_search" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory auto-recall max solutions to use</div>
+              <div class="field-description">
+                The maximum number of solutions to inject into A0's context window.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_solutions_max_result" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Auto-memorize enabled</div>
+              <div class="field-description">
+                A0 will automatically memorize facts and solutions from conversation history.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.memory_memorize_enabled" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Auto-memorize AI consolidation</div>
+              <div class="field-description">
+                A0 will automatically consolidate similar memories using utility LLM. Improves memory quality over time, adds 2 utility LLM calls per memory.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.memory_memorize_consolidation" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Auto-memorize replacement threshold</div>
+              <div class="field-description">
+                Only applies when AI consolidation is disabled. Replaces previous similar memories with new ones based on this threshold. 0 = replace even if not similar at all, 1 = replace only if exact match.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settingsStore.settings.memory_memorize_replace_threshold" />
+              <span class="range-value" x-text="$store.settingsStore.settings.memory_memorize_replace_threshold"></span>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

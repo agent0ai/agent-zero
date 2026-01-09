@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { updateChatInput, sendMessage } from "/index.js";
 import { sleep } from "/js/sleep.js";
 import { store as microphoneSettingStore } from "/components/settings/speech/microphone-setting-store.js";
+import * as shortcuts from "/js/shortcuts.js";
 
 const Status = {
   INACTIVE: "inactive",
@@ -14,6 +15,9 @@ const Status = {
 
 // Create the speech store
 const model = {
+  // Initialization guard
+  _initialized: false,
+
   // STT Settings
   stt_model_size: "tiny",
   stt_language: "en",
@@ -89,6 +93,15 @@ const model = {
 
   // Initialize speech functionality
   async init() {
+    // Guard against multiple initializations
+    if (this._initialized) {
+      console.log(
+        "[Speech Store] Already initialized, skipping duplicate init()"
+      );
+      return;
+    }
+
+    this._initialized = true;
     await this.loadSettings();
     this.setupBrowserTTS();
     this.setupUserInteractionHandling();
@@ -99,16 +112,18 @@ const model = {
     try {
       const response = await fetchApi("/settings_get", { method: "POST" });
       const data = await response.json();
-      const speechSection = data.settings.sections.find(
-        (s) => s.title === "Speech"
-      );
+      const settings = data?.settings || {};
 
-      if (speechSection) {
-        speechSection.fields.forEach((field) => {
-          if (this.hasOwnProperty(field.id)) {
-            this[field.id] = field.value;
-          }
-        });
+      if (settings) {
+        this.stt_model_size = settings.stt_model_size ?? this.stt_model_size;
+        this.stt_language = settings.stt_language ?? this.stt_language;
+        this.stt_silence_threshold =
+          settings.stt_silence_threshold ?? this.stt_silence_threshold;
+        this.stt_silence_duration =
+          settings.stt_silence_duration ?? this.stt_silence_duration;
+        this.stt_waiting_timeout =
+          settings.stt_waiting_timeout ?? this.stt_waiting_timeout;
+        this.tts_kokoro = settings.tts_kokoro ?? this.tts_kokoro;
       }
     } catch (error) {
       window.toastFetchError("Failed to load speech settings", error);
@@ -358,11 +373,13 @@ const model = {
 
   // Show a prompt to user to enable audio
   showAudioPermissionPrompt() {
-    if (window.toast) {
-      window.toast("Click anywhere to enable audio playback", "info", 5000);
-    } else {
-      console.log("Please click anywhere on the page to enable audio playback");
-    }
+    shortcuts.frontendNotification({
+      type: "info",
+      message: "Click anywhere to enable audio playback",
+      displayTime: 5000,
+      frontendOnly: true,
+    });
+    console.log("Please click anywhere on the page to enable audio playback");
   },
 
   // Browser TTS

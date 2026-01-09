@@ -25,6 +25,7 @@ Send messages to Agent Zero and receive responses. Supports text messages, file 
 *   `message` (string, required): The message to send
 *   `attachments` (array, optional): Array of `{filename, base64}` objects
 *   `lifetime_hours` (number, optional): Chat lifetime in hours (default: 24)
+*   `project` (string, optional): Project name to activate (only on first message)
 
 **Headers:**
 *   `X-API-KEY` (required)
@@ -167,6 +168,63 @@ async function sendWithAttachment() {
 
 // Call the function
 sendWithAttachment();
+```
+
+#### Project Usage Example
+
+```javascript
+// Working with projects
+async function sendMessageWithProject() {
+    try {
+        // First message - activate project
+        const response = await fetch('YOUR_AGENT_ZERO_URL/api_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': 'YOUR_API_KEY'
+            },
+            body: JSON.stringify({
+                message: "Analyze the project structure",
+                project: "my-web-app"  // Activates this project
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('✅ Project activated!');
+            console.log('Context ID:', data.context_id);
+            console.log('Response:', data.response);
+
+            // Continue conversation - project already set
+            const followUp = await fetch('YOUR_AGENT_ZERO_URL/api_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': 'YOUR_API_KEY'
+                },
+                body: JSON.stringify({
+                    context_id: data.context_id,
+                    message: "What files are in the project?"
+                    // Do NOT include project field here - already set on first message
+                })
+            });
+
+            const followUpData = await followUp.json();
+            console.log('Follow-up response:', followUpData.response);
+            return followUpData;
+        } else {
+            console.error('❌ Error:', data.error);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Request failed:', error);
+        return null;
+    }
+}
+
+// Call the function
+sendMessageWithProject();
 ```
 
 ---
@@ -568,6 +626,30 @@ Below is an example of a `mcp.json` configuration file that a client could use t
 }
 ```
 
+### Project Support in MCP
+
+You can specify a project for MCP connections by including it in the URL path:
+
+```json
+{
+    "mcpServers": {
+        "agent-zero-with-project": {
+            "type": "sse",
+            "url": "YOUR_AGENT_ZERO_URL/mcp/t-YOUR_API_TOKEN/p-my-project-name/sse"
+        },
+        "agent-zero-http-with-project": {
+            "type": "streamable-http",
+            "url": "YOUR_AGENT_ZERO_URL/mcp/t-YOUR_API_TOKEN/p-my-project-name/http/"
+        }
+    }
+}
+```
+
+When a project is specified in the URL:
+- All new chats will be created within that project context
+- The agent will have access to project-specific instructions, knowledge, and file structure
+- Attempting to use an existing chat_id from a different project will result in an error
+
 ---
 
 ## A2A (Agent-to-Agent) Connectivity
@@ -583,3 +665,14 @@ To connect another agent to your Agent Zero instance, use the following URL form
 ```
 YOUR_AGENT_ZERO_URL/a2a/t-YOUR_API_TOKEN
 ```
+
+To connect with a specific project active:
+
+```
+YOUR_AGENT_ZERO_URL/a2a/t-YOUR_API_TOKEN/p-PROJECT_NAME
+```
+
+When a project is specified:
+- All A2A conversations will run in the context of that project
+- The agent will have access to project-specific resources, instructions, and knowledge
+- This enables project-isolated agent-to-agent communication

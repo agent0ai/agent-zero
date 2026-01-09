@@ -1,0 +1,43 @@
+<html>
+
+<head>
+    <title>Example component or modal</title>
+
+    <!-- Import the alpine store -->
+    <script type="module">
+        import { store } from "/components/chat/top-section/chat-top-store.js";
+    </script>
+</head>
+
+<body>
+
+    <!-- This construct of x-data + x-if is used to ensure the component is only rendered when the store is available -->
+    <div x-data>
+        <template x-if="$store.chatTop">
+
+            <!-- Time and Date -->
+            <div id="time-date-container">
+                <div id="time-date"></div>
+                <div class="status-icon">
+                    <svg viewBox="0 0 30 30">
+                        <!-- Connected State (filled circle) -->
+                        <circle class="connected-circle" cx="15" cy="15" r="8"
+                            x-bind:fill="$store.chatTop.connected ? '#00c340' : 'none'" x-bind:opacity="$store.chatTop.connected ? 1 : 0" />
+
+                        <!-- Disconnected State (outline circle) -->
+                        <circle class="disconnected-circle" cx="15" cy="15" r="12" fill="none" stroke="#e40138"
+                            stroke-width="3" x-bind:opacity="$store.chatTop.connected ? 0 : 1" />
+                    </svg>
+                </div>
+                <!-- Notification Toggle positioned next to time-date -->
+                <x-component path="notifications/notification-icons.html"></x-component>
+                <!-- Project Selector -->
+                <x-component path="projects/project-selector.html"></x-component>
+            </div>
+
+        </template>
+    </div>
+
+</body>
+
+</html>

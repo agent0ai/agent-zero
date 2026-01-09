@@ -8,7 +8,7 @@ class Pause(ApiHandler):
             ctxid = input.get("context", "")
 
             # context instance - get or create
-            context = self.get_context(ctxid)
+            context = self.use_context(ctxid)
 
             context.paused = paused
 

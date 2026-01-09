@@ -1,5 +1,5 @@
 from python.helpers.extension import Extension
-from python.helpers.secrets import SecretsManager
+from python.helpers.secrets import get_secrets_manager
 
 
 class UnmaskToolSecrets(Extension):
@@ -10,7 +10,7 @@ class UnmaskToolSecrets(Extension):
         if not tool_args:
             return
 
-        secrets_mgr = SecretsManager.get_instance()
+        secrets_mgr = get_secrets_manager(self.agent.context)
 
         # Unmask placeholders in args for actual tool execution
         for k, v in tool_args.items():

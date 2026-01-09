@@ -361,15 +361,22 @@ class DocumentQueryHelper:
         self.progress_callback = progress_callback or (lambda x: None)
 
     async def document_qa(
-        self, document_uri: str, questions: Sequence[str]
+        self, document_uris: List[str], questions: Sequence[str]
     ) -> Tuple[bool, str]:
-        self.progress_callback(f"Starting Q&A process")
+        self.progress_callback(
+            f"Starting Q&A process for {len(document_uris)} documents"
+        )
+        await self.agent.handle_intervention()
 
-        # index document
-        _ = await self.document_get_content(document_uri, True)
+        # index documents
+        await asyncio.gather(
+            *[self.document_get_content(uri, True) for uri in document_uris]
+        )
+        await self.agent.handle_intervention()
         selected_chunks = {}
         for question in questions:
             self.progress_callback(f"Optimizing query: {question}")
+            await self.agent.handle_intervention()
             human_content = f'Search Query: "{question}"'
             system_content = self.agent.parse_prompt(
                 "fw.document_query.optmimize_query.md"
@@ -381,14 +388,19 @@ class DocumentQueryHelper:
                 )
             ).strip()
 
-            self.progress_callback(f"Searching document with query: {optimized_query}")
+            await self.agent.handle_intervention()
+            self.progress_callback(f"Searching documents with query: {optimized_query}")
 
-            normalized_uri = self.store.normalize_uri(document_uri)
-            chunks = await self.store.search_document(
-                document_uri=normalized_uri,
+            normalized_uris = [self.store.normalize_uri(uri) for uri in document_uris]
+            doc_filter = " or ".join(
+                [f"document_uri == '{uri}'" for uri in normalized_uris]
+            )
+
+            chunks = await self.store.search_documents(
                 query=optimized_query,
                 limit=100,
                 threshold=DEFAULT_SEARCH_THRESHOLD,
+                filter=doc_filter,
             )
 
             self.progress_callback(f"Found {len(chunks)} chunks")
@@ -397,13 +409,14 @@ class DocumentQueryHelper:
                 selected_chunks[chunk.metadata["id"]] = chunk
 
         if not selected_chunks:
-            self.progress_callback(f"No relevant content found in the document")
-            content = f"!!! No content found for document: {document_uri} matching queries: {json.dumps(questions)}"
+            self.progress_callback("No relevant content found in the documents")
+            content = f"!!! No content found for documents: {json.dumps(document_uris)} matching queries: {json.dumps(questions)}"
             return False, content
 
         self.progress_callback(
             f"Processing {len(questions)} questions in context of {len(selected_chunks)} chunks"
         )
+        await self.agent.handle_intervention()
 
         questions_str = "\n".join([f" *  {question}" for question in questions])
         content = "\n\n----\n\n".join(
@@ -430,6 +443,7 @@ class DocumentQueryHelper:
         self, document_uri: str, add_to_db: bool = False
     ) -> str:
         self.progress_callback(f"Fetching document content")
+        await self.agent.handle_intervention()
         url = urlparse(document_uri)
         scheme = url.scheme or "file"
         mimetype, encoding = mimetypes.guess_type(document_uri)
@@ -455,6 +469,7 @@ class DocumentQueryHelper:
                         await asyncio.sleep(1)
                         last_error = str(e)
                     retries += 1
+                    await self.agent.handle_intervention()
 
                 if not response:
                     raise ValueError(
@@ -492,9 +507,11 @@ class DocumentQueryHelper:
         # Use the store's normalization method
         document_uri_norm = self.store.normalize_uri(document_uri)
 
+        await self.agent.handle_intervention()
         exists = await self.store.document_exists(document_uri_norm)
         document_content = ""
         if not exists:
+            await self.agent.handle_intervention()
             if mimetype.startswith("image/"):
                 document_content = self.handle_image_document(document_uri, scheme)
             elif mimetype == "text/html":
@@ -509,6 +526,7 @@ class DocumentQueryHelper:
                 )
             if add_to_db:
                 self.progress_callback(f"Indexing document")
+                await self.agent.handle_intervention()
                 success, ids = await self.store.add_document(
                     document_content, document_uri_norm
                 )
@@ -519,6 +537,7 @@ class DocumentQueryHelper:
                     )
                 self.progress_callback(f"Indexed {len(ids)} chunks")
         else:
+            await self.agent.handle_intervention()
             doc = await self.store.get_document(document_uri_norm)
             if doc:
                 document_content = doc.page_content

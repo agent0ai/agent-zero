@@ -6,7 +6,7 @@ from python.helpers import tokens
 class GetCtxWindow(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
         ctxid = input.get("context", [])
-        context = self.get_context(ctxid)
+        context = self.use_context(ctxid)
         agent = context.streaming_agent or context.agent0
         window = agent.get_data(agent.DATA_NAME_CTX_WINDOW)
         if not window or not isinstance(window, dict):

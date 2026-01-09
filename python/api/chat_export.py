@@ -8,7 +8,7 @@ class ExportChat(ApiHandler):
         if not ctxid:
             raise Exception("No context id provided")
 
-        context = self.get_context(ctxid)
+        context = self.use_context(ctxid)
         content = persist_chat.export_json_chat(context)
         return {
             "message": "Chats exported.",

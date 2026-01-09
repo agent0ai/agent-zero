@@ -1,4 +1,5 @@
 from python.helpers.extension import Extension
+from python.helpers.secrets import get_secrets_manager
 
 
 class MaskHistoryContent(Extension):
@@ -10,8 +11,7 @@ class MaskHistoryContent(Extension):
             return
 
         try:
-            from python.helpers.secrets import SecretsManager
-            secrets_mgr = SecretsManager.get_instance()
+            secrets_mgr = get_secrets_manager(self.agent.context)
 
             # Mask the content before adding to history
             content_data["content"] = self._mask_content(content_data["content"], secrets_mgr)

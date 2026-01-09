@@ -14,7 +14,7 @@ class SSHInteractiveSession:
     # ps1_label = "SSHInteractiveSession CLI>"
 
     def __init__(
-        self, logger: Log, hostname: str, port: int, username: str, password: str
+        self, logger: Log, hostname: str, port: int, username: str, password: str, cwd: str|None = None
     ):
         self.logger = logger
         self.hostname = hostname
@@ -27,6 +27,7 @@ class SSHInteractiveSession:
         self.full_output = b""
         self.last_command = b""
         self.trimmed_command_length = 0  # Initialize trimmed_command_length
+        self.cwd = cwd
 
     async def connect(self, keepalive_interval: int = 5):
         """
@@ -60,7 +61,12 @@ class SSHInteractiveSession:
 
                 # invoke interactive shell
                 self.shell = self.client.invoke_shell(width=100, height=50)
-                self.shell.send("stty -echo\n".encode())  # disable local echo
+
+                # disable systemd/OSC prompt metadata and disable local echo
+                initial_command = "unset PROMPT_COMMAND PS0; stty -echo"
+                if self.cwd:
+                    initial_command = f"cd {self.cwd}; {initial_command}"
+                self.shell.send(f"{initial_command}\n".encode())
 
                 # wait for initial prompt/output to settle
                 while True:
@@ -99,7 +105,7 @@ class SSHInteractiveSession:
         self.last_command = command.encode()
         self.trimmed_command_length = 0
         self.shell.send(self.last_command)
-
+        
     async def read_output(
         self, timeout: float = 0, reset_full_output: bool = False
     ) -> Tuple[str, str]:

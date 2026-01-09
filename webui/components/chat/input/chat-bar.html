@@ -1,0 +1,45 @@
+<html>
+<head>
+    <script type="module">
+        import { store } from "/components/chat/input/input-store.js";
+    </script>
+</head>
+<body>
+    <div id="input-section" x-data>
+        <template x-if="$store.chatInput">
+            <div style="width: 100%; display: contents;">
+                <!-- Attachment Preview section -->
+                <div>
+                    <x-component path="/chat/attachments/inputPreview.html" />
+                </div>
+
+                <x-component path="chat/input/chat-bar-input.html"></x-component>
+                <x-component path="chat/input/bottom-actions.html"></x-component>
+            </div>
+        </template>
+    </div>
+
+
+    <style>
+    /* Input section wrapper */
+    #input-section {
+      position: relative;
+      background-color: var(--color-panel);
+      display: -webkit-flex;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) 0.8rem;
+      align-items: start;
+      place-items: normal;
+      flex-shrink: 0;
+      z-index: 1001;
+    }
+
+    @media (max-width: 768px) {
+      #input-section { align-items: normal !important; }
+    }
+    </style>
+</body>
+</html>
+

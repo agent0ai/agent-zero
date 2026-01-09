@@ -3,8 +3,9 @@ import os
 from datetime import datetime, timedelta
 from agent import AgentContext, UserMessage, AgentContextType
 from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
+from python.helpers import files, projects
 from python.helpers.print_style import PrintStyle
+from python.helpers.projects import activate_project
 from werkzeug.utils import secure_filename
 from initialize import initialize_agent
 import threading
@@ -33,6 +34,13 @@ class ApiMessage(ApiHandler):
         message = input.get("message", "")
         attachments = input.get("attachments", [])
         lifetime_hours = input.get("lifetime_hours", 24)  # Default 24 hours
+        project_name = input.get("project_name", None)
+        agent_profile = input.get("agent_profile", None)
+        
+        # Set an agent if profile provided
+        override_settings = {}
+        if agent_profile:
+            override_settings["agent_profile"] = agent_profile
 
         if not message:
             return Response('{"error": "Message is required"}', status=400, mimetype="application/json")
@@ -68,13 +76,44 @@ class ApiMessage(ApiHandler):
 
         # Get or create context
         if context_id:
-            context = AgentContext.get(context_id)
+            context = AgentContext.use(context_id)
             if not context:
                 return Response('{"error": "Context not found"}', status=404, mimetype="application/json")
+
+            # Validation: if agent profile is provided, it must match the exising
+            if agent_profile and context.agent0.config.profile != agent_profile:
+                return Response('{"error": "Cannot override agent profile on existing context"}', status=400, mimetype="application/json")
+            
+
+            # Validation: if project is provided but context already has different project
+            existing_project = context.get_data(projects.CONTEXT_DATA_KEY_PROJECT)
+            if project_name and existing_project and existing_project != project_name:
+                return Response('{"error": "Project can only be set on first message"}', status=400, mimetype="application/json")
         else:
-            config = initialize_agent()
+            config = initialize_agent(override_settings=override_settings)
             context = AgentContext(config=config, type=AgentContextType.USER)
+            AgentContext.use(context.id)
             context_id = context.id
+            # Activate project if provided
+            if project_name:
+                try:
+                    activate_project(context_id, project_name)
+                except Exception as e:
+                    # Handle project or context errors more gracefully
+                    error_msg = str(e)
+                    PrintStyle.error(f"Failed to activate project '{project_name}' for context '{context_id}': {error_msg}")
+                    return Response(
+                        f'{{"error": "Failed to activate project \\"{project_name}\\""}}',
+                        status=500,
+                        mimetype="application/json",
+                    )
+
+            # Activate project if provided
+            if project_name:
+                try:
+                    projects.activate_project(context_id, project_name)
+                except Exception as e:
+                    return Response(f'{{"error": "Failed to activate project: {str(e)}"}}', status=400, mimetype="application/json")
 
         # Update chat lifetime
         with self._cleanup_lock:

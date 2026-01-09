@@ -17,6 +17,7 @@ from python.helpers import runtime, dotenv, process
 from python.helpers.extract_tools import load_classes_from_folder
 from python.helpers.api import ApiHandler
 from python.helpers.print_style import PrintStyle
+from python.helpers import login
 
 # disable logging
 import logging
@@ -116,24 +117,17 @@ def requires_loopback(f):
     return decorated
 
 
-def _get_credentials_hash():
-    user = dotenv.get_dotenv_value("AUTH_LOGIN")
-    password = dotenv.get_dotenv_value("AUTH_PASSWORD")
-    if not user:
-        return None
-    return hashlib.sha256(f"{user}:{password}".encode()).hexdigest()
-
 # require authentication for handlers
 def requires_auth(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
-        user_pass_hash = _get_credentials_hash()
+        user_pass_hash = login.get_credentials_hash()
         # If no auth is configured, just proceed
         if not user_pass_hash:
             return await f(*args, **kwargs)
 
         if session.get('authentication') != user_pass_hash:
-            return redirect(url_for('login'))
+            return redirect(url_for('login_handler'))
         
         return await f(*args, **kwargs)
 
@@ -153,14 +147,14 @@ def csrf_protect(f):
     return decorated
 
 @webapp.route("/login", methods=["GET", "POST"])
-async def login():
+async def login_handler():
     error = None
     if request.method == 'POST':
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
         password = dotenv.get_dotenv_value("AUTH_PASSWORD")
         
         if request.form['username'] == user and request.form['password'] == password:
-            session['authentication'] = _get_credentials_hash()
+            session['authentication'] = login.get_credentials_hash()
             return redirect(url_for('serve_index'))
         else:
             error = 'Invalid Credentials. Please try again.'
@@ -169,9 +163,9 @@ async def login():
     return render_template_string(login_page_content, error=error)
 
 @webapp.route("/logout")
-async def logout():
+async def logout_handler():
     session.pop('authentication', None)
-    return redirect(url_for('login'))
+    return redirect(url_for('login_handler'))
 
 # handle default address, load index
 @webapp.route("/", methods=["GET"])

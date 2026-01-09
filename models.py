@@ -22,7 +22,7 @@ from litellm.types.utils import ModelResponse
 from python.helpers import dotenv
 from python.helpers import settings, dirty_json
 from python.helpers.dotenv import load_dotenv
-from python.helpers.providers import get_provider_config
+from python.helpers.providers import ModelType as ProviderModelType, get_provider_config
 from python.helpers.rate_limiter import RateLimiter
 from python.helpers.tokens import approximate_tokens
 from python.helpers import dirty_json, browser_use_monkeypatch
@@ -41,6 +41,7 @@ from langchain_core.messages import (
 )
 from langchain.embeddings.base import Embeddings
 from sentence_transformers import SentenceTransformer
+from pydantic import ConfigDict
 
 
 # disable extra logging, must be done repeatedly, otherwise browser-use will turn it back on for some reason
@@ -106,17 +107,17 @@ class ChatGenerationResult:
     def add_chunk(self, chunk: ChatChunk) -> ChatChunk:
         if chunk["reasoning_delta"]:
             self.native_reasoning = True
-        
+
         # if native reasoning detection works, there's no need to worry about thinking tags
         if self.native_reasoning:
             processed_chunk = ChatChunk(response_delta=chunk["response_delta"], reasoning_delta=chunk["reasoning_delta"])
         else:
             # if the model outputs thinking tags, we ned to parse them manually as reasoning
             processed_chunk = self._process_thinking_chunk(chunk)
-        
+
         self.reasoning += processed_chunk["reasoning_delta"]
         self.response += processed_chunk["response_delta"]
-        
+
         return processed_chunk
 
     def _process_thinking_chunk(self, chunk: ChatChunk) -> ChatChunk:
@@ -145,7 +146,7 @@ class ChatGenerationResult:
                     response = response[len(opening_tag):]
                     self.thinking = True
                     self.thinking_tag = closing_tag
-                    
+
                     close_pos = response.find(closing_tag)
                     if close_pos != -1:
                         reasoning += response[:close_pos]
@@ -164,7 +165,7 @@ class ChatGenerationResult:
                     self.unprocessed = response
                     response = ""
                     break
-        
+
         return ChatChunk(response_delta=response, reasoning_delta=reasoning)
 
     def _is_partial_opening_tag(self, text: str, opening_tag: str) -> bool:
@@ -191,7 +192,7 @@ class ChatGenerationResult:
             else:
                 response += self.unprocessed
         return ChatChunk(response_delta=response, reasoning_delta=reasoning)
-        
+
 
 rate_limiters: dict[str, RateLimiter] = {}
 api_keys_round_robin: dict[str, int] = {}
@@ -293,10 +294,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
     provider: str
     kwargs: dict = {}
 
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"  # Allow extra attributes
-        validate_assignment = False  # Don't validate on assignment
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="allow",
+        validate_assignment=False,
+    )
 
     def __init__(
         self,
@@ -487,6 +489,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
+        stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
 
         # results
         result = ChatGenerationResult()
@@ -499,48 +502,59 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 _completion = await acompletion(
                     model=self.model_name,
                     messages=msgs_conv,
-                    stream=True,
+                    stream=stream,
                     **call_kwargs,
                 )
 
-                # iterate over chunks
-                async for chunk in _completion:  # type: ignore
-                    got_any_chunk = True
-                    # parse chunk
-                    parsed = _parse_chunk(chunk)
-                    output = result.add_chunk(parsed)
+                if stream:
+                    # iterate over chunks
+                    async for chunk in _completion:  # type: ignore
+                        got_any_chunk = True
+                        # parse chunk
+                        parsed = _parse_chunk(chunk)
+                        output = result.add_chunk(parsed)
 
-                    # collect reasoning delta and call callbacks
-                    if output["reasoning_delta"]:
-                        if reasoning_callback:
-                            await reasoning_callback(output["reasoning_delta"], result.reasoning)
-                        if tokens_callback:
-                            await tokens_callback(
-                                output["reasoning_delta"],
-                                approximate_tokens(output["reasoning_delta"]),
-                            )
-                        # Add output tokens to rate limiter if configured
-                        if limiter:
-                            limiter.add(output=approximate_tokens(output["reasoning_delta"]))
-                    # collect response delta and call callbacks
-                    if output["response_delta"]:
-                        if response_callback:
-                            await response_callback(output["response_delta"], result.response)
-                        if tokens_callback:
-                            await tokens_callback(
-                                output["response_delta"],
-                                approximate_tokens(output["response_delta"]),
-                            )
-                        # Add output tokens to rate limiter if configured
-                        if limiter:
+                        # collect reasoning delta and call callbacks
+                        if output["reasoning_delta"]:
+                            if reasoning_callback:
+                                await reasoning_callback(output["reasoning_delta"], result.reasoning)
+                            if tokens_callback:
+                                await tokens_callback(
+                                    output["reasoning_delta"],
+                                    approximate_tokens(output["reasoning_delta"]),
+                                )
+                            # Add output tokens to rate limiter if configured
+                            if limiter:
+                                limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+                        # collect response delta and call callbacks
+                        if output["response_delta"]:
+                            if response_callback:
+                                await response_callback(output["response_delta"], result.response)
+                            if tokens_callback:
+                                await tokens_callback(
+                                    output["response_delta"],
+                                    approximate_tokens(output["response_delta"]),
+                                )
+                            # Add output tokens to rate limiter if configured
+                            if limiter:
+                                limiter.add(output=approximate_tokens(output["response_delta"]))
+
+                # non-stream response
+                else:
+                    parsed = _parse_chunk(_completion)
+                    output = result.add_chunk(parsed)
+                    if limiter:
+                        if output["response_delta"]:
                             limiter.add(output=approximate_tokens(output["response_delta"]))
+                        if output["reasoning_delta"]:
+                            limiter.add(output=approximate_tokens(output["reasoning_delta"]))
 
                 # Successful completion of stream
                 return result.response, result.reasoning
 
             except Exception as e:
                 import asyncio
-                
+
                 # Retry only if no chunks received and error is transient
                 if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
                     raise
@@ -799,12 +813,16 @@ def _parse_chunk(chunk: Any) -> ChatChunk:
         message.get("content", "")
         if isinstance(message, dict)
         else getattr(message, "content", "")
-    )
+    ) or ""
     reasoning_delta = (
         delta.get("reasoning_content", "")
         if isinstance(delta, dict)
         else getattr(delta, "reasoning_content", "")
-    )
+    ) or (
+        message.get("reasoning_content", "")
+        if isinstance(message, dict)
+        else getattr(message, "reasoning_content", "")
+    ) or ""
 
     return ChatChunk(reasoning_delta=reasoning_delta, response_delta=response_delta)
 
@@ -826,7 +844,7 @@ def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):
 
 
 def _merge_provider_defaults(
-    provider_type: str, original_provider: str, kwargs: dict
+    provider_type: ProviderModelType, original_provider: str, kwargs: dict
 ) -> tuple[str, dict]:
     # Normalize .env-style numeric strings (e.g., "timeout=30") into ints/floats for LiteLLM
     def _normalize_values(values: dict) -> dict:
