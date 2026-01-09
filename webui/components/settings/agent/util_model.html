@@ -18,7 +18,8 @@
               <div class="field-description">Select provider for utility model used by the framework</div>
             </div>
             <div class="field-control">
-              <select x-model="$store.settingsStore.settings.util_model_provider">
+              <select x-model="$store.settingsStore.settings.util_model_provider"
+                      @change="$store.settingsStore.handleProviderChange('util')">
                 <template x-for="option in $store.settingsStore.additional?.chat_providers" :key="option.value">
                   <option :value="option.value" :selected="option.value === $store.settingsStore.settings.util_model_provider" x-text="option.label"></option>
                 </template>
@@ -29,10 +30,23 @@
           <div class="field">
             <div class="field-label">
               <div class="field-title">Utility model name</div>
-              <div class="field-description">Exact name of model from selected provider</div>
+              <div class="field-description">Select model from provider, or choose 'Custom' to enter manually</div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.util_model_name" />
+              <div class="select-with-custom">
+                <select x-model="$store.settingsStore.settings.util_model_name">
+                  <template x-for="option in $store.settingsStore.utilModels" :key="option.value">
+                    <option :value="option.value" x-text="option.label"></option>
+                  </template>
+                </select>
+                <template x-if="$store.settingsStore.settings.util_model_name === '__custom__'">
+                  <input type="text"
+                         class="custom-model-input"
+                         placeholder="Enter model name (e.g., gpt-4.1-mini)"
+                         @blur="$store.settingsStore.applyCustomModel('util', $event.target.value); $event.target.value = ''"
+                         @keydown.enter="$store.settingsStore.applyCustomModel('util', $event.target.value); $event.target.value = ''">
+                </template>
+              </div>
             </div>
           </div>
 
