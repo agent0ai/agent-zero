@@ -187,9 +187,9 @@ class AgentContext:
                 else Localization.get().serialize_datetime(datetime.fromtimestamp(0))
             ),
             "no": self.no,
-            "log_guid": self.log.get_guid(),
-            "log_version": self.log.get_version(),
-            "log_length": self.log.get_total_items(),
+            "log_guid": self.log.guid,
+            "log_version": len(self.log.updates),
+            "log_length": len(self.log.logs),
             "paused": self.paused,
             "last_message": (
                 Localization.get().serialize_datetime(self.last_message)

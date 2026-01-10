@@ -14,15 +14,7 @@ const SYNC_MODES = {
 };
 
 function isDevelopmentRuntime() {
-  try {
-    const rootStore =
-      globalThis.Alpine && typeof globalThis.Alpine.store === "function"
-        ? globalThis.Alpine.store("root")
-        : null;
-    return Boolean(globalThis.runtimeInfo?.isDevelopment || rootStore?.isDevelopment);
-  } catch (_error) {
-    return false;
-  }
+  return Boolean(globalThis.runtimeInfo?.isDevelopment);
 }
 
 function isSyncDebugEnabled() {
@@ -46,7 +38,8 @@ const model = {
   needsHandshake: false,
   handshakePromise: null,
   _handshakeQueued: false,
-  _queuedForceFull: false,
+  _queuedPayload: null,
+  _inFlightPayload: null,
   _seenFirstConnect: false,
   _pendingReconnectToast: null,
 
@@ -154,21 +147,63 @@ const model = {
 
   async sendStateRequest(options = {}) {
     const { forceFull = false } = options || {};
+    const payload = buildStateRequestPayload({ forceFull });
+    return await this._sendStateRequestPayload(payload);
+  },
+
+  async _sendStateRequestPayload(payload) {
     if (this.handshakePromise) {
+      const inFlight = this._inFlightPayload;
+      if (
+        inFlight &&
+        payload &&
+        payload.context === inFlight.context &&
+        typeof payload.log_from === "number" &&
+        typeof payload.notifications_from === "number" &&
+        typeof inFlight.log_from === "number" &&
+        typeof inFlight.notifications_from === "number"
+      ) {
+        const stronger =
+          payload.log_from <= inFlight.log_from &&
+          payload.notifications_from <= inFlight.notifications_from &&
+          (payload.log_from < inFlight.log_from ||
+            payload.notifications_from < inFlight.notifications_from);
+        if (!stronger) {
+          debug("[syncStore] state_request ignored (in-flight stronger/equal)", payload);
+          return await this.handshakePromise;
+        }
+      }
+
       // Coalesce repeated requests while a handshake is in-flight. This is important
-      // for fast context switching and log-guid resync flows, where multiple
-      // `sendStateRequest()` calls can happen back-to-back with different contexts.
+      // for fast context switching and resync flows where multiple requests can happen
+      // back-to-back with different contexts/offsets.
       this._handshakeQueued = true;
-      this._queuedForceFull = this._queuedForceFull || forceFull;
-      debug("[syncStore] state_request coalesced (handshake in-flight)", { forceFull });
+      const queued = this._queuedPayload;
+      if (!queued || !payload || payload.context !== queued.context) {
+        this._queuedPayload = payload;
+      } else if (
+        typeof payload.log_from === "number" &&
+        typeof payload.notifications_from === "number" &&
+        typeof queued.log_from === "number" &&
+        typeof queued.notifications_from === "number"
+      ) {
+        // Keep the "strongest" request: smaller offsets (0) mean a more complete resync.
+        const queuedStrongerOrEqual =
+          queued.log_from <= payload.log_from && queued.notifications_from <= payload.notifications_from;
+        if (!queuedStrongerOrEqual) {
+          this._queuedPayload = payload;
+        }
+      }
+      debug("[syncStore] state_request coalesced (handshake in-flight)", payload);
       return await this.handshakePromise;
     }
+
+    this._inFlightPayload = payload;
     this.handshakePromise = (async () => {
       this._setMode(SYNC_MODES.HANDSHAKE_PENDING, "sendStateRequest");
 
       let response;
       try {
-        const payload = buildStateRequestPayload({ forceFull });
         debug("[syncStore] state_request sent", payload);
         response = await stateSocket.request("state_request", payload, { timeoutMs: 2000 });
       } catch (error) {
@@ -206,16 +241,20 @@ const model = {
       this._setMode(SYNC_MODES.HEALTHY, "handshake ok");
     })().finally(() => {
       this.handshakePromise = null;
+      this._inFlightPayload = null;
+
       if (this._handshakeQueued) {
-        const queuedForceFull = this._queuedForceFull;
+        const queuedPayload = this._queuedPayload;
         this._handshakeQueued = false;
-        this._queuedForceFull = false;
-        debug("[syncStore] sending queued state_request", { forceFull: queuedForceFull });
-        Promise.resolve().then(() => {
-          this.sendStateRequest({ forceFull: queuedForceFull }).catch((error) => {
-            console.error("[syncStore] queued state_request failed:", error);
+        this._queuedPayload = null;
+        if (queuedPayload) {
+          debug("[syncStore] sending queued state_request", queuedPayload);
+          Promise.resolve().then(() => {
+            this._sendStateRequestPayload(queuedPayload).catch((error) => {
+              console.error("[syncStore] queued state_request failed:", error);
+            });
           });
-        });
+        }
       }
     });
 

@@ -45,7 +45,7 @@ def get_tools_prompt(agent: Agent):
 def get_mcp_tools_prompt(agent: Agent):
     mcp_config = MCPConfig.get_instance()
     if mcp_config.servers:
-        pre_progress = agent.context.log.get_progress()
+        pre_progress = agent.context.log.progress
         agent.context.log.set_progress(
             "Collecting MCP tools"
         )  # MCP might be initializing, better inform via progress bar

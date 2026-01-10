@@ -16,7 +16,7 @@ class InitialMessage(Extension):
             return
 
         # If the context already contains log messages, do not add another initial message
-        if self.agent.context.log.has_items():
+        if self.agent.context.log.logs:
             return
 
         # Construct the initial message from prompt template

@@ -214,7 +214,9 @@ async def serve_index():
     index = files.replace_placeholders_text(
         _content=index,
         version_no=gitinfo["version"],
-        version_time=gitinfo["commit_time"]
+        version_time=gitinfo["commit_time"],
+        runtime_id=runtime.get_runtime_id(),
+        runtime_is_development=("true" if runtime.is_development() else "false"),
     )
     return index
 
@@ -280,8 +282,21 @@ def configure_websocket_namespaces(
     def _register_namespace_handlers(
         namespace: str, namespace_handlers: list[WebSocketHandler]
     ) -> None:
-        auth_required = any(handler.requires_auth() for handler in namespace_handlers)
-        csrf_required = any(handler.requires_csrf() for handler in namespace_handlers)
+        # A namespace is the WebSocket equivalent of an API endpoint.
+        # Security requirements must be consistent within the namespace (no any()-based union).
+        auth_required = False
+        csrf_required = False
+        if namespace_handlers:
+            auth_required = bool(namespace_handlers[0].requires_auth())
+            csrf_required = bool(namespace_handlers[0].requires_csrf())
+            for handler in namespace_handlers[1:]:
+                if (
+                    bool(handler.requires_auth()) != auth_required
+                    or bool(handler.requires_csrf()) != csrf_required
+                ):
+                    raise ValueError(
+                        f"WebSocket namespace {namespace!r} has mixed auth/csrf requirements across handlers"
+                    )
 
         @socketio_server.on("connect", namespace=namespace)
         async def _connect(  # type: ignore[override]

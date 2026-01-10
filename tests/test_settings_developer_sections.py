@@ -28,3 +28,4 @@ def test_websocket_harness_template_is_gated_by_runtime():
     template_path = PROJECT_ROOT / "webui" / "components" / "settings" / "developer" / "websocket-tester.html"
     content = template_path.read_text(encoding="utf-8")
     assert "window.runtimeInfo?.isDevelopment" in content
+    assert "$store.root?.isDevelopment" not in content

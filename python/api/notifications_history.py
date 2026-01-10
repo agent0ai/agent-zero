@@ -16,6 +16,6 @@ class NotificationsHistory(ApiHandler):
         notifications = notification_manager.output_all()
         return {
             "notifications": notifications,
-            "guid": notification_manager.get_guid(),
+            "guid": notification_manager.guid,
             "count": len(notifications),
         }

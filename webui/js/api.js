@@ -98,15 +98,15 @@ export async function getCsrfToken() {
   }
   const json = await response.json();
   if (json.ok) {
-    const runtimeInfo = json.runtime || {};
-    const runtimeId = typeof runtimeInfo.id === "string" && runtimeInfo.id.length > 0 ? runtimeInfo.id : null;
-    const isDevelopment = Boolean(runtimeInfo.isDevelopment);
+    const runtimeId =
+      typeof json.runtime_id === "string" && json.runtime_id.length > 0
+        ? json.runtime_id
+        : null;
 
-    window.runtimeInfo = {
-      ...(window.runtimeInfo || {}),
-      id: runtimeId ?? (window.runtimeInfo && window.runtimeInfo.id) ?? null,
-      isDevelopment,
-    };
+    window.runtimeInfo = window.runtimeInfo || { id: null, isDevelopment: false };
+    if (runtimeId) {
+      window.runtimeInfo = { ...(window.runtimeInfo || {}), id: runtimeId };
+    }
 
     csrfToken = json.token;
     if (runtimeId) {

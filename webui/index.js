@@ -285,23 +285,29 @@ export async function applySnapshot(snapshot, options = {}) {
 
   if (
     snapshot.context != context &&
-    !(snapshot.context === null && context === null) &&
     context !== null
   ) {
     return { updated: false };
   }
 
-  // if the chat has been reset, reset cursors and request a resync from the caller
+  // If the chat has been reset, reset cursors and request a resync from the caller.
+  // Note: on first snapshot after a context switch, lastLogGuid is intentionally empty,
+  // so the mismatch is expected and should not trigger a second state_request/poll.
   if (lastLogGuid != snapshot.log_guid) {
-    const chatHistoryEl = document.getElementById("chat-history");
-    if (chatHistoryEl) chatHistoryEl.innerHTML = "";
-    msgs.resetProcessGroups(); // Reset process groups on chat reset
+    if (lastLogGuid) {
+      const chatHistoryEl = document.getElementById("chat-history");
+      if (chatHistoryEl) chatHistoryEl.innerHTML = "";
+      msgs.resetProcessGroups(); // Reset process groups on chat reset
+      lastLogVersion = 0;
+      lastLogGuid = snapshot.log_guid;
+      if (typeof onLogGuidReset === "function") {
+        await onLogGuidReset();
+      }
+      return { updated: false, resynced: true };
+    }
+    // First guid observed for this context: accept it and continue applying snapshot.
     lastLogVersion = 0;
     lastLogGuid = snapshot.log_guid;
-    if (typeof onLogGuidReset === "function") {
-      await onLogGuidReset();
-    }
-    return { updated: false, resynced: true };
   }
 
   if (lastLogVersion != snapshot.log_version) {

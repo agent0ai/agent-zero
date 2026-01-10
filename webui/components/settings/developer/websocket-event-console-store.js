@@ -22,8 +22,7 @@ const model = {
   _entrySeq: 0,
 
   init() {
-    const rootStore = window.Alpine?.store ? window.Alpine.store("root") : undefined;
-    this.isEnabled = Boolean(window.runtimeInfo?.isDevelopment || rootStore?.isDevelopment);
+    this.isEnabled = Boolean(window.runtimeInfo?.isDevelopment);
     if (!this.isEnabled) {
       this.captureEnabled = false;
       return;
@@ -31,8 +30,15 @@ const model = {
 
     this._bindLifecycle();
     this.captureEnabled = this._loadCaptureEnabled();
+  },
+
+  onOpen() {
+    // `init()` is called once when the store is registered; `onOpen()` is called
+    // every time the component is displayed (modal open).
+    this.init();
+    if (!this.isEnabled) return;
     if (this.captureEnabled) {
-      this.attach({ notify: false }).catch(() => {});
+      this.attach({ notify: false });
     }
   },
 
@@ -48,7 +54,7 @@ const model = {
     websocket.onConnect(() => {
       if (!this.captureEnabled) return;
       // Re-subscribe after reconnect (server watcher set is per-sid).
-      this._subscribe({ notify: false }).catch(() => {});
+      this._subscribe({ notify: false });
     });
   },
 

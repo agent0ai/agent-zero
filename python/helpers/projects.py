@@ -248,12 +248,8 @@ def activate_project(context_id: str, name: str, *, mark_dirty: bool = True):
     persist_chat.save_tmp_chat(context)
 
     if mark_dirty:
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            pass
-        else:
-            get_state_monitor().mark_dirty_all(reason="projects.activate_project")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="projects.activate_project")
 
 
 def deactivate_project(context_id: str, *, mark_dirty: bool = True):
@@ -269,12 +265,8 @@ def deactivate_project(context_id: str, *, mark_dirty: bool = True):
     persist_chat.save_tmp_chat(context)
 
     if mark_dirty:
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            pass
-        else:
-            get_state_monitor().mark_dirty_all(reason="projects.deactivate_project")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="projects.deactivate_project")
 
 
 def reactivate_project_in_chats(name: str):
@@ -285,12 +277,8 @@ def reactivate_project_in_chats(name: str):
             activate_project(context.id, name, mark_dirty=False)
         persist_chat.save_tmp_chat(context)
 
-    try:
-        from python.helpers.state_monitor import get_state_monitor
-    except Exception:  # pragma: no cover - optional integration
-        pass
-    else:
-        get_state_monitor().mark_dirty_all(reason="projects.reactivate_project_in_chats")
+    from python.helpers.state_monitor_integration import mark_dirty_all
+    mark_dirty_all(reason="projects.reactivate_project_in_chats")
 
 
 def deactivate_project_in_chats(name: str):
@@ -301,12 +289,8 @@ def deactivate_project_in_chats(name: str):
             deactivate_project(context.id, mark_dirty=False)
         persist_chat.save_tmp_chat(context)
 
-    try:
-        from python.helpers.state_monitor import get_state_monitor
-    except Exception:  # pragma: no cover - optional integration
-        pass
-    else:
-        get_state_monitor().mark_dirty_all(reason="projects.deactivate_project_in_chats")
+    from python.helpers.state_monitor_integration import mark_dirty_all
+    mark_dirty_all(reason="projects.deactivate_project_in_chats")
 
 
 def build_system_prompt_vars(name: str):

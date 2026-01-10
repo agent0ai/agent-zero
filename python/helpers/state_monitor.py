@@ -8,7 +8,11 @@ from typing import Any, TYPE_CHECKING
 
 from python.helpers import runtime
 from python.helpers.print_style import PrintStyle
-from python.helpers.snapshot import build_snapshot
+from python.helpers.state_snapshot import (
+    StateRequestV1,
+    advance_state_request_after_snapshot,
+    build_snapshot_from_request,
+)
 from python.helpers.websocket import ConnectionNotFoundError
 
 if TYPE_CHECKING:  # pragma: no cover - hints only
@@ -22,10 +26,7 @@ ConnectionIdentity = tuple[str, str]  # (namespace, sid)
 class ConnectionProjection:
     namespace: str
     sid: str
-    active_context_id: str | None = None
-    log_from: int = 0
-    notifications_from: int = 0
-    timezone: str = "UTC"
+    request: StateRequestV1 | None = None
     seq: int = 0
     seq_base: int = 0
     # Incremented on every dirty signal. Used to coalesce bursts without delaying
@@ -113,7 +114,7 @@ class StateMonitor:
             identities = [
                 identity
                 for identity, projection in self._projections.items()
-                if projection.active_context_id == target
+                if projection.request is not None and projection.request.context == target
             ]
         for namespace, sid in identities:
             self.mark_dirty(namespace, sid, reason=reason, wave_id=wave_id)
@@ -123,10 +124,7 @@ class StateMonitor:
         namespace: str,
         sid: str,
         *,
-        context: str | None,
-        log_from: int,
-        notifications_from: int,
-        timezone: str,
+        request: StateRequestV1,
         seq_base: int,
     ) -> None:
         identity: ConnectionIdentity = (namespace, sid)
@@ -134,17 +132,14 @@ class StateMonitor:
             projection = self._projections.setdefault(
                 identity, ConnectionProjection(namespace=namespace, sid=sid)
             )
-            projection.active_context_id = context
-            projection.log_from = log_from
-            projection.notifications_from = notifications_from
-            projection.timezone = timezone
+            projection.request = request
             projection.seq_base = seq_base
             projection.seq = seq_base
         if runtime.is_development():
             PrintStyle.debug(
-                f"[StateMonitor] update_projection namespace={namespace} sid={sid} context={context!r} "
-                f"log_from={log_from} notifications_from={notifications_from} "
-                f"timezone={timezone!r} seq_base={seq_base}"
+                f"[StateMonitor] update_projection namespace={namespace} sid={sid} context={request.context!r} "
+                f"log_from={request.log_from} notifications_from={request.notifications_from} "
+                f"timezone={request.timezone!r} seq_base={seq_base}"
             )
 
     def mark_dirty(
@@ -259,24 +254,20 @@ class StateMonitor:
                     # INVARIANT.STATE.GATING: no push before a successful state_request.
                     return
 
-                active_context_id = projection.active_context_id
-                log_from = projection.log_from
-                notifications_from = projection.notifications_from
-                timezone = projection.timezone
+                request = projection.request
+                if request is None:
+                    return
                 base_version = projection.dirty_version
                 dirty_reason = projection.dirty_reason
                 dirty_wave_id = projection.dirty_wave_id
 
-            snapshot = await build_snapshot(
-                context=active_context_id,
-                log_from=log_from,
-                notifications_from=notifications_from,
-                timezone=timezone,
-            )
+            snapshot = await build_snapshot_from_request(request=request)
 
             with self._lock:
                 projection = self._projections.get(identity)
                 if projection is None:
+                    return
+                if projection.request != request:
                     return
 
                 # INVARIANT.STATE.SEQ_MONOTONIC + SEQ_RESET_ON_REQUEST
@@ -284,18 +275,7 @@ class StateMonitor:
                 seq = projection.seq
 
                 # Advance cursors after successful snapshot emission (incremental mode).
-                try:
-                    projection.log_from = int(
-                        snapshot.get("log_version", projection.log_from)
-                    )
-                except (TypeError, ValueError):
-                    pass
-                try:
-                    projection.notifications_from = int(
-                        snapshot.get("notifications_version", projection.notifications_from)
-                    )
-                except (TypeError, ValueError):
-                    pass
+                projection.request = advance_state_request_after_snapshot(request, snapshot)
 
                 # Mark all dirties up to `base_version` as pushed. If new dirties
                 # arrived while building/emitting, a follow-up push will be scheduled.
@@ -316,7 +296,7 @@ class StateMonitor:
                     )
                     PrintStyle.debug(
                         f"[StateMonitor] emit state_push namespace={namespace} sid={sid} seq={seq} "
-                        f"context={active_context_id!r} logs_len={logs_len} "
+                        f"context={request.context!r} logs_len={logs_len} "
                         f"reason={dirty_reason!r} wave={dirty_wave_id!r}"
                     )
                 await manager.emit_to(

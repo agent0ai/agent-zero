@@ -5,6 +5,8 @@ import {
   validateServerEnvelope,
 } from "/js/websocket.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+import { store as syncStore } from "/components/sync/sync-store.js";
 
 const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024;
 const TOAST_DURATION = 5;
@@ -109,8 +111,14 @@ const model = {
   _broadcastSeq: 0,
 
   init() {
-    const rootStore = window.Alpine?.store ? window.Alpine.store("root") : undefined;
-    this.isEnabled = Boolean(window.runtimeInfo?.isDevelopment || rootStore?.isDevelopment);
+    this.isEnabled = Boolean(window.runtimeInfo?.isDevelopment);
+  },
+
+  onOpen() {
+    // `init()` is called once when the store is registered; `onOpen()` is called
+    // every time the component is displayed (modal open).
+    this.init();
+
     if (this.isEnabled) {
       this.appendLog("WebSocket tester harness ready.");
       if (this._serverRestartHandler) {
@@ -500,21 +508,14 @@ const model = {
       }
       this.appendLog("state_push observed.");
 
-      const syncStore =
-        globalThis.Alpine && typeof globalThis.Alpine.store === "function"
-          ? globalThis.Alpine.store("sync")
-          : null;
       // The sync store applies snapshots asynchronously; give it a moment to
       // reach HEALTHY before asserting poll suppression.
-      if (syncStore) {
-        const startedHealthyWait = Date.now();
-        while (Date.now() - startedHealthyWait < 1000 && syncStore.mode !== "HEALTHY") {
-          await new Promise((resolve) => setTimeout(resolve, 25));
-        }
+      const startedHealthyWait = Date.now();
+      while (Date.now() - startedHealthyWait < 1000 && syncStore.mode !== "HEALTHY") {
+        await new Promise((resolve) => setTimeout(resolve, 25));
       }
-      const healthy = Boolean(syncStore && syncStore.mode === "HEALTHY");
-      if (!healthy) {
-        const mode = syncStore && typeof syncStore.mode === "string" ? syncStore.mode : "missing";
+      if (syncStore.mode !== "HEALTHY") {
+        const mode = typeof syncStore.mode === "string" ? syncStore.mode : "missing";
         return { ok: false, label, error: `syncStore did not reach HEALTHY mode (mode=${mode})` };
       }
 
@@ -544,11 +545,7 @@ const model = {
       this.appendLog("Testing context switching does not leak or keep pushing stale contexts...");
       await this.ensureSubscribed("state_push", true);
 
-      const chatsStore =
-        globalThis.Alpine && typeof globalThis.Alpine.store === "function"
-          ? globalThis.Alpine.store("chats")
-          : null;
-      if (!chatsStore || !Array.isArray(chatsStore.contexts)) {
+      if (!Array.isArray(chatsStore.contexts)) {
         return { ok: false, label, error: "chats store not available" };
       }
 
@@ -626,11 +623,7 @@ const model = {
     } finally {
       if (originalContext && typeof originalContext === "string") {
         try {
-          const chatsStore =
-            globalThis.Alpine && typeof globalThis.Alpine.store === "function"
-              ? globalThis.Alpine.store("chats")
-              : null;
-          if (chatsStore && typeof chatsStore.selectChat === "function") {
+          if (typeof chatsStore.selectChat === "function") {
             await chatsStore.selectChat(originalContext);
           } else if (typeof globalThis.setContext === "function") {
             globalThis.setContext(originalContext);
@@ -647,13 +640,6 @@ const model = {
     const originalPoll = globalThis.poll;
     const originalRequest = stateSocket.request;
     try {
-      const syncStore =
-        globalThis.Alpine && typeof globalThis.Alpine.store === "function"
-          ? globalThis.Alpine.store("sync")
-          : null;
-      if (!syncStore) {
-        return { ok: false, label, error: "sync store not available" };
-      }
       if (typeof syncStore.sendStateRequest !== "function") {
         return { ok: false, label, error: "syncStore.sendStateRequest not available" };
       }
@@ -739,13 +725,6 @@ const model = {
 
   async testResyncTriggersRuntimeEpochAndSeqGap() {
     const label = "Resync triggers (runtime_epoch mismatch + seq gap)";
-    const syncStore =
-      globalThis.Alpine && typeof globalThis.Alpine.store === "function"
-        ? globalThis.Alpine.store("sync")
-        : null;
-    if (!syncStore) {
-      return { ok: false, label, error: "sync store not available" };
-    }
     if (typeof syncStore._handlePush !== "function") {
       return { ok: false, label, error: "syncStore._handlePush not available" };
     }

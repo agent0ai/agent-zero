@@ -59,7 +59,7 @@ async def test_poll_snapshot_matches_contract_schema_key_set_null_context():
 
 @pytest.mark.asyncio
 async def test_snapshot_builder_produces_contract_schema_key_set_and_defaults():
-    from python.helpers import snapshot
+    from python.helpers import state_snapshot as snapshot
 
     payload = await snapshot.build_snapshot(
         context=None,
@@ -87,7 +87,7 @@ async def test_snapshot_builder_produces_contract_schema_key_set_and_defaults():
 
 
 def test_snapshot_schema_rejects_unexpected_top_level_keys():
-    from python.helpers import snapshot
+    from python.helpers import state_snapshot as snapshot
 
     payload = {
         "deselect_chat": False,
@@ -108,4 +108,3 @@ def test_snapshot_schema_rejects_unexpected_top_level_keys():
 
     with pytest.raises(ValueError):
         snapshot.validate_snapshot_schema_v1(payload)
-

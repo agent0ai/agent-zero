@@ -115,11 +115,8 @@ class NotificationManager:
             # Enforce limit
             self._enforce_limit()
 
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return item
-        get_state_monitor().mark_dirty_all(reason="notification.NotificationManager.add_notification")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="notification.NotificationManager.add_notification")
         return item
 
     def _enforce_limit(self):
@@ -145,31 +142,21 @@ class NotificationManager:
                 start = 0
             if end is None:
                 end = len(self.updates)
+            updates = self.updates[start:end]
+            notifications = list(self.notifications)
 
-            out = []
-            seen = set()
-            for update in self.updates[start:end]:
-                if update not in seen and update < len(self.notifications):
-                    out.append(self.notifications[update].output())
-                    seen.add(update)
-
-            return out
+        out = []
+        seen = set()
+        for update in updates:
+            if update not in seen and update < len(notifications):
+                out.append(notifications[update].output())
+                seen.add(update)
+        return out
 
     def output_all(self) -> list[dict]:
         with self._lock:
-            return [n.output() for n in self.notifications]
-
-    def count(self) -> int:
-        with self._lock:
-            return len(self.notifications)
-
-    def get_guid(self) -> str:
-        with self._lock:
-            return self.guid
-
-    def get_version(self) -> int:
-        with self._lock:
-            return len(self.updates)
+            notifications = list(self.notifications)
+        return [n.output() for n in notifications]
 
     def mark_read_by_ids(self, notification_ids: list[str]) -> int:
         ids = {nid for nid in notification_ids if isinstance(nid, str) and nid.strip()}
@@ -188,11 +175,8 @@ class NotificationManager:
         if not changed_nos:
             return 0
 
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return len(changed_nos)
-        get_state_monitor().mark_dirty_all(reason="notification.NotificationManager.mark_read_by_ids")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="notification.NotificationManager.mark_read_by_ids")
         return len(changed_nos)
 
     def update_item(self, no: int, **kwargs) -> None:
@@ -212,11 +196,8 @@ class NotificationManager:
         if not changed:
             return
 
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return
-        get_state_monitor().mark_dirty_all(reason="notification.NotificationManager._update_item")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="notification.NotificationManager._update_item")
 
     def mark_all_read(self):
         changed_nos: list[int] = []
@@ -231,22 +212,16 @@ class NotificationManager:
         if not changed_nos:
             return
 
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return
-        get_state_monitor().mark_dirty_all(reason="notification.NotificationManager.mark_all_read")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="notification.NotificationManager.mark_all_read")
 
     def clear_all(self):
         with self._lock:
             self.notifications = []
             self.updates = []
             self.guid = str(uuid.uuid4())
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return
-        get_state_monitor().mark_dirty_all(reason="notification.NotificationManager.clear_all")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="notification.NotificationManager.clear_all")
 
     def get_notifications_by_type(self, type: NotificationType) -> list[NotificationItem]:
         with self._lock:

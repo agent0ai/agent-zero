@@ -677,29 +677,20 @@ class TaskScheduler:
     async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> "TaskScheduler":
         await self._tasks.add_task(task)
         ctx = await self._get_chat_context(task)  # invoke context creation
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return self
-        get_state_monitor().mark_dirty_all(reason="task_scheduler.TaskScheduler.add_task")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="task_scheduler.TaskScheduler.add_task")
         return self
 
     async def remove_task_by_uuid(self, task_uuid: str) -> "TaskScheduler":
         await self._tasks.remove_task_by_uuid(task_uuid)
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return self
-        get_state_monitor().mark_dirty_all(reason="task_scheduler.TaskScheduler.remove_task_by_uuid")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="task_scheduler.TaskScheduler.remove_task_by_uuid")
         return self
 
     async def remove_task_by_name(self, name: str) -> "TaskScheduler":
         await self._tasks.remove_task_by_name(name)
-        try:
-            from python.helpers.state_monitor import get_state_monitor
-        except Exception:  # pragma: no cover - optional integration
-            return self
-        get_state_monitor().mark_dirty_all(reason="task_scheduler.TaskScheduler.remove_task_by_name")
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="task_scheduler.TaskScheduler.remove_task_by_name")
         return self
 
     def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
@@ -771,11 +762,8 @@ class TaskScheduler:
 
         updated = await self._tasks.update_task_by_uuid(task_uuid, _update_task, verify_func)
         if updated is not None:
-            try:
-                from python.helpers.state_monitor import get_state_monitor
-            except Exception:  # pragma: no cover - optional integration
-                return updated
-            get_state_monitor().mark_dirty_all(reason="task_scheduler.TaskScheduler.update_task_checked")
+            from python.helpers.state_monitor_integration import mark_dirty_all
+            mark_dirty_all(reason="task_scheduler.TaskScheduler.update_task_checked")
         return updated
 
     async def update_task(self, task_uuid: str, **update_params) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:

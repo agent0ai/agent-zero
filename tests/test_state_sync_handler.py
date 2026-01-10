@@ -116,7 +116,7 @@ async def test_state_request_invalid_payload_returns_invalid_request_error():
 @pytest.mark.asyncio
 async def test_state_push_gating_and_initial_snapshot_delivery():
     from python.helpers.state_monitor import get_state_monitor
-    from python.helpers.snapshot import validate_snapshot_schema_v1
+    from python.helpers.state_snapshot import validate_snapshot_schema_v1
 
     manager, socketio = await _create_manager_with_socketio()
 

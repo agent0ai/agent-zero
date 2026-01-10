@@ -7,10 +7,11 @@
 </head>
 <body>
   <div x-data>
-    <template x-if="$store.root?.isDevelopment && $store.websocketEventConsoleStore">
+    <template x-if="window.runtimeInfo?.isDevelopment && $store.websocketEventConsoleStore">
       <div
         class="ws-console"
-        x-init="$store.websocketEventConsoleStore.init()"
+        x-create="$store.websocketEventConsoleStore.onOpen()"
+        x-destroy="$store.websocketEventConsoleStore.detach({ notify: false })"
       >
         <h2>WebSocket Event Console</h2>
         <p class="ws-description">
@@ -22,14 +23,14 @@
           <button
             class="btn"
             x-show="!$store.websocketEventConsoleStore.captureEnabled"
-            @click="$store.websocketEventConsoleStore.startCapture().catch(() => {})"
+            @click="$store.websocketEventConsoleStore.startCapture()"
           >
             Start capture
           </button>
           <button
             class="btn"
             x-show="$store.websocketEventConsoleStore.captureEnabled"
-            @click="$store.websocketEventConsoleStore.stopCapture().catch(() => {})"
+            @click="$store.websocketEventConsoleStore.stopCapture()"
           >
             Stop capture
           </button>
@@ -115,7 +116,7 @@
       </div>
     </template>
 
-    <template x-if="!$store.root?.isDevelopment">
+    <template x-if="!window.runtimeInfo?.isDevelopment">
       <div class="ws-console ws-disabled">
         <h2>WebSocket Event Console</h2>
         <p class="ws-description">

@@ -37,16 +37,10 @@ class GetCsrfToken(ApiHandler):
         if "csrf_token" not in session:
             session["csrf_token"] = secrets.token_urlsafe(32)
 
-        # return the csrf token and runtime id
-        runtime_info = {
-            "id": runtime.get_runtime_id(),
-            "isDevelopment": runtime.is_development(),
-        }
-
         return {
             "ok": True,
             "token": session["csrf_token"],
-            "runtime": runtime_info,
+            "runtime_id": runtime.get_runtime_id(),
         }
 
     async def check_allowed_origin(self, request: Request):
