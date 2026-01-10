@@ -14,6 +14,31 @@ from python.helpers.strings import truncate_text_by_ratio
 if TYPE_CHECKING:
     from agent import AgentContext
 
+
+_MARK_DIRTY_ALL = None
+_MARK_DIRTY_FOR_CONTEXT = None
+
+
+def _lazy_mark_dirty_all(*, reason: str | None = None) -> None:
+    # Lazy import to avoid circular import at module load time (AgentContext -> Log).
+    global _MARK_DIRTY_ALL
+    if _MARK_DIRTY_ALL is None:
+        from python.helpers.state_monitor_integration import mark_dirty_all
+
+        _MARK_DIRTY_ALL = mark_dirty_all
+    _MARK_DIRTY_ALL(reason=reason)
+
+
+def _lazy_mark_dirty_for_context(context_id: str, *, reason: str | None = None) -> None:
+    # Lazy import to avoid circular import at module load time (AgentContext -> Log).
+    global _MARK_DIRTY_FOR_CONTEXT
+    if _MARK_DIRTY_FOR_CONTEXT is None:
+        from python.helpers.state_monitor_integration import mark_dirty_for_context
+
+        _MARK_DIRTY_FOR_CONTEXT = mark_dirty_for_context
+    _MARK_DIRTY_FOR_CONTEXT(context_id, reason=reason)
+
+
 T = TypeVar("T")
 
 Type = Literal[
@@ -339,8 +364,7 @@ class Log:
         # Logs update both the active chat stream (sid-bound) and the global chats list
         # (context metadata like last_message/log_version). Broadcast so all tabs refresh
         # their chat/task lists without leaking logs (logs are still scoped per-sid).
-        from python.helpers.state_monitor_integration import mark_dirty_all
-        mark_dirty_all(reason="log.Log._notify_state_monitor")
+        _lazy_mark_dirty_all(reason="log.Log._notify_state_monitor")
 
     def _notify_state_monitor_for_context_update(self) -> None:
         ctx = self.context
@@ -348,18 +372,29 @@ class Log:
             return
         # Log item updates only need to refresh the active chat stream for any sid
         # currently projecting this context. Avoid global fanout at high frequency.
-        from python.helpers.state_monitor_integration import mark_dirty_for_context
-        mark_dirty_for_context(ctx.id, reason="log.Log._update_item")
+        _lazy_mark_dirty_for_context(ctx.id, reason="log.Log._update_item")
 
     def set_progress(self, progress: str, no: int = 0, active: bool = True):
         progress = self._mask_recursive(progress)
         progress = _truncate_progress(progress)
+        changed = False
+        ctx = self.context
         with self._lock:
+            prev_progress = self.progress
+            prev_active = self.progress_active
+
             self.progress = progress
             if not no:
                 no = len(self.logs)
             self.progress_no = no
             self.progress_active = active
+
+            changed = self.progress != prev_progress or self.progress_active != prev_active
+
+        if changed and ctx:
+            # Progress changes are included in every snapshot, but push sync requires a
+            # dirty mark even when no log items changed.
+            _lazy_mark_dirty_for_context(ctx.id, reason="log.Log.set_progress")
 
     def set_initial_progress(self):
         self.set_progress("Waiting for input", 0, False)
