@@ -68,14 +68,16 @@ class GenerateIdea(Tool):
                 print(f"[DEBUG] Generating idea {i + 1}/{num_ideas}")
                 idea = await self._generate_single_idea(topic, num_reflections, i)
                 print(f"[DEBUG] Idea generation returned: {idea is not None}")
-                if idea:
+
+                if idea and "Name" in idea and "Title" in idea:
                     # Validate novelty
                     novelty_score = await self._check_novelty(idea)
                     idea["novelty_score"] = novelty_score
 
                     # Store idea in CONTEXT data (not agent.data)
-                    self.agent.context.data["research_ideas"][idea["Name"]] = idea
-                    print(f"[DEBUG] Stored idea '{idea['Name']}' in context.data, total now: {len(self.agent.context.data['research_ideas'])}")
+                    idea_name = idea["Name"]
+                    self.agent.context.data["research_ideas"][idea_name] = idea
+                    print(f"[DEBUG] Stored idea '{idea_name}' in context.data, total now: {len(self.agent.context.data['research_ideas'])}")
                     print(f"[DEBUG] Context ID: {self.agent.context.id}")
                     ideas.append(idea)
 
@@ -85,6 +87,16 @@ class GenerateIdea(Tool):
                         content=idea["Title"],
                         kvps={"novelty_score": novelty_score},
                     )
+                elif idea:
+                    print(f"[DEBUG] Idea returned but missing required fields: {idea.keys()}")
+                    self.agent.context.log.log(
+                        type="warning",
+                        heading=f"Idea {i + 1} invalid",
+                        content="Generated idea missing required fields (Name or Title)",
+                    )
+                else:
+                    print(f"[DEBUG] Idea generation returned None")
+
             except Exception as e:
                 print(f"[DEBUG] Exception during idea generation: {type(e).__name__}: {e}")
                 import traceback
