@@ -1,0 +1,390 @@
+<html>
+<head>
+    <title>Experiment Dashboard</title>
+    <script type="module">
+        import { store } from "/components/modals/ai-scientist/experiment-dashboard/experiment-dashboard-store.js";
+    </script>
+</head>
+<body>
+    <div x-data
+         x-create="$store.experimentDashboardStore.onOpen()"
+         x-destroy="$store.experimentDashboardStore.cleanup()">
+        <template x-if="$store.experimentDashboardStore">
+            <div class="experiment-dashboard">
+                <!-- Experiment Selector -->
+                <div class="section">
+                    <div class="section-title">Select Experiment</div>
+                    <div class="section-description">
+                        Choose an experiment to view its progress and explored nodes.
+                    </div>
+                    <div class="selector-row">
+                        <select class="experiment-select"
+                                @change="$store.experimentDashboardStore.selectExperiment($event.target.value)">
+                            <option value="">-- Select an experiment --</option>
+                            <template x-for="exp in $store.experimentDashboardStore.experiments" :key="exp.idea_name">
+                                <option :value="exp.idea_name" x-text="exp.idea_name"></option>
+                            </template>
+                        </select>
+                        <button class="btn btn-cancel"
+                                @click="$store.experimentDashboardStore.loadExperiments()"
+                                title="Refresh list">
+                            <span class="material-symbols-outlined">refresh</span>
+                        </button>
+                    </div>
+                    <div class="loading" x-show="$store.experimentDashboardStore.loading"></div>
+                    <template x-if="!$store.experimentDashboardStore.loading && $store.experimentDashboardStore.experiments.length === 0">
+                        <div class="empty-state">No experiments found. Start one from the Ideas Manager.</div>
+                    </template>
+                </div>
+
+                <!-- Stage Progress Pipeline -->
+                <template x-if="$store.experimentDashboardStore.selectedExperiment">
+                    <div class="section">
+                        <div class="section-title">Stage Progress</div>
+                        <div class="section-description">
+                            MCTS-based experiment progression through four stages.
+                        </div>
+                        <div class="stage-pipeline">
+                            <template x-for="stage in [1, 2, 3, 4]" :key="stage">
+                                <div class="stage-item"
+                                     :class="$store.experimentDashboardStore.getStageStatus(stage)">
+                                    <div class="stage-number" x-text="stage"></div>
+                                    <div class="stage-name" x-text="$store.experimentDashboardStore.getStageName(stage)"></div>
+                                    <div class="stage-status">
+                                        <span class="status-icon"
+                                              x-show="$store.experimentDashboardStore.getStageStatus(stage) === 'completed'">
+                                            <span class="material-symbols-outlined">check_circle</span>
+                                        </span>
+                                        <span class="status-icon spinning"
+                                              x-show="$store.experimentDashboardStore.getStageStatus(stage) === 'in_progress'">
+                                            <span class="material-symbols-outlined">sync</span>
+                                        </span>
+                                        <span class="status-icon"
+                                              x-show="$store.experimentDashboardStore.getStageStatus(stage) === 'pending'">
+                                            <span class="material-symbols-outlined">hourglass_empty</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Node Tree List -->
+                <template x-if="$store.experimentDashboardStore.progress">
+                    <div class="section">
+                        <div class="section-title">Explored Nodes</div>
+                        <div class="section-description">
+                            Tree of explored experiment variations with their metrics.
+                        </div>
+                        <div class="node-list">
+                            <template x-if="$store.experimentDashboardStore.getAllNodes().length === 0">
+                                <div class="empty-state">No nodes explored yet.</div>
+                            </template>
+                            <template x-for="node in $store.experimentDashboardStore.getAllNodes()" :key="node.id">
+                                <div class="node-item" :class="{'buggy': node.is_buggy, 'best': node.is_best}">
+                                    <div class="node-info">
+                                        <span class="node-id" x-text="node.id"></span>
+                                        <template x-if="node.parent_id">
+                                            <span class="node-parent">
+                                                <span class="material-symbols-outlined">subdirectory_arrow_right</span>
+                                                <span x-text="node.parent_id"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <div class="node-meta">
+                                        <span class="node-metric"
+                                              :class="{'has-metric': node.metric != null}"
+                                              x-text="node.metric != null ? node.metric.toFixed(4) : 'N/A'"></span>
+                                        <span class="node-badge buggy-badge" x-show="node.is_buggy">Buggy</span>
+                                        <span class="node-badge best-badge" x-show="node.is_best">Best</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Experiment Summary (when progress available) -->
+                <template x-if="$store.experimentDashboardStore.progress && $store.experimentDashboardStore.progress.summary">
+                    <div class="section summary-section">
+                        <div class="section-title">Summary</div>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <span class="summary-label">Total Nodes</span>
+                                <span class="summary-value" x-text="$store.experimentDashboardStore.progress.summary.total_nodes || 0"></span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Best Metric</span>
+                                <span class="summary-value" x-text="$store.experimentDashboardStore.progress.summary.best_metric?.toFixed(4) || 'N/A'"></span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Current Stage</span>
+                                <span class="summary-value" x-text="$store.experimentDashboardStore.progress.summary.current_stage || 'N/A'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer" data-modal-footer>
+        <button class="btn btn-cancel" @click="closeModal()">Close</button>
+    </div>
+
+    <style>
+        .experiment-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .selector-row {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+        }
+
+        .experiment-select {
+            flex: 1;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-input);
+            color: var(--color-text);
+            font-family: inherit;
+        }
+
+        .selector-row .btn {
+            padding: var(--spacing-xs, 4px) var(--spacing-sm);
+        }
+
+        .selector-row .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        /* Stage Pipeline */
+        .stage-pipeline {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        .stage-item {
+            flex: 1;
+            padding: var(--spacing-md);
+            text-align: center;
+            border-radius: 8px;
+            background: var(--color-input);
+            border: 2px solid transparent;
+            transition: all var(--transition-speed);
+        }
+
+        .stage-item.pending {
+            opacity: 0.6;
+        }
+
+        .stage-item.in_progress {
+            background: var(--color-info-bg, rgba(59, 130, 246, 0.2));
+            border-color: var(--color-info, #3b82f6);
+        }
+
+        .stage-item.completed {
+            background: var(--color-success-bg, rgba(34, 197, 94, 0.2));
+            border-color: var(--color-success, #22c55e);
+        }
+
+        .stage-number {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--color-primary);
+        }
+
+        .stage-name {
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            margin-top: var(--spacing-xs, 4px);
+        }
+
+        .stage-status {
+            margin-top: var(--spacing-sm);
+        }
+
+        .status-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status-icon .material-symbols-outlined {
+            font-size: 20px;
+        }
+
+        .stage-item.completed .status-icon {
+            color: var(--color-success, #22c55e);
+        }
+
+        .stage-item.in_progress .status-icon {
+            color: var(--color-info, #3b82f6);
+        }
+
+        .stage-item.pending .status-icon {
+            color: var(--color-text);
+            opacity: 0.4;
+        }
+
+        .status-icon.spinning .material-symbols-outlined {
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Node List */
+        .node-list {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-input);
+        }
+
+        .node-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-bottom: 1px solid var(--color-border);
+            transition: background var(--transition-speed);
+        }
+
+        .node-item:last-child {
+            border-bottom: none;
+        }
+
+        .node-item:hover {
+            background: var(--color-panel);
+        }
+
+        .node-item.buggy {
+            background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
+        }
+
+        .node-item.buggy .node-id {
+            color: var(--color-error, #ef4444);
+        }
+
+        .node-item.best {
+            background: var(--color-success-bg, rgba(34, 197, 94, 0.1));
+        }
+
+        .node-item.best .node-id {
+            color: var(--color-success, #22c55e);
+        }
+
+        .node-info {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .node-id {
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .node-parent {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.6;
+        }
+
+        .node-parent .material-symbols-outlined {
+            font-size: 14px;
+        }
+
+        .node-meta {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .node-metric {
+            font-family: monospace;
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.7;
+        }
+
+        .node-metric.has-metric {
+            opacity: 1;
+            color: var(--color-primary);
+        }
+
+        .node-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .buggy-badge {
+            background: var(--color-error-bg, rgba(239, 68, 68, 0.2));
+            color: var(--color-error, #ef4444);
+        }
+
+        .best-badge {
+            background: var(--color-success-bg, rgba(34, 197, 94, 0.2));
+            color: var(--color-success, #22c55e);
+        }
+
+        /* Summary Section */
+        .summary-section {
+            background: var(--color-panel);
+            padding: var(--spacing-md);
+            border-radius: 8px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-md);
+        }
+
+        .summary-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .summary-label {
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.7;
+        }
+
+        .summary-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-top: var(--spacing-xs, 4px);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-lg);
+            color: var(--color-text);
+            opacity: 0.6;
+        }
+    </style>
+</body>
+</html>

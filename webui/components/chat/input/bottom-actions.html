@@ -5,6 +5,10 @@
     import { store as historyStore } from "/components/modals/history/history-store.js";
     import { store as contextStore } from "/components/modals/context/context-store.js";
     import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    // AI Scientist stores (loaded conditionally but imported for availability)
+    import { store as ideasManagerStore } from "/components/modals/ai-scientist/ideas-manager/ideas-manager-store.js";
+    import { store as experimentDashboardStore } from "/components/modals/ai-scientist/experiment-dashboard/experiment-dashboard-store.js";
+    import { store as paperGeneratorStore } from "/components/modals/ai-scientist/paper-generator/paper-generator-store.js";
   </script>
 </head>
 <body>
@@ -73,6 +77,31 @@
             </svg>
             <p>Nudge</p>
         </button>
+
+        <!-- AI Scientist Profile Actions (only visible when ai-scientist profile is active) -->
+        <template x-if="$store.chats.selectedContext?.profile === 'ai-scientist'">
+          <div class="ai-scientist-actions">
+            <span class="ai-scientist-divider"></span>
+            <button class="text-button ai-scientist-btn" @click="$store.ideasManagerStore.open()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+                <p>Ideas</p>
+            </button>
+            <button class="text-button ai-scientist-btn" @click="$store.experimentDashboardStore.open()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+                </svg>
+                <p>Experiments</p>
+            </button>
+            <button class="text-button ai-scientist-btn" @click="$store.paperGeneratorStore.open()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p>Papers</p>
+            </button>
+          </div>
+        </template>
       </div>
     </template>
   </div>
@@ -87,8 +116,14 @@
         .text-button .material-symbols-outlined { font-size: 14px; flex-shrink: 0; }
         .text-button p { margin-block: 0; }
 
+        /* AI Scientist profile-specific buttons */
+        .ai-scientist-actions { display: contents; }
+        .ai-scientist-divider { width: 1px; height: 16px; background-color: var(--color-border); margin: 0 var(--spacing-xs); align-self: center; opacity: 0.5; }
+        .ai-scientist-btn { color: var(--color-accent); }
+        .ai-scientist-btn:hover:not(:disabled) { background-color: color-mix(in srgb, var(--color-accent) 15%, transparent); }
+
         @media (max-width: 768px) { .text-buttons-row { width: 90%; display: flex; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { font-size: 0.6rem; } .text-button svg { width: 18px; height: 18px; flex-shrink: 0; } .text-button .material-symbols-outlined { font-size: 18px; } }
-        @media (max-width: 640px) { .text-buttons-row { display: flex; width: 90%; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { max-height: 25px; } .text-button p { display: none; } }
+        @media (max-width: 640px) { .text-buttons-row { display: flex; width: 90%; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { max-height: 25px; } .text-button p { display: none; } .ai-scientist-divider { display: none; } }
     </style>
 </body>
 </html>

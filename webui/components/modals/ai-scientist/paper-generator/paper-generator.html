@@ -1,0 +1,406 @@
+<html>
+<head>
+    <title>Generate Paper</title>
+    <script type="module">
+        import { store } from "/components/modals/ai-scientist/paper-generator/paper-generator-store.js";
+    </script>
+</head>
+<body>
+    <div x-data
+         x-create="$store.paperGeneratorStore.onOpen()"
+         x-destroy="$store.paperGeneratorStore.cleanup()">
+        <template x-if="$store.paperGeneratorStore">
+            <div class="paper-generator">
+                <!-- Experiment Selection Section -->
+                <div class="section">
+                    <div class="section-title">Select Completed Experiment</div>
+                    <div class="section-description">
+                        Choose a completed experiment to generate a scientific paper from its results.
+                    </div>
+
+                    <!-- Error message -->
+                    <template x-if="$store.paperGeneratorStore.error">
+                        <div class="error-message" x-text="$store.paperGeneratorStore.error"></div>
+                    </template>
+
+                    <div class="experiments-list" x-show="!$store.paperGeneratorStore.loading && !$store.paperGeneratorStore.error">
+                        <template x-if="$store.paperGeneratorStore.experiments.length === 0">
+                            <div class="empty-state">
+                                No completed experiments available. Run an experiment first to generate a paper.
+                            </div>
+                        </template>
+                        <template x-for="exp in $store.paperGeneratorStore.experiments" :key="exp.idea_name">
+                            <div class="experiment-card"
+                                 :class="{'selected': $store.paperGeneratorStore.isSelected(exp.idea_name)}"
+                                 @click="$store.paperGeneratorStore.selectExperiment(exp.idea_name)">
+                                <div class="experiment-title" x-text="exp.title || exp.idea_name"></div>
+                                <div class="experiment-meta">
+                                    <span class="experiment-name" x-text="exp.idea_name"></span>
+                                    <span class="status-badge completed">Completed</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="loading" x-show="$store.paperGeneratorStore.loading"></div>
+                </div>
+
+                <!-- Format Selection Section -->
+                <div class="section">
+                    <div class="section-title">Paper Format</div>
+                    <div class="format-options">
+                        <label class="format-option">
+                            <input type="radio"
+                                   name="paper-format"
+                                   value="workshop"
+                                   x-model="$store.paperGeneratorStore.format">
+                            <span class="format-label">
+                                <strong>Workshop Paper</strong>
+                                <span class="format-description">4-page format, concise presentation</span>
+                            </span>
+                        </label>
+                        <label class="format-option">
+                            <input type="radio"
+                                   name="paper-format"
+                                   value="full"
+                                   x-model="$store.paperGeneratorStore.format">
+                            <span class="format-label">
+                                <strong>Full Paper</strong>
+                                <span class="format-description">8-page format, comprehensive details</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Generation Options Section -->
+                <div class="section">
+                    <div class="section-title">Generation Options</div>
+
+                    <div class="option-row">
+                        <label class="option-label">
+                            <span>Number of Reflections</span>
+                            <span class="option-value" x-text="$store.paperGeneratorStore.numReflections"></span>
+                        </label>
+                        <input type="range"
+                               min="1"
+                               max="5"
+                               step="1"
+                               x-model.number="$store.paperGeneratorStore.numReflections"
+                               class="reflection-slider">
+                        <div class="slider-labels">
+                            <span>1</span>
+                            <span>5</span>
+                        </div>
+                    </div>
+
+                    <div class="option-row checkbox-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   x-model="$store.paperGeneratorStore.skipCitations">
+                            <span>Skip citation gathering</span>
+                        </label>
+                        <span class="option-hint">Faster generation but may miss relevant references</span>
+                    </div>
+                </div>
+
+                <!-- Progress Section -->
+                <template x-if="$store.paperGeneratorStore.progress">
+                    <div class="section progress-section">
+                        <div class="progress-message" x-text="$store.paperGeneratorStore.progress"></div>
+                    </div>
+                </template>
+
+                <!-- Results Section -->
+                <template x-if="$store.paperGeneratorStore.result">
+                    <div class="section results-section">
+                        <div class="section-title">Generated Paper</div>
+
+                        <div class="result-row" x-show="$store.paperGeneratorStore.result.latex_path">
+                            <span class="result-label">LaTeX Source:</span>
+                            <span class="result-path" x-text="$store.paperGeneratorStore.result.latex_path"></span>
+                        </div>
+
+                        <div class="result-row" x-show="$store.paperGeneratorStore.result.pdf_path">
+                            <span class="result-label">PDF Output:</span>
+                            <span class="result-path" x-text="$store.paperGeneratorStore.result.pdf_path"></span>
+                        </div>
+
+                        <div class="result-actions">
+                            <button class="btn btn-ok"
+                                    x-show="$store.paperGeneratorStore.result.pdf_path"
+                                    @click="window.open($store.paperGeneratorStore.result.pdf_path, '_blank')">
+                                Open PDF
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer" data-modal-footer>
+        <button class="btn btn-ok"
+                @click="$store.paperGeneratorStore.generatePaper()"
+                :disabled="!$store.paperGeneratorStore.selectedExperiment || $store.paperGeneratorStore.generating">
+            <span x-show="!$store.paperGeneratorStore.generating">Generate Paper</span>
+            <span x-show="$store.paperGeneratorStore.generating">Generating...</span>
+        </button>
+        <button class="btn btn-cancel" @click="closeModal()">Close</button>
+    </div>
+
+    <style>
+        .paper-generator {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        /* Experiments List */
+        .experiments-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .experiment-card {
+            padding: var(--spacing-md);
+            background: var(--color-input);
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--transition-speed);
+        }
+
+        .experiment-card:hover {
+            border-color: var(--color-border);
+        }
+
+        .experiment-card.selected {
+            border-color: var(--color-accent);
+            background: var(--color-panel);
+        }
+
+        .experiment-title {
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-xs, 4px);
+        }
+
+        .experiment-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .experiment-name {
+            font-family: monospace;
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.6;
+        }
+
+        .status-badge {
+            font-size: var(--font-size-small);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .status-badge.completed {
+            background: var(--color-success-bg, rgba(34, 197, 94, 0.2));
+            color: var(--color-success, #22c55e);
+        }
+
+        /* Format Options */
+        .format-options {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .format-option {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md);
+            background: var(--color-input);
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--transition-speed);
+        }
+
+        .format-option:hover {
+            border-color: var(--color-border);
+        }
+
+        .format-option:has(input:checked) {
+            border-color: var(--color-accent);
+            background: var(--color-panel);
+        }
+
+        .format-option input[type="radio"] {
+            margin-top: 3px;
+            accent-color: var(--color-accent);
+        }
+
+        .format-label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .format-label strong {
+            color: var(--color-primary);
+        }
+
+        .format-description {
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.7;
+        }
+
+        /* Options */
+        .option-row {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .option-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xs, 4px);
+        }
+
+        .option-value {
+            font-weight: 600;
+            color: var(--color-accent);
+        }
+
+        .reflection-slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--color-border);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .reflection-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .reflection-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.6;
+            margin-top: 2px;
+        }
+
+        .checkbox-row {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs, 4px);
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            cursor: pointer;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            accent-color: var(--color-accent);
+        }
+
+        .option-hint {
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.6;
+            margin-left: 24px;
+        }
+
+        /* Progress */
+        .progress-section {
+            background: var(--color-panel);
+            border-radius: 8px;
+            padding: var(--spacing-md);
+        }
+
+        .progress-message {
+            color: var(--color-text);
+            font-size: var(--font-size-small);
+        }
+
+        /* Results */
+        .results-section {
+            background: var(--color-success-bg, rgba(34, 197, 94, 0.1));
+            border-radius: 8px;
+            padding: var(--spacing-md);
+        }
+
+        .result-row {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .result-label {
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.7;
+        }
+
+        .result-path {
+            font-family: monospace;
+            font-size: var(--font-size-small);
+            color: var(--color-primary);
+            word-break: break-all;
+        }
+
+        .result-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-md);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-lg);
+            color: var(--color-text);
+            opacity: 0.6;
+        }
+
+        /* Error Message */
+        .error-message {
+            padding: var(--spacing-md);
+            background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
+            color: var(--color-error, #ef4444);
+            border-radius: 8px;
+            font-size: var(--font-size-small);
+        }
+    </style>
+</body>
+</html>

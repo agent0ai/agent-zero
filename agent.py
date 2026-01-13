@@ -92,6 +92,10 @@ class AgentContext:
         # initialize agent at last (context is complete now)
         self.agent0 = agent0 or Agent(0, self.config, self)
 
+        # expose profile in output for UI access
+        if self.config and self.config.profile:
+            self.output_data["profile"] = self.config.profile
+
     @staticmethod
     def get(id: str):
         return AgentContext._contexts.get(id, None)
