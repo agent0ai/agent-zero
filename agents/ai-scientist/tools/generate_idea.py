@@ -177,13 +177,20 @@ class GenerateIdea(Tool):
             ),
         }
 
-    async def _query_model(self, prompt: dict) -> str:
+    async def _query_model(self, prompt: dict | str) -> str:
         """Query the agent's chat model."""
         # Create messages for the query
         system_msg = SystemMessage(
             content="You are a research idea generator. Respond only with valid JSON."
         )
-        user_msg = HumanMessage(content=json.dumps(prompt, indent=2))
+
+        # Handle both dict and string prompts
+        if isinstance(prompt, dict):
+            content = json.dumps(prompt, indent=2)
+        else:
+            content = prompt
+
+        user_msg = HumanMessage(content=content)
 
         # Get response via agent's chat model
         response, _reasoning = await self.agent.call_chat_model(
@@ -202,11 +209,24 @@ class GenerateIdea(Tool):
             json_match = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
             if json_match:
                 print(f"[DEBUG] Found JSON in code block")
-                return json.loads(json_match.group(1))
+                parsed = json.loads(json_match.group(1))
+            else:
+                # Try direct parse
+                print(f"[DEBUG] Trying direct JSON parse")
+                parsed = json.loads(response)
 
-            # Try direct parse
-            print(f"[DEBUG] Trying direct JSON parse")
-            return json.loads(response)
+            # Handle wrapper structure (from refinement)
+            if "Current Idea" in parsed:
+                print(f"[DEBUG] Extracting from 'Current Idea' wrapper")
+                parsed = parsed["Current Idea"]
+
+            # Validate it has required fields
+            if "Name" in parsed and "Title" in parsed:
+                return parsed
+            else:
+                print(f"[DEBUG] Parsed JSON missing required fields (Name, Title)")
+                return None
+
         except json.JSONDecodeError as e:
             print(f"[DEBUG] JSON decode error: {e}")
             # Try to find JSON object in response
@@ -214,7 +234,11 @@ class GenerateIdea(Tool):
                 start = response.find("{")
                 end = response.rfind("}") + 1
                 if start >= 0 and end > start:
-                    return json.loads(response[start:end])
+                    parsed = json.loads(response[start:end])
+                    # Handle wrapper structure
+                    if "Current Idea" in parsed:
+                        parsed = parsed["Current Idea"]
+                    return parsed if "Name" in parsed else None
             except Exception:
                 pass
         return None
@@ -253,22 +277,34 @@ class GenerateIdea(Tool):
         self, idea: dict, related_work: list, round_num: int, total_rounds: int
     ) -> dict:
         """Refine idea based on related work."""
-        prompt = {
-            "Role": "You are refining a research idea based on literature review.",
-            "Round": f"{round_num + 1}/{total_rounds}",
-            "Current Idea": idea,
-            "Related Work Found": related_work[:5] if related_work else "No related work found",
-            "Instructions": [
-                "Review the current idea and related work.",
-                "Refine the idea to:",
-                "1. Differentiate from existing work",
-                "2. Address potential gaps",
-                "3. Strengthen the hypothesis",
-                "Return the refined idea as JSON with the same structure.",
-            ],
-        }
+        # Build related work summary
+        related_work_str = "No related work found"
+        if related_work:
+            related_work_str = "\n".join(
+                f"- {paper.get('title', 'Unknown')}" for paper in related_work[:5]
+            )
 
-        response = await self._query_model(prompt)
+        # Create prompt that's clear about output format
+        prompt_text = f"""You are refining a research idea (Round {round_num + 1}/{total_rounds}) based on literature review.
+
+Current Idea:
+{json.dumps(idea, indent=2)}
+
+Related Work Found:
+{related_work_str}
+
+Instructions:
+1. Review the current idea and related work
+2. Refine the idea to:
+   - Differentiate from existing work
+   - Address potential gaps
+   - Strengthen the hypothesis
+3. Return ONLY the refined idea as valid JSON (no wrapper, no additional text)
+4. The JSON must have the same fields: Name, Title, Short Hypothesis, Abstract, Experiments, Risk Factors and Limitations
+
+Respond with ONLY the refined idea JSON:"""
+
+        response = await self._query_model(prompt_text)
         refined = self._parse_idea_json(response)
 
         return refined if refined else idea
