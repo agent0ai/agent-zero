@@ -96,6 +96,7 @@ class Settings(TypedDict):
     stt_waiting_timeout: int
 
     tts_kokoro: bool
+    tts_browser_voice: str
 
     mcp_servers: str
     mcp_client_init_timeout: int
@@ -143,6 +144,7 @@ class SettingsField(TypedDict, total=False):
     step: float
     hidden: bool
     options: list[FieldOption]
+    condition: str  # JavaScript expression to evaluate for conditional visibility
     style: str
 
 
@@ -1049,6 +1051,18 @@ def convert_out(settings: Settings) -> SettingsOutput:
         }
     )
 
+    tts_fields.append(
+        {
+            "id": "tts_browser_voice_section",
+            "title": "Browser TTS Voice",
+            "description": "Select the language and voice to use for browser-based text-to-speech. Only applies when Kokoro TTS is disabled.",
+            "value": "<x-component path='/settings/speech/voice.html' />",
+            "type": "html",
+            "classes": "voice-selector-component",
+            "condition": "!tts_kokoro",
+        }
+    )
+
     speech_section: SettingsSection = {
         "id": "speech",
         "title": "Speech",
@@ -1523,6 +1537,7 @@ def get_default_settings() -> Settings:
         stt_silence_duration=1000,
         stt_waiting_timeout=2000,
         tts_kokoro=True,
+        tts_browser_voice="",
         mcp_servers='{\n    "mcpServers": {}\n}',
         mcp_client_init_timeout=10,
         mcp_client_tool_timeout=120,

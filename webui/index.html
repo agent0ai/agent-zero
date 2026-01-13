@@ -240,7 +240,8 @@
 
                                     <template x-for="(field, fieldIndex) in section.fields.filter(f => !f.hidden)"
                                         :key="fieldIndex">
-                                        <div :class="{'field': true, 'field-full': field.type === 'textarea'}">
+                                        <div :class="{'field': true, 'field-full': field.type === 'textarea'}"
+                                            x-show="!field.condition || (() => { const f = section.fields.find(f => f.id === 'tts_kokoro'); return field.condition === '!tts_kokoro' ? !f.value : true; })()">
                                             <div class="field-label" x-show="field.title || field.description">
                                                 <div class="field-title" x-text="field.title" x-show="field.title">
                                                 </div>

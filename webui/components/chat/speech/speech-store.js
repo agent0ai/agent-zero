@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { updateChatInput, sendMessage } from "/index.js";
 import { sleep } from "/js/sleep.js";
 import { store as microphoneSettingStore } from "/components/settings/speech/microphone-setting-store.js";
+import { store as voiceSettingStore } from "/components/settings/speech/voice-setting-store.js";
 import * as shortcuts from "/js/shortcuts.js";
 
 const Status = {
@@ -390,6 +391,18 @@ const model = {
     this.stopAudio();
 
     this.browserUtterance = new SpeechSynthesisUtterance(text);
+
+    // Get voice from voice setting store (like microphone does)
+    const selectedVoiceObj = voiceSettingStore.getSelectedVoice();
+
+    if (selectedVoiceObj) {
+      this.browserUtterance.voice = selectedVoiceObj;
+      this.browserUtterance.lang = selectedVoiceObj.lang;
+      console.log(`[Speech Store] Using voice: ${selectedVoiceObj.name} (${selectedVoiceObj.lang})`);
+    } else {
+      console.log(`[Speech Store] No voice selected, using browser default`);
+    }
+
     this.browserUtterance.onstart = () => {
       this.isSpeaking = true;
     };
