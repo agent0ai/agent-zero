@@ -1,30 +1,46 @@
-<!-- Import the alpine store -->
-<script type="module">
-    import { store } from "/components/settings/speech/voice-setting-store.js";
-    console.log("voice-setting-store.js loaded");
-</script>
+<html>
 
-<!-- This construct of x-data + x-if is used to ensure the component is only rendered when the store is available -->
-<div x-data>
-    <template x-if="$store.voiceSetting">
-        <div>
-            <select x-model="$store.voiceSetting.selectedLanguage"
-                @change="$store.voiceSetting.onSelectLanguage()"
-                x-show="$store.voiceSetting.languages.length > 0">
-                <template x-for="lang in $store.voiceSetting.languages" :key="lang.code">
-                    <option :value="lang.code"
-                        x-text="`${lang.name} (${lang.count} voice${lang.count > 1 ? 's' : ''})`"
-                        :selected="lang.code === $store.voiceSetting.selectedLanguage"></option>
-                </template>
-            </select>
-            <select x-model="$store.voiceSetting.selectedVoice"
-                @change="$store.voiceSetting.onSelectVoice()"
-                x-show="$store.voiceSetting.filteredVoices.length > 0">
-                <template x-for="voice in $store.voiceSetting.filteredVoices" :key="voice.name">
-                    <option :value="voice.name" x-text="voice.name"
-                        :selected="voice.name === $store.voiceSetting.selectedVoice"></option>
-                </template>
-            </select>
-        </div>
-    </template>
-</div>
+<head>
+    <title>Voice settings</title>
+
+    <!-- Import the alpine store -->
+    <script type="module">
+        import { store } from "/components/settings/speech/voice-setting-store.js";
+        console.log("voice-setting-store.js loaded");
+    </script>
+</head>
+
+<body>
+
+    <!-- This construct of x-data + x-if is used to ensure the component is only rendered when the store is available -->
+    <div x-data>
+        <template x-if="$store.voiceSetting">
+            <div>
+                <select x-model="$store.voiceSetting.selectedLanguage"
+                    @change="$store.voiceSetting.onSelectLanguage()"
+                    x-show="$store.voiceSetting.languages.length > 0">
+                    <template x-for="lang in $store.voiceSetting.languages" :key="lang.code">
+                        <option :value="lang.code"
+                            x-text="`${lang.name} (${lang.count} voice${lang.count > 1 ? 's' : ''})`"
+                            :selected="lang.code === $store.voiceSetting.selectedLanguage"></option>
+                    </template>
+                </select>
+                <select x-model="$store.voiceSetting.selectedVoice"
+                    @change="$store.voiceSetting.onSelectVoice()"
+                    x-show="$store.voiceSetting.filteredVoices.length > 0">
+                    <template x-for="voice in $store.voiceSetting.filteredVoices" :key="voice.name">
+                        <option :value="voice.name" x-text="voice.name"
+                            :selected="voice.name === $store.voiceSetting.selectedVoice"></option>
+                    </template>
+                </select>
+            </div>
+        </template>
+    </div>
+
+    <!-- Optional style for the component -->
+    <style>
+    </style>
+
+</body>
+
+</html>

@@ -43,7 +43,7 @@ const model = {
                 // start polling for devices
                 this.pollForDevices();
             } catch (err) {
-                console.error("Microphone permission denied");
+                console.error("[Microphone Selector] Microphone permission denied");
                 this.requestingPermission = false;
             }
         }, 0);

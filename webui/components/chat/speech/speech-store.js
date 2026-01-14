@@ -75,7 +75,7 @@ const model = {
       if (device != this.selectedDevice) {
         this.selectedDevice = device;
         this.microphoneInput = null;
-        console.log("Device changed, microphoneInput reset");
+        console.log("[Speech Store] Device changed, microphoneInput reset");
       }
 
       if (!this.microphoneInput) {
@@ -126,7 +126,7 @@ const model = {
       }
     } catch (error) {
       window.toastFetchError("Failed to load speech settings", error);
-      console.error("Failed to load speech settings:", error);
+      console.error("[Speech Store] Failed to load speech settings:", error);
     }
   },
 
@@ -141,7 +141,7 @@ const model = {
     const enableAudio = () => {
       if (!this.userHasInteracted) {
         this.userHasInteracted = true;
-        console.log("User interaction detected - audio playback enabled");
+        console.log("[Speech Store] User interaction detected - audio playback enabled");
 
         // Create a dummy audio context to "unlock" audio
         try {
@@ -149,7 +149,7 @@ const model = {
             window.webkitAudioContext)();
           this.audioContext.resume();
         } catch (e) {
-          console.log("AudioContext not available");
+          console.log("[Speech Store] AudioContext not available");
         }
       }
     };
@@ -253,7 +253,7 @@ const model = {
     try {
       await await this.speakWithKokoro(text, waitForPrevious, terminator);
     } catch (error) {
-      console.error(error);
+      console.error("[Speech Store] Kokoro TTS error, falling back to browser TTS:", error);
       return await this.speakWithBrowser(text, waitForPrevious, terminator);
     }
   },
@@ -378,7 +378,7 @@ const model = {
       displayTime: 5000,
       frontendOnly: true,
     });
-    console.log("Please click anywhere on the page to enable audio playback");
+    console.log("[Speech Store] Please click anywhere on the page to enable audio playback");
   },
 
   // Browser TTS
@@ -698,7 +698,7 @@ class MicrophoneInput {
 
     const oldStatus = this._status;
     this._status = newStatus;
-    console.log(`Mic status changed from ${oldStatus} to ${newStatus}`);
+    console.log(`[Speech Store] Mic status changed from ${oldStatus} to ${newStatus}`);
 
     this.handleStatusChange(oldStatus, newStatus);
   }
@@ -741,7 +741,7 @@ class MicrophoneInput {
       this.setupAudioAnalysis(stream);
       return true;
     } catch (error) {
-      console.error("Microphone initialization error:", error);
+      console.error("[Speech Store] Microphone initialization error:", error);
       toast("Failed to access microphone. Please check permissions.", "error");
       return false;
     }
@@ -794,7 +794,7 @@ class MicrophoneInput {
     if (!this.hasStartedRecording && this.mediaRecorder.state !== "recording") {
       this.hasStartedRecording = true;
       this.mediaRecorder.start(1000);
-      console.log("Speech started");
+      console.log("[Speech Store] Speech started");
     }
     if (this.waitingTimer) {
       clearTimeout(this.waitingTimer);
@@ -903,12 +903,12 @@ class MicrophoneInput {
       const text = this.filterResult(result.text || "");
 
       if (text) {
-        console.log("Transcription:", result.text);
+        console.log("[Speech Store] Transcription:", result.text);
         await this.updateCallback(result.text, true);
       }
     } catch (error) {
       window.toastFetchError("Transcription error", error);
-      console.error("Transcription error:", error);
+      console.error("[Speech Store] Transcription error:", error);
     } finally {
       this.audioChunks = [];
       this.status = Status.LISTENING;
@@ -938,7 +938,7 @@ class MicrophoneInput {
       ok = true;
     }
     if (ok) return text;
-    else console.log(`Discarding transcription: ${text}`);
+    else console.log(`[Speech Store] Discarding transcription: ${text}`);
   }
 
   // Toggle microphone between active and inactive states
@@ -960,7 +960,7 @@ class MicrophoneInput {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       return true;
     } catch (err) {
-      console.error("Error accessing microphone:", err);
+      console.error("[Speech Store] Error accessing microphone:", err);
       toast(
         "Microphone access denied. Please enable microphone access in your browser settings.",
         "error"
