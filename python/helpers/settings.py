@@ -207,7 +207,7 @@ class SettingsOutput(TypedDict):
 PASSWORD_PLACEHOLDER = "****PSWD****"
 API_KEY_PLACEHOLDER = "************"
 
-SETTINGS_FILE = files.get_abs_path("tmp/settings.json")
+SETTINGS_FILE = files.get_abs_path("usr/settings.json")
 _settings: Settings | None = None
 
 OptionT = TypeVar("OptionT", bound=FieldOption)
@@ -336,6 +336,12 @@ def get_settings() -> Settings:
         _settings = get_default_settings()
     norm = normalize_settings(_settings)
     return norm
+
+
+def reload_settings() -> Settings:
+    global _settings
+    _settings = None
+    return get_settings()
 
 
 def set_settings(settings: Settings, apply: bool = True):

@@ -410,6 +410,10 @@ def move_dir(old_path: str, new_path: str):
     abs_new = get_abs_path(new_path)
     if not os.path.isdir(abs_old):
         return  # nothing to rename
+    
+    # ensure parent directory exists
+    os.makedirs(os.path.dirname(abs_new), exist_ok=True)
+    
     try:
         os.rename(abs_old, abs_new)
     except Exception:

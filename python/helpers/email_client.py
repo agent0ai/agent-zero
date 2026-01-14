@@ -537,7 +537,7 @@ async def read_messages(
     port: int = 993,
     username: str = "",
     password: str = "",
-    download_folder: str = "tmp/email",
+    download_folder: str = "usr/email",
     options: Optional[Dict[str, Any]] = None,
     filter: Optional[Dict[str, Any]] = None,
 ) -> List[Message]:

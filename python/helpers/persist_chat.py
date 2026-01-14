@@ -9,7 +9,7 @@ from initialize import initialize_agent
 
 from python.helpers.log import Log, LogItem
 
-CHATS_FOLDER = "tmp/chats"
+CHATS_FOLDER = "usr/chats"
 LOG_SIZE = 1000
 CHAT_FILE_NAME = "chat.json"
 

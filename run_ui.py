@@ -190,6 +190,9 @@ async def serve_index():
 def run():
     PrintStyle().print("Initializing framework...")
 
+    # migrate data before anything else
+    initialize.initialize_migration()
+
     # Suppress only request logs but keep the startup messages
     from werkzeug.serving import WSGIRequestHandler
     from werkzeug.serving import make_server

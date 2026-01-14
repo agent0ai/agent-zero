@@ -26,7 +26,7 @@ from python.helpers import projects, guids
 import pytz
 from typing import Annotated
 
-SCHEDULER_FOLDER = "tmp/scheduler"
+SCHEDULER_FOLDER = "usr/scheduler"
 
 # ----------------------
 # Task Models
