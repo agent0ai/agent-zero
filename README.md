@@ -124,6 +124,37 @@ docker run -p 50001:80 agent0ai/agent-zero
 # Visit http://localhost:50001 to start
 ```
 
+### 🔐 Google OAuth (Free Gemini & Claude Access)
+
+Use your Google subscription to access Gemini and Claude models **without API keys**:
+
+#### Getting OAuth Credentials
+
+You can use the built-in Google OAuth Client ID (same as VSCode Gemini extension), or create your own:
+
+**Option 1: Use Gemini/VSCode credentials** (recommended)
+```
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+```
+
+**Option 2: Create your own** at [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+1. Create a new project or select existing
+2. Go to **APIs & Services → Credentials**
+3. Click **Create Credentials → OAuth Client ID**
+4. Select **Desktop app** as application type
+5. Copy the Client ID and Client Secret
+
+#### Setup
+
+1. Add credentials to `.env` or click **"🔐 Login with Google"** in Settings → API Keys
+
+2. Select **"Google (OAuth Subscription)"** as your model provider
+
+3. Set model name:
+   - Gemini: `gemini-3-flash-preview`, `gemini-3-pro-preview`
+   - Claude: `anthropic/claude-sonnet-4-5`, `anthropic/claude-opus-4-5`
+
 ## 🐳 Fully Dockerized, with Speech-to-Text and TTS
 
 ![Settings](docs/res/settings-page-ui.png)

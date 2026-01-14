@@ -692,6 +692,166 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         return item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
 
 
+class AntigravityLiteLLMWrapper(SimpleChatModel):
+    """
+    LangChain-compatible chat model using Antigravity/Cloudcode API.
+    Uses Google OAuth subscription instead of API keys.
+    """
+    
+    model_name: str
+    provider: str = "antigravity"
+    kwargs: dict = {}
+    a0_model_conf: Optional[ModelConfig] = None
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="allow",
+        validate_assignment=False,
+    )
+
+    def __init__(
+        self,
+        model: str,
+        provider: str = "antigravity",
+        model_config: Optional[ModelConfig] = None,
+        **kwargs: Any,
+    ):
+        super().__init__(model_name=model, provider=provider, kwargs=kwargs)  # type: ignore
+        self.a0_model_conf = model_config
+
+    @property
+    def _llm_type(self) -> str:
+        return "antigravity"
+
+    def _convert_messages(self, messages: List[BaseMessage]) -> Tuple[List[dict], Optional[str]]:
+        """Convert LangChain messages to Antigravity format."""
+        contents = []
+        system_instruction = None
+        
+        for msg in messages:
+            if isinstance(msg, SystemMessage):
+                system_instruction = msg.content
+            elif isinstance(msg, HumanMessage):
+                contents.append({
+                    'role': 'user',
+                    'parts': [{'text': msg.content}]
+                })
+            else:  # AIMessage or other
+                contents.append({
+                    'role': 'model',
+                    'parts': [{'text': msg.content}]
+                })
+        
+        return contents, system_instruction
+
+    def _call(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        from python.helpers import antigravity
+        
+        contents, system_instruction = self._convert_messages(messages)
+        temperature = self.kwargs.get("temperature", 0.7)
+        if isinstance(temperature, str):
+            temperature = float(temperature)
+        
+        client = antigravity.get_client()
+        return client.generate_content(
+            contents=contents,
+            model=self.model_name,
+            temperature=temperature,
+            system_instruction=system_instruction
+        )
+
+    def _stream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        from python.helpers import antigravity
+        
+        contents, system_instruction = self._convert_messages(messages)
+        temperature = self.kwargs.get("temperature", 0.7)
+        if isinstance(temperature, str):
+            temperature = float(temperature)
+        
+        client = antigravity.get_client()
+        
+        for chunk in client.generate_content_stream(
+            contents=contents,
+            model=self.model_name,
+            temperature=temperature,
+            system_instruction=system_instruction
+        ):
+            if chunk:
+                yield ChatGenerationChunk(
+                    message=AIMessageChunk(content=chunk)
+                )
+
+    async def _astream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        # For now, wrap the sync stream - can be optimized later with async requests
+        for chunk in self._stream(messages, stop, None, **kwargs):
+            yield chunk
+
+    async def unified_call(
+        self,
+        system_message="",
+        user_message="",
+        messages: List[BaseMessage] | None = None,
+        response_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        tokens_callback: Callable[[str, int], Awaitable[None]] | None = None,
+        rate_limiter_callback: (
+            Callable[[str, str, int, int], Awaitable[bool]] | None
+        ) = None,
+        **kwargs: Any,
+    ) -> Tuple[str, str]:
+        from python.helpers import antigravity
+        
+        turn_off_logging()
+
+        if not messages:
+            messages = []
+        if system_message:
+            messages.insert(0, SystemMessage(content=system_message))
+        if user_message:
+            messages.append(HumanMessage(content=user_message))
+
+        contents, system_instruction = self._convert_messages(messages)
+        temperature = self.kwargs.get("temperature", 0.7)
+        if isinstance(temperature, str):
+            temperature = float(temperature)
+        
+        client = antigravity.get_client()
+        
+        full_response = ""
+        for chunk in client.generate_content_stream(
+            contents=contents,
+            model=self.model_name,
+            temperature=temperature,
+            system_instruction=system_instruction
+        ):
+            if chunk:
+                full_response += chunk
+                if response_callback:
+                    await response_callback(chunk, full_response)
+                if tokens_callback:
+                    await tokens_callback(chunk, approximate_tokens(chunk))
+        
+        return full_response, ""  # No reasoning support for now
+
+
 class LocalSentenceTransformerWrapper(Embeddings):
     """Local wrapper for sentence-transformers models to avoid HuggingFace API calls"""
 
@@ -893,8 +1053,15 @@ def _merge_provider_defaults(
 
 def get_chat_model(
     provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
-) -> LiteLLMChatWrapper:
+) -> LiteLLMChatWrapper | AntigravityLiteLLMWrapper:
     orig = provider.lower()
+    
+    # Special handling for antigravity provider (Google OAuth subscription)
+    if orig == "antigravity":
+        return AntigravityLiteLLMWrapper(
+            model=name, provider=orig, model_config=model_config, **kwargs
+        )
+    
     provider_name, kwargs = _merge_provider_defaults("chat", orig, kwargs)
     return _get_litellm_chat(
         LiteLLMChatWrapper, name, provider_name, model_config, **kwargs
@@ -903,8 +1070,15 @@ def get_chat_model(
 
 def get_browser_model(
     provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
-) -> BrowserCompatibleChatWrapper:
+) -> BrowserCompatibleChatWrapper | AntigravityLiteLLMWrapper:
     orig = provider.lower()
+    
+    # Special handling for antigravity provider (Google OAuth subscription)
+    if orig == "antigravity":
+        return AntigravityLiteLLMWrapper(
+            model=name, provider=orig, model_config=model_config, **kwargs
+        )
+    
     provider_name, kwargs = _merge_provider_defaults("chat", orig, kwargs)
     return _get_litellm_chat(
         BrowserCompatibleChatWrapper, name, provider_name, model_config, **kwargs

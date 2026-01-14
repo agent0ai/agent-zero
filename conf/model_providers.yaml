@@ -17,6 +17,9 @@
 #                     This is useful for `api_base`, `extra_headers`, etc.
 
 chat:
+  antigravity:
+    name: Google (OAuth Subscription)
+    litellm_provider: antigravity
   a0_venice:
     name: Agent Zero Venice.ai
     litellm_provider: openai
