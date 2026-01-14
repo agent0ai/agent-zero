@@ -18,6 +18,23 @@ const settingsModalProxy = {
         return filteredSections;
     },
 
+    // Method to evaluate field conditions (supports scalable conditional field visibility)
+    evaluateFieldCondition(condition, fields) {
+        if (!condition) return true;
+
+        // Parse condition like "!tts_kokoro" or "memory_enabled"
+        const negated = condition.startsWith('!');
+        const fieldId = negated ? condition.slice(1) : condition;
+        const field = fields.find(f => f.id === fieldId);
+
+        if (!field) {
+            console.warn(`[Settings] Field condition references unknown field: ${fieldId}`);
+            return true; // Show field if referenced field not found
+        }
+
+        return negated ? !field.value : field.value;
+    },
+
     // Switch tab method
     switchTab(tabName) {
         // Update our component state

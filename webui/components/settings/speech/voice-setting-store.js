@@ -11,7 +11,13 @@ const model = {
     console.log("[Voice Selector] Initializing...");
 
     // Load selected voice from localStorage (like microphone does)
-    let saved = localStorage.getItem('ttsSelectedVoice');
+    let saved = null;
+    try {
+      saved = localStorage.getItem('ttsSelectedVoice');
+    } catch (error) {
+      console.error('[Voice Selector] localStorage unavailable:', error);
+      // Continue without saved preference
+    }
 
     // Migration: If no localStorage value, try to migrate from settings
     if (!saved) {
@@ -23,8 +29,13 @@ const model = {
           const voiceField = speechSection.fields.find(f => f.id === "tts_browser_voice");
           if (voiceField && voiceField.value) {
             saved = voiceField.value;
-            localStorage.setItem('ttsSelectedVoice', saved);
-            console.log(`[Voice Selector] Migrated voice from settings to localStorage: "${saved}"`);
+            try {
+              localStorage.setItem('ttsSelectedVoice', saved);
+              console.log(`[Voice Selector] Migrated voice from settings to localStorage: "${saved}"`);
+            } catch (storageError) {
+              console.error('[Voice Selector] Failed to save migrated voice to localStorage:', storageError);
+              // Use the value but don't persist it
+            }
           }
         }
       } catch (error) {
@@ -212,12 +223,32 @@ const model = {
 
   async onSelectVoice() {
     // Save to localStorage (like microphone does)
-    console.log(`[Voice Selector] Saved voice to localStorage: ${this.selectedVoice}`);
-    localStorage.setItem('ttsSelectedVoice', this.selectedVoice);
+    try {
+      localStorage.setItem('ttsSelectedVoice', this.selectedVoice);
+      console.log(`[Voice Selector] Saved voice to localStorage: ${this.selectedVoice}`);
+    } catch (error) {
+      console.error('[Voice Selector] Failed to save voice preference:', error);
+      // Optionally notify user
+      if (window.toastFetchError) {
+        window.toastFetchError('Could not save voice preference (storage unavailable)', error);
+      }
+    }
   },
 
   getSelectedVoice() {
-    return this.voices.find(v => v.name === this.selectedVoice);
+    // Guard against uninitialized state
+    if (!this.voices || this.voices.length === 0) {
+      console.warn('[Voice Selector] Voices not loaded yet, using browser default');
+      return null;
+    }
+
+    const voice = this.voices.find(v => v.name === this.selectedVoice);
+
+    if (!voice && this.selectedVoice) {
+      console.warn(`[Voice Selector] Saved voice "${this.selectedVoice}" not found, using browser default`);
+    }
+
+    return voice || null;
   }
 };
 
