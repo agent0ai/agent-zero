@@ -283,6 +283,30 @@ const settingsModalProxy = {
             openModal("settings/external/api-examples.html");
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
+        } else if (field.id === "oauth_login_button") {
+            // Handle Google OAuth login/logout
+            if (field.action === "oauth_login") {
+                try {
+                    const response = await sendJsonData("/oauth_auth_url", {});
+                    if (response.auth_url) {
+                        // Open Google OAuth in new window
+                        window.open(response.auth_url, '_blank', 'width=500,height=600');
+                    } else if (response.error) {
+                        showToast("OAuth error: " + response.error, "error");
+                    }
+                } catch (e) {
+                    showToast("Failed to start OAuth: " + e.message, "error");
+                }
+            } else if (field.action === "oauth_logout") {
+                try {
+                    await sendJsonData("/oauth_logout", {});
+                    showToast("Logged out from Google", "success");
+                    // Refresh settings to update button state
+                    await settingsModalProxy.openModal();
+                } catch (e) {
+                    showToast("Failed to logout: " + e.message, "error");
+                }
+            }
         }
     }
 };

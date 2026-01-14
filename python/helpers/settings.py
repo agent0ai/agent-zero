@@ -591,6 +591,37 @@ def convert_out(settings: Settings) -> SettingsOutput:
             api_keys_fields.append(
                 _get_api_key_field(settings, pid_lower, provider["label"])
             )
+    
+    # Add Google OAuth credentials for Antigravity provider
+    api_keys_fields.append(
+        _get_api_key_field(settings, "google_client_id", "Google OAuth Client ID")
+    )
+    api_keys_fields.append(
+        _get_api_key_field(settings, "google_client_secret", "Google OAuth Client Secret")
+    )
+    
+    # Add Google OAuth Login button
+    try:
+        from python.helpers import antigravity
+        auth_status = antigravity.get_auth_status()
+        if auth_status.get("is_authenticated"):
+            oauth_button_title = f"✅ Logged in as {auth_status.get('email', 'Unknown')}"
+            oauth_button_action = "oauth_logout"
+        else:
+            oauth_button_title = "🔐 Login with Google"
+            oauth_button_action = "oauth_login"
+    except:
+        oauth_button_title = "🔐 Login with Google"
+        oauth_button_action = "oauth_login"
+    
+    api_keys_fields.append({
+        "id": "oauth_login_button",
+        "title": "Google OAuth Authentication",
+        "description": "Login with Google to use your subscription for Gemini and Claude models without API keys.",
+        "type": "button",
+        "value": oauth_button_title,
+        "action": oauth_button_action,
+    })
 
     api_keys_section: SettingsSection = {
         "id": "api_keys",
@@ -1433,7 +1464,10 @@ def _remove_sensitive_settings(settings: Settings):
 
 def _write_sensitive_settings(settings: Settings):
     for key, val in settings["api_keys"].items():
-        dotenv.save_dotenv_value(key.upper(), val)
+        # Strip "api_key_" prefix if present before uppercasing
+        # This ensures google_client_id -> GOOGLE_CLIENT_ID (not API_KEY_GOOGLE_CLIENT_ID)
+        env_key = key.replace("api_key_", "", 1).upper() if key.startswith("api_key_") else key.upper()
+        dotenv.save_dotenv_value(env_key, val)
 
     dotenv.save_dotenv_value(dotenv.KEY_AUTH_LOGIN, settings["auth_login"])
     if settings["auth_password"]:
