@@ -13,7 +13,19 @@ const model = {
     // Load selected voice from localStorage (like microphone does)
     let saved = null;
     try {
-      saved = localStorage.getItem('ttsSelectedVoice');
+      // Try new key first
+      saved = localStorage.getItem('voiceSelectedVoice');
+
+      // Migrate from old key if present
+      if (!saved) {
+        const oldSaved = localStorage.getItem('ttsSelectedVoice');
+        if (oldSaved) {
+          localStorage.setItem('voiceSelectedVoice', oldSaved);
+          localStorage.removeItem('ttsSelectedVoice');
+          saved = oldSaved;
+          console.log('[Voice Selector] Migrated from old localStorage key (ttsSelectedVoice → voiceSelectedVoice)');
+        }
+      }
     } catch (error) {
       console.error('[Voice Selector] localStorage unavailable:', error);
       // Continue without saved preference
@@ -30,7 +42,7 @@ const model = {
           if (voiceField && voiceField.value) {
             saved = voiceField.value;
             try {
-              localStorage.setItem('ttsSelectedVoice', saved);
+              localStorage.setItem('voiceSelectedVoice', saved);
               console.log(`[Voice Selector] Migrated voice from settings to localStorage: "${saved}"`);
             } catch (storageError) {
               console.error('[Voice Selector] Failed to save migrated voice to localStorage:', storageError);
@@ -40,6 +52,11 @@ const model = {
         }
       } catch (error) {
         console.error("[Voice Selector] Failed to migrate voice from settings:", error);
+
+        // Notify user (non-blocking)
+        if (window.toastFetchError) {
+          window.toastFetchError('Could not load voice preferences. Using defaults.', error);
+        }
       }
     }
 
@@ -224,7 +241,7 @@ const model = {
   async onSelectVoice() {
     // Save to localStorage (like microphone does)
     try {
-      localStorage.setItem('ttsSelectedVoice', this.selectedVoice);
+      localStorage.setItem('voiceSelectedVoice', this.selectedVoice);
       console.log(`[Voice Selector] Saved voice to localStorage: ${this.selectedVoice}`);
     } catch (error) {
       console.error('[Voice Selector] Failed to save voice preference:', error);
