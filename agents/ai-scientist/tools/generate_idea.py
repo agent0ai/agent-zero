@@ -51,9 +51,6 @@ class GenerateIdea(Tool):
         # Initialize ideas storage in CONTEXT data (not agent.data)
         if "research_ideas" not in self.agent.context.data:
             self.agent.context.data["research_ideas"] = {}
-            print(f"[DEBUG] Initialized research_ideas storage in context.data")
-
-        print(f"[DEBUG] Starting idea generation, current ideas count: {len(self.agent.context.data['research_ideas'])}")
 
         ideas = []
         for i in range(num_ideas):
@@ -65,9 +62,7 @@ class GenerateIdea(Tool):
             )
 
             try:
-                print(f"[DEBUG] Generating idea {i + 1}/{num_ideas}")
                 idea = await self._generate_single_idea(topic, num_reflections, i)
-                print(f"[DEBUG] Idea generation returned: {idea is not None}")
 
                 if idea and "Name" in idea and "Title" in idea:
                     # Validate novelty
@@ -77,8 +72,6 @@ class GenerateIdea(Tool):
                     # Store idea in CONTEXT data (not agent.data)
                     idea_name = idea["Name"]
                     self.agent.context.data["research_ideas"][idea_name] = idea
-                    print(f"[DEBUG] Stored idea '{idea_name}' in context.data, total now: {len(self.agent.context.data['research_ideas'])}")
-                    print(f"[DEBUG] Context ID: {self.agent.context.id}")
                     ideas.append(idea)
 
                     self.agent.context.log.log(
@@ -88,19 +81,13 @@ class GenerateIdea(Tool):
                         kvps={"novelty_score": novelty_score},
                     )
                 elif idea:
-                    print(f"[DEBUG] Idea returned but missing required fields: {idea.keys()}")
                     self.agent.context.log.log(
                         type="warning",
                         heading=f"Idea {i + 1} invalid",
                         content="Generated idea missing required fields (Name or Title)",
                     )
-                else:
-                    print(f"[DEBUG] Idea generation returned None")
 
             except Exception as e:
-                print(f"[DEBUG] Exception during idea generation: {type(e).__name__}: {e}")
-                import traceback
-                print(f"[DEBUG] Traceback: {traceback.format_exc()}")
                 self.agent.context.log.log(
                     type="warning",
                     heading=f"Idea {i + 1} failed",
@@ -134,7 +121,6 @@ class GenerateIdea(Tool):
         idea = self._parse_idea_json(response)
 
         if not idea:
-            print(f"[DEBUG] Failed to parse idea from response")
             self.agent.context.log.log(
                 type="warning",
                 heading=f"Idea {idea_num + 1} parsing failed",
@@ -213,34 +199,27 @@ class GenerateIdea(Tool):
 
     def _parse_idea_json(self, response: str) -> dict | None:
         """Parse JSON from model response."""
-        print(f"[DEBUG] Model response length: {len(response)}, first 500 chars: {response[:500]}")
-
         # Try to extract JSON from response
         try:
             # Look for JSON block
             json_match = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
             if json_match:
-                print(f"[DEBUG] Found JSON in code block")
                 parsed = json.loads(json_match.group(1))
             else:
                 # Try direct parse
-                print(f"[DEBUG] Trying direct JSON parse")
                 parsed = json.loads(response)
 
             # Handle wrapper structure (from refinement)
             if "Current Idea" in parsed:
-                print(f"[DEBUG] Extracting from 'Current Idea' wrapper")
                 parsed = parsed["Current Idea"]
 
             # Validate it has required fields
             if "Name" in parsed and "Title" in parsed:
                 return parsed
             else:
-                print(f"[DEBUG] Parsed JSON missing required fields (Name, Title)")
                 return None
 
-        except json.JSONDecodeError as e:
-            print(f"[DEBUG] JSON decode error: {e}")
+        except json.JSONDecodeError:
             # Try to find JSON object in response
             try:
                 start = response.find("{")

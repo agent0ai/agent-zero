@@ -12,22 +12,16 @@ class GetIdeas(ApiHandler):
         if ctxid:
             try:
                 context = self.use_context(ctxid, create_if_not_exists=False)
-            except Exception as e:
-                print(f"[DEBUG] Failed to get context {ctxid}: {e}")
+            except Exception:
                 return {"ideas": []}
         else:
             context = AgentContext.current()
 
         if not context:
-            print(f"[DEBUG] No context found for {ctxid}")
             return {"ideas": []}
-
-        # Debug: Check what's in context.data
-        print(f"[DEBUG] Context {context.id}, data keys: {list(context.data.keys())}")
 
         # Retrieve research ideas from context data
         ideas = context.get_data("research_ideas") or {}
-        print(f"[DEBUG] Retrieved ideas type: {type(ideas)}, count: {len(ideas) if isinstance(ideas, dict) else 'N/A'}")
 
         return {"ideas": list(ideas.values())}
 
