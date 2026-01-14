@@ -1,13 +1,36 @@
 import { createStore } from "/js/AlpineStore.js";
 
+/**
+ * Voice selector store for managing TTS voice selection
+ * @typedef {Object} VoiceSettingStore
+ * @property {Array<SpeechSynthesisVoice>} voices - All available browser voices
+ * @property {Array<{code: string, name: string, count: number}>} languages - Unique languages with voice counts
+ * @property {string} selectedLanguage - Currently selected language code (e.g., "en-US")
+ * @property {string} selectedVoice - Currently selected voice name
+ * @property {Array<SpeechSynthesisVoice>} filteredVoices - Voices filtered by selected language
+ * @property {boolean} isLoading - Whether voices are still loading from browser API
+ * @property {boolean} hasError - Whether an error occurred during initialization
+ * @property {Function} init - Initialize the store, load voices, restore saved preference
+ * @property {Function} loadVoices - Load available voices from browser SpeechSynthesis API
+ * @property {Function} getLanguageName - Parse language code to human-readable name
+ * @property {Function} onSelectLanguage - Handle language selection change
+ * @property {Function} filterVoicesByLanguage - Filter voices by currently selected language
+ * @property {Function} onSelectVoice - Handle voice selection change, save to localStorage
+ * @property {Function} getSelectedVoice - Get the SpeechSynthesisVoice object for selected voice
+ */
+
 const model = {
   voices: [],
   languages: [],
   selectedLanguage: "",
   selectedVoice: "",
   filteredVoices: [],
+  isLoading: true,
+  hasError: false,
 
   async init() {
+    this.isLoading = true;
+    this.hasError = false;
     console.log("[Voice Selector] Initializing...");
 
     // Load selected voice from localStorage (like microphone does)
@@ -88,6 +111,7 @@ const model = {
       console.log(`[Voice Selector] No saved voice, defaulting to ${this.selectedLanguage}`);
     }
 
+    this.isLoading = false;
     console.log("[Voice Selector] Initialization complete");
   },
 

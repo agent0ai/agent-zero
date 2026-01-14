@@ -16,23 +16,36 @@
     <div x-data>
         <template x-if="$store.voiceSetting">
             <div>
-                <select x-model="$store.voiceSetting.selectedLanguage"
-                    @change="$store.voiceSetting.onSelectLanguage()"
-                    x-show="$store.voiceSetting.languages.length > 0">
-                    <template x-for="lang in $store.voiceSetting.languages" :key="lang.code">
-                        <option :value="lang.code"
-                            x-text="`${lang.name} (${lang.count} voice${lang.count > 1 ? 's' : ''})`"
-                            :selected="lang.code === $store.voiceSetting.selectedLanguage"></option>
-                    </template>
-                </select>
-                <select x-model="$store.voiceSetting.selectedVoice"
-                    @change="$store.voiceSetting.onSelectVoice()"
-                    x-show="$store.voiceSetting.filteredVoices.length > 0">
-                    <template x-for="voice in $store.voiceSetting.filteredVoices" :key="voice.name">
-                        <option :value="voice.name" x-text="voice.name"
-                            :selected="voice.name === $store.voiceSetting.selectedVoice"></option>
-                    </template>
-                </select>
+                <!-- Loading state -->
+                <div x-show="$store.voiceSetting.isLoading">
+                    <span>Loading voices...</span>
+                </div>
+
+                <!-- No voices available state -->
+                <div x-show="!$store.voiceSetting.isLoading && $store.voiceSetting.voices.length === 0">
+                    <span>No voices available in your browser</span>
+                </div>
+
+                <!-- Voice selectors (shown when loaded and voices available) -->
+                <div x-show="!$store.voiceSetting.isLoading && $store.voiceSetting.voices.length > 0">
+                    <select x-model="$store.voiceSetting.selectedLanguage"
+                        @change="$store.voiceSetting.onSelectLanguage()"
+                        x-show="$store.voiceSetting.languages.length > 0">
+                        <template x-for="lang in $store.voiceSetting.languages" :key="lang.code">
+                            <option :value="lang.code"
+                                x-text="`${lang.name} (${lang.count} voice${lang.count > 1 ? 's' : ''})`"
+                                :selected="lang.code === $store.voiceSetting.selectedLanguage"></option>
+                        </template>
+                    </select>
+                    <select x-model="$store.voiceSetting.selectedVoice"
+                        @change="$store.voiceSetting.onSelectVoice()"
+                        x-show="$store.voiceSetting.filteredVoices.length > 0">
+                        <template x-for="voice in $store.voiceSetting.filteredVoices" :key="voice.name">
+                            <option :value="voice.name" x-text="voice.name"
+                                :selected="voice.name === $store.voiceSetting.selectedVoice"></option>
+                        </template>
+                    </select>
+                </div>
             </div>
         </template>
     </div>

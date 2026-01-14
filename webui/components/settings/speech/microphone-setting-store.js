@@ -1,5 +1,22 @@
 import { createStore } from "/js/AlpineStore.js";
 
+/**
+ * Microphone selector store for managing audio input device selection
+ * @typedef {Object} MicrophoneSettingStore
+ * @property {Array<MediaDeviceInfo>} devices - All available audio input devices
+ * @property {string} selectedDevice - Currently selected device ID
+ * @property {boolean} requestingPermission - Whether microphone permission is being requested
+ * @property {?number} permissionTimer - Timer for polling device availability
+ * @property {number} permissionAttempts - Number of device polling attempts
+ * @property {Function} init - Initialize the store, load saved device preference
+ * @property {Function} loadDevices - Load available audio input devices from browser
+ * @property {Function} requestPermission - Request microphone permission from user
+ * @property {Function} pollForDevices - Poll for devices until found or timeout
+ * @property {Function} selectDevice - Select a device by ID
+ * @property {Function} onSelectDevice - Handle device selection change, save to localStorage
+ * @property {Function} getSelectedDevice - Get the MediaDeviceInfo object for selected device
+ */
+
 const model = {
 
 
