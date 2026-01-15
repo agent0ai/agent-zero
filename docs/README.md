@@ -4,6 +4,8 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
 
 - **[Installation](installation.md):** Set up (or [update](installation.md#how-to-update-agent-zero)) Agent Zero on your system.
 - **[Usage Guide](usage.md):** Explore GUI features and usage scenarios.
+- **[Diagram Generation](diagrams.md):** Create visual diagrams using Mermaid, Excalidraw, and Draw.io.
+- **[Business X-Ray](business_xray.md):** Comprehensive business intelligence and life optimization system.
 - **[Development](development.md):** Set up a development environment for Agent Zero.
 - **[Extensibility](extensibility.md):** Learn how to create custom extensions for Agent Zero.
 - **[Connectivity](connectivity.md):** Learn how to connect to Agent Zero from other applications.
@@ -44,6 +46,19 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
   - [Mathematical Expressions](usage.md#mathematical-expressions)
   - [File Browser](usage.md#file-browser)
   - [Backup & Restore](usage.md#backup--restore)
+- [Diagram Generation](diagrams.md)
+  - [Overview](diagrams.md#overview)
+  - [Quick Start](diagrams.md#quick-start)
+  - [Mermaid Diagrams](diagrams.md#mermaid-diagram-types)
+  - [Advanced Examples](diagrams.md#advanced-examples)
+  - [Command Reference](diagrams.md#command-reference)
+- [Business X-Ray](business_xray.md)
+  - [Overview](business_xray.md#overview)
+  - [Quick Start](business_xray.md#quick-start)
+  - [Analysis Modules](business_xray.md#analysis-modules)
+  - [Use Cases](business_xray.md#use-cases)
+  - [Workflows](business_xray.md#workflows)
+  - [Scoring Reference](business_xray.md#scoring-reference)
 - [Architecture Overview](architecture.md)
   - [System Architecture](architecture.md#system-architecture)
   - [Runtime Architecture](architecture.md#runtime-architecture)

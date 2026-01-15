@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2024-01-15T00:00:00.000Z" agent="Draw.io" version="22.1.0">
+  <diagram id="ralph-loop" name="Ralph Loop - Autonomous Iterative Task Execution">
+    <mxGraphModel dx="1434" dy="780" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Ralph Loop - Autonomous Iterative Task Execution" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="250" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Concept Overview -->
+        <mxCell id="concept-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="1020" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="concept" value="The Ralph Loop (based on 'Ralph Wiggum Technique') enables autonomous, iterative task execution. Unlike single-shot prompts, Ralph loops continue executing until a completion condition is met or max iterations reached. Progress persists in files and git history, not just LLM context. Named after 'picking your nose until it bleeds' - continuous action until goal achieved." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="50" y="75" width="1000" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Architecture Components -->
+        <mxCell id="arch-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="170" width="500" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="arch-label" value="Core Components" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="175" width="150" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ralph-tool" value="ralph_loop.py (Tool)&#xa;──────────────────&#xa;12 Actions:&#xa;• start_loop&#xa;• get_status&#xa;• cancel_loop&#xa;• pause/resume&#xa;• start_task_loop&#xa;• link_to_workflow&#xa;• set_completion_promise&#xa;• set_max_iterations&#xa;• get_stats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="60" y="205" width="150" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="ralph-manager" value="RalphLoopManager&#xa;──────────────────&#xa;Core Logic:&#xa;• start_loop()&#xa;• check_completion()&#xa;• increment_iteration()&#xa;• complete_loop()&#xa;• cancel_loop()&#xa;• get_active_loop()&#xa;• get_stats()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="230" y="205" width="150" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="ralph-db" value="RalphLoopDatabase&#xa;──────────────────&#xa;SQLite Persistence:&#xa;• ralph_loops table&#xa;• ralph_iterations table&#xa;• Loop state tracking&#xa;• Iteration history" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="400" y="205" width="130" height="155" as="geometry" />
+        </mxCell>
+
+        <!-- Database Schema -->
+        <mxCell id="db-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="560" y="170" width="500" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="db-label" value="Database Schema" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="570" y="175" width="150" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="loops-table" value="ralph_loops&#xa;─────────────────&#xa;• loop_id (PK)&#xa;• name&#xa;• prompt (text)&#xa;• completion_promise&#xa;• max_iterations&#xa;• current_iteration&#xa;• status&#xa;• agent_id&#xa;• workflow_execution_id (FK)&#xa;• task_id&#xa;• started_at&#xa;• completed_at" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="580" y="205" width="160" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="iterations-table" value="ralph_iterations&#xa;─────────────────&#xa;• iteration_id (PK)&#xa;• loop_id (FK)&#xa;• iteration_number&#xa;• started_at&#xa;• completed_at&#xa;• output_summary&#xa;• files_modified (JSON)&#xa;• git_commit_sha&#xa;• success (bool)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="760" y="205" width="150" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="status-enum" value="Status Values:&#xa;• active&#xa;• completed&#xa;• cancelled&#xa;• paused&#xa;• max_iterations&#xa;• failed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="930" y="205" width="120" height="105" as="geometry" />
+        </mxCell>
+
+        <!-- Extension Hook -->
+        <mxCell id="ext-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="390" width="500" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-label" value="Extension Hook (python/extensions/message_loop_end/)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="395" width="400" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ralph-ext" value="_85_ralph_loop_check.py&#xa;─────────────────────────────────────────────────────&#xa;• Fires at END of each message loop iteration&#xa;• Checks for active Ralph loop for current agent&#xa;• If completion_promise found in response → complete loop&#xa;• If max_iterations reached → end with status 'max_iterations'&#xa;• Otherwise: increment iteration, re-inject prompt, continue loop" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="60" y="420" width="460" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- API Endpoints -->
+        <mxCell id="api-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="560" y="390" width="500" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="api-label" value="API Endpoints" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="570" y="395" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dashboard-api" value="/ralph_loop_dashboard&#xa;────────────────────&#xa;Returns:&#xa;• stats (total, active, etc)&#xa;• active_loops array&#xa;• recent_loops array" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="580" y="420" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="control-api" value="/ralph_loop_control&#xa;────────────────────&#xa;Actions:&#xa;• pause, resume, cancel&#xa;• get_details, get_history" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="760" y="420" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Loop Flow Diagram -->
+        <mxCell id="flow-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="510" width="1020" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="flow-label" value="Ralph Loop Execution Flow" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="515" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Flow Steps -->
+        <mxCell id="start" value="START&#xa;ralph_loop(&#xa;action='start_loop',&#xa;prompt='...',&#xa;completion_promise='DONE'&#xa;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745" vertex="1" parent="1">
+          <mxGeometry x="60" y="550" width="140" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="create-loop" value="Create Loop&#xa;Record&#xa;(loop_id=1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088" vertex="1" parent="1">
+          <mxGeometry x="240" y="560" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="iteration-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;opacity=70" vertex="1" parent="1">
+          <mxGeometry x="380" y="545" width="350" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="iteration-label" value="ITERATION LOOP (while active)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="450" y="550" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="exec-prompt" value="1. Execute&#xa;prompt with&#xa;agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="395" y="580" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="track-files" value="2. Track&#xa;modified&#xa;files" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="490" y="580" width="70" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="check-done" value="3. Check for&#xa;completion&#xa;promise" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="575" y="570" width="90" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="increment" value="4. Increment&#xa;iteration++&#xa;continue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="535" y="650" width="80" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="max-check" value="Max&#xa;iterations?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+          <mxGeometry x="770" y="555" width="80" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="complete" value="COMPLETE&#xa;status='completed'&#xa;Record final stats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745" vertex="1" parent="1">
+          <mxGeometry x="890" y="555" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="max-end" value="END&#xa;status='max_iterations'" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+          <mxGeometry x="890" y="640" width="130" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Flow Arrows -->
+        <mxCell id="f1" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="start" target="create-loop">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="create-loop" target="exec-prompt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="exec-prompt" target="track-files">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="track-files" target="check-done">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f5" value="No" style="endArrow=classic;html=1;rounded=0;strokeColor=#cc0000" edge="1" parent="1" source="check-done" target="increment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f5b" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#cc0000;curved=1" edge="1" parent="1" source="increment" target="exec-prompt">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f6" value="Yes" style="endArrow=classic;html=1;rounded=0;strokeColor=#28a745" edge="1" parent="1" source="check-done" target="max-check">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f7" value="No" style="endArrow=classic;html=1;rounded=0;strokeColor=#28a745" edge="1" parent="1" source="max-check" target="complete">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f8" value="Yes" style="endArrow=classic;html=1;rounded=0;strokeColor=#cc0000" edge="1" parent="1" source="max-check" target="max-end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Example Usage -->
+        <mxCell id="example-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+          <mxGeometry x="60" y="695" width="500" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="example-label" value="Example Usage:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="70" y="700" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="example-code" value="{{ralph_loop(&#xa;  action=&quot;start_loop&quot;,&#xa;  name=&quot;Implement User Auth&quot;,&#xa;  prompt=&quot;Implement JWT auth with tests. Output &lt;promise&gt;ALL_TESTS_PASSING&lt;/promise&gt; when done.&quot;,&#xa;  completion_promise=&quot;ALL_TESTS_PASSING&quot;,&#xa;  max_iterations=50&#xa;)}}" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontFamily=Courier New" vertex="1" parent="1">
+          <mxGeometry x="70" y="720" width="480" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Workflow Integration -->
+        <mxCell id="workflow-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366" vertex="1" parent="1">
+          <mxGeometry x="580" y="695" width="470" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="workflow-label" value="Workflow Engine Integration:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="590" y="700" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="workflow-text" value="Ralph loops can be linked to workflow executions and tasks:&#xa;• workflow_execution_id: Links to parent workflow run&#xa;• task_id: Links to specific workflow task&#xa;• Progress shows in Workflow Dashboard&#xa;• Used for automated iteration in POC/Implementation stages" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="590" y="720" width="450" height="60" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

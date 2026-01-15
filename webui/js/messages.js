@@ -218,6 +218,9 @@ export function _drawMessage(
         });
       }
 
+      // Mermaid diagram rendering
+      renderMermaidDiagrams(spanElement);
+
       // Ensure action buttons exist
       addActionButtonsToElement(bodyDiv);
       adjustMarkdownRender(contentDiv);
@@ -988,6 +991,53 @@ function adjustMarkdownRender(element) {
     el.parentNode.insertBefore(wrapper, el);
     wrapper.appendChild(el);
   });
+}
+
+async function renderMermaidDiagrams(element) {
+  if (!window.mermaid) return;
+  
+  // Find all code blocks with language 'mermaid'
+  const mermaidBlocks = element.querySelectorAll('pre code.language-mermaid');
+  
+  for (let i = 0; i < mermaidBlocks.length; i++) {
+    const codeBlock = mermaidBlocks[i];
+    const preElement = codeBlock.parentElement;
+    
+    // Get the mermaid syntax
+    const mermaidCode = codeBlock.textContent;
+    
+    // Create a container for the rendered diagram
+    const diagramDiv = document.createElement('div');
+    diagramDiv.className = 'mermaid-diagram';
+    diagramDiv.style.textAlign = 'center';
+    diagramDiv.style.margin = '1rem 0';
+    diagramDiv.style.padding = '1rem';
+    diagramDiv.style.backgroundColor = '#f8f9fa';
+    diagramDiv.style.borderRadius = '8px';
+    diagramDiv.style.overflow = 'auto';
+    
+    try {
+      // Generate unique ID for this diagram
+      const id = `mermaid-${Date.now()}-${i}`;
+      
+      // Render the diagram
+      const { svg } = await window.mermaid.render(id, mermaidCode);
+      diagramDiv.innerHTML = svg;
+      
+      // Replace the code block with the rendered diagram
+      preElement.replaceWith(diagramDiv);
+    } catch (error) {
+      console.error('Mermaid rendering error:', error);
+      // On error, show the error message but keep the code block
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'mermaid-error';
+      errorDiv.style.color = '#dc3545';
+      errorDiv.style.padding = '0.5rem';
+      errorDiv.style.marginBottom = '0.5rem';
+      errorDiv.textContent = `Mermaid diagram error: ${error.message}`;
+      preElement.parentNode.insertBefore(errorDiv, preElement);
+    }
+  }
 }
 
 class Scroller {

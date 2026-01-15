@@ -27,9 +27,10 @@ class GetCsrfToken(ApiHandler):
         # check for allowed origin to prevent dns rebinding attacks
         origin_check = await self.check_allowed_origin(request)
         if not origin_check["ok"]:
+            allowed_origins_str = ", ".join(origin_check['allowed_origins'])
             return {
                 "ok": False,
-                "error": f"Origin {self.get_origin_from_request(request)} not allowed when login is disabled. Set login and password or add your URL to ALLOWED_ORIGINS env variable. Currently allowed origins: {",".join(origin_check['allowed_origins'])}",
+                "error": f"Origin {self.get_origin_from_request(request)} not allowed when login is disabled. Set login and password or add your URL to ALLOWED_ORIGINS env variable. Currently allowed origins: {allowed_origins_str}",
             }
 
         # generate a csrf token if it doesn't exist

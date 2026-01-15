@@ -29,6 +29,11 @@
                             stroke-width="3" x-bind:opacity="$store.chatTop.connected ? 0 : 1" />
                     </svg>
                 </div>
+                <div class="cowork-status" x-show="$store.chatTop.coworkEnabled">
+                    Cowork
+                    <span class="cowork-meta" x-text="'Folders: ' + $store.chatTop.coworkAllowedCount"></span>
+                    <span class="cowork-meta" x-text="'Pending: ' + $store.chatTop.coworkPending"></span>
+                </div>
                 <!-- Notification Toggle positioned next to time-date -->
                 <x-component path="notifications/notification-icons.html"></x-component>
                 <!-- Project Selector -->

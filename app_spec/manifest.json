@@ -1,0 +1,35 @@
+{
+  "$schema": "app_spec/manifest.schema.json",
+  "specs": [
+    "overview.json",
+    "use_cases.json",
+    "user_stories.json",
+    "components.json",
+    "apis.json",
+    "data_models.json",
+    "permissions.json",
+    "ui_routes.json",
+    "operations.json",
+    "feature_map.json",
+    "acceptance_tests.json",
+    "eval_cases.json",
+    "eval_cases_extended.json"
+  ],
+  "schemas": [
+    "app_spec.schema.json",
+    "overview.schema.json",
+    "use_cases.schema.json",
+    "user_stories.schema.json",
+    "components.schema.json",
+    "apis.schema.json",
+    "data_models.schema.json",
+    "permissions.schema.json",
+    "ui_routes.schema.json",
+    "operations.schema.json",
+    "feature_map.schema.json",
+    "acceptance_tests.schema.json",
+    "manifest.schema.json",
+    "eval_cases.schema.json",
+    "eval_cases_extended.schema.json"
+  ]
+}

@@ -15,6 +15,14 @@ from python.helpers.secrets import get_default_secrets_manager
 from python.helpers import dirty_json
 
 
+class GmailAccountInfo(TypedDict):
+    """Gmail account metadata stored in settings"""
+    email: str
+    authenticated: bool
+    scopes: list[str]
+    added_date: str  # ISO format datetime
+
+
 class Settings(TypedDict):
     version: str
 
@@ -74,6 +82,11 @@ class Settings(TypedDict):
     memory_memorize_enabled: bool
     memory_memorize_consolidation: bool
     memory_memorize_replace_threshold: float
+    prompt_enhance_enabled: bool
+    prompt_enhance_max_chars: int
+
+    llm_router_enabled: bool
+    llm_router_auto_configure: bool
 
     api_keys: dict[str, str]
 
@@ -112,6 +125,26 @@ class Settings(TypedDict):
     litellm_global_kwargs: dict[str, Any]
 
     update_check_enabled: bool
+
+    # Gmail API accounts - dict mapping account_name -> GmailAccountInfo
+    gmail_accounts: dict[str, GmailAccountInfo]
+
+    cowork_enabled: bool
+    cowork_require_approvals: bool
+    cowork_allowed_paths: list[str]
+    cowork_impactful_tools: str
+
+    telemetry_enabled: bool
+    telemetry_max_events: int
+
+    observability_provider: str
+    observability_auto_store: bool
+    langsmith_api_key: str
+    langsmith_project: str
+    langsmith_endpoint: str
+    langfuse_public_key: str
+    langfuse_secret_key: str
+    langfuse_host: str
 
 class PartialSettings(Settings, total=False):
     pass
@@ -662,6 +695,57 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "agent",
     }
 
+    cowork_fields: list[SettingsField] = []
+
+    cowork_fields.append(
+        {
+            "id": "cowork_enabled",
+            "title": "Enable Cowork mode",
+            "description": "Enable folder scoping and approval checks for agent actions.",
+            "type": "switch",
+            "value": settings["cowork_enabled"],
+        }
+    )
+
+    cowork_fields.append(
+        {
+            "id": "cowork_require_approvals",
+            "title": "Require approvals for impactful actions",
+            "description": "Prompt for approval before actions like shell execution, email, or other impactful tools.",
+            "type": "switch",
+            "value": settings["cowork_require_approvals"],
+        }
+    )
+
+    cowork_fields.append(
+        {
+            "id": "cowork_impactful_tools",
+            "title": "Impactful tools list",
+            "description": "Comma or newline separated tool names that always require approval.",
+            "type": "textarea",
+            "value": settings["cowork_impactful_tools"],
+            "style": "height: 8em",
+        }
+    )
+
+    cowork_fields.append(
+        {
+            "id": "cowork_manage",
+            "title": "Cowork folders & approvals",
+            "description": "Manage folder allowlist and review approvals per thread.",
+            "type": "button",
+            "value": "Open Cowork Manager",
+        }
+    )
+
+    cowork_section: SettingsSection = {
+        "id": "cowork",
+        "title": "Cowork Mode",
+        "description": "Folder scoping and approval workflow for agent actions.",
+        "fields": cowork_fields,
+        "tab": "agent",
+    }
+
     memory_fields: list[SettingsField] = []
 
     memory_fields.append(
@@ -842,6 +926,88 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "title": "Memory",
         "description": "Configuration of A0's memory system. A0 memorizes and recalls memories automatically to help it's context awareness.",
         "fields": memory_fields,
+        "tab": "agent",
+    }
+
+    prompt_enhance_fields: list[SettingsField] = []
+    prompt_enhance_fields.append(
+        {
+            "id": "prompt_enhance_enabled",
+            "title": "Prompt enhancement enabled",
+            "description": "Use the utility model to rewrite user requests into clearer instructions.",
+            "type": "switch",
+            "value": settings["prompt_enhance_enabled"],
+        }
+    )
+    prompt_enhance_fields.append(
+        {
+            "id": "prompt_enhance_max_chars",
+            "title": "Prompt enhancement max chars",
+            "description": "Maximum characters from the user message sent for enhancement. 0 disables trimming.",
+            "type": "number",
+            "value": settings["prompt_enhance_max_chars"],
+        }
+    )
+    prompt_enhance_fields.append(
+        {
+            "id": "prompt_enhance_view",
+            "title": "Prompt enhancement audit",
+            "description": "View the latest enhanced prompt details.",
+            "type": "button",
+            "value": "View Details",
+        }
+    )
+    prompt_enhance_section: SettingsSection = {
+        "id": "prompt_enhancement",
+        "title": "Prompt Enhancement",
+        "description": "Improve prompt clarity before the main model responds.",
+        "fields": prompt_enhance_fields,
+        "tab": "agent",
+    }
+
+    # LLM Router settings section
+    llm_router_fields: list[SettingsField] = []
+    llm_router_fields.append(
+        {
+            "id": "llm_router_enabled",
+            "title": "LLM Router enabled",
+            "description": "Enable intelligent model routing for optimal model selection based on task type and priority.",
+            "type": "switch",
+            "value": settings["llm_router_enabled"],
+        }
+    )
+    llm_router_fields.append(
+        {
+            "id": "llm_router_auto_configure",
+            "title": "Auto-configure models",
+            "description": "Automatically discover and configure available models from all providers on startup.",
+            "type": "switch",
+            "value": settings["llm_router_auto_configure"],
+        }
+    )
+    llm_router_fields.append(
+        {
+            "id": "llm_router_discover",
+            "title": "Discover models",
+            "description": "Scan all providers for available models and update the router registry.",
+            "type": "button",
+            "value": "Discover Now",
+        }
+    )
+    llm_router_fields.append(
+        {
+            "id": "llm_router_dashboard",
+            "title": "Router dashboard",
+            "description": "View models, defaults, and usage statistics.",
+            "type": "button",
+            "value": "Open Dashboard",
+        }
+    )
+    llm_router_section: SettingsSection = {
+        "id": "llm_router",
+        "title": "LLM Router",
+        "description": "Intelligent model routing and auto-configuration for optimal performance and cost.",
+        "fields": llm_router_fields,
         "tab": "agent",
     }
 
@@ -1197,6 +1363,76 @@ def convert_out(settings: Settings) -> SettingsOutput:
     }
 
 
+    # Gmail Accounts section
+    gmail_accounts_fields: list[SettingsField] = []
+
+    # Get current Gmail accounts status
+    gmail_accounts = settings.get("gmail_accounts", {})
+    account_count = len(gmail_accounts)
+    
+    # Build account list HTML
+    account_list_html = "<div style='padding: 10px; background: #f5f5f5; border-radius: 4px;'>"
+    account_list_html += f"<div><strong>Configured accounts: {account_count}</strong></div>"
+    
+    if account_count > 0:
+        account_list_html += "<div style='margin-top: 10px; font-size: 0.9em;'><ul style='margin: 5px 0; padding-left: 20px;'>"
+        for account_name, account_info in gmail_accounts.items():
+            email = account_info.get("email", "Unknown")
+            authenticated = account_info.get("authenticated", False)
+            status_icon = "✅" if authenticated else "❌"
+            account_list_html += f"<li><strong>{account_name}</strong>: {email} {status_icon}</li>"
+        account_list_html += "</ul></div>"
+    
+    account_list_html += "</div>"
+    
+    gmail_accounts_fields.append(
+        {
+            "id": "gmail_accounts_info",
+            "title": "Gmail Accounts",
+            "description": f"Currently configured accounts: {account_count}. Click 'Manage Accounts' to add or remove Gmail accounts.",
+            "type": "html",
+            "value": account_list_html,
+        }
+    )
+
+    gmail_accounts_fields.append(
+        {
+            "id": "gmail_manage_accounts",
+            "title": "Manage Accounts",
+            "description": "Open the Gmail account manager to add, remove, or re-authenticate accounts.",
+            "type": "button",
+            "value": "Manage Accounts",
+        }
+    )
+
+    gmail_accounts_fields.append(
+        {
+            "id": "gmail_test_utility",
+            "title": "Test & Setup Utility",
+            "description": "Guide through OAuth setup, account validation, and sending a test email.",
+            "type": "button",
+            "value": "Open Test Utility",
+        }
+    )
+
+    gmail_accounts_fields.append(
+        {
+            "id": "gmail_setup_guide",
+            "title": "Setup Guide",
+            "description": "View instructions for setting up Gmail API credentials and OAuth2 authentication.",
+            "type": "button",
+            "value": "View Setup Guide",
+        }
+    )
+
+    gmail_accounts_section: SettingsSection = {
+        "id": "gmail_accounts",
+        "title": "Gmail Accounts",
+        "description": "Manage Gmail accounts for automated email operations. Each account requires OAuth2 authentication through Google Cloud Console.",
+        "fields": gmail_accounts_fields,
+        "tab": "external",
+    }
+
     # External API section
     external_api_fields: list[SettingsField] = []
 
@@ -1274,15 +1510,157 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "backup",
     }
 
+    observability_fields: list[SettingsField] = []
+
+    observability_fields.append(
+        {
+            "id": "telemetry_enabled",
+            "title": "Enable telemetry",
+            "description": "Collect tool execution telemetry for observability and evaluation.",
+            "type": "switch",
+            "value": settings["telemetry_enabled"],
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "telemetry_max_events",
+            "title": "Max telemetry events",
+            "description": "Number of recent telemetry events stored per thread.",
+            "type": "number",
+            "value": settings["telemetry_max_events"],
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "observability_provider",
+            "title": "External observability provider",
+            "description": "Select external provider(s) to receive telemetry events.",
+            "type": "select",
+            "value": settings.get("observability_provider", "local"),
+            "options": [
+                {"value": "local", "label": "Local only"},
+                {"value": "langsmith", "label": "LangSmith"},
+                {"value": "langfuse", "label": "Langfuse"},
+                {"value": "langsmith+langfuse", "label": "LangSmith + Langfuse"},
+            ],
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "observability_auto_store",
+            "title": "Auto-store workflow runs",
+            "description": "Automatically capture workflow runs from tool activity.",
+            "type": "switch",
+            "value": settings.get("observability_auto_store", True),
+        }
+    )
+
+    langsmith_api_key = dotenv.get_dotenv_value("LANGSMITH_API_KEY", "")
+    langsmith_project = dotenv.get_dotenv_value(
+        "LANGSMITH_PROJECT", settings.get("langsmith_project", "")
+    )
+    langsmith_endpoint = dotenv.get_dotenv_value(
+        "LANGSMITH_ENDPOINT", settings.get("langsmith_endpoint", "")
+    )
+    langfuse_public_key = dotenv.get_dotenv_value("LANGFUSE_PUBLIC_KEY", "")
+    langfuse_secret_key = dotenv.get_dotenv_value("LANGFUSE_SECRET_KEY", "")
+    langfuse_host = dotenv.get_dotenv_value(
+        "LANGFUSE_HOST", settings.get("langfuse_host", "")
+    )
+
+    observability_fields.append(
+        {
+            "id": "langsmith_project",
+            "title": "LangSmith project",
+            "description": "Project name used for LangSmith traces.",
+            "type": "text",
+            "value": langsmith_project,
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "langsmith_endpoint",
+            "title": "LangSmith endpoint",
+            "description": "Custom LangSmith API endpoint (optional).",
+            "type": "text",
+            "value": langsmith_endpoint,
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "langsmith_api_key",
+            "title": "LangSmith API key",
+            "description": "API key for LangSmith.",
+            "type": "password",
+            "value": PASSWORD_PLACEHOLDER if langsmith_api_key else "",
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "langfuse_host",
+            "title": "Langfuse host",
+            "description": "Langfuse host URL.",
+            "type": "text",
+            "value": langfuse_host,
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "langfuse_public_key",
+            "title": "Langfuse public key",
+            "description": "Public key for Langfuse.",
+            "type": "password",
+            "value": PASSWORD_PLACEHOLDER if langfuse_public_key else "",
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "langfuse_secret_key",
+            "title": "Langfuse secret key",
+            "description": "Secret key for Langfuse.",
+            "type": "password",
+            "value": PASSWORD_PLACEHOLDER if langfuse_secret_key else "",
+        }
+    )
+
+    observability_fields.append(
+        {
+            "id": "observability_open",
+            "title": "Observability dashboard",
+            "description": "Inspect tool telemetry events and stats for the current thread.",
+            "type": "button",
+            "value": "Open Observability",
+        }
+    )
+
+    observability_section: SettingsSection = {
+        "id": "observability",
+        "title": "Observability",
+        "description": "Telemetry and evaluation settings.",
+        "fields": observability_fields,
+        "tab": "developer",
+    }
+
     # Add the section to the result
     result: SettingsOutput = {
         "sections": [
             agent_section,
+            cowork_section,
             chat_model_section,
             util_model_section,
             browser_model_section,
             embed_model_section,
             memory_section,
+            prompt_enhance_section,
+            llm_router_section,
             speech_section,
             api_keys_section,
             litellm_section,
@@ -1291,10 +1669,12 @@ def convert_out(settings: Settings) -> SettingsOutput:
             mcp_client_section,
             mcp_server_section,
             a2a_section,
+            gmail_accounts_section,
             external_api_section,
             update_checker_section,
             backup_section,
             dev_section,
+            observability_section,
             # code_exec_section,
         ]
     }
@@ -1429,6 +1809,9 @@ def _remove_sensitive_settings(settings: Settings):
     settings["root_password"] = ""
     settings["mcp_server_token"] = ""
     settings["secrets"] = ""
+    settings["langsmith_api_key"] = ""
+    settings["langfuse_public_key"] = ""
+    settings["langfuse_secret_key"] = ""
 
 
 def _write_sensitive_settings(settings: Settings):
@@ -1446,6 +1829,19 @@ def _write_sensitive_settings(settings: Settings):
     if settings["root_password"]:
         set_root_password(settings["root_password"])
 
+    if settings.get("langsmith_api_key") is not None:
+        dotenv.save_dotenv_value("LANGSMITH_API_KEY", settings.get("langsmith_api_key", ""))
+    if settings.get("langsmith_project") is not None:
+        dotenv.save_dotenv_value("LANGSMITH_PROJECT", settings.get("langsmith_project", ""))
+    if settings.get("langsmith_endpoint") is not None:
+        dotenv.save_dotenv_value("LANGSMITH_ENDPOINT", settings.get("langsmith_endpoint", ""))
+    if settings.get("langfuse_public_key") is not None:
+        dotenv.save_dotenv_value("LANGFUSE_PUBLIC_KEY", settings.get("langfuse_public_key", ""))
+    if settings.get("langfuse_secret_key") is not None:
+        dotenv.save_dotenv_value("LANGFUSE_SECRET_KEY", settings.get("langfuse_secret_key", ""))
+    if settings.get("langfuse_host") is not None:
+        dotenv.save_dotenv_value("LANGFUSE_HOST", settings.get("langfuse_host", ""))
+
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
     secrets_manager = get_default_secrets_manager()
     submitted_content = settings["secrets"]
@@ -1454,22 +1850,26 @@ def _write_sensitive_settings(settings: Settings):
 
 
 def get_default_settings() -> Settings:
+    import os
+    # Use Ollama URL from environment or default to localhost
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    
     return Settings(
         version=_get_version(),
-        chat_model_provider="openrouter",
-        chat_model_name="openai/gpt-4.1",
-        chat_model_api_base="",
+        chat_model_provider="ollama",
+        chat_model_name="qwen2.5-coder:3b",
+        chat_model_api_base=ollama_base_url,
         chat_model_kwargs={"temperature": "0"},
-        chat_model_ctx_length=100000,
+        chat_model_ctx_length=32768,
         chat_model_ctx_history=0.7,
-        chat_model_vision=True,
+        chat_model_vision=False,
         chat_model_rl_requests=0,
         chat_model_rl_input=0,
         chat_model_rl_output=0,
-        util_model_provider="openrouter",
-        util_model_name="openai/gpt-4.1-mini",
-        util_model_api_base="",
-        util_model_ctx_length=100000,
+        util_model_provider="ollama",
+        util_model_name="qwen2.5-coder:3b",
+        util_model_api_base=ollama_base_url,
+        util_model_ctx_length=32768,
         util_model_ctx_input=0.7,
         util_model_kwargs={"temperature": "0"},
         util_model_rl_requests=0,
@@ -1481,10 +1881,10 @@ def get_default_settings() -> Settings:
         embed_model_kwargs={},
         embed_model_rl_requests=0,
         embed_model_rl_input=0,
-        browser_model_provider="openrouter",
-        browser_model_name="openai/gpt-4.1",
-        browser_model_api_base="",
-        browser_model_vision=True,
+        browser_model_provider="ollama",
+        browser_model_name="qwen2.5-coder:3b",
+        browser_model_api_base=ollama_base_url,
+        browser_model_vision=False,
         browser_model_rl_requests=0,
         browser_model_rl_input=0,
         browser_model_rl_output=0,
@@ -1504,6 +1904,10 @@ def get_default_settings() -> Settings:
         memory_memorize_enabled=True,
         memory_memorize_consolidation=True,
         memory_memorize_replace_threshold=0.9,
+        prompt_enhance_enabled=False,
+        prompt_enhance_max_chars=4000,
+        llm_router_enabled=False,
+        llm_router_auto_configure=False,
         api_keys={},
         auth_login="",
         auth_password="",
@@ -1533,6 +1937,21 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs={},
         update_check_enabled=True,
+        gmail_accounts={},
+        cowork_enabled=False,
+        cowork_require_approvals=True,
+        cowork_allowed_paths=["/a0"],
+        cowork_impactful_tools="code_execution_tool,email,email_advanced,memory_delete,memory_forget,memory_save,scheduler,browser_agent",
+        telemetry_enabled=False,
+        telemetry_max_events=200,
+        observability_provider="local",
+        observability_auto_store=True,
+        langsmith_api_key=dotenv.get_dotenv_value("LANGSMITH_API_KEY", ""),
+        langsmith_project=dotenv.get_dotenv_value("LANGSMITH_PROJECT", ""),
+        langsmith_endpoint=dotenv.get_dotenv_value("LANGSMITH_ENDPOINT", ""),
+        langfuse_public_key=dotenv.get_dotenv_value("LANGFUSE_PUBLIC_KEY", ""),
+        langfuse_secret_key=dotenv.get_dotenv_value("LANGFUSE_SECRET_KEY", ""),
+        langfuse_host=dotenv.get_dotenv_value("LANGFUSE_HOST", "https://cloud.langfuse.com"),
     )
 
 

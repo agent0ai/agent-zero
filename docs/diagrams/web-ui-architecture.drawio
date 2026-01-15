@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2024-01-15T00:00:00.000Z" agent="Draw.io" version="22.1.0">
+  <diagram id="web-ui-architecture" name="Web UI Architecture">
+    <mxGraphModel dx="1434" dy="780" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Web UI Architecture - Alpine.js Based Reactive Interface" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="250" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Main Layout -->
+        <mxCell id="layout-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="1020" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="layout-label" value="Main Application Layout (webui/index.html)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="75" width="350" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Left Panel -->
+        <mxCell id="left-panel" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf" vertex="1" parent="1">
+          <mxGeometry x="60" y="105" width="180" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="left-label" value="Left Panel (Sidebar)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="110" width="140" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sidebar-top" value="sidebar-top.html&#xa;(Logo, Search)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088" vertex="1" parent="1">
+          <mxGeometry x="75" y="135" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sidebar-chats" value="sidebar-chats.html&#xa;(Chat List)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088" vertex="1" parent="1">
+          <mxGeometry x="75" y="175" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sidebar-tasks" value="sidebar-tasks.html&#xa;(Tasks List)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088" vertex="1" parent="1">
+          <mxGeometry x="75" y="215" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sidebar-bottom" value="sidebar-bottom.html&#xa;(Settings, Dashboard Nav)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088" vertex="1" parent="1">
+          <mxGeometry x="75" y="255" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="dashboard-nav" value="dashboard-nav.html&#xa;(Portfolio, Workflows)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745" vertex="1" parent="1">
+          <mxGeometry x="75" y="295" width="150" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Right Panel -->
+        <mxCell id="right-panel" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00" vertex="1" parent="1">
+          <mxGeometry x="260" y="105" width="780" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="right-label" value="Right Panel (Main Content Area)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="530" y="110" width="220" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Chat Area -->
+        <mxCell id="chat-area" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="280" y="135" width="540" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-label" value="Chat Area" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="510" y="138" width="80" height="15" as="geometry" />
+        </mxCell>
+
+        <mxCell id="chat-top" value="chat-top.html&#xa;(Title, Controls)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="295" y="155" width="100" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-messages" value="Messages&#xa;(Rendered History)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="405" y="155" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-input" value="chat-input.html&#xa;(User Input)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="535" y="155" width="100" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-attachments" value="attachments.html&#xa;chat-speech.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="645" y="155" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="input-row" value="Input Row&#xa;(Textarea + Send Button + Voice)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="295" y="200" width="460" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="buttons" value="Action Buttons&#xa;(Send, Voice, Attach)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="295" y="230" width="460" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Dashboard Container -->
+        <mxCell id="dashboard-container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745" vertex="1" parent="1">
+          <mxGeometry x="840" y="135" width="180" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="dash-label" value="Dashboard Container&#xa;(Swappable Views)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="860" y="140" width="140" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="portfolio-dash" value="portfolio-dashboard.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="860" y="170" width="140" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="workflow-dash" value="workflow-dashboard.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="860" y="200" width="140" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="router" value="dashboard-router.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="860" y="230" width="140" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Tile Row -->
+        <mxCell id="tile-row" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+          <mxGeometry x="280" y="265" width="540" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="tile-label" value="Tile Row (Quick Panels - components/tiles/)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="400" y="268" width="250" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="tile1" value="🔄&#xa;Workflows" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="295" y="285" width="60" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="tile2" value="🔁&#xa;Ralph" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="365" y="285" width="60" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="tile3" value="📊&#xa;Telemetry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="435" y="285" width="60" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="tile4" value="🤝&#xa;Approvals" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="505" y="285" width="60" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="tile-expand" value="Click → Expand Panel Below" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="580" y="295" width="140" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="tile-store" value="tile-row-store.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="725" y="290" width="90" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Component Structure -->
+        <mxCell id="comp-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="370" width="500" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="comp-label" value="Component Structure (webui/components/)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="375" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sidebar-comp" value="sidebar/&#xa;• top/ (logo, search)&#xa;• chats/ (chat list)&#xa;• tasks/ (task list)&#xa;• bottom/ (nav)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="60" y="405" width="120" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-comp" value="chat/&#xa;• top-section/&#xa;• input/&#xa;• attachments/&#xa;• speech/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="190" y="405" width="90" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="modals-comp" value="modals/&#xa;• file-browser/&#xa;• image-viewer/&#xa;• context/&#xa;• full-screen-input/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="290" y="405" width="110" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="panels-comp" value="panels/&#xa;• workflow-panel.html&#xa;• ralph-panel.html&#xa;• observability-panel.html&#xa;• cowork-panel.html&#xa;• portfolio-panel.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;align=left;spacingLeft=5;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="410" y="405" width="120" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="tiles-comp" value="tiles/&#xa;• tile-row.html&#xa;• tile-row-store.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;align=left;spacingLeft=5;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="60" y="490" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Settings Structure -->
+        <mxCell id="settings-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="560" y="370" width="500" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="settings-label" value="Settings Modal (webui/components/settings/ - 14 sections)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="570" y="375" width="400" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="settings-grid" value="workflow/&#xa;• workflow-dashboard.html&#xa;• workflow-store.js&#xa;(4 tabs: Dashboard,&#xa;Workflows, Training, Skills)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="580" y="400" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="settings-ralph" value="ralph-loop/&#xa;• ralph-loop-dashboard.html&#xa;• ralph-loop-store.js&#xa;(Loop monitoring)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="730" y="400" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="settings-cowork" value="cowork/&#xa;• cowork-folder-manager&#xa;• Approval configuration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="880" y="400" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="settings-external" value="external/&#xa;• gmail-account-manager&#xa;• gmail-setup-guide&#xa;• gmail-test-utility" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="580" y="480" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="settings-obs" value="observability/&#xa;• telemetry-config&#xa;• metrics display&#xa;• Provider setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="730" y="480" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="settings-more" value="+ memory/, mcp/, a2a/,&#xa;backup/, secrets/, speech/,&#xa;tunnel/, prompt/, scheduler/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="880" y="480" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Alpine.js Stores -->
+        <mxCell id="stores-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="570" width="1020" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="stores-label" value="Alpine.js Stores (31 stores for state management)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="575" width="350" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="store-grid" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none" vertex="1" parent="1">
+          <mxGeometry x="60" y="600" width="990" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="store1" value="chatTopStore&#xa;(title, controls)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="70" y="605" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store2" value="chatsStore&#xa;(chat list)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="170" y="605" width="80" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store3" value="tasksStore&#xa;(task sidebar)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="260" y="605" width="80" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store4" value="inputStore&#xa;(user input)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="350" y="605" width="80" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store5" value="preferencesStore&#xa;(user prefs)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="440" y="605" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store6" value="notificationStore&#xa;(toasts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="540" y="605" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store7" value="speechStore&#xa;(voice input)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="640" y="605" width="80" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store8" value="attachmentsStore&#xa;(files)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="730" y="605" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store9" value="settingsStore&#xa;(modal tabs)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="830" y="605" width="80" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store10" value="dashboardRouter&#xa;(nav)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="920" y="605" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="store-more1" value="tileRowStore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="70" y="650" width="80" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="store-more2" value="workflowStore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="160" y="650" width="80" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="store-more3" value="ralphStore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="250" y="650" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="store-more4" value="coworkStore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="330" y="650" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="store-more5" value="portfolioStore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="410" y="650" width="80" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="store-ellipsis" value="+ 16 more stores..." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="500" y="650" width="100" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Vendor Libraries -->
+        <mxCell id="vendor-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="720" width="1020" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="vendor-label" value="Vendor Libraries (webui/vendor/)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="725" width="250" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="alpine" value="Alpine.js&#xa;(Reactive UI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="70" y="750" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mermaid" value="Mermaid.js&#xa;(Diagrams)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="180" y="750" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="marked" value="Marked&#xa;(Markdown)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="290" y="750" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="katex" value="KaTeX&#xa;(Math)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="400" y="750" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="flatpickr" value="Flatpickr&#xa;(Date Picker)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="500" y="750" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="highlight" value="Highlight.js&#xa;(Syntax)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="610" y="750" width="90" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Stylesheets -->
+        <mxCell id="css-box" value="Stylesheets: index.css, messages.css, toast.css, modals.css, buttons.css" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="720" y="750" width="320" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

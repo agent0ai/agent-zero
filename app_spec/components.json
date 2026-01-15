@@ -1,0 +1,67 @@
+{
+  "$schema": "app_spec/components.schema.json",
+  "components": [
+    {
+      "name": "Agent runtime",
+      "path": "agent.py",
+      "responsibilities": [
+        "Message loop",
+        "Tool execution",
+        "Subagent orchestration",
+        "Interventions"
+      ]
+    },
+    {
+      "name": "Extensions",
+      "path": "python/extensions",
+      "responsibilities": [
+        "System prompts",
+        "Tool hooks",
+        "Reasoning/response streaming"
+      ]
+    },
+    {
+      "name": "Web UI",
+      "path": "webui",
+      "responsibilities": [
+        "Chat UI",
+        "Settings",
+        "Modals",
+        "Notifications"
+      ]
+    },
+    {
+      "name": "Settings",
+      "path": "python/helpers/settings.py",
+      "responsibilities": [
+        "Load/save settings",
+        "Render settings schema",
+        "Apply config changes"
+      ]
+    },
+    {
+      "name": "MCP integration",
+      "path": "python/helpers/mcp_handler.py",
+      "responsibilities": [
+        "Parse MCP config",
+        "Register MCP tools"
+      ]
+    },
+    {
+      "name": "Cowork mode",
+      "path": "python/helpers/cowork.py",
+      "responsibilities": [
+        "Approval storage",
+        "Folder allowlist checks"
+      ]
+    },
+    {
+      "name": "Gmail integration",
+      "path": "python/helpers/gmail_api_client.py",
+      "responsibilities": [
+        "OAuth flow",
+        "Test send utility"
+      ]
+    }
+  ]
+}

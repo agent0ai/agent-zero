@@ -1,11 +1,16 @@
 from typing import Callable, TypedDict
-from langchain.prompts import (
-    ChatPromptTemplate,
-    FewShotChatMessagePromptTemplate,
-)
+try:
+    from langchain.prompts import (
+        ChatPromptTemplate,
+        FewShotChatMessagePromptTemplate,
+    )
+except Exception:
+    from langchain_core.prompts import (
+        ChatPromptTemplate,
+        FewShotChatMessagePromptTemplate,
+    )
 
-from langchain.schema import AIMessage
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.language_models.llms import BaseLLM
@@ -66,4 +71,3 @@ async def call_llm(
         response += content
 
     return response
-

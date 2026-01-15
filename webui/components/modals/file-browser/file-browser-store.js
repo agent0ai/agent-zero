@@ -17,6 +17,8 @@ const model = {
   initialPath: "", // Store path for open() call
   closePromise: null,
   error: null,
+  selectMode: false,
+  selectionResolve: null,
 
   // --- Lifecycle -----------------------------------------------------------
   init() {
@@ -58,20 +60,55 @@ const model = {
       console.error("File browser error:", error);
       this.error = error?.message || "Failed to load files";
       this.isLoading = false;
+      if (this.selectionResolve) {
+        this.selectionResolve(null);
+        this.selectionResolve = null;
+      }
+      this.selectMode = false;
     }
   },
 
   handleClose() {
+    if (this.selectionResolve) {
+      this.selectionResolve(null);
+      this.selectionResolve = null;
+    }
+    this.selectMode = false;
     // Close the modal manually
     window.closeModal();
   },
 
   destroy() {
+    if (this.selectionResolve) {
+      this.selectionResolve(null);
+      this.selectionResolve = null;
+    }
     // Reset state when modal closes
     this.isLoading = false;
     this.history = [];
     this.initialPath = "";
     this.browser.entries = [];
+    this.selectMode = false;
+  },
+
+  async openFolderPicker(path = "") {
+    if (this.selectionResolve) {
+      this.selectionResolve(null);
+    }
+    this.selectMode = true;
+    return new Promise((resolve) => {
+      this.selectionResolve = resolve;
+      this.open(path);
+    });
+  },
+
+  async selectCurrentFolder() {
+    if (this.selectionResolve) {
+      this.selectionResolve(this.browser.currentPath);
+      this.selectionResolve = null;
+    }
+    this.selectMode = false;
+    window.closeModal();
   },
 
   // --- Helpers -------------------------------------------------------------
@@ -278,4 +315,8 @@ window.openFileLink = async function (path) {
       "File Open Error"
     );
   }
+};
+
+window.openFolderPicker = async function (path) {
+  return await store.openFolderPicker(path);
 };

@@ -1,0 +1,103 @@
+<html>
+<head>
+  <script type="module">
+    // Dashboard navigation store is loaded from dashboard-router.js
+  </script>
+</head>
+<body>
+  <div x-data>
+    <div class="dashboard-nav-section" x-show="$store.dashboardRouter">
+        <h3 class="dashboard-nav-header">
+          Dashboards
+        </h3>
+        <div class="dashboard-nav-buttons">
+          <!-- Portfolio Dashboard Button -->
+          <button
+            class="dashboard-nav-btn"
+            :class="{ 'active': $store.dashboardRouter && $store.dashboardRouter.isDashboardActive('portfolio') }"
+            @click="$store.dashboardRouter && $store.dashboardRouter.showDashboard('portfolio')"
+            title="Portfolio & Customers">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+              <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>
+            </svg>
+            <span>Portfolio</span>
+          </button>
+
+          <!-- Workflows Dashboard Button -->
+          <button
+            class="dashboard-nav-btn"
+            :class="{ 'active': $store.dashboardRouter && $store.dashboardRouter.isDashboardActive('workflows') }"
+            @click="$store.dashboardRouter && $store.dashboardRouter.showDashboard('workflows')"
+            title="Workflows & Training">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+              <path d="M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>
+            <span>Workflows</span>
+          </button>
+        </div>
+      </div>
+  </div>
+
+  <style>
+    .dashboard-nav-section {
+      padding: 0.6rem var(--spacing-md) 0.4rem var(--spacing-md);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .dashboard-nav-header {
+      font-size: var(--font-size-small);
+      color: var(--color-text);
+      opacity: 0.8;
+      margin: 0 0 0.5rem 0;
+      font-weight: 500;
+    }
+
+    .dashboard-nav-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .dashboard-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--color-text);
+      opacity: 0.8;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .dashboard-nav-btn:hover {
+      background: var(--color-hover);
+      opacity: 1;
+      border-color: var(--color-border);
+    }
+
+    .dashboard-nav-btn.active {
+      background: var(--color-primary-bg, #1a365d);
+      color: var(--color-primary, #4a9eff);
+      opacity: 1;
+      border-color: var(--color-primary, #4a9eff);
+    }
+
+    .dashboard-nav-btn svg {
+      flex-shrink: 0;
+    }
+
+    .dashboard-nav-btn span {
+      flex: 1;
+    }
+  </style>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/components.schema.json",
+  "title": "Components Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "path": {"type": "string"},
+          "responsibilities": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["name", "path"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["components"],
+  "additionalProperties": false
+}

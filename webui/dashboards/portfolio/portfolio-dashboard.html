@@ -1,0 +1,515 @@
+<!-- Portfolio Dashboard - Unified view of customers and projects -->
+<div class="dashboard-page" x-data x-init="$store.portfolioDashboard?.init()">
+
+    <!-- Header -->
+    <div class="dashboard-page-header">
+        <h1>
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>
+            </svg>
+            Portfolio & Customers
+        </h1>
+        <button class="dashboard-back-btn" @click="$store.dashboardRouter?.closeDashboard()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Chat
+        </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="dashboard-tabs">
+        <button class="dashboard-tab" :class="{ 'active': $store.portfolioDashboard?.activeTab === 'dashboard' }"
+                @click="$store.portfolioDashboard?.setTab('dashboard')">
+            Dashboard
+        </button>
+        <button class="dashboard-tab" :class="{ 'active': $store.portfolioDashboard?.activeTab === 'customers' }"
+                @click="$store.portfolioDashboard?.setTab('customers')">
+            Customers
+        </button>
+        <button class="dashboard-tab" :class="{ 'active': $store.portfolioDashboard?.activeTab === 'projects' }"
+                @click="$store.portfolioDashboard?.setTab('projects')">
+            Projects
+        </button>
+    </div>
+
+    <!-- Content -->
+    <div class="dashboard-page-body">
+
+        <!-- Dashboard Tab -->
+        <div x-show="$store.portfolioDashboard?.activeTab === 'dashboard'">
+            <!-- Stats Row -->
+            <div class="dashboard-stats">
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-value" x-text="$store.portfolioDashboard?.stats.total_customers || 0"></div>
+                    <div class="dashboard-stat-label">Customers</div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-value" x-text="$store.portfolioDashboard?.stats.active_customers || 0"></div>
+                    <div class="dashboard-stat-label">Active</div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-value" x-text="$store.portfolioDashboard?.stats.total_projects || 0"></div>
+                    <div class="dashboard-stat-label">Projects</div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-value" x-text="$store.portfolioDashboard?.formatCurrency($store.portfolioDashboard?.stats.pipeline_value)"></div>
+                    <div class="dashboard-stat-label">Pipeline</div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-value" x-text="($store.portfolioDashboard?.stats.health_avg || 0) + '%'"></div>
+                    <div class="dashboard-stat-label">Avg Health</div>
+                </div>
+            </div>
+
+            <!-- Recent Customers -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-title">Recent Customers</div>
+                    <button class="dashboard-link-btn" @click="$store.portfolioDashboard?.setTab('customers')">View All →</button>
+                </div>
+                <div class="portfolio-list">
+                    <template x-for="customer in ($store.portfolioDashboard?.customers || []).slice(0, 5)" :key="customer.id || customer.customer_id">
+                        <div class="portfolio-item" @click="$store.portfolioDashboard?.selectCustomer(customer.id || customer.customer_id); $store.portfolioDashboard?.setTab('customers')">
+                            <div class="portfolio-item-main">
+                                <div class="portfolio-item-name" x-text="customer.name || customer.company || 'Unknown'"></div>
+                                <div class="portfolio-item-company" x-text="customer.company"></div>
+                            </div>
+                            <div class="portfolio-item-meta">
+                                <span class="stage-badge" :style="{ background: $store.portfolioDashboard?.getStageColor(customer.stage) }"
+                                      x-text="customer.stage"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="dashboard-empty" x-show="!$store.portfolioDashboard?.customers?.length">
+                        No customers yet. Use the customer lifecycle tool to add customers.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Projects -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-title">Recent Projects</div>
+                    <button class="dashboard-link-btn" @click="$store.portfolioDashboard?.setTab('projects')">View All →</button>
+                </div>
+                <div class="portfolio-list">
+                    <template x-for="project in ($store.portfolioDashboard?.projects || []).slice(0, 5)" :key="project.id || project.project_id">
+                        <div class="portfolio-item" @click="$store.portfolioDashboard?.selectProject(project.id || project.project_id); $store.portfolioDashboard?.setTab('projects')">
+                            <div class="portfolio-item-main">
+                                <div class="portfolio-item-name" x-text="project.name"></div>
+                                <div class="portfolio-item-company" x-text="project.language || project.type"></div>
+                            </div>
+                            <div class="portfolio-item-meta">
+                                <span class="status-badge" :style="{ background: $store.portfolioDashboard?.getStatusColor(project.status) }"
+                                      x-text="project.status"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="dashboard-empty" x-show="!$store.portfolioDashboard?.projects?.length">
+                        No projects yet. Use the portfolio manager tool to scan or add projects.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customers Tab -->
+        <div x-show="$store.portfolioDashboard?.activeTab === 'customers'" class="customers-view">
+            <!-- Customer selected view -->
+            <div x-show="$store.portfolioDashboard?.selectedCustomer" class="detail-view">
+                <div class="detail-header">
+                    <button class="back-btn" @click="$store.portfolioDashboard?.deselectCustomer()">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                        Back to List
+                    </button>
+                    <h2 x-text="$store.portfolioDashboard?.selectedCustomer?.name || $store.portfolioDashboard?.selectedCustomer?.company"></h2>
+                </div>
+                <div class="detail-content">
+                    <div class="detail-section">
+                        <h3>Customer Information</h3>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Company</span>
+                                <span class="detail-value" x-text="$store.portfolioDashboard?.selectedCustomer?.company || '-'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Email</span>
+                                <span class="detail-value" x-text="$store.portfolioDashboard?.selectedCustomer?.email || '-'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Phone</span>
+                                <span class="detail-value" x-text="$store.portfolioDashboard?.selectedCustomer?.phone || '-'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Industry</span>
+                                <span class="detail-value" x-text="$store.portfolioDashboard?.selectedCustomer?.industry || '-'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Stage</span>
+                                <span class="stage-badge" :style="{ background: $store.portfolioDashboard?.getStageColor($store.portfolioDashboard?.selectedCustomer?.stage) }"
+                                      x-text="$store.portfolioDashboard?.selectedCustomer?.stage"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Health Score</span>
+                                <span class="detail-value" :class="$store.portfolioDashboard?.getHealthClass($store.portfolioDashboard?.selectedCustomer?.health_score)"
+                                      x-text="($store.portfolioDashboard?.selectedCustomer?.health_score || 0) + '%'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer list view -->
+            <div x-show="!$store.portfolioDashboard?.selectedCustomer" class="list-view">
+                <!-- Filters -->
+                <div class="filter-bar">
+                    <input type="text" class="search-input" placeholder="Search customers..."
+                           x-model="$store.portfolioDashboard.customerSearch"
+                           @input.debounce.300ms="$store.portfolioDashboard?.loadCustomers()">
+                    <select class="filter-select" x-model="$store.portfolioDashboard.customerStageFilter"
+                            @change="$store.portfolioDashboard?.loadCustomers()">
+                        <template x-for="stage in $store.portfolioDashboard?.customerStages" :key="stage.value">
+                            <option :value="stage.value" x-text="stage.label"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Customer List -->
+                <div class="portfolio-list">
+                    <template x-for="customer in $store.portfolioDashboard?.filteredCustomers" :key="customer.id || customer.customer_id">
+                        <div class="portfolio-item" @click="$store.portfolioDashboard?.selectCustomer(customer.id || customer.customer_id)">
+                            <div class="portfolio-item-main">
+                                <div class="portfolio-item-name" x-text="customer.name || customer.company || 'Unknown'"></div>
+                                <div class="portfolio-item-company" x-text="customer.company"></div>
+                                <div class="portfolio-item-email" x-text="customer.email"></div>
+                            </div>
+                            <div class="portfolio-item-meta">
+                                <span class="stage-badge" :style="{ background: $store.portfolioDashboard?.getStageColor(customer.stage) }"
+                                      x-text="customer.stage"></span>
+                                <span class="health-badge" :class="$store.portfolioDashboard?.getHealthClass(customer.health_score)"
+                                      x-text="(customer.health_score || 0) + '%'"
+                                      x-show="customer.health_score"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="dashboard-empty" x-show="!$store.portfolioDashboard?.filteredCustomers?.length">
+                        No customers found matching your criteria.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Projects Tab -->
+        <div x-show="$store.portfolioDashboard?.activeTab === 'projects'" class="projects-view">
+            <!-- Project selected view -->
+            <div x-show="$store.portfolioDashboard?.selectedProject" class="detail-view">
+                <div class="detail-header">
+                    <button class="back-btn" @click="$store.portfolioDashboard?.deselectProject()">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                        Back to List
+                    </button>
+                    <h2 x-text="$store.portfolioDashboard?.selectedProject?.name"></h2>
+                </div>
+                <div class="detail-content">
+                    <div class="detail-section">
+                        <h3>Project Information</h3>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Language</span>
+                                <span class="detail-value" x-text="$store.portfolioDashboard?.selectedProject?.language || '-'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Status</span>
+                                <span class="status-badge" :style="{ background: $store.portfolioDashboard?.getStatusColor($store.portfolioDashboard?.selectedProject?.status) }"
+                                      x-text="$store.portfolioDashboard?.selectedProject?.status"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Path</span>
+                                <span class="detail-value code" x-text="$store.portfolioDashboard?.selectedProject?.path || '-'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Sale Readiness</span>
+                                <span class="detail-value" x-text="($store.portfolioDashboard?.selectedProject?.sale_readiness || 0) + '%'"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="detail-section" x-show="$store.portfolioDashboard?.selectedProject?.description">
+                        <h3>Description</h3>
+                        <p x-text="$store.portfolioDashboard?.selectedProject?.description"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project list view -->
+            <div x-show="!$store.portfolioDashboard?.selectedProject" class="list-view">
+                <!-- Filters -->
+                <div class="filter-bar">
+                    <input type="text" class="search-input" placeholder="Search projects..."
+                           x-model="$store.portfolioDashboard.projectSearch"
+                           @input.debounce.300ms="$store.portfolioDashboard?.loadProjects()">
+                    <select class="filter-select" x-model="$store.portfolioDashboard.projectStatusFilter"
+                            @change="$store.portfolioDashboard?.loadProjects()">
+                        <template x-for="status in $store.portfolioDashboard?.projectStatuses" :key="status.value">
+                            <option :value="status.value" x-text="status.label"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Project List -->
+                <div class="portfolio-list">
+                    <template x-for="project in $store.portfolioDashboard?.filteredProjects" :key="project.id || project.project_id">
+                        <div class="portfolio-item" @click="$store.portfolioDashboard?.selectProject(project.id || project.project_id)">
+                            <div class="portfolio-item-main">
+                                <div class="portfolio-item-name" x-text="project.name"></div>
+                                <div class="portfolio-item-company" x-text="project.language || project.type"></div>
+                            </div>
+                            <div class="portfolio-item-meta">
+                                <span class="status-badge" :style="{ background: $store.portfolioDashboard?.getStatusColor(project.status) }"
+                                      x-text="project.status"></span>
+                                <span class="readiness-badge" x-text="(project.sale_readiness || 0) + '%'"
+                                      x-show="project.sale_readiness"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="dashboard-empty" x-show="!$store.portfolioDashboard?.filteredProjects?.length">
+                        No projects found matching your criteria.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="dashboard-loading" x-show="$store.portfolioDashboard?.loading">
+            Loading...
+        </div>
+
+        <!-- Error State -->
+        <div class="dashboard-error" x-show="$store.portfolioDashboard?.error" x-text="$store.portfolioDashboard?.error">
+        </div>
+    </div>
+</div>
+
+<script src="dashboards/portfolio/portfolio-store.js"></script>
+
+<style>
+/* Portfolio Dashboard Specific Styles */
+
+.portfolio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.portfolio-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--color-message-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.portfolio-item:hover {
+    border-color: var(--color-primary, #4a9eff);
+    background: var(--color-hover, #2d2d2d);
+}
+
+.portfolio-item-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.portfolio-item-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.portfolio-item-company {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.portfolio-item-email {
+    font-size: 0.75rem;
+    opacity: 0.5;
+}
+
+.portfolio-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.stage-badge, .status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: white;
+    font-weight: 500;
+}
+
+.health-badge, .readiness-badge {
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    background: var(--color-border);
+    color: var(--color-text);
+}
+
+.health-good { color: #48bb78; }
+.health-medium { color: #ed8936; }
+.health-poor { color: #e53e3e; }
+
+/* Filter Bar */
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px 14px;
+    background: var(--color-message-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--color-primary, #4a9eff);
+}
+
+.filter-select {
+    padding: 10px 14px;
+    background: var(--color-message-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-text);
+    font-size: 0.9rem;
+    min-width: 150px;
+}
+
+/* Detail View */
+.detail-view {
+    padding: 0;
+}
+
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.detail-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.back-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-text);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.back-btn:hover {
+    border-color: var(--color-primary, #4a9eff);
+    color: var(--color-primary, #4a9eff);
+}
+
+.detail-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.detail-section {
+    background: var(--color-message-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.detail-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-primary, #4a9eff);
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.6;
+}
+
+.detail-value {
+    font-size: 0.95rem;
+}
+
+.detail-value.code {
+    font-family: monospace;
+    font-size: 0.85rem;
+    background: var(--color-input);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Link Button */
+.dashboard-link-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-primary, #4a9eff);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.dashboard-link-btn:hover {
+    text-decoration: underline;
+}
+
+/* Error State */
+.dashboard-error {
+    background: rgba(229, 62, 62, 0.1);
+    border: 1px solid #e53e3e;
+    border-radius: 8px;
+    padding: 16px;
+    color: #e53e3e;
+    text-align: center;
+}
+</style>

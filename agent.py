@@ -442,6 +442,11 @@ class Agent:
                                 warning_msg
                             )
                             self.context.log.log(type="warning", content=warning_msg)
+                            # Nudge the model away from repeating and toward a response tool.
+                            self.loop_data.extras_temporary["repeat_guard"] = (
+                                "Your last response repeated exactly. Respond differently "
+                                "and prefer using the response tool with a helpful next step."
+                            )
 
                         else:  # otherwise proceed with tool
                             # Append the assistant's response to the history
@@ -787,6 +792,23 @@ class Agent:
             raw_tool_name = tool_request.get("tool_name", "")  # Get the raw tool name
             tool_args = tool_request.get("tool_args", {})
 
+            if not raw_tool_name:
+                response_text = tool_request.get("response")
+                if response_text and not tool_args:
+                    tool_args = {"text": response_text}
+                    raw_tool_name = "response"
+                    tool_request["tool_name"] = raw_tool_name
+                    tool_request["tool_args"] = tool_args
+                else:
+                    warning_msg = "Tool request missing tool_name; ignoring."
+                    self.hist_add_warning(warning_msg)
+                    PrintStyle(font_color="red", padding=True).print(warning_msg)
+                    self.context.log.log(
+                        type="error",
+                        content=f"{self.agent_name}: {warning_msg}",
+                    )
+                    return
+
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
 
@@ -832,7 +854,13 @@ class Agent:
                     # Allow extensions to preprocess tool arguments
                     await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
 
-                    response = await tool.execute(**tool_args)
+                    try:
+                        response = await tool.execute(**tool_args)
+                    except Exception as e:
+                        await self.call_extensions(
+                            "tool_execute_error", error=e, tool_name=tool_name
+                        )
+                        raise
                     await self.handle_intervention()
 
                     # Allow extensions to postprocess tool response

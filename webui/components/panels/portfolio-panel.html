@@ -1,0 +1,279 @@
+<!-- Portfolio Panel - Combined customer_lifecycle and portfolio_manager view -->
+<div class="portfolio-panel" x-data="portfolioPanelData()" x-init="init()">
+    <div class="panel-header">
+        <h3>Portfolio</h3>
+        <div class="panel-actions">
+            <button class="btn-sm" @click="refresh()" :disabled="loading">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.customers || 0"></div>
+            <div class="stat-label">Customers</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.projects || 0"></div>
+            <div class="stat-label">Projects</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.active || 0"></div>
+            <div class="stat-label">Active</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="formatCurrency(stats.pipeline_value)"></div>
+            <div class="stat-label">Pipeline</div>
+        </div>
+    </div>
+
+    <!-- Recent Customers -->
+    <div class="customers-section" x-show="customers.length > 0">
+        <h4>Recent Customers</h4>
+        <div class="customer-list">
+            <template x-for="customer in customers.slice(0, 4)" :key="customer.customer_id">
+                <div class="customer-card">
+                    <div class="customer-name" x-text="customer.name"></div>
+                    <div class="customer-stage">
+                        <span class="stage-badge" :class="'stage-' + customer.stage" x-text="customer.stage"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Recent Projects -->
+    <div class="projects-section" x-show="projects.length > 0">
+        <h4>Recent Projects</h4>
+        <div class="project-list">
+            <template x-for="project in projects.slice(0, 3)" :key="project.product_id">
+                <div class="project-card">
+                    <div class="project-name" x-text="project.name"></div>
+                    <div class="project-status">
+                        <span class="status-badge" :class="'status-' + project.status" x-text="project.status"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="empty-state" x-show="!loading && customers.length === 0 && projects.length === 0">
+        No customers or projects yet. Use customer_lifecycle or portfolio_manager tools to create them.
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <button class="action-btn" @click="sendChat('{{customer_lifecycle(action=\"list_customers\")}}')">
+            View Customers
+        </button>
+        <button class="action-btn" @click="sendChat('{{portfolio_manager_tool(action=\"list_products\")}}')">
+            View Projects
+        </button>
+    </div>
+</div>
+
+<script>
+function portfolioPanelData() {
+    return {
+        loading: false,
+        stats: {},
+        customers: [],
+        projects: [],
+
+        async init() {
+            await this.refresh();
+        },
+
+        async refresh() {
+            this.loading = true;
+            try {
+                // Load from both customer_lifecycle and portfolio_manager
+                // These are tool-based, so we just show placeholder data
+                // Real implementation would need API endpoints
+
+                // Placeholder stats
+                this.stats = {
+                    customers: this.customers.length,
+                    projects: this.projects.length,
+                    active: 0,
+                    pipeline_value: 0
+                };
+            } catch (e) {
+                console.error('Error loading portfolio:', e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        formatCurrency(value) {
+            if (!value) return '$0';
+            if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
+            if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'K';
+            return '$' + value;
+        },
+
+        sendChat(message) {
+            // Send message to chat
+            const chatInput = document.querySelector('#chat-input textarea, #msg');
+            if (chatInput) {
+                chatInput.value = message;
+                chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                // Try to submit
+                const form = chatInput.closest('form');
+                if (form) form.dispatchEvent(new Event('submit'));
+            }
+            Alpine.store('tileRowStore')?.collapseTile();
+        }
+    };
+}
+</script>
+
+<style>
+.portfolio-panel {
+    color: var(--text-primary, #fff);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.btn-sm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn-sm:hover:not(:disabled) {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-primary, #4a9eff);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.customers-section h4,
+.projects-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-secondary, #aaa);
+}
+
+.customer-list,
+.project-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.customer-card,
+.project-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.customer-name,
+.project-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.stage-badge,
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.stage-badge.stage-lead { background: #2d3748; color: #a0aec0; }
+.stage-badge.stage-prospect { background: #2c5282; color: #90cdf4; }
+.stage-badge.stage-opportunity { background: #285e61; color: #81e6d9; }
+.stage-badge.stage-customer { background: #276749; color: #9ae6b4; }
+
+.status-badge.status-active { background: #276749; color: #9ae6b4; }
+.status-badge.status-planning { background: #2c5282; color: #90cdf4; }
+.status-badge.status-completed { background: #2d3748; color: #a0aec0; }
+
+.quick-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: var(--color-primary-bg, #1a365d);
+    color: var(--color-primary, #4a9eff);
+    border-color: var(--color-primary, #4a9eff);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary, #aaa);
+    font-size: 13px;
+}
+</style>

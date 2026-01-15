@@ -194,6 +194,22 @@ div#right-panel::-webkit-scrollbar-thumb:hover {
   margin-top: var(--spacing-md);
 }
 
+#time-date-container .cowork-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 195, 64, 0.12);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  border: 1px solid rgba(0, 195, 64, 0.4);
+}
+
+#time-date-container .cowork-status .cowork-meta {
+  opacity: 0.7;
+}
+
 #time-date {
   color: var(--color-text);
   font-size: var(--font-size-normal);
@@ -1684,4 +1700,210 @@ nav ul li a img {
   display: inline-block;
   box-sizing: border-box;
   flex-shrink: 0;
+}
+
+/* =====================================================
+   Dashboard Container - Full Page Dashboard Views
+   ===================================================== */
+
+/* Hide elements with x-cloak until Alpine initializes */
+[x-cloak] {
+  display: none !important;
+}
+
+/* Chat area wrapper - maintains flex layout when dashboard is hidden */
+.chat-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Dashboard page layout */
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: var(--color-text);
+}
+
+.dashboard-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-panel);
+  flex-shrink: 0;
+}
+
+.dashboard-page-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-page-header h1 svg {
+  opacity: 0.7;
+}
+
+.dashboard-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--color-message-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dashboard-back-btn:hover {
+  background: var(--color-hover, #2d2d2d);
+  border-color: var(--color-primary, #4a9eff);
+  color: var(--color-primary, #4a9eff);
+}
+
+.dashboard-page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+}
+
+/* Dashboard tabs */
+.dashboard-tabs {
+  display: flex;
+  gap: 4px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-tab {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text);
+  opacity: 0.7;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dashboard-tab:hover {
+  opacity: 1;
+  background: var(--color-hover, #2d2d2d);
+}
+
+.dashboard-tab.active {
+  opacity: 1;
+  background: var(--color-primary-bg, #1a365d);
+  color: var(--color-primary, #4a9eff);
+}
+
+/* Dashboard content panels */
+.dashboard-panel {
+  padding: var(--spacing-lg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Dashboard stats row */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-stat-card {
+  background: var(--color-message-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--spacing-md);
+  text-align: center;
+}
+
+.dashboard-stat-value {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--color-primary, #4a9eff);
+}
+
+.dashboard-stat-label {
+  font-size: 0.75rem;
+  color: var(--color-text);
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+/* Dashboard cards */
+.dashboard-card {
+  background: var(--color-message-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.dashboard-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.dashboard-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Dashboard loading state */
+.dashboard-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-text);
+  opacity: 0.7;
+}
+
+/* Dashboard empty state */
+.dashboard-empty {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--color-text);
+  opacity: 0.6;
+}
+
+.dashboard-empty-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.4;
 }

@@ -324,6 +324,7 @@ export async function poll() {
 
     //set ui model vars from backend
     inputStore.paused = response.paused;
+    chatTopStore.updateCoworkStatus(response);
 
     // Update status icon state
     setConnectionStatus(true);

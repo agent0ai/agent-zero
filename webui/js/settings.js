@@ -283,6 +283,18 @@ const settingsModalProxy = {
             openModal("settings/external/api-examples.html");
         } else if (field.id === "memory_dashboard") {
             openModal("settings/memory/memory-dashboard.html");
+        } else if (field.id === "gmail_manage_accounts") {
+            openModal("settings/external/gmail-account-manager.html");
+        } else if (field.id === "gmail_test_utility") {
+            openModal("settings/external/gmail-test-utility.html");
+        } else if (field.id === "gmail_setup_guide") {
+            openModal("settings/external/gmail-setup-guide.html");
+        } else if (field.id === "cowork_manage") {
+            openModal("settings/cowork/cowork-manager.html");
+        } else if (field.id === "observability_open") {
+            openModal("settings/observability/observability.html");
+        } else if (field.id === "prompt_enhance_view") {
+            openModal("settings/prompt/prompt-enhance-details.html");
         }
     }
 };
@@ -458,6 +470,10 @@ document.addEventListener('alpine:init', function () {
                     this.revealToken(field);
                 } else if (field.action === 'generate_token') {
                     this.generateToken(field);
+                } else if (field.id === 'gmail_manage_accounts') {
+                    this.openGmailAccountManager();
+                } else if (field.id === 'gmail_setup_guide') {
+                    this.openGmailSetupGuide();
                 } else {
                     console.warn('Unknown button action:', field.action);
                 }
@@ -550,6 +566,16 @@ document.addEventListener('alpine:init', function () {
                 }
             },
 
+            // Gmail Account Manager
+            async openGmailAccountManager() {
+                openModal("settings/external/gmail-account-manager.html");
+            },
+
+            // Gmail Setup Guide
+            openGmailSetupGuide() {
+                openModal("settings/external/gmail-setup-guide.html");
+            },
+
             closeModal() {
                 // Stop scheduler polling before closing the modal
                 const schedulerElement = document.querySelector('[x-data="schedulerSettings"]');
@@ -566,6 +592,9 @@ document.addEventListener('alpine:init', function () {
         };
     });
 });
+
+// Expose settingsModalProxy globally so it can be accessed from HTML
+window.settingsModalProxy = settingsModalProxy;
 
 // Show toast notification - now uses new notification system
 function showToast(message, type = 'info') {

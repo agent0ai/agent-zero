@@ -28,6 +28,9 @@
                 </button>
                 <div id="current-path"><span id="path-text" x-text="$store.fileBrowser.browser.currentPath"></span></div>
               </div>
+              <div class="select-hint" x-show="$store.fileBrowser.selectMode">
+                Select a folder and click "Use This Folder" to confirm.
+              </div>
 
               <!-- Files list -->
               <div class="files-list">
@@ -73,11 +76,13 @@
     <!-- Modal Footer (outside template x-if so it exists immediately) -->
     <template x-if="$store.fileBrowser">
       <div class="modal-footer" data-modal-footer>
-        <label class="btn btn-upload">
+        <label class="btn btn-upload" x-show="!$store.fileBrowser.selectMode">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
           Upload Files
           <input type="file" multiple accept="*" @change="$store.fileBrowser.handleFileUpload" style="display:none;" />
         </label>
+        <button class="btn btn-ok" x-show="$store.fileBrowser.selectMode"
+          @click="$store.fileBrowser.selectCurrentFolder()">Use This Folder</button>
         <button class="btn btn-cancel" @click="$store.fileBrowser.handleClose()">Close Browser</button>
       </div>
     </template>
@@ -128,6 +133,12 @@
       display: flex;
       flex-direction: column;
       padding: var(--spacing-sm) var(--spacing-sm);
+    }
+
+    .select-hint {
+      margin: 8px 0 12px 0;
+      color: var(--color-text-secondary);
+      font-size: 0.9rem;
     }
 
     /* File Browser Styles */

@@ -580,7 +580,14 @@ class AsyncAIChatReplacement:
         self.chat = AsyncAIChatReplacement._Chat(wrapper)
 
 
-from browser_use.llm import ChatOllama, ChatOpenRouter, ChatGoogle, ChatAnthropic, ChatGroq, ChatOpenAI
+try:
+    from browser_use.llm import ChatOllama, ChatOpenRouter, ChatGoogle, ChatAnthropic, ChatGroq, ChatOpenAI
+except Exception:
+    class _BrowserUseMissing:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("browser_use is required for browser agent models.")
+
+    ChatOllama = ChatOpenRouter = ChatGoogle = ChatAnthropic = ChatGroq = ChatOpenAI = _BrowserUseMissing
 
 class BrowserCompatibleChatWrapper(ChatOpenRouter):
     """

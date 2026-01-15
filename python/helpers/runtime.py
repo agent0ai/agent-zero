@@ -170,6 +170,14 @@ def get_web_ui_port():
     return web_ui_port
 
 
+def get_web_ui_host():
+    """Get web UI host from args or environment"""
+    web_ui_host = (
+        get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
+    )
+    return web_ui_host
+
+
 def get_tunnel_api_port():
     tunnel_api_port = (
         get_arg("tunnel_api_port")

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/app_spec.schema.json",
+  "title": "Root App Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "name": {"type": "string"},
+    "version": {"type": "string"},
+    "purpose": {"type": "string"},
+    "entrypoints": {
+      "type": "object",
+      "properties": {
+        "web_ui": {"type": "string"},
+        "agent_runtime": {"type": "string"},
+        "initialize": {"type": "string"}
+      },
+      "required": ["web_ui", "agent_runtime", "initialize"],
+      "additionalProperties": false
+    },
+    "spec_files": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    }
+  },
+  "required": ["name", "version", "purpose", "entrypoints", "spec_files"],
+  "additionalProperties": false
+}

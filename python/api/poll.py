@@ -4,6 +4,8 @@ from agent import AgentContext, AgentContextType
 
 from python.helpers.task_scheduler import TaskScheduler
 from python.helpers.localization import Localization
+from python.helpers.settings import get_settings
+from python.helpers import cowork
 from python.helpers.dotenv import get_dotenv_value
 
 
@@ -107,6 +109,21 @@ class Poll(ApiHandler):
         ctxs.sort(key=lambda x: x["created_at"], reverse=True)
         tasks.sort(key=lambda x: x["created_at"], reverse=True)
 
+        # cowork status
+        settings = get_settings()
+        cowork_enabled = bool(settings.get("cowork_enabled"))
+        cowork_allowed_count = len(settings.get("cowork_allowed_paths", []))
+        cowork_pending = 0
+        if context:
+            approvals = cowork.get_approvals(context)
+            cowork_pending = len(
+                [
+                    approval
+                    for approval in approvals
+                    if approval.get("status") == "pending" and not approval.get("consumed")
+                ]
+            )
+
         # data from this server
         return {
             "deselect_chat": ctxid and not context,
@@ -122,4 +139,7 @@ class Poll(ApiHandler):
             "notifications": notifications,
             "notifications_guid": notification_manager.guid,
             "notifications_version": len(notification_manager.updates),
+            "cowork_enabled": cowork_enabled,
+            "cowork_allowed_count": cowork_allowed_count,
+            "cowork_pending": cowork_pending,
         }

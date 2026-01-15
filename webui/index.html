@@ -117,6 +117,18 @@
     <script defer src="vendor/katex/katex.min.js" crossorigin="anonymous"></script>
     <script defer src="vendor/katex/katex.auto-render.min.js" crossorigin="anonymous"></script>
 
+    <!-- Mermaid.js for diagrams -->
+    <script type="module">
+        import mermaid from './vendor/mermaid.min.js';
+        mermaid.initialize({ 
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
+        });
+        window.mermaid = mermaid;
+    </script>
+
     <!-- QR Code Library -->
     <script src="vendor/qrcode.min.js"></script>
 
@@ -128,6 +140,8 @@
 
     <!-- Non-module scripts after Alpine.js -->
     <script type="text/javascript" src="js/settings.js"></script>
+    <script type="text/javascript" src="components/tiles/tile-row-store.js"></script>
+    <script type="text/javascript" src="dashboards/dashboard-router.js"></script>
     <script>
         // Expose git info for sidebar component
         globalThis.gitinfo = { version: "{{version_no}}", commit_time: "{{version_time}}" };
@@ -142,43 +156,54 @@
                 <div class="sidebar-overlay" :class="{'visible': $store.sidebar.isOpen && $store.sidebar.isMobile()}" @click="$store.sidebar.close()"></div>
             </template>
         </div>
-        </template>
         <!-- Left Sidebar (Header Icons, Quick Actions, Tabs, Chats, Tasks) -->
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
         <!-- Right Panel (Message History and Input Section) -->
         <div id="right-panel" class="panel" >
 
-            <!-- top section with time, status etc. -->
-            <x-component path="chat/top-section/chat-top.html"></x-component>
-
-            <!-- Welcome Screen Component -->
-            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
-                <x-component path="welcome/welcome-screen.html"></x-component>
-            </div>
-            <!-- Message History (actual messages) -->
-            <div id="chat-history" x-data x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible"></div>
-
-            <!-- NEW: Toast Stack Component -->
-            <div style="position: relative; height: 0;">
-                <x-component path="notifications/notification-toast-stack.html"></x-component>
+            <!-- Dashboard Container - Shows when a dashboard is active -->
+            <div class="dashboard-container" x-show="$store.dashboardRouter && $store.dashboardRouter.activeDashboard" x-cloak>
+                <div class="dashboard-content" x-html="$store.dashboardRouter ? $store.dashboardRouter.dashboardContent : ''"></div>
             </div>
 
-            <div id="toast" class="toast">
-                <div class="toast__content">
-                    <div class="toast__title"></div>
-                    <div class="toast__separator"></div>
-                    <div class="toast__message"></div>
+            <!-- Chat Area - shows when no dashboard is active (default state) -->
+            <div class="chat-area" x-show="!$store.dashboardRouter || !$store.dashboardRouter.activeDashboard">
+                <!-- top section with time, status etc. -->
+                <x-component path="chat/top-section/chat-top.html"></x-component>
+
+                <!-- Welcome Screen Component -->
+                <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
+                    <x-component path="welcome/welcome-screen.html"></x-component>
                 </div>
-                <button class="toast__copy" style="display: none;">Copy</button>
-                <button class="toast__close">Close</button>
-            </div>
-            <!-- Chat Input Area -->
-            <div x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible">
-                <!-- Progress Bar -->
-                <x-component path="chat/input/progress.html"></x-component>
-                <!-- Input Section -->
-                <x-component path="chat/input/chat-bar.html"></x-component>
+                <!-- Message History (actual messages) -->
+                <div id="chat-history" x-data x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible"></div>
+
+                <!-- NEW: Toast Stack Component -->
+                <div style="position: relative; height: 0;">
+                    <x-component path="notifications/notification-toast-stack.html"></x-component>
+                </div>
+
+                <div id="toast" class="toast">
+                    <div class="toast__content">
+                        <div class="toast__title"></div>
+                        <div class="toast__separator"></div>
+                        <div class="toast__message"></div>
+                    </div>
+                    <button class="toast__copy" style="display: none;">Copy</button>
+                    <button class="toast__close">Close</button>
+                </div>
+                <!-- Tile Row - Quick access dashboard tiles -->
+                <div x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible">
+                    <x-component path="tiles/tile-row.html"></x-component>
+                </div>
+                <!-- Chat Input Area -->
+                <div x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible">
+                    <!-- Progress Bar -->
+                    <x-component path="chat/input/progress.html"></x-component>
+                    <!-- Input Section -->
+                    <x-component path="chat/input/chat-bar.html"></x-component>
+                </div>
             </div>
         </div>
     </div>
@@ -211,7 +236,7 @@
                             </div>
                         </div>
 
-                        <!-- Display settings sections for agent, external, developer, mcp, backup tabs -->
+                        <!-- Display settings sections for standard tabs (excludes scheduler which has its own content) -->
                         <div id="settings-sections" x-show="activeTab !== 'scheduler'">
                             <nav>
                                 <ul>
@@ -1219,6 +1244,8 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Workflow and Ralph Loop moved to Tile Row panels -->
 
                     <div class="modal-footer">
                         <div id="buttons-container">

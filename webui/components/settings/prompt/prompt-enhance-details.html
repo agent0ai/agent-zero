@@ -1,0 +1,125 @@
+<html>
+
+<head>
+    <title>Prompt Enhancement Details</title>
+
+    <script type="module">
+        import { store } from "/components/settings/prompt/prompt-enhance-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data x-init="$store.promptEnhanceStore.load()">
+        <template x-if="$store.promptEnhanceStore">
+            <div class="prompt-enhance-details">
+                <div class="header">
+                    <h2>Prompt Enhancement Audit</h2>
+                    <button class="refresh-btn" @click="$store.promptEnhanceStore.load()"
+                        :disabled="$store.promptEnhanceStore.loading">
+                        Refresh
+                    </button>
+                </div>
+
+                <template x-if="$store.promptEnhanceStore.error">
+                    <p class="status error" x-text="$store.promptEnhanceStore.error"></p>
+                </template>
+
+                <template x-if="!$store.promptEnhanceStore.error">
+                    <div class="content">
+                        <template x-if="!$store.promptEnhanceStore.data">
+                            <p class="status">No enhanced prompt recorded yet.</p>
+                        </template>
+                        <template x-if="$store.promptEnhanceStore.data">
+                            <div>
+                                <p class="meta">
+                                    Last updated:
+                                    <span x-text="$store.promptEnhanceStore.data.timestamp || 'unknown'"></span>
+                                </p>
+
+                                <details class="panel">
+                                    <summary>Enhanced prompt</summary>
+                                    <pre x-text="$store.promptEnhanceStore.data.enhanced || ''"></pre>
+                                </details>
+
+                                <details class="panel">
+                                    <summary>Original user message</summary>
+                                    <pre x-text="$store.promptEnhanceStore.data.original || ''"></pre>
+                                </details>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .prompt-enhance-details {
+            padding: 0.5rem;
+        }
+
+        .prompt-enhance-details .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .prompt-enhance-details h2 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .prompt-enhance-details .refresh-btn {
+            padding: 0.35rem 0.7rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color, #ccc);
+            background: var(--button-bg, #f5f5f5);
+            cursor: pointer;
+        }
+
+        .prompt-enhance-details .refresh-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .prompt-enhance-details .status {
+            margin: 0.5rem 0;
+            color: var(--text-muted, #666);
+        }
+
+        .prompt-enhance-details .status.error {
+            color: var(--error-color, #b00020);
+        }
+
+        .prompt-enhance-details .meta {
+            margin: 0 0 0.75rem 0;
+            font-size: 0.85rem;
+            color: var(--text-muted, #666);
+        }
+
+        .prompt-enhance-details .panel {
+            border: 1px solid var(--border-color, #d0d0d0);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
+            background: var(--panel-bg, #fafafa);
+        }
+
+        .prompt-enhance-details summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .prompt-enhance-details pre {
+            margin: 0.5rem 0 0 0;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+        }
+    </style>
+
+</body>
+
+</html>

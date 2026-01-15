@@ -1,0 +1,64 @@
+{
+  "$schema": "app_spec/eval_cases.schema.json",
+  "eval_cases": [
+    {
+      "id": "ec-chat-task",
+      "title": "Chat task uses tools",
+      "use_case_id": "uc-chat-task",
+      "user_story_id": "us-001",
+      "prompt": "List files in the work directory and summarize any markdown files.",
+      "expected_tools": ["code_execution_tool"],
+      "expected_keywords": ["markdown", "summary"],
+      "notes": "Expect a shell or tool call and a response summary."
+    },
+    {
+      "id": "ec-cowork-approval",
+      "title": "Cowork approval flow",
+      "use_case_id": "uc-cowork-approvals",
+      "user_story_id": "us-003",
+      "prompt": "Create a file outside the allowed folders.",
+      "expected_tools": ["code_execution_tool"],
+      "expected_keywords": ["approval"],
+      "notes": "Should require approval before executing."
+    },
+    {
+      "id": "ec-cowork-allowlist",
+      "title": "Cowork allowlist enforcement",
+      "use_case_id": "uc-cowork-approvals",
+      "user_story_id": "us-002",
+      "prompt": "Attempt to read a file outside the allowlisted folders.",
+      "expected_tools": ["code_execution_tool"],
+      "expected_keywords": ["allowed", "folder"],
+      "notes": "Should block or request approval for out-of-scope access."
+    },
+    {
+      "id": "ec-gmail-test",
+      "title": "Gmail test utility",
+      "use_case_id": "uc-gmail-send",
+      "user_story_id": "us-005",
+      "prompt": "Send a test email to a configured Gmail account.",
+      "expected_tools": ["gmail_test_send"],
+      "expected_keywords": ["sent"],
+      "notes": "Requires OAuth configuration."
+    },
+    {
+      "id": "ec-mcp-config",
+      "title": "MCP config",
+      "use_case_id": "uc-mcp-config",
+      "user_story_id": "us-004",
+      "prompt": "Load MCP tools from config and call one tool.",
+      "expected_tools": ["mcp"],
+      "expected_keywords": ["tool"],
+      "notes": "Requires a valid MCP config."
+    },
+    {
+      "id": "ec-memory-dashboard",
+      "title": "Memory dashboard search",
+      "use_case_id": "uc-memory-dashboard",
+      "prompt": "Search memories for a known keyword and review results.",
+      "expected_tools": ["memory_load"],
+      "expected_keywords": ["memory"],
+      "notes": "Use memory dashboard or memory tool search."
+    }
+  ]
+}
