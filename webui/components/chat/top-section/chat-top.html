@@ -29,6 +29,8 @@
                             stroke-width="3" x-bind:opacity="$store.chatTop.connected ? 0 : 1" />
                     </svg>
                 </div>
+                <!-- Model Selector -->
+                <x-component path="chat/top-section/model-selector.html"></x-component>
                 <div class="cowork-status" x-show="$store.chatTop.coworkEnabled">
                     Cowork
                     <span class="cowork-meta" x-text="'Folders: ' + $store.chatTop.coworkAllowedCount"></span>

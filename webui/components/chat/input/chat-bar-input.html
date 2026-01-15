@@ -20,11 +20,24 @@
             <div x-show="showTooltip" class="tooltip">Add attachments to the message</div>
         </div>
 
+        <!-- Skills button -->
+        <div class="skills-button-wrapper" x-data="{ showTooltip: false }">
+            <button class="skills-trigger-btn"
+                    @click="$store.skillsSuggest && $store.skillsSuggest.toggle()"
+                    @mouseover="showTooltip = true"
+                    @mouseleave="showTooltip = false"
+                    title="Show available skills">
+                💡
+            </button>
+            <div x-show="showTooltip" class="tooltip">Browse skills</div>
+        </div>
+
         <!-- Container for textarea and expand button -->
         <div id="chat-input-container" style="position: relative;">
             <textarea id="chat-input" placeholder="Type your message here..." rows="1"
-+                     @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
-                      @input="$store.chatInput.adjustTextareaHeight()"></textarea>
+                      @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
+                      @input="$store.chatInput.adjustTextareaHeight(); document.dispatchEvent(new CustomEvent('skillsSuggest:analyze', { detail: { text: $event.target.value } }))"
+                      @keydown.tab="if ($store.skillsSuggest && $store.skillsSuggest.contextSuggestions.length > 0) { $event.preventDefault(); $store.skillsSuggest.show(); }"></textarea>
             <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>

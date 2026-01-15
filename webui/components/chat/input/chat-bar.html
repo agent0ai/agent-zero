@@ -2,12 +2,16 @@
 <head>
     <script type="module">
         import { store } from "/components/chat/input/input-store.js";
+        import { store as skillsStore } from "/components/chat/skills-suggest-store.js";
     </script>
 </head>
 <body>
     <div id="input-section" x-data>
         <template x-if="$store.chatInput">
             <div style="width: 100%; display: contents;">
+                <!-- Skills Suggestion Dropdown -->
+                <x-component path="chat/skills-suggest.html"></x-component>
+
                 <!-- Attachment Preview section -->
                 <div>
                     <x-component path="/chat/attachments/inputPreview.html" />
