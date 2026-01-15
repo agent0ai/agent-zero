@@ -83,7 +83,7 @@ class ProactiveManager:
             battery = device_info.get("battery")
             
             # Example: Low Battery Nudge
-            if battery and battery.get("level", 100) < 15 and not battery.get("charging"):
+            if battery and battery.get("level", 100) < 20 and not battery.get("charging"):
                 cls.send_push(user_id, "🔋 Low Battery Alert", 
                              f"Your phone is at {battery['level']}%. Need me to wrap up anything before it dies?", 
                              "/")

@@ -11,6 +11,39 @@ const model = {
     async init() {
         await this.loadProfile();
         this.checkPushStatus();
+        this.startBackgroundSync();
+    },
+
+    async startBackgroundSync() {
+        // Heartbeat for battery and connectivity status (every 60s)
+        setInterval(async () => {
+            if (!this.profile) return;
+            
+            let battery = null;
+            if (navigator.getBattery) {
+                const b = await navigator.getBattery();
+                battery = {
+                    level: Math.round(b.level * 100),
+                    charging: b.charging
+                };
+            }
+
+            try {
+                // Background update without UI blocking
+                await callJsonApi("/profile_sync", {
+                    action: "update_profile",
+                    profile: {
+                        ...this.profile,
+                        deviceInfo: {
+                            ...this.profile.deviceInfo,
+                            battery: battery
+                        }
+                    }
+                });
+            } catch (e) {
+                console.warn("Background sync failed", e);
+            }
+        }, 60000);
     },
 
     async checkPushStatus() {

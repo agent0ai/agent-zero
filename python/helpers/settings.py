@@ -610,6 +610,26 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "external",
     }
 
+    # Passkey Security section
+    passkey_fields: list[SettingsField] = []
+    passkey_fields.append(
+        {
+            "id": "passkey_manager",
+            "title": "Passkey (WebAuthn) Manager",
+            "description": "Register your phone or hardware security key to enable passwordless auth and tool authorization.",
+            "type": "html",
+            "value": "<x-component path='/settings/external/passkey-manager.html' />",
+        }
+    )
+
+    passkey_section: SettingsSection = {
+        "id": "passkey_security",
+        "title": "Hardware Security (Passkeys)",
+        "description": "Manage FIDO2/WebAuthn credentials for secure hardware-bound access.",
+        "fields": passkey_fields,
+        "tab": "external",
+    }
+
     # api keys model section
     api_keys_fields: list[SettingsField] = []
 
@@ -1666,6 +1686,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             litellm_section,
             secrets_section,
             auth_section,
+            passkey_section,
             mcp_client_section,
             mcp_server_section,
             a2a_section,

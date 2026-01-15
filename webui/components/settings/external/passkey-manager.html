@@ -3,6 +3,7 @@
     <script type="module">
         import { store as passkeyStore } from "/components/settings/external/passkey-auth-store.js";
         import { store as profileStore } from "/components/settings/external/profile-sync-store.js";
+        import securityStore from "/components/settings/external/security-store.js";
         
         if (!Alpine.store('passkeyAuth')) {
             Alpine.store('passkeyAuth', passkeyStore);
@@ -10,10 +11,13 @@
         if (!Alpine.store('profileSync')) {
             Alpine.store('profileSync', profileStore);
         }
+        if (!Alpine.store('securityOps')) {
+            Alpine.store('securityOps', securityStore);
+        }
     </script>
 </head>
 <body>
-    <div x-data x-init="$store.passkeyAuth.init(); $store.profileSync.init()" class="passkey-manager">
+    <div x-data x-init="$store.passkeyAuth.init(); $store.profileSync.init(); $store.securityOps.init()" class="passkey-manager">
         <div class="settings-section-header">
             <h4>Centralized Phone Authentication (Passkey)</h4>
             <p class="text-secondary small">Register your phone as a hardware security key to authorize sensitive agent actions and secure your vault.</p>
@@ -122,6 +126,56 @@
 
         <div class="error-msg mt-2" x-show="$store.passkeyAuth.error" x-text="$store.passkeyAuth.error"></div>
 
+        <!-- Panic Lock Section -->
+        <div class="mt-4 p-3 border border-danger rounded bg-danger-subtle bg-opacity-10">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-danger mb-0">Emergency Lockdown</h6>
+                    <small class="text-secondary small">Instantly revoke all authorizations if you suspect a compromise.</small>
+                </div>
+                <button class="btn btn-danger btn-sm" @click="$store.securityOps.triggerPanicLock()">
+                    <span class="material-icons align-middle" style="font-size: 1.1rem">gpp_maybe</span> 
+                    Panic Lock
+                </button>
+            </div>
+        </div>
+
+        <!-- Security Audit Dashboard -->
+        <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-baseline mb-2">
+                <h5>Security Audit Dashboard</h5>
+                <button class="btn btn-link btn-sm text-secondary text-decoration-none" @click="$store.securityOps.loadLogs()">
+                    <span class="material-icons align-middle" style="font-size: 1rem">refresh</span> Refresh
+                </button>
+            </div>
+            
+            <div class="audit-log-container border border-secondary rounded overflow-hidden">
+                <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                    <template x-for="log in $store.securityOps.auditLogs" :key="log.id">
+                        <div class="list-group-item bg-dark border-secondary py-2 px-3">
+                            <div class="d-flex justify-content-between">
+                                <span class="small fw-bold" :class="$store.securityOps.getEventColor(log.status)">
+                                    <span class="material-icons align-middle" style="font-size: 0.9rem" x-text="$store.securityOps.getEventIcon(log.event_type)"></span>
+                                    <span x-text="log.event_type.replace(/_/g, ' ').toUpperCase()"></span>
+                                </span>
+                                <span class="small text-secondary" x-text="$store.securityOps.formatTime(log.timestamp)"></span>
+                            </div>
+                            <div class="small mt-1 d-flex justify-content-between">
+                                <span class="text-light" x-text="log.details ? JSON.parse(log.details).tool || log.status : log.status"></span>
+                                <span class="text-secondary x-small" x-text="log.ip_address"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="!$store.securityOps.loading && $store.securityOps.auditLogs.length === 0" class="p-3 text-center text-secondary small">
+                        No security events recorded.
+                    </div>
+                    <div x-show="$store.securityOps.loading" class="p-3 text-center">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="mt-4">
             <h5>Authorization Rules</h5>
             <div class="list-group">
@@ -175,6 +229,15 @@
         .error-msg {
             color: #f7c9c9;
             font-size: 0.85rem;
+        }
+        .audit-log-container {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        .x-small {
+            font-size: 0.7rem;
+        }
+        .list-group-item:hover {
+            background: rgba(255, 255, 255, 0.05) !important;
         }
     </style>
 </body>
