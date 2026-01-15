@@ -29,9 +29,12 @@ usr/*
 # Handle knowledge directory
 knowledge/**
 !knowledge/**/
-# Explicitly allow the default folder in knowledge
+# Explicitly allow the default and custom folders in knowledge
 !knowledge/default/
 !knowledge/default/**
+!knowledge/custom/
+!knowledge/custom/**
+!knowledge/INTERNAL_KNOWLEDGE_MAP.md
 
 # Handle instruments directory
 instruments/**
