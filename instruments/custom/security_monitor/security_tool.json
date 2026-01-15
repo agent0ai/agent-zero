@@ -1,0 +1,22 @@
+{
+  "name": "security_monitor",
+  "description": "Monitor and request security authorizations for high-risk operations.",
+  "methods": [
+    {
+      "name": "security_status_check",
+      "description": "Check which high-risk tools are currently authorized or locked.",
+      "args": []
+    },
+    {
+      "name": "request_security_clearance",
+      "description": "Manually trigger a biometric Passkey request on the user's mobile device.",
+      "args": [
+        {
+          "name": "reason",
+          "type": "string",
+          "description": "The reason why higher clearance is needed."
+        }
+      ]
+    }
+  ]
+}
