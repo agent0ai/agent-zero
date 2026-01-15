@@ -1,27 +1,62 @@
-"""LLM Router - Get fallback chain for a model"""
+"""LLM Router - Get fallback chain for a model or role"""
 
 from python.helpers.api import ApiHandler
-from python.helpers.llm_router import get_router
+from python.helpers.llm_router import get_router, RoutingPriority
 
 
 class LlmRouterFallback(ApiHandler):
-    """Get fallback chain for a model"""
+    """Get fallback chain for a model or role
+
+    Usage:
+    - By role: {"role": "chat"} - Returns default model + fallbacks for role
+    - By model: {"provider": "openai", "model_name": "gpt-4"} - Returns specific model + fallbacks
+    """
 
     async def process(self, input: dict, request) -> dict:
         router = get_router()
 
+        role = input.get("role")
         provider = input.get("provider")
         model_name = input.get("model_name")
         required_capabilities = input.get("required_capabilities", [])
         max_fallbacks = input.get("max_fallbacks", 3)
 
+        # If role is provided, get default model for that role
+        if role:
+            priority = RoutingPriority[input.get("priority", "BALANCED").upper()]
+            primary = router.select_model(
+                role=role,
+                priority=priority,
+                required_capabilities=required_capabilities
+            )
+
+            if not primary:
+                return {
+                    "success": False,
+                    "error": f"No model available for role '{role}'"
+                }
+
+            fallbacks = router.get_fallback_chain(
+                primary_model=primary,
+                required_capabilities=required_capabilities,
+                max_fallbacks=max_fallbacks
+            )
+
+            return {
+                "success": True,
+                "role": role,
+                "primary": primary.to_dict(),
+                "fallbacks": [m.to_dict() for m in fallbacks]
+            }
+
+        # Otherwise require provider and model_name
         if not provider or not model_name:
             return {
                 "success": False,
-                "error": "provider and model_name are required"
+                "error": "Either 'role' or both 'provider' and 'model_name' are required"
             }
 
-        # Get primary model
+        # Get primary model by provider/name
         models = router.db.get_models(provider=provider)
         primary = next((m for m in models if m.name == model_name), None)
 

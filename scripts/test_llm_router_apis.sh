@@ -67,8 +67,8 @@ test_endpoint "llm_router_discover" '{"provider": "ollama"}' "success"
 # 5. llm_router_select - Select best model
 test_endpoint "llm_router_select" '{"role": "chat", "priority": "quality"}' "success"
 
-# 6. llm_router_fallback - Get fallback chain
-test_endpoint "llm_router_fallback" '{"role": "chat"}' "success"
+# 6. llm_router_fallback - Get fallback chain by role
+test_endpoint "llm_router_fallback" '{"role": "chat", "priority": "quality"}' "success"
 
 # 7. llm_router_usage - Get usage stats
 test_endpoint "llm_router_usage" '{"hours": 24}' "success"
