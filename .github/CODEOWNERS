@@ -1,0 +1,20 @@
+# CODEOWNERS file - Define who should review code for different parts of the repository
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @bjoernbethge
+
+# Python code
+*.py @bjoernbethge
+
+# Configuration files
+*.yml @bjoernbethge
+*.yaml @bjoernbethge
+*.json @bjoernbethge
+
+# Documentation
+*.md @bjoernbethge
+/docs/ @bjoernbethge
+
+# GitHub configuration
+/.github/ @bjoernbethge
