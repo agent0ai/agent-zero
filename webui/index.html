@@ -137,6 +137,10 @@
 
     <!-- Link the PWA manifest file -->
     <link rel="manifest" href="js/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Agent Zero">
+    <link rel="apple-touch-icon" href="public/icon.svg">
 
     <!-- Non-module scripts after Alpine.js -->
     <script type="text/javascript" src="js/settings.js"></script>
@@ -225,6 +229,8 @@
                                     @click="switchTab('agent')" title="Agent Settings">Agent Settings</div>
                                 <div class="settings-tab" :class="{'active': activeTab === 'external'}"
                                     @click="switchTab('external')" title="External Services">External Services</div>
+                                <div class="settings-tab" :class="{'active': activeTab === 'llm-router'}"
+                                    @click="switchTab('llm-router')" title="LLM Router">LLM Router</div>
                                 <div class="settings-tab" :class="{'active': activeTab === 'mcp'}"
                                     @click="switchTab('mcp')" title="MCP">MCP/A2A</div>
                                 <div class="settings-tab" :class="{'active': activeTab === 'developer'}"
@@ -236,8 +242,8 @@
                             </div>
                         </div>
 
-                        <!-- Display settings sections for standard tabs (excludes scheduler which has its own content) -->
-                        <div id="settings-sections" x-show="activeTab !== 'scheduler'">
+                        <!-- Display settings sections for standard tabs (excludes scheduler and llm-router which have their own content) -->
+                        <div id="settings-sections" x-show="activeTab !== 'scheduler' && activeTab !== 'llm-router'">
                             <nav>
                                 <ul>
                                     <template x-for="(section, index) in filteredSections" :key="section.title">
@@ -359,6 +365,11 @@
                             <div id="section-tunnel" class="section" x-show="activeTab === 'external'">
                                 <x-component path="settings/tunnel/tunnel-section.html" />
                             </div>
+                        </div>
+
+                        <!-- LLM Router Tab Content -->
+                        <div id="llm-router-tab-content" x-show="activeTab === 'llm-router'" x-cloak>
+                            <x-component path="settings/llm-router/llm-router-dashboard.html"></x-component>
                         </div>
 
                         <!-- Task Scheduler Tab Content -->

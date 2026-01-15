@@ -5,6 +5,23 @@ import * as device from "./device.js";
 export async function initialize(){
     // set device class to body tag
     setDeviceClass();
+    
+    // Register Service Worker for PWA/Push
+    registerServiceWorker();
+}
+
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/js/sw.js')
+                .then(registration => {
+                    console.log('SW registered: ', registration);
+                })
+                .catch(registrationError => {
+                    console.error('SW registration failed: ', registrationError);
+                });
+        });
+    }
 }
 
 function setDeviceClass(){

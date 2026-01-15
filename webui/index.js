@@ -10,6 +10,7 @@ import { store as inputStore } from "/components/chat/input/input-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
+import { store as passkeyStore } from "/components/settings/external/passkey-auth-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -391,8 +392,20 @@ export async function poll() {
 globalThis.poll = poll;
 
 function afterMessagesUpdate(logs) {
+  if (logs && logs.some(log => log.content && log.content.includes("AUTHORIZATION_REQUIRED"))) {
+    handleAuthorizationRequired();
+  }
+
   if (localStorage.getItem("speech") == "true") {
     speakMessages(logs);
+  }
+}
+
+async function handleAuthorizationRequired() {
+  console.warn("High-risk tool triggered. Requesting Passkey authorization...");
+  const success = await passkeyStore.authenticate();
+  if (success) {
+    toast("Operation authorized. Please resend your last request to proceed.", "success");
   }
 }
 

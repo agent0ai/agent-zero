@@ -52,6 +52,9 @@ html2text>=2024.2.26
 beautifulsoup4>=4.12.3
 exchangelib>=5.4.3
 pywinpty==3.0.2; sys_platform == "win32"
+webauthn>=2.2.0
 
 # Claude Code SDK for programmatic Claude Code integration
 claude-code-sdk>=0.0.25
+openai>=1.0.0
+anthropic>=0.3.0

@@ -167,6 +167,15 @@ async def logout_handler():
     session.pop('authentication', None)
     return redirect(url_for('login_handler'))
 
+@webapp.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*; img-src 'self' data: https://*; font-src 'self' data: https://fonts.gstatic.com;"
+    return response
+
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
 @requires_auth
