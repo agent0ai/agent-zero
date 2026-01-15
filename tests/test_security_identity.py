@@ -36,13 +36,16 @@ class TestSecurityIdentity:
 
     def test_rate_limiter(self):
         """Test simple rate limiting logic."""
-        # Mocking flask request.remote_addr
-        with patch('python.helpers.security.request') as mock_request:
-            mock_request.remote_addr = "127.0.0.1"
-            
+        from flask import Flask
+        app = Flask(__name__)
+        # Ensure rate limits are clear for test
+        SecurityManager._rate_limits = {}
+        
+        with app.test_request_context(environ_base={'REMOTE_ADDR': '127.0.0.1'}):
             # Allow 3 attempts in 60s
-            for _ in range(3):
-                assert SecurityManager.check_rate_limit("test_action", limit=3) is True
+            for i in range(3):
+                result = SecurityManager.check_rate_limit("test_action", limit=3)
+                assert result is True
             
             # 4th attempt should fail
             assert SecurityManager.check_rate_limit("test_action", limit=3) is False
@@ -56,7 +59,7 @@ class TestSecurityIdentity:
             assert SecurityVaultManager.get_secret("missing_key") is None
 
     @patch('python.helpers.proactive.webpush')
-    @patch('instruments.custom.workflow_engine.workflow_db.WorkflowEngineDatabase')
+    @patch('python.helpers.proactive.WorkflowEngineDatabase')
     def test_proactive_push_trigger(self, mock_db, mock_webpush):
         """Test that proactive notifications trigger the webpush library."""
         ProactiveManager.ENABLED = True

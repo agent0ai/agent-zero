@@ -181,7 +181,7 @@ class SecurityVaultManager:
     def set_secret(cls, key_name, value):
         """Sets a secret in the vault."""
         abs_path = files.get_abs_path(cls.VAULT_PATH)
-        files.ensure_dir(os.path.dirname(abs_path))
+        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         
         vault = {}
         if os.path.exists(abs_path):
