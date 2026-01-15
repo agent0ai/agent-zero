@@ -50,6 +50,18 @@ class TestSecurityIdentity:
             # 4th attempt should fail
             assert SecurityManager.check_rate_limit("test_action", limit=3) is False
 
+    def test_heuristic_velocity(self):
+        """Test the anomaly detection velocity check."""
+        SecurityManager._action_history = []
+        # Simulate 15 quick actions
+        for _ in range(15):
+            assert SecurityManager.check_heuristics("test_user") is True
+        
+        # 16th should trigger panic lock and return False
+        assert SecurityManager.check_heuristics("test_user") is False
+        # Verify user is now unauthorized
+        assert SecurityManager.is_tool_authorized("run_in_terminal", user_id="test_user") is False
+
     def test_vault_secrets(self, tmp_path):
         """Test vault storage and retrieval using a temporary path."""
         vault_file = tmp_path / "vault.json"

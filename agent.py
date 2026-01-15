@@ -942,6 +942,11 @@ class Agent:
                 try:
                     await self.handle_intervention()
 
+                    # Heuristic Monitoring (Velocity Check)
+                    if not SecurityManager.check_heuristics():
+                        PrintStyle(background_color="red", font_color="white", bold=True).print("🚨 SECURITY ANOMALY DETECTED: AUTO-LOCK ENGAGED")
+                        return "SECURITY_ERROR: Unusual activity detected. Agent has been locked for your protection. Please review logs and unlock manually."
+
                     # Notify user of high-risk tool usage via Push (Graceful fail)
                     try:
                         ProactiveManager.notify_tool_usage(tool_name)
@@ -959,15 +964,33 @@ class Agent:
                     if not SecurityManager.is_tool_authorized(tool_name):
                         SecurityManager.log_event("unauthorized_tool_attempt", "blocked", details={"tool": tool_name})
                         
+                        # Create actionable auth request
+                        req_id = SecurityManager.create_auth_request(tool_name)
+
                         # Trigger system-wide Auth Required notification
                         try:
                             from python.helpers.notification import NotificationType, NotificationPriority, NotificationManager
                             NotificationManager.send_notification(
                                 type=NotificationType.AUTH_REQUIRED,
                                 priority=NotificationPriority.HIGH,
-                                message=f"The tool '{tool_name}' requires your biometric signature.",
+                                message=f"The tool '{tool_name}' requires your signature.",
                                 title="🔒 Authorization Required",
                                 group="auth-gate"
+                            )
+                        except:
+                            pass
+                        
+                        # Send Actionable Push to Mobile
+                        try:
+                            ProactiveManager.send_push(
+                                user_id="default_user",
+                                title="🔒 Authorize Tool",
+                                body=f"Agent wants to use '{tool_name}'. Approve?",
+                                actions=[
+                                    {"action": "approve", "title": "✅ Approve"},
+                                    {"action": "deny", "title": "❌ Deny"}
+                                ],
+                                requestId=req_id
                             )
                         except:
                             pass

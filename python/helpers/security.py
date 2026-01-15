@@ -9,6 +9,8 @@ class SecurityManager:
     
     _rate_limits = {} # simple in-memory rate limiting. {ip_action: [timestamps]}
     _authorized_sessions = {} # {user_id: last_authorized_time}
+    _pending_requests = {} # {request_id: {tool, user_id, status}}
+    _action_history = [] # List of (timestamp, user_id, action) for anomaly detection
     
     # Toggle for feature rollout
     ENFORCE_PASSKEY = False 
@@ -95,6 +97,70 @@ class SecurityManager:
         cls._authorized_sessions.pop(user_id, None)
         cls.log_event("panic_lock_triggered", "warning", user_id)
         return True
+
+    @classmethod
+    def check_heuristics(cls, user_id="default_user"):
+        """Performs real-time anomaly detection on agent behavior."""
+        now = time.time()
+        cls._action_history.append((now, user_id))
+        
+        # Keep only last 60 seconds
+        cls._action_history = [(t, u) for t, u in cls._action_history if now - t < 60]
+        
+        # Velocity Check: Max 15 actions per minute for high-security mode
+        if len(cls._action_history) > 15:
+            cls.panic_lock(user_id)
+            cls.log_event("anomaly_detected", "critical", user_id, details={
+                "reason": "velocity_limit_exceeded",
+                "actions_per_min": len(cls._action_history)
+            })
+            
+            # Send Emergency Push
+            try:
+                from python.helpers.proactive import ProactiveManager
+                ProactiveManager.send_push(
+                    user_id=user_id,
+                    title="🚨 EMERGENCY LOCK",
+                    body=f"Agent activity spike detected ({len(cls._action_history)} actions/min). Security lock engaged.",
+                    url="/logs"
+                )
+            except:
+                pass
+            
+            return False
+        return True
+
+    @classmethod
+    def create_auth_request(cls, tool_name, user_id="default_user"):
+        """Creates a pending authorization request and returns its ID."""
+        import uuid
+        request_id = str(uuid.uuid4())
+        cls._pending_requests[request_id] = {
+            "tool": tool_name,
+            "user_id": user_id,
+            "status": "pending",
+            "timestamp": time.time()
+        }
+        # Cleanup old requests (older than 10 mins)
+        now = time.time()
+        cls._pending_requests = {k: v for k, v in cls._pending_requests.items() if now - v["timestamp"] < 600}
+        return request_id
+
+    @classmethod
+    def resolve_auth_request(cls, request_id, approved=True):
+        """Resolves a pending authorization request."""
+        if request_id in cls._pending_requests:
+            req = cls._pending_requests[request_id]
+            if approved:
+                req["status"] = "approved"
+                # If approved, we also authorize the session for the next hour for all tools
+                cls.set_authorized(req["user_id"])
+                cls.log_event("auth_request_approved", "success", req["user_id"], details={"tool": req["tool"]})
+            else:
+                req["status"] = "denied"
+                cls.log_event("auth_request_denied", "warning", req["user_id"], details={"tool": req["tool"]})
+            return True
+        return False
 
     @staticmethod
     def get_audit_logs(limit=50):

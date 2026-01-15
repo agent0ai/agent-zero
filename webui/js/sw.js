@@ -70,8 +70,10 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/public/icon.svg',
     badge: '/public/icon.svg',
     vibrate: [100, 50, 100],
+    actions: data.actions || [],
     data: {
-      url: data.url || '/'
+      url: data.url || '/',
+      requestId: data.requestId || null
     }
   };
 
@@ -83,6 +85,32 @@ self.addEventListener('push', (event) => {
 // Notification Click Event
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // If the user clicked an action button (Approve/Deny)
+  if (event.action && event.notification.data.requestId) {
+    const action = event.action; // 'approve' or 'deny'
+    const requestId = event.notification.data.requestId;
+
+    event.waitUntil(
+      fetch('/security_tool_action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: action,
+          requestId: requestId
+        })
+      }).then(response => {
+        console.log('Action recorded:', action);
+      }).catch(err => {
+        console.error('Failed to report action:', err);
+      })
+    );
+    return;
+  }
+
+  // Default behavior: focus or open window
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then((clientList) => {
       for (const client of clientList) {

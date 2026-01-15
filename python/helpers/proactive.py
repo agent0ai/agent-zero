@@ -28,7 +28,7 @@ class ProactiveManager:
         return SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "PLACEHOLDER_PRIVATE_KEY")
 
     @classmethod
-    def send_push(cls, user_id, title, body, url="/"):
+    def send_push(cls, user_id, title, body, url="/", actions=None, requestId=None):
         """Sends a physical push notification to a registered user device."""
         if not cls.ENABLED:
             return False
@@ -48,13 +48,19 @@ class ProactiveManager:
 
             subscription_info = json.loads(row[0])
             
+            payload = {
+                "title": title,
+                "body": body,
+                "url": url
+            }
+            if actions:
+                payload["actions"] = actions
+            if requestId:
+                payload["requestId"] = requestId
+
             webpush(
                 subscription_info=subscription_info,
-                data=json.dumps({
-                    "title": title,
-                    "body": body,
-                    "url": url
-                }),
+                data=json.dumps(payload),
                 vapid_private_key=cls.get_private_key(),
                 vapid_claims=cls.VAPID_CLAIMS
             )

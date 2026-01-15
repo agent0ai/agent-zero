@@ -223,11 +223,24 @@ class MCPServerRemote(BaseModel):
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __client: Optional["MCPClientRemote"] = PrivateAttr(default=None)
+    __initialized: bool = PrivateAttr(default=False)
+    __pending_config: dict = PrivateAttr(default_factory=dict)
 
     def __init__(self, config: dict[str, Any]):
         super().__init__()
         self.__client = MCPClientRemote(self)
+        self.__initialized = False
+        self.__pending_config = {}
         self.update(config)
+
+    def _ensure_initialized(self) -> None:
+        """Lazy initialization - connect to server on first use"""
+        if not self.__initialized and not self.disabled:
+            try:
+                asyncio.run(self.__on_update())
+                self.__initialized = True
+            except Exception as e:
+                PrintStyle(font_color="red").print(f"MCP Remote ({self.name}): Failed to initialize: {e}")
 
     def get_error(self) -> str:
         with self.__lock:
@@ -240,11 +253,13 @@ class MCPServerRemote(BaseModel):
     def get_tools(self) -> List[dict[str, Any]]:
         """Get all tools from the server"""
         with self.__lock:
+            self._ensure_initialized()
             return self.__client.tools  # type: ignore
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
         with self.__lock:
+            self._ensure_initialized()
             return self.__client.has_tool(tool_name)  # type: ignore
 
     async def call_tool(
@@ -252,6 +267,7 @@ class MCPServerRemote(BaseModel):
     ) -> CallToolResult:
         """Call a tool with the given input data"""
         with self.__lock:
+            self._ensure_initialized()
             # We already run in an event loop, dont believe Pylance
             return await self.__client.call_tool(tool_name, input_data)  # type: ignore
 
@@ -276,8 +292,9 @@ class MCPServerRemote(BaseModel):
                         key = "url"  # remap serverUrl to url
 
                     setattr(self, key, value)
-            # We already run in an event loop, dont believe Pylance
-            return asyncio.run(self.__on_update())
+            # LAZY: Don't connect now, defer to first use
+            self.__initialized = False
+            return self
 
     async def __on_update(self) -> "MCPServerRemote":
         await self.__client.update_tools()  # type: ignore
@@ -302,11 +319,22 @@ class MCPServerLocal(BaseModel):
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __client: Optional["MCPClientLocal"] = PrivateAttr(default=None)
+    __initialized: bool = PrivateAttr(default=False)
 
     def __init__(self, config: dict[str, Any]):
         super().__init__()
         self.__client = MCPClientLocal(self)
+        self.__initialized = False
         self.update(config)
+
+    def _ensure_initialized(self) -> None:
+        """Lazy initialization - start local MCP server on first use"""
+        if not self.__initialized and not self.disabled:
+            try:
+                asyncio.run(self.__on_update())
+                self.__initialized = True
+            except Exception as e:
+                PrintStyle(font_color="red").print(f"MCP Local ({self.name}): Failed to initialize: {e}")
 
     def get_error(self) -> str:
         with self.__lock:
@@ -319,11 +347,13 @@ class MCPServerLocal(BaseModel):
     def get_tools(self) -> List[dict[str, Any]]:
         """Get all tools from the server"""
         with self.__lock:
+            self._ensure_initialized()
             return self.__client.tools  # type: ignore
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
         with self.__lock:
+            self._ensure_initialized()
             return self.__client.has_tool(tool_name)  # type: ignore
 
     async def call_tool(
@@ -331,6 +361,7 @@ class MCPServerLocal(BaseModel):
     ) -> CallToolResult:
         """Call a tool with the given input data"""
         with self.__lock:
+            self._ensure_initialized()
             # We already run in an event loop, dont believe Pylance
             return await self.__client.call_tool(tool_name, input_data)  # type: ignore
 
@@ -353,8 +384,9 @@ class MCPServerLocal(BaseModel):
                     if key == "name":
                         value = normalize_name(value)
                     setattr(self, key, value)
-            # We already run in an event loop, dont believe Pylance
-            return asyncio.run(self.__on_update())
+            # LAZY: Don't start MCP server now, defer to first use
+            self.__initialized = False
+            return self
 
     async def __on_update(self) -> "MCPServerLocal":
         await self.__client.update_tools()  # type: ignore
