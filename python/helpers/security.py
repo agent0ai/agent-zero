@@ -89,6 +89,40 @@ class SecurityManager:
         cls._rate_limits[key].append(now)
         return True
 
+    @classmethod
+    def panic_lock(cls, user_id="default_user"):
+        """Immediately revokes all authorized sessions and blocks tool access."""
+        cls._authorized_sessions.pop(user_id, None)
+        cls.log_event("panic_lock_triggered", "warning", user_id)
+        return True
+
+    @staticmethod
+    def get_audit_logs(limit=50):
+        """Retrieves recent security events from the audit log."""
+        try:
+            from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
+            db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
+            db = WorkflowEngineDatabase(db_path)
+            conn = db._get_conn()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT id, event_type, status, user_id, ip_address, device_info, details, timestamp 
+                FROM security_audit_log 
+                ORDER BY timestamp DESC LIMIT ?
+            """, (limit,))
+            
+            rows = cursor.fetchall()
+            logs = []
+            for row in rows:
+                logs.append(dict(row))
+            
+            conn.close()
+            return logs
+        except Exception as e:
+            print(f"FAILED TO FETCH AUDIT LOGS: {e}")
+            return []
+
     @staticmethod
     def validate_input(data, required_fields):
         """Basic input validation and sanitization."""
