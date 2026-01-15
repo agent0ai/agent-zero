@@ -38,7 +38,6 @@ pydantic==2.11.7
 pymupdf==1.25.3
 pytesseract==0.3.13
 pdf2image==1.17.0
-crontab==1.0.1
 pathspec>=0.12.1
 psutil>=7.0.0
 soundfile==0.13.1
@@ -47,3 +46,9 @@ html2text>=2024.2.26
 beautifulsoup4>=4.12.3
 exchangelib>=5.4.3
 pywinpty==3.0.2; sys_platform == "win32"
+# Advanced data storage and analysis
+surrealdb>=0.5.0
+duckdb>=1.3.0
+# Visualization
+plotly>=5.23.0
+kaleido>=0.2.1
