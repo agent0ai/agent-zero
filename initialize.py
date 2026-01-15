@@ -140,12 +140,24 @@ def initialize_mcp():
     return defer.DeferredTask().start_task(initialize_mcp_async)
 
 def initialize_job_loop():
-    from python.helpers.job_loop import run_loop
-    return defer.DeferredTask("JobLoop").start_task(run_loop)
+    try:
+        from python.helpers.job_loop import run_loop
+        return defer.DeferredTask("JobLoop").start_task(run_loop)
+    except ImportError as e:
+        # crontab module may not be installed - scheduler is optional
+        from python.helpers.print_style import PrintStyle
+        PrintStyle(font_color="yellow").print(f"[!] Job loop disabled: {e}")
+        return None
 
 def initialize_preload():
-    import preload
-    return defer.DeferredTask().start_task(preload.preload)
+    try:
+        import preload
+        return defer.DeferredTask().start_task(preload.preload)
+    except ImportError as e:
+        # Optional dependencies like soundfile, kokoro_tts may not be installed
+        from python.helpers.print_style import PrintStyle
+        PrintStyle(font_color="yellow").print(f"[!] Preload disabled: {e}")
+        return None
 
 
 def _args_override(config):

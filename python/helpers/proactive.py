@@ -1,10 +1,16 @@
 import json
 import os
 import time
-from pywebpush import webpush, WebPushException
 from python.helpers import files
-from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
-from python.helpers.security import SecurityVaultManager
+
+# Optional: pywebpush for push notifications
+try:
+    from pywebpush import webpush, WebPushException
+    PYWEBPUSH_AVAILABLE = True
+except ImportError:
+    webpush = None
+    WebPushException = Exception
+    PYWEBPUSH_AVAILABLE = False
 
 class ProactiveManager:
     """Manages proactive alerts and push notifications for the user."""
@@ -18,22 +24,25 @@ class ProactiveManager:
     @classmethod
     def get_public_key(cls):
         """Retrieves the public key for frontend subscription."""
+        from python.helpers.security import SecurityVaultManager
         SecurityVaultManager.initialize_keys()
         return SecurityVaultManager.get_secret("VAPID_PUBLIC_KEY", "BEl62iC769AsE_YQ-bMIn2404u2S5yTzOsVIdgYxOnvIowh-G5hV_Iq12_9E2D8y")
 
     @classmethod
     def get_private_key(cls):
         """Retrieves the private key for signing push payloads."""
+        from python.helpers.security import SecurityVaultManager
         SecurityVaultManager.initialize_keys()
         return SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "PLACEHOLDER_PRIVATE_KEY")
 
     @classmethod
     def send_push(cls, user_id, title, body, url="/", actions=None, requestId=None):
         """Sends a physical push notification to a registered user device."""
-        if not cls.ENABLED:
+        if not cls.ENABLED or not PYWEBPUSH_AVAILABLE:
             return False
-            
+
         try:
+            from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
             conn = db._get_conn()

@@ -8,7 +8,14 @@ from webauthn import (
     verify_authentication_response,
     options_to_json,
 )
-from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential
+from webauthn.helpers.structs import (
+    RegistrationCredential, 
+    AuthenticationCredential,
+    AuthenticatorAttachment,
+    UserVerificationRequirement,
+    ResidentKeyRequirement,
+    AuthenticatorSelectionCriteria
+)
 
 class PasskeyVaultManager:
     """Manages Passkey registration and verification for centralized auth."""
@@ -19,13 +26,30 @@ class PasskeyVaultManager:
         self.db = db
 
     def get_registration_options(self, user_id: str, username: str, rp_id: str):
-        """Generate options for registering a new passkey (phone)."""
+        """Generate options for registering a new passkey. Enforces hardware requirements if enabled."""
+        from python.helpers.security import SecurityManager
+        
+        # Hardware Enclave Attestation logic
+        auth_selection = None
+        attestation = "none"
+        
+        if SecurityManager.STRICT_HARDWARE_ONLY:
+            # Require a platform authenticator (TouchID, FaceID, Windows Hello, Android Biometrics)
+            auth_selection = AuthenticatorSelectionCriteria(
+                authenticator_attachment=AuthenticatorAttachment.PLATFORM,
+                resident_key=ResidentKeyRequirement.REQUIRED,
+                user_verification=UserVerificationRequirement.REQUIRED,
+            )
+            attestation = "direct" # Request attestation data for hardware verification
+            print("[🛡️ Security] Enforcing Strict Hardware Attestation for Passkey registration.")
+
         options = generate_registration_options(
             rp_id=rp_id,
             rp_name=self.RP_NAME,
             user_id=user_id,
             user_name=username,
-            attestation="none",
+            attestation=attestation,
+            authenticator_selection=auth_selection,
         )
         return json.loads(options_to_json(options))
 

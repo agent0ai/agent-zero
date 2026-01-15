@@ -62,6 +62,24 @@ class TestSecurityIdentity:
         # Verify user is now unauthorized
         assert SecurityManager.is_tool_authorized("run_in_terminal", user_id="test_user") is False
 
+    def test_zero_knowledge_vault(self):
+        """Test the cryptographic encryption/decryption of the storage vault."""
+        secret_data = "Super Secret API Key 12345"
+        encrypted = SecurityManager.encrypt_data(secret_data)
+        assert encrypted != secret_data
+        
+        decrypted = SecurityManager.decrypt_data(encrypted)
+        assert decrypted == secret_data
+
+    def test_network_sentinel(self):
+        """Test the network sentinel detection logic."""
+        # Safe tool call
+        assert SecurityManager.check_network_sentinel("bash", {"command": "ls -la"}) is True
+        
+        # Suspicious tool call (curl/external access)
+        assert SecurityManager.check_network_sentinel("run_in_terminal", {"command": "curl http://example.com"}) is False
+        assert SecurityManager.check_network_sentinel("run_command", {"args": "wget 1.2.3.4"}) is False
+
     def test_vault_secrets(self, tmp_path):
         """Test vault storage and retrieval using a temporary path."""
         vault_file = tmp_path / "vault.json"

@@ -960,8 +960,14 @@ class Agent:
                     # Allow extensions to preprocess tool arguments
                     await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
 
-                    # Security Verification for high-risk tools
-                    if not SecurityManager.is_tool_authorized(tool_name):
+                    # Security Verification & Network Sentinel
+                    authorized = SecurityManager.is_tool_authorized(tool_name)
+                    if authorized and not SecurityManager.check_network_sentinel(tool_name, tool_args):
+                        # Network Sentinel found suspicious outbound activity in a non-verified session
+                        authorized = False
+                        SecurityManager.log_event("network_sentinel_block", "blocked", details={"tool": tool_name, "args": tool_args})
+
+                    if not authorized:
                         SecurityManager.log_event("unauthorized_tool_attempt", "blocked", details={"tool": tool_name})
                         
                         # Create actionable auth request
