@@ -10,6 +10,8 @@ SEARCH_ENGINE_RESULTS = 10
 
 
 class SearchEngine(Tool):
+    parallel_safe = True
+    
     async def execute(self, query="", **kwargs):
 
 

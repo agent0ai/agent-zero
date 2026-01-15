@@ -880,168 +880,16 @@ class Agent:
             await asyncio.sleep(0.1)
 
     async def process_tools(self, msg: str):
-        # search for tool usage requests in agent message
-        tool_request = extract_tools.json_parse_dirty(msg)
+        # search for all tool usage requests in agent message
+        tool_requests = extract_tools.json_parse_all_dirty(msg)
+        
+        # Fallback to single tool if multiple not found or if it's the old format
+        if not tool_requests:
+            single_request = extract_tools.json_parse_dirty(msg)
+            if single_request:
+                tool_requests = [single_request]
 
-        if tool_request is not None:
-            raw_tool_name = tool_request.get("tool_name", "")  # Get the raw tool name
-            tool_args = tool_request.get("tool_args", {})
-
-            if not raw_tool_name:
-                response_text = tool_request.get("response")
-                if response_text and not tool_args:
-                    tool_args = {"text": response_text}
-                    raw_tool_name = "response"
-                    tool_request["tool_name"] = raw_tool_name
-                    tool_request["tool_args"] = tool_args
-                else:
-                    warning_msg = "Tool request missing tool_name; ignoring."
-                    self.hist_add_warning(warning_msg)
-                    PrintStyle(font_color="red", padding=True).print(warning_msg)
-                    self.context.log.log(
-                        type="error",
-                        content=f"{self.agent_name}: {warning_msg}",
-                    )
-                    return
-
-            tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
-            tool_method = None  # Initialize tool_method
-
-            # Split raw_tool_name into tool_name and tool_method if applicable
-            if ":" in raw_tool_name:
-                tool_name, tool_method = raw_tool_name.split(":", 1)
-
-            tool = None  # Initialize tool to None
-
-            # Try getting tool from MCP first
-            try:
-                import python.helpers.mcp_handler as mcp_helper
-
-                mcp_tool_candidate = mcp_helper.MCPConfig.get_instance().get_tool(
-                    self, tool_name
-                )
-                if mcp_tool_candidate:
-                    tool = mcp_tool_candidate
-            except ImportError:
-                PrintStyle(
-                    background_color="black", font_color="yellow", padding=True
-                ).print("MCP helper module not found. Skipping MCP tool lookup.")
-            except Exception as e:
-                PrintStyle(
-                    background_color="black", font_color="red", padding=True
-                ).print(f"Failed to get MCP tool '{tool_name}': {e}")
-
-            # Fallback to local get_tool if MCP tool was not found or MCP lookup failed
-            if not tool:
-                tool = self.get_tool(
-                    name=tool_name, method=tool_method, args=tool_args, message=msg, loop_data=self.loop_data
-                )
-
-            if tool:
-                self.loop_data.current_tool = tool # type: ignore
-                try:
-                    await self.handle_intervention()
-
-                    # Heuristic Monitoring (Velocity Check)
-                    if not SecurityManager.check_heuristics():
-                        PrintStyle(background_color="red", font_color="white", bold=True).print("🚨 SECURITY ANOMALY DETECTED: AUTO-LOCK ENGAGED")
-                        return "SECURITY_ERROR: Unusual activity detected. Agent has been locked for your protection. Please review logs and unlock manually."
-
-                    # Notify user of high-risk tool usage via Push (Graceful fail)
-                    try:
-                        ProactiveManager.notify_tool_usage(tool_name)
-                    except Exception as e:
-                        pass
-
-                    # Call tool hooks for compatibility
-                    await tool.before_execution(**tool_args)
-                    await self.handle_intervention()
-
-                    # Allow extensions to preprocess tool arguments
-                    await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
-
-                    # Security Verification & Network Sentinel
-                    authorized = SecurityManager.is_tool_authorized(tool_name)
-                    if authorized and not SecurityManager.check_network_sentinel(tool_name, tool_args):
-                        # Network Sentinel found suspicious outbound activity in a non-verified session
-                        authorized = False
-                        SecurityManager.log_event("network_sentinel_block", "blocked", details={"tool": tool_name, "args": tool_args})
-
-                    if not authorized:
-                        SecurityManager.log_event("unauthorized_tool_attempt", "blocked", details={"tool": tool_name})
-                        
-                        # Create actionable auth request
-                        req_id = SecurityManager.create_auth_request(tool_name)
-
-                        # Trigger system-wide Auth Required notification
-                        try:
-                            from python.helpers.notification import NotificationType, NotificationPriority, NotificationManager
-                            NotificationManager.send_notification(
-                                type=NotificationType.AUTH_REQUIRED,
-                                priority=NotificationPriority.HIGH,
-                                message=f"The tool '{tool_name}' requires your signature.",
-                                title="🔒 Authorization Required",
-                                group="auth-gate"
-                            )
-                        except:
-                            pass
-                        
-                        # Send Actionable Push to Mobile
-                        try:
-                            ProactiveManager.send_push(
-                                user_id="default_user",
-                                title="🔒 Authorize Tool",
-                                body=f"Agent wants to use '{tool_name}'. Approve?",
-                                actions=[
-                                    {"action": "approve", "title": "✅ Approve"},
-                                    {"action": "deny", "title": "❌ Deny"}
-                                ],
-                                requestId=req_id
-                            )
-                        except:
-                            pass
-
-                        # If enforcement is the ONLY reason it's failing, we block.
-                        # But SecurityManager.is_tool_authorized already returns True if ENFORCE_PASSKEY is False.
-                        # However, we might want to still show a warning to the user that it *would* have been blocked.
-                        warning = f"SECURITY_ADVISORY: The tool '{tool_name}' is considered high-risk. In highly secure mode, this would require Passkey authorization."
-                        PrintStyle(font_color="yellow", padding=True).print(warning)
-                        
-                        response = f"AUTHORIZATION_REQUIRED: The tool '{tool_name}' requires Passkey authorization. Please verify your identity on your mobile device to proceed with this high-risk operation."
-                    else:
-                        # Informative nudge if enforcement is OFF but tool is high-risk
-                        if tool_name in SecurityManager.HIGH_RISK_TOOLS and not SecurityManager.ENFORCE_PASSKEY:
-                            PrintStyle(font_color="cyan", italic=True).print(f"[🛡️ Security] Accessing high-risk tool: {tool_name}")
-
-                        try:
-                            response = await tool.execute(**tool_args)
-                        except Exception as e:
-                            await self.call_extensions(
-                                "tool_execute_error", error=e, tool_name=tool_name
-                            )
-                            raise
-                    await self.handle_intervention()
-
-                    # Allow extensions to postprocess tool response
-                    await self.call_extensions("tool_execute_after", response=response, tool_name=tool_name)
-                    
-                    await tool.after_execution(response)
-                    await self.handle_intervention()
-
-                    if response.break_loop:
-                        return response.message
-                finally:
-                    self.loop_data.current_tool = None
-            else:
-                error_detail = (
-                    f"Tool '{raw_tool_name}' not found or could not be initialized."
-                )
-                self.hist_add_warning(error_detail)
-                PrintStyle(font_color="red", padding=True).print(error_detail)
-                self.context.log.log(
-                    type="error", content=f"{self.agent_name}: {error_detail}"
-                )
-        else:
+        if not tool_requests:
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
             self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
@@ -1049,6 +897,68 @@ class Agent:
                 type="error",
                 content=f"{self.agent_name}: Message misformat, no valid tool request found.",
             )
+            return
+
+        # Orchestrate execution with automatic parallelization for safe tools
+        results = []
+        i = 0
+        while i < len(tool_requests):
+            req = tool_requests[i]
+            t_name = req.get("tool_name", "")
+            
+            # Resolve tool class to check for parallel safety
+            is_safe = False
+            try:
+                # Basic check for common read-only tools
+                if any(t_name.startswith(p) for p in ["read_", "search_", "grep_", "list_", "get_"]):
+                    is_safe = True
+                else:
+                    # Deep check
+                    tool_temp = self.get_tool(name=t_name, method=None, args={}, message="", loop_data=None)
+                    is_safe = getattr(tool_temp, "parallel_safe", False)
+            except: pass
+
+            # Identify a batch of parallel-safe tools
+            batch = [req]
+            if is_safe:
+                j = i + 1
+                while j < len(tool_requests):
+                    next_req = tool_requests[j]
+                    next_name = next_req.get("tool_name", "")
+                    
+                    # Check safety of next tool
+                    next_safe = False
+                    if any(next_name.startswith(p) for p in ["read_", "search_", "grep_", "list_", "get_"]):
+                        next_safe = True
+                    else:
+                        try:
+                            nt_temp = self.get_tool(name=next_name, method=None, args={}, message="", loop_data=None)
+                            next_safe = getattr(nt_temp, "parallel_safe", False)
+                        except: pass
+                        
+                    if next_safe:
+                        batch.append(next_req)
+                        j += 1
+                    else: break
+                
+            if len(batch) > 1:
+                PrintStyle(font_color="cyan", bold=True).print(f"⚡ [Parallel Execution] Running {len(batch)} tools concurrently...")
+                SecurityManager.log_event("parallel_tool_execution", "success", details={"count": len(batch)})
+                # Execute batch in parallel
+                batch_results = await asyncio.gather(*(execute_tool_task(r) for r in batch), return_exceptions=True)
+                results.extend(batch_results)
+                i += len(batch)
+            else:
+                # Execute single tool
+                res = await execute_tool_task(req)
+                results.append(res)
+                i += 1
+                
+        # Handle final result (if any tool broke the loop like 'response')
+        for res in results:
+            if isinstance(res, Response) and res.break_loop:
+                return res.message
+        return None
 
     async def handle_reasoning_stream(self, stream: str):
         await self.handle_intervention()

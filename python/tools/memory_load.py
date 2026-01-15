@@ -6,6 +6,7 @@ DEFAULT_LIMIT = 10
 
 
 class MemoryLoad(Tool):
+    parallel_safe = True
 
     async def execute(self, query="", threshold=DEFAULT_THRESHOLD, limit=DEFAULT_LIMIT, filter="", **kwargs):
         db = await Memory.get(self.agent)

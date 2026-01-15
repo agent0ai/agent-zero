@@ -14,6 +14,8 @@ class Response:
     additional: dict[str, Any] | None = None
 
 class Tool:
+    # Metadata for the execution engine
+    parallel_safe: bool = False
 
     def __init__(self, agent: Agent, name: str, method: str | None, args: dict[str,str], message: str, loop_data: LoopData | None, **kwargs) -> None:
         self.agent = agent
