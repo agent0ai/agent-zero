@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from openai import BaseModel
 from pydantic import Field
 from fastmcp import FastMCP
+from fastmcp import settings as fastmcp_settings
 
 from agent import AgentContext, AgentContextType, UserMessage
 from python.helpers.persist_chat import remove_chat
@@ -296,23 +297,23 @@ class DynamicMcpProxy:
         http_path = f"/t-{self.token}/http"
         message_path = f"/t-{self.token}/messages/"
 
-        # Update settings in the MCP server instance if provided
-        mcp_server.settings.message_path = message_path
-        mcp_server.settings.sse_path = sse_path
+        # Update global FastMCP settings (not deprecated mcp_server.settings)
+        fastmcp_settings.message_path = message_path
+        fastmcp_settings.sse_path = sse_path
 
         # Create new MCP apps with updated settings
         with self._lock:
             # Handle FastMCP version - use simplified auth parameter
             additional_routes = getattr(mcp_server, '_additional_http_routes', [])
-            debug_mode = getattr(mcp_server.settings, 'debug', False)
+            debug_mode = fastmcp_settings.debug
 
             # Get auth provider if configured (current FastMCP API uses single 'auth' param)
-            auth_provider = getattr(mcp_server.settings, 'auth', None)
+            auth_provider = fastmcp_settings.server_auth
 
             self.sse_app = create_sse_app(
                 server=mcp_server,
-                message_path=mcp_server.settings.message_path,
-                sse_path=mcp_server.settings.sse_path,
+                message_path=fastmcp_settings.message_path,
+                sse_path=fastmcp_settings.sse_path,
                 auth=auth_provider,
                 debug=debug_mode,
                 routes=additional_routes,
