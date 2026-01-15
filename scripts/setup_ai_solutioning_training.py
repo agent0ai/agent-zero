@@ -98,6 +98,29 @@ def setup_training():
         },
         {
             "skill_id": "workflow_design",
+            "name": "Workflow & Logic Design",
+            "category": "solution_design",
+            "description": "Design sequential and parallel workflows for complex AI agent operations",
+            "prerequisites": ["business_analysis"],
+            "learning_resources": [
+                "Workflow Engine Documentation",
+                "Logic Tree Best Practices"
+            ]
+        },
+        {
+            "skill_id": "tradeoff_analysis",
+            "name": "Architectural Trade-off Analysis",
+            "category": "solution_design",
+            "description": "Perform ATAM-based analysis comparing Cost, Latency, and Scalability for proposed solutions.",
+            "prerequisites": ["workflow_design"],
+            "learning_resources": [
+                "ATAM Methodology Guide",
+                "CAP Theorem Reference",
+                "PERFORMANCE_REPORT.md"
+            ]
+        },
+        {
+            "skill_id": "human_ai_workflow",
             "name": "Human-AI Workflow Design",
             "category": "solution_design",
             "description": "Design optimized workflows that combine human judgment with AI automation",
@@ -112,7 +135,7 @@ def setup_training():
             "name": "AI Solution Architecture",
             "category": "solution_design",
             "description": "Design technical architectures for AI solutions using Diagram Architect",
-            "prerequisites": ["workflow_design"],
+            "prerequisites": ["workflow_design", "tradeoff_analysis"],
             "learning_resources": [
                 "Diagram Architect Tool Guide",
                 "Cloud Architecture Patterns"

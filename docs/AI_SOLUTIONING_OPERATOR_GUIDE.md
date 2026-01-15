@@ -48,6 +48,30 @@ This guide covers the complete AI solutioning workflow for operators using Agent
 | **Training** | 3 days | Customer training sessions |
 | **Optimization** | Ongoing | Monitor, optimize, enhance |
 
+### Stage 2: Solution Design & Architecture
+
+| Tool | Action | Purpose |
+|------|--------|---------|
+| `ai_migration` | `classify_tasks` | Identify AI/Human tasks |
+| `workflow_engine` | `create_workflow` | Design execution logic |
+| `knowledge_base` | `search` | Consult architectural patterns |
+
+**Architectural Excellence Guidelines:**
+1.  **Consult Patterns**: Always search `knowledge/custom/architectural_patterns/` before proposing a design. Familiarize yourself with EDA, Microservices, and Serverless patterns stored there.
+2.  **Trade-off Analysis**: Use the `tradeoff_analysis` skill to compare at least two architectural options (e.g., Centralized vs. Decentralized).
+3.  **WAF Alignment**: Ensure solutions align with the Azure Well-Architected Framework (Cost, Security, Reliability, Performance, Operational Excellence).
+
+**Example Design Flow:**
+```
+# 1. Search for patterns
+{{knowledge_search(query="Event Driven Architecture for AI Agents")}}
+
+# 2. Perform Trade-off Analysis
+I've compared the Monolithic vs Event-Driven approach for Acme Corp. 
+- Results: EDA provides better horizontal scale but higher initial complexity.
+- Recommendation: EDA via Azure Service Bus.
+```
+
 ---
 
 ## 🛠️ Tools by Stage
