@@ -169,10 +169,18 @@ class SurrealDBKnowledge:
                 
                 DEFINE INDEX idx_node_type ON TABLE knowledge_node COLUMNS type;
                 DEFINE INDEX idx_node_area ON TABLE knowledge_node COLUMNS area;
-                DEFINE ANALYZER custom_analyzer TOKENIZERS class FILTERS lowercase, ascii;
-                DEFINE INDEX idx_content_search ON TABLE knowledge_node 
-                    COLUMNS content SEARCH ANALYZER custom_analyzer;
             """)
+            
+            # Try to define full-text search (may not be available in all versions)
+            try:
+                await self._client.query("""
+                    DEFINE ANALYZER custom_analyzer TOKENIZERS class FILTERS lowercase, ascii;
+                    DEFINE INDEX idx_content_search ON TABLE knowledge_node 
+                        COLUMNS content SEARCH ANALYZER custom_analyzer;
+                """)
+            except Exception:
+                # Full-text search not available, fall back to basic functionality
+                pass
             
             # Define schema for knowledge edges (relationships)
             await self._client.query("""
@@ -328,16 +336,29 @@ class SurrealDBKnowledge:
             
             where_clause = " AND ".join(conditions) if conditions else "true"
             
-            result = await self._client.query(
-                f"""
-                SELECT *, search::score(1) as score 
-                FROM knowledge_node 
-                WHERE content @1@ $query AND {where_clause}
-                ORDER BY score DESC
-                LIMIT $limit
-                """,
-                params
-            )
+            # Try full-text search first, fall back to LIKE query
+            try:
+                result = await self._client.query(
+                    f"""
+                    SELECT *, search::score(1) as score 
+                    FROM knowledge_node 
+                    WHERE content @1@ $query AND {where_clause}
+                    ORDER BY score DESC
+                    LIMIT $limit
+                    """,
+                    params
+                )
+            except Exception:
+                # Fall back to LIKE-based search for compatibility
+                result = await self._client.query(
+                    f"""
+                    SELECT *, 1.0 as score 
+                    FROM knowledge_node 
+                    WHERE string::lowercase(content) CONTAINS string::lowercase($query) AND {where_clause}
+                    LIMIT $limit
+                    """,
+                    params
+                )
             
             if result and len(result) > 0:
                 return result[0].get("result", [])
