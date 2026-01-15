@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discord Community
+    url: https://discord.gg/B8KZKNsPpj
+    about: Join our Discord for live discussions and community support
+  - name: Documentation
+    url: https://github.com/agent0ai/agent-zero/blob/main/docs/README.md
+    about: Check the documentation for common questions and usage guides
+  - name: YouTube Tutorials
+    url: https://www.youtube.com/@AgentZeroFW
+    about: Watch video tutorials and guides
