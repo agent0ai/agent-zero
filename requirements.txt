@@ -1,6 +1,11 @@
 a2wsgi==1.10.8
+aiosmtplib>=5.0.0
 ansio==0.0.1
 browser-use==0.5.11
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.110.0
+google-cloud-pubsub>=2.18.0
 docker==7.1.0
 duckduckgo-search==6.1.12
 faiss-cpu==1.11.0
@@ -47,3 +52,6 @@ html2text>=2024.2.26
 beautifulsoup4>=4.12.3
 exchangelib>=5.4.3
 pywinpty==3.0.2; sys_platform == "win32"
+
+# Claude Code SDK for programmatic Claude Code integration
+claude-code-sdk>=0.0.25
