@@ -15,11 +15,7 @@ We take the security of Agent Zero seriously. If you believe you have found a se
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them by:
-
-1. **GitHub Security Advisories**: Use GitHub's private vulnerability reporting feature by going to the Security tab and clicking "Report a vulnerability"
-
-2. **Email**: If you prefer, you can email the maintainers directly
+Instead, please report them using **GitHub Security Advisories**: Use GitHub's private vulnerability reporting feature by going to the Security tab and clicking "Report a vulnerability"
 
 ### What to Include
 

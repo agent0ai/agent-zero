@@ -14,19 +14,15 @@ updates:
       - "python"
     groups:
       development:
+        dependency-type: "development"
         patterns:
           - "pytest*"
           - "ruff"
+          - "mypy*"
+          - "black"
+          - "flake8*"
         update-types:
           - "minor"
-          - "patch"
-      production:
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "pytest*"
-          - "ruff"
-        update-types:
           - "patch"
 
   # GitHub Actions
