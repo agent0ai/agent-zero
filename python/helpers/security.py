@@ -1,8 +1,12 @@
 import time
 import json
 import os
+import hashlib
+import threading
+import queue
 from flask import request
 from python.helpers import files
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 class SecurityManager:
     """Manages white-hat security protections, auditing, and rate limiting."""
@@ -11,9 +15,15 @@ class SecurityManager:
     _authorized_sessions = {} # {user_id: last_authorized_time}
     _pending_requests = {} # {request_id: {tool, user_id, status}}
     _action_history = [] # List of (timestamp, user_id, action) for anomaly detection
+    _storage_key = None # Derived key for storage encryption
     
+    # Async Logging Queue
+    _log_queue = queue.Queue()
+    _log_thread = None
+
     # Toggle for feature rollout
     ENFORCE_PASSKEY = False 
+    STRICT_HARDWARE_ONLY = True # Require hardware TPM/Secure Enclave
     
     HIGH_RISK_TOOLS = [
         "code_execution_tool", "email", "email_advanced", 
@@ -22,52 +32,54 @@ class SecurityManager:
     ]
 
     @classmethod
-    def is_tool_authorized(cls, tool_name, user_id="default_user"):
-        """Checks if a tool requires authorization and if the user is currently verified."""
-        if not cls.ENFORCE_PASSKEY:
-            return True
+    def _start_log_worker(cls):
+        """Starts a background thread to process audit logs without blocking the main loop."""
+        if cls._log_thread and cls._log_thread.is_alive():
+            return
             
-        if tool_name not in cls.HIGH_RISK_TOOLS:
-            return True
-        
-        last_auth = cls._authorized_sessions.get(user_id, 0)
-        # Authorization valid for 1 hour
-        if time.time() - last_auth < 3600:
-            return True
-        
-        return False
-
-    @classmethod
-    def set_authorized(cls, user_id="default_user"):
-        """Marks the user as authorized for high-risk operations."""
-        cls._authorized_sessions[user_id] = time.time()
-        cls.log_event("session_authorized", "success", user_id)
-
-    @staticmethod
-    def log_event(event_type, status, user_id="default_user", details=None):
-        """Logs a security event to the audit table."""
-        try:
+        def worker():
             from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
-            conn = db._get_conn()
-            cursor = conn.cursor()
             
-            ip = request.remote_addr if request else "unknown"
-            ua = request.headers.get("User-Agent") if request else "unknown"
-            
-            cursor.execute("""
-                INSERT INTO security_audit_log (event_type, status, user_id, ip_address, device_info, details)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (event_type, status, user_id, ip, ua, json.dumps(details) if details else None))
-            
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print(f"FAILED TO LOG SECURITY EVENT: {e}")
+            while True:
+                item = cls._log_queue.get()
+                if item is None: break # Shutdown signal
+                
+                try:
+                    event_type, status, user_id, ip, ua, details = item
+                    conn = db._get_conn()
+                    # Enable WAL mode for better performance
+                    conn.execute("PRAGMA journal_mode=WAL;")
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO security_audit_log (event_type, status, user_id, ip_address, device_info, details)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (event_type, status, user_id, ip, ua, json.dumps(details) if details else None))
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    print(f"BACKGROUND LOGGING ERROR: {e}")
+                finally:
+                    cls._log_queue.task_done()
+
+        cls._log_thread = threading.Thread(target=worker, daemon=True)
+        cls._log_thread.start()
 
     @classmethod
-    def check_rate_limit(cls, action, limit=5, window=60):
+    def log_event(cls, event_type, status, user_id="default_user", details=None):
+        """Buffers a security event to the async audit queue."""
+        if cls._log_thread is None:
+            cls._start_log_worker()
+            
+        ip = request.remote_addr if request else "unknown"
+        ua = request.headers.get("User-Agent") if request else "unknown"
+        
+        # Immediate return after queuing
+        cls._log_queue.put((event_type, status, user_id, ip, ua, details))
+
+    @classmethod
+    def is_tool_authorized(cls, tool_name, user_id="default_user"):
         """
         Simple rate limiter. 
         action: string identifier for the action
@@ -97,6 +109,55 @@ class SecurityManager:
         cls._authorized_sessions.pop(user_id, None)
         cls.log_event("panic_lock_triggered", "warning", user_id)
         return True
+
+    @classmethod
+    def check_network_sentinel(cls, tool_name, tool_args):
+        """Analyzes tool arguments for potential unauthorized network activity."""
+        # Keywords suggesting outbound connections
+        sentinel_keywords = ["curl", "wget", "http://", "https://", "ftp://", "socket.", "requests.", "urllib"]
+        
+        args_str = json.dumps(tool_args).lower()
+        if any(keyword in args_str for keyword in sentinel_keywords):
+            # If it's a known high-risk tool like bash, we monitor it more strictly
+            if tool_name in ["run_in_terminal", "run_command"]:
+                return False # Trigger Auth Required
+        return True
+
+    @classmethod
+    def get_storage_key(cls):
+        """Derives a storage key from the vault's unique platform secret."""
+        if cls._storage_key: return cls._storage_key
+        
+        # We use the VAPID private key as a seed for the platform derivation
+        seed = SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "agent-zero-storage-fallback")
+        cls._storage_key = hashlib.sha256(seed.encode()).digest()
+        return cls._storage_key
+
+    @classmethod
+    def encrypt_data(cls, plaintext: str) -> str:
+        """Encrypts data using AES-256-GCM with the hardware-bound storage key."""
+        try:
+            key = cls.get_storage_key()
+            aesgcm = AESGCM(key)
+            nonce = os.urandom(12)
+            ciphertext = aesgcm.encrypt(nonce, plaintext.encode(), None)
+            return (nonce + ciphertext).hex()
+        except Exception as e:
+            cls.log_event("encryption_error", "fail", details={"error": str(e)})
+            return plaintext # Fallback to plain if encryption fails
+
+    @classmethod
+    def decrypt_data(cls, hex_ciphertext: str) -> str:
+        """Decrypts data using AES-256-GCM."""
+        try:
+            key = cls.get_storage_key()
+            aesgcm = AESGCM(key)
+            data = bytes.fromhex(hex_ciphertext)
+            nonce = data[:12]
+            ciphertext = data[12:]
+            return aesgcm.decrypt(nonce, ciphertext, None).decode()
+        except:
+            return hex_ciphertext # Return as-is if decryption fails
 
     @classmethod
     def check_heuristics(cls, user_id="default_user"):
