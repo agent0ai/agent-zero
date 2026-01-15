@@ -10,6 +10,7 @@ class NotificationType(Enum):
     WARNING = "warning"
     ERROR = "error"
     PROGRESS = "progress"
+    AUTH_REQUIRED = "auth_required"
 
 class NotificationPriority(Enum):
     NORMAL = 10
@@ -110,6 +111,19 @@ class NotificationManager:
 
         # Enforce limit
         self._enforce_limit()
+
+        # Integrated Proactive Push for High Priority
+        if priority == NotificationPriority.HIGH or type == NotificationType.ERROR:
+            try:
+                from python.helpers.proactive import ProactiveManager
+                ProactiveManager.send_push(
+                    user_id="default_user", 
+                    title=f"🚨 {title or type.value.upper()}", 
+                    body=message,
+                    url="/"
+                )
+            except:
+                pass
 
         return item
 

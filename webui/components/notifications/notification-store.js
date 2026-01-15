@@ -73,6 +73,11 @@ const model = {
         const isNew = !this.notifications.find((n) => n.id === notification.id);
         this.addOrUpdateNotification(notification);
 
+        // Notify other systems of the new notification
+        if (isNew) {
+          window.dispatchEvent(new CustomEvent('notification-added', { detail: notification }));
+        }
+
         // Add new unread notifications to toast stack
         if (isNew && shouldToast) {
           this.addToToastStack(notification);

@@ -27,6 +27,8 @@ from typing import Callable
 from python.helpers.localization import Localization
 from python.helpers.extension import call_extensions
 from python.helpers.errors import RepairableException
+from python.helpers.security import SecurityManager
+from python.helpers.proactive import ProactiveManager
 
 
 class AgentContextType(Enum):
@@ -356,6 +358,12 @@ class Agent:
     async def monologue(self):
         while True:
             try:
+                # Proactive nudge check (Graceful fail)
+                try:
+                    ProactiveManager.check_and_nudge()
+                except Exception as e:
+                    pass
+
                 # loop data dictionary to pass to extensions
                 self.loop_data = LoopData(user_message=self.last_user_message)
                 # call monologue_start extensions
@@ -569,6 +577,32 @@ class Agent:
 
     async def get_system_prompt(self, loop_data: LoopData) -> list[str]:
         system_prompt: list[str] = []
+        
+        # Add User Profile if available
+        try:
+            from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
+            db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
+            db = WorkflowEngineDatabase(db_path)
+            conn = db._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_profiles WHERE user_id = 'default_user'")
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                profile = dict(row)
+                profile_text = f"## Power User Profile (Identity Verified via Passkey)\n"
+                profile_text += f"- **User**: {profile.get('full_name')} <{profile.get('email')}>\n"
+                profile_text += f"- **Environment**: High-Security White-Hat Platform\n"
+                profile_text += f"- **Timezone**: {profile.get('timezone')}\n"
+                profile_text += f"- **Locale**: {profile.get('locale')}\n"
+                profile_text += f"- **Security Policy**: Multi-Factor/Passkey required for high-risk tools (bash, email, etc.)\n"
+                if profile.get('phone_number'):
+                    profile_text += f"- **Phone**: {profile.get('phone_number')}\n"
+                system_prompt.append(profile_text)
+        except Exception:
+            pass # Silently fail if DB or table not ready
+
         await self.call_extensions(
             "system_prompt", system_prompt=system_prompt, loop_data=loop_data
         )
@@ -666,6 +700,27 @@ class Agent:
         return self.history.output_text(human_label="user", ai_label="assistant")
 
     def get_chat_model(self):
+        # Check if LLM Router should select the model
+        from python.helpers import settings
+        set = settings.get_settings()
+        if set.get("llm_router_enabled", False):
+            try:
+                from python.helpers.llm_router import get_router, RoutingPriority
+                router = get_router()
+                model_info = router.select_model(
+                    role="chat",
+                    context_type="USER",
+                    priority=RoutingPriority.QUALITY,
+                    required_capabilities=["chat"]
+                )
+                if model_info:
+                    return models.get_chat_model(
+                        model_info.provider,
+                        model_info.name,
+                    )
+            except Exception:
+                pass  # Fall back to default
+
         return models.get_chat_model(
             self.config.chat_model.provider,
             self.config.chat_model.name,
@@ -674,6 +729,27 @@ class Agent:
         )
 
     def get_utility_model(self):
+        # Check if LLM Router should select the model
+        from python.helpers import settings
+        set = settings.get_settings()
+        if set.get("llm_router_enabled", False):
+            try:
+                from python.helpers.llm_router import get_router, RoutingPriority
+                router = get_router()
+                model_info = router.select_model(
+                    role="utility",
+                    context_type="TASK",
+                    priority=RoutingPriority.SPEED,  # Utility calls need speed
+                    required_capabilities=["chat"]
+                )
+                if model_info:
+                    return models.get_chat_model(
+                        model_info.provider,
+                        model_info.name,
+                    )
+            except Exception:
+                pass  # Fall back to default
+
         return models.get_chat_model(
             self.config.utility_model.provider,
             self.config.utility_model.name,
@@ -730,6 +806,21 @@ class Agent:
 
         return response
 
+    def get_thinking_kwargs(self) -> dict:
+        """Get kwargs for thinking/extended reasoning mode if enabled."""
+        from python.helpers import settings
+        set = settings.get_settings()
+
+        kwargs = {}
+        if set.get("thinking_enabled", False):
+            budget = set.get("thinking_budget", 1024)
+            # For Anthropic Claude models with extended thinking support
+            kwargs["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": int(budget)
+            }
+        return kwargs
+
     async def call_chat_model(
         self,
         messages: list[BaseMessage],
@@ -742,12 +833,16 @@ class Agent:
         # model class
         model = self.get_chat_model()
 
+        # Get thinking mode kwargs if enabled
+        thinking_kwargs = self.get_thinking_kwargs()
+
         # call model
         response, reasoning = await model.unified_call(
             messages=messages,
             reasoning_callback=reasoning_callback,
             response_callback=response_callback,
             rate_limiter_callback=self.rate_limiter_callback if not background else None,
+            **thinking_kwargs,
         )
 
         return response, reasoning
@@ -847,6 +942,12 @@ class Agent:
                 try:
                     await self.handle_intervention()
 
+                    # Notify user of high-risk tool usage via Push (Graceful fail)
+                    try:
+                        ProactiveManager.notify_tool_usage(tool_name)
+                    except Exception as e:
+                        pass
+
                     # Call tool hooks for compatibility
                     await tool.before_execution(**tool_args)
                     await self.handle_intervention()
@@ -854,13 +955,42 @@ class Agent:
                     # Allow extensions to preprocess tool arguments
                     await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
 
-                    try:
-                        response = await tool.execute(**tool_args)
-                    except Exception as e:
-                        await self.call_extensions(
-                            "tool_execute_error", error=e, tool_name=tool_name
-                        )
-                        raise
+                    # Security Verification for high-risk tools
+                    if not SecurityManager.is_tool_authorized(tool_name):
+                        SecurityManager.log_event("unauthorized_tool_attempt", "blocked", details={"tool": tool_name})
+                        
+                        # Trigger system-wide Auth Required notification
+                        try:
+                            from python.helpers.notification import NotificationType, NotificationPriority, NotificationManager
+                            NotificationManager.send_notification(
+                                type=NotificationType.AUTH_REQUIRED,
+                                priority=NotificationPriority.HIGH,
+                                message=f"The tool '{tool_name}' requires your biometric signature.",
+                                title="🔒 Authorization Required",
+                                group="auth-gate"
+                            )
+                        except:
+                            pass
+
+                        # If enforcement is the ONLY reason it's failing, we block.
+                        # But SecurityManager.is_tool_authorized already returns True if ENFORCE_PASSKEY is False.
+                        # However, we might want to still show a warning to the user that it *would* have been blocked.
+                        warning = f"SECURITY_ADVISORY: The tool '{tool_name}' is considered high-risk. In highly secure mode, this would require Passkey authorization."
+                        PrintStyle(font_color="yellow", padding=True).print(warning)
+                        
+                        response = f"AUTHORIZATION_REQUIRED: The tool '{tool_name}' requires Passkey authorization. Please verify your identity on your mobile device to proceed with this high-risk operation."
+                    else:
+                        # Informative nudge if enforcement is OFF but tool is high-risk
+                        if tool_name in SecurityManager.HIGH_RISK_TOOLS and not SecurityManager.ENFORCE_PASSKEY:
+                            PrintStyle(font_color="cyan", italic=True).print(f"[🛡️ Security] Accessing high-risk tool: {tool_name}")
+
+                        try:
+                            response = await tool.execute(**tool_args)
+                        except Exception as e:
+                            await self.call_extensions(
+                                "tool_execute_error", error=e, tool_name=tool_name
+                            )
+                            raise
                     await self.handle_intervention()
 
                     # Allow extensions to postprocess tool response

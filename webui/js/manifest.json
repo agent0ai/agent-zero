@@ -1,11 +1,13 @@
 {
   "name": "Agent Zero",
   "short_name": "Agent Zero",
-  "description": "Autonomous AI agent",
+  "description": "Autonomous AI agent for power users",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#1a1a1a",
   "theme_color": "#333333",
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
       "src": "/public/icon-maskable.svg",
@@ -15,7 +17,7 @@
     },
     {
       "src": "/public/icon.svg",
-      "sizes": "any",
+      "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     }

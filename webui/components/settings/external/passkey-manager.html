@@ -1,0 +1,181 @@
+<html>
+<head>
+    <script type="module">
+        import { store as passkeyStore } from "/components/settings/external/passkey-auth-store.js";
+        import { store as profileStore } from "/components/settings/external/profile-sync-store.js";
+        
+        if (!Alpine.store('passkeyAuth')) {
+            Alpine.store('passkeyAuth', passkeyStore);
+        }
+        if (!Alpine.store('profileSync')) {
+            Alpine.store('profileSync', profileStore);
+        }
+    </script>
+</head>
+<body>
+    <div x-data x-init="$store.passkeyAuth.init(); $store.profileSync.init()" class="passkey-manager">
+        <div class="settings-section-header">
+            <h4>Centralized Phone Authentication (Passkey)</h4>
+            <p class="text-secondary small">Register your phone as a hardware security key to authorize sensitive agent actions and secure your vault.</p>
+        </div>
+
+        <!-- Android Profile Sharing Section -->
+        <div class="profile-sync-card mb-4" x-show="$store.profileSync.isAndroid">
+            <div class="d-flex align-items-center gap-3">
+                <div class="status-icon text-success">
+                    <span class="material-icons">android</span>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-0">Android Profile Data Sharing</h6>
+                    <small class="text-secondary">Sync your Android identity, device status, and locale preferences with Agent Zero.</small>
+                </div>
+                <div>
+                    <button class="btn btn-outline-success btn-sm" 
+                            @click="$store.profileSync.syncAndroidProfile()"
+                            :disabled="$store.profileSync.loading">
+                        <span x-show="!$store.profileSync.loading">Sync Profile</span>
+                        <span x-show="$store.profileSync.loading">Syncing...</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-3 p-2 border border-secondary rounded overflow-hidden" x-show="$store.profileSync.profile" style="background: rgba(0,0,0,0.2); font-size: 0.85rem;">
+                <div class="row">
+                    <div class="col-6"><strong>User:</strong> <span x-text="$store.profileSync.profile.full_name"></span></div>
+                    <div class="col-6"><strong>Email:</strong> <span x-text="$store.profileSync.profile.email"></span></div>
+                    <div class="col-6"><strong>Timezone:</strong> <span x-text="$store.profileSync.profile.timezone"></span></div>
+                    <div class="col-6"><strong>Synced:</strong> <span class="small" x-text="new Date($store.profileSync.profile.last_synced).toLocaleString()"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Apple Profile Sharing Section -->
+        <div class="profile-sync-card mb-4" x-show="$store.profileSync.isApple">
+            <div class="d-flex align-items-center gap-3">
+                <div class="status-icon text-light">
+                    <span class="material-icons">apple</span>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-0">Apple (iOS) Profile Sync</h6>
+                    <small class="text-secondary">Sync your Apple identity and environment preferences with Agent Zero.</small>
+                </div>
+                <div>
+                    <button class="btn btn-outline-light btn-sm" 
+                            @click="$store.profileSync.syncAppleProfile()"
+                            :disabled="$store.profileSync.loading">
+                        <span x-show="!$store.profileSync.loading">Sync Profile</span>
+                        <span x-show="$store.profileSync.loading">Syncing...</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-3 p-2 border border-secondary rounded overflow-hidden" x-show="$store.profileSync.profile" style="background: rgba(0,0,0,0.2); font-size: 0.85rem;">
+                <div class="row">
+                    <div class="col-6"><strong>User:</strong> <span x-text="$store.profileSync.profile.full_name"></span></div>
+                    <div class="col-6"><strong>Email:</strong> <span x-text="$store.profileSync.profile.email"></span></div>
+                    <div class="col-6"><strong>Timezone:</strong> <span x-text="$store.profileSync.profile.timezone"></span></div>
+                    <div class="col-6"><strong>Synced:</strong> <span class="small" x-text="new Date($store.profileSync.profile.last_synced).toLocaleString()"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="passkey-status-card" :class="{'supported': $store.passkeyAuth.isPasskeySupported}">
+            <div class="d-flex align-items-center gap-3">
+                <div class="status-icon">
+                    <span class="material-icons" x-text="$store.passkeyAuth.isPasskeySupported ? 'security' : 'error_outline'"></span>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-0" x-text="$store.passkeyAuth.isPasskeySupported ? 'Hardware Security Available' : 'Browser Not Supported'"></h6>
+                    <small x-text="$store.passkeyAuth.isPasskeySupported ? 'Your browser supports FIDO2/WebAuthn. You can bind your phone.' : 'Please use a modern browser like Chrome, Safari, or Edge over HTTPS.'"></small>
+                </div>
+                <div x-show="$store.passkeyAuth.isPasskeySupported">
+                    <button class="btn btn-primary btn-sm" 
+                            @click="$store.passkeyAuth.registerPasskey()"
+                            :disabled="$store.passkeyAuth.loading">
+                        <span x-show="!$store.passkeyAuth.loading">Register My Phone</span>
+                        <span x-show="$store.passkeyAuth.loading">Registering...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: Push Notifications Section -->
+        <div class="push-notif-card mt-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="status-icon" :class="$store.profileSync.pushEnabled ? 'text-info' : 'text-secondary'">
+                    <span class="material-icons" x-text="$store.profileSync.pushEnabled ? 'notifications_active' : 'notifications_off'"></span>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-0">Native Push Notifications</h6>
+                    <small class="text-secondary">Get proactive alerts on your phone even when Agent Zero is closed.</small>
+                </div>
+                <div>
+                    <button class="btn btn-sm" 
+                            :class="$store.profileSync.pushEnabled ? 'btn-outline-info' : 'btn-info'"
+                            @click="$store.profileSync.enablePushNotifications()"
+                            :disabled="$store.profileSync.pushEnabled">
+                        <span x-text="$store.profileSync.pushEnabled ? 'Enabled' : 'Enable Pushes'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="error-msg mt-2" x-show="$store.passkeyAuth.error" x-text="$store.passkeyAuth.error"></div>
+
+        <div class="mt-4">
+            <h5>Authorization Rules</h5>
+            <div class="list-group">
+                <div class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light border-secondary">
+                    <div>
+                        <div class="fw-bold">Mandatory Tool Authorization</div>
+                        <small class="text-secondary">Require a phone tap for all sensitive tool executions (Email, Terminal, Files).</small>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="requirePasskeyTools">
+                    </div>
+                </div>
+                <div class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light border-secondary">
+                    <div>
+                        <div class="fw-bold">Vault Unlocking</div>
+                        <small class="text-secondary">Decrypt 'usr/secrets.json' only after a successful Passkey authentication.</small>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="requirePasskeyVault" checked disabled>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .passkey-manager {
+            color: var(--color-text);
+        }
+        .passkey-status-card {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+        .passkey-status-card.supported {
+            border-left: 4px solid var(--color-primary);
+        }
+        .status-icon .material-icons {
+            font-size: 2rem;
+            color: var(--color-primary);
+        }
+        .push-notif-card {
+            border: 1px solid var(--color-border);
+            padding: 1rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            margin-top: 1rem;
+        }
+        .error-msg {
+            color: #f7c9c9;
+            font-size: 0.85rem;
+        }
+    </style>
+</body>
+</html>

@@ -64,6 +64,26 @@ class Memory:
     @staticmethod
     async def get(agent: Agent):
         memory_subdir = get_agent_memory_subdir(agent)
+
+        # Security: Secure Partition Check
+        if memory_subdir.startswith("secure_") or memory_subdir == "vault":
+            try:
+                from python.helpers.security import SecurityManager
+                if not SecurityManager.is_tool_authorized("memory_access"):
+                    from python.helpers.notification import NotificationType, NotificationPriority, NotificationManager
+                    NotificationManager.send_notification(
+                        type=NotificationType.AUTH_REQUIRED,
+                        priority=NotificationPriority.HIGH,
+                        message=f"Agent is trying to access secure memory partition '{memory_subdir}'.",
+                        title="🔒 Memory Authorization Needed",
+                        group="auth-gate"
+                    )
+                    # Note: Passive enforcement for now per user request
+                    if SecurityManager.ENFORCE_PASSKEY:
+                         raise Exception(f"ACCESS_DENIED: Memory partition '{memory_subdir}' is locked.")
+            except ImportError:
+                pass
+
         if Memory.index.get(memory_subdir) is None:
             log_item = agent.context.log.log(
                 type="util",

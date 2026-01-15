@@ -92,6 +92,13 @@ def initialize_agent(override_settings: dict | None = None):
     # update config with runtime args
     _args_override(config)
 
+    # Initialize Security Vault & Passkey/VAPID keys
+    try:
+        from python.helpers.security import SecurityVaultManager
+        SecurityVaultManager.initialize_keys()
+    except Exception as e:
+        PrintStyle(font_color="red").print(f"Failed to initialize security vault: {e}")
+
     # initialize MCP in deferred task to prevent blocking the main thread
     # async def initialize_mcp_async(mcp_servers_config: str):
     #     return initialize_mcp(mcp_servers_config)
