@@ -1,5 +1,4 @@
 from python.helpers.api import ApiHandler, Input, Output, Request
-from python.helpers.task_scheduler import TaskScheduler, TaskState
 from python.helpers.print_style import PrintStyle
 from python.helpers.localization import Localization
 
@@ -12,6 +11,11 @@ class SchedulerTaskRun(ApiHandler):
         """
         Manually run a task from the scheduler by ID
         """
+        # Lazy import - TaskScheduler requires crontab which may not be installed
+        try:
+            from python.helpers.task_scheduler import TaskScheduler, TaskState
+        except ImportError as e:
+            return {"error": f"Scheduler not available: {e}"}
         # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
         if timezone := input.get("timezone", None):
             Localization.get().set_timezone(timezone)

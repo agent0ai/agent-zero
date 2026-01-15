@@ -302,14 +302,20 @@ class DynamicMcpProxy:
 
         # Create new MCP apps with updated settings
         with self._lock:
+            # Handle FastMCP version - use simplified auth parameter
+            additional_routes = getattr(mcp_server, '_additional_http_routes', [])
+            debug_mode = getattr(mcp_server.settings, 'debug', False)
+
+            # Get auth provider if configured (current FastMCP API uses single 'auth' param)
+            auth_provider = getattr(mcp_server.settings, 'auth', None)
+
             self.sse_app = create_sse_app(
                 server=mcp_server,
                 message_path=mcp_server.settings.message_path,
                 sse_path=mcp_server.settings.sse_path,
-                auth_server_provider=mcp_server._auth_server_provider,
-                auth_settings=mcp_server.settings.auth,
-                debug=mcp_server.settings.debug,
-                routes=mcp_server._additional_http_routes,
+                auth=auth_provider,
+                debug=debug_mode,
+                routes=additional_routes,
                 middleware=[Middleware(BaseHTTPMiddleware, dispatch=mcp_middleware)],
             )
 
@@ -317,25 +323,22 @@ class DynamicMcpProxy:
             # doesn't work properly in our Flask/Werkzeug environment
             self.http_app = self._create_custom_http_app(
                 http_path,
-                mcp_server._auth_server_provider,
-                mcp_server.settings.auth,
-                mcp_server.settings.debug,
-                mcp_server._additional_http_routes,
+                auth_provider,
+                debug_mode,
+                additional_routes,
             )
 
-    def _create_custom_http_app(self, streamable_http_path, auth_server_provider, auth_settings, debug, routes):
+    def _create_custom_http_app(self, streamable_http_path, auth_provider, debug, routes):
         """Create a custom HTTP app that manages the session manager manually."""
-        from fastmcp.server.http import setup_auth_middleware_and_routes, create_base_app
+        from fastmcp.server.http import create_base_app
         from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
         from starlette.routing import Mount
-        from mcp.server.auth.middleware.bearer_auth import RequireAuthMiddleware
         import anyio
 
         server_routes = []
         server_middleware = []
 
         self.http_session_task_group = None
-
 
         # Create session manager
         self.http_session_manager = StreamableHTTPSessionManager(
@@ -344,7 +347,6 @@ class DynamicMcpProxy:
             json_response=True,
             stateless=False,
         )
-
 
         # Custom ASGI handler that ensures task group is initialized
         async def handle_streamable_http(scope, receive, send):
@@ -358,29 +360,24 @@ class DynamicMcpProxy:
             if self.http_session_manager:
                 await self.http_session_manager.handle_request(scope, receive, send)
 
-        # Get auth middleware and routes
-        auth_middleware, auth_routes, required_scopes = setup_auth_middleware_and_routes(
-            auth_server_provider, auth_settings
+        # Add auth routes and middleware if auth provider is configured
+        if auth_provider:
+            # Use AuthProvider's get_middleware and get_routes methods
+            auth_middleware = auth_provider.get_middleware()
+            if auth_middleware:
+                server_middleware.extend(auth_middleware)
+
+            auth_routes = auth_provider.get_routes()
+            if auth_routes:
+                server_routes.extend(auth_routes)
+
+        # Add StreamableHTTP routes
+        server_routes.append(
+            Mount(
+                streamable_http_path,
+                app=handle_streamable_http,
+            )
         )
-
-        server_routes.extend(auth_routes)
-        server_middleware.extend(auth_middleware)
-
-        # Add StreamableHTTP routes with or without auth
-        if auth_server_provider:
-            server_routes.append(
-                Mount(
-                    streamable_http_path,
-                    app=RequireAuthMiddleware(handle_streamable_http, required_scopes),
-                )
-            )
-        else:
-            server_routes.append(
-                Mount(
-                    streamable_http_path,
-                    app=handle_streamable_http,
-                )
-            )
 
         # Add custom routes with lowest precedence
         if routes:

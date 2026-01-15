@@ -2,7 +2,6 @@ from datetime import datetime
 
 from python.helpers.api import ApiHandler, Input, Output, Request
 from python.helpers.print_style import PrintStyle
-from python.helpers.task_scheduler import TaskScheduler
 from python.helpers.localization import Localization
 
 
@@ -20,6 +19,12 @@ class SchedulerTick(ApiHandler):
         return False
 
     async def process(self, input: Input, request: Request) -> Output:
+        # Lazy import - TaskScheduler requires crontab which may not be installed
+        try:
+            from python.helpers.task_scheduler import TaskScheduler
+        except ImportError as e:
+            return {"scheduler": "unavailable", "error": f"Scheduler not available: {e}"}
+
         # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
         if timezone := input.get("timezone", None):
             Localization.get().set_timezone(timezone)

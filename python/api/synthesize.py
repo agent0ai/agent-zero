@@ -2,18 +2,20 @@
 
 from python.helpers.api import ApiHandler, Request, Response
 
-from python.helpers import runtime, settings, kokoro_tts
 
 class Synthesize(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
+        # Lazy import - kokoro_tts requires soundfile which may not be installed
+        try:
+            from python.helpers import kokoro_tts
+        except ImportError as e:
+            return {"error": f"TTS not available: {e}", "success": False}
+
         text = input.get("text", "")
         ctxid = input.get("ctxid", "")
-        
+
         if ctxid:
             context = self.use_context(ctxid)
-
-        # if not await kokoro_tts.is_downloaded():
-        #     context.log.log(type="info", content="Kokoro TTS model is currently being initialized, please wait...")
 
         try:
             # # Clean and chunk text for long responses

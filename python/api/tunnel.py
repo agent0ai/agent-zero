@@ -1,14 +1,20 @@
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers import runtime
-from python.helpers.tunnel_manager import TunnelManager
+
 
 class Tunnel(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         return await process(input)
 
 async def process(input: dict) -> dict | Response:
+    # Lazy import - tunnel_manager requires flaredantic which may not be installed
+    try:
+        from python.helpers.tunnel_manager import TunnelManager
+    except ImportError as e:
+        return {"success": False, "error": f"Tunnel not available: {e}"}
+
     action = input.get("action", "get")
-    
+
     tunnel_manager = TunnelManager.get_instance()
 
     if action == "health":

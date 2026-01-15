@@ -2,11 +2,22 @@ from python.helpers.api import ApiHandler, Request, Response
 
 from agent import AgentContext, AgentContextType
 
-from python.helpers.task_scheduler import TaskScheduler
 from python.helpers.localization import Localization
 from python.helpers.settings import get_settings
 from python.helpers import cowork
 from python.helpers.dotenv import get_dotenv_value
+
+# Lazy import - TaskScheduler requires crontab which may not be installed
+_scheduler_available = None
+def _get_scheduler():
+    global _scheduler_available
+    if _scheduler_available is None:
+        try:
+            from python.helpers.task_scheduler import TaskScheduler
+            _scheduler_available = TaskScheduler
+        except ImportError:
+            _scheduler_available = False
+    return _scheduler_available.get() if _scheduler_available else None
 
 
 class Poll(ApiHandler):
@@ -38,8 +49,8 @@ class Poll(ApiHandler):
 
         # loop AgentContext._contexts
 
-        # Get a task scheduler instance
-        scheduler = TaskScheduler.get()
+        # Get a task scheduler instance (may be None if crontab not installed)
+        scheduler = _get_scheduler()
 
         # Always reload the scheduler on each poll to ensure we have the latest task state
         # await scheduler.reload() # does not seem to be needed
@@ -65,7 +76,8 @@ class Poll(ApiHandler):
             # Create the base context data that will be returned
             context_data = ctx.output()
 
-            context_task = scheduler.get_task_by_uuid(ctx.id)
+            # Only check scheduler if available
+            context_task = scheduler.get_task_by_uuid(ctx.id) if scheduler else None
             # Determine if this is a task-dedicated context by checking if a task with this UUID exists
             is_task_context = (
                 context_task is not None and context_task.context_id == ctx.id
@@ -75,7 +87,7 @@ class Poll(ApiHandler):
                 ctxs.append(context_data)
             else:
                 # If this is a task, get task details from the scheduler
-                task_details = scheduler.serialize_task(ctx.id)
+                task_details = scheduler.serialize_task(ctx.id) if scheduler else None
                 if task_details:
                     # Add task details to context_data with the same field names
                     # as used in scheduler endpoints to maintain UI compatibility

@@ -1,7 +1,6 @@
 from python.helpers.api import ApiHandler, Input, Output, Request, Response
 from agent import AgentContext
 from python.helpers import persist_chat
-from python.helpers.task_scheduler import TaskScheduler
 
 
 class RemoveChat(ApiHandler):
@@ -16,12 +15,17 @@ class RemoveChat(ApiHandler):
         AgentContext.remove(ctxid)
         persist_chat.remove_chat(ctxid)
 
-        scheduler = TaskScheduler.get()
-        await scheduler.reload()
+        # Lazy import to avoid blocking startup with crontab dependency
+        try:
+            from python.helpers.task_scheduler import TaskScheduler
+            scheduler = TaskScheduler.get()
+            await scheduler.reload()
 
-        tasks = scheduler.get_tasks_by_context_id(ctxid)
-        for task in tasks:
-            await scheduler.remove_task_by_uuid(task.uuid)
+            tasks = scheduler.get_tasks_by_context_id(ctxid)
+            for task in tasks:
+                await scheduler.remove_task_by_uuid(task.uuid)
+        except ImportError:
+            pass  # Scheduler not available
 
         return {
             "message": "Context removed.",

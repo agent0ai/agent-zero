@@ -241,33 +241,12 @@ def run():
             methods=handler.get_methods(),
         )
 
-    # Core API handlers - load immediately for basic chat functionality
-    CORE_API_PATTERNS = [
-        "chat_*.py", "settings_*.py", "status.py", "csrf_token.py",
-        "context_*.py", "agent_*.py", "msg_*.py", "log_*.py"
-    ]
-
-    # Load core handlers first (fast, essential)
-    core_handlers_loaded = set()
-    for pattern in CORE_API_PATTERNS:
-        handlers = load_classes_from_folder("python/api", pattern, ApiHandler)
-        for handler in handlers:
-            register_api_handler(webapp, handler)
-            core_handlers_loaded.add(handler.__name__)
-
-    # Load extended handlers in background thread
-    def load_extended_handlers():
-        import time
-        time.sleep(0.3)  # Let server start accepting requests first
-        all_handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)
-        count = 0
-        for handler in all_handlers:
-            if handler.__name__ not in core_handlers_loaded:
-                register_api_handler(webapp, handler)
-                count += 1
-        PrintStyle(font_color="green").print(f"[✓] Extended API handlers loaded ({count} handlers)")
-
-    threading.Thread(target=load_extended_handlers, daemon=True).start()
+    # Load ALL API handlers at startup (Flask 3.x requires all routes registered before first request)
+    # Note: Expensive imports should be made lazy INSIDE handlers via try/except ImportError
+    all_handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)
+    for handler in all_handlers:
+        register_api_handler(webapp, handler)
+    PrintStyle(font_color="green").print(f"[✓] API handlers loaded ({len(all_handlers)} handlers)")
 
     # add the webapp, mcp, and a2a to the app
     middleware_routes = {

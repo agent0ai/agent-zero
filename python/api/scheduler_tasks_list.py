@@ -1,5 +1,4 @@
 from python.helpers.api import ApiHandler, Input, Output, Request
-from python.helpers.task_scheduler import TaskScheduler
 import traceback
 from python.helpers.print_style import PrintStyle
 from python.helpers.localization import Localization
@@ -10,6 +9,12 @@ class SchedulerTasksList(ApiHandler):
         """
         List all tasks in the scheduler with their types
         """
+        # Lazy import - TaskScheduler requires crontab which may not be installed
+        try:
+            from python.helpers.task_scheduler import TaskScheduler
+        except ImportError as e:
+            return {"ok": False, "error": f"Scheduler not available: {e}", "tasks": []}
+
         try:
             # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
             if timezone := input.get("timezone", None):
