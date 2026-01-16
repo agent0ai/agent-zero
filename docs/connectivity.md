@@ -1,8 +1,8 @@
-# Agent Zero Connectivity Guide
+# Magui Connectivity Guide
 
-This guide covers the different ways to connect to Agent Zero from external applications, including using the External API, connecting as an MCP client, and enabling agent-to-agent communication.
+This guide covers the different ways to connect to Magui from external applications, including using the External API, connecting as an MCP client, and enabling agent-to-agent communication.
 
-**Note:** You can find your specific URLs and API tokens in your Agent Zero instance under `Settings > External Services`.
+**Note:** You can find your specific URLs and API tokens in your Magui instance under `Settings > External Services`.
 
 ### API Token Information
 
@@ -12,11 +12,11 @@ The API token is automatically generated from your username and password. This s
 
 ## External API Endpoints
 
-Agent Zero provides external API endpoints for integration with other applications. These endpoints use API key authentication and support text messages and file attachments.
+Magui provides external API endpoints for integration with other applications. These endpoints use API key authentication and support text messages and file attachments.
 
 ### `POST /api_message`
 
-Send messages to Agent Zero and receive responses. Supports text messages, file attachments, and conversation continuity.
+Send messages to Magui and receive responses. Supports text messages, file attachments, and conversation continuity.
 
 ### API Reference
 
@@ -540,7 +540,7 @@ attachmentWorkflow();
 
 ## MCP Server Connectivity
 
-Agent Zero includes an MCP Server that allows other MCP-compatible clients to connect to it. The server runs on the same URL and port as the Web UI.
+Magui includes an MCP Server that allows other MCP-compatible clients to connect to it. The server runs on the same URL and port as the Web UI.
 
 It provides two endpoint types:
 - **SSE (`/mcp/sse`):** For clients that support Server-Sent Events.
@@ -548,7 +548,7 @@ It provides two endpoint types:
 
 ### Example MCP Server Configuration
 
-Below is an example of a `mcp.json` configuration file that a client could use to connect to the Agent Zero MCP server. 
+Below is an example of a `mcp.json` configuration file that a client could use to connect to the Magui MCP server. 
 
 **Note:** You can find your personalized connection URLs under `Settings > MCP Server > MCP Server`.
 
@@ -572,11 +572,11 @@ Below is an example of a `mcp.json` configuration file that a client could use t
 
 ## A2A (Agent-to-Agent) Connectivity
 
-Agent Zero's A2A Server enables communication with other agents using the FastA2A protocol. Other agents can connect to your instance using the connection URL.
+Magui's A2A Server enables communication with other agents using the FastA2A protocol. Other agents can connect to your instance using the connection URL.
 
 ### A2A Connection URL
 
-To connect another agent to your Agent Zero instance, use the following URL format. 
+To connect another agent to your Magui instance, use the following URL format. 
 
 **Note:** You can find your specific A2A connection URL under `Settings > External Services > A2A Connection`.
 

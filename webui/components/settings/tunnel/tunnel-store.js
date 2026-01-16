@@ -56,14 +56,14 @@ const model = {
         // Update the stored URL if it's different from what we have
         if (this.tunnelLink !== data.tunnel_url) {
           this.tunnelLink = data.tunnel_url;
-          localStorage.setItem("agent_zero_tunnel_url", data.tunnel_url);
+          localStorage.setItem("magui_tunnel_url", data.tunnel_url);
         }
         this.linkGenerated = true;
         // Generate QR code for the tunnel URL
         Sleep.Skip().then(() => this.generateQRCode());
       } else {
         // Check if we have a stored tunnel URL
-        const storedTunnelUrl = localStorage.getItem("agent_zero_tunnel_url");
+        const storedTunnelUrl = localStorage.getItem("magui_tunnel_url");
 
         if (storedTunnelUrl) {
           // Use the stored URL but verify it's still valid
@@ -84,7 +84,7 @@ const model = {
             Sleep.Skip().then(() => this.generateQRCode());
           } else {
             // Clear stale URL
-            localStorage.removeItem("agent_zero_tunnel_url");
+            localStorage.removeItem("magui_tunnel_url");
             this.tunnelLink = "";
             this.linkGenerated = false;
           }
@@ -188,9 +188,9 @@ const model = {
       // If no authentication is set, warn the user
       if (!hasAuth) {
         const proceed = confirm(
-          "WARNING: No authentication is configured for your Agent Zero instance.\n\n" +
+          "WARNING: No authentication is configured for your Magui instance.\n\n" +
             "Creating a public tunnel without authentication means anyone with the URL " +
-            "can access your Agent Zero instance.\n\n" +
+            "can access your Magui instance.\n\n" +
             "It is recommended to set up authentication in the Settings > Authentication section " +
             "before creating a public tunnel.\n\n" +
             "Do you want to proceed anyway?"
@@ -235,7 +235,7 @@ const model = {
 
       if (data.success && data.tunnel_url) {
         // Store the tunnel URL in localStorage for persistence
-        localStorage.setItem("agent_zero_tunnel_url", data.tunnel_url);
+        localStorage.setItem("magui_tunnel_url", data.tunnel_url);
 
         this.tunnelLink = data.tunnel_url;
         this.linkGenerated = true;
@@ -270,7 +270,7 @@ const model = {
           if (statusData.success && statusData.tunnel_url) {
             // Tunnel is now running, we can update the UI
             localStorage.setItem(
-              "agent_zero_tunnel_url",
+              "magui_tunnel_url",
               statusData.tunnel_url
             );
             this.tunnelLink = statusData.tunnel_url;
@@ -336,7 +336,7 @@ const model = {
 
         if (data.success) {
           // Clear the stored URL
-          localStorage.removeItem("agent_zero_tunnel_url");
+          localStorage.removeItem("magui_tunnel_url");
 
           // Clear QR code
           const qrContainer = document.getElementById("qrcode-tunnel");

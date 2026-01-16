@@ -1,5 +1,6 @@
-# Development manual for Agent Zero
-This guide will show you how to setup a local development environment for Agent Zero in a VS Code compatible IDE, including proper debugger.
+# Magui Development Guide
+
+Guide for developers working on Magui.
 
 
 [![Tutorial video](./res/devguide_vid.png)](https://www.youtube.com/watch?v=KE39P4qBjDk)
@@ -10,7 +11,7 @@ This guide will show you how to setup a local development environment for Agent 
 > This guide is for developers and contributors. It assumes you have a basic understanding of how to use Git/GitHub, Docker, IDEs and Python.
 
 > [!NOTE]
-> - Agent Zero runs in a Docker container, this simplifies installation and ensures unified environment and behavior across systems.
+> - Magui runs in a Docker container, this simplifies installation and ensures unified environment and behavior across systems.
 > - Developing and debugging in a container would be complicated though, therefore we use a hybrid approach where the python framework runs on your machine (in VS Code for example) and only connects to a Dockerized instance when it needs to execute code or use other pre-installed functionality like the built-in search engine.
 
 
@@ -30,7 +31,7 @@ This guide will show you how to setup a local development environment for Agent 
 - For Python you can choose your environment manager - base Python venv, Conda, uv...
 
 ## Step 1: Clone or download the repository
-- Agent Zero is available on GitHub [github.com/agent0ai/agent-zero](https://github.com/agent0ai/agent-zero).
+- Magui is available on GitHub [github.com/agent0ai/agent-zero](https://github.com/agent0ai/agent-zero).
 - You can download the files using a browser and extract or run `git clone https://github.com/agent0ai/agent-zero` in your desired directory.
 
 > [!NOTE]
@@ -38,7 +39,7 @@ This guide will show you how to setup a local development environment for Agent 
 
 ## Step 2: Open project folder in your IDE
 - I will be using plain and clean VS Code for this example to make sure I don't skip any setup part, you can use any of it's variants like Cursor, Windsurf etc.
-- Agent Zero comes with `.vscode` folder that contains basic setup, recommended extensions, and debugger profiles. These will help us a lot.
+- Magui comes with `.vscode` folder that contains basic setup, recommended extensions, and debugger profiles. These will help us a lot.
 
 1. Open your IDE and open the project folder using `File > Open Folder` and select your folder, in my case `~/Desktop/agent-zero`.
 2. You will probably be prompted to trust the directory, confirm that.
@@ -56,7 +57,7 @@ ms-python.python
 Now when you select one of the python files in the project, you should see proper Python syntax highlighting and error detection. It should immediately show some errors, because we did not yet install dependencies.
 ![VS Code Python](res/dev/devinst-2.png)
 
-2. Prepare the python environment to run Agent Zero in. (⚠️ This step assumes you have some Python runtime installed.) By clicking the python version in lower right corner (3.13.1 in my example), you should get a list of available environments. You can click the `+ Create Virtual Environment` button. You might be prompted to select the environment manager if you have multiple installed. I have venv and Conda, I will select Conda here. I'm also prompted for desired python version, I will select 3.12, that is known to work well.
+2. Prepare the python environment to run Magui in. (⚠️ This step assumes you have some Python runtime installed.) By clicking the python version in lower right corner (3.13.1 in my example), you should get a list of available environments. You can click the `+ Create Virtual Environment` button. You might be prompted to select the environment manager if you have multiple installed. I have venv and Conda, I will select Conda here. I'm also prompted for desired python version, I will select 3.12, that is known to work well.
 ![VS Code Python environments](res/dev/devinst-3.png)
 ![VS Code Python environments](res/dev/devinst-4.png)
 
@@ -73,8 +74,8 @@ These will install all the python packages and browser binaries for playwright (
 Errors in the code editor caused by missing packages should now be gone. If not, try reloading the window.
 
 
-## Step 4: Run Agent Zero in the IDE
-Great work! Now you should be able to run Agent Zero from your IDE including real-time debugging.
+## Step 4: Run Magui in the IDE
+Great work! Now you should be able to run Magui from your IDE including real-time debugging.
 It will not be able to do code execution and few other features requiring the Docker container just yet, but most of the framework will already work.
 
 1. The project is pre-configured for debugging. Go to Debugging tab, select "run_ui.py" and click the green play button (or press F5 by default). The configuration can be found at `.vscode/launch.json`.
@@ -87,7 +88,7 @@ It may take a while the first time. You should see output like the screenshot be
 ![First run](res/dev/devinst-7.png)
 
 
-After inserting my API key in settings, my Agent Zero instance works. I can send a simple message and get a response.
+After inserting my API key in settings, my Magui instance works. I can send a simple message and get a response.
 ⚠️ Some tools like code execution will not work yet as they need to be connected to a Dockerized instance.
 
 ![First message](res/dev/devinst-8.png)
@@ -104,7 +105,7 @@ After inserting my API key in settings, my Agent Zero instance works. I can send
 ![Debugging](res/dev/devinst-10.png)
 
 
-## Step 5: Run another instance of Agent Zero in Docker
+## Step 5: Run another instance of Magui in Docker
 - Some parts of A0 require standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
 - To make development easier, we can use existing A0 instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
 
@@ -135,14 +136,14 @@ My VS Code instance:
 
 # 🎉 Congratulations! 🚀
 
-You have successfully set up a complete Agent Zero development environment! You now have:
+You have successfully set up a complete Magui development environment! You now have:
 
 - ✅ A local development instance running in your IDE with full debugging capabilities
 - ✅ A dockerized instance for code execution and system operations
 - ✅ RFC and SSH communication between both instances
-- ✅ The ability to develop, debug, and test Agent Zero features seamlessly
+- ✅ The ability to develop, debug, and test Magui features seamlessly
 
-You're now ready to contribute to Agent Zero, create custom extensions, or modify the framework to suit your needs. Happy coding! 💻✨
+You're now ready to contribute to Magui, create custom extensions, or modify the framework to suit your needs. Happy coding! 💻✨
 
 
 ## Next steps
@@ -151,6 +152,6 @@ You're now ready to contribute to Agent Zero, create custom extensions, or modif
 
 ## Want to build your docker image?
 - You can use the `DockerfileLocal` to build your docker image.
-- Navigate to your project root in the terminal and run `docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .`
+- Navigate to your project root in the terminal and run `docker build -f DockerfileLocal -t magui-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .`
 - The `CACHE_DATE` argument is optional, it is used to cache most of the build process and only rebuild the last steps when the files or dependencies change.
 - See `docker/run/build.txt` for more build command examples.

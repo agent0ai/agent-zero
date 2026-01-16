@@ -49,7 +49,7 @@ class UpdateCheck(Extension):
         notifs = self.agent.context.get_notification_manager()
         notifs.send_notification(
             title=notif.get("title", "Newer version available"),
-            message=notif.get("message", "A newer version of Agent Zero is available. Please update to the latest version."),
+            message=notif.get("message", "A newer version of Magui is available. Please update to the latest version."),
             type=notif.get("type", "info"),
             detail=notif.get("detail", ""),
             display_time=notif.get("display_time", 10),

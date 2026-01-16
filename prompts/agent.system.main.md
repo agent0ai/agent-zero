@@ -1,4 +1,4 @@
-# Agent Zero System Manual
+# Magui System Manual
 
 {{ include "agent.system.main.role.md" }}
 

@@ -1,19 +1,19 @@
-# Extensibility framework in Agent Zero
+# Extensibility framework in Magui
 
 > [!NOTE]
-> Agent Zero is built with extensibility in mind. It provides a framework for creating custom extensions, agents, instruments, and tools that can be used to enhance the functionality of the framework.
+> Magui is built with extensibility in mind. It provides a framework for creating custom extensions, agents, instruments, and tools that can be used to enhance the functionality of the framework.
 
 ## Extensible components
-- The Python framework controlling Agent Zero is built as simple as possible, relying on independent smaller and modular scripts for individual tools, API endpoints, system extensions and helper scripts.
+- The Python framework controlling Magui is built as simple as possible, relying on independent smaller and modular scripts for individual tools, API endpoints, system extensions and helper scripts.
 - This way individual components can be easily replaced, upgraded or extended.
 
 Here's a summary of the extensible components:
 
 ### Extensions
-Extensions are components that hook into specific points in the agent's lifecycle. They allow you to modify or enhance the behavior of Agent Zero at predefined extension points. The framework uses a plugin-like architecture where extensions are automatically discovered and loaded.
+Extensions are components that hook into specific points in the agent's lifecycle. They allow you to modify or enhance the behavior of Magui at predefined extension points. The framework uses a plugin-like architecture where extensions are automatically discovered and loaded.
 
 #### Extension Points
-Agent Zero provides several extension points where custom code can be injected:
+Magui provides several extension points where custom code can be injected:
 
 - **agent_init**: Executed when an agent is initialized
 - **before_main_llm_call**: Executed before the main LLM call is made
@@ -28,7 +28,7 @@ Agent Zero provides several extension points where custom code can be injected:
 - **system_prompt**: Executed when system prompts are processed
 
 #### Extension Mechanism
-The extension mechanism in Agent Zero works through the `call_extensions` function in `agent.py`, which:
+The extension mechanism in Magui works through the `call_extensions` function in `agent.py`, which:
 
 1. Loads default extensions from `/python/extensions/{extension_point}/`
 2. Loads agent-specific extensions from `/agents/{agent_profile}/extensions/{extension_point}/`
@@ -74,7 +74,7 @@ Each tool is implemented as a Python class that inherits from the base `Tool` cl
 - Agent-specific tools: `/agents/{agent_profile}/tools/`
 
 #### Tool Override Logic
-When a tool with the same name is requested, Agent Zero first checks for its existence in the agent-specific tools directory. If found, that version is used. If not found, it falls back to the default tools directory.
+When a tool with the same name is requested, Magui first checks for its existence in the agent-specific tools directory. If found, that version is used. If not found, it falls back to the default tools directory.
 
 **Example tool override:**
 
@@ -100,7 +100,7 @@ When a tool is called, it goes through the following lifecycle:
 4. `after_execution` method
 
 ### API Endpoints
-API endpoints expose Agent Zero functionality to external systems or the user interface. They are modular and can be extended or replaced.
+API endpoints expose Magui functionality to external systems or the user interface. They are modular and can be extended or replaced.
 
 API endpoints are located in:
 - Default endpoints: `/python/api/`
@@ -121,7 +121,7 @@ Prompts are located in:
 - Agent-specific prompts: `/agents/{agent_profile}/prompts/`
 
 #### Prompt Features
-Agent Zero's prompt system supports several powerful features:
+Magui's prompt system supports several powerful features:
 
 ##### Variable Placeholders
 Prompts can include variables using the `{{var}}` syntax. These variables are replaced with actual values when the prompt is processed.
@@ -136,7 +136,7 @@ Prompts can include variables using the `{{var}}` syntax. These variables are re
 ##### Dynamic Variable Loaders
 For more advanced prompt customization, you can create Python files with the same name as your prompt files. These Python files act as dynamic variable loaders that generate variables at runtime.
 
-When a prompt file is processed, Agent Zero automatically looks for a corresponding `.py` file in the same directory. If found, it uses this Python file to generate dynamic variables for the prompt.
+When a prompt file is processed, Magui automatically looks for a corresponding `.py` file in the same directory. If found, it uses this Python file to generate dynamic variables for the prompt.
 
 **Example:**
 If you have a prompt file `agent.system.tools.md`, you can create `agent.system.tools.py` alongside it:
@@ -176,7 +176,7 @@ Prompts can include content from other prompt files using the `{{ include "path/
 
 **Example:**
 ```markdown
-# Agent Zero System Manual
+# Magui System Manual
 
 {{ include "agent.system.main.role.md" }}
 
@@ -198,13 +198,13 @@ Similar to extensions and tools, prompts follow an override pattern. When the ag
 > !!!
 
 ## Your role
-You are Agent Zero, a sci-fi character from the movie "Agent Zero".
+You are Magui, a sci-fi character from the movie "Magui".
 ```
 
 This example overrides the default role definition in `/prompts/agent.system.main.role.md` with a custom one for a specific agent profile.
 
 ## Subagent Customization
-Agent Zero supports creating specialized subagents with customized behavior. The `_example` agent in the `/agents/_example/` directory demonstrates this pattern.
+Magui supports creating specialized subagents with customized behavior. The `_example` agent in the `/agents/_example/` directory demonstrates this pattern.
 
 ### Creating a Subagent
 
@@ -287,12 +287,12 @@ These files allow you to keep credentials and configuration tightly scoped to a 
 
 ### When to Use Projects
 
-Projects are the recommended way to create specialized workflows in Agent Zero when you need to:
+Projects are the recommended way to create specialized workflows in Magui when you need to:
 
 - Add specific instructions without affecting global behavior
 - Isolate file context, knowledge, and memory for a particular task or client
 - Keep passwords and other secrets scoped to a single workspace
-- Run multiple independent flows side by side under the same Agent Zero installation
+- Run multiple independent flows side by side under the same Magui installation
 
 ## Best Practices
 - Keep extensions focused on a single responsibility

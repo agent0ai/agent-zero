@@ -1,7 +1,7 @@
-# Agent Zero Backup/Restore Frontend Specification
+# Magui Backup/Restore Frontend Specification
 
 ## Overview
-This specification defines the frontend implementation for Agent Zero's backup and restore functionality, providing an intuitive user interface with a dedicated "backup" tab in the settings system and following established Alpine.js patterns. The backup functionality gets its own tab for better organization and user experience.
+This specification defines the frontend implementation for Magui's backup and restore functionality, providing an intuitive user interface with a dedicated "backup" tab in the settings system and following established Alpine.js patterns. The backup functionality gets its own tab for better organization and user experience.
 
 ## Frontend Architecture
 
@@ -330,7 +330,7 @@ The backup system uses a comprehensive `metadata.json` file that includes:
 import { createStore } from "/js/AlpineStore.js";
 
 // ⚠️ CRITICAL: The .env file contains API keys and essential configuration.
-// This file is REQUIRED for Agent Zero to function and must be backed up.
+// This file is REQUIRED for Magui to function and must be backed up.
 // Note: Patterns now use resolved absolute paths (e.g., /home/user/a0/data/.env)
 
 const model = {
@@ -437,7 +437,7 @@ const model = {
         const exclude_patterns = response.default_patterns.exclude_patterns;
 
         return {
-          backup_name: `agent-zero-backup-${timestamp.slice(0, 10)}`,
+          backup_name: `magui-backup-${timestamp.slice(0, 10)}`,
           include_hidden: false,
           include_patterns: include_patterns,
           exclude_patterns: exclude_patterns,
@@ -453,7 +453,7 @@ const model = {
 
     // Fallback patterns (will be overridden by backend on first use)
     return {
-      backup_name: `agent-zero-backup-${timestamp.slice(0, 10)}`,
+      backup_name: `magui-backup-${timestamp.slice(0, 10)}`,
       include_hidden: false,
       include_patterns: [
         // These will be replaced with resolved absolute paths by backend
@@ -467,7 +467,7 @@ const model = {
     };
   },
 
-    // Editor Management - Following Agent Zero ACE editor patterns
+    // Editor Management - Following Magui ACE editor patterns
   async initBackupEditor() {
     const container = document.getElementById("backup-metadata-editor");
     if (container) {
@@ -1001,13 +1001,13 @@ const model = {
 
         const warnings = [];
 
-        // Check Agent Zero version compatibility
+        // Check Magui version compatibility
         // Note: Both backup and current versions are obtained via git.get_git_info()
-        const backupVersion = this.backupMetadata.agent_zero_version;
+        const backupVersion = this.backupMetadata.magui_version;
         const currentVersion = "current"; // Retrieved from git.get_git_info() on backend
 
         if (backupVersion !== currentVersion && backupVersion !== "development") {
-            warnings.push(`Backup created with Agent Zero ${backupVersion}, current version is ${currentVersion}`);
+            warnings.push(`Backup created with Magui ${backupVersion}, current version is ${currentVersion}`);
         }
 
     // Check backup age
@@ -1295,7 +1295,7 @@ async handleFieldButton(field) {
 Use existing `openModal()` and `closeModal()` functions from the global modal system (`webui/js/modals.js`).
 
 #### Toast Notifications
-Use existing Agent Zero toast system for consistent user feedback:
+Use existing Magui toast system for consistent user feedback:
 ```javascript
 // Use established toast patterns
 globalThis.toast("Backup created successfully", "success");
@@ -1304,7 +1304,7 @@ globalThis.toast("Error creating backup", "error");
 ```
 
 #### ACE Editor Integration
-The backup system follows Agent Zero's established ACE editor patterns **exactly** as implemented in MCP servers:
+The backup system follows Magui's established ACE editor patterns **exactly** as implemented in MCP servers:
 
 **Theme Detection (identical to MCP servers):**
 ```javascript
@@ -1339,7 +1339,7 @@ onClose() {
 ```
 
 #### API Integration Patterns
-The backup system uses Agent Zero's existing API communication methods for consistency:
+The backup system uses Magui's existing API communication methods for consistency:
 
 **Standard API Calls (using global sendJsonData):**
 ```javascript
@@ -1350,7 +1350,7 @@ const response = await sendJsonData("backup_test", {
     max_files: 1000
 });
 
-// Error handling follows Agent Zero patterns
+// Error handling follows Magui patterns
 if (response.success) {
     this.previewFiles = response.files;
 } else {
@@ -1389,12 +1389,12 @@ eventSource.onmessage = (event) => {
 ```
 
 #### Utility Function Integration
-The backup system can leverage existing Agent Zero utility functions for consistency:
+The backup system can leverage existing Magui utility functions for consistency:
 
 **File Size Formatting:**
 ```javascript
-// Check if Agent Zero has existing file size utilities
-// If not available, implement following Agent Zero's style patterns
+// Check if Magui has existing file size utilities
+// If not available, implement following Magui's style patterns
 formatFileSize(bytes) {
     if (!bytes) return '0 B';
     const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -1501,10 +1501,10 @@ Ensure modals work on mobile devices with appropriate responsive breakpoints.
 - **Performance Optimization**: Debounced search, efficient list rendering, and scroll management
 
 ### Integration Features
-- **Settings Modal Integration**: Seamless integration with existing Agent Zero settings system
+- **Settings Modal Integration**: Seamless integration with existing Magui settings system
 - **Toast Notifications**: Success/error feedback using existing notification system
-- **Modal System**: Proper integration with Agent Zero's modal management
-- **API Layer**: Consistent API communication patterns following Agent Zero conventions
+- **Modal System**: Proper integration with Magui's modal management
+- **API Layer**: Consistent API communication patterns following Magui conventions
 - **Error Handling**: Unified error handling and user feedback mechanisms
 
 ### Accessibility and Usability
@@ -1538,7 +1538,7 @@ Ensure modals work on mobile devices with appropriate responsive breakpoints.
 - **Real-time Preview**: See exactly which files will be restored before proceeding
 - **Immediate Feedback**: JSON validation and error highlighting as you edit
 
-This enhanced frontend specification delivers a professional-grade user interface with sophisticated file management, real-time progress monitoring, and comprehensive metadata visualization, all organized within a dedicated backup tab for optimal user experience. The implementation maintains perfect integration with Agent Zero's existing UI architecture and follows established Alpine.js patterns.
+This enhanced frontend specification delivers a professional-grade user interface with sophisticated file management, real-time progress monitoring, and comprehensive metadata visualization, all organized within a dedicated backup tab for optimal user experience. The implementation maintains perfect integration with Magui's existing UI architecture and follows established Alpine.js patterns.
 
 ### Implementation Status: ✅ COMPLETED & PRODUCTION READY
 
@@ -1549,7 +1549,7 @@ This enhanced frontend specification delivers a professional-grade user interfac
 **1. Settings Integration** ✅
 - **Backup Tab**: Dedicated "Backup & Restore" tab in settings interface
 - **Button Handlers**: Integrated with existing `handleFieldButton()` method
-- **Modal System**: Uses existing Agent Zero modal management
+- **Modal System**: Uses existing Magui modal management
 - **Toast Notifications**: Consistent error/success feedback
 
 **2. Alpine.js Components** ✅
@@ -1586,7 +1586,7 @@ This enhanced frontend specification delivers a professional-grade user interfac
 **Communication Patterns:**
 - **Standard API**: Uses global `sendJsonData()` for consistency
 - **File Upload**: FormData for archive uploads with proper validation
-- **Error Handling**: Follows Agent Zero error formatting and toast patterns
+- **Error Handling**: Follows Magui error formatting and toast patterns
 - **Progress Updates**: Real-time file operation logging and status updates
 
 #### **✅ Key Technical Achievements:**
@@ -1604,7 +1604,7 @@ This enhanced frontend specification delivers a professional-grade user interfac
 - **Export Capabilities**: File lists and metadata export functionality
 
 **Professional UI/UX:**
-- **Consistent Styling**: Follows Agent Zero design patterns and CSS variables
+- **Consistent Styling**: Follows Magui design patterns and CSS variables
 - **Loading States**: Comprehensive progress indicators and status messages
 - **Error Recovery**: Clear error messages with suggested fixes
 - **Accessibility**: Keyboard navigation and screen reader support
@@ -1613,20 +1613,20 @@ This enhanced frontend specification delivers a professional-grade user interfac
 
 **Alpine.js Integration:**
 - **Store Pattern**: Uses proven `createStore()` pattern from MCP servers
-- **Component Lifecycle**: Proper initialization and cleanup following Agent Zero patterns
+- **Component Lifecycle**: Proper initialization and cleanup following Magui patterns
 - **Reactive State**: Real-time UI updates with Alpine's reactivity system
 - **Event Handling**: Leverages Alpine's declarative event system
 
 **Code Reuse:**
 - **ACE Editor Setup**: Identical theme detection and configuration as MCP servers
-- **Modal Management**: Uses existing Agent Zero modal and overlay systems
-- **API Communication**: Consistent with Agent Zero's established API patterns
+- **Modal Management**: Uses existing Magui modal and overlay systems
+- **API Communication**: Consistent with Magui's established API patterns
 - **Error Handling**: Unified error formatting and toast notification system
 
 ### **Implementation Quality Metrics:**
 
 **Code Quality:** ✅
-- Follows Agent Zero coding conventions
+- Follows Magui coding conventions
 - Proper error handling and validation
 - Clean separation of concerns
 - Comprehensive documentation
@@ -1635,7 +1635,7 @@ This enhanced frontend specification delivers a professional-grade user interfac
 - Intuitive backup/restore workflow
 - Real-time feedback and progress tracking
 - Responsive design for all screen sizes
-- Consistent with Agent Zero UI patterns
+- Consistent with Magui UI patterns
 
 **Performance:** ✅
 - Efficient file preview with grouping
@@ -1651,13 +1651,13 @@ This enhanced frontend specification delivers a professional-grade user interfac
 
 ### **Final Status: 🚀 PRODUCTION READY**
 
-The Agent Zero backup frontend is now:
+The Magui backup frontend is now:
 - **Complete**: All planned features implemented and tested
-- **Integrated**: Seamlessly integrated with existing Agent Zero infrastructure
+- **Integrated**: Seamlessly integrated with existing Magui infrastructure
 - **Reliable**: Comprehensive error handling and edge case coverage
-- **User-friendly**: Intuitive interface following Agent Zero design principles
+- **User-friendly**: Intuitive interface following Magui design principles
 - **Maintainable**: Clean code following established patterns and conventions
 
 **Ready for production use with full backup and restore capabilities!**
 
-The backup system provides users with a powerful, easy-to-use interface for backing up and restoring their Agent Zero configurations, data, and custom files using sophisticated pattern-based selection and real-time progress monitoring.
+The backup system provides users with a powerful, easy-to-use interface for backing up and restoring their Magui configurations, data, and custom files using sophisticated pattern-based selection and real-time progress monitoring.

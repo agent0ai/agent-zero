@@ -1,6 +1,6 @@
 {
-  "name": "Agent Zero",
-  "short_name": "Agent Zero",
+  "name": "Magui",
+  "short_name": "Magui",
   "description": "Autonomous AI agent",
   "start_url": "/",
   "display": "standalone",

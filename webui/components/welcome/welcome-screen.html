@@ -10,13 +10,13 @@
     <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
         <template x-if="$store.welcomeStore">
             <div x-data="$store.welcomeStore" class="welcome-container">
-                <!-- Agent Zero Logo -->
+                <!-- Magui Logo -->
                 <div class="welcome-logo-container">
-                    <img src="./public/darkSymbol.svg" alt="Agent Zero Logo" class="welcome-logo" />
+                    <img src="./public/darkSymbol.svg" alt="Magui Logo" class="welcome-logo" />
                 </div>
 
                 <!-- Welcome Title -->
-                <h1 class="welcome-title">Welcome to Agent Zero</h1>
+                <h1 class="welcome-title">Welcome to Magui</h1>
                 <p class="welcome-subtitle">
                     Start a new conversation or explore the features below.
                 </p>
@@ -49,14 +49,14 @@
                         <span class="material-symbols-outlined welcome-action-icon">settings</span>
                         <h3 class="welcome-action-title">Settings</h3>
                         <p class="welcome-action-description">
-                            Configure Agent Zero
+                            Configure Magui
                         </p>
                     </div>
                     <div class="welcome-action-card" @click="executeAction('website')">
                         <span class="material-symbols-outlined welcome-action-icon">language</span>
                         <h3 class="welcome-action-title">Visit Website</h3>
                         <p class="welcome-action-description">
-                            Learn more about Agent Zero
+                            Learn more about Magui
                         </p>
                     </div>
                     <div class="welcome-action-card" @click="executeAction('github')">

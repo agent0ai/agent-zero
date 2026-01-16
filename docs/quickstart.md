@@ -1,10 +1,10 @@
-# Quick Start
-This guide provides a quick introduction to using Agent Zero. We'll cover launching the web UI, starting a new chat, and running a simple task.
+# Magui Quickstart
 
-## Launching the Web UI
-1. Make sure you have Agent Zero installed and your environment set up correctly (refer to the [Installation guide](installation.md) if needed).
-2. Open a terminal in the Agent Zero directory and activate your conda environment (if you're using one).
-3. Run the following command:
+Get up and running with Magui in minutes.
+
+## 1. Start Magui
+
+Run the following command to start Magui:
 
 ```bash
 python run_ui.py
@@ -14,7 +14,7 @@ python run_ui.py
 
 ![](res/flask_link.png)
 
-5. Open your web browser and navigate to the URL shown in the terminal (usually `http://127.0.0.1:50001`). You should see the Agent Zero Web UI.
+5. Open your web browser and navigate to the URL shown in the terminal (usually `http://127.0.0.1:50001`). You should see the Magui Web UI.
 
 ![New Chat](res/ui_newchat1.png)
 
@@ -27,11 +27,11 @@ python run_ui.py
     ![Chat Management](res/ui_chat_management.png)
 
 ## Running a Simple Task
-Let's ask Agent Zero to download a YouTube video. Here's how:
+Let's ask Magui to download a YouTube video. Here's how:
 
 1.  Type "Download a YouTube video for me" in the chat input field and press Enter or click the send button.
 
-2. Agent Zero will process your request.  You'll see its "thoughts" and the actions it takes displayed in the UI. It will find a default already existing solution, that implies using the `code_execution_tool` to run a simple Python script to perform the task.
+2. Magui will process your request.  You'll see its "thoughts" and the actions it takes displayed in the UI. It will find a default already existing solution, that implies using the `code_execution_tool` to run a simple Python script to perform the task.
 
 3. The agent will then ask you for the URL of the YouTube video you want to download.
 
@@ -40,7 +40,7 @@ Here's an example of what you might see in the Web UI at step 3:
 ![1](res/image-24.png)
 
 ## Next Steps
-Now that you've run a simple task, you can experiment with more complex requests. Try asking Agent Zero to:
+Now that you've run a simple task, you can experiment with more complex requests. Try asking Magui to:
 
 * Perform calculations
 * Search the web for information

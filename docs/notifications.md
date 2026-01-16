@@ -1,6 +1,6 @@
-# Agent Zero Notifications
+# Magui Notifications
 
-Quick guide for using the notification system in Agent Zero.
+Quick guide for using the notification system in Magui.
 
 ## Backend Usage
 

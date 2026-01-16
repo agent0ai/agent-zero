@@ -18,7 +18,7 @@ class BackupCreate(ApiHandler):
             include_patterns = input.get("include_patterns", [])
             exclude_patterns = input.get("exclude_patterns", [])
             include_hidden = input.get("include_hidden", False)
-            backup_name = input.get("backup_name", "agent-zero-backup")
+            backup_name = input.get("backup_name", "magui-backup")
 
             # Support legacy string patterns format for backward compatibility
             patterns_string = input.get("patterns", "")

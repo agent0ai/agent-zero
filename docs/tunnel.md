@@ -1,15 +1,14 @@
-# Agent Zero Tunnel Feature
+# Remote Access to Magui via Flare Tunnel
 
-The tunnel feature in Agent Zero allows you to expose your local Agent Zero instance to the internet using Flaredantic tunnels. This makes it possible to share your Agent Zero instance with others without requiring them to install and run Agent Zero themselves.
+Magui includes a built-in tunneling capability powered by [Flare](https://github.com/soulteary/flare), allowing you to securely expose your local instance to the internet.
 
-## How It Works
+## Why use a tunnel with Magui?
 
-Agent Zero uses the [Flaredantic](https://pypi.org/project/flaredantic/) library to create secure tunnels to expose your local instance to the internet. These tunnels:
-
-- Are secure (HTTPS)
-- Don't require any configuration
-- Generate unique URLs for each session
-- Can be regenerated on demand
+1. **Access from anywhere**: Control your Magui instance from work, while traveling, or from a different location.
+2. **Mobile access**: Use Magui on your smartphone or tablet while on the go.
+3. **Share with others**: Give temporary access to your Magui instance to colleagues or friends.
+4. **Webhook integration**: Connect external services to Magui via webhooks.
+5. **MCP Server**: Use Magui as an MCP server for other agents running on different machines.
 
 ## Using the Tunnel Feature
 
@@ -17,16 +16,16 @@ Agent Zero uses the [Flaredantic](https://pypi.org/project/flaredantic/) library
 2. Click on "Flare Tunnel" in the navigation menu
 3. Click the "Create Tunnel" button to generate a new tunnel
 4. Once created, the tunnel URL will be displayed and can be copied to share with others
-5. The tunnel URL will remain active until you stop the tunnel or close the Agent Zero application
+5. The tunnel URL will remain active until you stop the tunnel or close the Magui application
 
 ## Security Considerations
 
-When sharing your Agent Zero instance via a tunnel:
+When sharing your Magui instance via a tunnel:
 
-- Anyone with the URL can access your Agent Zero instance
-- No additional authentication is added beyond what your Agent Zero instance already has
+- Anyone with the URL can access your Magui instance
+- No additional authentication is added beyond what your Magui instance already has
 - Consider setting up authentication if you're sharing sensitive information
-- The tunnel exposes your local Agent Zero instance, not your entire system
+- The tunnel exposes your local Magui instance, not your entire system
 
 ## Troubleshooting
 
@@ -34,12 +33,12 @@ If you encounter issues with the tunnel feature:
 
 1. Check your internet connection
 2. Try refreshing the tunnel URL
-3. Restart Agent Zero
+3. Restart Magui
 4. Check the console logs for any error messages
 
 ## Adding Authentication
 
-To add basic authentication to your Agent Zero instance when using tunnels, you can set the following environment variables:
+To add basic authentication to your Magui instance when using tunnels, you can set the following environment variables:
 
 ```
 AUTH_LOGIN=your_username
@@ -48,10 +47,10 @@ AUTH_PASSWORD=your_password
 
 Alternatively, you can configure the username and password directly in the settings:
 
-1. Open the settings modal in the Agent Zero UI
+1. Open the settings modal in the Magui UI
 2. Navigate to the "External Services" tab
 3. Find the "Authentication" section
 4. Enter your desired username and password in the "UI Login" and "UI Password" fields
 5. Click the "Save" button to apply the changes
 
-This will require users to enter these credentials when accessing your tunneled Agent Zero instance. When attempting to create a tunnel without authentication configured, Agent Zero will display a security warning.
+This will require users to enter these credentials when accessing your tunneled Magui instance. When attempting to create a tunnel without authentication configured, Magui will display a security warning.

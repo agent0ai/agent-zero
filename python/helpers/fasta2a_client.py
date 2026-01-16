@@ -14,7 +14,7 @@ _PRINTER = PrintStyle(italic=True, font_color="cyan", padding=False)
 
 
 class AgentConnection:
-    """Helper class for connecting to and communicating with other Agent Zero instances via FastA2A."""
+    """Helper class for connecting to and communicating with other Magui instances via FastA2A."""
 
     def __init__(self, agent_url: str, timeout: int = 30, token: Optional[str] = None):
         """Initialize connection to an agent.
@@ -186,6 +186,20 @@ class AgentConnection:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
         await self.close()
+
+    async def _save_attachment_bytes(
+        self,
+        filename: str,
+        content: bytes,
+        download_folder: str,
+    ) -> str:
+        """
+        Save attachment to disk and return absolute path.
+
+        Uses Magui's file helpers for path management.
+        """
+        # Sanitize filename
+        filename = files.safe_file_name(filename)
 
 
 async def connect_to_agent(agent_url: str, timeout: int = 30) -> AgentConnection:
