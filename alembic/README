@@ -1,0 +1,49 @@
+Generic single-database configuration for Agent Zero authentication system.
+
+# Creating a new migration
+
+To create a new migration after modifying models:
+
+```bash
+alembic revision --autogenerate -m "Add new field to user table"
+```
+
+# Applying migrations
+
+To upgrade to the latest version:
+
+```bash
+alembic upgrade head
+```
+
+To upgrade one version at a time:
+
+```bash
+alembic upgrade +1
+```
+
+# Downgrading migrations
+
+To downgrade one version:
+
+```bash
+alembic downgrade -1
+```
+
+To downgrade to a specific revision:
+
+```bash
+alembic downgrade <revision_id>
+```
+
+# Checking current version
+
+```bash
+alembic current
+```
+
+# Viewing migration history
+
+```bash
+alembic history
+```

@@ -1,3 +1,27 @@
 pytest>=8.4.2
 pytest-asyncio>=1.2.0
 pytest-mock>=3.15.1
+pytest-cov>=6.0.0
+pytest-xdist>=3.6.1
+coverage[toml]>=7.8.2
+
+# Linting and formatting
+ruff>=0.9.1
+black>=25.1.0
+isort>=5.13.2
+pylint>=3.3.6
+
+# Type checking
+mypy>=1.14.1
+types-requests>=2.33.0
+types-PyYAML>=6.0.12
+
+# Code quality
+radon>=6.0.1
+interrogate>=1.8.0
+pydocstyle>=6.4.1
+bandit>=1.8.0
+pip-audit>=2.7.3
+
+# Pre-commit hooks
+pre-commit>=4.0.1

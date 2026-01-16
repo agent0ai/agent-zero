@@ -159,6 +159,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 | [Development](./docs/development.md) | Development and customization |
 | [Extensibility](./docs/extensibility.md) | Extending Agent Zero |
 | [Connectivity](./docs/connectivity.md) | External API endpoints, MCP server connections, A2A protocol |
+| [MCP Setup](./docs/mcp_setup.md) | Configure MCP servers for enhanced capabilities |
 | [Architecture](./docs/architecture.md) | System design and components |
 | [Contributing](./docs/contribution.md) | How to contribute |
 | [Troubleshooting](./docs/troubleshooting.md) | Common issues and their solutions |

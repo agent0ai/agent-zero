@@ -144,3 +144,63 @@ Once configured, successfully installed (if applicable, e.g., for `npx` based se
 *   **Execution Flow**: Agent Zero's `process_tools` method (with logic in `python/helpers/mcp_handler.py`) prioritizes looking up the tool name in the `MCPConfig`. If found, the execution is delegated to the corresponding MCP server. If not found as an MCP tool, it then attempts to find a local/built-in tool with that name.
 
 This setup provides a flexible way to extend Agent Zero's capabilities by integrating with various external tool providers without modifying its core codebase.
+
+## Featured MCP Servers
+
+Agent Zero can work with many MCP servers to extend its capabilities. Here are some recommended integrations:
+
+### Context7 - Library Documentation
+
+Context7 provides up-to-date documentation for thousands of popular libraries and frameworks, making it essential when working with external dependencies.
+
+**Quick Setup:**
+```json
+{
+  "name": "context7",
+  "command": "npx",
+  "args": ["-y", "@context7/mcp-server"]
+}
+```
+
+For detailed setup and usage instructions, see the [Context7 MCP Integration Guide](mcp/context7.md).
+
+**Benefits:**
+- Access current documentation for Flask, LangChain, PyTorch, and thousands of other libraries
+- Version-specific documentation retrieval
+- Topic-focused documentation queries
+- No API keys required
+
+**Tools provided:**
+- `context7.resolve-library-id` - Find library IDs
+- `context7.get-library-docs` - Fetch documentation
+
+### Serena - AI-Powered Code Search
+
+Serena provides semantic code search and navigation capabilities, helping Agent Zero understand and navigate codebases more effectively.
+
+**Quick Setup:**
+```json
+{
+  "name": "serena",
+  "command": "npx",
+  "args": ["-y", "@serenaai/serena-mcp"],
+  "env": {
+    "SERENA_PROJECT_ROOT": "/path/to/your/project"
+  }
+}
+```
+
+For detailed setup and usage instructions, see the [Serena MCP Integration Guide](mcp/serena.md).
+
+**Benefits:**
+- Semantic code search (find code by what it does)
+- Pattern recognition across codebases
+- Enhanced code understanding and navigation
+- Context-aware code location
+
+### Other Popular MCP Servers
+
+- **Sequential Thinking**: Enhances reasoning capabilities
+- **Brave Search**: Web search integration
+- **Fetch**: Web content retrieval
+- See the [MCP Server Directory](https://github.com/modelcontextprotocol/servers) for more options
