@@ -276,6 +276,8 @@ def init_a0():
     initialize.initialize_job_loop()
     # preload
     initialize.initialize_preload()
+    # initialize hot-reload system
+    initialize.initialize_hot_reload()
 
 
 

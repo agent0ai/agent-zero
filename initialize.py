@@ -140,6 +140,25 @@ def initialize_preload():
     import preload
     return defer.DeferredTask().start_task(preload.preload)
 
+def initialize_hot_reload():
+    """Initialize hot-reload system for tools and extensions"""
+    from python.helpers.hot_reload_integration import initialize_integration, start_integration
+    from python.helpers.dotenv import get_dotenv_value
+
+    # Check if hot-reload is enabled (default: True in development)
+    enabled_str = get_dotenv_value("HOT_RELOAD_ENABLED")
+    enabled = True if enabled_str is None else enabled_str.lower().strip() in ("true", "1", "yes")
+
+    if enabled:
+        try:
+            initialize_integration(enabled=True)
+            start_integration()
+            PrintStyle.success("Hot-reload system initialized")
+        except Exception as e:
+            PrintStyle.error(f"Failed to initialize hot-reload: {e}")
+    else:
+        PrintStyle.info("Hot-reload disabled")
+
 
 def _args_override(config):
     # update config with runtime args
