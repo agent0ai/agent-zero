@@ -14,6 +14,7 @@
 - [ ] Performance improvement
 - [ ] Test addition/modification
 - [ ] CI/CD update
+- [ ] Security fix
 
 ## Related Issues
 
@@ -46,6 +47,12 @@ Related to #
 2.
 3.
 
+### Test Checklist
+
+- [ ] Tests pass locally
+- [ ] New tests added for new functionality
+- [ ] Manual testing completed
+
 ## Checklist
 
 <!-- Mark completed items with an "x" -->
@@ -73,10 +80,6 @@ Related to #
 
 <!-- Add screenshots to help explain your changes -->
 
-## Additional Notes
-
-<!-- Add any additional notes, concerns, or questions here -->
-
 ## Breaking Changes
 
 <!-- If this is a breaking change, describe what breaks and how to migrate -->
@@ -84,3 +87,7 @@ Related to #
 ## Deployment Notes
 
 <!-- Add any notes about deployment or configuration changes required -->
+
+## Additional Notes
+
+<!-- Add any additional notes, concerns, or questions here -->

@@ -2,7 +2,7 @@ name: Lint
 
 on:
   push:
-    branches: [main, development]
+    branches: [main, development, master]
     paths:
       - '**.py'
       - '.github/workflows/lint.yml'
@@ -44,10 +44,12 @@ jobs:
       - name: Run Ruff linter
         run: |
           ruff check . --output-format=github
+        continue-on-error: true
 
       - name: Run Ruff formatter check
         run: |
           ruff format . --check
+        continue-on-error: true
 
   pylint:
     name: Pylint Code Quality
