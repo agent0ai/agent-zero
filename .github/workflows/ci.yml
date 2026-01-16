@@ -2,10 +2,29 @@ name: CI
 
 on:
   push:
-    branches: [main, development]
+    branches: [main, development, master]
+    paths:
+      - '**.py'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - 'ruff.toml'
+      - '.coveragerc'
+      - 'DockerfileLocal'
+      - '.github/workflows/ci.yml'
   pull_request:
-    branches: [main, development]
+    branches: [main, development, master]
+    paths:
+      - '**.py'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - 'ruff.toml'
+      - '.coveragerc'
+      - 'DockerfileLocal'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,6 +50,14 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements.dev.txt
+
+      - name: Cache Ruff
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ruff
+          key: ${{ runner.os }}-ruff-${{ hashFiles('ruff.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-ruff-
 
       - name: Install dependencies
         run: |
@@ -61,6 +88,14 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements.dev.txt
+
+      - name: Cache MyPy
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: ${{ runner.os }}-mypy-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-mypy-
 
       - name: Install dependencies
         run: |
@@ -99,10 +134,26 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements.dev.txt
 
+      - name: Cache pytest
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: ${{ runner.os }}-pytest-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pytest-${{ matrix.python-version }}-
+
       - name: Run pytest
         run: |
-          pytest tests/ -v --tb=short --color=yes
+          pytest tests/ -v --tb=short --color=yes --junit-xml=test-results.xml
         continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-test-results-py${{ matrix.python-version }}
+          path: test-results.xml
+          retention-days: 7
 
   validate-docker:
     name: Validate Docker Build
@@ -161,5 +212,11 @@ jobs:
 
       - name: Run pip-audit for known vulnerabilities
         run: |
-          pip-audit --require-hashes --disable-pip || true
+          pip-audit --requirement requirements.txt || true
+          pip-audit --requirement requirements.dev.txt || true
+        continue-on-error: true
+
+      - name: Check for outdated packages
+        run: |
+          pip list --outdated || true
         continue-on-error: true

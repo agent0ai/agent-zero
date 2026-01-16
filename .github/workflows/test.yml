@@ -8,6 +8,8 @@ on:
       - 'tests/**'
       - '.github/workflows/test.yml'
       - 'requirements*.txt'
+      - 'pyproject.toml'
+      - '.coveragerc'
   pull_request:
     branches: [main, development, master]
     paths:
@@ -15,7 +17,12 @@ on:
       - 'tests/**'
       - '.github/workflows/test.yml'
       - 'requirements*.txt'
+      - 'pyproject.toml'
+      - '.coveragerc'
   workflow_dispatch:
+  schedule:
+    # Run nightly at 3 AM UTC
+    - cron: '0 3 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -64,10 +71,26 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements.dev.txt
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright browsers
         run: |
           playwright install chromium --with-deps
         continue-on-error: true
+
+      - name: Cache pytest
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: ${{ runner.os }}-pytest-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pytest-${{ matrix.python-version }}-
 
       - name: Run pytest
         run: |
@@ -106,10 +129,26 @@ jobs:
           pip install -r requirements.dev.txt
           pip install pytest-cov coverage[toml]
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright browsers
         run: |
           playwright install chromium --with-deps
         continue-on-error: true
+
+      - name: Cache pytest
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: ${{ runner.os }}-pytest-coverage-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pytest-coverage-
 
       - name: Run tests with coverage
         run: |
@@ -139,7 +178,7 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'schedule'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

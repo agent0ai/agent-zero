@@ -2,10 +2,24 @@ name: Docker Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     tags: ['v*']
+    paths:
+      - 'DockerfileLocal'
+      - 'docker/**'
+      - 'requirements*.txt'
+      - '.github/workflows/docker.yml'
+      - '**.py'
   pull_request:
+    paths:
+      - 'DockerfileLocal'
+      - 'docker/**'
+      - 'requirements*.txt'
+      - '.github/workflows/docker.yml'
   workflow_dispatch:
+  schedule:
+    # Weekly build on Sundays at 4 AM UTC to catch base image updates
+    - cron: '0 4 * * 0'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +35,10 @@ jobs:
     with:
       dockerfile: DockerfileLocal
       platforms: linux/amd64  # Kali base doesn't support arm64
-      push-dockerhub: ${{ github.event_name != 'pull_request' }}
+      push-dockerhub: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
       dockerhub-username: bjoernbethge
+      # Enable BuildKit optimizations
+      build-args: |
+        BUILDKIT_INLINE_CACHE=1
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

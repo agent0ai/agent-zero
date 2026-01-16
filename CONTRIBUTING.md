@@ -365,6 +365,20 @@ def register(app):
         return jsonify({"status": "success"})
 ```
 
+### 4. MCP Server Integrations
+
+Add new MCP server configurations in `.github/mcp-servers/` and documentation in `docs/mcp/`:
+
+```bash
+# Create configuration file
+.github/mcp-servers/your-server.json
+
+# Create documentation
+docs/mcp/your-server.md
+```
+
+See the [Serena MCP Integration](docs/mcp/serena.md) as an example.
+
 ## Need Help?
 
 - Check [Documentation](./docs/README.md)

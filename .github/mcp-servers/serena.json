@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "npx",
+      "args": ["-y", "@serenaai/serena-mcp"],
+      "env": {
+        "SERENA_PROJECT_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}
