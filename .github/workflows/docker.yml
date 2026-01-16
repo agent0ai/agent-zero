@@ -1,0 +1,27 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    uses: bjoernbethge/workflows-shared/.github/workflows/docker-build-push.yml@main
+    with:
+      dockerfile: DockerfileLocal
+      platforms: linux/amd64  # Kali base doesn't support arm64
+      push-dockerhub: ${{ github.event_name != 'pull_request' }}
+      dockerhub-username: bjoernbethge
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
