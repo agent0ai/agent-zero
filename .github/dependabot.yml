@@ -1,0 +1,86 @@
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      development:
+        dependency-type: "development"
+        patterns:
+          - "pytest*"
+          - "ruff"
+          - "mypy*"
+          - "black"
+          - "flake8*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    # Version constraints to prevent non-existent versions
+    ignore:
+      # actions/checkout - current max version is v4
+      - dependency-name: "actions/checkout"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 5"]
+      # actions/setup-python - current max version is v5
+      - dependency-name: "actions/setup-python"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 6"]
+      # actions/setup-node - current max version is v4
+      - dependency-name: "actions/setup-node"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 5"]
+      # actions/upload-artifact - current max version is v4
+      - dependency-name: "actions/upload-artifact"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 5"]
+      # actions/dependency-review-action - current max version is v4
+      - dependency-name: "actions/dependency-review-action"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 5"]
+      # github/codeql-action - allow v3 and v4, block v5+
+      - dependency-name: "github/codeql-action"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 5"]
+      # docker/setup-buildx-action - current max version is v3
+      - dependency-name: "docker/setup-buildx-action"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 4"]
+      # docker/build-push-action - current max version is v6
+      - dependency-name: "docker/build-push-action"
+        update-types: ["version-update:semver-major"]
+        versions: [">= 7"]
+
+  # Docker images
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "docker"

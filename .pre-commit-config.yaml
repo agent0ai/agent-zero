@@ -1,0 +1,80 @@
+# Pre-commit hooks configuration for Agent Zero
+# Install: pip install pre-commit
+# Setup: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '^(webui/vendor/|docker/)'
+      - id: end-of-file-fixer
+        exclude: '^(webui/vendor/|docker/)'
+      - id: check-yaml
+        args: ['--unsafe']
+      - id: check-json
+        exclude: '^(webui/vendor/|docker/)'
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        exclude: '^(webui/vendor/|docker/)'
+      - id: ruff-format
+        exclude: '^(webui/vendor/|docker/)'
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black", "--line-length", "120"]
+        exclude: '^(webui/vendor/|docker/)'
+
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml", "-r", ".", "--exit-zero"]
+        exclude: '^(tests/|webui/vendor/|docker/)'
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        args: [--ignore-missing-imports, --no-strict-optional, --allow-untyped-defs]
+        exclude: '^(tests/|webui/vendor/|docker/)'
+        additional_dependencies: [types-all]
+        pass_filenames: false
+
+  - repo: https://github.com/python-poetry/poetry
+    rev: 1.8.0
+    hooks:
+      - id: poetry-check
+        files: pyproject.toml
+        pass_filenames: false
+
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.3
+    hooks:
+      - id: python-safety-dependencies-check
+        files: requirements.txt
+        args: ['--disable-audit-and-monitor']
+
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [poetry-check, python-safety-dependencies-check]
+  submodules: false

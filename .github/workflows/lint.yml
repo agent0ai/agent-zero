@@ -1,0 +1,157 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - '**.py'
+      - '.github/workflows/lint.yml'
+      - 'requirements*.txt'
+  pull_request:
+    paths:
+      - '**.py'
+      - '.github/workflows/lint.yml'
+      - 'requirements*.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    name: Ruff Linting and Formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Ruff
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Run Ruff linter
+        run: |
+          ruff check . --output-format=github
+
+      - name: Run Ruff formatter check
+        run: |
+          ruff format . --check
+
+  pylint:
+    name: Pylint Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint
+          pip install -r requirements.txt || true
+
+      - name: Run Pylint
+        run: |
+          pylint **/*.py --exit-zero --output-format=colorized --max-line-length=120
+        continue-on-error: true
+
+  isort:
+    name: Import Sorting Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install isort
+        run: |
+          python -m pip install --upgrade pip
+          pip install isort
+
+      - name: Check import sorting
+        run: |
+          isort . --check-only --diff --profile black
+
+  complexity:
+    name: Code Complexity Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install radon mccabe
+
+      - name: Analyze cyclomatic complexity
+        run: |
+          radon cc . -a --total-average
+        continue-on-error: true
+
+      - name: Analyze maintainability index
+        run: |
+          radon mi . -s
+        continue-on-error: true
+
+  docstring:
+    name: Docstring Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install docstring tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install interrogate pydocstyle
+
+      - name: Check docstring coverage
+        run: |
+          interrogate -v --ignore-init-method --ignore-init-module --fail-under=30 . || true
+        continue-on-error: true
+
+      - name: Check docstring style
+        run: |
+          pydocstyle . --count --convention=google || true
+        continue-on-error: true
