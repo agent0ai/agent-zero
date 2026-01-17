@@ -42,6 +42,14 @@ instruments/**
 # Explicitly allow the default folder in instruments
 !instruments/default/
 !instruments/default/**
+!instruments/custom/
+!instruments/custom/google_voice/
+!instruments/custom/google_voice/**
+!instruments/custom/twilio_voice/
+!instruments/custom/twilio_voice/**
+# Keep Python cache files ignored under custom instruments.
+instruments/custom/**/__pycache__/
+instruments/custom/**/__pycache__/**
 
 # Global rule to include .gitkeep files anywhere
 !**/.gitkeep
@@ -56,4 +64,3 @@ ollama_models/blobs/
 !ollama_models/model_manifest.json
 !ollama_models/README.md
 !ollama_models/.gitkeep
-

@@ -1,0 +1,151 @@
+<html>
+
+<head>
+    <title>Twilio Voice Manager</title>
+    <script type="module" src="/components/settings/external/twilio-voice-manager-store.js"></script>
+</head>
+
+<body>
+    <div class="twilio-voice-manager" x-data x-init="$store.twilioVoiceManager.init()">
+        <div class="section-header">
+            <h3>Twilio Voice</h3>
+            <p>Use the Twilio credentials above to place outbound calls. Mock mode avoids real calls.</p>
+        </div>
+
+        <div class="action-row">
+            <label class="auto-send-toggle">
+                <input type="checkbox" :checked="$store.twilioVoiceManager.mock"
+                    @change="$store.twilioVoiceManager.mock = $event.target.checked">
+                Mock mode
+            </label>
+            <button class="btn btn-secondary" @click="$store.twilioVoiceManager.refresh()"
+                :disabled="$store.twilioVoiceManager.loading">Refresh</button>
+        </div>
+
+        <div class="call-card">
+            <h4>Place Call</h4>
+            <label>
+                To number
+                <input type="text" x-model="$store.twilioVoiceManager.toNumber" placeholder="+1 555 123 4567">
+            </label>
+            <label>
+                From number (optional override)
+                <input type="text" x-model="$store.twilioVoiceManager.fromNumber" placeholder="+1 555 987 6543">
+            </label>
+            <label>
+                Voice message
+                <textarea rows="3" x-model="$store.twilioVoiceManager.message"
+                    placeholder="Spoken message for the call"></textarea>
+            </label>
+            <button class="btn" @click="$store.twilioVoiceManager.createCall()"
+                :disabled="$store.twilioVoiceManager.sending">Queue Call</button>
+        </div>
+
+        <div class="call-list">
+            <div class="call-list-header">
+                <h4>Recent Calls</h4>
+            </div>
+            <template x-if="$store.twilioVoiceManager.calls.length === 0">
+                <div class="empty-state">No calls yet.</div>
+            </template>
+            <template x-for="call in $store.twilioVoiceManager.calls" :key="call.id">
+                <div class="call-row">
+                    <div class="call-main">
+                        <div class="call-meta">
+                            <strong x-text="call.to_number"></strong>
+                            <span x-text="`#${call.id} · ${call.status}`"></span>
+                        </div>
+                        <div class="call-body" x-text="call.message || 'No message'"></div>
+                        <div class="call-error" x-show="call.error" x-text="call.error"></div>
+                    </div>
+                    <div class="call-actions">
+                        <span x-text="call.created_at"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <style>
+        .twilio-voice-manager {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .call-card,
+        .call-list {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            padding: 16px;
+            background: var(--color-bg-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .call-card label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+
+        .call-card input,
+        .call-card textarea {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .call-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            background: var(--color-bg-primary);
+        }
+
+        .call-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .call-body {
+            font-size: 0.95rem;
+        }
+
+        .call-error {
+            color: var(--color-danger);
+            font-size: 0.8rem;
+        }
+
+        .call-actions {
+            display: flex;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .call-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+    </style>
+</body>
+
+</html>

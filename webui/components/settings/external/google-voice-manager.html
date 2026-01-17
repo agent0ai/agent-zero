@@ -23,7 +23,7 @@
             <label class="auto-send-toggle">
                 <input type="checkbox" :checked="$store.googleVoiceManager.shortcutsEnabled"
                     @change="$store.googleVoiceManager.toggleShortcuts($event.target.checked)">
-                Enable shortcuts (A=approve, R=thread, Esc=close)
+                Enable shortcuts (A=approve, Shift+A=all, R=thread, Esc=close)
             </label>
             <button class="btn btn-secondary" @click="$store.googleVoiceManager.refresh()"
                 :disabled="$store.googleVoiceManager.loading">Refresh Drafts</button>
@@ -282,15 +282,6 @@
             font-size: 0.9rem;
         }
 
-        .draft-context pre {
-            white-space: pre-wrap;
-            background: var(--color-bg-primary);
-            border-radius: 6px;
-            padding: 8px;
-            font-size: 0.8rem;
-            color: var(--color-text-secondary);
-        }
-
         .reply-input {
             width: 220px;
             padding: 6px 8px;
@@ -298,6 +289,44 @@
             border: 1px solid var(--color-border);
             background: var(--color-bg-primary);
             color: var(--color-text-primary);
+        }
+
+        .auto-send-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        .tag-filter {
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .tag-presets {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tag-presets-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .tag-preset-chip {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            background: var(--color-bg-primary);
+            border-radius: 999px;
+            padding: 4px 8px;
         }
 
         .thread-modal {
@@ -376,36 +405,6 @@
             flex-wrap: wrap;
         }
 
-        .tag-filter {
-            padding: 6px 8px;
-            border-radius: 6px;
-            border: 1px solid var(--color-border);
-            background: var(--color-bg-primary);
-            color: var(--color-text-primary);
-        }
-
-        .tag-presets {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .tag-presets-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .tag-preset-chip {
-            display: inline-flex;
-            gap: 8px;
-            align-items: center;
-            background: var(--color-bg-primary);
-            border-radius: 999px;
-            padding: 4px 8px;
-        }
-
         .contact-info {
             display: flex;
             flex-direction: column;
@@ -428,14 +427,6 @@
             border: 1px solid var(--color-border);
             background: var(--color-bg-primary);
             color: var(--color-text-primary);
-        }
-
-        .auto-send-toggle {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            color: var(--color-text-secondary);
         }
     </style>
 </body>

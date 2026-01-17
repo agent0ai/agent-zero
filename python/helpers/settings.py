@@ -16,6 +16,7 @@ from . import dotenv, files
 
 class GmailAccountInfo(TypedDict):
     """Gmail account metadata stored in settings"""
+
     email: str
     authenticated: bool
     scopes: list[str]
@@ -99,7 +100,7 @@ class Settings(TypedDict):
     rfc_port_http: int
     rfc_port_ssh: int
 
-    shell_interface: Literal['local','ssh']
+    shell_interface: Literal["local", "ssh"]
 
     stt_model_size: str
     stt_language: str
@@ -132,6 +133,9 @@ class Settings(TypedDict):
     google_voice_shortcuts: bool
     google_voice_contact_rules: str
     google_voice_tag_filters: str
+    twilio_account_sid: str
+    twilio_auth_token: str
+    twilio_from_number: str
 
     cowork_enabled: bool
     cowork_require_approvals: bool
@@ -149,6 +153,7 @@ class Settings(TypedDict):
     langfuse_public_key: str
     langfuse_secret_key: str
     langfuse_host: str
+
 
 class PartialSettings(Settings, total=False):
     pass
@@ -214,7 +219,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for main chat model used by Agent Zero",
             "type": "select",
             "value": settings["chat_model_provider"],
-            "options": cast('list[FieldOption]', get_providers("chat")),
+            "options": cast("list[FieldOption]", get_providers("chat")),
         }
     )
     chat_model_fields.append(
@@ -327,7 +332,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for utility model used by the framework",
             "type": "select",
             "value": settings["util_model_provider"],
-            "options": cast('list[FieldOption]', get_providers("chat")),
+            "options": cast("list[FieldOption]", get_providers("chat")),
         }
     )
     util_model_fields.append(
@@ -407,7 +412,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for embedding model used by the framework",
             "type": "select",
             "value": settings["embed_model_provider"],
-            "options": cast('list[FieldOption]', get_providers("embedding")),
+            "options": cast("list[FieldOption]", get_providers("embedding")),
         }
     )
     embed_model_fields.append(
@@ -477,7 +482,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for web browser model used by <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> framework",
             "type": "select",
             "value": settings["browser_model_provider"],
-            "options": cast('list[FieldOption]', get_providers("chat")),
+            "options": cast("list[FieldOption]", get_providers("chat")),
         }
     )
     browser_model_fields.append(
@@ -587,11 +592,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "title": "UI Password",
             "description": "Set user password for web UI",
             "type": "password",
-            "value": (
-                PASSWORD_PLACEHOLDER
-                if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD)
-                else ""
-            ),
+            "value": (PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD) else ""),
         }
     )
 
@@ -645,9 +646,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             if pid_lower in providers_seen:
                 continue
             providers_seen.add(pid_lower)
-            api_keys_fields.append(
-                _get_api_key_field(settings, pid_lower, provider["label"])
-            )
+            api_keys_fields.append(_get_api_key_field(settings, pid_lower, provider["label"]))
 
     api_keys_section: SettingsSection = {
         "id": "api_keys",
@@ -1075,11 +1074,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "title": "RFC Password",
             "description": "Password for remote function calls. Passwords must match on both instances. RFCs can not be used with empty password.",
             "type": "password",
-            "value": (
-                PASSWORD_PLACEHOLDER
-                if dotenv.get_dotenv_value(dotenv.KEY_RFC_PASSWORD)
-                else ""
-            ),
+            "value": (PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_RFC_PASSWORD) else ""),
         }
     )
 
@@ -1299,7 +1294,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "mcp",
     }
 
-   # Secrets section
+    # Secrets section
     secrets_fields: list[SettingsField] = []
 
     secrets_manager = get_default_secrets_manager()
@@ -1308,23 +1303,27 @@ def convert_out(settings: Settings) -> SettingsOutput:
     except Exception:
         secrets = ""
 
-    secrets_fields.append({
-        "id": "variables",
-        "title": "Variables Store",
-        "description": "Store non-sensitive variables in .env format e.g. EMAIL_IMAP_SERVER=\"imap.gmail.com\", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href=\"javascript:openModal('settings/secrets/example-vars.html')\">example</a>.<br>These variables are visible to LLMs and in chat history, they are not being masked.",
-        "type": "textarea",
-        "value": settings["variables"].strip(),
-        "style": "height: 20em",
-    })
+    secrets_fields.append(
+        {
+            "id": "variables",
+            "title": "Variables Store",
+            "description": 'Store non-sensitive variables in .env format e.g. EMAIL_IMAP_SERVER="imap.gmail.com", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href="javascript:openModal(\'settings/secrets/example-vars.html\')">example</a>.<br>These variables are visible to LLMs and in chat history, they are not being masked.',
+            "type": "textarea",
+            "value": settings["variables"].strip(),
+            "style": "height: 20em",
+        }
+    )
 
-    secrets_fields.append({
-        "id": "secrets",
-        "title": "Secrets Store",
-        "description": "Store secrets and credentials in .env format e.g. EMAIL_PASSWORD=\"s3cret-p4$$w0rd\", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href=\"javascript:openModal('settings/secrets/example-secrets.html')\">example</a>.<br>These variables are not visile to LLMs and in chat history, they are being masked. ⚠️ only values with length >= 4 are being masked to prevent false positives. ",
-        "type": "textarea",
-        "value": secrets,
-        "style": "height: 20em",
-    })
+    secrets_fields.append(
+        {
+            "id": "secrets",
+            "title": "Secrets Store",
+            "description": 'Store secrets and credentials in .env format e.g. EMAIL_PASSWORD="s3cret-p4$$w0rd", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href="javascript:openModal(\'settings/secrets/example-secrets.html\')">example</a>.<br>These variables are not visile to LLMs and in chat history, they are being masked. ⚠️ only values with length >= 4 are being masked to prevent false positives. ',
+            "type": "textarea",
+            "value": secrets,
+            "style": "height: 20em",
+        }
+    )
 
     secrets_section: SettingsSection = {
         "id": "secrets",
@@ -1386,7 +1385,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "mcp",
     }
 
-
     # Gmail Accounts section
     gmail_accounts_fields: list[SettingsField] = []
 
@@ -1399,7 +1397,9 @@ def convert_out(settings: Settings) -> SettingsOutput:
     account_list_html += f"<div><strong>Configured accounts: {account_count}</strong></div>"
 
     if account_count > 0:
-        account_list_html += "<div style='margin-top: 10px; font-size: 0.9em;'><ul style='margin: 5px 0; padding-left: 20px;'>"
+        account_list_html += (
+            "<div style='margin-top: 10px; font-size: 0.9em;'><ul style='margin: 5px 0; padding-left: 20px;'>"
+        )
         for account_name, account_info in gmail_accounts.items():
             email = account_info.get("email", "Unknown")
             authenticated = account_info.get("authenticated", False)
@@ -1516,6 +1516,50 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "external",
     }
 
+    twilio_fields: list[SettingsField] = []
+    twilio_fields.append(
+        {
+            "id": "twilio_manager",
+            "title": "Twilio Voice",
+            "description": "Configure Twilio voice credentials and place outbound calls.",
+            "type": "html",
+            "value": "<x-component path='/settings/external/twilio-voice-manager.html' />",
+        }
+    )
+    twilio_fields.extend(
+        [
+            {
+                "id": "twilio_account_sid",
+                "title": "Twilio Account SID",
+                "type": "text",
+                "value": settings.get("twilio_account_sid", ""),
+                "hidden": True,
+            },
+            {
+                "id": "twilio_auth_token",
+                "title": "Twilio Auth Token",
+                "type": "password",
+                "value": PASSWORD_PLACEHOLDER if settings.get("twilio_auth_token") else "",
+                "hidden": True,
+            },
+            {
+                "id": "twilio_from_number",
+                "title": "Twilio From Number",
+                "type": "text",
+                "value": settings.get("twilio_from_number", ""),
+                "hidden": True,
+            },
+        ]
+    )
+
+    twilio_section: SettingsSection = {
+        "id": "twilio_voice",
+        "title": "Twilio Voice",
+        "description": "Manage Twilio outbound voice calls.",
+        "fields": twilio_fields,
+        "tab": "external",
+    }
+
     # External API section
     external_api_fields: list[SettingsField] = []
 
@@ -1533,7 +1577,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "id": "external_api",
         "title": "External API",
         "description": "Agent Zero provides external API endpoints for integration with other applications. "
-                       "These endpoints use API key authentication and support text messages and file attachments.",
+        "These endpoints use API key authentication and support text messages and file attachments.",
         "fields": external_api_fields,
         "tab": "external",
     }
@@ -1577,8 +1621,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "backup_restore",
             "title": "Restore from Backup",
-            "description": "Restore files and configurations from a backup archive "
-            "with pattern-based selection.",
+            "description": "Restore files and configurations from a backup archive " "with pattern-based selection.",
             "type": "button",
             "value": "Restore Backup",
         }
@@ -1642,17 +1685,11 @@ def convert_out(settings: Settings) -> SettingsOutput:
     )
 
     langsmith_api_key = dotenv.get_dotenv_value("LANGSMITH_API_KEY", "")
-    langsmith_project = dotenv.get_dotenv_value(
-        "LANGSMITH_PROJECT", settings.get("langsmith_project", "")
-    )
-    langsmith_endpoint = dotenv.get_dotenv_value(
-        "LANGSMITH_ENDPOINT", settings.get("langsmith_endpoint", "")
-    )
+    langsmith_project = dotenv.get_dotenv_value("LANGSMITH_PROJECT", settings.get("langsmith_project", ""))
+    langsmith_endpoint = dotenv.get_dotenv_value("LANGSMITH_ENDPOINT", settings.get("langsmith_endpoint", ""))
     langfuse_public_key = dotenv.get_dotenv_value("LANGFUSE_PUBLIC_KEY", "")
     langfuse_secret_key = dotenv.get_dotenv_value("LANGFUSE_SECRET_KEY", "")
-    langfuse_host = dotenv.get_dotenv_value(
-        "LANGFUSE_HOST", settings.get("langfuse_host", "")
-    )
+    langfuse_host = dotenv.get_dotenv_value("LANGFUSE_HOST", settings.get("langfuse_host", ""))
 
     observability_fields.append(
         {
@@ -1755,6 +1792,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             a2a_section,
             gmail_accounts_section,
             google_voice_section,
+            twilio_section,
             external_api_section,
             update_checker_section,
             backup_section,
@@ -1783,10 +1821,7 @@ def convert_in(settings: dict) -> Settings:
         if "fields" in section:
             for field in section["fields"]:
                 # Skip saving if value is a placeholder
-                should_skip = (
-                    field["value"] == PASSWORD_PLACEHOLDER or
-                    field["value"] == API_KEY_PLACEHOLDER
-                )
+                should_skip = field["value"] == PASSWORD_PLACEHOLDER or field["value"] == API_KEY_PLACEHOLDER
 
                 if not should_skip:
                     # Special handling for browser_http_headers
@@ -1797,6 +1832,7 @@ def convert_in(settings: dict) -> Settings:
                     else:
                         current[field["id"]] = field["value"]
     return current
+
 
 def get_settings() -> Settings:
     global _settings
@@ -1897,6 +1933,7 @@ def _remove_sensitive_settings(settings: Settings):
     settings["langsmith_api_key"] = ""
     settings["langfuse_public_key"] = ""
     settings["langfuse_secret_key"] = ""
+    settings["twilio_auth_token"] = ""
 
 
 def _write_sensitive_settings(settings: Settings):
@@ -1927,15 +1964,22 @@ def _write_sensitive_settings(settings: Settings):
     if settings.get("langfuse_host") is not None:
         dotenv.save_dotenv_value("LANGFUSE_HOST", settings.get("langfuse_host", ""))
 
+    if settings.get("twilio_account_sid") is not None:
+        dotenv.save_dotenv_value("TWILIO_ACCOUNT_SID", settings.get("twilio_account_sid", ""))
+    if settings.get("twilio_auth_token") is not None:
+        dotenv.save_dotenv_value("TWILIO_AUTH_TOKEN", settings.get("twilio_auth_token", ""))
+    if settings.get("twilio_from_number") is not None:
+        dotenv.save_dotenv_value("TWILIO_FROM_NUMBER", settings.get("twilio_from_number", ""))
+
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
     secrets_manager = get_default_secrets_manager()
     submitted_content = settings["secrets"]
     secrets_manager.save_secrets_with_merge(submitted_content)
 
 
-
 def get_default_settings() -> Settings:
     import os
+
     # Use Ollama URL from environment or default to localhost
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
@@ -2027,6 +2071,9 @@ def get_default_settings() -> Settings:
         google_voice_shortcuts=True,
         google_voice_contact_rules="{}",
         google_voice_tag_filters="[]",
+        twilio_account_sid=dotenv.get_dotenv_value("TWILIO_ACCOUNT_SID", ""),
+        twilio_auth_token=dotenv.get_dotenv_value("TWILIO_AUTH_TOKEN", ""),
+        twilio_from_number=dotenv.get_dotenv_value("TWILIO_FROM_NUMBER", ""),
         cowork_enabled=False,
         cowork_require_approvals=True,
         cowork_allowed_paths=["/a0"],
@@ -2080,12 +2127,8 @@ def _apply_settings(previous: Settings | None):
             from python.helpers.mcp_handler import MCPConfig
 
             async def update_mcp_settings(mcp_servers: str):
-                PrintStyle(
-                    background_color="black", font_color="white", padding=True
-                ).print("Updating MCP config...")
-                AgentContext.log_to_all(
-                    type="info", content="Updating MCP settings...", temp=True
-                )
+                PrintStyle(background_color="black", font_color="white", padding=True).print("Updating MCP config...")
+                AgentContext.log_to_all(type="info", content="Updating MCP settings...", temp=True)
 
                 mcp_config = MCPConfig.get_instance()
                 try:
@@ -2097,27 +2140,19 @@ def _apply_settings(previous: Settings | None):
                         temp=False,
                     )
                     (
-                        PrintStyle(
-                            background_color="red", font_color="black", padding=True
-                        ).print("Failed to update MCP settings")
+                        PrintStyle(background_color="red", font_color="black", padding=True).print(
+                            "Failed to update MCP settings"
+                        )
                     )
-                    (
-                        PrintStyle(
-                            background_color="black", font_color="red", padding=True
-                        ).print(f"{e}")
-                    )
+                    (PrintStyle(background_color="black", font_color="red", padding=True).print(f"{e}"))
 
-                PrintStyle(
-                    background_color="#6734C3", font_color="white", padding=True
-                ).print("Parsed MCP config:")
+                PrintStyle(background_color="#6734C3", font_color="white", padding=True).print("Parsed MCP config:")
                 (
-                    PrintStyle(
-                        background_color="#334455", font_color="white", padding=False
-                    ).print(mcp_config.model_dump_json())
+                    PrintStyle(background_color="#334455", font_color="white", padding=False).print(
+                        mcp_config.model_dump_json()
+                    )
                 )
-                AgentContext.log_to_all(
-                    type="info", content="Finished updating MCP settings.", temp=True
-                )
+                AgentContext.log_to_all(type="info", content="Finished updating MCP settings.", temp=True)
 
             defer.DeferredTask().start_task(
                 update_mcp_settings, config.mcp_servers
@@ -2155,13 +2190,13 @@ def _env_to_dict(data: str):
     result = {}
     for line in data.splitlines():
         line = line.strip()
-        if not line or line.startswith('#'):
+        if not line or line.startswith("#"):
             continue
 
-        if '=' not in line:
+        if "=" not in line:
             continue
 
-        key, value = line.split('=', 1)
+        key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip()
 
@@ -2187,12 +2222,12 @@ def _dict_to_env(data_dict):
             # Quote strings and escape internal quotes
             escaped_value = value.replace('"', '\\"')
             lines.append(f'{key}="{escaped_value}"')
-        elif isinstance(value, (dict, list, bool)) or value is None:
+        elif isinstance(value, dict | list | bool) or value is None:
             # Serialize as unquoted JSON
             lines.append(f'{key}={json.dumps(value, separators=(",", ":"))}')
         else:
             # Numbers and other types as unquoted strings
-            lines.append(f'{key}={value}')
+            lines.append(f"{key}={value}")
 
     return "\n".join(lines)
 
