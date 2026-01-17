@@ -1,24 +1,278 @@
 {
   "version": "0.2.0",
   "configurations": [
-
     {
-      "name": "Debug run_ui.py",
-      "type": "debugpy",
+      "name": "🚀 Agent Zero - Full Stack (Recommended)",
+      "type": "python",
       "request": "launch",
-      "program": "./run_ui.py",
+      "module": "agent",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["--development=true", "-Xfrozen_modules=off"]
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "LOG_LEVEL": "DEBUG",
+        "AGENT_ENV": "development",
+        "ENABLE_MEMORY": "true"
+      },
+      "preLaunchTask": "agent-zero:setup"
     },
     {
-      "name": "Debug current file",
-      "type": "debugpy",
+      "name": "🔧 Web UI Server (port 5000)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_ui.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "LOG_LEVEL": "DEBUG",
+        "FLASK_ENV": "development",
+        "FLASK_DEBUG": "1"
+      },
+      "args": ["--host", "0.0.0.0", "--port", "5000"]
+    },
+    {
+      "name": "⚡ API Server (port 8000)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/python/api/server.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "LOG_LEVEL": "DEBUG",
+        "FASTAPI_ENV": "development"
+      },
+      "args": ["--host", "0.0.0.0", "--port", "8000"]
+    },
+    {
+      "name": "📊 Test Suite - All (480 tests)",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "args": [
+        "tests/",
+        "-v",
+        "--tb=short",
+        "--capture=no",
+        "--color=yes"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "🤖 Test Suite - Phase 3 AI Agents (159 tests)",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "args": [
+        "tests/test_ai_research_agent.py",
+        "tests/test_ai_writer_agent.py",
+        "tests/test_ai_ops_agent.py",
+        "-v",
+        "--tb=short"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "🧪 Test Suite - Current File",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "args": [
+        "${file}",
+        "-v",
+        "--tb=short",
+        "-s"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "🐛 Debug Current File",
+      "type": "python",
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["--development=true", "-Xfrozen_modules=off"]
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "LOG_LEVEL": "DEBUG"
+      }
+    },
+    {
+      "name": "📝 Code Linting (Ruff Check & Fix)",
+      "type": "python",
+      "request": "launch",
+      "module": "ruff",
+      "console": "integratedTerminal",
+      "args": [
+        "check",
+        ".",
+        "--fix"
+      ]
+    },
+    {
+      "name": "🧹 Format Code (Ruff Format)",
+      "type": "python",
+      "request": "launch",
+      "module": "ruff",
+      "console": "integratedTerminal",
+      "args": [
+        "format",
+        "."
+      ]
+    },
+    {
+      "name": "🐳 Docker - Build & Start",
+      "type": "python",
+      "request": "launch",
+      "module": "subprocess",
+      "console": "integratedTerminal",
+      "args": [
+        "docker-compose",
+        "-f",
+        "docker-compose.yml",
+        "up",
+        "--build"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "🐳 Docker - Interactive Shell",
+      "type": "python",
+      "request": "launch",
+      "module": "subprocess",
+      "console": "integratedTerminal",
+      "args": [
+        "docker",
+        "exec",
+        "-it",
+        "agent-zero",
+        "bash"
+      ]
+    },
+    {
+      "name": "💾 Memory - Consolidate & Optimize",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/python/helpers/memory_consolidation.py",
+      "console": "integratedTerminal",
+      "args": ["--consolidate", "--optimize"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "📅 Task Scheduler - Daemon Mode",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/python/helpers/task_scheduler.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "SCHEDULER_MODE": "daemon"
+      }
+    },
+    {
+      "name": "🔌 MCP Server - Start (port 8765)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/python/helpers/mcp_server.py",
+      "console": "integratedTerminal",
+      "args": ["--port", "8765", "--debug"],
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "MCP_DEBUG": "1"
+      }
+    },
+    {
+      "name": "📚 Knowledge Ingest - Process Documents",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/python/tools/knowledge_ingest.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--input",
+        "${workspaceFolder}/knowledge",
+        "--process"
+      ]
+    },
+    {
+      "name": "🏗️ Agent Builder - Create New Agent",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/agents/agent-builder/agent_builder.py",
+      "console": "integratedTerminal",
+      "args": ["--interactive"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "⏱️ Profiler - Performance Analysis",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/agent.py",
+      "console": "integratedTerminal",
+      "args": ["--profile"],
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1"
+      }
+    },
+    {
+      "name": "🔗 Debug - Attach to Process (port 5678)",
+      "type": "python",
+      "request": "attach",
+      "listen": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack (UI + API + Agent)",
+      "configurations": [
+        "🔧 Web UI Server (port 5000)",
+        "⚡ API Server (port 8000)",
+        "🚀 Agent Zero - Full Stack (Recommended)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Testing & Code Quality",
+      "configurations": [
+        "📊 Test Suite - All (480 tests)",
+        "📝 Code Linting (Ruff Check & Fix)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Docker Development",
+      "configurations": [
+        "🐳 Docker - Build & Start",
+        "🐳 Docker - Interactive Shell"
+      ],
+      "stopAll": false
+    },
+    {
+      "name": "System Services",
+      "configurations": [
+        "📅 Task Scheduler - Daemon Mode",
+        "🔌 MCP Server - Start (port 8765)",
+        "💾 Memory - Consolidate & Optimize"
+      ],
+      "stopAll": false
     }
   ]
 }
