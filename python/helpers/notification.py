@@ -1,7 +1,12 @@
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
+
+try:
+    from datetime import UTC
+except ImportError:  # Python 3.10 fallback
+    UTC = timezone.utc
 
 
 class NotificationType(Enum):

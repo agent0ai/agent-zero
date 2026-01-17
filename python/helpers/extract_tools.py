@@ -100,7 +100,7 @@ def import_module(file_path: str) -> ModuleType:
     spec.loader.exec_module(module)
     return module
 
-def load_classes_from_folder[T](folder: str, name_pattern: str, base_class: type[T], one_per_file: bool = True) -> list[type[T]]:
+def load_classes_from_folder(folder: str, name_pattern: str, base_class: type[T], one_per_file: bool = True) -> list[type[T]]:
     classes = []
     abs_folder = get_abs_path(folder)
 
@@ -128,7 +128,7 @@ def load_classes_from_folder[T](folder: str, name_pattern: str, base_class: type
 
     return classes
 
-def load_classes_from_file[T](file: str, base_class: type[T], one_per_file: bool = True) -> list[type[T]]:
+def load_classes_from_file(file: str, base_class: type[T], one_per_file: bool = True) -> list[type[T]]:
     classes = []
     # Use the new import_module function
     module = import_module(file)

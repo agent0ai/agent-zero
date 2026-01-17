@@ -10,7 +10,12 @@ import contextlib
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:  # Python 3.10 fallback
+    UTC = timezone.utc
 from enum import Enum
 from typing import Any
 

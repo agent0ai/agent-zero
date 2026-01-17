@@ -1,0 +1,190 @@
+<html>
+
+<head>
+    <script type="module" src="/components/settings/external/telegram-settings-store.js"></script>
+</head>
+
+<body>
+    <div x-data x-init="$store.telegramSettingsStore.init()">
+        <div class="section-title">Telegram Settings</div>
+        <div class="section-description">Configure inbound and outbound Telegram integration.</div>
+
+        <div class="telegram-settings" x-show="!$store.telegramSettingsStore.loading">
+            <div class="field">
+                <div class="field-label">
+                    <div class="field-title">Bot Token</div>
+                    <div class="field-description">Telegram bot token from BotFather.</div>
+                </div>
+                <div class="field-control">
+                    <input type="password" class="field-input"
+                        x-model="$store.telegramSettingsStore.settings.bot_token" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">
+                    <div class="field-title">Default Chat ID</div>
+                    <div class="field-description">Chat ID for outbound digests.</div>
+                </div>
+                <div class="field-control">
+                    <input type="text" class="field-input"
+                        x-model="$store.telegramSettingsStore.settings.chat_id">
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">
+                    <div class="field-title">Webhook URL</div>
+                    <div class="field-description">Public URL ending with <code>/telegram_webhook</code>.</div>
+                </div>
+                <div class="field-control">
+                    <input type="text" class="field-input"
+                        x-model="$store.telegramSettingsStore.settings.webhook_url">
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">
+                    <div class="field-title">Webhook Secret</div>
+                    <div class="field-description">Optional secret header value.</div>
+                </div>
+                <div class="field-control">
+                    <input type="password" class="field-input"
+                        x-model="$store.telegramSettingsStore.settings.webhook_secret" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">
+                    <div class="field-title">Shared Agent Context</div>
+                    <div class="field-description">Route all inbound messages into a single context.</div>
+                </div>
+                <div class="field-control">
+                    <input type="text" class="field-input"
+                        x-model="$store.telegramSettingsStore.settings.agent_context">
+                </div>
+            </div>
+
+            <div class="telegram-actions">
+                <button class="btn btn-ok" :disabled="$store.telegramSettingsStore.saving"
+                    @click="$store.telegramSettingsStore.save()">Save Settings</button>
+                <button class="btn btn-secondary" :disabled="$store.telegramSettingsStore.saving"
+                    @click="$store.telegramSettingsStore.setWebhook()">Set Webhook</button>
+                <button class="btn btn-secondary" :disabled="$store.telegramSettingsStore.saving"
+                    @click="$store.telegramSettingsStore.testWebhook()">Test Webhook</button>
+                <button class="btn btn-secondary" @click="$store.telegramSettingsStore.copyWebhookUrl()">Copy Webhook
+                    URL</button>
+                <button class="btn btn-secondary" @click="$store.telegramSettingsStore.refresh()">Refresh</button>
+            </div>
+
+            <div class="telegram-webhook-info">
+                <div class="field-title">Webhook Status</div>
+                <pre x-text="JSON.stringify($store.telegramSettingsStore.webhookInfo, null, 2)"></pre>
+            </div>
+
+            <div class="telegram-inbox">
+                <div class="field-title">Telegram Inbox (last 72h)</div>
+                <div class="telegram-actions">
+                    <button class="btn btn-secondary" @click="$store.telegramSettingsStore.loadInbox()">Load Inbox</button>
+                </div>
+
+                <template x-for="item in $store.telegramSettingsStore.inboxItems" :key="item.id">
+                    <div class="telegram-inbox-item">
+                        <div class="telegram-inbox-meta">
+                            <span x-text="item.created_at || ''"></span>
+                            <span x-text="item.chat_id ? 'chat:' + item.chat_id : 'chat: n/a'"></span>
+                        </div>
+                        <div class="telegram-inbox-title" x-text="item.title"></div>
+                        <div class="telegram-inbox-content" x-text="item.content"></div>
+                        <div class="telegram-inbox-tags" x-text="(item.tags || []).join(', ')"></div>
+                        <textarea class="telegram-reply"
+                            placeholder="Quick reply..."
+                            x-model="item.replyText"></textarea>
+                        <button class="btn btn-secondary" @click="$store.telegramSettingsStore.sendReply(item)"
+                            :disabled="!item.replyText">Send Reply</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="loading-spinner" x-show="$store.telegramSettingsStore.loading">
+            <span class="icon material-symbols-outlined spin">progress_activity</span>
+            <span>Loading Telegram settings...</span>
+        </div>
+    </div>
+
+    <style>
+        .telegram-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .telegram-webhook-info {
+            margin-top: 16px;
+            background: var(--bg-color-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .telegram-webhook-info pre {
+            font-size: 12px;
+            margin: 0;
+            white-space: pre-wrap;
+            color: var(--text-color);
+        }
+
+        .telegram-inbox {
+            margin-top: 20px;
+        }
+
+        .telegram-inbox-item {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            background: var(--bg-color-secondary);
+        }
+
+        .telegram-inbox-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-color-secondary);
+            margin-bottom: 6px;
+        }
+
+        .telegram-inbox-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .telegram-inbox-content {
+            font-size: 13px;
+            margin-bottom: 6px;
+            white-space: pre-wrap;
+        }
+
+        .telegram-inbox-tags {
+            font-size: 12px;
+            color: var(--text-color-secondary);
+            margin-bottom: 8px;
+        }
+
+        .telegram-reply {
+            width: 100%;
+            min-height: 70px;
+            margin-bottom: 8px;
+            background: var(--bg-color-primary);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 13px;
+        }
+    </style>
+</body>
+
+</html>

@@ -1,4 +1,9 @@
-from datetime import UTC, datetime, timedelta, timezone as dt_timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
+
+try:
+    from datetime import UTC
+except ImportError:  # Python 3.10 fallback
+    UTC = dt_timezone.utc
 
 import pytz  # type: ignore
 
