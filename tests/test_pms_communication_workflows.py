@@ -4,7 +4,13 @@ Tests for PMS guest communication workflows and automation
 Tests pre-arrival, post-checkout, issue resolution, and review management
 """
 
+from datetime import date, timedelta
+
 import pytest
+
+from instruments.custom.pms_hub.canonical_models import (
+    Reservation,
+)
 
 
 class TestCommunicationWorkflowInitialization:
@@ -48,49 +54,223 @@ class TestPreArrivalWorkflows:
     @pytest.mark.asyncio
     async def test_create_pre_arrival_workflow(self):
         """Test creating pre-arrival workflow"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        # Create reservation for workflow
+        reservation = Reservation(
+            provider_id="res_001",
+            provider="test",
+            property_provider_id="prop_001",
+            guest_name="John Doe",
+            guest_email="john@example.com",
+            check_in_date=date(2026, 2, 1),
+            check_out_date=date(2026, 2, 5),
+        )
+
+        # Create workflow
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        assert workflow is not None
+        assert workflow["type"] == "pre_arrival"
+        assert workflow["reservation_id"] == "res_001"
+        assert workflow["guest_name"] == "John Doe"
+        assert "sections" in workflow
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_trigger_pre_arrival_workflow(self):
         """Test triggering pre-arrival workflow on reservation creation"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_002",
+            provider="test",
+            property_provider_id="prop_001",
+            guest_name="Jane Smith",
+            guest_email="jane@example.com",
+            check_in_date=date(2026, 2, 10),
+            check_out_date=date(2026, 2, 15),
+        )
+
+        # Workflow creation simulates trigger on reservation
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        # Should be triggered and created
+        assert workflow is not None
+        assert "scheduled_send_time" in workflow
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_pre_arrival_message_timing(self):
         """Test pre-arrival message sent 48 hours before check-in"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        check_in = date(2026, 2, 20)
+        reservation = Reservation(
+            provider_id="res_003",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=check_in,
+            check_out_date=check_in + timedelta(days=3),
+        )
+
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        # Send time should be 48 hours before check-in
+        expected_send_date = (check_in - timedelta(days=2)).isoformat()
+        assert expected_send_date in workflow["scheduled_send_time"]
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_pre_arrival_check_in_instructions(self):
         """Test pre-arrival message includes check-in instructions"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_004",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 2, 25),
+            check_out_date=date(2026, 2, 28),
+        )
+
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        # Should include check-in instructions
+        assert "check_in_instructions" in workflow["sections"]
+        instructions = workflow["sections"]["check_in_instructions"]
+        assert "title" in instructions
+        assert "lock_type" in instructions
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_pre_arrival_house_rules(self):
         """Test pre-arrival message includes house rules"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_005",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 3, 1),
+            check_out_date=date(2026, 3, 5),
+        )
+
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        # Should include house rules
+        assert "house_rules" in workflow["sections"]
+        rules = workflow["sections"]["house_rules"]
+        assert "quiet_hours" in rules
+        assert "guest_limit" in rules
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_pre_arrival_wifi_password(self):
         """Test pre-arrival message includes WiFi information"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_006",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 3, 10),
+            check_out_date=date(2026, 3, 14),
+        )
+
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        # Should include WiFi information
+        assert "wifi_info" in workflow["sections"]
+        wifi = workflow["sections"]["wifi_info"]
+        assert "network_name" in wifi
+        assert "password" in wifi
+        assert "speed" in wifi
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_pre_arrival_parking_info(self):
         """Test pre-arrival message includes parking information"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_007",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 3, 20),
+            check_out_date=date(2026, 3, 24),
+        )
+
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        # Should include parking information
+        assert "parking_info" in workflow["sections"]
+        parking = workflow["sections"]["parking_info"]
+        assert "location" in parking
+        assert "spots" in parking
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_pre_arrival_local_recommendations(self):
         """Test pre-arrival message includes local recommendations"""
-        pytest.skip("Implementation pending - Team B to implement")
+
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_008",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 4, 1),
+            check_out_date=date(2026, 4, 5),
+        )
+
+        workflow = await service.create_pre_arrival_workflow(reservation)
+
+        # Should include local recommendations
+        assert "local_recommendations" in workflow["sections"]
+        recs = workflow["sections"]["local_recommendations"]
+        assert "restaurants" in recs
+        assert "attractions" in recs
+        assert "transportation" in recs
 
 
 class TestPostCheckoutWorkflows:
@@ -100,37 +280,151 @@ class TestPostCheckoutWorkflows:
     @pytest.mark.asyncio
     async def test_create_post_checkout_workflow(self):
         """Test creating post-checkout workflow"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_009",
+            provider="test",
+            property_provider_id="prop_001",
+            guest_name="Alice Johnson",
+            guest_email="alice@example.com",
+            check_in_date=date(2026, 4, 10),
+            check_out_date=date(2026, 4, 15),
+        )
+
+        workflow = await service.create_post_checkout_workflow(reservation)
+
+        assert workflow is not None
+        assert workflow["type"] == "post_checkout"
+        assert workflow["reservation_id"] == "res_009"
+        assert "sections" in workflow
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_trigger_post_checkout_workflow(self):
         """Test triggering post-checkout workflow on check-out"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_010",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 4, 20),
+            check_out_date=date(2026, 4, 25),
+        )
+
+        workflow = await service.create_post_checkout_workflow(reservation)
+
+        assert workflow is not None
+        assert "scheduled_send_time" in workflow
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_post_checkout_thank_you_message(self):
         """Test post-checkout thank you message"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_011",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 5, 1),
+            check_out_date=date(2026, 5, 5),
+        )
+
+        workflow = await service.create_post_checkout_workflow(reservation)
+
+        assert "thank_you_message" in workflow["sections"]
+        thank_you = workflow["sections"]["thank_you_message"]
+        assert "title" in thank_you
+        assert "body" in thank_you
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_post_checkout_review_request(self):
         """Test post-checkout review request in message"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_012",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 5, 10),
+            check_out_date=date(2026, 5, 14),
+        )
+
+        workflow = await service.create_post_checkout_workflow(reservation)
+
+        assert "review_request" in workflow["sections"]
+        review = workflow["sections"]["review_request"]
+        assert "review_url" in review
+        assert "incentive" in review
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_post_checkout_feedback_survey(self):
         """Test post-checkout includes feedback survey"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_013",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 5, 20),
+            check_out_date=date(2026, 5, 24),
+        )
+
+        workflow = await service.create_post_checkout_workflow(reservation)
+
+        assert "feedback_survey" in workflow["sections"]
+        survey = workflow["sections"]["feedback_survey"]
+        assert "questions" in survey
+        assert len(survey["questions"]) > 0
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_post_checkout_cleaning_confirmation(self):
         """Test post-checkout confirms cleaning scheduling"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_014",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 6, 1),
+            check_out_date=date(2026, 6, 5),
+        )
+
+        workflow = await service.create_post_checkout_workflow(reservation)
+
+        assert "cleaning_confirmation" in workflow["sections"]
+        cleaning = workflow["sections"]["cleaning_confirmation"]
+        assert "message" in cleaning
+        assert "contact" in cleaning
 
 
 class TestIssueResolutionWorkflows:
