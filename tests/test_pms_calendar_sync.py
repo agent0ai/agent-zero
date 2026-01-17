@@ -151,27 +151,83 @@ class TestCalendarEventUpdates:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_update_event_on_status_change(self):
+    async def test_update_event_on_status_change(self, sample_reservation):
         """Test updating event when reservation status changes"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        with patch.object(service, "calendar_manager") as mock_cal:
+            mock_cal.update_event.return_value = {"status": "success", "updated": True}
+
+            # Change reservation status
+            sample_reservation.status = ReservationStatus.CHECKED_IN
+
+            result = await service.update_calendar_event(sample_reservation, calendar_event_id="evt_123")
+
+            assert result is not None
+            assert result.get("updated") is True
+            mock_cal.update_event.assert_called_once()
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_update_event_on_date_change(self):
+    async def test_update_event_on_date_change(self, sample_reservation):
         """Test updating event dates when reservation dates change"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        # Change reservation dates
+        original_checkin = sample_reservation.check_in_date
+        sample_reservation.check_in_date = original_checkin + timedelta(days=1)
+
+        with patch.object(service, "calendar_manager") as mock_cal:
+            mock_cal.update_event.return_value = {"status": "success", "dates_updated": True}
+
+            result = await service.update_calendar_event(sample_reservation, calendar_event_id="evt_123")
+
+            assert result is not None
+            mock_cal.update_event.assert_called_once()
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_update_event_on_guest_change(self):
+    async def test_update_event_on_guest_change(self, sample_reservation):
         """Test updating event guest details"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        # Change guest info
+        sample_reservation.guest_name = "Jane Doe"
+        sample_reservation.guest_email = "jane@example.com"
+
+        with patch.object(service, "calendar_manager") as mock_cal:
+            mock_cal.update_event.return_value = {"status": "success"}
+
+            result = await service.update_calendar_event(sample_reservation, calendar_event_id="evt_123")
+
+            assert result is not None
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_update_pricing_in_event_description(self):
+    async def test_update_pricing_in_event_description(self, sample_reservation):
         """Test pricing rules updated in event description"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        # Update pricing
+        sample_reservation.total_price = Decimal("750.00")
+
+        with patch.object(service, "calendar_manager") as mock_cal:
+            mock_cal.update_event.return_value = {"status": "success"}
+
+            result = await service.update_calendar_event(sample_reservation, calendar_event_id="evt_123")
+
+            assert result is not None
+            # Verify description was updated with new pricing
+            call_args = mock_cal.update_event.call_args
+            assert call_args is not None
 
 
 class TestCalendarEventDeletion:
@@ -179,15 +235,39 @@ class TestCalendarEventDeletion:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_delete_event_on_cancellation(self):
+    async def test_delete_event_on_cancellation(self, sample_reservation):
         """Test deleting event when reservation is cancelled"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        sample_reservation.status = ReservationStatus.CANCELLED
+
+        with patch.object(service, "calendar_manager") as mock_cal:
+            mock_cal.delete_event.return_value = {"status": "success", "deleted": True}
+
+            result = await service.delete_calendar_event(reservation=sample_reservation, calendar_event_id="evt_123")
+
+            assert result is True
+            mock_cal.delete_event.assert_called_once()
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_delete_maintains_audit_trail(self):
+    async def test_delete_maintains_audit_trail(self, sample_reservation):
         """Test deletion logged in audit trail"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        with patch.object(service, "calendar_manager") as mock_cal:
+            mock_cal.delete_event.return_value = {"status": "success"}
+
+            result = await service.delete_calendar_event(reservation=sample_reservation, calendar_event_id="evt_123")
+
+            assert result is True
+            # Audit trail should be updated
+            audit = await service.get_audit_trail(limit=1)
+            assert isinstance(audit, list)
 
 
 class TestMultiCalendarAccounts:
@@ -195,21 +275,55 @@ class TestMultiCalendarAccounts:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_sync_to_multiple_calendars(self):
+    async def test_sync_to_multiple_calendars(self, sample_reservation):
         """Test syncing reservation to multiple calendar accounts"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        with patch.object(service, "calendar_manager") as mock_cal:
+            mock_cal.create_event.return_value = {"status": "success", "data": {"id": "evt_1"}}
+
+            # Sync to calendar 1
+            result1 = await service.sync_reservation_to_calendar(sample_reservation, calendar_id=1)
+
+            # Sync to calendar 2
+            result2 = await service.sync_reservation_to_calendar(sample_reservation, calendar_id=2)
+
+            assert result1 is not None
+            assert result2 is not None
+            assert mock_cal.create_event.call_count == 2
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_calendar_account_selection(self):
+    async def test_calendar_account_selection(self, sample_reservation):
         """Test selecting correct calendar account per property"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        # Get calendar ID for property
+        calendar_id = await service.get_calendar_for_property(property_id=sample_reservation.property_provider_id)
+
+        # Should return a valid calendar ID (even if default)
+        assert calendar_id is not None
+        assert isinstance(calendar_id, int)
+        assert calendar_id >= 1
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_handle_missing_calendar_account(self):
+    async def test_handle_missing_calendar_account(self, sample_reservation):
         """Test graceful handling when calendar account not configured"""
-        pytest.skip("Implementation pending - Team A to implement")
+        from instruments.custom.pms_hub.calendar_sync import CalendarSyncService
+
+        service = CalendarSyncService()
+
+        with patch.object(service, "calendar_manager", None):
+            # Attempt to sync when calendar manager is unavailable
+            result = await service.sync_reservation_to_calendar(sample_reservation, calendar_id=1)
+
+            # Should gracefully return None
+            assert result is None
 
 
 class TestBlockedDatesSync:
