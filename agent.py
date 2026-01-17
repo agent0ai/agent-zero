@@ -304,6 +304,7 @@ class UserMessage:
     message: str
     attachments: list[str] = field(default_factory=list[str])
     system_message: list[str] = field(default_factory=list[str])
+    repo_mentions: list[dict] = field(default_factory=list)
 
 
 class LoopData:
@@ -672,6 +673,12 @@ class Agent:
         # remove empty parts from template
         if isinstance(content, dict):
             content = {k: v for k, v in content.items() if v}
+
+        # Store repo_mentions for extensions to access
+        if hasattr(message, 'repo_mentions') and message.repo_mentions:
+            self.data['repo_mentions'] = message.repo_mentions
+        else:
+            self.data['repo_mentions'] = []
 
         # add to history
         msg = self.hist_add_message(False, content=content)  # type: ignore

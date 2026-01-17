@@ -2,6 +2,7 @@ from agent import AgentContext, UserMessage
 from python.helpers.api import ApiHandler, Request, Response
 
 from python.helpers import files, extension
+import json
 import os
 from werkzeug.utils import secure_filename
 from python.helpers.defer import DeferredTask
@@ -29,6 +30,13 @@ class Message(ApiHandler):
             attachments = request.files.getlist("attachments")
             attachment_paths = []
 
+            # Extract repo_mentions from form data
+            repo_mentions_raw = request.form.get("repo_mentions", "[]")
+            try:
+                repo_mentions = json.loads(repo_mentions_raw)
+            except:
+                repo_mentions = []
+
             upload_folder_int = "/a0/tmp/uploads"
             upload_folder_ext = files.get_abs_path("tmp/uploads") # for development environment
 
@@ -48,6 +56,7 @@ class Message(ApiHandler):
             ctxid = input_data.get("context", "")
             message_id = input_data.get("message_id", None)
             attachment_paths = []
+            repo_mentions = input_data.get("repo_mentions", [])
 
         # Now process the message
         message = text
@@ -81,13 +90,16 @@ class Message(ApiHandler):
             for filename in attachment_filenames:
                 PrintStyle(font_color="white", padding=False).print(f"- {filename}")
 
-        # Log the message with message_id and attachments
+        # Log the message with message_id, attachments, and repo mentions
         context.log.log(
             type="user",
             heading="User message",
             content=message,
-            kvps={"attachments": attachment_filenames},
+            kvps={
+                "attachments": attachment_filenames,
+                "repo_mentions": repo_mentions if repo_mentions else [],
+            },
             id=message_id,
         )
 
-        return context.communicate(UserMessage(message, attachment_paths)), context
+        return context.communicate(UserMessage(message, attachment_paths, repo_mentions=repo_mentions)), context

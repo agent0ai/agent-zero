@@ -7,6 +7,7 @@ import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { store as inputStore } from "/components/chat/input/input-store.js";
+import { store as repoMentionStore } from "/components/chat/input/repoMentionStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
@@ -44,14 +45,16 @@ export async function sendMessage() {
     const message = chatInputEl.value.trim();
     const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
+    const repoMentions = repoMentionStore.mentions.slice(); // Copy to avoid mutation issues
 
     if (message || hasAttachments) {
       let response;
       const messageId = generateGUID();
 
-      // Clear input and attachments
+      // Clear input, attachments, and repo mentions
       chatInputEl.value = "";
       attachmentsStore.clearAttachments();
+      repoMentionStore.clearMentions();
       adjustTextareaHeight();
 
       // Include attachments in the user message
@@ -78,6 +81,8 @@ export async function sendMessage() {
           formData.append("attachments", attachmentsWithUrls[i].file);
         }
 
+        formData.append("repo_mentions", JSON.stringify(repoMentions));
+
         response = await api.fetchApi("/message_async", {
           method: "POST",
           body: formData,
@@ -88,6 +93,7 @@ export async function sendMessage() {
           text: message,
           context,
           message_id: messageId,
+          repo_mentions: repoMentions,
         };
         response = await api.fetchApi("/message_async", {
           method: "POST",

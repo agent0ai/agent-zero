@@ -26,52 +26,57 @@
       </div>
 
       <!-- Settings content -->
-      <div x-show="$store.settingsStore.settings" class="settings-content">
-        <!-- Tab Navigation -->
-        <div class="settings-tabs-container">
-          <div class="settings-tabs">
-            <div class="settings-tab" 
-                 :class="{'active': $store.settingsStore.activeTab === 'agent'}"
-                 @click="$store.settingsStore.switchTab('agent')" 
-                 title="Agent Settings">Agent Settings</div>
-            <div class="settings-tab" 
-                 :class="{'active': $store.settingsStore.activeTab === 'external'}"
-                 @click="$store.settingsStore.switchTab('external')" 
-                 title="External Services">External Services</div>
-            <div class="settings-tab" 
-                 :class="{'active': $store.settingsStore.activeTab === 'mcp'}"
-                 @click="$store.settingsStore.switchTab('mcp')" 
-                 title="MCP">MCP/A2A</div>
-            <div class="settings-tab" 
-                 :class="{'active': $store.settingsStore.activeTab === 'developer'}"
-                 @click="$store.settingsStore.switchTab('developer')" 
-                 title="Developer">Developer</div>
-            <div class="settings-tab" 
-                 :class="{'active': $store.settingsStore.activeTab === 'backup'}"
-                 @click="$store.settingsStore.switchTab('backup')" 
-                 title="Backup & Restore">Backup & Restore</div>
-          </div>
-        </div>
-
-        <!-- Settings sections for agent, external, developer, mcp, backup tabs -->
-        <div id="settings-sections">
-          <div x-show="$store.settingsStore.activeTab === 'agent'">
-            <x-component path="settings/agent/agent-settings.html"></x-component>
-          </div>
-          <div x-show="$store.settingsStore.activeTab === 'external'">
-            <x-component path="settings/external/external-settings.html"></x-component>
-          </div>
-          <div x-show="$store.settingsStore.activeTab === 'mcp'">
-            <x-component path="settings/mcp/mcp-settings.html"></x-component>
-          </div>
-          <div x-show="$store.settingsStore.activeTab === 'developer'">
-            <x-component path="settings/developer/developer-settings.html"></x-component>
-          </div>
-          <div x-show="$store.settingsStore.activeTab === 'backup'">
-            <x-component path="settings/backup/backup-settings.html"></x-component>
-          </div>
-        </div>
+    <!-- Tab Navigation -->
+    <div class="settings-tabs-container">
+      <div class="settings-tabs">
+        <div class="settings-tab" 
+            :class="{'active': $store.settingsStore.activeTab === 'agent'}"
+            @click="$store.settingsStore.switchTab('agent')" 
+            title="Agent Settings">Agent Settings</div>
+        <div class="settings-tab" 
+            :class="{'active': $store.settingsStore.activeTab === 'external'}"
+            @click="$store.settingsStore.switchTab('external')" 
+            title="External Services">External Services</div>
+        <div class="settings-tab" 
+            :class="{'active': $store.settingsStore.activeTab === 'mcp'}"
+            @click="$store.settingsStore.switchTab('mcp')" 
+            title="MCP">MCP/A2A</div>
+        <div class="settings-tab" 
+            :class="{'active': $store.settingsStore.activeTab === 'developer'}"
+            @click="$store.settingsStore.switchTab('developer')" 
+            title="Developer">Developer</div>
+        <div class="settings-tab" 
+            :class="{'active': $store.settingsStore.activeTab === 'backup'}"
+            @click="$store.settingsStore.switchTab('backup')" 
+            title="Backup & Restore">Backup & Restore</div>
+        <div class="settings-tab" 
+            :class="{'active': $store.settingsStore.activeTab === 'github'}"
+            @click="$store.settingsStore.switchTab('github')" 
+            title="GitHub">GitHub</div>
       </div>
+    </div>
+
+    <!-- Settings sections -->
+    <div id="settings-sections">
+      <div x-show="$store.settingsStore.activeTab === 'agent'">
+        <x-component path="settings/agent/agent-settings.html"></x-component>
+      </div>
+      <div x-show="$store.settingsStore.activeTab === 'external'">
+        <x-component path="settings/external/external-settings.html"></x-component>
+      </div>
+      <div x-show="$store.settingsStore.activeTab === 'mcp'">
+        <x-component path="settings/mcp/mcp-settings.html"></x-component>
+      </div>
+      <div x-show="$store.settingsStore.activeTab === 'developer'">
+        <x-component path="settings/developer/developer-settings.html"></x-component>
+      </div>
+      <div x-show="$store.settingsStore.activeTab === 'backup'">
+        <x-component path="settings/backup/backup-settings.html"></x-component>
+      </div>
+      <div x-show="$store.settingsStore.activeTab === 'github'">
+        <x-component path="settings/github/github.html"></x-component>
+      </div>
+    </div>
 
       <!-- Footer -->
       <div class="modal-footer" data-modal-footer x-show="$store.settingsStore.settings">

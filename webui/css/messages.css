@@ -111,6 +111,64 @@
   color: #2e2e2e;
 } */
 
+/* Repo mentions indicator - below user message */
+.repo-mention-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 8px 4px;
+  cursor: pointer;
+  position: relative;
+}
+
+.repo-mention-indicator::before {
+  content: "";
+  width: 70%;
+  height: 1px;
+  margin-bottom: 6px;
+  background: linear-gradient(to right, var(--color-border), transparent);
+}
+
+.repo-mention-indicator .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--color-highlight);
+  transition: transform var(--transition-speed) ease;
+}
+
+.repo-mention-indicator:hover .material-symbols-outlined {
+  transform: scale(1.15);
+}
+
+.repo-mention-tooltip {
+  display: none;
+  position: fixed;
+  padding: 8px 12px;
+  background-color: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 99999;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.repo-tooltip-item {
+  font-family: var(--font-family-code);
+  font-size: 0.8rem;
+  color: var(--color-text);
+  padding: 3px 0;
+}
+
+.repo-tooltip-item:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 5px;
+  margin-bottom: 5px;
+}
+
+.light-mode .repo-mention-tooltip {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .message-ai {
   /* border-bottom-left-radius: var(--spacing-xxs); */
 }

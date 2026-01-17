@@ -595,6 +595,45 @@ export function drawMessageUser(
   } else {
     if (attachmentsContainer) attachmentsContainer.remove();
   }
+
+  // Handle repo mentions - show icon with tooltip on left side
+  let repoIndicator = messageDiv.querySelector(".repo-mention-indicator");
+  if (kvps && kvps.repo_mentions && kvps.repo_mentions.length > 0) {
+    if (!repoIndicator) {
+      repoIndicator = document.createElement("div");
+      repoIndicator.classList.add("repo-mention-indicator");
+
+      const icon = document.createElement("span");
+      icon.classList.add("material-symbols-outlined");
+      icon.textContent = "fork_right";
+      repoIndicator.appendChild(icon);
+
+      const tooltip = document.createElement("div");
+      tooltip.classList.add("repo-mention-tooltip");
+      repoIndicator.appendChild(tooltip);
+
+      // Position tooltip on hover (fixed positioning needs coordinates)
+      repoIndicator.addEventListener("mouseenter", () => {
+        const rect = icon.getBoundingClientRect();
+        tooltip.style.left = `${rect.left}px`;
+        tooltip.style.top = `${rect.bottom + 8}px`;
+        tooltip.style.display = "block";
+      });
+      repoIndicator.addEventListener("mouseleave", () => {
+        tooltip.style.display = "none";
+      });
+
+      // Append at the end of messageDiv
+      messageDiv.appendChild(repoIndicator);
+    }
+
+    // Update tooltip content
+    const tooltip = repoIndicator.querySelector(".repo-mention-tooltip");
+    const repoNames = kvps.repo_mentions.map(m => m.full_name || `${m.owner}/${m.repo}`);
+    tooltip.innerHTML = repoNames.map(name => `<div class="repo-tooltip-item">${name}</div>`).join("");
+  } else {
+    if (repoIndicator) repoIndicator.remove();
+  }
   // The messageDiv is already appended or updated, no need to append again
 }
 
