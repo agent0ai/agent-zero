@@ -177,6 +177,7 @@ curl https://api.agent-zero.io/health/database
 ```
 
 **Migration Best Practices**:
+
 - Always create backward-compatible migrations
 - Test rollback scripts in staging
 - Use feature flags to control behavior during migration
@@ -203,6 +204,7 @@ MEMORY_CONSOLIDATION_INTERVAL: 3600  # 1 hour
 ```
 
 **Key Features**:
+
 - Local SQLite (no external dependencies)
 - Detailed logging for debugging
 - Profiling enabled for performance analysis
@@ -229,6 +231,7 @@ TLS_KEY_PATH: /etc/tls/staging-key.pem
 ```
 
 **Infrastructure**:
+
 - PostgreSQL database (single node, development-like)
 - Real external service integrations (test credentials)
 - ELK stack for log aggregation
@@ -919,6 +922,7 @@ aws s3api put-object-lock-legal-hold \
 ### Problem: API Latency Increased 10x
 
 **Step 1: Check system resources**
+
 ```bash
 kubectl top pods -l app=agent-zero
 # Check CPU and memory usage
@@ -931,6 +935,7 @@ df -h
 ```
 
 **Step 2: Check database**
+
 ```bash
 # Active connections
 psql -c "SELECT count(*) FROM pg_stat_activity;"
@@ -943,6 +948,7 @@ psql -c "SELECT schemaname, tablename, indexname, idx_scan FROM pg_stat_user_ind
 ```
 
 **Step 3: Check application logs**
+
 ```bash
 # Last 100 error logs
 kubectl logs -l app=agent-zero --tail=100 | grep ERROR
@@ -953,6 +959,7 @@ kubectl logs -l app=agent-zero | grep $REQUEST_ID
 ```
 
 **Step 4: Check external services**
+
 ```bash
 # Check LLM API latency
 curl -w "Time: %{time_total}s\n" https://api.anthropic.com/
@@ -964,6 +971,7 @@ curl -w "Time: %{time_total}s\n" https://www.googleapis.com/calendar/v3/
 ### Problem: High Memory Usage
 
 **Step 1: Identify memory leak**
+
 ```bash
 # Take memory snapshot
 kubectl exec agent-zero-1 -- \
@@ -979,6 +987,7 @@ for line in sorted(lines, reverse=True)[:10]:
 ```
 
 **Step 2: Force memory consolidation**
+
 ```bash
 curl -X POST https://api.internal:8000/admin/consolidate-memory
 
@@ -987,6 +996,7 @@ kubectl top pod agent-zero-1 --containers --watch
 ```
 
 **Step 3: Restart if needed**
+
 ```bash
 kubectl delete pod agent-zero-1
 # Pod automatically respawns
@@ -995,6 +1005,7 @@ kubectl delete pod agent-zero-1
 ### Problem: Database Connection Pool Exhausted
 
 **Step 1: Identify blocked connections**
+
 ```bash
 psql -c "
 SELECT pid, usename, state, query
@@ -1004,6 +1015,7 @@ ORDER BY query_start DESC;"
 ```
 
 **Step 2: Kill long-running queries**
+
 ```bash
 psql -c "
 SELECT pg_terminate_backend(pid)
@@ -1012,6 +1024,7 @@ WHERE query LIKE '%SELECT%' AND query_start < now() - interval '5 minutes';"
 ```
 
 **Step 3: Increase pool size if legitimate load**
+
 ```yaml
 # Update deployment
 DATABASE_POOL_SIZE: 150  # Increase from 100
@@ -1024,6 +1037,7 @@ kubectl set env deployment/agent-zero \
 ### Problem: Agent Not Responding to Requests
 
 **Step 1: Check agent status**
+
 ```bash
 curl https://api.internal:8000/agents/research_001
 # Expected: {"status": "ready", "tasks_completed": 1234}
@@ -1033,6 +1047,7 @@ kubectl get pods -l app=agent-zero
 ```
 
 **Step 2: Check for deadlock**
+
 ```bash
 # Look for "task_started" but no "task_completed" events
 kubectl logs -l app=agent-zero | grep research_001 | tail -20
@@ -1044,6 +1059,7 @@ fi
 ```
 
 **Step 3: Check tool execution**
+
 ```bash
 # Find which tool is stuck
 curl https://api.internal:8000/admin/debug/agent/research_001
@@ -1060,6 +1076,7 @@ curl -X POST https://api.internal:8000/admin/kill-task/research_001
 **On-Call Schedule**: See Opsgenie for current on-call engineer
 
 **Escalation Path**:
+
 1. On-call engineer (P1-P2)
 2. SRE lead (P1 after 15 min)
 3. VP Engineering (P1 after 30 min, all customer impact)
@@ -1067,9 +1084,9 @@ curl -X POST https://api.internal:8000/admin/kill-task/research_001
 
 **Incident Slack Channel**: #incidents-agent-zero
 
-**Status Page**: https://status.agent-zero.io
+**Status Page**: <https://status.agent-zero.io>
 
 ---
 
 **Maintained by**: DevOps & SRE Team
-**Questions**: #devops-questions Slack channel or ops-team@company.com
+**Questions**: #devops-questions Slack channel or <ops-team@company.com>

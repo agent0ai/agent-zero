@@ -78,6 +78,7 @@ class Agent:
 ```
 
 **Lifecycle**:
+
 1. **Initialization**: Agent loads instructions, tools, extensions
 2. **Execution**: Runs message loop iteratively until goal complete
 3. **Memory consolidation**: Periodically compresses and optimizes memory
@@ -92,6 +93,7 @@ class Agent:
 **Purpose**: Iterative LLM conversation loop with tool execution
 
 **Flow**:
+
 ```
 1. Load context (system prompt, recent memory, tools)
 2. Call LLM with conversation history
@@ -103,6 +105,7 @@ class Agent:
 ```
 
 **Key Features**:
+
 - **Streaming support**: Yield tokens progressively to client
 - **Tool result validation**: Verify tool outputs match expected schema
 - **Error recovery**: Retry failed tool calls with guidance
@@ -115,6 +118,7 @@ class Agent:
 **Purpose**: Unified interface for agent actions, enabling parallel execution
 
 **Tool Structure**:
+
 ```python
 class Tool:
     name: str                      # Unique identifier
@@ -129,6 +133,7 @@ class Tool:
 ```
 
 **Categories**:
+
 - **System tools**: File I/O, process management, OS operations
 - **Data tools**: Database queries, API calls, data transformation
 - **Computation tools**: Analytics, modeling, calculations
@@ -136,6 +141,7 @@ class Tool:
 - **Extension tools**: Custom domain-specific operations
 
 **Parallel Execution**:
+
 - Tools marked `parallel_safe=True` execute concurrently
 - Dependency graph resolved automatically
 - Results merged and passed to next iteration
@@ -161,12 +167,14 @@ class Tool:
 ```
 
 **Key Operations**:
+
 - **Vector embedding**: Use Sentence Transformers to convert text → 384-dim vectors
 - **Similarity search**: FAISS kNN to find relevant context
 - **Consolidation**: Compress redundant memories every 24h or 1000 tokens
 - **Pruning**: Remove low-relevance memories to maintain performance
 
 **Consolidation Algorithm**:
+
 1. Identify clusters of similar memories
 2. Summarize clusters into single semantic memory
 3. Store summary with cluster vector
@@ -194,6 +202,7 @@ class Tool:
 Extensions are executed in numeric order (e.g., `_20_validation.py` before `_30_logging.py`), allowing predictable ordering.
 
 **Extension Pattern**:
+
 ```python
 # /python/extensions/message_loop_prompts_after/_80_context_injection.py
 async def message_loop_prompts_after(context, agent, **kwargs):
@@ -222,6 +231,7 @@ async def message_loop_prompts_after(context, agent, **kwargs):
 | **Stripe** | Payment processing | create_charge, manage_subscriptions |
 
 **Connection Types**:
+
 - **SSE** (Server-Sent Events): Text-based streaming
 - **stdio**: Standard input/output pipes
 - **HTTP**: REST-based protocol
@@ -238,6 +248,7 @@ async def message_loop_prompts_after(context, agent, **kwargs):
 **Solution**: Create specialized agent types with domain-specific tools and prompts
 
 **Implementation**:
+
 ```python
 # Base agent initialization
 agent = Agent(
@@ -260,6 +271,7 @@ agent = Agent(
 **Solution**: Publish-subscribe event system for decoupled communication
 
 **Implementation**:
+
 ```python
 # Agent publishes event
 eventbus.publish("reservation:created", {
@@ -276,6 +288,7 @@ async def handle_new_reservation(event):
 ```
 
 **Event Categories**:
+
 - **System events**: startup, shutdown, health_check
 - **Data events**: created, updated, deleted, sync_complete
 - **Agent events**: task_started, task_completed, task_failed
@@ -288,6 +301,7 @@ async def handle_new_reservation(event):
 **Solution**: Decorator-based wrapping layer
 
 **Implementation**:
+
 ```python
 @tool_wrapper(
     name="get_user",
@@ -313,6 +327,7 @@ async def get_user(user_id: str) -> Dict:
 **Solution**: Periodic consolidation and summarization
 
 **Implementation**:
+
 ```python
 # Every 24h or 1000 new tokens
 async def consolidate_memory():
@@ -338,6 +353,7 @@ async def consolidate_memory():
 **Solution**: Asyncio task groups with structured concurrency
 
 **Implementation**:
+
 ```python
 # Execute multiple operations with clear error handling
 async with asyncio.TaskGroup() as tg:
@@ -363,6 +379,7 @@ except APIError:
 **Philosophy**: Tests drive design; parallel teams drive velocity
 
 **Workflow**:
+
 ```
 1. RED: Write comprehensive test suite (all tests fail)
 2. GREEN: Implement features to make tests pass
@@ -374,6 +391,7 @@ except APIError:
 ### Git Workflow
 
 **Branch Strategy**:
+
 ```
 main (production-ready, all tests passing)
 ├── feature/phase-4a-specialists (Team I)
@@ -382,6 +400,7 @@ main (production-ready, all tests passing)
 ```
 
 **Worktree Setup** (for parallel development):
+
 ```bash
 # Each team gets isolated worktree
 git worktree add .worktrees/team-i feature/phase-4a-specialists
@@ -397,6 +416,7 @@ git merge --ff-only .worktrees/team-i
 ```
 
 **Pre-commit Hooks**:
+
 - **ruff check**: Python linting and formatting
 - **bandit**: Security vulnerability scanning
 - **detect-secrets**: Credential detection
@@ -435,11 +455,13 @@ git merge --ff-only .worktrees/team-i
 ### Test Categories
 
 **By Scope**:
+
 - **Unit**: Single function/class, mocked dependencies
 - **Integration**: Multiple components, real databases
 - **E2E**: Full system, real external services (staging only)
 
 **By Type**:
+
 - **Functional**: Does it work correctly?
 - **Performance**: Does it meet latency/throughput SLOs?
 - **Security**: Are credentials safe? No SQL injection?
@@ -456,6 +478,7 @@ git merge --ff-only .worktrees/team-i
 ```
 
 **Execution**:
+
 ```bash
 # Run only unit tests (fast iteration)
 pytest tests/ -m unit -v
@@ -485,6 +508,7 @@ pytest tests/ --cov=python --cov-report=html
 ### Development Environment
 
 **Setup**:
+
 ```bash
 # Local development with hot reload
 docker-compose up --build
@@ -492,6 +516,7 @@ docker-compose up --build
 ```
 
 **Components**:
+
 - **FastAPI** server on port 8000
 - **Web UI** on port 5000
 - **SQLite** database
@@ -503,6 +528,7 @@ docker-compose up --build
 **Purpose**: Pre-production validation, performance testing, security scanning
 
 **Configuration**:
+
 - **Database**: PostgreSQL (production-like)
 - **Caching**: Redis cluster
 - **Monitoring**: ELK stack for logs, Prometheus for metrics
@@ -511,6 +537,7 @@ docker-compose up --build
 ### Production Environment
 
 **High Availability Setup**:
+
 ```
 ┌─────────────┐
 │ Load Balancer│ (HAProxy/NGINX)
@@ -531,6 +558,7 @@ docker-compose up --build
 ```
 
 **Scaling Considerations**:
+
 - **Horizontal scaling**: Stateless API servers, load balanced
 - **Database scaling**: Read replicas for queries, write to primary
 - **Agent scaling**: EventBus enables independent agent scaling
@@ -539,6 +567,7 @@ docker-compose up --build
 ### Docker Build Strategy
 
 **Multi-stage Dockerfile**:
+
 ```dockerfile
 FROM python:3.12-slim as builder
 # Install dependencies, compile wheels
@@ -552,6 +581,7 @@ ENTRYPOINT ["supervisord", "-c", "/etc/supervisord.conf"]
 ```
 
 **Process Management** (supervisord):
+
 - **FastAPI**: Web server
 - **Scheduler**: Task scheduling
 - **MCP servers**: External integrations
@@ -592,12 +622,14 @@ ENTRYPOINT ["supervisord", "-c", "/etc/supervisord.conf"]
 ### Database Query Optimization
 
 **Key Principles**:
+
 - **Index heavily**: 90% of queries should use indexes
 - **Batch operations**: Prefer bulk insert/update to individual queries
 - **Connection pooling**: Reuse connections, max_connections=100
 - **Query analysis**: EXPLAIN ANALYZE all slow queries
 
 **Example**:
+
 ```sql
 -- Optimized: Uses index on (property_id, created_at)
 SELECT * FROM reservations
@@ -614,6 +646,7 @@ ON reservations(property_id, created_at DESC);
 ### Token Budget Management
 
 **LLM Cost Control**:
+
 ```
 Budget: $100/day per agent
 ├─ 80% allocated to reasoning (~$80)
@@ -634,6 +667,7 @@ Optimization:
 ### Authentication & Authorization
 
 **API Authentication**:
+
 ```python
 # JWT token validation
 @app.middleware("http")
@@ -645,6 +679,7 @@ async def verify_token(request, call_next):
 ```
 
 **RBAC (Role-Based Access Control)**:
+
 ```
 Roles:
 ├─ admin: Full system access
@@ -656,11 +691,13 @@ Roles:
 ### Data Protection
 
 **Encryption**:
+
 - **In transit**: TLS 1.3 for all API endpoints
 - **At rest**: AES-256 for sensitive fields (credentials, PII)
 - **Key management**: Rotate encryption keys monthly
 
 **Credential Storage**:
+
 ```python
 # Never log or store credentials directly
 credentials = {
@@ -676,6 +713,7 @@ decrypted = decrypt(credentials["api_key"], current_key)
 ### Audit Logging
 
 **Required Logging**:
+
 - Who: User/service identifier
 - What: Operation performed
 - When: Timestamp
@@ -683,6 +721,7 @@ decrypted = decrypt(credentials["api_key"], current_key)
 - Result: Success/failure
 
 **Example**:
+
 ```json
 {
   "timestamp": "2026-01-17T10:30:00Z",
@@ -710,6 +749,7 @@ decrypted = decrypt(credentials["api_key"], current_key)
 ### Custom Agent Development
 
 **Create new agent**:
+
 ```python
 # instruments/custom/my_domain/my_agent.py
 from python.agents.agent import Agent
@@ -726,6 +766,7 @@ async def create_my_agent():
 ```
 
 **Register with system**:
+
 ```python
 # agents/agent_registry.py
 AGENT_REGISTRY = {
@@ -737,6 +778,7 @@ AGENT_REGISTRY = {
 ### Custom Tool Development
 
 **Create new tool**:
+
 ```python
 # python/tools/my_tool.py
 from python.helpers.tool_executor import Tool
@@ -752,6 +794,7 @@ class MyTool(Tool):
 ```
 
 **Register tool**:
+
 ```python
 # python/helpers/tool_registry.py
 TOOLS = {
@@ -763,6 +806,7 @@ TOOLS = {
 ### Custom Extension Development
 
 **Create extension**:
+
 ```python
 # python/extensions/tool_execute_after/_40_custom_logging.py
 async def tool_execute_after(result, tool_name, agent_id, **kwargs):
@@ -870,15 +914,18 @@ logger.info(
 This technical guide provides the foundation for:
 
 ### Phase 4: Advanced Autonomy
+
 - **Team I**: Specialist agent framework leveraging extension points
 - **Team J**: Reasoning engine using message loop pattern
 - **Team K**: Learning system using EventBus for feedback integration
 
 ### Phase 5: Human-AI Collaboration
+
 - **Team L**: Explainability via decision tree generation
 - **Team M**: Oversight via EventBus event interception
 
 ### Phase 6: Enterprise Features
+
 - **Team N**: Security using auth middleware pattern
 - **Team O**: Scaling using async orchestration patterns
 
