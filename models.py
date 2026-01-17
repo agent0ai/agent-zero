@@ -307,6 +307,17 @@ class LiteLLMChatWrapper(SimpleChatModel):
         model_config: Optional[ModelConfig] = None,
         **kwargs: Any,
     ):
+        # Override model name if specific provider env vars are set
+        if provider == "azure":
+            deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")
+            if deployment_name:
+                model = deployment_name
+
+        if provider == "bedrock":
+            aws_model = os.getenv("AWS_MODEL_NAME")
+            if aws_model:
+                model = aws_model
+
         model_value = f"{provider}/{model}"
         super().__init__(model_name=model_value, provider=provider, kwargs=kwargs)  # type: ignore
         # Set A0 model config as instance attribute after parent init
@@ -435,12 +446,16 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
         result = ChatGenerationResult()
 
+        # Prepare call kwargs
+        call_kwargs = {**self.kwargs, **kwargs}
+        _adjust_call_args(self.provider, self.model_name, call_kwargs)
+
         response = await acompletion(
             model=self.model_name,
             messages=msgs,
             stream=True,
             stop=stop,
-            **{**self.kwargs, **kwargs},
+            **call_kwargs,
         )
         async for chunk in response:  # type: ignore
             # parse chunk
@@ -487,6 +502,10 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
         # Prepare call kwargs and retry config (strip A0-only params before calling LiteLLM)
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
+
+        # Adjust call args (inject env vars, headers etc.)
+        _adjust_call_args(self.provider, self.model_name, call_kwargs)
+
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
@@ -625,6 +644,9 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
             # hack from browser-use to fix json schema for gemini (additionalProperties, $defs, $ref)
             if "response_format" in kwrgs and "json_schema" in kwrgs["response_format"] and model.startswith("gemini/"):
                 kwrgs["response_format"]["json_schema"] = ChatGoogle("")._fix_gemini_schema(kwrgs["response_format"]["json_schema"])
+
+            # Adjust call args (inject env vars, headers etc.)
+            _adjust_call_args(self._wrapper.provider, self._wrapper.model_name, kwrgs)
 
             resp = await acompletion(
                 model=self._wrapper.model_name,
@@ -839,6 +861,31 @@ def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):
     # remap other to openai for litellm
     if provider_name == "other":
         provider_name = "openai"
+
+    # Azure OpenAI / AI Foundry Support
+    # Automatically inject Base URL and Version from env if not provided
+    if provider_name == "azure":
+        # Check standard variables
+        if "api_base" not in kwargs:
+            api_base = os.getenv("AZURE_API_BASE") or os.getenv("AZURE_OPENAI_ENDPOINT")
+            if api_base:
+                kwargs["api_base"] = api_base
+        if "api_version" not in kwargs:
+            api_version = os.getenv("AZURE_API_VERSION") or os.getenv("AZURE_OPENAI_API_VERSION")
+            if api_version:
+                kwargs["api_version"] = api_version
+        if "api_key" not in kwargs:
+             api_key = os.getenv("AZURE_OPENAI_API_KEY")
+             if api_key:
+                 kwargs["api_key"] = api_key
+
+    # AWS Bedrock Support
+    # Automatically inject Region from env if not provided
+    if provider_name == "bedrock":
+        if "aws_region_name" not in kwargs:
+            region = os.getenv("AWS_REGION_NAME") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+            if region:
+                kwargs["aws_region_name"] = region
 
     return provider_name, model_name, kwargs
 

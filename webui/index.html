@@ -238,9 +238,9 @@
                                     <div class="section-title" x-text="section.title"></div>
                                     <div class="section-description" x-html="section.description"></div>
 
-                                    <template x-for="(field, fieldIndex) in section.fields.filter(f => !f.hidden)"
+                                    <template x-for="(field, fieldIndex) in section.fields.filter(f => !f.hidden && (!f.depends_on || section.fields.find(df => df.id === f.depends_on.field)?.value === f.depends_on.value))"
                                         :key="fieldIndex">
-                                        <div :class="{'field': true, 'field-full': field.type === 'textarea'}">
+                                        <div :class="{'field': true, 'field-full': field.type === 'textarea', 'field-disabled': field.disabled_by && settings.sections.flatMap(s => s.fields).find(df => df.id === field.disabled_by.field)?.value !== field.disabled_by.not_value}">
                                             <div class="field-label" x-show="field.title || field.description">
                                                 <div class="field-title" x-text="field.title" x-show="field.title">
                                                 </div>

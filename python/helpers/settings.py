@@ -178,15 +178,17 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "type": "select",
             "value": settings["chat_model_provider"],
             "options": cast(list[FieldOption], get_providers("chat")),
+            "disabled_by": {"field": "cloud_provider", "not_value": "none"}
         }
     )
     chat_model_fields.append(
         {
             "id": "chat_model_name",
             "title": "Chat model name",
-            "description": "Exact name of model from selected provider",
+            "description": "Exact name of model from selected provider. For Azure, this is overridden by 'Azure OpenAI Deployment Name' in Provider Configuration. For AWS Bedrock, use 'AWS Bedrock Model ID'.",
             "type": "text",
             "value": settings["chat_model_name"],
+            "disabled_by": {"field": "cloud_provider", "not_value": "none"}
         }
     )
 
@@ -194,9 +196,10 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "chat_model_api_base",
             "title": "Chat model API base URL",
-            "description": "API base URL for main chat model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
+            "description": "API base URL for main chat model. For Azure, this is overridden by 'Azure OpenAI Endpoint' in Provider Configuration. Leave empty for default.",
             "type": "text",
             "value": settings["chat_model_api_base"],
+            "disabled_by": {"field": "cloud_provider", "not_value": "none"}
         }
     )
 
@@ -291,15 +294,17 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "type": "select",
             "value": settings["util_model_provider"],
             "options": cast(list[FieldOption], get_providers("chat")),
+            "disabled_by": {"field": "cloud_provider", "not_value": "none"}
         }
     )
     util_model_fields.append(
         {
             "id": "util_model_name",
             "title": "Utility model name",
-            "description": "Exact name of model from selected provider",
+            "description": "Exact name of model from selected provider. For Azure, this is overridden by 'Azure OpenAI Deployment Name' in Provider Configuration. For AWS Bedrock, use 'AWS Bedrock Model ID'.",
             "type": "text",
             "value": settings["util_model_name"],
+            "disabled_by": {"field": "cloud_provider", "not_value": "none"}
         }
     )
 
@@ -307,9 +312,10 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "util_model_api_base",
             "title": "Utility model API base URL",
-            "description": "API base URL for utility model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
+            "description": "API base URL for utility model. For Azure, this is overridden by 'Azure OpenAI Endpoint' in Provider Configuration. Leave empty for default.",
             "type": "text",
             "value": settings["util_model_api_base"],
+            "disabled_by": {"field": "cloud_provider", "not_value": "none"}
         }
     )
 
@@ -597,6 +603,114 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "title": "API Keys",
         "description": "API keys for model providers and services used by Agent Zero. You can set multiple API keys separated by a comma (,). They will be used in round-robin fashion.<br>For more information abou Agent Zero Venice provider, see <a href='http://agent-zero.ai/?community/api-dashboard/about' target='_blank'>Agent Zero Venice</a>.",
         "fields": api_keys_fields,
+        "tab": "external",
+    }
+
+    # Provider specific config section
+    provider_config_fields: list[SettingsField] = []
+
+    # Cloud Provider Selector
+    provider_config_fields.append({
+        "id": "cloud_provider",
+        "title": "Cloud Provider",
+        "description": "Select a cloud provider to use for all models. When selected, Chat/Utility model providers will be auto-configured.",
+        "type": "select",
+        "value": settings["api_keys"].get("CLOUD_PROVIDER", "none"),
+        "options": [
+            {"value": "none", "label": "None (Use individual providers)"},
+            {"value": "azure", "label": "Azure OpenAI"},
+            {"value": "bedrock", "label": "AWS Bedrock"}
+        ]
+    })
+
+    # Azure OpenAI
+    provider_config_fields.append({
+        "id": "azure_openai_api_key",
+        "title": "Azure OpenAI API Key",
+        "description": "Set AZURE_OPENAI_API_KEY environment variable.",
+        "type": "password",
+        "value": (API_KEY_PLACEHOLDER if settings["api_keys"].get("AZURE_OPENAI_API_KEY") else ""),
+        "depends_on": {"field": "cloud_provider", "value": "azure"}
+    })
+
+    provider_config_fields.append({
+        "id": "azure_openai_endpoint",
+        "title": "Azure OpenAI Endpoint",
+        "description": "Set AZURE_OPENAI_ENDPOINT environment variable.",
+        "type": "text",
+        "value": settings["api_keys"].get("AZURE_OPENAI_ENDPOINT", ""),
+        "depends_on": {"field": "cloud_provider", "value": "azure"}
+    })
+
+    provider_config_fields.append({
+        "id": "azure_openai_api_version",
+        "title": "Azure OpenAI API Version",
+        "description": "Set AZURE_OPENAI_API_VERSION environment variable.",
+        "type": "text",
+        "value": settings["api_keys"].get("AZURE_OPENAI_API_VERSION", ""),
+        "depends_on": {"field": "cloud_provider", "value": "azure"}
+    })
+
+    provider_config_fields.append({
+        "id": "azure_openai_chat_deployment_name",
+        "title": "Azure OpenAI Deployment Name",
+        "description": "Set AZURE_OPENAI_CHAT_DEPLOYMENT_NAME (e.g. gpt-4o, gpt-4o-mini).",
+        "type": "text",
+        "value": settings["api_keys"].get("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", ""),
+        "depends_on": {"field": "cloud_provider", "value": "azure"}
+    })
+
+    # AWS Bedrock
+    provider_config_fields.append({
+        "id": "aws_access_key_id",
+        "title": "AWS Access Key ID",
+        "description": "Set AWS_ACCESS_KEY_ID.",
+        "type": "text",
+        "value": settings["api_keys"].get("AWS_ACCESS_KEY_ID", ""),
+        "depends_on": {"field": "cloud_provider", "value": "bedrock"}
+    })
+
+    provider_config_fields.append({
+        "id": "aws_secret_access_key",
+        "title": "AWS Secret Access Key",
+        "description": "Set AWS_SECRET_ACCESS_KEY.",
+        "type": "password",
+        "value": (PASSWORD_PLACEHOLDER if settings["api_keys"].get("AWS_SECRET_ACCESS_KEY") else ""),
+        "depends_on": {"field": "cloud_provider", "value": "bedrock"}
+    })
+
+    provider_config_fields.append({
+        "id": "aws_session_token",
+        "title": "AWS Session Token",
+        "description": "Optional: Set AWS_SESSION_TOKEN.",
+        "type": "password",
+        "value": (PASSWORD_PLACEHOLDER if settings["api_keys"].get("AWS_SESSION_TOKEN") else ""),
+        "depends_on": {"field": "cloud_provider", "value": "bedrock"}
+    })
+
+    provider_config_fields.append({
+        "id": "aws_default_region",
+        "title": "AWS Default Region",
+        "description": "Set AWS_DEFAULT_REGION (e.g. us-east-1).",
+        "type": "text",
+        "value": settings["api_keys"].get("AWS_DEFAULT_REGION", ""),
+        "depends_on": {"field": "cloud_provider", "value": "bedrock"}
+    })
+
+    provider_config_fields.append({
+        "id": "aws_model_name",
+        "title": "AWS Bedrock Model ID",
+        "description": "Set AWS_MODEL_NAME (e.g. anthropic.claude-3-sonnet-20240229-v1:0). This overrides the main Model Name when using AWS.",
+        "type": "text",
+        "value": settings["api_keys"].get("AWS_MODEL_NAME", ""),
+        "depends_on": {"field": "cloud_provider", "value": "bedrock"}
+    })
+
+    provider_config_section: SettingsSection = {
+        "id": "provider_config",
+        "title": "Provider Configuration",
+        "description": "Advanced configuration for specific model providers (Azure, AWS, etc.).",
+        "fields": provider_config_fields,
         "tab": "external",
     }
 
@@ -1285,6 +1399,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             memory_section,
             speech_section,
             api_keys_section,
+            provider_config_section,
             litellm_section,
             secrets_section,
             auth_section,
@@ -1329,6 +1444,41 @@ def convert_in(settings: dict) -> Settings:
                         current[field["id"]] = _env_to_dict(field["value"])
                     elif field["id"].startswith("api_key_"):
                         current["api_keys"][field["id"]] = field["value"]
+
+                    # Manual mapping for Azure extra fields
+                    elif field["id"] == "azure_openai_api_key":
+                        current["api_keys"]["AZURE_OPENAI_API_KEY"] = field["value"]
+                    elif field["id"] == "azure_openai_endpoint":
+                        current["api_keys"]["AZURE_OPENAI_ENDPOINT"] = field["value"]
+                    elif field["id"] == "azure_openai_api_version":
+                        current["api_keys"]["AZURE_OPENAI_API_VERSION"] = field["value"]
+                    elif field["id"] == "azure_openai_chat_deployment_name":
+                        current["api_keys"]["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"] = field["value"]
+
+                    # Manual mapping for AWS Bedrock extra fields
+                    elif field["id"] == "aws_access_key_id":
+                        current["api_keys"]["AWS_ACCESS_KEY_ID"] = field["value"]
+                    elif field["id"] == "aws_secret_access_key":
+                        current["api_keys"]["AWS_SECRET_ACCESS_KEY"] = field["value"]
+                    elif field["id"] == "aws_session_token":
+                        current["api_keys"]["AWS_SESSION_TOKEN"] = field["value"]
+                    elif field["id"] == "aws_default_region":
+                        current["api_keys"]["AWS_DEFAULT_REGION"] = field["value"]
+                        current["api_keys"]["AWS_REGION_NAME"] = field["value"] # Keep legacy/litellm compatible var too
+                    elif field["id"] == "aws_model_name":
+                         current["api_keys"]["AWS_MODEL_NAME"] = field["value"]
+
+                    # Cloud Provider handling
+                    elif field["id"] == "cloud_provider":
+                        current["api_keys"]["CLOUD_PROVIDER"] = field["value"]
+                        # Auto-sync Chat and Utility model providers
+                        if field["value"] == "azure":
+                            current["chat_model_provider"] = "azure"
+                            current["util_model_provider"] = "azure"
+                        elif field["value"] == "bedrock":
+                            current["chat_model_provider"] = "bedrock"
+                            current["util_model_provider"] = "bedrock"
+
                     else:
                         current[field["id"]] = field["value"]
     return current

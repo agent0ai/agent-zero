@@ -13,6 +13,11 @@
   grid-template-columns: 1fr;
 }
 
+.field.field-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* Field Labels */
 .field-label {
   display: flex;
