@@ -1,7 +1,7 @@
 """LLM Router - Auto-configure models based on available resources"""
 
 from python.helpers.api import ApiHandler
-from python.helpers.llm_router import get_router, auto_configure_models
+from python.helpers.llm_router import auto_configure_models, get_router
 
 
 class LlmRouterAutoConfigure(ApiHandler):

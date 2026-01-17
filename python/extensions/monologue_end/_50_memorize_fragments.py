@@ -1,10 +1,11 @@
 import asyncio
-from python.helpers import settings
-from python.helpers.extension import Extension
-from python.helpers.memory import Memory
-from python.helpers.dirty_json import DirtyJson
+
 from agent import LoopData
+from python.helpers import settings
+from python.helpers.dirty_json import DirtyJson
+from python.helpers.extension import Extension
 from python.helpers.log import LogItem
+from python.helpers.memory import Memory
 from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
@@ -65,7 +66,7 @@ class MemorizeMemories(Extension):
         try:
             memories = DirtyJson.parse_string(memories_json)
         except Exception as e:
-            log_item.update(heading=f"Failed to parse memories response: {str(e)}")
+            log_item.update(heading=f"Failed to parse memories response: {e!s}")
             return
 
         # Validate that memories is a list or convertible to one
@@ -98,7 +99,7 @@ class MemorizeMemories(Extension):
             txt = f"{memory}"
 
             if set["memory_memorize_consolidation"]:
-                
+
                 try:
                     # Use intelligent consolidation system
                     from python.helpers.memory_consolidation import create_memory_consolidator
@@ -183,7 +184,7 @@ class MemorizeMemories(Extension):
                 )
                 if rem:
                     log_item.stream(result=f"\nReplaced {len(rem)} previous memories.")
-            
+
 
 
 

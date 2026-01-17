@@ -1,17 +1,13 @@
-import os
-import asyncio
-from python.helpers import dotenv, memory, perplexity_search, duckduckgo_search
-from python.helpers.tool import Tool, Response
-from python.helpers.print_style import PrintStyle
 from python.helpers.errors import handle_error
 from python.helpers.searxng import search as searxng
+from python.helpers.tool import Response, Tool
 
 SEARCH_ENGINE_RESULTS = 10
 
 
 class SearchEngine(Tool):
     parallel_safe = True
-    
+
     async def execute(self, query="", **kwargs):
 
 
@@ -31,7 +27,7 @@ class SearchEngine(Tool):
     def format_result_searxng(self, result, source):
         if isinstance(result, Exception):
             handle_error(result)
-            return f"{source} search failed: {str(result)}"
+            return f"{source} search failed: {result!s}"
 
         outputs = []
         for item in result["results"]:

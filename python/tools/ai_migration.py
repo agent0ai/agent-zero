@@ -3,9 +3,10 @@ AI Migration Tool for Agent Zero
 Analyze business processes and design human-AI collaboration workflows
 """
 
-from python.helpers.tool import Tool, Response
-from python.helpers import files
 import json
+
+from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class AIMigration(Tool):
@@ -393,8 +394,8 @@ class AIMigration(Tool):
         lines.append("\n### Original vs Optimized")
         orig = result['original_process']
         opt = result['optimized_workflow']
-        lines.append(f"| Metric | Original | Optimized |")
-        lines.append(f"|--------|----------|-----------|")
+        lines.append("| Metric | Original | Optimized |")
+        lines.append("|--------|----------|-----------|")
         lines.append(f"| Time (hours) | {orig['time_hours']} | {opt['time_hours']} |")
         if orig.get('cost'):
             lines.append(f"| Cost | ${orig['cost']:.0f} | ${opt['cost']:.0f} |")
@@ -402,7 +403,7 @@ class AIMigration(Tool):
         lines.append(f"| AI Touchpoints | 0 | {opt['ai_touchpoints']} |")
 
         savings = result['savings']
-        lines.append(f"\n### Savings")
+        lines.append("\n### Savings")
         lines.append(f"- Time: {savings['time_hours']} hours ({savings['time_percentage']}%)")
         if savings.get('cost'):
             lines.append(f"- Cost: ${savings['cost']:.0f}")
@@ -471,7 +472,7 @@ class AIMigration(Tool):
         if "error" in result:
             return Response(message=f"Error: {result['error']}", break_loop=False)
 
-        lines = [f"## Migration Roadmap\n"]
+        lines = ["## Migration Roadmap\n"]
         lines.append(f"**Project:** {result['project_name']}")
         lines.append(f"**Timeline:** {result['timeline_months']} months")
 

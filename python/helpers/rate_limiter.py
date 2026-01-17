@@ -1,19 +1,19 @@
 import asyncio
 import time
-from typing import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 
 
 class RateLimiter:
     def __init__(self, seconds: int = 60, **limits: int):
         self.timeframe = seconds
         self.limits = {key: value if isinstance(value, (int, float)) else 0 for key, value in (limits or {}).items()}
-        self.values = {key: [] for key in self.limits.keys()}
+        self.values = {key: [] for key in self.limits}
         self._lock = asyncio.Lock()
 
     def add(self, **kwargs: int):
         now = time.time()
         for key, value in kwargs.items():
-            if not key in self.values:
+            if key not in self.values:
                 self.values[key] = []
             self.values[key].append((now, value))
 
@@ -26,7 +26,7 @@ class RateLimiter:
 
     async def get_total(self, key: str) -> int:
         async with self._lock:
-            if not key in self.values:
+            if key not in self.values:
                 return 0
             return sum(value for _, value in self.values[key])
 

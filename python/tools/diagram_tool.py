@@ -1,10 +1,7 @@
-from python.helpers.tool import Tool, Response
-from python.helpers.print_style import PrintStyle
 import json
-import os
 import subprocess
-import tempfile
-from pathlib import Path
+
+from python.helpers.tool import Response, Tool
 
 
 class DiagramTool(Tool):
@@ -17,8 +14,8 @@ class DiagramTool(Tool):
 
     async def execute(self, **kwargs):
         diagram_type = self.args.get("diagram_type", "mermaid")
-        output_path = self.args.get("output_path")
-        
+        self.args.get("output_path")
+
         try:
             if diagram_type == "mermaid":
                 return await self._generate_mermaid()
@@ -34,7 +31,7 @@ class DiagramTool(Tool):
                 )
         except Exception as e:
             return Response(
-                message=f"Error generating {diagram_type} diagram: {str(e)}",
+                message=f"Error generating {diagram_type} diagram: {e!s}",
                 break_loop=False
             )
 
@@ -44,16 +41,16 @@ class DiagramTool(Tool):
         output_path = self.args.get("output_path")
         format = self.args.get("format", "png")
         theme = self.args.get("theme", "default")
-        
+
         if not code:
             return Response(
                 message="Error: 'code' argument is required for Mermaid diagrams",
                 break_loop=False
             )
-        
+
         # Use the instrument script
         script_path = "/a0/instruments/custom/diagram_generator/generate_mermaid.py"
-        
+
         if output_path:
             # Generate to file
             cmd = [
@@ -63,9 +60,9 @@ class DiagramTool(Tool):
                 "--format", format,
                 "--theme", theme
             ]
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 return Response(
                     message=f"Successfully generated Mermaid diagram: {output_path}\n\n"
@@ -90,11 +87,11 @@ class DiagramTool(Tool):
         output_path = self.args.get("output_path")
         format = self.args.get("format", "json")
         template = self.args.get("template")
-        
+
         script_path = "/a0/instruments/custom/diagram_generator/generate_excalidraw.py"
-        
+
         cmd = ["python3", script_path, "--output", output_path, "--format", format]
-        
+
         if template:
             cmd.extend(["--template", template])
         elif elements:
@@ -104,16 +101,16 @@ class DiagramTool(Tool):
                 message="Error: Either 'elements' or 'template' is required for Excalidraw diagrams",
                 break_loop=False
             )
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         if result.returncode == 0:
             message = f"Successfully generated Excalidraw diagram: {output_path}"
             if format == "json" or output_path.endswith('.excalidraw'):
-                message += f"\n\nOpen at: https://excalidraw.com"
+                message += "\n\nOpen at: https://excalidraw.com"
             else:
                 message += f"\n\nView it with: ![Diagram](img://{output_path})"
-            
+
             return Response(message=message, break_loop=False)
         else:
             return Response(
@@ -127,11 +124,11 @@ class DiagramTool(Tool):
         output_path = self.args.get("output_path")
         format = self.args.get("format", "png")
         template = self.args.get("template")
-        
+
         script_path = "/a0/instruments/custom/diagram_generator/generate_drawio.py"
-        
+
         cmd = ["python3", script_path, "--output", output_path, "--format", format]
-        
+
         if template:
             cmd.extend(["--template", template])
         elif xml:
@@ -141,16 +138,16 @@ class DiagramTool(Tool):
                 message="Error: Either 'xml' or 'template' is required for Draw.io diagrams",
                 break_loop=False
             )
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         if result.returncode == 0:
             message = f"Successfully generated Draw.io diagram: {output_path}"
             if format == "xml" or output_path.endswith('.drawio'):
-                message += f"\n\nOpen at: https://app.diagrams.net"
+                message += "\n\nOpen at: https://app.diagrams.net"
             else:
                 message += f"\n\nView it with: ![Diagram](img://{output_path})"
-            
+
             return Response(message=message, break_loop=False)
         else:
             return Response(

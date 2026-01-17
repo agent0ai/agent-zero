@@ -1,11 +1,13 @@
-import base64
-import warnings
-import whisper
-import tempfile
 import asyncio
-from python.helpers import runtime, rfc, settings, files
+import base64
+import tempfile
+import warnings
+
+import whisper
+
+from python.helpers import files
+from python.helpers.notification import NotificationManager, NotificationPriority, NotificationType
 from python.helpers.print_style import PrintStyle
-from python.helpers.notification import NotificationManager, NotificationType, NotificationPriority
 
 # Suppress FutureWarning from torch.load
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -21,7 +23,7 @@ async def preload(model_name:str):
     except Exception as e:
         # if not runtime.is_development():
         raise e
-        
+
 async def _preload(model_name:str):
     global _model, _model_name, is_updating_model
 
@@ -76,7 +78,7 @@ async def transcribe(model_name:str, audio_bytes_b64: str):
 
 async def _transcribe(model_name:str, audio_bytes_b64: str):
     await _preload(model_name)
-    
+
     # Decode audio bytes if encoded as a base64 string
     audio_bytes = base64.b64decode(audio_bytes_b64)
 

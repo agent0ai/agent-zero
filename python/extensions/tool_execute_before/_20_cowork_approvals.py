@@ -4,11 +4,10 @@ import uuid
 from typing import Any
 
 from agent import UserMessage
-from python.helpers.extension import Extension
-from python.helpers.settings import get_settings
-from python.helpers.secrets import get_secrets_manager
 from python.helpers import cowork
-
+from python.helpers.extension import Extension
+from python.helpers.secrets import get_secrets_manager
+from python.helpers.settings import get_settings
 
 DEFAULT_IMPACTFUL_TOOLS = {
     "code_execution_tool",

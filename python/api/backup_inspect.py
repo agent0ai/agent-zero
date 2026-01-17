@@ -1,6 +1,11 @@
+
+from typing import TYPE_CHECKING
+
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.backup import BackupService
-from werkzeug.datastructures import FileStorage
+
+if TYPE_CHECKING:
+    from werkzeug.datastructures import FileStorage
 
 
 class BackupInspect(ApiHandler):

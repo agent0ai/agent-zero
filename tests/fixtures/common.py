@@ -7,10 +7,10 @@ Import fixtures from this module in your tests:
 Or use pytest's conftest.py to auto-load fixtures.
 """
 
-import pytest
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
+import pytest
 
 # ========== Path Fixtures ==========
 
@@ -128,15 +128,15 @@ def mock_agent_context():
             self.agent_name = "TestAgent0"
             self.config = MockConfig()
             self.history = []
-            
+
         def read_prompt(self, name, **kwargs):
             return f"Prompt: {name}"
-    
+
     class MockConfig:
         def __init__(self):
             self.profile = "default"
             self.memory_subdir = "test"
-    
+
     return MockAgent()
 
 

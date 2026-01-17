@@ -4,12 +4,12 @@ Tests CRUD operations for workflows, executions, skills, and learning paths.
 """
 
 import os
-import pytest
-import json
-from datetime import datetime
 
 # Add parent directory to path
 import sys
+
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
@@ -176,8 +176,8 @@ class TestWorkflowEngineDatabase:
 
         # Create multiple executions
         exec_1 = self.db.start_execution(workflow_id=wf_id_1)
-        exec_2 = self.db.start_execution(workflow_id=wf_id_1)
-        exec_3 = self.db.start_execution(workflow_id=wf_id_2)
+        self.db.start_execution(workflow_id=wf_id_1)
+        self.db.start_execution(workflow_id=wf_id_2)
 
         # Mark one as completed
         self.db.update_execution(execution_id=exec_1, status="completed")
@@ -578,7 +578,7 @@ class TestWorkflowEngineDatabase:
         """Test statistics with data"""
         # Create some data
         wf1 = self.db.save_workflow(name="WF1", definition={"stages": []})
-        wf2 = self.db.save_workflow(name="WF2", definition={"stages": []}, is_template=True)
+        self.db.save_workflow(name="WF2", definition={"stages": []}, is_template=True)
 
         self.db.start_execution(workflow_id=wf1)
         exec2 = self.db.start_execution(workflow_id=wf1)

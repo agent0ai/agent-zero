@@ -1,8 +1,8 @@
 import hashlib
 import hmac
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import serialization, hashes
-import os
+
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 
 def hash_data(data: str, password: str):
@@ -29,7 +29,7 @@ def _generate_public_key(private_key: rsa.RSAPrivateKey):
         )
         .hex()
     )
-    
+
 def _decode_public_key(public_key: str) -> rsa.RSAPublicKey:
     # Decode hex string back to bytes
     pem_bytes = bytes.fromhex(public_key)
@@ -63,4 +63,3 @@ def decrypt_data(data: str, private_key: rsa.RSAPrivateKey):
         ),
     )
     return b.decode("utf-8")
-

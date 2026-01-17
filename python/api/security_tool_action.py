@@ -1,6 +1,8 @@
+from flask import Request
+
 from python.helpers.api import ApiHandler
 from python.helpers.security import SecurityManager
-from flask import Request
+
 
 class security_tool_action(ApiHandler):
     """Handles Approve/Deny actions from push notifications."""
@@ -18,10 +20,10 @@ class security_tool_action(ApiHandler):
 
         request_id = input["requestId"]
         action = input["action"] # 'approve' or 'deny'
-        
+
         approved = action == "approve"
         success = SecurityManager.resolve_auth_request(request_id, approved=approved)
-        
+
         if success:
             return {"success": True, "status": "approved" if approved else "denied"}
         else:

@@ -1,20 +1,15 @@
-from abc import ABC, abstractmethod
-from fnmatch import fnmatch
-import json
-from ntpath import isabs
-import os
-import sys
-import re
 import base64
+import glob
+import json
+import mimetypes
+import os
+import re
 import shutil
 import tempfile
-from typing import Any
 import zipfile
-import importlib
-import importlib.util
-import inspect
-import glob
-import mimetypes
+from abc import ABC, abstractmethod
+from fnmatch import fnmatch
+from typing import Any
 
 
 class VariablesPlugin(ABC):
@@ -35,7 +30,7 @@ def load_plugin_variables(
     try:
         # Create filename and directories list
         plugin_filename = basename(file, ".md") + ".py"
-        directories = [dirname(file)] + backup_dirs
+        directories = [dirname(file), *backup_dirs]
         plugin_file = find_file_in_dirs(plugin_filename, directories)
     except FileNotFoundError:
         plugin_file = None
@@ -90,7 +85,7 @@ def parse_file(
     absolute_path = find_file_in_dirs(_filename, _directories)
 
     # Read the file content
-    with open(absolute_path, "r", encoding=_encoding) as f:
+    with open(absolute_path, encoding=_encoding) as f:
         # content = remove_code_fences(f.read())
         content = f.read()
 
@@ -125,13 +120,13 @@ def read_prompt_file(
     if os.path.dirname(_file):
         folder_path = os.path.dirname(_file)
         _file = os.path.basename(_file)
-        _directories = [folder_path] + _directories
+        _directories = [folder_path, *_directories]
 
     # Find the file in the directories
     absolute_path = find_file_in_dirs(_file, _directories)
 
     # Read the file content
-    with open(absolute_path, "r", encoding=_encoding) as f:
+    with open(absolute_path, encoding=_encoding) as f:
         # content = remove_code_fences(f.read())
         content = f.read()
 
@@ -157,7 +152,7 @@ def read_file(relative_path: str, encoding="utf-8"):
     absolute_path = get_abs_path(relative_path)
 
     # Read the file content
-    with open(absolute_path, "r", encoding=encoding) as f:
+    with open(absolute_path, encoding=encoding) as f:
         return f.read()
 
 
@@ -417,9 +412,8 @@ def fix_dev_path(path: str):
     "On dev environment, convert /a0/... paths to local absolute paths"
     from python.helpers.runtime import is_development
 
-    if is_development():
-        if path.startswith("/a0/"):
-            path = path.replace("/a0/", "")
+    if is_development() and path.startswith("/a0/"):
+        path = path.replace("/a0/", "")
     return get_abs_path(path)
 
 
@@ -536,11 +530,10 @@ def list_files_in_dir_recursively(relative_path: str) -> list[str]:
     if not os.path.exists(abs_path):
         return []
     result = []
-    for root, dirs, files in os.walk(abs_path):
+    for root, _dirs, files in os.walk(abs_path):
         for file in files:
             file_path = os.path.join(root, file)
             # Return relative path from the base directory
             rel_path = os.path.relpath(file_path, abs_path)
             result.append(rel_path)
     return result
-    

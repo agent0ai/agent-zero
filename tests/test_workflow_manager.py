@@ -3,13 +3,14 @@ Unit tests for WorkflowEngineManager.
 Tests business logic for workflow orchestration, training, and skill tracking.
 """
 
-import os
-import pytest
 import json
-from pathlib import Path
+import os
 
 # Add parent directory to path
 import sys
+
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
@@ -678,7 +679,7 @@ class TestWorkflowEngineManager:
 
         # Track usage multiple times
         for _ in range(6):
-            result = self.manager.track_skill_usage(
+            self.manager.track_skill_usage(
                 agent_id="agent_0",
                 skill_id="levelup_skill",
                 success=True
@@ -772,7 +773,7 @@ class TestWorkflowEngineManager:
             stages=[{"id": "s1", "name": "S1"}]
         )
 
-        for i in range(5):
+        for _i in range(5):
             self.manager.start_workflow(workflow_id=wf['workflow_id'])
 
         recent = self.manager.get_recent_executions(limit=3)
@@ -798,7 +799,7 @@ class TestWorkflowEngineManager:
         )
 
         exec1 = self.manager.start_workflow(workflow_id=wf['workflow_id'])
-        exec2 = self.manager.start_workflow(workflow_id=wf['workflow_id'])
+        self.manager.start_workflow(workflow_id=wf['workflow_id'])
 
         # Complete one
         self.manager.advance_stage(exec1['execution_id'], force=True)
@@ -900,7 +901,7 @@ class TestWorkflowTemplates:
             "settings": {"auto_retry": False}
         }
 
-        result = self.manager.create_from_template(
+        self.manager.create_from_template(
             template_path=str(template_file),
             name="Customized Workflow",
             customizations=customizations

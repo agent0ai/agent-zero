@@ -61,4 +61,4 @@ class ApiLogGet(ApiHandler):
             }
 
         except Exception as e:
-            return Response(f'{{"error": "{str(e)}"}}', status=500, mimetype="application/json")
+            return Response(f'{{"error": "{e!s}"}}', status=500, mimetype="application/json")

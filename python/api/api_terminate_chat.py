@@ -1,8 +1,9 @@
+import json
+
 from agent import AgentContext
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.persist_chat import remove_chat
 from python.helpers.print_style import PrintStyle
-import json
 
 
 class ApiTerminateChat(ApiHandler):
@@ -60,9 +61,9 @@ class ApiTerminateChat(ApiHandler):
             }
 
         except Exception as e:
-            PrintStyle.error(f"API terminate chat error: {str(e)}")
+            PrintStyle.error(f"API terminate chat error: {e!s}")
             return Response(
-                json.dumps({"error": f"Internal server error: {str(e)}"}),
+                json.dumps({"error": f"Internal server error: {e!s}"}),
                 status=500,
                 mimetype="application/json"
             )

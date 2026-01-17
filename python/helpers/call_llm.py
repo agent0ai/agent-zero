@@ -1,4 +1,6 @@
-from typing import Callable, TypedDict
+from collections.abc import Callable
+from typing import TypedDict
+
 try:
     from langchain.prompts import (
         ChatPromptTemplate,
@@ -10,10 +12,9 @@ except Exception:
         FewShotChatMessagePromptTemplate,
     )
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.language_models.llms import BaseLLM
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 
 class Example(TypedDict):
@@ -24,10 +25,12 @@ async def call_llm(
     system: str,
     model: BaseChatModel | BaseLLM,
     message: str,
-    examples: list[Example] = [],
+    examples: list[Example] | None = None,
     callback: Callable[[str], None] | None = None
 ):
 
+    if examples is None:
+        examples = []
     example_prompt = ChatPromptTemplate.from_messages(
         [
             HumanMessage(content="{input}"),

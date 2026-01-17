@@ -2,9 +2,9 @@
 Gmail Test Send API Handler
 Sends a test email via Gmail API to verify configuration
 """
+from python.helpers import settings
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.gmail_api_client import GmailAPIClient
-from python.helpers import settings
 
 
 class GmailTestSend(ApiHandler):
@@ -72,7 +72,7 @@ class GmailTestSend(ApiHandler):
             }
 
         except Exception as e:
-            return Response(f"Failed to send test email: {str(e)}", 500)
+            return Response(f"Failed to send test email: {e!s}", 500)
 
     @classmethod
     def get_methods(cls) -> list[str]:

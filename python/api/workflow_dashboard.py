@@ -3,9 +3,10 @@ API endpoint for the Workflow Dashboard UI.
 Provides aggregated data for workflows, executions, skills, and learning paths.
 """
 
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
 import os
+
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class WorkflowDashboard(ApiHandler):

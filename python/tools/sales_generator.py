@@ -3,8 +3,8 @@ Sales Generator Tool for Agent Zero
 Create customer-facing proposals, demos, ROI analyses, and business cases
 """
 
-from python.helpers.tool import Tool, Response
 from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class SalesGenerator(Tool):
@@ -105,7 +105,7 @@ class SalesGenerator(Tool):
             valid_days=valid_days
         )
 
-        lines = [f"## Proposal Generated\n"]
+        lines = ["## Proposal Generated\n"]
         lines.append(f"**Proposal ID:** {result['proposal_id']}")
         lines.append(f"**Title:** {result['title']}")
         lines.append(f"**Customer:** {result['customer_name'] or 'Not specified'}")
@@ -202,7 +202,7 @@ class SalesGenerator(Tool):
                 break_loop=False
             )
 
-        result = self.manager.update_proposal_status(proposal_id, status)
+        self.manager.update_proposal_status(proposal_id, status)
 
         return Response(
             message=f"Proposal {proposal_id} status updated to: {status}",
@@ -235,7 +235,7 @@ class SalesGenerator(Tool):
             description=description
         )
 
-        lines = [f"## Demo Created\n"]
+        lines = ["## Demo Created\n"]
         lines.append(f"**Demo ID:** {result['demo_id']}")
         lines.append(f"**Title:** {result['title']}")
         lines.append(f"**Type:** {result['demo_type']}")
@@ -428,7 +428,7 @@ class SalesGenerator(Tool):
             testimonial=testimonial
         )
 
-        lines = [f"## Case Study Generated\n"]
+        lines = ["## Case Study Generated\n"]
         lines.append(f"**Case Study ID:** {result['case_study_id']}")
         lines.append(f"**Project:** {result['project_name']}")
         lines.append(f"**Industry:** {result.get('industry', 'N/A')}")
@@ -509,7 +509,7 @@ class SalesGenerator(Tool):
             target_industry=target_industry
         )
 
-        lines = [f"## Portfolio Showcase Generated\n"]
+        lines = ["## Portfolio Showcase Generated\n"]
         lines.append(f"**Showcase ID:** {result['showcase_id']}")
         lines.append(f"**Title:** {result['title']}")
         lines.append(f"**Projects Featured:** {result['projects_count']}")
@@ -601,7 +601,7 @@ class SalesGenerator(Tool):
             recommendation=recommendation
         )
 
-        lines = [f"## Business Case Created\n"]
+        lines = ["## Business Case Created\n"]
         lines.append(f"**Case ID:** {result['case_id']}")
         lines.append(f"**Title:** {result['title']}")
         lines.append(f"**Benefits Identified:** {result['benefits_count']}")
@@ -684,7 +684,7 @@ class SalesGenerator(Tool):
             criteria=criteria
         )
 
-        lines = [f"## Comparison Created\n"]
+        lines = ["## Comparison Created\n"]
         lines.append(f"**Comparison ID:** {result['comparison_id']}")
         lines.append(f"**Title:** {result['title']}")
         lines.append(f"**Competitors:** {result['competitors_count']}")

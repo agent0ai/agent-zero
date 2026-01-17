@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from email.header import decode_header
 from email.message import Message as EmailMessage
 from fnmatch import fnmatch
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import html2text
 from bs4 import BeautifulSoup
@@ -24,7 +24,7 @@ class Message:
     sender: str
     subject: str
     body: str
-    attachments: List[str]
+    attachments: list[str]
 
 
 class EmailClient:
@@ -40,7 +40,7 @@ class EmailClient:
         port: int = 993,
         username: str = "",
         password: str = "",
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ):
         """
         Initialize email client with connection parameters.
@@ -66,7 +66,7 @@ class EmailClient:
         self.ssl = self.options.get("ssl", True)
         self.timeout = self.options.get("timeout", 30)
 
-        self.client: Optional[IMAPClient] = None
+        self.client: IMAPClient | None = None
         self.exchange_account = None
 
     async def connect(self) -> None:
@@ -104,7 +104,7 @@ class EmailClient:
     async def _connect_exchange(self) -> None:
         """Establish Exchange connection."""
         try:
-            from exchangelib import Account, Configuration, Credentials, DELEGATE
+            from exchangelib import DELEGATE, Account, Configuration, Credentials
 
             loop = asyncio.get_event_loop()
 
@@ -142,8 +142,8 @@ class EmailClient:
     async def read_messages(
         self,
         download_folder: str,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[Message]:
+        filter: dict[str, Any] | None = None,
+    ) -> list[Message]:
         """
         Read messages based on filter criteria.
 
@@ -170,14 +170,14 @@ class EmailClient:
     async def _fetch_imap_messages(
         self,
         download_folder: str,
-        filter: Dict[str, Any],
-    ) -> List[Message]:
+        filter: dict[str, Any],
+    ) -> list[Message]:
         """Fetch messages from IMAP server."""
         if not self.client:
             raise RepairableException("IMAP client not connected. Call connect() first.")
 
         loop = asyncio.get_event_loop()
-        messages: List[Message] = []
+        messages: list[Message] = []
 
         def _sync_fetch():
             # Select inbox
@@ -223,8 +223,8 @@ class EmailClient:
         self,
         msg_id: int,
         download_folder: str,
-        filter: Dict[str, Any],
-    ) -> Optional[Message]:
+        filter: dict[str, Any],
+    ) -> Message | None:
         """Fetch and parse a single IMAP message with retry logic for large messages."""
         loop = asyncio.get_event_loop()
 
@@ -280,8 +280,8 @@ class EmailClient:
     async def _fetch_exchange_messages(
         self,
         download_folder: str,
-        filter: Dict[str, Any],
-    ) -> List[Message]:
+        filter: dict[str, Any],
+    ) -> list[Message]:
         """Fetch messages from Exchange server."""
         if not self.exchange_account:
             raise RepairableException("Exchange account not connected. Call connect() first.")
@@ -289,7 +289,7 @@ class EmailClient:
         from exchangelib import Q
 
         loop = asyncio.get_event_loop()
-        messages: List[Message] = []
+        messages: list[Message] = []
 
         def _sync_fetch():
             # Build query
@@ -380,9 +380,9 @@ class EmailClient:
 
         # Extract body and attachments
         body = ""
-        attachment_paths: List[str] = []
-        cid_map: Dict[str, str] = {}  # Map Content-ID to file paths
-        body_parts: List[str] = []  # Track parts in order
+        attachment_paths: list[str] = []
+        cid_map: dict[str, str] = {}  # Map Content-ID to file paths
+        body_parts: list[str] = []  # Track parts in order
 
         if email_msg.is_multipart():
             # Process parts in order to maintain attachment positions
@@ -452,7 +452,7 @@ class EmailClient:
             attachments=attachment_paths
         )
 
-    def _html_to_text(self, html_content: str, cid_map: Optional[Dict[str, str]] = None) -> str:
+    def _html_to_text(self, html_content: str, cid_map: dict[str, str] | None = None) -> str:
         """
         Convert HTML to plain text with inline attachment references.
 
@@ -538,9 +538,9 @@ async def read_messages(
     username: str = "",
     password: str = "",
     download_folder: str = "tmp/email",
-    options: Optional[Dict[str, Any]] = None,
-    filter: Optional[Dict[str, Any]] = None,
-) -> List[Message]:
+    options: dict[str, Any] | None = None,
+    filter: dict[str, Any] | None = None,
+) -> list[Message]:
     """
     Convenience wrapper for reading email messages.
 

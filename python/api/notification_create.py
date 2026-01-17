@@ -1,5 +1,6 @@
-from python.helpers.api import ApiHandler
 from flask import Request, Response
+
+from python.helpers.api import ApiHandler
 from python.helpers.notification import NotificationManager, NotificationPriority, NotificationType
 
 
@@ -61,5 +62,5 @@ class NotificationCreate(ApiHandler):
         except Exception as e:
             return {
                 "success": False,
-                "error": f"Failed to create notification: {str(e)}",
+                "error": f"Failed to create notification: {e!s}",
             }

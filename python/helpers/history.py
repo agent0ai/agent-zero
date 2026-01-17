@@ -1,13 +1,16 @@
-from abc import abstractmethod
 import asyncio
-from collections import OrderedDict
-from collections.abc import Mapping
 import json
 import math
-from typing import Coroutine, Literal, TypedDict, cast, Union, Dict, List, Any
-from python.helpers import messages, tokens, settings, call_llm
-from enum import Enum
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
+from abc import abstractmethod
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, TypedDict, Union, cast
+
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+
+from python.helpers import messages, settings, tokens
+
+if TYPE_CHECKING:
+    from agent import Agent
 
 BULK_MERGE_COUNT = 3
 TOPICS_KEEP_COUNT = 3
@@ -25,11 +28,11 @@ class RawMessage(TypedDict):
 
 
 MessageContent = Union[
-    List["MessageContent"],
-    Dict[str, "MessageContent"],
-    List[Dict[str, "MessageContent"]],
+    list["MessageContent"],
+    dict[str, "MessageContent"],
+    list[dict[str, "MessageContent"]],
     str,
-    List[str],
+    list[str],
     RawMessage,
 ]
 
@@ -286,14 +289,13 @@ class Bulk(Record):
     def from_dict(data: dict, history: "History"):
         bulk = Bulk(history=history)
         bulk.summary = data["summary"]
-        cls = data["_cls"]
+        data["_cls"]
         bulk.records = [Record.from_dict(r, history=history) for r in data["records"]]
         return bulk
 
 
 class History(Record):
     def __init__(self, agent):
-        from agent import Agent
 
         self.counter = 0
         self.bulks: list[Bulk] = []
@@ -440,7 +442,7 @@ class History(Record):
 
     async def merge_bulks(self, bulks: list[Bulk]) -> Bulk:
         bulk = Bulk(history=self)
-        bulk.records = cast(list[Record], bulks)
+        bulk.records = cast("list[Record]", bulks)
         await bulk.summarize()
         return bulk
 
@@ -466,7 +468,7 @@ def _stringify_content(content: MessageContent) -> str:
     # already a string
     if isinstance(content, str):
         return content
-    
+
     # raw messages return preview or trimmed json
     if _is_raw_message(content):
         preview: str = content.get("preview", "") # type: ignore
@@ -476,7 +478,7 @@ def _stringify_content(content: MessageContent) -> str:
         if len(text) > RAW_MESSAGE_OUTPUT_TEXT_TRIM:
             return text[:RAW_MESSAGE_OUTPUT_TEXT_TRIM] + "... TRIMMED"
         return text
-    
+
     # regular messages of non-string are dumped as json
     return _json_dumps(content)
 
@@ -550,12 +552,12 @@ def _merge_outputs(a: MessageContent, b: MessageContent) -> MessageContent:
     a = make_list(a)
     b = make_list(b)
 
-    return cast(MessageContent, a + b)
+    return cast("MessageContent", a + b)
 
 
 def _merge_properties(
-    a: Dict[str, MessageContent], b: Dict[str, MessageContent]
-) -> Dict[str, MessageContent]:
+    a: dict[str, MessageContent], b: dict[str, MessageContent]
+) -> dict[str, MessageContent]:
     result = a.copy()
     for k, v in b.items():
         if k in result:

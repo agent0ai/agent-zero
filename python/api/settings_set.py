@@ -1,8 +1,7 @@
-from python.helpers.api import ApiHandler, Request, Response
+from typing import Any
 
 from python.helpers import settings
-
-from typing import Any
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class SetSettings(ApiHandler):

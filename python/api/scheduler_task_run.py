@@ -1,6 +1,6 @@
 from python.helpers.api import ApiHandler, Input, Output, Request
-from python.helpers.print_style import PrintStyle
 from python.helpers.localization import Localization
+from python.helpers.print_style import PrintStyle
 
 
 class SchedulerTaskRun(ApiHandler):
@@ -62,8 +62,8 @@ class SchedulerTaskRun(ApiHandler):
             else:
                 return {"success": True, "message": f"Task '{task_id}' started successfully"}
         except ValueError as e:
-            self._printer.error(f"SchedulerTaskRun: Task '{task_id}' failed to start: {str(e)}")
+            self._printer.error(f"SchedulerTaskRun: Task '{task_id}' failed to start: {e!s}")
             return {"error": str(e)}
         except Exception as e:
-            self._printer.error(f"SchedulerTaskRun: Task '{task_id}' failed to start: {str(e)}")
-            return {"error": f"Failed to run task '{task_id}': {str(e)}"}
+            self._printer.error(f"SchedulerTaskRun: Task '{task_id}' failed to start: {e!s}")
+            return {"error": f"Failed to run task '{task_id}': {e!s}"}

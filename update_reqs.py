@@ -1,5 +1,7 @@
-import pkg_resources
 import re
+
+import pkg_resources
+
 
 def get_installed_version(package_name):
     try:
@@ -8,7 +10,7 @@ def get_installed_version(package_name):
         return None
 
 def update_requirements():
-    with open('requirements.txt', 'r') as f:
+    with open('requirements.txt') as f:
         requirements = f.readlines()
 
     updated_requirements = []
@@ -17,7 +19,7 @@ def update_requirements():
         if not req or req.startswith('#'):
             updated_requirements.append(req)
             continue
-            
+
         # Extract package name
         match = re.match(r'^([^=<>]+)==', req)
         if match:

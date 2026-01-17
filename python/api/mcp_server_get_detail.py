@@ -1,12 +1,12 @@
-from python.helpers.api import ApiHandler, Request, Response
 from typing import Any
 
+from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.mcp_handler import MCPConfig
 
 
 class McpServerGetDetail(ApiHandler):
     async def process(self, input: dict[Any, Any], request: Request) -> dict[Any, Any] | Response:
-        
+
         # try:
             server_name = input.get("server_name")
             if not server_name:

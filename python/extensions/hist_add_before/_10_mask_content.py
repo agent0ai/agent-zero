@@ -15,7 +15,7 @@ class MaskHistoryContent(Extension):
 
             # Mask the content before adding to history
             content_data["content"] = self._mask_content(content_data["content"], secrets_mgr)
-        except Exception as e:
+        except Exception:
             # If masking fails, proceed without masking
             pass
 

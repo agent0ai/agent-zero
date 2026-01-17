@@ -1,15 +1,15 @@
+import fnmatch
 import secrets
 from urllib.parse import urlparse
+
+from python.helpers import dotenv, login, runtime
 from python.helpers.api import (
     ApiHandler,
     Input,
     Output,
     Request,
-    Response,
     session,
 )
-from python.helpers import runtime, dotenv, login
-import fnmatch
 
 
 class GetCsrfToken(ApiHandler):

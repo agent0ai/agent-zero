@@ -1,10 +1,11 @@
 import base64
+
 from werkzeug.datastructures import FileStorage
+
+from python.api import get_work_dir_files
+from python.helpers import runtime
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.file_browser import FileBrowser
-from python.helpers import files, runtime
-from python.api import get_work_dir_files
-import os
 
 
 class UploadWorkDirFiles(ApiHandler):
@@ -61,4 +62,3 @@ async def upload_files(uploaded_files: list[FileStorage], current_path: str):
 async def upload_file(current_path: str, filename: str, base64_content: str):
     browser = FileBrowser()
     return browser.save_file_b64(current_path, filename, base64_content)
-

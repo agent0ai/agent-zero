@@ -1,9 +1,8 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers.memory import Memory, get_existing_memory_subdirs, get_context_memory_subdir
-from python.helpers import files
-from models import ModelConfig, ModelType
 from langchain_core.documents import Document
+
 from agent import AgentContext
+from python.helpers.api import ApiHandler, Request, Response
+from python.helpers.memory import Memory, get_context_memory_subdir, get_existing_memory_subdirs
 
 
 class MemoryDashboard(ApiHandler):
@@ -59,7 +58,7 @@ class MemoryDashboard(ApiHandler):
                 }
 
         except Exception as e:
-            return {"success": False, "error": f"Failed to delete memory: {str(e)}"}
+            return {"success": False, "error": f"Failed to delete memory: {e!s}"}
 
     async def _bulk_delete_memories(self, input: dict) -> dict:
         """Delete multiple memories by IDs from the specified subdirectory."""
@@ -96,20 +95,20 @@ class MemoryDashboard(ApiHandler):
             else:
                 return {
                     "success": False,
-                    "error": f"Failed to delete any memories.",
+                    "error": "Failed to delete any memories.",
                 }
 
         except Exception as e:
             return {
                 "success": False,
-                "error": f"Failed to bulk delete memories: {str(e)}",
+                "error": f"Failed to bulk delete memories: {e!s}",
             }
 
     async def _get_current_memory_subdir(self, input: dict) -> dict:
         """Get the current memory subdirectory from the active context."""
         try:
             # Try to get the context from the request
-            context_id = input.get("context_id", None)
+            context_id = input.get("context_id")
             if not context_id:
                 # Fallback to default if no context available
                 return {"success": True, "memory_subdir": "default"}
@@ -136,7 +135,7 @@ class MemoryDashboard(ApiHandler):
         except Exception as e:
             return {
                 "success": False,
-                "error": f"Failed to get memory subdirectories: {str(e)}",
+                "error": f"Failed to get memory subdirectories: {e!s}",
                 "subdirs": ["default"],
             }
 
@@ -165,7 +164,7 @@ class MemoryDashboard(ApiHandler):
             else:
                 # If no search query, get all memories from specified area(s)
                 all_docs = memory.db.get_all_docs()
-                for doc_id, doc in all_docs.items():
+                for _doc_id, doc in all_docs.items():
                     # Apply area filter if specified
                     if area_filter and doc.metadata.get("area", "") != area_filter:
                         continue

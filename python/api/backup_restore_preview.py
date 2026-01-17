@@ -1,7 +1,11 @@
-from python.helpers.api import ApiHandler, Request, Response
-from werkzeug.datastructures import FileStorage
-from python.helpers.backup import BackupService
 import json
+from typing import TYPE_CHECKING
+
+from python.helpers.api import ApiHandler, Request, Response
+from python.helpers.backup import BackupService
+
+if TYPE_CHECKING:
+    from werkzeug.datastructures import FileStorage
 
 
 class BackupRestorePreview(ApiHandler):

@@ -1,12 +1,13 @@
-from datetime import datetime
-from python.helpers.extension import Extension
 from agent import Agent, LoopData
 from python.helpers import files, memory
+from python.helpers.extension import Extension
 
 
 class BehaviourPrompt(Extension):
 
-    async def execute(self, system_prompt: list[str]=[], loop_data: LoopData = LoopData(), **kwargs):
+    async def execute(self, system_prompt: list[str] | None=None, loop_data: LoopData = LoopData(), **kwargs):
+        if system_prompt is None:
+            system_prompt = []
         prompt = read_rules(self.agent)
         system_prompt.insert(0, prompt) #.append(prompt)
 
@@ -21,4 +22,3 @@ def read_rules(agent: Agent):
     else:
         rules = agent.read_prompt("agent.system.behaviour_default.md")
         return agent.read_prompt("agent.system.behaviour.md", rules=rules)
-  

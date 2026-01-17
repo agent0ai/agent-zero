@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from python.helpers import files
 
+
 def setup_training():
     """Setup complete AI Solutioning training program"""
 
@@ -322,7 +323,7 @@ def setup_training():
 
     print(f"\n📚 Registering {len(all_skills)} skills...")
     for skill in all_skills:
-        result = manager.register_skill(
+        manager.register_skill(
             skill_id=skill["skill_id"],
             name=skill["name"],
             category=skill["category"],
@@ -471,7 +472,7 @@ def setup_training():
 
     print(f"\n📖 Creating {len(learning_paths)} learning paths...")
     for path in learning_paths:
-        result = manager.create_learning_path(
+        manager.create_learning_path(
             path_id=path["path_id"],
             name=path["name"],
             description=path["description"],
@@ -490,7 +491,7 @@ def setup_training():
     print("AI Solutioning Training Setup Complete!")
     print("=" * 60)
 
-    stats = manager.get_stats()
+    manager.get_stats()
     print(f"""
 Summary:
   Skills registered: {len(all_skills)}

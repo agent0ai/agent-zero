@@ -1,7 +1,12 @@
-import os, webcolors, html
+import html
+import os
 import sys
 from datetime import datetime
+
+import webcolors
+
 from . import files
+
 
 class PrintStyle:
     last_endline = True
@@ -92,7 +97,7 @@ class PrintStyle:
 
     def get(self, *args, sep=' ', **kwargs):
         text = sep.join(map(str, args))
-        
+
         # Automatically mask secrets in all print output
         try:
             if not hasattr(self, "secrets_mgr"):
@@ -102,7 +107,7 @@ class PrintStyle:
         except Exception:
             # If masking fails, proceed without masking to avoid breaking functionality
             pass
-        
+
         return text, self._get_styled_text(text), self._get_html_styled_text(text)
 
     def print(self, *args, sep=' ', **kwargs):
@@ -110,7 +115,7 @@ class PrintStyle:
         if not PrintStyle.last_endline:
             print()
             self._log_html("<br>")
-        plain_text, styled_text, html_text = self.get(*args, sep=sep, **kwargs)
+        _plain_text, styled_text, html_text = self.get(*args, sep=sep, **kwargs)
         if not self.log_only:
             print(styled_text, end='\n', flush=True)
         self._log_html(html_text+"<br>\n")
@@ -118,7 +123,7 @@ class PrintStyle:
 
     def stream(self, *args, sep=' ', **kwargs):
         self._add_padding_if_needed()
-        plain_text, styled_text, html_text = self.get(*args, sep=sep, **kwargs)
+        _plain_text, styled_text, html_text = self.get(*args, sep=sep, **kwargs)
         if not self.log_only:
             print(styled_text, end='', flush=True)
         self._log_html(html_text)
@@ -158,4 +163,5 @@ class PrintStyle:
 
 # Ensure HTML file is closed properly when the program exits
 import atexit
+
 atexit.register(PrintStyle._close_html_log)

@@ -1,46 +1,40 @@
-from abc import ABC, abstractmethod
-import re
-from typing import (
-    List,
-    Dict,
-    Optional,
-    Any,
-    TextIO,
-    Union,
-    Literal,
-    Annotated,
-    ClassVar,
-    cast,
-    Callable,
-    Awaitable,
-    TypeVar,
-)
-import threading
 import asyncio
-from contextlib import AsyncExitStack
-from shutil import which
-from datetime import timedelta
 import json
-from python.helpers import errors
-from python.helpers import settings
+import re
+import threading
+from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack, suppress
+from datetime import timedelta
+from shutil import which
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Literal,
+    Optional,
+    TextIO,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import httpx
-
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-from mcp.client.sse import sse_client
-from mcp.client.streamable_http import streamablehttp_client
-from mcp.shared.message import SessionMessage
-from mcp.types import CallToolResult, ListToolsResult
 from anyio.streams.memory import (
     MemoryObjectReceiveStream,
     MemoryObjectSendStream,
 )
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
+from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
+from mcp.shared.message import SessionMessage
+from mcp.types import CallToolResult, ListToolsResult
+from pydantic import BaseModel, Discriminator, Field, PrivateAttr, Tag
 
-from pydantic import BaseModel, Field, Discriminator, Tag, PrivateAttr
-from python.helpers import dirty_json
+from python.helpers import dirty_json, errors, settings
 from python.helpers.print_style import PrintStyle
-from python.helpers.tool import Tool, Response
+from python.helpers.tool import Response, Tool
 
 
 def normalize_name(name: str) -> str:
@@ -113,8 +107,8 @@ class MCPTool(Tool):
             if response.isError:
                 error = message
         except Exception as e:
-            error = f"MCP Tool Exception: {str(e)}"
-            message = f"ERROR: {str(e)}"
+            error = f"MCP Tool Exception: {e!s}"
+            message = f"ERROR: {e!s}"
 
         if error:
             PrintStyle(
@@ -212,7 +206,7 @@ class MCPTool(Tool):
 
 class MCPServerRemote(BaseModel):
     name: str = Field(default_factory=str)
-    description: Optional[str] = Field(default="Remote SSE Server")
+    description: str | None = Field(default="Remote SSE Server")
     type: str = Field(default="sse", description="Server connection type")
     url: str = Field(default_factory=str)
     headers: dict[str, Any] | None = Field(default_factory=dict[str, Any])
@@ -250,7 +244,7 @@ class MCPServerRemote(BaseModel):
         with self.__lock:
             return self.__client.get_log()  # type: ignore
 
-    def get_tools(self) -> List[dict[str, Any]]:
+    def get_tools(self) -> list[dict[str, Any]]:
         """Get all tools from the server"""
         with self.__lock:
             self._ensure_initialized()
@@ -263,7 +257,7 @@ class MCPServerRemote(BaseModel):
             return self.__client.has_tool(tool_name)  # type: ignore
 
     async def call_tool(
-        self, tool_name: str, input_data: Dict[str, Any]
+        self, tool_name: str, input_data: dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
         with self.__lock:
@@ -303,7 +297,7 @@ class MCPServerRemote(BaseModel):
 
 class MCPServerLocal(BaseModel):
     name: str = Field(default_factory=str)
-    description: Optional[str] = Field(default="Local StdIO Server")
+    description: str | None = Field(default="Local StdIO Server")
     type: str = Field(default="stdio", description="Server connection type")
     command: str = Field(default_factory=str)
     args: list[str] = Field(default_factory=list)
@@ -344,7 +338,7 @@ class MCPServerLocal(BaseModel):
         with self.__lock:
             return self.__client.get_log()  # type: ignore
 
-    def get_tools(self) -> List[dict[str, Any]]:
+    def get_tools(self) -> list[dict[str, Any]]:
         """Get all tools from the server"""
         with self.__lock:
             self._ensure_initialized()
@@ -357,7 +351,7 @@ class MCPServerLocal(BaseModel):
             return self.__client.has_tool(tool_name)  # type: ignore
 
     async def call_tool(
-        self, tool_name: str, input_data: Dict[str, Any]
+        self, tool_name: str, input_data: dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
         with self.__lock:
@@ -424,7 +418,7 @@ class MCPConfig(BaseModel):
     @classmethod
     def update(cls, config_str: str) -> Any:
         with cls.__lock:
-            servers_data: List[Dict[str, Any]] = []  # Default to empty list
+            servers_data: list[dict[str, Any]] = []  # Default to empty list
 
             if (
                 config_str and config_str.strip()
@@ -493,9 +487,6 @@ class MCPConfig(BaseModel):
             instance = cls.get_instance()
             # Directly update the servers attribute of the existing instance or re-initialize carefully
             # For simplicity and to ensure __init__ logic runs if needed for setup:
-            new_instance_data = {
-                "servers": servers_data
-            }  # Prepare data for re-initialization or update
 
             # Option 1: Re-initialize the existing instance (if __init__ is idempotent for other fields)
             instance.__init__(servers_list=servers_data)
@@ -539,8 +530,8 @@ class MCPConfig(BaseModel):
                 normalized.append(servers)  # single server?
         return normalized
 
-    def __init__(self, servers_list: List[Dict[str, Any]]):
-        from collections.abc import Mapping, Iterable
+    def __init__(self, servers_list: list[dict[str, Any]]):
+        from collections.abc import Iterable, Mapping
 
         # # DEBUG: Print the received servers_list
         # if servers_list:
@@ -716,7 +707,7 @@ class MCPConfig(BaseModel):
         with self.__lock:
             return self.__initialized
 
-    def get_tools(self) -> List[dict[str, dict[str, Any]]]:
+    def get_tools(self) -> list[dict[str, dict[str, Any]]]:
         """Get all tools from all servers"""
         with self.__lock:
             tools = []
@@ -798,7 +789,7 @@ class MCPConfig(BaseModel):
         return MCPTool(agent=agent, name=tool_name, method=None, args={}, message="", loop_data=None)
 
     async def call_tool(
-        self, tool_name: str, input_data: Dict[str, Any]
+        self, tool_name: str, input_data: dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
         if "." not in tool_name:
@@ -823,10 +814,10 @@ class MCPClientBase(ABC):
 
     def __init__(self, server: Union[MCPServerLocal, MCPServerRemote]):
         self.server = server
-        self.tools: List[dict[str, Any]] = []  # Tools are cached on the client instance
+        self.tools: list[dict[str, Any]] = []  # Tools are cached on the client instance
         self.error: str = ""
-        self.log: List[str] = []
-        self.log_file: Optional[TextIO] = None
+        self.log: list[str] = []
+        self.log_file: TextIO | None = None
 
     # Protected method
     @abstractmethod
@@ -881,7 +872,7 @@ class MCPClientBase(ABC):
                         original_exception = e
                     # Create a dummy exception to break out of the async block
                     raise RuntimeError("Dummy exception to break out of async block")
-        except Exception as e:
+        except Exception:
             # Check if this is our dummy exception
             if original_exception is not None:
                 e = original_exception
@@ -949,13 +940,13 @@ class MCPClientBase(ABC):
                     return True
         return False
 
-    def get_tools(self) -> List[dict[str, Any]]:
+    def get_tools(self) -> list[dict[str, Any]]:
         """Get all tools from the server (uses cached tools)"""
         with self.__lock:
             return self.tools
 
     async def call_tool(
-        self, tool_name: str, input_data: Dict[str, Any]
+        self, tool_name: str, input_data: dict[str, Any]
     ) -> CallToolResult:
         # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Preparing for 'call_tool' operation for tool '{tool_name}'.")
         if not self.has_tool(tool_name):
@@ -1014,10 +1005,8 @@ class MCPClientLocal(MCPClientBase):
     def __del__(self):
         # close the log file if it exists
         if hasattr(self, "log_file") and self.log_file is not None:
-            try:
+            with suppress(Exception):
                 self.log_file.close()
-            except Exception:
-                pass
             self.log_file = None
 
     async def _create_stdio_transport(
@@ -1027,7 +1016,7 @@ class MCPClientLocal(MCPClientBase):
         MemoryObjectSendStream[SessionMessage],
     ]:
         """Connect to an MCP server, init client and save stdio/write streams"""
-        server: MCPServerLocal = cast(MCPServerLocal, self.server)
+        server: MCPServerLocal = cast("MCPServerLocal", self.server)
 
         if not server.command:
             raise ValueError("Command not specified")
@@ -1090,8 +1079,8 @@ class MCPClientRemote(MCPClientBase):
 
     def __init__(self, server: Union[MCPServerLocal, MCPServerRemote]):
         super().__init__(server)
-        self.session_id: Optional[str] = None  # Track session ID for streaming HTTP clients
-        self.session_id_callback: Optional[Callable[[], Optional[str]]] = None
+        self.session_id: str | None = None  # Track session ID for streaming HTTP clients
+        self.session_id_callback: Callable[[], str | None] | None = None
 
     async def _create_stdio_transport(
         self, current_exit_stack: AsyncExitStack
@@ -1100,7 +1089,7 @@ class MCPClientRemote(MCPClientBase):
         MemoryObjectSendStream[SessionMessage],
     ]:
         """Connect to an MCP server, init client and save stdio/write streams"""
-        server: MCPServerRemote = cast(MCPServerRemote, self.server)
+        server: MCPServerRemote = cast("MCPServerRemote", self.server)
         set = settings.get_settings()
 
         # Use lower timeouts for faster failure detection
@@ -1140,7 +1129,7 @@ class MCPClientRemote(MCPClientBase):
             )
             return stdio_transport
 
-    def get_session_id(self) -> Optional[str]:
+    def get_session_id(self) -> str | None:
         """Get the current session ID if available (for streaming HTTP clients)."""
         if self.session_id_callback is not None:
             return self.session_id_callback()

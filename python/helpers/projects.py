@@ -1,9 +1,8 @@
 import os
-from typing import Literal, TypedDict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, TypedDict
 
-from python.helpers import files, dirty_json, persist_chat, file_tree
+from python.helpers import dirty_json, file_tree, files, persist_chat
 from python.helpers.print_style import PrintStyle
-
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -65,7 +64,7 @@ def delete_project(name: str):
 
 
 def create_project(name: str, data: BasicProjectData):
-    abs_path = files.create_dir_safe(
+    files.create_dir_safe(
         files.get_abs_path(PROJECTS_PARENT_DIR, name), rename_format="{name}_{number}"
     )
     create_project_meta_folders(name)
@@ -215,7 +214,7 @@ def _get_projects_list(parent_dir):
                     }
                 )
         except Exception as e:
-            PrintStyle.error(f"Error loading project {name}: {str(e)}")
+            PrintStyle.error(f"Error loading project {name}: {e!s}")
 
     # sort projects by name
     projects.sort(key=lambda x: x["name"])
@@ -362,7 +361,7 @@ def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str
     project_folder = get_project_folder(name)
     if basic_data is None:
         basic_data = load_basic_project_data(name)
-    
+
     tree = str(file_tree.file_tree(
         project_folder,
         max_depth=basic_data["file_structure"]["max_depth"],
@@ -378,5 +377,3 @@ def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str
         tree += "\n # Empty"
 
     return tree
-
-    

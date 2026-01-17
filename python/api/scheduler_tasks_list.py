@@ -1,7 +1,8 @@
-from python.helpers.api import ApiHandler, Input, Output, Request
 import traceback
-from python.helpers.print_style import PrintStyle
+
+from python.helpers.api import ApiHandler, Input, Output, Request
 from python.helpers.localization import Localization
+from python.helpers.print_style import PrintStyle
 
 
 class SchedulerTasksList(ApiHandler):
@@ -30,5 +31,5 @@ class SchedulerTasksList(ApiHandler):
             return {"ok": True, "tasks": tasks_list}
 
         except Exception as e:
-            PrintStyle.error(f"Failed to list tasks: {str(e)} {traceback.format_exc()}")
-            return {"ok": False, "error": f"Failed to list tasks: {str(e)} {traceback.format_exc()}", "tasks": []}
+            PrintStyle.error(f"Failed to list tasks: {e!s} {traceback.format_exc()}")
+            return {"ok": False, "error": f"Failed to list tasks: {e!s} {traceback.format_exc()}", "tasks": []}

@@ -7,10 +7,8 @@ Run tests:
     pytest tests/test_my_instrument.py::TestMyInstrument::test_specific -v
 """
 
-import os
+
 import pytest
-import json
-from pathlib import Path
 
 # Import your instrument manager
 # from instruments.custom.my_instrument.manager import MyInstrumentManager
@@ -19,7 +17,7 @@ from pathlib import Path
 class TestMyInstrument:
     """
     Test suite for MyInstrument.
-    
+
     Follows Agent Zero testing conventions:
     - Uses tmp_path fixture for database isolation
     - Each test gets fresh manager instance
@@ -30,7 +28,7 @@ class TestMyInstrument:
     def setup_method(self, tmp_path):
         """
         Create fresh manager for each test.
-        
+
         The tmp_path fixture provides an isolated temp directory
         that's automatically cleaned up after tests.
         """

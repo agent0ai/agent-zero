@@ -1,8 +1,9 @@
 import os
 import time
-import json
-from python.helpers.extension import Extension
+
 from python.helpers import files
+from python.helpers.extension import Extension
+
 
 class adr_generator(Extension):
     """
@@ -12,17 +13,17 @@ class adr_generator(Extension):
 
     async def execute(self, **kwargs) -> None:
         if not self.agent: return
-        
+
         # We only care about success or completion
         history = self.agent.history.get_history()
         if not history: return
-        
+
         last_ai_msg = ""
         for msg in reversed(history):
             if msg.role == "assistant":
                 last_ai_msg = msg.content
                 break
-        
+
         keywords = ["architecture", "decision", "choice", "pattern", "design", "workflow"]
         if not any(kw in last_ai_msg.lower() for kw in keywords):
             return
@@ -31,11 +32,11 @@ class adr_generator(Extension):
             project_name = getattr(self.agent, "agent_name", "Unknown Agent")
             adr_dir = files.get_abs_path("knowledge/custom/architectural_patterns/adrs")
             os.makedirs(adr_dir, exist_ok=True)
-            
+
             timestamp = int(time.time())
             filename = f"ADR-{timestamp}.md"
             filepath = os.path.join(adr_dir, filename)
-            
+
             adr_content = f"""# ADR: {timestamp} - {project_name} Decision
 
 ## Status
@@ -56,7 +57,6 @@ The agent processed a task involving: "{last_ai_msg[:200]}..."
 """
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(adr_content)
-                
-        except Exception as e:
-            pass # Silent fail to not disrupt main loop
 
+        except Exception:
+            pass # Silent fail to not disrupt main loop

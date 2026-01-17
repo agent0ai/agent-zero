@@ -1,6 +1,6 @@
-from python.helpers.extension import Extension
 from agent import LoopData
 from python.helpers import projects
+from python.helpers.extension import Extension
 
 
 class IncludeProjectExtras(Extension):
@@ -43,5 +43,5 @@ def cleanup_gitignore(gitignore_raw: str) -> str:
         # Keep only non-empty lines
         if line:
             gitignore_lines.append(line)
-    
+
     return '\n'.join(gitignore_lines) if gitignore_lines else "nothing ignored"

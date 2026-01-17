@@ -3,8 +3,8 @@ Workflow Training Tool - Skill development and learning progression management
 Manages training modules, assessments, and agent proficiency tracking
 """
 
-from python.helpers.tool import Tool, Response
 from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class WorkflowTraining(Tool):
@@ -334,7 +334,6 @@ class WorkflowTraining(Tool):
         path_id = self.args.get("path_id")
 
         from datetime import datetime
-        import json
 
         conn = self.manager.db._get_conn()
         cursor = conn.cursor()
@@ -462,7 +461,7 @@ class WorkflowTraining(Tool):
     async def _take_assessment(self):
         """Take a skill assessment"""
         skill_id = self.args.get("skill_id")
-        answers = self.args.get("answers", [])
+        self.args.get("answers", [])
 
         # Get skill assessment questions (if defined)
         skill = self.manager.get_skill(skill_id)
@@ -488,7 +487,7 @@ class WorkflowTraining(Tool):
     async def _get_recommendations(self):
         """Get skill recommendations for an agent"""
         agent_id = self.args.get("agent_id", self.agent_id)
-        target_role = self.args.get("target_role")
+        self.args.get("target_role")
 
         # Get current skills
         current_skills = self.manager.get_agent_skills(agent_id)
@@ -668,7 +667,7 @@ class WorkflowTraining(Tool):
 
         return "\n".join(lines)
 
-    def _format_assessment_result(self, result: dict, score: float = None) -> str:
+    def _format_assessment_result(self, result: dict, score: float | None = None) -> str:
         if "error" in result:
             return f"**Error:** {result['error']}"
 

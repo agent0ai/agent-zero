@@ -1,9 +1,9 @@
 import base64
-from python.helpers.print_style import PrintStyle
-from python.helpers.tool import Tool, Response
-from python.helpers import runtime, files, images
 from mimetypes import guess_type
-from python.helpers import history
+
+from python.helpers import files, history, images, runtime
+from python.helpers.print_style import PrintStyle
+from python.helpers.tool import Response, Tool
 
 # image optimization and token estimation for context window
 MAX_PIXELS = 768_000
@@ -12,10 +12,11 @@ TOKENS_ESTIMATE = 1500
 
 
 class VisionLoad(Tool):
-    async def execute(self, paths: list[str] = [], **kwargs) -> Response:
+    async def execute(self, paths: list[str] | None = None, **kwargs) -> Response:
 
+        if paths is None:
+            paths = []
         self.images_dict = {}
-        template: list[dict[str, str]] = []  # type: ignore
 
         for path in paths:
             if not await runtime.call_development_function(files.exists, str(path)):

@@ -1,38 +1,34 @@
+import json
+import logging
+import os
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, List, Sequence
-from langchain.storage import InMemoryByteStore, LocalFileStore
+from enum import Enum
+from typing import Any
+
+import faiss
+import numpy as np
 from langchain.embeddings import CacheBackedEmbeddings
-from python.helpers import guids
+from langchain.storage import InMemoryByteStore, LocalFileStore
+from langchain_community.docstore.in_memory import InMemoryDocstore
 
 # from langchain_chroma import Chroma
 from langchain_community.vectorstores import FAISS
-
-# faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
-from python.helpers import faiss_monkey_patch
-import faiss
-
-
-from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores.utils import (
     DistanceStrategy,
 )
-from langchain_core.embeddings import Embeddings
-
-import os, json
-
-import numpy as np
-
-from python.helpers.print_style import PrintStyle
-from . import files
 from langchain_core.documents import Document
-from python.helpers import knowledge_import
-from python.helpers.log import Log, LogItem
-from enum import Enum
-from agent import Agent, AgentContext
-import models
-import logging
 from simpleeval import simple_eval
 
+import models
+from agent import Agent, AgentContext
+
+# faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
+from python.helpers import guids, knowledge_import
+from python.helpers.log import LogItem
+from python.helpers.print_style import PrintStyle
+
+from . import files
 
 # Raise the log level so WARNING messages aren't shown
 logging.getLogger("langchain_core.vectorstores.base").setLevel(logging.ERROR)
@@ -40,11 +36,11 @@ logging.getLogger("langchain_core.vectorstores.base").setLevel(logging.ERROR)
 
 class MyFaiss(FAISS):
     # override aget_by_ids
-    def get_by_ids(self, ids: Sequence[str], /) -> List[Document]:
+    def get_by_ids(self, ids: Sequence[str], /) -> list[Document]:
         # return all self.docstore._dict[id] in ids
         return [self.docstore._dict[id] for id in (ids if isinstance(ids, list) else [ids]) if id in self.docstore._dict]  # type: ignore
 
-    async def aget_by_ids(self, ids: Sequence[str], /) -> List[Document]:
+    async def aget_by_ids(self, ids: Sequence[str], /) -> list[Document]:
         return self.get_by_ids(ids)
 
     def get_all_docs(self):
@@ -70,7 +66,7 @@ class Memory:
             try:
                 from python.helpers.security import SecurityManager
                 if not SecurityManager.is_tool_authorized("memory_access"):
-                    from python.helpers.notification import NotificationType, NotificationPriority, NotificationManager
+                    from python.helpers.notification import NotificationManager, NotificationPriority, NotificationType
                     NotificationManager.send_notification(
                         type=NotificationType.AUTH_REQUIRED,
                         priority=NotificationPriority.HIGH,
@@ -89,7 +85,7 @@ class Memory:
                 type="util",
                 heading=f"Initializing VectorDB in '/{memory_subdir}'",
             )
-            db, created = Memory.initialize(
+            db, _created = Memory.initialize(
                 log_item,
                 agent.config.embeddings_model,
                 memory_subdir,
@@ -285,7 +281,7 @@ class Memory:
 
         index: dict[str, knowledge_import.KnowledgeImport] = {}
         if os.path.exists(index_path):
-            with open(index_path, "r") as f:
+            with open(index_path) as f:
                 index = json.load(f)
 
         # preload knowledge folders
@@ -418,7 +414,9 @@ class Memory:
             self._save_db()  # persist
         return rem_docs
 
-    async def insert_text(self, text, metadata: dict = {}):
+    async def insert_text(self, text, metadata: dict | None = None):
+        if metadata is None:
+            metadata = {}
         doc = Document(text, metadata=metadata)
         ids = await self.insert_documents([doc])
         return ids[0]
@@ -581,7 +579,7 @@ def get_existing_memory_subdirs() -> list[str]:
 
         return subdirs
     except Exception as e:
-        PrintStyle.error(f"Failed to get memory subdirectories: {str(e)}")
+        PrintStyle.error(f"Failed to get memory subdirectories: {e!s}")
         return ["default"]
 
 

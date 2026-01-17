@@ -1,9 +1,14 @@
-import asyncio, os, sys, platform, errno
+import asyncio
+import contextlib
+import errno
+import os
+import platform
+import sys
 
 _IS_WIN = platform.system() == "Windows"
 if _IS_WIN:
+
     import winpty  # pip install pywinpty # type: ignore
-    import msvcrt
 
 
 #  Make stdin / stdout tolerant to broken UTF-8 so input() never aborts
@@ -30,10 +35,8 @@ class TTYSession:
 
         nest_asyncio.apply()
         if hasattr(self, "close"):
-            try:
+            with contextlib.suppress(Exception):
                 asyncio.run(self.close())
-            except Exception:
-                pass
 
     # ── user-facing coroutines ────────────────────────────────────────
     async def start(self):
@@ -51,10 +54,8 @@ class TTYSession:
         # Cancel the pump task if it exists
         if hasattr(self, "_pump_task") and self._pump_task:
             self._pump_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._pump_task
-            except asyncio.CancelledError:
-                pass
         # Terminate the process if it exists
         if self._proc:
             self._proc.terminate()
@@ -103,7 +104,7 @@ class TTYSession:
         # Return any decoded text the child produced, or None on timeout
         try:
             return await asyncio.wait_for(self._buf.get(), timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
     # backward-compat alias:
@@ -149,7 +150,10 @@ class TTYSession:
 
 
 async def _spawn_posix_pty(cmd, cwd, env, echo):
-    import pty, asyncio, os, termios
+    import asyncio
+    import os
+    import pty
+    import termios
 
     master, slave = pty.openpty()
 
@@ -205,9 +209,8 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
 
 async def _spawn_winpty(cmd, cwd, env, echo):
     # Clean PowerShell startup: no logo, no profile, bypass execution policy for deterministic behavior
-    if cmd.strip().lower().startswith("powershell"):
-        if "-nolog" not in cmd.lower():
-            cmd = cmd.replace("powershell.exe", "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass", 1)
+    if cmd.strip().lower().startswith("powershell") and "-nolog" not in cmd.lower():
+        cmd = cmd.replace("powershell.exe", "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass", 1)
 
     cols, rows = 80, 25
     child = winpty.PtyProcess.spawn(cmd, dimensions=(rows, cols), cwd=cwd or os.getcwd(), env=env) # type: ignore

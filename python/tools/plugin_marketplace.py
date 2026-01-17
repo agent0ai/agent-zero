@@ -3,9 +3,8 @@ Plugin Marketplace Tool for Agent Zero
 Discover, browse, and install plugins from Claude Code marketplaces
 """
 
-import asyncio
-from python.helpers.tool import Tool, Response
 from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class PluginMarketplace(Tool):
@@ -163,7 +162,7 @@ class PluginMarketplace(Tool):
                 break_loop=False
             )
 
-        result = self.manager.toggle_marketplace(marketplace_id, enabled)
+        self.manager.toggle_marketplace(marketplace_id, enabled)
 
         status = "enabled" if enabled else "disabled"
         return Response(
@@ -546,7 +545,7 @@ class PluginMarketplace(Tool):
 
         except Exception as e:
             return Response(
-                message=f"Import failed: {str(e)}",
+                message=f"Import failed: {e!s}",
                 break_loop=False
             )
 

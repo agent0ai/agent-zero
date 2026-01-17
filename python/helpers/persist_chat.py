@@ -1,12 +1,12 @@
+import json
+import uuid
 from collections import OrderedDict
 from datetime import datetime
 from typing import Any
-import uuid
-from agent import Agent, AgentConfig, AgentContext, AgentContextType
-from python.helpers import files, history
-import json
-from initialize import initialize_agent
 
+from agent import Agent, AgentConfig, AgentContext, AgentContextType
+from initialize import initialize_agent
+from python.helpers import files, history
 from python.helpers.log import Log, LogItem
 
 CHATS_FOLDER = "tmp/chats"

@@ -3,9 +3,10 @@ API endpoint for Workflow Training operations.
 Handles skills, learning paths, and training modules.
 """
 
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
 import os
+
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class WorkflowTrainingApi(ApiHandler):

@@ -1,11 +1,6 @@
-import platform
-import select
-import subprocess
-import time
-import sys
-from typing import Optional, Tuple
-from python.helpers import tty_session, runtime
+from python.helpers import runtime, tty_session
 from python.helpers.shell_ssh import clean_string
+
 
 class LocalInteractiveSession:
     def __init__(self, cwd: str|None = None):
@@ -28,8 +23,8 @@ class LocalInteractiveSession:
             raise Exception("Shell not connected")
         self.full_output = ""
         await self.session.sendline(command)
- 
-    async def read_output(self, timeout: float = 0, reset_full_output: bool = False) -> Tuple[str, Optional[str]]:
+
+    async def read_output(self, timeout: float = 0, reset_full_output: bool = False) -> tuple[str, str | None]:
         if not self.session:
             raise Exception("Shell not connected")
 

@@ -3,11 +3,10 @@ Simplified Email Integration Test - Standalone
 Tests core email functionality without full Agent Zero dependencies
 """
 
-import pytest
-import asyncio
-import os
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import pytest
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -18,42 +17,42 @@ from python.helpers.email_sender import EmailSender
 
 class TestEmailSenderStandalone:
     """Test EmailSender helper class without SMTP dependencies"""
-    
+
     def test_email_validation(self):
         """Test email address validation"""
         # Valid emails
-        assert EmailSender.validate_email("user@example.com") == True
-        assert EmailSender.validate_email("test.user+tag@domain.co.uk") == True
-        assert EmailSender.validate_email("firstname.lastname@company.com") == True
-        assert EmailSender.validate_email("admin@subdomain.domain.com") == True
-        
+        assert EmailSender.validate_email("user@example.com")
+        assert EmailSender.validate_email("test.user+tag@domain.co.uk")
+        assert EmailSender.validate_email("firstname.lastname@company.com")
+        assert EmailSender.validate_email("admin@subdomain.domain.com")
+
         # Invalid emails
-        assert EmailSender.validate_email("invalid@") == False
-        assert EmailSender.validate_email("@example.com") == False
-        assert EmailSender.validate_email("notanemail") == False
-        assert EmailSender.validate_email("") == False
-        assert EmailSender.validate_email("missing@") == False
-        assert EmailSender.validate_email("@missing.com") == False
-        
+        assert not EmailSender.validate_email("invalid@")
+        assert not EmailSender.validate_email("@example.com")
+        assert not EmailSender.validate_email("notanemail")
+        assert not EmailSender.validate_email("")
+        assert not EmailSender.validate_email("missing@")
+        assert not EmailSender.validate_email("@missing.com")
+
         print("✅ Email validation: All 10 test cases passed")
-    
+
     def test_filename_sanitization(self):
         """Test attachment filename sanitization"""
         # Normal filenames
         assert EmailSender.sanitize_filename("normal.pdf") == "normal.pdf"
         assert EmailSender.sanitize_filename("document-v1.docx") == "document-v1.docx"
-        
+
         # Path traversal attempts - should extract only the final filename
         assert EmailSender.sanitize_filename("../../../etc/passwd") == "etc_passwd"
         assert EmailSender.sanitize_filename("../../malicious.exe") == "malicious.exe"
-        
+
         # Special characters
         assert EmailSender.sanitize_filename("file with spaces.txt") == "file with spaces.txt"
         assert EmailSender.sanitize_filename("special!@#$%.doc") == "special.doc"
         assert EmailSender.sanitize_filename("test*file?.pdf") == "testfile.pdf"
-        
+
         print("✅ Filename sanitization: All 7 test cases passed")
-    
+
     @pytest.mark.asyncio
     async def test_email_sender_initialization(self):
         """Test EmailSender initialization"""
@@ -64,37 +63,37 @@ class TestEmailSenderStandalone:
             password="test_password",
             use_tls=True
         )
-        
+
         assert sender.server == "smtp.gmail.com"
         assert sender.port == 587
         assert sender.username == "test@example.com"
-        assert sender.use_tls == True
-        
+        assert sender.use_tls
+
         print("✅ Email sender initialization: All parameters correctly set")
-    
+
     def test_email_validation_edge_cases(self):
         """Test edge cases in email validation"""
         # Uppercase
-        assert EmailSender.validate_email("USER@EXAMPLE.COM") == True
-        
+        assert EmailSender.validate_email("USER@EXAMPLE.COM")
+
         # Numbers
-        assert EmailSender.validate_email("user123@test456.com") == True
-        
+        assert EmailSender.validate_email("user123@test456.com")
+
         # Hyphens and underscores
-        assert EmailSender.validate_email("user-name_test@example.com") == True
-        
+        assert EmailSender.validate_email("user-name_test@example.com")
+
         # Multiple dots
-        assert EmailSender.validate_email("first.middle.last@company.co.uk") == True
-        
+        assert EmailSender.validate_email("first.middle.last@company.co.uk")
+
         # Plus addressing
-        assert EmailSender.validate_email("user+tag@gmail.com") == True
-        
+        assert EmailSender.validate_email("user+tag@gmail.com")
+
         print("✅ Email validation edge cases: All 5 test cases passed")
 
 
 class TestEmailWorkflow:
     """Test email workflow without actual SMTP connection"""
-    
+
     def test_bulk_email_structure(self):
         """Test bulk email data structure"""
         bulk_recipients = [
@@ -111,20 +110,20 @@ class TestEmailWorkflow:
                 "attachments": ["proposal2.pdf"]
             }
         ]
-        
+
         # Validate structure
         for recipient in bulk_recipients:
             assert "to" in recipient
             assert "subject" in recipient
             assert "body" in recipient
             assert EmailSender.validate_email(recipient["to"])
-        
+
         print(f"✅ Bulk email structure: {len(bulk_recipients)} recipients validated")
-    
+
     def test_html_vs_text_emails(self):
         """Test HTML vs plain text email structure"""
         plain_text_body = "This is a plain text email.\nIt has multiple lines.\n\nBest regards"
-        
+
         html_body = """
         <h2>HTML Email</h2>
         <p>This is an <strong>HTML</strong> email with formatting.</p>
@@ -133,13 +132,13 @@ class TestEmailWorkflow:
             <li>Item 2</li>
         </ul>
         """
-        
+
         # Validate both have content
         assert len(plain_text_body) > 0
         assert len(html_body) > 0
         assert "<h2>" in html_body
         assert "<h2>" not in plain_text_body
-        
+
         print("✅ Email format validation: Plain text and HTML formats distinguished")
 
 

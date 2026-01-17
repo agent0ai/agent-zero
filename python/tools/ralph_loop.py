@@ -5,8 +5,8 @@ Implements the Ralph Wiggum technique for iterative AI development loops.
 Tasks continue until completion promise is detected or max iterations reached.
 """
 
-from python.helpers.tool import Tool, Response
 from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class RalphLoop(Tool):

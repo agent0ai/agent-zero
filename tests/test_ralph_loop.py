@@ -6,12 +6,12 @@ iteration management, and workflow integration.
 """
 
 import os
-import pytest
-import json
-from datetime import datetime
 
 # Add parent directory to path
 import sys
+
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from instruments.custom.ralph_loop.ralph_db import RalphLoopDatabase
@@ -322,7 +322,7 @@ class TestRalphLoopDatabase:
         # Create loops
         loop1 = self.db.create_loop(prompt="Task 1", agent_id="agent_0")
         loop2 = self.db.create_loop(prompt="Task 2", agent_id="agent_0")
-        loop3 = self.db.create_loop(prompt="Task 3", agent_id="agent_1")
+        self.db.create_loop(prompt="Task 3", agent_id="agent_1")
 
         # Add iterations
         self.db.create_iteration(loop1, 1)
@@ -901,7 +901,7 @@ class TestRalphLoopEdgeCases:
             completion_promise="DONE"
         )
 
-        is_complete, reason = self.manager.check_completion(
+        is_complete, _reason = self.manager.check_completion(
             started['loop_id'],
             ""
         )
@@ -915,7 +915,7 @@ class TestRalphLoopEdgeCases:
             max_iterations=1000
         )
 
-        for i in range(100):
+        for _i in range(100):
             self.manager.advance_iteration(started['loop_id'])
 
         status = self.manager.get_status(started['loop_id'])

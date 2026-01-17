@@ -1,13 +1,14 @@
 import re
 import threading
-import time
-import os
-from io import StringIO
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHECKING
+from io import StringIO
+from typing import TYPE_CHECKING, Literal
+
 from dotenv.parser import parse_stream
-from python.helpers.errors import RepairableException
+
 from python.helpers import files
+from python.helpers.errors import RepairableException
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -28,9 +29,9 @@ def alias_for_key(key: str, placeholder: str = "§§secret({key})") -> str:
 class EnvLine:
     raw: str
     type: Literal["pair", "comment", "blank", "other"]
-    key: Optional[str] = None
-    value: Optional[str] = None
-    inline_comment: Optional[str] = (
+    key: str | None = None
+    value: str | None = None
+    inline_comment: str | None = (
         None  # preserves trailing inline comment including leading spaces and '#'
     )
 
@@ -44,16 +45,16 @@ class StreamingSecretsFilter:
     - On finalize(), any unresolved partial is masked with '***'.
     """
 
-    def __init__(self, key_to_value: Dict[str, str], min_trigger: int = 3):
+    def __init__(self, key_to_value: dict[str, str], min_trigger: int = 3):
         self.min_trigger = max(1, int(min_trigger))
         # Map value -> key for placeholder construction
-        self.value_to_key: Dict[str, str] = {
+        self.value_to_key: dict[str, str] = {
             v: k for k, v in key_to_value.items() if isinstance(v, str) and v
         }
         # Only keep non-empty values
-        self.secret_values: List[str] = [v for v in self.value_to_key.keys() if v]
+        self.secret_values: list[str] = [v for v in self.value_to_key if v]
         # Precompute all prefixes for quick suffix matching
-        self.prefixes: Set[str] = set()
+        self.prefixes: set[str] = set()
         for v in self.secret_values:
             for i in range(self.min_trigger, len(v) + 1):
                 self.prefixes.add(v[:i])
@@ -126,9 +127,9 @@ class SecretsManager:
     PLACEHOLDER_PATTERN = ALIAS_PATTERN
     MASK_VALUE = "***"
 
-    _instances: Dict[Tuple[str, ...], "SecretsManager"] = {}
-    _secrets_cache: Optional[Dict[str, str]] = None
-    _last_raw_text: Optional[str] = None
+    _instances: dict[tuple[str, ...], "SecretsManager"] = {}
+    _secrets_cache: dict[str, str] | None = None
+    _last_raw_text: str | None = None
 
     @classmethod
     def get_instance(cls, *secrets_files: str) -> "SecretsManager":
@@ -142,14 +143,14 @@ class SecretsManager:
     def __init__(self, *files: str):
         self._lock = threading.RLock()
         # instance-level list of secrets files
-        self._files: Tuple[str, ...] = tuple(files) if files else (DEFAULT_SECRETS_FILE,)
-        self._raw_snapshots: Dict[str, str] = {}
+        self._files: tuple[str, ...] = tuple(files) if files else (DEFAULT_SECRETS_FILE,)
+        self._raw_snapshots: dict[str, str] = {}
         self._secrets_cache = None
         self._last_raw_text = None
 
     def read_secrets_raw(self) -> str:
         """Read raw secrets file content from local filesystem (same system)."""
-        parts: List[str] = []
+        parts: list[str] = []
         self._raw_snapshots = {}
 
         for path in self._files:
@@ -173,7 +174,7 @@ class SecretsManager:
             )
         files.write_file(self._files[0], content)
 
-    def load_secrets(self) -> Dict[str, str]:
+    def load_secrets(self) -> dict[str, str]:
         """Load secrets from file, return key-value dict"""
         with self._lock:
             if self._secrets_cache is not None:
@@ -233,7 +234,7 @@ class SecretsManager:
             self._write_secrets_raw(merged_text)
         self._invalidate_all_caches()
 
-    def get_keys(self) -> List[str]:
+    def get_keys(self) -> list[str]:
         """Get list of secret keys"""
         secrets = self.load_secrets()
         return list(secrets.keys())
@@ -333,16 +334,16 @@ class SecretsManager:
 
         return self._serialize_env_lines(env_lines)
 
-    def parse_env_content(self, content: str) -> Dict[str, str]:
+    def parse_env_content(self, content: str) -> dict[str, str]:
         """Parse .env format content into key-value dict using python-dotenv. Keys are always uppercase."""
-        env: Dict[str, str] = {}
+        env: dict[str, str] = {}
         for binding in parse_stream(StringIO(content)):
             if binding.key and not binding.error:
                 env[binding.key.upper()] = binding.value or ""
         return env
 
     # Backward-compatible alias for callers using the old private method name
-    def _parse_env_content(self, content: str) -> Dict[str, str]:
+    def _parse_env_content(self, content: str) -> dict[str, str]:
         return self.parse_env_content(content)
 
     def clear_cache(self):
@@ -359,11 +360,11 @@ class SecretsManager:
 
     # ---------------- Internal helpers for parsing/merging ----------------
 
-    def parse_env_lines(self, content: str) -> List[EnvLine]:
+    def parse_env_lines(self, content: str) -> list[EnvLine]:
         """Parse env file into EnvLine objects using python-dotenv, preserving comments and order.
         We reconstruct key_part and inline_comment based on the original string.
         """
-        lines: List[EnvLine] = []
+        lines: list[EnvLine] = []
         for binding in parse_stream(StringIO(content)):
             orig = getattr(binding, "original", None)
             raw = getattr(orig, "string", "") if orig is not None else ""
@@ -372,7 +373,7 @@ class SecretsManager:
                 line_text = raw.rstrip("\n")
                 # Fallback to composed key_part if original not available
                 if "=" in line_text:
-                    left, right = line_text.split("=", 1)
+                    _left, right = line_text.split("=", 1)
                 else:
                     right = ""
                 # Try to extract inline comment by scanning right side to comment start, respecting quotes
@@ -421,15 +422,15 @@ class SecretsManager:
 
     def _serialize_env_lines(
         self,
-        lines: List[EnvLine],
+        lines: list[EnvLine],
         with_values=True,
         with_comments=True,
         with_blank=True,
         with_other=True,
         key_delimiter="",
-        key_formatter: Optional[Callable[[str], str]] = None,
+        key_formatter: Callable[[str], str] | None = None,
     ) -> str:
-        out: List[str] = []
+        out: list[str] = []
         for ln in lines:
             if ln.type == "pair" and ln.key is not None:
                 left_raw = ln.key
@@ -444,15 +445,11 @@ class SecretsManager:
                 val_part = f'="{val}"' if with_values else ""
                 comment_part = f" {comment}" if with_comments and comment else ""
                 out.append(f"{formatted_key}{val_part}{comment_part}")
-            elif ln.type == "blank" and with_blank:
-                out.append(ln.raw)
-            elif ln.type == "comment" and with_comments:
-                out.append(ln.raw)
-            elif ln.type == "other" and with_other:
+            elif (ln.type == "blank" and with_blank) or (ln.type == "comment" and with_comments) or (ln.type == "other" and with_other):
                 out.append(ln.raw)
         return "\n".join(out)
 
-    def _merge_env(self, existing_text: str, submitted_text: str) -> List[EnvLine]:
+    def _merge_env(self, existing_text: str, submitted_text: str) -> list[EnvLine]:
         """Merge using submitted content as the base to preserve its comments and structure.
         Behavior:
         - Iterate submitted lines in order and keep them (including comments/blanks/other).
@@ -466,13 +463,13 @@ class SecretsManager:
         existing_lines = self.parse_env_lines(existing_text)
         submitted_lines = self.parse_env_lines(submitted_text)
 
-        existing_pairs: Dict[str, EnvLine] = {
+        existing_pairs: dict[str, EnvLine] = {
             ln.key: ln
             for ln in existing_lines
             if ln.type == "pair" and ln.key is not None
         }
 
-        merged: List[EnvLine] = []
+        merged: list[EnvLine] = []
         for sub in submitted_lines:
             if sub.type != "pair" or sub.key is None:
                 # Preserve submitted comments/blanks/other verbatim

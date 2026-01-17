@@ -1,8 +1,12 @@
+import json
+from typing import TYPE_CHECKING
+
 from python.helpers.api import ApiHandler, Request, Response
-from werkzeug.datastructures import FileStorage
 from python.helpers.backup import BackupService
 from python.helpers.persist_chat import load_tmp_chats
-import json
+
+if TYPE_CHECKING:
+    from werkzeug.datastructures import FileStorage
 
 
 class BackupRestore(ApiHandler):

@@ -1,5 +1,5 @@
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
 from python.helpers import projects
+from python.helpers.api import ApiHandler, Input, Output, Request
 
 
 class Projects(ApiHandler):
@@ -71,7 +71,7 @@ class Projects(ApiHandler):
         if not context_id:
             raise Exception("Context ID is required")
         if not name:
-            raise Exception("Project name is required") 
+            raise Exception("Project name is required")
         return projects.activate_project(context_id, name)
 
     def deactivate_project(self, context_id: str|None):

@@ -1,0 +1,53 @@
+[
+  {
+    "name": "AWS Architecture Blog",
+    "type": "rss",
+    "uri": "https://aws.amazon.com/blogs/architecture/feed/",
+    "tags": ["architecture", "cloud"],
+    "cadence": "daily",
+    "config": {}
+  },
+  {
+    "name": "Google Cloud Blog",
+    "type": "rss",
+    "uri": "https://cloud.google.com/blog/rss",
+    "tags": ["cloud", "tech"],
+    "cadence": "daily",
+    "config": {}
+  },
+  {
+    "name": "Microsoft Azure Blog",
+    "type": "rss",
+    "uri": "https://azure.microsoft.com/en-us/blog/feed/",
+    "tags": ["cloud", "architecture"],
+    "cadence": "daily",
+    "config": {}
+  },
+  {
+    "name": "CNCF Blog",
+    "type": "rss",
+    "uri": "https://www.cncf.io/feed/",
+    "tags": ["platform", "cloud"],
+    "cadence": "weekly",
+    "config": {}
+  },
+  {
+    "name": "CB Insights",
+    "type": "rss",
+    "uri": "https://www.cbinsights.com/research/feed/",
+    "tags": ["business", "strategy"],
+    "cadence": "weekly",
+    "config": {}
+  },
+  {
+    "name": "Brave Search: Architecture Signals",
+    "type": "mcp",
+    "uri": "brave-search.search",
+    "tags": ["architecture", "search"],
+    "cadence": "daily",
+    "config": {
+      "query": "solution architecture trends 2024",
+      "count": 5
+    }
+  }
+]

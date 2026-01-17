@@ -1,10 +1,11 @@
 import asyncio
-from python.helpers import settings
-from python.helpers.extension import Extension
-from python.helpers.memory import Memory
-from python.helpers.dirty_json import DirtyJson
+
 from agent import LoopData
+from python.helpers import settings
+from python.helpers.dirty_json import DirtyJson
+from python.helpers.extension import Extension
 from python.helpers.log import LogItem
+from python.helpers.memory import Memory
 from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
@@ -17,7 +18,7 @@ class MemorizeSolutions(Extension):
 
         if not set["memory_memorize_enabled"]:
             return
- 
+
         # show full util message
         log_item = self.agent.context.log.log(
             type="util",
@@ -65,7 +66,7 @@ class MemorizeSolutions(Extension):
         try:
             solutions = DirtyJson.parse_string(solutions_json)
         except Exception as e:
-            log_item.update(heading=f"Failed to parse solutions response: {str(e)}")
+            log_item.update(heading=f"Failed to parse solutions response: {e!s}")
             return
 
         # Validate that solutions is a list or convertible to one
@@ -103,7 +104,7 @@ class MemorizeSolutions(Extension):
                 txt = f"# Problem\n {problem}\n# Solution\n {solution_text}"
             else:
                 # If solution is not a dict, convert it to string
-                txt = f"# Solution\n {str(solution)}"
+                txt = f"# Solution\n {solution!s}"
 
             if set["memory_memorize_consolidation"]:
                 try:

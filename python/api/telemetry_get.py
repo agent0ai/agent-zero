@@ -1,5 +1,5 @@
-from python.helpers.api import ApiHandler, Request, Response
 from python.helpers import telemetry
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class TelemetryGet(ApiHandler):

@@ -47,7 +47,7 @@ class ModelSelectorQuickSwitch(ApiHandler):
                 from python.helpers.llm_router import get_router
                 router = get_router()
                 router.set_default(role, provider, model_name)
-            except Exception as router_err:
+            except Exception:
                 # Router update is optional, don't fail the whole request
                 pass
 

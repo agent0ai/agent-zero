@@ -1,10 +1,12 @@
 import asyncio
-import paramiko
-import time
 import re
-from typing import Tuple
+import time
+
+import paramiko
+
 from python.helpers.log import Log
 from python.helpers.print_style import PrintStyle
+
 # from python.helpers.strings import calculate_valid_match_lengths
 
 
@@ -105,17 +107,16 @@ class SSHInteractiveSession:
         self.last_command = command.encode()
         self.trimmed_command_length = 0
         self.shell.send(self.last_command)
-        
+
     async def read_output(
         self, timeout: float = 0, reset_full_output: bool = False
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         if not self.shell:
             raise Exception("Shell not connected")
 
         if reset_full_output:
             self.full_output = b""
         partial_output = b""
-        leftover = b""
         start_time = time.time()
 
         while self.shell.recv_ready() and (

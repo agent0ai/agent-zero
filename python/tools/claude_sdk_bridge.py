@@ -3,8 +3,8 @@ Claude SDK Bridge Tool for Agent Zero
 Integrates Claude Agent SDK for Python, enabling bidirectional tool sharing
 """
 
-from python.helpers.tool import Tool, Response
 from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class ClaudeSDKBridge(Tool):
@@ -311,7 +311,7 @@ class ClaudeSDKBridge(Tool):
                     break_loop=False
                 )
 
-            tool_class = list(tool_classes.values())[0]
+            tool_class = next(iter(tool_classes.values()))
             result = self.manager.export_agent_zero_tool(tool_name, tool_class)
 
             if "error" in result:
@@ -327,7 +327,7 @@ class ClaudeSDKBridge(Tool):
 
         except Exception as e:
             return Response(
-                message=f"Export failed: {str(e)}",
+                message=f"Export failed: {e!s}",
                 break_loop=False
             )
 

@@ -1,5 +1,6 @@
 import os
 import sys
+
 from python.helpers import runtime
 from python.helpers.print_style import PrintStyle
 
@@ -29,7 +30,7 @@ def reload():
 def restart_process():
     PrintStyle.standard("Restarting process...")
     python = sys.executable
-    os.execv(python, [python] + sys.argv)
+    os.execv(python, [python, *sys.argv])
 
 def exit_process():
     PrintStyle.standard("Exiting process...")

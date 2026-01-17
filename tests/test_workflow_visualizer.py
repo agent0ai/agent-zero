@@ -4,10 +4,12 @@ Tests Mermaid diagram generation, ASCII progress bars, and dashboard output.
 """
 
 import os
-import pytest
 
 # Add parent directory to path
 import sys
+
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from instruments.custom.workflow_engine.workflow_visualizer import WorkflowVisualizer

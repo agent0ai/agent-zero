@@ -1,6 +1,7 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
 from werkzeug.utils import secure_filename
+
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class UploadFile(ApiHandler):

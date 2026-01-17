@@ -1,13 +1,13 @@
 from contextvars import ContextVar
-from typing import Any, TypeVar, cast, Optional, Dict
+from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
 # no mutable default — None is safe
-_context_data: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_context_data", default=None)
+_context_data: ContextVar[dict[str, Any] | None] = ContextVar("_context_data", default=None)
 
 
-def _ensure_context() -> Dict[str, Any]:
+def _ensure_context() -> dict[str, Any]:
     """Make sure a context dict exists, and return it."""
     data = _context_data.get()
     if data is None:
@@ -33,12 +33,12 @@ def delete_context_data(key: str):
         _context_data.set(data)
 
 
-def get_context_data(key: Optional[str] = None, default: T = None) -> T:
+def get_context_data[T](key: str | None = None, default: T = None) -> T:
     """Get a key from the current context, or the full dict if key is None."""
     data = _ensure_context()
     if key is None:
-        return cast(T, data)
-    return cast(T, data.get(key, default))
+        return cast("T", data)
+    return cast("T", data.get(key, default))
 
 
 def clear_context_data():

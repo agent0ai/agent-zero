@@ -3,10 +3,10 @@ Portfolio Dashboard API
 Provides aggregated data for the Portfolio Dashboard combining customers and projects
 """
 
-import json
-from python.helpers.api import ApiHandler
-from python.helpers import files
 import traceback
+
+from python.helpers import files
+from python.helpers.api import ApiHandler
 
 
 class PortfolioDashboard(ApiHandler):

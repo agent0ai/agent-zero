@@ -3,8 +3,8 @@ Diagram Architect Tool for Agent Zero
 Auto-generate architecture diagrams from codebase analysis
 """
 
-from python.helpers.tool import Tool, Response
 from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class DiagramArchitect(Tool):
@@ -80,7 +80,7 @@ class DiagramArchitect(Tool):
                 break_loop=False
             )
 
-        lines = [f"## Architecture Analysis Complete\n"]
+        lines = ["## Architecture Analysis Complete\n"]
         lines.append(f"**Project:** {result['project_name']}")
         lines.append(f"**Analysis ID:** {result['analysis_id']}")
         lines.append(f"**Status:** {result['status']}")

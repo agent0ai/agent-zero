@@ -9,18 +9,18 @@ This module provides:
 5. Context-aware model selection (USER, TASK, BACKGROUND)
 """
 
-import os
-import json
-import time
 import asyncio
-import urllib.request
+import json
+import os
+import sqlite3
+import time
 import urllib.error
-from typing import Optional, Dict, List, Any, Callable
-from dataclasses import dataclass, field, asdict
+import urllib.request
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-import sqlite3
-from datetime import datetime, timedelta
+from typing import Any
 
 
 class ModelCapability(Enum):
@@ -51,21 +51,21 @@ class ModelInfo:
     display_name: str       # Human-readable name
     size_gb: float = 0.0    # Model size (for local models)
     context_length: int = 4096
-    capabilities: List[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
     cost_per_1k_input: float = 0.0    # USD per 1K input tokens
     cost_per_1k_output: float = 0.0   # USD per 1K output tokens
     avg_latency_ms: int = 0           # Average response latency
     is_local: bool = False
     is_available: bool = True
-    last_checked: Optional[str] = None
+    last_checked: str | None = None
     priority_score: float = 0.0       # Computed routing score
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "ModelInfo":
+    def from_dict(cls, data: dict) -> "ModelInfo":
         return cls(**data)
 
 
@@ -75,10 +75,10 @@ class RoutingRule:
     name: str
     priority: int = 0                  # Higher = more important
     condition: str = ""                # Python expression
-    preferred_models: List[str] = field(default_factory=list)
-    excluded_models: List[str] = field(default_factory=list)
+    preferred_models: list[str] = field(default_factory=list)
+    excluded_models: list[str] = field(default_factory=list)
     min_context_length: int = 0
-    required_capabilities: List[str] = field(default_factory=list)
+    required_capabilities: list[str] = field(default_factory=list)
     max_cost_per_1k: float = 0.0       # 0 = no limit
     max_latency_ms: int = 0            # 0 = no limit
     enabled: bool = True
@@ -87,7 +87,7 @@ class RoutingRule:
 class LLMRouterDatabase:
     """SQLite database for router state and usage tracking"""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str | None = None):
         if db_path is None:
             # Use data directory relative to project root
             data_dir = Path(__file__).parent.parent.parent / "data"
@@ -196,7 +196,7 @@ class LLMRouterDatabase:
                 model.last_checked, model.priority_score, json.dumps(model.metadata)
             ))
 
-    def get_models(self, provider: str = None, available_only: bool = True) -> List[ModelInfo]:
+    def get_models(self, provider: str | None = None, available_only: bool = True) -> list[ModelInfo]:
         """Get models from registry"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -231,8 +231,8 @@ class LLMRouterDatabase:
 
     def record_usage(self, provider: str, model_name: str, input_tokens: int,
                     output_tokens: int, latency_ms: int, success: bool = True,
-                    error_message: str = None, context_type: str = None,
-                    model_role: str = None, cost_usd: float = 0):
+                    error_message: str | None = None, context_type: str | None = None,
+                    model_role: str | None = None, cost_usd: float = 0):
         """Record model usage for tracking"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
@@ -245,7 +245,7 @@ class LLMRouterDatabase:
                 cost_usd, 1 if success else 0, error_message, context_type, model_role
             ))
 
-    def get_usage_stats(self, hours: int = 24) -> Dict:
+    def get_usage_stats(self, hours: int = 24) -> dict:
         """Get usage statistics for the past N hours"""
         cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
         with sqlite3.connect(self.db_path) as conn:
@@ -290,7 +290,7 @@ class LLMRouterDatabase:
                 rule.max_cost_per_1k, rule.max_latency_ms, 1 if rule.enabled else 0
             ))
 
-    def get_routing_rules(self, enabled_only: bool = True) -> List[RoutingRule]:
+    def get_routing_rules(self, enabled_only: bool = True) -> list[RoutingRule]:
         """Get routing rules"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -321,7 +321,7 @@ class LLMRouterDatabase:
                 VALUES (?, ?, ?, ?)
             """, (alias, provider, model_name, description))
 
-    def get_model_alias(self, alias: str) -> Optional[tuple]:
+    def get_model_alias(self, alias: str) -> tuple | None:
         """Get provider and model name for an alias"""
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute(
@@ -420,13 +420,13 @@ class LLMRouter:
         },
     }
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str | None = None):
         self.db = LLMRouterDatabase(db_path)
         self._ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self._last_discovery = None
         self._discovery_interval = 300  # 5 minutes
 
-    async def discover_models(self, force: bool = False) -> List[ModelInfo]:
+    async def discover_models(self, force: bool = False) -> list[ModelInfo]:
         """Discover all available models from configured providers"""
         now = time.time()
         if not force and self._last_discovery and (now - self._last_discovery) < self._discovery_interval:
@@ -449,7 +449,7 @@ class LLMRouter:
         self._last_discovery = now
         return discovered
 
-    async def _discover_ollama_models(self) -> List[ModelInfo]:
+    async def _discover_ollama_models(self) -> list[ModelInfo]:
         """Discover models available in Ollama"""
         models = []
         try:
@@ -495,7 +495,7 @@ class LLMRouter:
 
         return models
 
-    def _get_available_cloud_models(self) -> List[ModelInfo]:
+    def _get_available_cloud_models(self) -> list[ModelInfo]:
         """Get cloud models based on available API keys"""
         models = []
 
@@ -545,13 +545,13 @@ class LLMRouter:
         self,
         role: str = "chat",
         context_type: str = "user",
-        required_capabilities: List[str] = None,
+        required_capabilities: list[str] | None = None,
         priority: RoutingPriority = RoutingPriority.BALANCED,
         min_context_length: int = 0,
         max_cost_per_1k: float = 0,
-        preferred_provider: str = None,
-        excluded_providers: List[str] = None
-    ) -> Optional[ModelInfo]:
+        preferred_provider: str | None = None,
+        excluded_providers: list[str] | None = None
+    ) -> ModelInfo | None:
         """
         Select the best model based on criteria
 
@@ -613,7 +613,7 @@ class LLMRouter:
         model: ModelInfo,
         priority: RoutingPriority,
         context_type: str,
-        preferred_provider: str = None
+        preferred_provider: str | None = None
     ) -> float:
         """Calculate routing score for a model"""
         score = 0.0
@@ -691,9 +691,9 @@ class LLMRouter:
     def get_fallback_chain(
         self,
         primary_model: ModelInfo,
-        required_capabilities: List[str] = None,
+        required_capabilities: list[str] | None = None,
         max_fallbacks: int = 3
-    ) -> List[ModelInfo]:
+    ) -> list[ModelInfo]:
         """
         Build a fallback chain for a primary model
 
@@ -736,9 +736,9 @@ class LLMRouter:
         output_tokens: int,
         latency_ms: int,
         success: bool = True,
-        error_message: str = None,
-        context_type: str = None,
-        model_role: str = None
+        error_message: str | None = None,
+        context_type: str | None = None,
+        model_role: str | None = None
     ):
         """Record a model call for usage tracking"""
         # Calculate cost
@@ -762,7 +762,7 @@ class LLMRouter:
             cost_usd=cost
         )
 
-    def get_usage_stats(self, hours: int = 24) -> Dict:
+    def get_usage_stats(self, hours: int = 24) -> dict:
         """Get usage statistics"""
         return self.db.get_usage_stats(hours)
 
@@ -771,7 +771,7 @@ class LLMRouter:
         alias = f"default_{role}"
         self.db.set_model_alias(alias, provider, model_name, f"Default {role} model")
 
-    def get_default_model(self, role: str) -> Optional[tuple]:
+    def get_default_model(self, role: str) -> tuple | None:
         """Get the default model for a role"""
         alias = f"default_{role}"
         return self.db.get_model_alias(alias)
@@ -780,13 +780,13 @@ class LLMRouter:
         """Add a routing rule"""
         self.db.save_routing_rule(rule)
 
-    def get_routing_rules(self) -> List[RoutingRule]:
+    def get_routing_rules(self) -> list[RoutingRule]:
         """Get all routing rules"""
         return self.db.get_routing_rules()
 
 
 # Singleton instance
-_router_instance: Optional[LLMRouter] = None
+_router_instance: LLMRouter | None = None
 
 
 def get_router() -> LLMRouter:

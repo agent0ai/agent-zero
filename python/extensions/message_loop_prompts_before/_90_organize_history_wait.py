@@ -1,7 +1,7 @@
-from python.helpers.extension import Extension
+
 from agent import LoopData
 from python.extensions.message_loop_end._10_organize_history import DATA_NAME_TASK
-import asyncio
+from python.helpers.extension import Extension
 
 
 class OrganizeHistoryWait(Extension):
@@ -26,4 +26,3 @@ class OrganizeHistoryWait(Extension):
                 # no task running, start and wait
                 self.agent.context.log.set_progress("Compressing history...")
                 await self.agent.history.compress()
-

@@ -1,6 +1,6 @@
+from python.helpers import master_orchestrator, observability_adapters, telemetry
 from python.helpers.extension import Extension
 from python.helpers.settings import get_settings
-from python.helpers import telemetry, master_orchestrator, observability_adapters
 
 
 class TelemetryToolError(Extension):

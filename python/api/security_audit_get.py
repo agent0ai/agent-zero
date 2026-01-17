@@ -1,7 +1,11 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
-import sqlite3
+import builtins
+import contextlib
 import json
+import sqlite3
+
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
+
 
 class security_audit_get(ApiHandler):
     """API handler to retrieve security audit logs."""
@@ -12,31 +16,29 @@ class security_audit_get(ApiHandler):
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            
+
             # Get latest 100 logs
             limit = input.get("limit", 100)
             cursor.execute("""
-                SELECT id, timestamp, event_type, status, user_id, ip_address, device_info, details 
-                FROM security_audit_log 
-                ORDER BY timestamp DESC 
+                SELECT id, timestamp, event_type, status, user_id, ip_address, device_info, details
+                FROM security_audit_log
+                ORDER BY timestamp DESC
                 LIMIT ?
             """, (limit,))
-            
+
             rows = cursor.fetchall()
             logs = []
             for row in rows:
                 log = dict(row)
                 if log["details"]:
-                    try:
+                    with contextlib.suppress(builtins.BaseException):
                         log["details"] = json.loads(log["details"])
-                    except:
-                        pass
                 logs.append(log)
-                
+
             conn.close()
-            
+
             return {
-                "success": True, 
+                "success": True,
                 "logs": logs
             }
         except Exception as e:

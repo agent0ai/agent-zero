@@ -1,20 +1,20 @@
+import asyncio
+import json
 import mimetypes
 import os
-import asyncio
+
 import aiohttp
-import json
 
 from python.helpers.vector_db import VectorDB
 
-os.environ["USER_AGENT"] = "@mixedbread-ai/unstructured"  # noqa E402
+os.environ["USER_AGENT"] = "@mixedbread-ai/unstructured"
 from langchain_unstructured import UnstructuredLoader  # noqa E402
 
 from urllib.parse import urlparse
-from typing import Callable, Sequence, List, Optional, Tuple
+from collections.abc import Callable, Sequence
 from datetime import datetime
 
 from langchain_community.document_loaders import AsyncHtmlLoader
-from langchain_community.document_loaders.text import TextLoader
 from langchain_community.document_loaders.pdf import PyMuPDFLoader
 from langchain_community.document_transformers import MarkdownifyTransformer
 from langchain_community.document_loaders.parsers.images import TesseractBlobParser
@@ -155,7 +155,7 @@ class DocumentQueryStore:
             PrintStyle.error(f"Error adding document '{document_uri}': {err_text}")
             return False, []
 
-    async def get_document(self, document_uri: str) -> Optional[Document]:
+    async def get_document(self, document_uri: str) -> Document | None:
         """
         Retrieve a document by its URI.
 
@@ -190,7 +190,7 @@ class DocumentQueryStore:
 
         return Document(page_content=full_content, metadata=metadata)
 
-    async def _get_document_chunks(self, document_uri: str) -> List[Document]:
+    async def _get_document_chunks(self, document_uri: str) -> list[Document]:
         """
         Get all chunks for a document.
 
@@ -277,7 +277,7 @@ class DocumentQueryStore:
 
     async def search_documents(
         self, query: str, limit: int = 10, threshold: float = 0.5, filter: str = ""
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Search for documents similar to the query across the entire store.
 
@@ -307,12 +307,12 @@ class DocumentQueryStore:
             PrintStyle.standard(f"Search '{query}' returned {len(results)} results")
             return results
         except Exception as e:
-            PrintStyle.error(f"Error searching documents: {str(e)}")
+            PrintStyle.error(f"Error searching documents: {e!s}")
             return []
 
     async def search_document(
         self, document_uri: str, query: str, limit: int = 10, threshold: float = 0.5
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Search for content within a specific document.
 
@@ -329,7 +329,7 @@ class DocumentQueryStore:
             query, limit, threshold, f"document_uri == '{document_uri}'"
         )
 
-    async def list_documents(self) -> List[str]:
+    async def list_documents(self) -> list[str]:
         """
         Get a list of all document URIs in the store.
 
@@ -348,7 +348,7 @@ class DocumentQueryStore:
                 if uri:
                     uris.add(uri)
 
-        return sorted(list(uris))
+        return sorted(uris)
 
 
 class DocumentQueryHelper:
@@ -361,8 +361,8 @@ class DocumentQueryHelper:
         self.progress_callback = progress_callback or (lambda x: None)
 
     async def document_qa(
-        self, document_uris: List[str], questions: Sequence[str]
-    ) -> Tuple[bool, str]:
+        self, document_uris: list[str], questions: Sequence[str]
+    ) -> tuple[bool, str]:
         self.progress_callback(
             f"Starting Q&A process for {len(document_uris)} documents"
         )
@@ -435,58 +435,57 @@ class DocumentQueryHelper:
             ]
         )
 
-        self.progress_callback(f"Q&A process completed")
+        self.progress_callback("Q&A process completed")
 
         return True, str(ai_response)
 
     async def document_get_content(
         self, document_uri: str, add_to_db: bool = False
     ) -> str:
-        self.progress_callback(f"Fetching document content")
+        self.progress_callback("Fetching document content")
         await self.agent.handle_intervention()
         url = urlparse(document_uri)
         scheme = url.scheme or "file"
         mimetype, encoding = mimetypes.guess_type(document_uri)
         mimetype = mimetype or "application/octet-stream"
 
-        if mimetype == "application/octet-stream":
-            if url.scheme in ["http", "https"]:
-                response: aiohttp.ClientResponse | None = None
-                retries = 0
-                last_error = ""
-                while not response and retries < 3:
-                    try:
-                        async with aiohttp.ClientSession() as session:
-                            response = await session.head(
-                                document_uri,
-                                timeout=aiohttp.ClientTimeout(total=2.0),
-                                allow_redirects=True,
-                            )
-                            if response.status > 399:
-                                raise Exception(response.status)
-                            break
-                    except Exception as e:
-                        await asyncio.sleep(1)
-                        last_error = str(e)
-                    retries += 1
-                    await self.agent.handle_intervention()
-
-                if not response:
-                    raise ValueError(
-                        f"DocumentQueryHelper::document_get_content: Document fetch error: {document_uri} ({last_error})"
-                    )
-
-                mimetype = response.headers["content-type"]
-                if "content-length" in response.headers:
-                    content_length = (
-                        float(response.headers["content-length"]) / 1024 / 1024
-                    )  # MB
-                    if content_length > 50.0:
-                        raise ValueError(
-                            f"Document content length exceeds max. 50MB: {content_length} MB ({document_uri})"
+        if mimetype == "application/octet-stream" and url.scheme in ["http", "https"]:
+            response: aiohttp.ClientResponse | None = None
+            retries = 0
+            last_error = ""
+            while not response and retries < 3:
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        response = await session.head(
+                            document_uri,
+                            timeout=aiohttp.ClientTimeout(total=2.0),
+                            allow_redirects=True,
                         )
-                if mimetype and "; charset=" in mimetype:
-                    mimetype = mimetype.split("; charset=")[0]
+                        if response.status > 399:
+                            raise Exception(response.status)
+                        break
+                except Exception as e:
+                    await asyncio.sleep(1)
+                    last_error = str(e)
+                retries += 1
+                await self.agent.handle_intervention()
+
+            if not response:
+                raise ValueError(
+                    f"DocumentQueryHelper::document_get_content: Document fetch error: {document_uri} ({last_error})"
+                )
+
+            mimetype = response.headers["content-type"]
+            if "content-length" in response.headers:
+                content_length = (
+                    float(response.headers["content-length"]) / 1024 / 1024
+                )  # MB
+                if content_length > 50.0:
+                    raise ValueError(
+                        f"Document content length exceeds max. 50MB: {content_length} MB ({document_uri})"
+                    )
+            if mimetype and "; charset=" in mimetype:
+                mimetype = mimetype.split("; charset=")[0]
 
         if scheme == "file":
             try:
@@ -525,13 +524,13 @@ class DocumentQueryHelper:
                     document_uri, scheme
                 )
             if add_to_db:
-                self.progress_callback(f"Indexing document")
+                self.progress_callback("Indexing document")
                 await self.agent.handle_intervention()
                 success, ids = await self.store.add_document(
                     document_content, document_uri_norm
                 )
                 if not success:
-                    self.progress_callback(f"Failed to index document")
+                    self.progress_callback("Failed to index document")
                     raise ValueError(
                         f"DocumentQueryHelper::document_get_content: Failed to index document: {document_uri_norm}"
                     )
@@ -600,8 +599,9 @@ class DocumentQueryHelper:
                 temp_file_path = temp_file.name
         elif scheme in ["http", "https"]:
             # download the file from the web url to a temporary file using python libraries for downloading
-            import requests
             import tempfile
+
+            import requests
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                 response = requests.get(document, timeout=10.0)
@@ -671,8 +671,8 @@ class DocumentQueryHelper:
             # Use RFC file operations to read the file as binary
             file_content_bytes = files.read_file_bin(document)
             # Create a temporary file for UnstructuredLoader since it needs a file path
-            import tempfile
             import os
+            import tempfile
 
             # Get file extension to preserve it for proper processing
             _, ext = os.path.splitext(document)

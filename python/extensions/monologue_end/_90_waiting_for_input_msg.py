@@ -1,5 +1,6 @@
-from python.helpers.extension import Extension
 from agent import LoopData
+from python.helpers.extension import Extension
+
 
 class WaitingForInputMsg(Extension):
 
@@ -7,4 +8,3 @@ class WaitingForInputMsg(Extension):
         # show temp info message
         if self.agent.number == 0:
             self.agent.context.log.set_initial_progress()
-

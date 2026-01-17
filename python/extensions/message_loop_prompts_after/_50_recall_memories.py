@@ -1,10 +1,9 @@
 import asyncio
+
+from agent import LoopData
+from python.helpers import dirty_json, errors, log, settings
 from python.helpers.extension import Extension
 from python.helpers.memory import Memory
-from agent import LoopData
-from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
-from python.helpers import dirty_json, errors, settings, log 
-
 
 DATA_NAME_TASK = "_recall_memories_task"
 DATA_NAME_ITER = "_recall_memories_iter"
@@ -99,7 +98,7 @@ class RecallMemories(Extension):
                     heading="Failed to generate memory query",
                 )
                 return
-        
+
         # otherwise use the message and history as query
         else:
             query = user_instruction + "\n\n" + history

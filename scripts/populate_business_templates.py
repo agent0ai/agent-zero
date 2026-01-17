@@ -1,8 +1,6 @@
 
-import sqlite3
 import json
-import os
-from datetime import datetime
+import sqlite3
 
 DB_PATH = "/home/webemo-aaron/projects/agent-zero/instruments/custom/workflow_engine/data/workflow.db"
 
@@ -178,11 +176,11 @@ def populate_templates():
                 INSERT INTO workflows (name, version, description, workflow_type, definition, is_template)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (
-                t["name"], 
-                t["version"], 
-                t["description"], 
-                t["workflow_type"], 
-                json.dumps(t["definition"]), 
+                t["name"],
+                t["version"],
+                t["description"],
+                t["workflow_type"],
+                json.dumps(t["definition"]),
                 True
             ))
             print(f"Added template: {t['name']}")

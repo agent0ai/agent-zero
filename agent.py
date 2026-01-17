@@ -1,34 +1,35 @@
-import asyncio, random, string
+import asyncio
+import random
+import string
+
 import nest_asyncio
 
 nest_asyncio.apply()
 
+import contextlib
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Coroutine, Dict, Literal
+from datetime import UTC, datetime
 from enum import Enum
-import uuid
-import models
+from typing import Any
 
-from python.helpers import extract_tools, files, errors, history, tokens, context as context_helper
-from python.helpers import dirty_json
-from python.helpers.print_style import PrintStyle
-
+from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.prompts import (
     ChatPromptTemplate,
 )
-from langchain_core.messages import SystemMessage, BaseMessage
 
+import models
 import python.helpers.log as Log
-from python.helpers.dirty_json import DirtyJson
+from python.helpers import context as context_helper, dirty_json, errors, extract_tools, files, history, tokens
 from python.helpers.defer import DeferredTask
-from typing import Callable
-from python.helpers.localization import Localization
-from python.helpers.extension import call_extensions
+from python.helpers.dirty_json import DirtyJson
 from python.helpers.errors import RepairableException
-from python.helpers.security import SecurityManager
+from python.helpers.extension import call_extensions
+from python.helpers.localization import Localization
+from python.helpers.print_style import PrintStyle
 from python.helpers.proactive import ProactiveManager
+from python.helpers.security import SecurityManager
 
 
 class AgentContextType(Enum):
@@ -77,11 +78,11 @@ class AgentContext:
         self.paused = paused
         self.streaming_agent = streaming_agent
         self.task: DeferredTask | None = None
-        self.created_at = created_at or datetime.now(timezone.utc)
+        self.created_at = created_at or datetime.now(UTC)
         self.type = type
         AgentContext._counter += 1
         self.no = AgentContext._counter
-        self.last_message = last_message or datetime.now(timezone.utc)
+        self.last_message = last_message or datetime.now(UTC)
         self.data = data or {}
         self.output_data = output_data or {}
 
@@ -115,7 +116,7 @@ class AgentContext:
     def first():
         if not AgentContext._contexts:
             return None
-        return list(AgentContext._contexts.values())[0]
+        return next(iter(AgentContext._contexts.values()))
 
     @staticmethod
     def all():
@@ -255,7 +256,7 @@ class AgentContext:
     # this wrapper ensures that superior agents are called back if the chat was loaded from file and original callstack is gone
     async def _process_chain(self, agent: "Agent", msg: "UserMessage|str", user=True):
         try:
-            msg_template = (
+            (
                 agent.hist_add_user_message(msg)  # type: ignore
                 if user
                 else agent.hist_add_tool_result(
@@ -288,7 +289,7 @@ class AgentConfig:
     code_exec_ssh_port: int = 55022
     code_exec_ssh_user: str = "root"
     code_exec_ssh_pass: str = ""
-    additional: Dict[str, Any] = field(default_factory=dict)
+    additional: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -359,10 +360,8 @@ class Agent:
         while True:
             try:
                 # Proactive nudge check (Graceful fail)
-                try:
+                with contextlib.suppress(Exception):
                     ProactiveManager.check_and_nudge()
-                except Exception as e:
-                    pass
 
                 # loop data dictionary to pass to extensions
                 self.loop_data = LoopData(user_message=self.last_user_message)
@@ -465,7 +464,7 @@ class Agent:
                                 return tools_result  # break the execution if the task is done
 
                     # exceptions inside message loop:
-                    except InterventionException as e:
+                    except InterventionException:
                         pass  # intervention message has been handled in handle_intervention(), proceed with conversation loop
                     except RepairableException as e:
                         # Forward repairable errors to the LLM, maybe it can fix them
@@ -485,7 +484,7 @@ class Agent:
                         )
 
             # exceptions outside message loop:
-            except InterventionException as e:
+            except InterventionException:
                 pass  # just start over
             except Exception as e:
                 self.handle_critical_exception(e)
@@ -577,7 +576,7 @@ class Agent:
 
     async def get_system_prompt(self, loop_data: LoopData) -> list[str]:
         system_prompt: list[str] = []
-        
+
         # Add User Profile if available
         try:
             from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
@@ -588,15 +587,15 @@ class Agent:
             cursor.execute("SELECT * FROM user_profiles WHERE user_id = 'default_user'")
             row = cursor.fetchone()
             conn.close()
-            
+
             if row:
                 profile = dict(row)
-                profile_text = f"## Power User Profile (Identity Verified via Passkey)\n"
+                profile_text = "## Power User Profile (Identity Verified via Passkey)\n"
                 profile_text += f"- **User**: {profile.get('full_name')} <{profile.get('email')}>\n"
-                profile_text += f"- **Environment**: High-Security White-Hat Platform\n"
+                profile_text += "- **Environment**: High-Security White-Hat Platform\n"
                 profile_text += f"- **Timezone**: {profile.get('timezone')}\n"
                 profile_text += f"- **Locale**: {profile.get('locale')}\n"
-                profile_text += f"- **Security Policy**: Multi-Factor/Passkey required for high-risk tools (bash, email, etc.)\n"
+                profile_text += "- **Security Policy**: Multi-Factor/Passkey required for high-risk tools (bash, email, etc.)\n"
                 if profile.get('phone_number'):
                     profile_text += f"- **Phone**: {profile.get('phone_number')}\n"
                 system_prompt.append(profile_text)
@@ -642,7 +641,7 @@ class Agent:
     def hist_add_message(
         self, ai: bool, content: history.MessageContent, tokens: int = 0
     ):
-        self.last_message = datetime.now(timezone.utc)
+        self.last_message = datetime.now(UTC)
         # Allow extensions to process content before adding to history
         content_data = {"content": content}
         asyncio.run(self.call_extensions("hist_add_before", content_data=content_data, ai=ai))
@@ -705,7 +704,7 @@ class Agent:
         set = settings.get_settings()
         if set.get("llm_router_enabled", False):
             try:
-                from python.helpers.llm_router import get_router, RoutingPriority
+                from python.helpers.llm_router import RoutingPriority, get_router
                 router = get_router()
                 model_info = router.select_model(
                     role="chat",
@@ -734,7 +733,7 @@ class Agent:
         set = settings.get_settings()
         if set.get("llm_router_enabled", False):
             try:
-                from python.helpers.llm_router import get_router, RoutingPriority
+                from python.helpers.llm_router import RoutingPriority, get_router
                 router = get_router()
                 model_info = router.select_model(
                     role="utility",
@@ -916,9 +915,9 @@ class Agent:
                     await self.handle_intervention()
                     await tool.before_execution(**tool_args)
                     await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
-                    
+
                     response = await tool.execute(**tool_args)
-                    
+
                     await self.call_extensions("tool_execute_after", tool_args=tool_args or {}, tool_name=tool_name, response=response)
                     await tool.after_execution(response)
                     return response
@@ -928,7 +927,7 @@ class Agent:
 
         # search for all tool usage requests in agent message
         tool_requests = extract_tools.json_parse_all_dirty(msg)
-        
+
         # Fallback to single tool if multiple not found or if it's the old format
         if not tool_requests:
             single_request = extract_tools.json_parse_dirty(msg)
@@ -951,7 +950,7 @@ class Agent:
         while i < len(tool_requests):
             req = tool_requests[i]
             t_name = req.get("tool_name", "")
-            
+
             # Resolve tool class to check for parallel safety
             is_safe = False
             try:
@@ -971,7 +970,7 @@ class Agent:
                 while j < len(tool_requests):
                     next_req = tool_requests[j]
                     next_name = next_req.get("tool_name", "")
-                    
+
                     # Check safety of next tool
                     next_safe = False
                     if any(next_name.startswith(p) for p in ["read_", "search_", "grep_", "list_", "get_"]):
@@ -981,12 +980,12 @@ class Agent:
                             nt_temp = self.get_tool(name=next_name, method=None, args={}, message="", loop_data=None)
                             next_safe = getattr(nt_temp, "parallel_safe", False)
                         except: pass
-                        
+
                     if next_safe:
                         batch.append(next_req)
                         j += 1
                     else: break
-                
+
             if len(batch) > 1:
                 PrintStyle(font_color="cyan", bold=True).print(f"⚡ [Parallel Execution] Running {len(batch)} tools concurrently...")
                 SecurityManager.log_event("parallel_tool_execution", "success", details={"count": len(batch)})
@@ -999,8 +998,10 @@ class Agent:
                 res = await execute_tool_task(req)
                 results.append(res)
                 i += 1
-                
+
         # Handle final result (if any tool broke the loop like 'response')
+        from python.helpers.tool import Response
+
         for res in results:
             if isinstance(res, Response) and res.break_loop:
                 return res.message
@@ -1028,14 +1029,14 @@ class Agent:
                     parsed=response,
                 )
 
-        except Exception as e:
+        except Exception:
             pass
 
     def get_tool(
         self, name: str, method: str | None, args: dict, message: str, loop_data: LoopData | None, **kwargs
     ):
-        from python.tools.unknown import Unknown
         from python.helpers.tool import Tool
+        from python.tools.unknown import Unknown
 
         classes = []
 
@@ -1054,7 +1055,7 @@ class Agent:
                 classes = extract_tools.load_classes_from_file(
                     "python/tools/" + name + ".py", Tool  # type: ignore[arg-type]
                 )
-            except Exception as e:
+            except Exception:
                 pass
         tool_class = classes[0] if classes else Unknown
         return tool_class(

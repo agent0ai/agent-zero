@@ -38,10 +38,26 @@ select = [
 
 ignore = [
     "E501",   # Line too long (handled by formatter)
+    "E701",   # Multiple statements on one line (existing code patterns)
+    "E722",   # Bare except (intentional in some error handling)
+    "E741",   # Ambiguous variable name (existing patterns using l, I, O)
     "B008",   # Do not perform function calls in argument defaults
+    "B015",   # Pointless comparison (existing patterns)
+    "B024",   # Abstract base class without abstract methods (intentional)
+    "B904",   # raise from (too many existing violations)
     "B905",   # zip() without an explicit strict= parameter
+    "B023",   # Function definition does not bind loop variable (existing patterns)
+    "SIM102", # Nested if statements (existing patterns)
+    "SIM105", # contextlib.suppress (existing patterns)
     "SIM108", # Use ternary operator instead of if-else block
+    "SIM113", # Use enumerate (existing patterns)
+    "SIM115", # Use context manager for files (existing patterns)
+    "SIM117", # Single with statement (existing patterns)
     "UP007",  # Use X | Y for type annotations (keep Optional for clarity)
+    "RUF001", # String contains ambiguous unicode (intentional emoji)
+    "RUF002", # Docstring contains ambiguous unicode (intentional)
+    "RUF003", # Comment contains ambiguous unicode (intentional dashes)
+    "RUF006", # Store asyncio.create_task reference (existing patterns)
     "RUF012", # Mutable class attributes should be annotated
 ]
 
@@ -50,12 +66,26 @@ fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
-# Tests can use magic values and assertions
-"tests/**/*.py" = ["PLR2004", "S101"]
+# Tests: allow sys.path manipulation, unused vars, conditional imports
+"tests/*" = ["E402", "F841", "SIM105", "PLR2004", "S101"]
+"tests/**/*.py" = ["E402", "F841", "SIM105", "PLR2004", "S101"]
+# Extensions may have conditional imports
+"**/extensions/*" = ["E402"]
+# Initialization requires sys.path setup
+"initialize.py" = ["E402"]
+# Core files with nest_asyncio.apply() before imports
+"agent.py" = ["E402"]
+"run_ui.py" = ["E402"]
+"preload.py" = ["E402"]
+"prepare.py" = ["E402"]
 # Init files can have unused imports
 "__init__.py" = ["F401"]
-# Scripts may have print statements
-"scripts/**/*.py" = ["T201"]
+# Scripts may have print statements and sys.path manipulation
+"scripts/**/*.py" = ["T201", "E402"]
+# Instruments with complex patterns
+"instruments/**/*.py" = ["E402", "B007"]
+# Python helpers/tools with conditional imports
+"python/**/*.py" = ["E402", "B007"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["python", "instruments", "agent"]

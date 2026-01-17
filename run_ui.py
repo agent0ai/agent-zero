@@ -1,26 +1,24 @@
-import asyncio
-from datetime import timedelta
-import os
-import secrets
-import hashlib
-import time
-import socket
-import struct
-from functools import wraps
-import threading
-from flask import Flask, request, Response, session, redirect, url_for, render_template_string
-from werkzeug.wrappers.response import Response as BaseResponse
-import initialize
-from python.helpers import files, git, mcp_server, fasta2a_server
-from python.helpers.files import get_abs_path
-from python.helpers import runtime, dotenv, process
-from python.helpers.extract_tools import load_classes_from_folder
-from python.helpers.api import ApiHandler
-from python.helpers.print_style import PrintStyle
-from python.helpers import login
-
 # disable logging
 import logging
+import os
+import secrets
+import socket
+import struct
+import threading
+import time
+from datetime import timedelta
+from functools import wraps
+
+from flask import Flask, Response, redirect, render_template_string, request, session, url_for
+from werkzeug.wrappers.response import Response as BaseResponse
+
+import initialize
+from python.helpers import dotenv, fasta2a_server, files, git, login, mcp_server, process, runtime
+from python.helpers.api import ApiHandler
+from python.helpers.extract_tools import load_classes_from_folder
+from python.helpers.files import get_abs_path
+from python.helpers.print_style import PrintStyle
+
 logging.getLogger().setLevel(logging.WARNING)
 
 
@@ -59,11 +57,11 @@ def is_loopback_address(address):
     try:
         socket.inet_pton(socket.AF_INET6, address)
         address_type = "ipv6"
-    except socket.error:
+    except OSError:
         try:
             socket.inet_pton(socket.AF_INET, address)
             address_type = "ipv4"
-        except socket.error:
+        except OSError:
             address_type = "hostname"
 
     if address_type == "ipv4":
@@ -128,7 +126,7 @@ def requires_auth(f):
 
         if session.get('authentication') != user_pass_hash:
             return redirect(url_for('login_handler'))
-        
+
         return await f(*args, **kwargs)
 
     return decorated
@@ -152,13 +150,13 @@ async def login_handler():
     if request.method == 'POST':
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
         password = dotenv.get_dotenv_value("AUTH_PASSWORD")
-        
+
         if request.form['username'] == user and request.form['password'] == password:
             session['authentication'] = login.get_credentials_hash()
             return redirect(url_for('serve_index'))
         else:
             error = 'Invalid Credentials. Please try again.'
-            
+
     login_page_content = files.read_file("webui/login.html")
     return render_template_string(login_page_content, error=error)
 
@@ -200,10 +198,9 @@ def run():
     PrintStyle().print("Initializing framework...")
 
     # Suppress only request logs but keep the startup messages
-    from werkzeug.serving import WSGIRequestHandler
-    from werkzeug.serving import make_server
-    from werkzeug.middleware.dispatcher import DispatcherMiddleware
     from a2wsgi import ASGIMiddleware
+    from werkzeug.middleware.dispatcher import DispatcherMiddleware
+    from werkzeug.serving import WSGIRequestHandler, make_server
 
     PrintStyle().print("Starting server...")
 

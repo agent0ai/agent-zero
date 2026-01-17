@@ -4,14 +4,14 @@ Tests WorkflowDashboard, WorkflowEngineApi, and WorkflowTrainingApi handlers.
 """
 
 import os
-import pytest
-import json
-import threading
-from unittest.mock import MagicMock, AsyncMock, patch
-from pathlib import Path
 
 # Add parent directory to path
 import sys
+import threading
+from unittest.mock import patch
+
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -83,8 +83,8 @@ class TestWorkflowDashboardApi:
     @pytest.mark.asyncio
     async def test_dashboard_with_data(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test dashboard with populated data"""
-        from python.api.workflow_dashboard import WorkflowDashboard
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_dashboard import WorkflowDashboard
 
         # Pre-populate data
         manager = WorkflowEngineManager(temp_db_path)
@@ -108,8 +108,8 @@ class TestWorkflowDashboardApi:
     @pytest.mark.asyncio
     async def test_dashboard_with_executions(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test dashboard shows recent executions"""
-        from python.api.workflow_dashboard import WorkflowDashboard
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_dashboard import WorkflowDashboard
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -118,7 +118,7 @@ class TestWorkflowDashboardApi:
         )
 
         # Create executions
-        for i in range(7):
+        for _i in range(7):
             manager.start_workflow(workflow_id=wf['workflow_id'])
 
         handler = WorkflowDashboard(mock_flask_app, mock_thread_lock)
@@ -147,8 +147,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_list_workflows_with_data(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test listing workflows with data"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.create_workflow(name="WF1", stages=[{"id": "s1", "name": "S1"}])
@@ -163,8 +163,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_get_workflow_by_id(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting workflow by ID"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -186,8 +186,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_get_workflow_by_name(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting workflow by name"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.create_workflow(name="Named Workflow", stages=[{"id": "s1", "name": "S1"}])
@@ -218,8 +218,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_visualize_workflow(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test workflow visualization"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -246,8 +246,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_visualize_workflow_with_execution(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test workflow visualization with execution status"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -286,8 +286,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_list_executions(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test listing executions"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(name="Exec List", stages=[{"id": "s1", "name": "S1"}])
@@ -306,8 +306,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_get_status(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting execution status"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -344,8 +344,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_visualize_gantt(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test Gantt chart visualization"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -370,8 +370,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_visualize_tasks(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test task diagram visualization"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -401,8 +401,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_visualize_tasks_stage_not_found(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test task visualization with non-existent stage"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         wf = manager.create_workflow(
@@ -423,8 +423,8 @@ class TestWorkflowEngineApi:
     @pytest.mark.asyncio
     async def test_get_dashboard(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test get_dashboard action"""
-        from python.api.workflow_engine_api import WorkflowEngineApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_engine_api import WorkflowEngineApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.create_workflow(name="Dashboard WF", stages=[{"id": "s1", "name": "S1"}])
@@ -471,8 +471,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_list_skills_with_data(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test listing skills with data"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.register_skill("py", "Python", "technical")
@@ -489,8 +489,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_list_skills_by_category(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test listing skills filtered by category"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.register_skill("s1", "Skill 1", "technical")
@@ -509,8 +509,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_get_skill(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting a specific skill"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.register_skill(
@@ -560,8 +560,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_get_proficiency(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting agent proficiency"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.register_skill("s1", "Skill 1", "cat")
@@ -578,8 +578,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_get_proficiency_custom_agent(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting proficiency for specific agent"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.register_skill("s1", "Skill 1", "cat")
@@ -597,8 +597,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_list_paths(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test listing learning paths"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.create_learning_path("p1", "Path 1", "developer")
@@ -615,8 +615,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_list_paths_by_role(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test listing paths filtered by target role"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.create_learning_path("p1", "Path 1", "developer")
@@ -635,8 +635,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_get_path(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting a specific learning path"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.create_learning_path(
@@ -687,8 +687,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_get_progress(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test getting learning progress"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.create_learning_path("test_path", "Test Path", "tester")
@@ -745,8 +745,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_skill_report(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test generating skill report with chart"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.register_skill("s1", "Skill 1", "technical")
@@ -765,8 +765,8 @@ class TestWorkflowTrainingApi:
     @pytest.mark.asyncio
     async def test_training_dashboard(self, mock_files_get_abs_path, temp_db_path, mock_flask_app, mock_thread_lock):
         """Test generating training dashboard"""
-        from python.api.workflow_training_api import WorkflowTrainingApi
         from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
+        from python.api.workflow_training_api import WorkflowTrainingApi
 
         manager = WorkflowEngineManager(temp_db_path)
         manager.register_skill("s1", "Skill 1", "technical")

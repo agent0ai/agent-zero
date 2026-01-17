@@ -1,6 +1,7 @@
 
 import os
 import sys
+
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,7 +29,7 @@ async def test_rate_limiter_openrouter():
         ),
     )
 
-    response, reasoning = await model.unified_call(
+    response, _reasoning = await model.unified_call(
         user_message="Tell me a joke"
     )
     assert response

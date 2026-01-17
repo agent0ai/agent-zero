@@ -1,7 +1,7 @@
 """LLM Router - Manage routing rules"""
 
 from python.helpers.api import ApiHandler
-from python.helpers.llm_router import get_router, RoutingRule
+from python.helpers.llm_router import RoutingRule, get_router
 
 
 class LlmRouterRules(ApiHandler):

@@ -1,10 +1,9 @@
 
 import os
-import sys
-from pathlib import Path
 import subprocess
-from python.helpers import files
+from pathlib import Path
 
+from python.helpers import files
 
 # this helper ensures that playwright is installed in /lib/playwright
 # should work for both docker and local installation

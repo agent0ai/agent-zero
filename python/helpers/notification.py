@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 import uuid
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 
@@ -100,7 +100,7 @@ class NotificationManager:
             title=title,
             message=message,
             detail=detail,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             display_time=display_time,
             group=group,
         )
@@ -117,8 +117,8 @@ class NotificationManager:
             try:
                 from python.helpers.proactive import ProactiveManager
                 ProactiveManager.send_push(
-                    user_id="default_user", 
-                    title=f"🚨 {title or type.value.upper()}", 
+                    user_id="default_user",
+                    title=f"🚨 {title or type.value.upper()}",
                     body=message,
                     url="/"
                 )
@@ -139,7 +139,7 @@ class NotificationManager:
             self.updates = [no - to_remove for no in self.updates if no >= to_remove]
 
     def get_recent_notifications(self, seconds: int = 30) -> list[NotificationItem]:
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=seconds)
+        cutoff = datetime.now(UTC) - timedelta(seconds=seconds)
         return [n for n in self.notifications if n.timestamp >= cutoff]
 
     def output(self, start: int | None = None, end: int | None = None) -> list[dict]:

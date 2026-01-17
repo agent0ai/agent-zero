@@ -5,7 +5,6 @@ Creates realistic sample data for testing, demos, and UI validation.
 
 import os
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
 
 # Add parent directories to path for imports
@@ -17,7 +16,7 @@ from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineMa
 class WorkflowSampleDataGenerator:
     """Generate comprehensive sample data for the workflow engine"""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str | None = None):
         if db_path is None:
             # Default to the actual workflow database
             base_path = Path(__file__).parent.parent.parent
@@ -466,7 +465,7 @@ class WorkflowSampleDataGenerator:
         # Track usage for agent_0
         for skill_id, count in agent_0_skills.items():
             for _ in range(count):
-                result = self.manager.track_skill_usage(
+                self.manager.track_skill_usage(
                     agent_id="agent_0",
                     skill_id=skill_id,
                     success=True
@@ -476,7 +475,7 @@ class WorkflowSampleDataGenerator:
         # Track usage for agent_1
         for skill_id, count in agent_1_skills.items():
             for _ in range(count):
-                result = self.manager.track_skill_usage(
+                self.manager.track_skill_usage(
                     agent_id="agent_1",
                     skill_id=skill_id,
                     success=True
@@ -514,7 +513,7 @@ def main():
         summary = generator.get_summary()
         print("\n=== Workflow Engine Summary ===")
         print(f"Database: {generator.db_path}")
-        print(f"\nStatistics:")
+        print("\nStatistics:")
         for key, value in summary["stats"].items():
             print(f"  {key}: {value}")
         print(f"\nRecent Executions: {len(summary['recent_executions'])}")
@@ -523,13 +522,13 @@ def main():
         print("\n=== Generating Sample Data ===")
         results = generator.generate_all()
 
-        print(f"\nGenerated:")
+        print("\nGenerated:")
         print(f"  Skills: {len(results['skills'])}")
         print(f"  Learning Paths: {len(results['learning_paths'])}")
         print(f"  Workflows: {len(results['workflows'])}")
         print(f"  Executions: {len(results['executions'])}")
 
-        print(f"\nSummary:")
+        print("\nSummary:")
         for key, value in results["summary"].items():
             print(f"  {key}: {value}")
 

@@ -10,8 +10,14 @@ class SchedulerTaskUpdate(ApiHandler):
         # Lazy import - TaskScheduler requires crontab which may not be installed
         try:
             from python.helpers.task_scheduler import (
-                TaskScheduler, ScheduledTask, AdHocTask, PlannedTask, TaskState,
-                serialize_task, parse_task_schedule, parse_task_plan
+                AdHocTask,
+                PlannedTask,
+                ScheduledTask,
+                TaskScheduler,
+                TaskState,
+                parse_task_plan,
+                parse_task_schedule,
+                serialize_task,
             )
         except ImportError as e:
             return {"error": f"Scheduler not available: {e}"}
@@ -68,7 +74,7 @@ class SchedulerTaskUpdate(ApiHandler):
 
                 update_params["schedule"] = task_schedule
             except ValueError as e:
-                return {"error": f"Invalid schedule format: {str(e)}"}
+                return {"error": f"Invalid schedule format: {e!s}"}
         elif isinstance(task, AdHocTask) and "token" in input:
             token_value = input.get("token", "")
             if token_value:  # Only update if non-empty
@@ -80,7 +86,7 @@ class SchedulerTaskUpdate(ApiHandler):
                 task_plan = parse_task_plan(plan_data)
                 update_params["plan"] = task_plan
             except ValueError as e:
-                return {"error": f"Invalid plan format: {str(e)}"}
+                return {"error": f"Invalid plan format: {e!s}"}
 
         # Use atomic update method to apply changes
         updated_task = await scheduler.update_task(task_id, **update_params)

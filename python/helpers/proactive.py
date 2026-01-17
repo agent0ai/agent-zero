@@ -1,11 +1,10 @@
 import json
-import os
-import time
+
 from python.helpers import files
 
 # Optional: pywebpush for push notifications
 try:
-    from pywebpush import webpush, WebPushException
+    from pywebpush import WebPushException, webpush
     PYWEBPUSH_AVAILABLE = True
 except ImportError:
     webpush = None
@@ -14,7 +13,7 @@ except ImportError:
 
 class ProactiveManager:
     """Manages proactive alerts and push notifications for the user."""
-    
+
     # Toggle for feature rollout
     ENABLED = False
 
@@ -56,7 +55,7 @@ class ProactiveManager:
                 return False
 
             subscription_info = json.loads(row[0])
-            
+
             payload = {
                 "title": title,
                 "body": body,
@@ -85,29 +84,31 @@ class ProactiveManager:
     def check_and_nudge(cls, user_id="default_user"):
         """Analyzes synced context and sends nudges if necessary."""
         try:
+            from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
             from python.api.profile_sync import ProfileSync
+
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
-            
+
             resp = ProfileSync()._get_profile(db, user_id)
             if not resp.get("success") or not resp.get("profile"):
                 return
-            
+
             profile = resp["profile"]
             device_info = profile.get("device_info", {})
             battery = device_info.get("battery")
-            
+
             # Example: Low Battery Nudge
             if battery and battery.get("level", 100) < 20 and not battery.get("charging"):
-                cls.send_push(user_id, "🔋 Low Battery Alert", 
-                             f"Your phone is at {battery['level']}%. Need me to wrap up anything before it dies?", 
+                cls.send_push(user_id, "🔋 Low Battery Alert",
+                             f"Your phone is at {battery['level']}%. Need me to wrap up anything before it dies?",
                              "/")
-                
+
             # Example: Security nudge - check if MFA is enabled
             if not profile.get("mfa_enabled"):
                 # We could nudge once a week, etc.
                 pass
-            
+
         except Exception as e:
             print(f"Nudge Check Error: {e}")
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from python.helpers.settings import get_settings
 from python.helpers import dotenv
+from python.helpers.settings import get_settings
 
 _adapter_cache: dict[str, Any] = {}
 

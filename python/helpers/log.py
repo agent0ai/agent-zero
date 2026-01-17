@@ -1,15 +1,15 @@
-from dataclasses import dataclass, field
 import json
-from typing import Any, Literal, Optional, Dict, TypeVar, TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, TypeVar
 
 T = TypeVar("T")
+import copy
 import uuid
 from collections import OrderedDict  # Import OrderedDict
-from python.helpers.strings import truncate_text_by_ratio
-import copy
 from typing import TypeVar
-from python.helpers.secrets import get_secrets_manager
 
+from python.helpers.secrets import get_secrets_manager
+from python.helpers.strings import truncate_text_by_ratio
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -59,7 +59,7 @@ def _truncate_key(text: str) -> str:
     return truncate_text_by_ratio(str(text), KEY_MAX_LEN, "...", ratio=1.0)
 
 
-def _truncate_value(val: T) -> T:
+def _truncate_value[T](val: T) -> T:
     # If dict, recursively truncate each value
     if isinstance(val, dict):
         for k in list(val.keys()):
@@ -127,9 +127,9 @@ class LogItem:
     heading: str = ""
     content: str = ""
     temp: bool = False
-    update_progress: Optional[ProgressUpdate] = "persistent"
-    kvps: Optional[OrderedDict] = None  # Use OrderedDict for kvps
-    id: Optional[str] = None  # Add id field
+    update_progress: ProgressUpdate | None = "persistent"
+    kvps: OrderedDict | None = None  # Use OrderedDict for kvps
+    id: str | None = None  # Add id field
     guid: str = ""
 
     def __post_init__(self):
@@ -187,7 +187,7 @@ class LogItem:
 class Log:
 
     def __init__(self):
-        self.context: "AgentContext|None" = None # set from outside
+        self.context: AgentContext|None = None # set from outside
         self.guid: str = str(uuid.uuid4())
         self.updates: list[int] = []
         self.logs: list[LogItem] = []
@@ -201,7 +201,7 @@ class Log:
         kvps: dict | None = None,
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
-        id: Optional[str] = None,
+        id: str | None = None,
         **kwargs,
     ) -> LogItem:
 
@@ -236,7 +236,7 @@ class Log:
         kvps: dict | None = None,
         temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
-        id: Optional[str] = None,
+        id: str | None = None,
         **kwargs,
     ):
         item = self.logs[no]
@@ -312,12 +312,11 @@ class Log:
         self.set_initial_progress()
 
     def _update_progress_from_item(self, item: LogItem):
-        if item.heading and item.update_progress != "none":
-            if item.no >= self.progress_no:
-                self.set_progress(
-                    item.heading,
-                    (item.no if item.update_progress == "persistent" else -1),
-                )
+        if item.heading and item.update_progress != "none" and item.no >= self.progress_no:
+            self.set_progress(
+                item.heading,
+                (item.no if item.update_progress == "persistent" else -1),
+            )
 
     def _mask_recursive(self, obj: T) -> T:
         """Recursively mask secrets in nested objects."""

@@ -1,12 +1,13 @@
 import base64
-from io import BytesIO
 import mimetypes
 import os
+from io import BytesIO
 
 from flask import Response
-from python.helpers.api import ApiHandler, Input, Output, Request
-from python.helpers import files, runtime
+
 from python.api import file_info
+from python.helpers import files, runtime
+from python.helpers.api import ApiHandler, Input, Output, Request
 
 
 def stream_file_download(file_source, download_name, chunk_size=8192):

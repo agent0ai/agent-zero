@@ -1,38 +1,38 @@
 import json
-import os
-from pathlib import Path
+
 from webauthn import (
-    generate_registration_options,
-    verify_registration_response,
     generate_authentication_options,
-    verify_authentication_response,
+    generate_registration_options,
     options_to_json,
+    verify_authentication_response,
+    verify_registration_response,
 )
 from webauthn.helpers.structs import (
-    RegistrationCredential, 
     AuthenticationCredential,
     AuthenticatorAttachment,
-    UserVerificationRequirement,
+    AuthenticatorSelectionCriteria,
+    RegistrationCredential,
     ResidentKeyRequirement,
-    AuthenticatorSelectionCriteria
+    UserVerificationRequirement,
 )
+
 
 class PasskeyVaultManager:
     """Manages Passkey registration and verification for centralized auth."""
-    
+
     RP_NAME = "Agent Zero Central"
-    
+
     def __init__(self, db):
         self.db = db
 
     def get_registration_options(self, user_id: str, username: str, rp_id: str):
         """Generate options for registering a new passkey. Enforces hardware requirements if enabled."""
         from python.helpers.security import SecurityManager
-        
+
         # Hardware Enclave Attestation logic
         auth_selection = None
         attestation = "none"
-        
+
         if SecurityManager.STRICT_HARDWARE_ONLY:
             # Require a platform authenticator (TouchID, FaceID, Windows Hello, Android Biometrics)
             auth_selection = AuthenticatorSelectionCriteria(
@@ -63,7 +63,7 @@ class PasskeyVaultManager:
                 expected_origin=origin,
                 expected_rp_id=rp_id,
             )
-            
+
             # Save to DB
             self._save_passkey(
                 user_id=user_id,
@@ -80,7 +80,7 @@ class PasskeyVaultManager:
         passkeys = self._get_user_passkeys(user_id)
         if not passkeys:
             return {"error": "No passkeys registered for this user."}
-            
+
         options = generate_authentication_options(
             rp_id=rp_id,
             allow_credentials=[{"id": p['passkey_id'], "type": "public-key"} for p in passkeys],
@@ -94,7 +94,7 @@ class PasskeyVaultManager:
             passkey = self._get_passkey(credential.id)
             if not passkey:
                 return {"success": False, "error": "Passkey not found"}
-            
+
             verification = verify_authentication_response(
                 credential=credential,
                 expected_challenge=challenge,
@@ -103,7 +103,7 @@ class PasskeyVaultManager:
                 credential_public_key=passkey['public_key'],
                 credential_current_sign_count=passkey['sign_count'],
             )
-            
+
             # Update sign count
             self._update_sign_count(credential.id, verification.new_sign_count)
             return {"success": True}
@@ -140,7 +140,7 @@ class PasskeyVaultManager:
     def _update_sign_count(self, passkey_id, sign_count):
         conn = self.db._get_conn()
         cursor = conn.cursor()
-        cursor.execute("UPDATE user_passkeys SET sign_count = ?, last_used = CURRENT_TIMESTAMP WHERE passkey_id = ?", 
+        cursor.execute("UPDATE user_passkeys SET sign_count = ?, last_used = CURRENT_TIMESTAMP WHERE passkey_id = ?",
                       (sign_count, passkey_id))
         conn.commit()
         conn.close()

@@ -1,20 +1,23 @@
 from typing import Any
+
+from agent import Agent, LoopData
+from python.helpers import projects
 from python.helpers.extension import Extension
 from python.helpers.mcp_handler import MCPConfig
-from agent import Agent, LoopData
 from python.helpers.settings import get_settings
-from python.helpers import projects
 
 
 class SystemPrompt(Extension):
 
     async def execute(
         self,
-        system_prompt: list[str] = [],
+        system_prompt: list[str] | None = None,
         loop_data: LoopData = LoopData(),
         **kwargs: Any
     ):
         # append main system prompt and tools
+        if system_prompt is None:
+            system_prompt = []
         main = get_main_prompt(self.agent)
         tools = get_tools_prompt(self.agent)
         mcp_tools = get_mcp_tools_prompt(self.agent)
@@ -64,7 +67,7 @@ def get_secrets_prompt(agent: Agent):
         secrets = secrets_manager.get_secrets_for_prompt()
         vars = get_settings()["variables"]
         return agent.read_prompt("agent.system.secrets.md", secrets=secrets, vars=vars)
-    except Exception as e:
+    except Exception:
         # If secrets module is not available or has issues, return empty string
         return ""
 

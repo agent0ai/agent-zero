@@ -1,9 +1,9 @@
 import uuid
 from typing import Any
 
+from python.helpers import cowork, master_orchestrator, observability_adapters, telemetry
 from python.helpers.extension import Extension
 from python.helpers.settings import get_settings
-from python.helpers import telemetry, cowork, master_orchestrator, observability_adapters
 
 
 class TelemetryToolStart(Extension):

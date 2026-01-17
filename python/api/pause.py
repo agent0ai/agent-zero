@@ -15,4 +15,4 @@ class Pause(ApiHandler):
             return {
                 "message": "Agent paused." if paused else "Agent unpaused.",
                 "pause": paused,
-            }    
+            }

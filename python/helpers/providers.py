@@ -1,6 +1,8 @@
+from typing import TypedDict
+
 import yaml
+
 from python.helpers import files
-from typing import List, Dict, Optional, TypedDict
 
 
 # Type alias for UI option items
@@ -10,8 +12,8 @@ class FieldOption(TypedDict):
 
 class ProviderManager:
     _instance = None
-    _raw: Optional[Dict[str, List[Dict[str, str]]]] = None  # full provider data
-    _options: Optional[Dict[str, List[FieldOption]]] = None  # UI-friendly list
+    _raw: dict[str, list[dict[str, str]]] | None = None  # full provider data
+    _options: dict[str, list[FieldOption]] | None = None  # UI-friendly list
 
     @classmethod
     def get_instance(cls):
@@ -27,7 +29,7 @@ class ProviderManager:
         """Loads provider configurations from the YAML file and normalises them."""
         try:
             config_path = files.get_abs_path("conf/model_providers.yaml")
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 raw_yaml = yaml.safe_load(f) or {}
         except (FileNotFoundError, yaml.YAMLError):
             raw_yaml = {}
@@ -38,10 +40,10 @@ class ProviderManager:
         # keeps existing callers unchanged while allowing the new nested
         # mapping format in the YAML (id -> { ... }).
         # ------------------------------------------------------------
-        normalised: Dict[str, List[Dict[str, str]]] = {}
+        normalised: dict[str, list[dict[str, str]]] = {}
 
         for p_type, providers in (raw_yaml or {}).items():
-            items: List[Dict[str, str]] = []
+            items: list[dict[str, str]] = []
 
             if isinstance(providers, dict):
                 # New format: mapping of id -> config
@@ -60,7 +62,7 @@ class ProviderManager:
         # Build UI-friendly option list (value / label)
         self._options = {}
         for p_type, providers in normalised.items():
-            opts: List[FieldOption] = []
+            opts: list[FieldOption] = []
             for p in providers:
                 pid = (p.get("id") or p.get("value") or "").lower()
                 name = p.get("name") or p.get("label") or pid
@@ -68,16 +70,16 @@ class ProviderManager:
                     opts.append({"value": pid, "label": name})
             self._options[p_type] = opts
 
-    def get_providers(self, provider_type: str) -> List[FieldOption]:
+    def get_providers(self, provider_type: str) -> list[FieldOption]:
         """Returns a list of providers for a given type (e.g., 'chat', 'embedding')."""
         return self._options.get(provider_type, []) if self._options else []
 
 
-    def get_raw_providers(self, provider_type: str) -> List[Dict[str, str]]:
+    def get_raw_providers(self, provider_type: str) -> list[dict[str, str]]:
         """Return raw provider dictionaries for advanced use-cases."""
         return self._raw.get(provider_type, []) if self._raw else []
 
-    def get_provider_config(self, provider_type: str, provider_id: str) -> Optional[Dict[str, str]]:
+    def get_provider_config(self, provider_type: str, provider_id: str) -> dict[str, str] | None:
         """Return the metadata dict for a single provider id (case-insensitive)."""
         provider_id_low = provider_id.lower()
         for p in self.get_raw_providers(provider_type):
@@ -86,16 +88,16 @@ class ProviderManager:
         return None
 
 
-def get_providers(provider_type: str) -> List[FieldOption]:
+def get_providers(provider_type: str) -> list[FieldOption]:
     """Convenience function to get providers of a specific type."""
     return ProviderManager.get_instance().get_providers(provider_type)
 
 
-def get_raw_providers(provider_type: str) -> List[Dict[str, str]]:
+def get_raw_providers(provider_type: str) -> list[dict[str, str]]:
     """Return full metadata for providers of a given type."""
     return ProviderManager.get_instance().get_raw_providers(provider_type)
 
 
-def get_provider_config(provider_type: str, provider_id: str) -> Optional[Dict[str, str]]:
+def get_provider_config(provider_type: str, provider_id: str) -> dict[str, str] | None:
     """Return metadata for a single provider (None if not found)."""
-    return ProviderManager.get_instance().get_provider_config(provider_type, provider_id) 
+    return ProviderManager.get_instance().get_provider_config(provider_type, provider_id)

@@ -1,12 +1,14 @@
-from git import Repo
 from datetime import datetime
-import os
+
+from git import Repo
+
 from python.helpers import files
+
 
 def get_git_info():
     # Get the current working directory (assuming the repo is in the same folder as the script)
     repo_path = files.get_base_dir()
-    
+
     # Open the Git repository
     repo = Repo(repo_path)
 

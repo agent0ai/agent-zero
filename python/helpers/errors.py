@@ -1,6 +1,6 @@
+import asyncio
 import re
 import traceback
-import asyncio
 
 
 def handle_error(e: Exception):
@@ -32,11 +32,7 @@ def format_error(e: Exception, start_entries=6, end_entries=4):
         if len(file_indices) > start_entries + end_entries:
             start_index = max(0, len(file_indices) - start_entries - end_entries)
             trimmed_lines = (
-                lines[: file_indices[start_index]]
-                + [
-                    f"\n>>>  {len(file_indices) - start_entries - end_entries} stack lines skipped <<<\n"
-                ]
-                + lines[file_indices[start_index + end_entries] :]
+                [*lines[:file_indices[start_index]], f"\n>>>  {len(file_indices) - start_entries - end_entries} stack lines skipped <<<\n", *lines[file_indices[start_index + end_entries]:]]
             )
         else:
             # If no "File" lines found, or not enough to trim, just return the original traceback

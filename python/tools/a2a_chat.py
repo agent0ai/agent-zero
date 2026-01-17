@@ -1,6 +1,6 @@
-from python.helpers.tool import Tool, Response
-from python.helpers.print_style import PrintStyle
 from python.helpers.fasta2a_client import connect_to_agent, is_client_available
+from python.helpers.print_style import PrintStyle
+from python.helpers.tool import Response, Tool
 
 
 class A2AChatTool(Tool):
@@ -12,7 +12,7 @@ class A2AChatTool(Tool):
 
         agent_url: str | None = kwargs.get("agent_url")  # required
         user_message: str | None = kwargs.get("message")  # required
-        attachments = kwargs.get("attachments", None)  # optional list[str]
+        attachments = kwargs.get("attachments")  # optional list[str]
         reset = bool(kwargs.get("reset", False))
         if not agent_url or not isinstance(agent_url, str):
             return Response(message="agent_url argument missing", break_loop=False)

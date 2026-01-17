@@ -17,5 +17,5 @@ class LlmRouterDiscover(ApiHandler):
             "success": True,
             "models": [m.to_dict() for m in models],
             "count": len(models),
-            "providers": list(set(m.provider for m in models))
+            "providers": list({m.provider for m in models})
         }

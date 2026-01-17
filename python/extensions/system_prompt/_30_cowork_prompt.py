@@ -5,7 +5,9 @@ from python.helpers.settings import get_settings
 
 
 class CoworkPrompt(Extension):
-    async def execute(self, system_prompt: list[str] = [], **kwargs: Any):
+    async def execute(self, system_prompt: list[str] | None = None, **kwargs: Any):
+        if system_prompt is None:
+            system_prompt = []
         settings = get_settings()
         if not settings.get("cowork_enabled"):
             return

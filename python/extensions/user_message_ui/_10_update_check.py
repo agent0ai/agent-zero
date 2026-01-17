@@ -1,9 +1,8 @@
-from python.helpers import notification
-from python.helpers.extension import Extension
-from agent import LoopData
-from python.helpers import settings, update_check
 import datetime
 
+from agent import LoopData
+from python.helpers import notification, settings, update_check
+from python.helpers.extension import Extension
 
 # check for newer versions of A0 available and send notification
 # check after user message is sent from UI, not API, MCP etc. (user is active and can see the notification)
@@ -21,17 +20,17 @@ class UpdateCheck(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), text: str = "", **kwargs):
         try:
             global last_check, last_notification_id, last_notification_time
-            
+
             # first check if update check is enabled
             current_settings = settings.get_settings()
             if not current_settings["update_check_enabled"]:
                 return
-            
+
             # check if cooldown has passed
             if (datetime.datetime.now() - last_check).total_seconds() < check_cooldown_seconds:
                 return
             last_check = datetime.datetime.now()
-            
+
             # check for updates
             version = await update_check.check_version()
 
@@ -41,7 +40,7 @@ class UpdateCheck(Extension):
                     last_notification_id = notif.get("id")
                     last_notification_time = datetime.datetime.now()
                     self.send_notification(notif)
-        except Exception as e:
+        except Exception:
             pass # no need to log if the update server is inaccessible
 
 

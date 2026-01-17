@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from typing import Any, Iterable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from python.helpers import files
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 APPROVALS_KEY = "cowork_approvals"
 
@@ -32,7 +33,7 @@ PATH_KEYS = {
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _json_fingerprint(payload: dict[str, Any]) -> str:

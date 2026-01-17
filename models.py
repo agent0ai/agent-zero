@@ -1,47 +1,37 @@
-from dataclasses import dataclass, field
-from enum import Enum
 import logging
 import os
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    List,
-    Optional,
-    Iterator,
-    AsyncIterator,
-    Tuple,
     TypedDict,
 )
 
-from litellm import completion, acompletion, embedding
 import litellm
 import openai
-from litellm.types.utils import ModelResponse
+from langchain.embeddings.base import Embeddings
+from langchain_core.callbacks.manager import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
+from langchain_core.language_models.chat_models import SimpleChatModel
+from langchain_core.messages import (
+    AIMessageChunk,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+)
+from langchain_core.outputs.chat_generation import ChatGenerationChunk
+from litellm import acompletion, completion, embedding
+from pydantic import ConfigDict
+from sentence_transformers import SentenceTransformer
 
-from python.helpers import dotenv
-from python.helpers import settings, dirty_json
+from python.helpers import browser_use_monkeypatch, dirty_json, dotenv, settings
 from python.helpers.dotenv import load_dotenv
 from python.helpers.providers import get_provider_config
 from python.helpers.rate_limiter import RateLimiter
 from python.helpers.tokens import approximate_tokens
-from python.helpers import dirty_json, browser_use_monkeypatch
-
-from langchain_core.language_models.chat_models import SimpleChatModel
-from langchain_core.outputs.chat_generation import ChatGenerationChunk
-from langchain_core.callbacks.manager import (
-    CallbackManagerForLLMRun,
-    AsyncCallbackManagerForLLMRun,
-)
-from langchain_core.messages import (
-    BaseMessage,
-    AIMessageChunk,
-    HumanMessage,
-    SystemMessage,
-)
-from langchain.embeddings.base import Embeddings
-from sentence_transformers import SentenceTransformer
-from pydantic import ConfigDict
 
 
 # disable extra logging, must be done repeatedly, otherwise browser-use will turn it back on for some reason
@@ -169,19 +159,13 @@ class ChatGenerationResult:
         return ChatChunk(response_delta=response, reasoning_delta=reasoning)
 
     def _is_partial_opening_tag(self, text: str, opening_tag: str) -> bool:
-        for i in range(1, len(opening_tag)):
-            if text == opening_tag[:i]:
-                return True
-        return False
+        return any(text == opening_tag[:i] for i in range(1, len(opening_tag)))
 
     def _is_partial_closing_tag(self, text: str) -> bool:
         if not self.thinking_tag or not text:
             return False
         max_check = min(len(text), len(self.thinking_tag) - 1)
-        for i in range(1, max_check + 1):
-            if text.endswith(self.thinking_tag[:i]):
-                return True
-        return False
+        return any(text.endswith(self.thinking_tag[:i]) for i in range(1, max_check + 1))
 
     def output(self) -> ChatChunk:
         response = self.response
@@ -233,9 +217,7 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         if status_code in (408, 429, 500, 502, 503, 504):
             return True
         # Treat other 5xx as retriable
-        if status_code >= 500:
-            return True
-        return False
+        return status_code >= 500
 
     # Fallback to exception classes mapped by LiteLLM/OpenAI
     transient_types = (
@@ -281,7 +263,9 @@ def apply_rate_limiter_sync(
 ):
     if not model_config:
         return
-    import asyncio, nest_asyncio
+    import asyncio
+
+    import nest_asyncio
 
     nest_asyncio.apply()
     return asyncio.run(
@@ -304,7 +288,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
         self,
         model: str,
         provider: str,
-        model_config: Optional[ModelConfig] = None,
+        model_config: ModelConfig | None = None,
         **kwargs: Any,
     ):
         model_value = f"{provider}/{model}"
@@ -316,7 +300,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
     def _llm_type(self) -> str:
         return "litellm-chat"
 
-    def _convert_messages(self, messages: List[BaseMessage]) -> List[dict]:
+    def _convert_messages(self, messages: list[BaseMessage]) -> list[dict]:
         result = []
         # Map LangChain message types to LiteLLM roles
         role_mapping = {
@@ -366,12 +350,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
     def _call(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> str:
-        import asyncio
 
         msgs = self._convert_messages(messages)
 
@@ -390,12 +373,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
     def _stream(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
-        import asyncio
 
         msgs = self._convert_messages(messages)
 
@@ -423,9 +405,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
     async def _astream(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         msgs = self._convert_messages(messages)
@@ -457,7 +439,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
         self,
         system_message="",
         user_message="",
-        messages: List[BaseMessage] | None = None,
+        messages: list[BaseMessage] | None = None,
         response_callback: Callable[[str, str], Awaitable[None]] | None = None,
         reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
         tokens_callback: Callable[[str, int], Awaitable[None]] | None = None,
@@ -465,7 +447,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
             Callable[[str, str, int, int], Awaitable[bool]] | None
         ) = None,
         **kwargs: Any,
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
 
         turn_off_logging()
 
@@ -581,7 +563,7 @@ class AsyncAIChatReplacement:
 
 
 try:
-    from browser_use.llm import ChatOllama, ChatOpenRouter, ChatGoogle, ChatAnthropic, ChatGroq, ChatOpenAI
+    from browser_use.llm import ChatAnthropic, ChatGoogle, ChatGroq, ChatOllama, ChatOpenAI, ChatOpenRouter
 except Exception:
     class _BrowserUseMissing:
         def __init__(self, *args, **kwargs):
@@ -616,9 +598,9 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
 
     async def _acall(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ):
         # Apply rate limiting if configured
@@ -655,11 +637,11 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
 
         # another hack for browser-use post process invalid jsons
         try:
-            if "response_format" in kwrgs and "json_schema" in kwrgs["response_format"] or "json_object" in kwrgs["response_format"]:
+            if ("response_format" in kwrgs and "json_schema" in kwrgs["response_format"]) or "json_object" in kwrgs["response_format"]:
                 if resp.choices[0].message.content is not None and not resp.choices[0].message.content.startswith("{"): # type: ignore
                     js = dirty_json.parse(resp.choices[0].message.content) # type: ignore
                     resp.choices[0].message.content = dirty_json.stringify(js) # type: ignore
-        except Exception as e:
+        except Exception:
             pass
 
         return resp
@@ -667,20 +649,20 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
 class LiteLLMEmbeddingWrapper(Embeddings):
     model_name: str
     kwargs: dict = {}
-    a0_model_conf: Optional[ModelConfig] = None
+    a0_model_conf: ModelConfig | None = None
 
     def __init__(
         self,
         model: str,
         provider: str,
-        model_config: Optional[ModelConfig] = None,
+        model_config: ModelConfig | None = None,
         **kwargs: Any,
     ):
         self.model_name = f"{provider}/{model}" if provider != "openai" else model
         self.kwargs = kwargs
         self.a0_model_conf = model_config
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
 
@@ -690,7 +672,7 @@ class LiteLLMEmbeddingWrapper(Embeddings):
             for item in resp.data  # type: ignore
         ]
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self.a0_model_conf, text)
 
@@ -706,7 +688,7 @@ class LocalSentenceTransformerWrapper(Embeddings):
         self,
         provider: str,
         model: str,
-        model_config: Optional[ModelConfig] = None,
+        model_config: ModelConfig | None = None,
         **kwargs: Any,
     ):
         # Clean common user-input mistakes
@@ -731,14 +713,14 @@ class LocalSentenceTransformerWrapper(Embeddings):
         self.model_name = model
         self.a0_model_conf = model_config
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
 
         embeddings = self.model.encode(texts, convert_to_tensor=False)  # type: ignore
         return embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings  # type: ignore
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self.a0_model_conf, text)
 
@@ -753,7 +735,7 @@ def _get_litellm_chat(
     cls: type = LiteLLMChatWrapper,
     model_name: str = "",
     provider_name: str = "",
-    model_config: Optional[ModelConfig] = None,
+    model_config: ModelConfig | None = None,
     **kwargs: Any,
 ):
     # use api key from kwargs or env
@@ -774,7 +756,7 @@ def _get_litellm_chat(
 def _get_litellm_embedding(
     model_name: str,
     provider_name: str,
-    model_config: Optional[ModelConfig] = None,
+    model_config: ModelConfig | None = None,
     **kwargs: Any,
 ):
     # Check if this is a local sentence-transformers model
@@ -899,7 +881,7 @@ def _merge_provider_defaults(
 
 
 def get_chat_model(
-    provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
+    provider: str, name: str, model_config: ModelConfig | None = None, **kwargs: Any
 ) -> LiteLLMChatWrapper:
     orig = provider.lower()
     provider_name, kwargs = _merge_provider_defaults("chat", orig, kwargs)
@@ -909,7 +891,7 @@ def get_chat_model(
 
 
 def get_browser_model(
-    provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
+    provider: str, name: str, model_config: ModelConfig | None = None, **kwargs: Any
 ) -> BrowserCompatibleChatWrapper:
     orig = provider.lower()
     provider_name, kwargs = _merge_provider_defaults("chat", orig, kwargs)
@@ -919,7 +901,7 @@ def get_browser_model(
 
 
 def get_embedding_model(
-    provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
+    provider: str, name: str, model_config: ModelConfig | None = None, **kwargs: Any
 ) -> LiteLLMEmbeddingWrapper | LocalSentenceTransformerWrapper:
     orig = provider.lower()
     provider_name, kwargs = _merge_provider_defaults("embedding", orig, kwargs)

@@ -1,7 +1,7 @@
-from python.helpers.tool import Tool, Response
+from python.helpers.tool import Response, Tool
 
 # this is an example tool class
-# don't forget to include instructions in the system prompt by creating 
+# don't forget to include instructions in the system prompt by creating
 #   agent.system.tool.example_tool.md file in prompts directory of your agent
 # see /python/tools folder for all default tools
 

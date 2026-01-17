@@ -1,14 +1,15 @@
 from abc import abstractmethod
-from typing import Any
-from python.helpers import extract_tools, files 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from python.helpers import extract_tools, files
+
 if TYPE_CHECKING:
     from agent import Agent
 
 class Extension:
 
     def __init__(self, agent: "Agent|None", **kwargs):
-        self.agent: "Agent" = agent # type: ignore < here we ignore the type check as there are currently no extensions without an agent
+        self.agent: Agent = agent # type: ignore < here we ignore the type check as there are currently no extensions without an agent
         self.kwargs = kwargs
 
     @abstractmethod
@@ -57,4 +58,3 @@ async def _get_extensions(folder:str):
         _cache[folder] = classes
 
     return classes
-

@@ -1,13 +1,15 @@
 import argparse
-import inspect
-import secrets
-from pathlib import Path
-from typing import TypeVar, Callable, Awaitable, Union, overload, cast
-from python.helpers import dotenv, rfc, settings, files
 import asyncio
-import threading
+import inspect
 import queue
+import secrets
 import sys
+import threading
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from typing import TypeVar, Union, cast, overload
+
+from python.helpers import dotenv, files, rfc, settings
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -45,7 +47,7 @@ def initialize():
 
 def get_arg(name: str):
     global args
-    return args.get(name, None)
+    return args.get(name)
 
 
 def has_arg(name: str):
@@ -83,13 +85,13 @@ def get_persistent_id() -> str:
 
 
 @overload
-async def call_development_function(
+async def call_development_function[T](
     func: Callable[..., Awaitable[T]], *args, **kwargs
 ) -> T: ...
 
 
 @overload
-async def call_development_function(func: Callable[..., T], *args, **kwargs) -> T: ...
+async def call_development_function[T](func: Callable[..., T], *args, **kwargs) -> T: ...
 
 
 async def call_development_function(
@@ -111,7 +113,7 @@ async def call_development_function(
             args=list(args),
             kwargs=kwargs,
         )
-        return cast(T, result)
+        return cast("T", result)
     else:
         if inspect.iscoroutinefunction(func):
             return await func(*args, **kwargs)
@@ -133,7 +135,7 @@ def _get_rfc_password() -> str:
 def _get_rfc_url() -> str:
     set = settings.get_settings()
     url = set["rfc_url"]
-    if not "://" in url:
+    if "://" not in url:
         url = "http://" + url
     if url.endswith("/"):
         url = url[:-1]
@@ -160,7 +162,7 @@ def call_development_function_sync(
         raise TimeoutError("Function call timed out after 30 seconds")
 
     result = result_queue.get_nowait()
-    return cast(T, result)
+    return cast("T", result)
 
 
 def get_web_ui_port():

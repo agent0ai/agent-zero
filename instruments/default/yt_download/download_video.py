@@ -1,5 +1,6 @@
 import sys
-import yt_dlp # type: ignore
+
+import yt_dlp  # type: ignore
 
 if len(sys.argv) != 2:
     print("Usage: python3 download_video.py <url>")

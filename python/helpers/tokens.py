@@ -1,4 +1,5 @@
 from typing import Literal
+
 import tiktoken
 
 APPROX_BUFFER = 1.1

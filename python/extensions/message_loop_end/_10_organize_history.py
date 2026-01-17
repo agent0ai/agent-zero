@@ -1,6 +1,7 @@
 import asyncio
-from python.helpers.extension import Extension
+
 from agent import LoopData
+from python.helpers.extension import Extension
 
 DATA_NAME_TASK = "_organize_history_task"
 

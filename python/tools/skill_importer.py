@@ -3,9 +3,10 @@ Skill Importer Tool for Agent Zero
 Import Claude Code plugin skills, hooks, agents, and MCP servers
 """
 
-from python.helpers.tool import Tool, Response
-from python.helpers import files
 import json
+
+from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class SkillImporter(Tool):
@@ -167,7 +168,7 @@ class SkillImporter(Tool):
                 break_loop=False
             )
 
-        result = self.manager.toggle_skill(skill_id, enabled)
+        self.manager.toggle_skill(skill_id, enabled)
         status = "enabled" if enabled else "disabled"
         return Response(
             message=f"Skill {skill_id} {status}.",

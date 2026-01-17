@@ -1,11 +1,10 @@
 import sqlite3
-import os
-import sys
 from pathlib import Path
+
 
 def validate_security():
     print("=== Agent Zero White-Hat Security Validation ===")
-    
+
     db_path = Path("instruments/custom/workflow_engine/data/workflow.db")
     if not db_path.exists():
         print("[!] Database not found. Run the UI first to initialize.")
@@ -28,7 +27,7 @@ def validate_security():
     print("\n--- Recent Security Events ---")
     cursor.execute("SELECT event_type, status, timestamp, details FROM security_audit_log ORDER BY timestamp DESC LIMIT 10")
     events = cursor.fetchall()
-    
+
     if events:
         for e in events:
             print(f"[{e[2]}] {e[0].upper():<20} | Status: {e[1]:<10} | Details: {e[3]}")

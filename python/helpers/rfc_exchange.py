@@ -1,4 +1,5 @@
-from python.helpers import runtime, crypto, dotenv
+from python.helpers import crypto, dotenv, runtime
+
 
 async def get_root_password():
     if runtime.is_dockerized():
@@ -9,7 +10,7 @@ async def get_root_password():
         enc = await runtime.call_development_function(_provide_root_password, pub)
         pswd = crypto.decrypt_data(enc, priv)
     return pswd
-    
+
 def _provide_root_password(public_key_pem: str):
     pswd = _get_root_password()
     enc = crypto.encrypt_data(pswd, public_key_pem)

@@ -1,8 +1,9 @@
 import asyncio
-from dataclasses import dataclass
 import threading
+from collections.abc import Awaitable, Callable, Coroutine
 from concurrent.futures import Future
-from typing import Any, Callable, Optional, Coroutine, TypeVar, Awaitable
+from dataclasses import dataclass
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -18,7 +19,7 @@ class EventLoopThread:
     def __new__(cls, thread_name: str = "Background"):
         with cls._lock:
             if thread_name not in cls._instances:
-                instance = super(EventLoopThread, cls).__new__(cls)
+                instance = super().__new__(cls)
                 cls._instances[thread_name] = instance
             return cls._instances[thread_name]
 
@@ -62,7 +63,7 @@ class DeferredTask:
         thread_name: str = "Background",
     ):
         self.event_loop_thread = EventLoopThread(thread_name)
-        self._future: Optional[Future] = None
+        self._future: Future | None = None
         self.children: list[ChildTask] = []
 
     def start_task(
@@ -86,7 +87,7 @@ class DeferredTask:
     def is_ready(self) -> bool:
         return self._future.done() if self._future else False
 
-    def result_sync(self, timeout: Optional[float] = None) -> Any:
+    def result_sync(self, timeout: float | None = None) -> Any:
         if not self._future:
             raise RuntimeError("Task hasn't been started")
         try:
@@ -96,7 +97,7 @@ class DeferredTask:
                 "The task did not complete within the specified timeout."
             )
 
-    async def result(self, timeout: Optional[float] = None) -> Any:
+    async def result(self, timeout: float | None = None) -> Any:
         if not self._future:
             raise RuntimeError("Task hasn't been started")
 

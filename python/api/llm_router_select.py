@@ -1,7 +1,7 @@
 """LLM Router - Select the best model based on criteria"""
 
 from python.helpers.api import ApiHandler
-from python.helpers.llm_router import get_router, RoutingPriority
+from python.helpers.llm_router import RoutingPriority, get_router
 
 
 class LlmRouterSelect(ApiHandler):

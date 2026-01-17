@@ -5,8 +5,8 @@ Checks after each message loop if a Ralph loop should continue.
 If active, injects the continuation prompt for the next iteration.
 """
 
-from python.helpers.extension import Extension
 from agent import LoopData
+from python.helpers.extension import Extension
 
 
 class RalphLoopCheck(Extension):
@@ -89,5 +89,5 @@ class RalphLoopCheck(Extension):
             if self.agent and self.agent.context:
                 self.agent.context.log.log(
                     type="error",
-                    content=f"Ralph loop check error: {str(e)}"
+                    content=f"Ralph loop check error: {e!s}"
                 )

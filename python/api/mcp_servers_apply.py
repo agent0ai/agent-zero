@@ -1,8 +1,7 @@
 import time
-from python.helpers.api import ApiHandler, Request, Response
-
 from typing import Any
 
+from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.mcp_handler import MCPConfig
 from python.helpers.settings import set_settings_delta
 

@@ -1,9 +1,10 @@
 import base64
-import os
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
-from python.helpers.print_style import PrintStyle
 import json
+import os
+
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
+from python.helpers.print_style import PrintStyle
 
 
 class ApiFilesGet(ApiHandler):
@@ -76,7 +77,7 @@ class ApiFilesGet(ApiHandler):
                     PrintStyle().print(f"Retrieved file: {filename} ({len(file_content)} bytes)")
 
                 except Exception as e:
-                    PrintStyle.error(f"Failed to read file {path}: {str(e)}")
+                    PrintStyle.error(f"Failed to read file {path}: {e!s}")
                     continue
 
             # Log the retrieval
@@ -87,9 +88,9 @@ class ApiFilesGet(ApiHandler):
             return result
 
         except Exception as e:
-            PrintStyle.error(f"API files get error: {str(e)}")
+            PrintStyle.error(f"API files get error: {e!s}")
             return Response(
-                json.dumps({"error": f"Internal server error: {str(e)}"}),
+                json.dumps({"error": f"Internal server error: {e!s}"}),
                 status=500,
                 mimetype="application/json"
             )

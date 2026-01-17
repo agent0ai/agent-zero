@@ -2,11 +2,10 @@ import importlib
 import inspect
 import json
 from typing import Any, TypedDict
+
 import aiohttp
+
 from python.helpers import crypto
-
-from python.helpers import dotenv
-
 
 # Remote Function Call library
 # Call function via http request
@@ -68,14 +67,13 @@ def _get_function(module: str, function_name: str):
 
 
 async def _send_json_data(url: str, data):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            url,
-            json=data,
-        ) as response:
-            if response.status == 200:
-                result = await response.json()
-                return result
-            else:
-                error = await response.text()
-                raise Exception(error)
+    async with aiohttp.ClientSession() as session, session.post(
+        url,
+        json=data,
+    ) as response:
+        if response.status == 200:
+            result = await response.json()
+            return result
+        else:
+            error = await response.text()
+            raise Exception(error)

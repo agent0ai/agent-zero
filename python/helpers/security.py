@@ -1,33 +1,36 @@
-import time
+import hashlib
 import json
 import os
-import hashlib
-import threading
 import queue
-from flask import request
-from python.helpers import files
+import threading
+import time
+
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from flask import request
+
+from python.helpers import files
+
 
 class SecurityManager:
     """Manages white-hat security protections, auditing, and rate limiting."""
-    
+
     _rate_limits = {} # simple in-memory rate limiting. {ip_action: [timestamps]}
     _authorized_sessions = {} # {user_id: last_authorized_time}
     _pending_requests = {} # {request_id: {tool, user_id, status}}
     _action_history = [] # List of (timestamp, user_id, action) for anomaly detection
     _storage_key = None # Derived key for storage encryption
-    
+
     # Async Logging Queue
     _log_queue = queue.Queue()
     _log_thread = None
 
     # Toggle for feature rollout
-    ENFORCE_PASSKEY = False 
+    ENFORCE_PASSKEY = False
     STRICT_HARDWARE_ONLY = True # Require hardware TPM/Secure Enclave
-    
+
     HIGH_RISK_TOOLS = [
-        "code_execution_tool", "email", "email_advanced", 
-        "memory_delete", "memory_forget", "workflow_engine", 
+        "code_execution_tool", "email", "email_advanced",
+        "memory_delete", "memory_forget", "workflow_engine",
         "run_in_terminal", "cowork_approval", "memory_access"
     ]
 
@@ -36,16 +39,16 @@ class SecurityManager:
         """Starts a background thread to process audit logs without blocking the main loop."""
         if cls._log_thread and cls._log_thread.is_alive():
             return
-            
+
         def worker():
             from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
-            
+
             while True:
                 item = cls._log_queue.get()
                 if item is None: break # Shutdown signal
-                
+
                 try:
                     event_type, status, user_id, ip, ua, details = item
                     conn = db._get_conn()
@@ -71,17 +74,17 @@ class SecurityManager:
         """Buffers a security event to the async audit queue."""
         if cls._log_thread is None:
             cls._start_log_worker()
-            
+
         ip = request.remote_addr if request else "unknown"
         ua = request.headers.get("User-Agent") if request else "unknown"
-        
+
         # Immediate return after queuing
         cls._log_queue.put((event_type, status, user_id, ip, ua, details))
 
     @classmethod
     def is_tool_authorized(cls, tool_name, user_id="default_user", limit=15, window=60):
         """
-        Simple rate limiter. 
+        Simple rate limiter.
         action: string identifier for the action
         limit: max attempts
         window: seconds
@@ -95,17 +98,17 @@ class SecurityManager:
 
         key = f"{ip}_{tool_name}"
         now = time.time()
-        
+
         if key not in cls._rate_limits:
             cls._rate_limits[key] = []
-            
+
         # Clean old timestamps
         cls._rate_limits[key] = [t for t in cls._rate_limits[key] if now - t < window]
-        
+
         if len(cls._rate_limits[key]) >= limit:
             cls.log_event("rate_limit_exceeded", "warning", details={"tool": tool_name, "limit": limit})
             return False
-            
+
         cls._rate_limits[key].append(now)
         return True
 
@@ -121,7 +124,7 @@ class SecurityManager:
         """Analyzes tool arguments for potential unauthorized network activity."""
         # Keywords suggesting outbound connections
         sentinel_keywords = ["curl", "wget", "http://", "https://", "ftp://", "socket.", "requests.", "urllib"]
-        
+
         args_str = json.dumps(tool_args).lower()
         if any(keyword in args_str for keyword in sentinel_keywords):
             # If it's a known high-risk tool like bash, we monitor it more strictly
@@ -133,7 +136,7 @@ class SecurityManager:
     def get_storage_key(cls):
         """Derives a storage key from the vault's unique platform secret."""
         if cls._storage_key: return cls._storage_key
-        
+
         # We use the VAPID private key as a seed for the platform derivation
         seed = SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "agent-zero-storage-fallback")
         cls._storage_key = hashlib.sha256(seed.encode()).digest()
@@ -170,10 +173,10 @@ class SecurityManager:
         """Performs real-time anomaly detection on agent behavior."""
         now = time.time()
         cls._action_history.append((now, user_id))
-        
+
         # Keep only last 60 seconds
         cls._action_history = [(t, u) for t, u in cls._action_history if now - t < 60]
-        
+
         # Velocity Check: Max 15 actions per minute for high-security mode
         if len(cls._action_history) > 15:
             cls.panic_lock(user_id)
@@ -181,7 +184,7 @@ class SecurityManager:
                 "reason": "velocity_limit_exceeded",
                 "actions_per_min": len(cls._action_history)
             })
-            
+
             # Send Emergency Push
             try:
                 from python.helpers.proactive import ProactiveManager
@@ -193,7 +196,7 @@ class SecurityManager:
                 )
             except:
                 pass
-            
+
             return False
         return True
 
@@ -238,18 +241,18 @@ class SecurityManager:
             db = WorkflowEngineDatabase(db_path)
             conn = db._get_conn()
             cursor = conn.cursor()
-            
+
             cursor.execute("""
-                SELECT id, event_type, status, user_id, ip_address, device_info, details, timestamp 
-                FROM security_audit_log 
+                SELECT id, event_type, status, user_id, ip_address, device_info, details, timestamp
+                FROM security_audit_log
                 ORDER BY timestamp DESC LIMIT ?
             """, (limit,))
-            
+
             rows = cursor.fetchall()
             logs = []
             for row in rows:
                 logs.append(dict(row))
-            
+
             conn.close()
             return logs
         except Exception as e:
@@ -261,16 +264,16 @@ class SecurityManager:
         """Basic input validation and sanitization."""
         if not data or not isinstance(data, dict):
             return False, "Invalid input format"
-            
+
         for field in required_fields:
             if field not in data:
                 return False, f"Missing required field: {field}"
-                
+
         return True, None
 
 class SecurityVaultManager:
     """Manages sensitive keys and secrets that are hardware-bound or encrypted."""
-    
+
     VAULT_PATH = "./data/secure_vault.json"
 
     @classmethod
@@ -279,17 +282,17 @@ class SecurityVaultManager:
         if not cls.get_secret("VAPID_PRIVATE_KEY"):
             try:
                 # Generate VAPID keys if pywebpush is available
-                from pywebpush import webpush
-                import ecdsa
                 import base64
-                
+
+                import ecdsa
+
                 # Generate a NIST P-256 key pair
                 sk = ecdsa.SigningKey.generate(curve=ecdsa.NIST256p)
                 vk = sk.get_verifying_key()
-                
+
                 private_key = base64.urlsafe_b64encode(sk.to_string()).decode('utf-8').strip("=")
                 public_key = base64.urlsafe_b64encode(b"\x04" + vk.to_string()).decode('utf-8').strip("=")
-                
+
                 cls.set_secret("VAPID_PRIVATE_KEY", private_key)
                 cls.set_secret("VAPID_PUBLIC_KEY", public_key)
                 print("[🔐 Security] Generated new VAPID keypair for proactive alerts.")
@@ -302,9 +305,9 @@ class SecurityVaultManager:
         abs_path = files.get_abs_path(cls.VAULT_PATH)
         if not os.path.exists(abs_path):
             return default
-            
+
         try:
-            with open(abs_path, 'r') as f:
+            with open(abs_path) as f:
                 vault = json.load(f)
             return vault.get(key_name, default)
         except:
@@ -315,15 +318,15 @@ class SecurityVaultManager:
         """Sets a secret in the vault."""
         abs_path = files.get_abs_path(cls.VAULT_PATH)
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-        
+
         vault = {}
         if os.path.exists(abs_path):
             try:
-                with open(abs_path, 'r') as f:
+                with open(abs_path) as f:
                     vault = json.load(f)
             except:
                 pass
-        
+
         vault[key_name] = value
         with open(abs_path, 'w') as f:
             json.dump(vault, f)

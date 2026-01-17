@@ -1,5 +1,4 @@
 from python.helpers.extension import Extension
-from agent import Agent, LoopData
 from python.helpers.secrets import get_secrets_manager
 
 
@@ -35,6 +34,6 @@ class MaskResponseStreamChunk(Extension):
             if processed_chunk:
                 from python.helpers.print_style import PrintStyle
                 PrintStyle().stream(processed_chunk)
-        except Exception as e:
+        except Exception:
             # If masking fails, proceed without masking
             pass

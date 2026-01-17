@@ -1,16 +1,28 @@
 import asyncio
-from datetime import datetime
 import json
 import random
 import re
-from python.helpers.tool import Tool, Response
-from python.helpers.task_scheduler import (
-    TaskScheduler, ScheduledTask, AdHocTask, PlannedTask,
-    serialize_task, TaskState, TaskSchedule, TaskPlan, parse_datetime, serialize_datetime
-)
+from typing import TYPE_CHECKING
+
 from agent import AgentContext
 from python.helpers import persist_chat
 from python.helpers.projects import get_context_project_name, load_basic_project_data
+from python.helpers.task_scheduler import (
+    AdHocTask,
+    PlannedTask,
+    ScheduledTask,
+    TaskPlan,
+    TaskSchedule,
+    TaskScheduler,
+    TaskState,
+    parse_datetime,
+    serialize_datetime,
+    serialize_task,
+)
+from python.helpers.tool import Response, Tool
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 DEFAULT_WAIT_TIMEOUT = 300
 
@@ -54,10 +66,10 @@ class SchedulerTool(Tool):
         return project_slug, color
 
     async def list_tasks(self, **kwargs) -> Response:
-        state_filter: list[str] | None = kwargs.get("state", None)
-        type_filter: list[str] | None = kwargs.get("type", None)
-        next_run_within_filter: int | None = kwargs.get("next_run_within", None)
-        next_run_after_filter: int | None = kwargs.get("next_run_after", None)
+        state_filter: list[str] | None = kwargs.get("state")
+        type_filter: list[str] | None = kwargs.get("type")
+        next_run_within_filter: int | None = kwargs.get("next_run_within")
+        next_run_after_filter: int | None = kwargs.get("next_run_after")
 
         tasks: list[ScheduledTask | AdHocTask | PlannedTask] = TaskScheduler.get().get_tasks()
         filtered_tasks = []
@@ -96,7 +108,7 @@ class SchedulerTool(Tool):
         task_uuid: str = kwargs.get("uuid", "")
         if not task_uuid:
             return Response(message="Task UUID is required", break_loop=False)
-        task_context: str | None = kwargs.get("context", None)
+        task_context: str | None = kwargs.get("context")
         task: ScheduledTask | AdHocTask | PlannedTask | None = TaskScheduler.get().get_task_by_uuid(task_uuid)
         if not task:
             return Response(message=f"Task not found: {task_uuid}", break_loop=False)
@@ -164,7 +176,7 @@ class SchedulerTool(Tool):
         )
 
         # Validate cron expression, agent might hallucinate
-        cron_regex = "^((((\d+,)+\d+|(\d+(\/|-|#)\d+)|\d+L?|\*(\/\d+)?|L(-\d+)?|\?|[A-Z]{3}(-[A-Z]{3})?) ?){5,7})$"
+        cron_regex = r"^((((\d+,)+\d+|(\d+(\/|-|#)\d+)|\d+L?|\*(\/\d+)?|L(-\d+)?|\?|[A-Z]{3}(-[A-Z]{3})?) ?){5,7})$"
         if not re.match(cron_regex, task_schedule.to_crontab()):
             return Response(message="Invalid cron expression: " + task_schedule.to_crontab(), break_loop=False)
 

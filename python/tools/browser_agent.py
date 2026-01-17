@@ -1,19 +1,19 @@
 import asyncio
 import time
-from typing import Optional, cast
-from agent import Agent, InterventionException
 from pathlib import Path
+from typing import cast
 
-from python.helpers.tool import Tool, Response
-from python.helpers import files, defer, persist_chat, strings
-from python.helpers.browser_use import browser_use  # type: ignore[attr-defined]
-from python.helpers.print_style import PrintStyle
-from python.helpers.playwright import ensure_playwright_binary
-from python.helpers.secrets import get_secrets_manager
-from python.extensions.message_loop_start._10_iteration_no import get_iter_no
 from pydantic import BaseModel
-import uuid
+
+from agent import Agent, InterventionException
+from python.extensions.message_loop_start._10_iteration_no import get_iter_no
+from python.helpers import defer, files, persist_chat, strings
+from python.helpers.browser_use import browser_use  # type: ignore[attr-defined]
 from python.helpers.dirty_json import DirtyJson
+from python.helpers.playwright import ensure_playwright_binary
+from python.helpers.print_style import PrintStyle
+from python.helpers.secrets import get_secrets_manager
+from python.helpers.tool import Response, Tool
 
 
 class State:
@@ -24,10 +24,10 @@ class State:
 
     def __init__(self, agent: Agent):
         self.agent = agent
-        self.browser_session: Optional[browser_use.BrowserSession] = None
-        self.task: Optional[defer.DeferredTask] = None
-        self.use_agent: Optional[browser_use.Agent] = None
-        self.secrets_dict: Optional[dict[str, str]] = None
+        self.browser_session: browser_use.BrowserSession | None = None
+        self.task: defer.DeferredTask | None = None
+        self.use_agent: browser_use.Agent | None = None
+        self.secrets_dict: dict[str, str] | None = None
         self.iter_no = 0
 
     def __del__(self):
@@ -49,7 +49,7 @@ class State:
 
         # for some reason we need to provide exact path to headless shell, otherwise it looks for headed browser
         pw_binary = ensure_playwright_binary()
-                
+
         self.browser_session = browser_use.BrowserSession(
             browser_profile=browser_use.BrowserProfile(
                 headless=True,
@@ -92,8 +92,8 @@ class State:
             except Exception as e:
                 PrintStyle().warning(f"Could not force set viewport size: {e}")
 
-        # --------------------------------------------------------------------------    
-        
+        # --------------------------------------------------------------------------
+
         # Add init script to the browser session
         if self.browser_session and self.browser_session.browser_context:
             js_override = files.get_abs_path("lib/browser/init_override.js")
@@ -167,7 +167,7 @@ class State:
                 controller=controller,
                 enable_memory=False,  # Disable memory to avoid state conflicts
                 llm_timeout=3000, # TODO rem
-                sensitive_data=cast(dict[str, str | dict[str, str]] | None, secrets_dict or {}),  # Pass secrets
+                sensitive_data=cast("dict[str, str | dict[str, str]] | None", secrets_dict or {}),  # Pass secrets
             )
         except Exception as e:
             raise Exception(
@@ -240,7 +240,7 @@ class BrowserAgent(Tool):
                 try:
                     update = await asyncio.wait_for(self.get_update(), timeout=10)
                     fail_counter = 0  # reset on success
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     fail_counter += 1
                     PrintStyle().warning(
                         self._mask(f"browser_agent.get_update timed out ({fail_counter}/3)")
@@ -257,7 +257,7 @@ class BrowserAgent(Tool):
                 if screenshot:
                     self.log.update(screenshot=screenshot)
             except Exception as e:
-                PrintStyle().error(self._mask(f"Error getting update: {str(e)}"))
+                PrintStyle().error(self._mask(f"Error getting update: {e!s}"))
 
         if task and not task.is_ready():
             PrintStyle().warning(self._mask("browser_agent.get_update timed out, killing the task"))
@@ -276,9 +276,9 @@ class BrowserAgent(Tool):
         try:
             result = await task.result() if task else None
         except Exception as e:
-            PrintStyle().error(self._mask(f"Error getting browser agent task result: {str(e)}"))
+            PrintStyle().error(self._mask(f"Error getting browser agent task result: {e!s}"))
             # Return a timeout response if task.result() fails
-            answer_text = self._mask(f"Browser agent task failed to return result: {str(e)}")
+            answer_text = self._mask(f"Browser agent task failed to return result: {e!s}")
             self.log.update(answer=answer_text)
             return Response(message=answer_text, break_loop=False)
         # finally:
@@ -301,7 +301,7 @@ class BrowserAgent(Tool):
                 answer_text = (
                     str(answer)
                     if answer
-                    else f"Task completed with parse error: {str(e)}"
+                    else f"Task completed with parse error: {e!s}"
                 )
         else:
             # Task hit max_steps without calling done()
@@ -364,7 +364,7 @@ class BrowserAgent(Tool):
                     )
                     files.make_dirs(path)
                     await page.screenshot(path=path, full_page=False, timeout=3000)
-                    result["screenshot"] = f"img://{path}&t={str(time.time())}"
+                    result["screenshot"] = f"img://{path}&t={time.time()!s}"
 
                 if self.state and self.state.task and not self.state.task.is_ready():
                     await self.state.task.execute_inside(_get_update)
@@ -395,7 +395,7 @@ class BrowserAgent(Tool):
     def _mask(self, text: str) -> str:
         try:
             return get_secrets_manager(self.agent.context).mask_values(text or "")
-        except Exception as e:
+        except Exception:
             return text or ""
 
     # def __del__(self):

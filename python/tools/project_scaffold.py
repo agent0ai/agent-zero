@@ -3,9 +3,10 @@ Project Scaffold Tool for Agent Zero
 Generate complete project structures from templates
 """
 
-from python.helpers.tool import Tool, Response
-from python.helpers import files
 import json
+
+from python.helpers import files
+from python.helpers.tool import Response, Tool
 
 
 class ProjectScaffold(Tool):

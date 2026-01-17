@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
-from python.helpers.extension import Extension
-from python.helpers import settings
+from datetime import UTC, datetime
+
 from agent import LoopData
+from python.helpers import settings
+from python.helpers.extension import Extension
 
 
 class PromptEnhancer(Extension):
@@ -112,7 +113,7 @@ class PromptEnhancer(Extension):
         payload = {
             "original": user_text,
             "enhanced": enhanced,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "suggested_tools": suggested_tools,
         }
         self.agent.context.set_output_data("prompt_enhance_last", payload)
@@ -151,7 +152,7 @@ class PromptEnhancer(Extension):
 
         if use_router:
             try:
-                from python.helpers.llm_router import get_router, RoutingPriority
+                from python.helpers.llm_router import RoutingPriority, get_router
 
                 router = get_router()
                 # Select a fast, cheap model for enhancement

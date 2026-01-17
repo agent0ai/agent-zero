@@ -2,8 +2,9 @@ import os
 import re
 from typing import Any
 
-from .files import get_abs_path
 from dotenv import load_dotenv as _load_dotenv
+
+from .files import get_abs_path
 
 KEY_AUTH_LOGIN = "AUTH_LOGIN"
 KEY_AUTH_PASSWORD = "AUTH_PASSWORD"
@@ -18,7 +19,7 @@ def get_dotenv_file_path():
     return get_abs_path(".env")
 
 def get_dotenv_value(key: str, default: Any = None):
-    # load_dotenv()       
+    # load_dotenv()
     return os.getenv(key, default)
 
 def save_dotenv_value(key: str, value: str):

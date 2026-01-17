@@ -1,7 +1,9 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files, memory
 import os
+
 from werkzeug.utils import secure_filename
+
+from python.helpers import files, memory
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class ImportKnowledge(ApiHandler):

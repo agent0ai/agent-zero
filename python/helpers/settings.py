@@ -2,17 +2,16 @@ import base64
 import hashlib
 import json
 import os
-import re
 import subprocess
 from typing import Any, Literal, TypedDict, cast
 
 import models
-from python.helpers import runtime, whisper, defer, git
-from . import files, dotenv
+from python.helpers import defer, git, runtime, whisper
 from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers
 from python.helpers.secrets import get_default_secrets_manager
-from python.helpers import dirty_json
+
+from . import dotenv, files
 
 
 class GmailAccountInfo(TypedDict):
@@ -210,7 +209,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for main chat model used by Agent Zero",
             "type": "select",
             "value": settings["chat_model_provider"],
-            "options": cast(list[FieldOption], get_providers("chat")),
+            "options": cast('list[FieldOption]', get_providers("chat")),
         }
     )
     chat_model_fields.append(
@@ -323,7 +322,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for utility model used by the framework",
             "type": "select",
             "value": settings["util_model_provider"],
-            "options": cast(list[FieldOption], get_providers("chat")),
+            "options": cast('list[FieldOption]', get_providers("chat")),
         }
     )
     util_model_fields.append(
@@ -403,7 +402,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for embedding model used by the framework",
             "type": "select",
             "value": settings["embed_model_provider"],
-            "options": cast(list[FieldOption], get_providers("embedding")),
+            "options": cast('list[FieldOption]', get_providers("embedding")),
         }
     )
     embed_model_fields.append(
@@ -473,7 +472,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "description": "Select provider for web browser model used by <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> framework",
             "type": "select",
             "value": settings["browser_model_provider"],
-            "options": cast(list[FieldOption], get_providers("chat")),
+            "options": cast('list[FieldOption]', get_providers("chat")),
         }
     )
     browser_model_fields.append(
@@ -1389,11 +1388,11 @@ def convert_out(settings: Settings) -> SettingsOutput:
     # Get current Gmail accounts status
     gmail_accounts = settings.get("gmail_accounts", {})
     account_count = len(gmail_accounts)
-    
+
     # Build account list HTML
     account_list_html = "<div style='padding: 10px; background: #f5f5f5; border-radius: 4px;'>"
     account_list_html += f"<div><strong>Configured accounts: {account_count}</strong></div>"
-    
+
     if account_count > 0:
         account_list_html += "<div style='margin-top: 10px; font-size: 0.9em;'><ul style='margin: 5px 0; padding-left: 20px;'>"
         for account_name, account_info in gmail_accounts.items():
@@ -1402,9 +1401,9 @@ def convert_out(settings: Settings) -> SettingsOutput:
             status_icon = "✅" if authenticated else "❌"
             account_list_html += f"<li><strong>{account_name}</strong>: {email} {status_icon}</li>"
         account_list_html += "</ul></div>"
-    
+
     account_list_html += "</div>"
-    
+
     gmail_accounts_fields.append(
         {
             "id": "gmail_accounts_info",
@@ -1874,7 +1873,7 @@ def get_default_settings() -> Settings:
     import os
     # Use Ollama URL from environment or default to localhost
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    
+
     return Settings(
         version=_get_version(),
         chat_model_provider="ollama",
@@ -1993,7 +1992,7 @@ def _apply_settings(previous: Settings | None):
 
         # reload whisper model if necessary
         if not previous or _settings["stt_model_size"] != previous["stt_model_size"]:
-            task = defer.DeferredTask().start_task(
+            defer.DeferredTask().start_task(
                 whisper.preload, _settings["stt_model_size"]
             )  # TODO overkill, replace with background task
 
@@ -2051,7 +2050,7 @@ def _apply_settings(previous: Settings | None):
                     type="info", content="Finished updating MCP settings.", temp=True
                 )
 
-            task2 = defer.DeferredTask().start_task(
+            defer.DeferredTask().start_task(
                 update_mcp_settings, config.mcp_servers
             )  # TODO overkill, replace with background task
 
@@ -2066,7 +2065,7 @@ def _apply_settings(previous: Settings | None):
 
                 DynamicMcpProxy.get_instance().reconfigure(token=token)
 
-            task3 = defer.DeferredTask().start_task(
+            defer.DeferredTask().start_task(
                 update_mcp_token, current_token
             )  # TODO overkill, replace with background task
 
@@ -2078,7 +2077,7 @@ def _apply_settings(previous: Settings | None):
 
                 DynamicA2AProxy.get_instance().reconfigure(token=token)
 
-            task4 = defer.DeferredTask().start_task(
+            defer.DeferredTask().start_task(
                 update_a2a_token, current_token
             )  # TODO overkill, replace with background task
 
@@ -2089,14 +2088,14 @@ def _env_to_dict(data: str):
         line = line.strip()
         if not line or line.startswith('#'):
             continue
-        
+
         if '=' not in line:
             continue
-            
+
         key, value = line.split('=', 1)
         key = key.strip()
         value = value.strip()
-        
+
         # If quoted, treat as string
         if value.startswith('"') and value.endswith('"'):
             result[key] = value[1:-1].replace('\\"', '"')  # Unescape quotes
@@ -2108,7 +2107,7 @@ def _env_to_dict(data: str):
                 result[key] = json.loads(value)
             except (json.JSONDecodeError, ValueError):
                 result[key] = value
-    
+
     return result
 
 
@@ -2125,7 +2124,7 @@ def _dict_to_env(data_dict):
         else:
             # Numbers and other types as unquoted strings
             lines.append(f'{key}={value}')
-    
+
     return "\n".join(lines)
 
 
@@ -2154,7 +2153,7 @@ def get_runtime_config(set: Settings):
         if "//" in host:
             host = host.split("//")[1]
         if ":" in host:
-            host, port = host.split(":")
+            host, _port = host.split(":")
         if host.endswith("/"):
             host = host[:-1]
         return {

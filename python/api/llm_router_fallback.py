@@ -1,7 +1,7 @@
 """LLM Router - Get fallback chain for a model or role"""
 
 from python.helpers.api import ApiHandler
-from python.helpers.llm_router import get_router, RoutingPriority
+from python.helpers.llm_router import RoutingPriority, get_router
 
 
 class LlmRouterFallback(ApiHandler):

@@ -1,8 +1,9 @@
+import random
+
 from python.helpers.api import ApiHandler, Input, Output, Request
-from python.helpers.projects import load_basic_project_data
 from python.helpers.localization import Localization
 from python.helpers.print_style import PrintStyle
-import random
+from python.helpers.projects import load_basic_project_data
 
 
 class SchedulerTaskCreate(ApiHandler):
@@ -10,8 +11,15 @@ class SchedulerTaskCreate(ApiHandler):
         # Lazy import - TaskScheduler requires crontab which may not be installed
         try:
             from python.helpers.task_scheduler import (
-                TaskScheduler, ScheduledTask, AdHocTask, PlannedTask, TaskSchedule,
-                serialize_task, parse_task_schedule, parse_task_plan, TaskType
+                AdHocTask,
+                PlannedTask,
+                ScheduledTask,
+                TaskSchedule,
+                TaskScheduler,
+                TaskType,
+                parse_task_plan,
+                parse_task_schedule,
+                serialize_task,
             )
         except ImportError as e:
             return {"error": f"Scheduler not available: {e}"}

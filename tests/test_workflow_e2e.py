@@ -4,11 +4,12 @@ Tests complete workflow lifecycles, training paths, and skill progression.
 """
 
 import os
-import pytest
-import json
 
 # Add parent directory to path
 import sys
+
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from instruments.custom.workflow_engine.workflow_manager import WorkflowEngineManager
@@ -399,7 +400,7 @@ class TestSkillProgression:
 
         # Practice to beginner (5 completions)
         for _ in range(6):
-            result = self.manager.track_skill_usage(agent_id, skill_id, success=True)
+            self.manager.track_skill_usage(agent_id, skill_id, success=True)
 
         skills = self.manager.get_agent_skills(agent_id)
         assert len(skills) == 1
@@ -414,7 +415,7 @@ class TestSkillProgression:
 
         # Practice to expert (50 total)
         for _ in range(20):
-            result = self.manager.track_skill_usage(agent_id, skill_id, success=True)
+            self.manager.track_skill_usage(agent_id, skill_id, success=True)
 
         # Generate skill chart
         proficiency = self.manager.get_agent_skills(agent_id)
@@ -580,8 +581,8 @@ class TestDashboardIntegration:
 
         # Create executions with different states
         exec1 = self.manager.start_workflow(workflow_id=wf1['workflow_id'])
-        exec2 = self.manager.start_workflow(workflow_id=wf1['workflow_id'])
-        exec3 = self.manager.start_workflow(workflow_id=wf2['workflow_id'])
+        self.manager.start_workflow(workflow_id=wf1['workflow_id'])
+        self.manager.start_workflow(workflow_id=wf2['workflow_id'])
 
         # Complete one
         self.manager.advance_stage(exec1['execution_id'], force=True)

@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import copy
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
 
 WORKFLOW_KEY = "workflow_runs"
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _default_store() -> dict[str, Any]:

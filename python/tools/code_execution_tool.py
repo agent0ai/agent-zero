@@ -1,16 +1,16 @@
 import asyncio
-from dataclasses import dataclass
+import re
 import shlex
 import time
-from python.helpers.tool import Tool, Response
-from python.helpers import files, rfc_exchange, projects, runtime
+from dataclasses import dataclass
+
+from python.helpers import files, projects, rfc_exchange, runtime
+from python.helpers.messages import truncate_text as truncate_text_agent
 from python.helpers.print_style import PrintStyle
 from python.helpers.shell_local import LocalInteractiveSession
 from python.helpers.shell_ssh import SSHInteractiveSession
-from python.helpers.docker import DockerContainerManager
 from python.helpers.strings import truncate_text as truncate_text_string
-from python.helpers.messages import truncate_text as truncate_text_agent
-import re
+from python.helpers.tool import Response, Tool
 
 # Timeouts for python, nodejs, and terminal runtimes.
 CODE_EXEC_TIMEOUTS: dict[str, int] = {
@@ -104,7 +104,7 @@ class CodeExecution(Tool):
 
     def get_heading(self, text: str = ""):
         if not text:
-            text = f"{self.name} - {self.args['runtime'] if 'runtime' in self.args else 'unknown'}"
+            text = f"{self.name} - {self.args.get('runtime', 'unknown')}"
         # text = truncate_text_string(text, 60) # don't truncate here, log.py takes care of it
         session = self.args.get("session", None)
         session_text = f"[{session}] " if session or session == 0 else ""
@@ -185,10 +185,9 @@ class CodeExecution(Tool):
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
 
         # Check if session is running and handle it
-        if not self.allow_running:
-            if response := await self.handle_running_session(session):
-                return response
-        
+        if not self.allow_running and (response := await self.handle_running_session(session)):
+            return response
+
         # try again on lost connection
         for i in range(2):
             try:
@@ -373,14 +372,14 @@ class CodeExecution(Tool):
     async def handle_running_session(
         self,
         session=0,
-        reset_full_output=True, 
+        reset_full_output=True,
         prefix=""
     ):
         if not self.state or session not in self.state.shells:
             return None
         if not self.state.shells[session].running:
             return None
-        
+
         full_output, _ = await self.state.shells[session].session.read_output(
             timeout=1, reset_full_output=reset_full_output
         )
@@ -392,7 +391,7 @@ class CodeExecution(Tool):
             truncated_output.splitlines()[-3:] if truncated_output else []
         )
         last_lines.reverse()
-        for idx, line in enumerate(last_lines):
+        for _idx, line in enumerate(last_lines):
             for pat in self.prompt_patterns:
                 if pat.search(line.strip()):
                     PrintStyle.info(
@@ -401,7 +400,7 @@ class CodeExecution(Tool):
                     self.mark_session_idle(session)
                     return None
 
-        has_dialog = False 
+        has_dialog = False
         for line in last_lines:
             for pat in self.dialog_patterns:
                 if pat.search(line.strip()):
@@ -411,7 +410,7 @@ class CodeExecution(Tool):
                 break
 
         if has_dialog:
-            sys_info = self.agent.read_prompt("fw.code.pause_dialog.md", timeout=1)       
+            sys_info = self.agent.read_prompt("fw.code.pause_dialog.md", timeout=1)
         else:
             sys_info = self.agent.read_prompt("fw.code.running.md", session=session)
 
@@ -421,7 +420,7 @@ class CodeExecution(Tool):
         PrintStyle(font_color="#FFA500", bold=True).print(response)
         self.log.update(content=prefix + response, heading=heading)
         return response
-    
+
     def mark_session_idle(self, session: int = 0):
         # Mark session as idle - command finished
         if self.state and session in self.state.shells:
@@ -478,6 +477,3 @@ class CodeExecution(Tool):
         project_path = projects.get_project_folder(project_name)
         normalized = files.normalize_a0_path(project_path)
         return normalized
-        
-
-        
