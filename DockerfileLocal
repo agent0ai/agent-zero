@@ -11,6 +11,12 @@ COPY ./docker/run/fs/ /
 # Copy current development files to git, they will only be used in "local" branch
 COPY ./ /git/agent-zero
 
+# Install Docker CLI
+RUN apt-get update && \
+    apt-get install -y docker.io && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # pre installation steps
 RUN bash /ins/pre_install.sh $BRANCH
 
