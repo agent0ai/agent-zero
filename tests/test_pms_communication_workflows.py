@@ -434,19 +434,75 @@ class TestIssueResolutionWorkflows:
     @pytest.mark.asyncio
     async def test_create_issue_workflow(self):
         """Test creating issue resolution workflow"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_015",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 6, 10),
+            check_out_date=date(2026, 6, 14),
+        )
+
+        workflow = await service.create_issue_resolution_workflow(reservation, "damage")
+
+        assert workflow is not None
+        assert workflow["type"] == "issue_resolution"
+        assert workflow["issue_type"] == "damage"
+        assert "priority" in workflow
+        assert "escalation_path" in workflow
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_damage_report_workflow(self):
         """Test damage report issue workflow"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_016",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 6, 15),
+            check_out_date=date(2026, 6, 19),
+        )
+
+        workflow = await service.create_issue_resolution_workflow(reservation, "damage")
+
+        assert workflow["priority"] == "high"
+        assert "issue_description" in workflow["sections"]
+        assert "damage" in workflow["sections"]["issue_description"]["title"].lower()
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_noise_complaint_workflow(self):
         """Test noise complaint issue workflow"""
-        pytest.skip("Implementation pending - Team B to implement")
+        from instruments.custom.pms_hub.communication_workflows import (
+            CommunicationWorkflowService,
+        )
+
+        service = CommunicationWorkflowService()
+
+        reservation = Reservation(
+            provider_id="res_017",
+            provider="test",
+            property_provider_id="prop_001",
+            check_in_date=date(2026, 6, 20),
+            check_out_date=date(2026, 6, 24),
+        )
+
+        workflow = await service.create_issue_resolution_workflow(reservation, "noise")
+
+        assert workflow["priority"] == "medium"
+        assert "noise" in workflow["sections"]["issue_description"]["title"].lower()
+        assert "security" in workflow["escalation_path"]
 
     @pytest.mark.unit
     @pytest.mark.asyncio
