@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for PMS Hub tests
+Pytest configuration and fixtures for Life Finance Manager tests
 Shared fixtures across all test modules
 """
 
@@ -17,18 +17,22 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from instruments.custom.pms_hub.canonical_models import (
-    Calendar,
-    Guest,
-    Message,
-    MessageType,
-    PaymentStatus,
-    Property,
-    Reservation,
-    ReservationStatus,
-    Review,
-)
-from instruments.custom.pms_hub.pms_provider import ProviderType
+# PMS Hub imports (optional for Life Finance tests)
+try:
+    from instruments.custom.pms_hub.canonical_models import (
+        Calendar,
+        Guest,
+        Message,
+        MessageType,
+        PaymentStatus,
+        Property,
+        Reservation,
+        ReservationStatus,
+        Review,
+    )
+    from instruments.custom.pms_hub.pms_provider import ProviderType
+except ImportError:
+    pass  # Not needed for Life Finance tests
 
 # ============================================================================
 # Event Loop Fixture
@@ -369,6 +373,18 @@ def mock_property_manager():
 
 
 # ============================================================================
+# Finance-Specific Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def temp_db_path():
+    """Create temporary database path for Life Finance"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir) / "finance_hub.db"
+
+
+# ============================================================================
 # Markers for Test Organization
 # ============================================================================
 
@@ -380,3 +396,4 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "async: Async tests")
     config.addinivalue_line("markers", "slow: Slow tests")
     config.addinivalue_line("markers", "mock: Tests using mocks")
+    config.addinivalue_line("markers", "performance: Performance tests")
