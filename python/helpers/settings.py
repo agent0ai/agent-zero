@@ -128,6 +128,11 @@ class Settings(TypedDict):
     # Gmail API accounts - dict mapping account_name -> GmailAccountInfo
     gmail_accounts: dict[str, GmailAccountInfo]
 
+    google_voice_auto_send: bool
+    google_voice_shortcuts: bool
+    google_voice_contact_rules: str
+    google_voice_tag_filters: str
+
     cowork_enabled: bool
     cowork_require_approvals: bool
     cowork_allowed_paths: list[str]
@@ -1452,6 +1457,65 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "external",
     }
 
+    google_voice_fields: list[SettingsField] = []
+    google_voice_fields.append(
+        {
+            "id": "google_voice_manager",
+            "title": "Google Voice SMS",
+            "description": "Queue and approve Google Voice SMS drafts using a visible browser session.",
+            "type": "html",
+            "value": "<x-component path='/settings/external/google-voice-manager.html' />",
+        }
+    )
+    google_voice_fields.append(
+        {
+            "id": "google_voice_auto_send",
+            "title": "Auto-send approved drafts",
+            "description": "When enabled, drafts will send immediately without manual approval.",
+            "type": "switch",
+            "value": settings.get("google_voice_auto_send", False),
+            "hidden": True,
+        }
+    )
+    google_voice_fields.append(
+        {
+            "id": "google_voice_shortcuts",
+            "title": "Enable shortcuts",
+            "description": "Enable keyboard shortcuts in Google Voice manager.",
+            "type": "switch",
+            "value": settings.get("google_voice_shortcuts", True),
+            "hidden": True,
+        }
+    )
+    google_voice_fields.append(
+        {
+            "id": "google_voice_contact_rules",
+            "title": "Google Voice contact rules",
+            "description": "Internal per-contact auto-send rules.",
+            "type": "textarea",
+            "value": settings.get("google_voice_contact_rules", "{}"),
+            "hidden": True,
+        }
+    )
+    google_voice_fields.append(
+        {
+            "id": "google_voice_tag_filters",
+            "title": "Google Voice tag filters",
+            "description": "Saved inbound tag filters.",
+            "type": "textarea",
+            "value": settings.get("google_voice_tag_filters", "[]"),
+            "hidden": True,
+        }
+    )
+
+    google_voice_section: SettingsSection = {
+        "id": "google_voice",
+        "title": "Google Voice",
+        "description": "Manage Google Voice SMS automation and approvals.",
+        "fields": google_voice_fields,
+        "tab": "external",
+    }
+
     # External API section
     external_api_fields: list[SettingsField] = []
 
@@ -1690,6 +1754,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             mcp_server_section,
             a2a_section,
             gmail_accounts_section,
+            google_voice_section,
             external_api_section,
             update_checker_section,
             backup_section,
@@ -1958,6 +2023,10 @@ def get_default_settings() -> Settings:
         litellm_global_kwargs={},
         update_check_enabled=True,
         gmail_accounts={},
+        google_voice_auto_send=False,
+        google_voice_shortcuts=True,
+        google_voice_contact_rules="{}",
+        google_voice_tag_filters="[]",
         cowork_enabled=False,
         cowork_require_approvals=True,
         cowork_allowed_paths=["/a0"],

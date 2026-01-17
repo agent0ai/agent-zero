@@ -3,7 +3,12 @@ from __future__ import annotations
 import os
 from collections import deque
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:  # Python 3.10 fallback
+    UTC = timezone.utc
 from typing import TYPE_CHECKING, Any, Literal
 
 from pathspec import PathSpec

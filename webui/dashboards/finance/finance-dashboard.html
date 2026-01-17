@@ -1,0 +1,92 @@
+<!-- Finance Dashboard -->
+<div class="dashboard-page" x-data x-init="$store.financeDashboard?.init()">
+    <div class="dashboard-page-header">
+        <h1>
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1v22"/>
+                <path d="M17 5H9.5a2.5 2.5 0 000 5h5a2.5 2.5 0 010 5H6"/>
+            </svg>
+            Finance
+        </h1>
+        <button class="dashboard-back-btn" @click="$store.dashboardRouter?.closeDashboard()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Chat
+        </button>
+    </div>
+
+    <div class="dashboard-page-body">
+        <div class="finance-connect" x-show="!$store.financeDashboard?.hasAuth">
+            <button class="dashboard-link-btn"
+                    :disabled="!$store.financeDashboard?.authUrl"
+                    @click="$store.financeDashboard.openAuth()">
+                Connect Plaid
+            </button>
+        </div>
+        <div class="finance-connect" x-show="$store.financeDashboard?.hasAuth">
+            <button class="dashboard-link-btn" @click="$store.financeDashboard.completeAuth(1)">
+                Mark Connected (Mock)
+            </button>
+        </div>
+        <div class="finance-filters">
+            <input type="month" class="search-input" x-model="$store.financeDashboard.period"
+                   @change="$store.financeDashboard.setPeriod($event.target.value)">
+        </div>
+        <div class="dashboard-stats">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.financeDashboard?.report.total_count || 0"></div>
+                <div class="dashboard-stat-label">Transactions</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.financeDashboard?.formatCurrency($store.financeDashboard?.report.total_amount)"></div>
+                <div class="dashboard-stat-label">Net</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.financeDashboard?.formatCurrency($store.financeDashboard?.roi.income)"></div>
+                <div class="dashboard-stat-label">Income</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.financeDashboard?.formatCurrency($store.financeDashboard?.roi.expenses)"></div>
+                <div class="dashboard-stat-label">Expenses</div>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <div class="dashboard-card-title">ROI Snapshot</div>
+            </div>
+            <div class="finance-roi">
+                <div class="finance-roi-value" x-text="$store.financeDashboard?.formatRoi($store.financeDashboard?.roi.roi)"></div>
+                <div class="finance-roi-meta">Period: <span x-text="$store.financeDashboard?.period"></span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="dashboards/finance/finance-store.js"></script>
+
+<style>
+.finance-connect {
+    margin-bottom: 12px;
+}
+.finance-filters {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 16px;
+}
+.finance-roi {
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-message-bg);
+}
+.finance-roi-value {
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+.finance-roi-meta {
+    margin-top: 6px;
+    opacity: 0.8;
+}
+</style>

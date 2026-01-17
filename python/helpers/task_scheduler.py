@@ -4,7 +4,7 @@ import random
 import threading
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from os.path import exists
 from typing import Any, ClassVar, Literal, Optional, TypeVar, Union, cast
@@ -17,7 +17,16 @@ nest_asyncio.apply()
 from typing import Annotated
 
 import pytz
-from crontab import CronTab
+
+try:
+    from crontab import CronTab
+except ImportError:  # Optional dependency
+    CronTab = None
+
+try:
+    from datetime import UTC
+except ImportError:  # Python 3.10 fallback
+    UTC = timezone.utc
 from pydantic import BaseModel, Field, PrivateAttr
 
 from agent import AgentContext, UserMessage
@@ -351,6 +360,8 @@ class ScheduledTask(BaseTask):
 
     def check_schedule(self, frequency_seconds: float = 60.0) -> bool:
         with self._lock:
+            if CronTab is None:
+                return False
             crontab = CronTab(crontab=self.schedule.to_crontab())  # type: ignore
 
             # Get the timezone from the schedule or use UTC as fallback
@@ -373,6 +384,8 @@ class ScheduledTask(BaseTask):
 
     def get_next_run(self) -> datetime | None:
         with self._lock:
+            if CronTab is None:
+                return None
             crontab = CronTab(crontab=self.schedule.to_crontab())  # type: ignore
             return crontab.next(now=datetime.now(UTC), return_datetime=True)  # type: ignore
 
@@ -1109,7 +1122,7 @@ def serialize_tasks(tasks: list[Union[ScheduledTask, AdHocTask, PlannedTask]]) -
     return [serialize_task(task) for task in tasks]
 
 
-def deserialize_task[T: Union[ScheduledTask, AdHocTask, PlannedTask]](task_data: dict[str, Any], task_class: type[T] | None = None) -> T:
+def deserialize_task(task_data: dict[str, Any], task_class: type | None = None):
     """
     Deserialize dictionary into appropriate task object with validation.
     If task_class is provided, uses that type. Otherwise determines type from data.
