@@ -61,7 +61,14 @@ class VectorDB:
         self.agent = agent
         self.cache = cache  # store cache preference
         self.embeddings = self._get_embeddings(agent, cache=cache)
-        self.index = faiss.IndexFlatIP(len(self.embeddings.embed_query("example")))
+        
+        # Performance Upgrade: Using HNSW for high-performance approximate nearest neighbor search
+        # M=32 is standard for high-accuracy/performance trade-off
+        dims = len(self.embeddings.embed_query("example"))
+        self.index = faiss.IndexHNSWFlat(dims, 32)
+        
+        # We also maintain IndexFlatIP for small datasets if needed, 
+        # but HNSW scales much better for large knowledge bases.
 
         self.db = MyFaiss(
             embedding_function=self.embeddings,

@@ -880,6 +880,52 @@ class Agent:
             await asyncio.sleep(0.1)
 
     async def process_tools(self, msg: str):
+        async def execute_tool_task(req: dict):
+            raw_tool_name = req.get("tool_name", "")
+            tool_args = req.get("tool_args", {})
+
+            if not raw_tool_name:
+                response_text = req.get("response")
+                if response_text and not tool_args:
+                    tool_args = {"text": response_text}
+                    raw_tool_name = "response"
+                else:
+                    return None
+
+            tool_name = raw_tool_name
+            tool_method = None
+            if ":" in raw_tool_name:
+                tool_name, tool_method = raw_tool_name.split(":", 1)
+
+            tool = None
+            try:
+                import python.helpers.mcp_handler as mcp_helper
+                mcp_tool_candidate = mcp_helper.MCPConfig.get_instance().get_tool(self, tool_name)
+                if mcp_tool_candidate:
+                    tool = mcp_tool_candidate
+            except: pass
+
+            if not tool:
+                tool = self.get_tool(
+                    name=tool_name, method=tool_method, args=tool_args, message=msg, loop_data=self.loop_data
+                )
+
+            if tool:
+                self.loop_data.current_tool = tool
+                try:
+                    await self.handle_intervention()
+                    await tool.before_execution(**tool_args)
+                    await self.call_extensions("tool_execute_before", tool_args=tool_args or {}, tool_name=tool_name)
+                    
+                    response = await tool.execute(**tool_args)
+                    
+                    await self.call_extensions("tool_execute_after", tool_args=tool_args or {}, tool_name=tool_name, response=response)
+                    await tool.after_execution(response)
+                    return response
+                except Exception as e:
+                    return tool.handle_exception(e) or e
+            return None
+
         # search for all tool usage requests in agent message
         tool_requests = extract_tools.json_parse_all_dirty(msg)
         

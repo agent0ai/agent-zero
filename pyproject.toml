@@ -1,0 +1,118 @@
+# Ruff Configuration for Agent Zero
+# https://docs.astral.sh/ruff/
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+indent-width = 4
+
+# Exclude common non-source directories
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "*.pyc",
+    "node_modules",
+    "docker",
+    "logs",
+    "tmp",
+    "memory",
+    "knowledge",
+    ".devcontainer",
+]
+
+[tool.ruff.lint]
+# Enable recommended rules plus some extras
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "RUF",    # Ruff-specific rules
+]
+
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "B008",   # Do not perform function calls in argument defaults
+    "B905",   # zip() without an explicit strict= parameter
+    "SIM108", # Use ternary operator instead of if-else block
+    "UP007",  # Use X | Y for type annotations (keep Optional for clarity)
+    "RUF012", # Mutable class attributes should be annotated
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values and assertions
+"tests/**/*.py" = ["PLR2004", "S101"]
+# Init files can have unused imports
+"__init__.py" = ["F401"]
+# Scripts may have print statements
+"scripts/**/*.py" = ["T201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["python", "instruments", "agent"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# ============================================
+# Pytest Configuration
+# ============================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+norecursedirs = ["docker", "node_modules", ".git"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+]
+
+# ============================================
+# Coverage Configuration
+# ============================================
+[tool.coverage.run]
+source = ["python", "instruments"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/tmp/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+# ============================================
+# Pyright Configuration
+# ============================================
+[tool.pyright]
+include = ["python", "instruments", "agent.py", "models.py"]
+exclude = ["**/node_modules", "**/__pycache__", "docker", "tmp"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = "warning"
+reportMissingTypeStubs = false

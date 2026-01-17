@@ -20,6 +20,26 @@ def json_parse_dirty(json:str) -> dict[str,Any] | None:
             return None
     return None
 
+def json_parse_all_dirty(msg: str) -> list[dict[str, Any]]:
+    """Extracts all JSON objects from a message and parses them."""
+    if not msg or not isinstance(msg, str):
+        return []
+
+    # Find all potential JSON objects using regex
+    # This matches anything between { and }
+    pattern = r'\{(?:[^{}]|(?R))*\}'
+    matches = regex.findall(pattern, msg)
+    
+    results = []
+    for match in matches:
+        try:
+            data = DirtyJson.parse_string(match)
+            if isinstance(data, dict) and "tool_name" in data:
+                results.append(data)
+        except:
+            continue
+    return results
+
 def extract_json_object_string(content):
     start = content.find('{')
     if start == -1:

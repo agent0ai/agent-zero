@@ -146,6 +146,7 @@
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="components/tiles/tile-row-store.js"></script>
     <script type="text/javascript" src="components/settings/platform-info/platform-info-store.js"></script>
+    <script type="text/javascript" src="components/settings/security-cockpit/security-cockpit-store.js"></script>
     <script type="text/javascript" src="dashboards/dashboard-router.js"></script>
     <script>
         // Expose git info for sidebar component
@@ -242,11 +243,13 @@
                                     @click="switchTab('backup')" title="Backup & Restore">Backup & Restore</div>
                                 <div class="settings-tab" :class="{'active': activeTab === 'platform-info'}"
                                     @click="switchTab('platform-info')" title="Platform Documentation">Platform Info</div>
+                                <div class="settings-tab" :class="{'active': activeTab === 'security-cockpit'}"
+                                    @click="switchTab('security-cockpit')" title="Security Audit Logs">Security Dashboard</div>
                             </div>
                         </div>
 
                         <!-- Display settings sections for standard tabs (excludes scheduler, llm-router and platform-info which have their own content) -->
-                        <div id="settings-sections" x-show="activeTab !== 'scheduler' && activeTab !== 'llm-router' && activeTab !== 'platform-info'">
+                        <div id="settings-sections" x-show="activeTab !== 'scheduler' && activeTab !== 'llm-router' && activeTab !== 'platform-info' && activeTab !== 'security-cockpit'">
                             <nav>
                                 <ul>
                                     <template x-for="(section, index) in filteredSections" :key="section.title">
@@ -1261,6 +1264,11 @@
                         <!-- Platform Info Tab -->
                         <div x-show="activeTab === 'platform-info'">
                             <x-component path="settings/platform-info/platform-info.html"></x-component>
+                        </div>
+
+                        <!-- Security Dashboard Tab -->
+                        <div x-show="activeTab === 'security-cockpit'">
+                            <x-component path="settings/security-cockpit/security-cockpit.html"></x-component>
                         </div>
                     </div>
 

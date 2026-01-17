@@ -74,7 +74,33 @@ I've compared the Monolithic vs Event-Driven approach for Acme Corp.
 
 ---
 
-## 🛠️ Tools by Stage
+## � Swarm Coordination (Advanced)
+
+For extremely complex projects (e.g., analyzing 50+ business processes simultaneously), use the **SwarmBatch** tool.
+
+**Purpose**: Spawns multiple "specialist" agents in parallel. Each agent focuses on a sub-task and reports back to the master architect.
+
+**Example Swarm Command:**
+```
+{{swarm_batch(
+  tasks=[
+    "Analyze the manufacturing supply chain flow",
+    "Evaluate the current inventory management database",
+    "Identify security bottlenecks in the outbound shipping API"
+  ],
+  profile="architect"
+)}}
+```
+
+## 📜 Architectural Memory (ADRs)
+
+Agent Zero now features **Automated ADR Generation**.
+- **Extraction**: Every time you conclude a technical decision, the `adr_generator` extension saves a record in `knowledge/custom/architectural_patterns/adrs/`.
+- **Injection**: Future agents will automatically see these decisions in their system prompt via the `adr_context` extension. This ensures **Architectural Consistency** over time.
+
+---
+
+## �🛠️ Tools by Stage
 
 ### Stage 1: Discovery & Assessment
 

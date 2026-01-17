@@ -79,15 +79,21 @@ class SecurityManager:
         cls._log_queue.put((event_type, status, user_id, ip, ua, details))
 
     @classmethod
-    def is_tool_authorized(cls, tool_name, user_id="default_user"):
+    def is_tool_authorized(cls, tool_name, user_id="default_user", limit=15, window=60):
         """
         Simple rate limiter. 
         action: string identifier for the action
         limit: max attempts
         window: seconds
         """
-        ip = request.remote_addr
-        key = f"{ip}_{action}"
+        # In a real CLI it might come from environment, here we mock or use localhost
+        ip = "127.0.0.1"
+        try:
+            from flask import request
+            if request: ip = request.remote_addr
+        except: pass
+
+        key = f"{ip}_{tool_name}"
         now = time.time()
         
         if key not in cls._rate_limits:
@@ -97,7 +103,7 @@ class SecurityManager:
         cls._rate_limits[key] = [t for t in cls._rate_limits[key] if now - t < window]
         
         if len(cls._rate_limits[key]) >= limit:
-            cls.log_event("rate_limit_exceeded", "warning", details={"action": action, "limit": limit})
+            cls.log_event("rate_limit_exceeded", "warning", details={"tool": tool_name, "limit": limit})
             return False
             
         cls._rate_limits[key].append(now)
