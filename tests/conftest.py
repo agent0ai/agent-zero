@@ -17,18 +17,22 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from instruments.custom.pms_hub.canonical_models import (
-    Calendar,
-    Guest,
-    Message,
-    MessageType,
-    PaymentStatus,
-    Property,
-    Reservation,
-    ReservationStatus,
-    Review,
-)
-from instruments.custom.pms_hub.pms_provider import ProviderType
+# PMS Hub imports (optional for Life Calendar tests)
+try:
+    from instruments.custom.pms_hub.canonical_models import (
+        Calendar,
+        Guest,
+        Message,
+        MessageType,
+        PaymentStatus,
+        Property,
+        Reservation,
+        ReservationStatus,
+        Review,
+    )
+    from instruments.custom.pms_hub.pms_provider import ProviderType
+except ImportError:
+    pass  # Not needed for Life Calendar tests
 
 # ============================================================================
 # Event Loop Fixture
@@ -373,6 +377,73 @@ def mock_property_manager():
 # ============================================================================
 
 
+@pytest.fixture
+def temp_db_path():
+    """Create temporary database path for Life Calendar"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir) / "calendar_hub.db"
+
+
+@pytest.fixture
+def sample_calendar_event():
+    """Sample calendar event for testing"""
+    return {
+        "title": "Team Standup",
+        "description": "Daily team synchronization",
+        "start": "2026-01-20T09:00:00Z",
+        "end": "2026-01-20T09:30:00Z",
+        "location": "Conference Room A",
+        "attendees": ["alice@example.com", "bob@example.com"],
+        "recurrence": "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR",
+    }
+
+
+@pytest.fixture
+def sample_event():
+    """Sample event (alias for sample_calendar_event)"""
+    return {
+        "id": "evt_001",
+        "title": "Meeting",
+        "start": "2026-01-20T09:00:00Z",
+        "end": "2026-01-20T10:00:00Z",
+        "status": "created",
+    }
+
+
+@pytest.fixture
+def sample_calendar_account():
+    """Sample calendar account"""
+    return {
+        "id": 1,
+        "provider": "google",
+        "name": "Work Calendar",
+        "email": "user@example.com",
+        "timezone": "America/Los_Angeles",
+        "is_primary": True,
+    }
+
+
+@pytest.fixture
+def sample_recurring_event():
+    """Sample recurring event"""
+    return {
+        "title": "Weekly Team Meeting",
+        "start": "2026-01-20T14:00:00Z",
+        "end": "2026-01-20T15:00:00Z",
+        "recurrence": "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+    }
+
+
+@pytest.fixture
+def sample_all_day_event():
+    """Sample all-day event"""
+    return {
+        "title": "Company Offsite",
+        "date": "2026-02-15",
+        "all_day": True,
+    }
+
+
 def pytest_configure(config):
     """Register custom markers"""
     config.addinivalue_line("markers", "unit: Unit tests")
@@ -380,3 +451,4 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "async: Async tests")
     config.addinivalue_line("markers", "slow: Slow tests")
     config.addinivalue_line("markers", "mock: Tests using mocks")
+    config.addinivalue_line("markers", "performance: Performance tests")
