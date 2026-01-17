@@ -24,6 +24,9 @@ class RecallMemories(Extension):
 
         set = settings.get_settings()
 
+        if self.is_stale():
+            return
+
         # turned off in settings?
         if not set["memory_recall_enabled"]:
             return

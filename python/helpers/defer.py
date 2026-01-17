@@ -56,7 +56,10 @@ class EventLoopThread:
             thread.join()
 
         if not loop.is_closed():
-            loop.close()
+            try:
+                loop.close()
+            except Exception:
+                pass
 
         with self.__class__._lock:
             if self.thread_name in self.__class__._instances:

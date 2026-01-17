@@ -19,6 +19,11 @@ class Extension:
         self.agent: "Agent" = agent  # type: ignore < here we ignore the type check as there are currently no extensions without an agent
         self.kwargs = kwargs
 
+    def is_stale(self) -> bool:
+        """Check if this extension's agent has been replaced by a new agent0 (e.g., after reset)."""
+        agent0 = getattr(self.agent.context, "agent0", None)
+        return bool(agent0 and self.agent != agent0)
+
     @abstractmethod
     async def execute(self, **kwargs) -> Any:
         pass

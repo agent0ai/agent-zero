@@ -150,7 +150,12 @@ class LogItem:
         update_progress: ProgressUpdate | None = None,
         **kwargs,
     ):
-        if self.guid == self.log.guid:
+        # update only if this item is still the owner of its slot
+        if (
+            self.guid == self.log.guid
+            and self.no < len(self.log.logs)
+            and self.log.logs[self.no] is self
+        ):
             self.log._update_item(
                 self.no,
                 type=type,
@@ -212,7 +217,6 @@ class Log:
         id: Optional[str] = None,
         **kwargs,
     ) -> LogItem:
-
         # add a minimal item to the log
         # Determine agent number from streaming agent
         agent_number = 0

@@ -11,7 +11,8 @@ from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHO
 class MemorizeSolutions(Extension):
 
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-        # try:
+        if self.is_stale():
+            return
 
         set = settings.get_settings()
 

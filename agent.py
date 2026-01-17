@@ -1,3 +1,4 @@
+import threading
 import asyncio, random, string
 import nest_asyncio
 
@@ -213,13 +214,21 @@ class AgentContext:
     def kill_process(self):
         if self.task:
             self.task.kill()
+            self.task = None
 
     def reset(self):
-        self.kill_process()
+        old_task = self.task
+        self.task = None
         self.log.reset()
         self.agent0 = Agent(0, self.config, self)
         self.streaming_agent = None
         self.paused = False
+        # terminate old task in background
+        if old_task:
+            threading.Thread(
+                target=lambda: old_task.kill(terminate_thread=True),
+                daemon=True
+            ).start()
 
     def nudge(self):
         self.kill_process()
@@ -376,6 +385,9 @@ class Agent:
 
                 # let the agent run message loop until he stops it with a response tool
                 while True:
+                    # exit if this agent was replaced (e.g., by reset)
+                    if self != self.context.agent0:
+                        return
 
                     self.context.streaming_agent = self  # mark self as current streamer
                     self.loop_data.iteration += 1
