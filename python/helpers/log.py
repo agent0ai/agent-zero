@@ -59,7 +59,7 @@ def _truncate_key(text: str) -> str:
     return truncate_text_by_ratio(str(text), KEY_MAX_LEN, "...", ratio=1.0)
 
 
-def _truncate_value[T](val: T) -> T:
+def _truncate_value(val: T) -> T:
     # If dict, recursively truncate each value
     if isinstance(val, dict):
         for k in list(val.keys()):
