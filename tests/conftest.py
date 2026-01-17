@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for PMS Hub tests
+Pytest configuration and fixtures for Life Automation Platform tests
 Shared fixtures across all test modules
 """
 
@@ -17,7 +17,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# PMS Hub imports (optional for Life Calendar tests)
+# PMS Hub imports (optional for Life Automation tests)
 try:
     from instruments.custom.pms_hub.canonical_models import (
         Calendar,
@@ -32,7 +32,7 @@ try:
     )
     from instruments.custom.pms_hub.pms_provider import ProviderType
 except ImportError:
-    pass  # Not needed for Life Calendar tests
+    pass  # Not needed for Life Automation tests
 
 # ============================================================================
 # Event Loop Fixture
@@ -373,15 +373,15 @@ def mock_property_manager():
 
 
 # ============================================================================
-# Markers for Test Organization
+# Life Automation Specific Fixtures
 # ============================================================================
 
 
 @pytest.fixture
 def temp_db_path():
-    """Create temporary database path for Life Calendar"""
+    """Create temporary database path for Life Automation tests"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir) / "calendar_hub.db"
+        yield Path(tmpdir) / "life_automation.db"
 
 
 @pytest.fixture
