@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/manifest.schema.json",
+  "title": "Manifest Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "specs": {"type": "array", "items": {"type": "string"}},
+    "schemas": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["specs", "schemas"],
+  "additionalProperties": false
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "app_spec/app_spec.schema.json",
+  "name": "agent-zero",
+  "version": "0.0.0",
+  "purpose": "Local-first multi-agent assistant with tool execution, web UI, and integrations.",
+  "entrypoints": {
+    "web_ui": "run_ui.py",
+    "agent_runtime": "agent.py",
+    "initialize": "initialize.py"
+  },
+  "spec_files": {
+    "overview": "app_spec/overview.json",
+    "use_cases": "app_spec/use_cases.json",
+    "user_stories": "app_spec/user_stories.json",
+    "components": "app_spec/components.json",
+    "apis": "app_spec/apis.json",
+    "data_models": "app_spec/data_models.json",
+    "permissions": "app_spec/permissions.json",
+    "ui_routes": "app_spec/ui_routes.json",
+    "operations": "app_spec/operations.json",
+    "feature_map": "app_spec/feature_map.json",
+    "acceptance_tests": "app_spec/acceptance_tests.json",
+    "eval_cases": "app_spec/eval_cases.json",
+    "eval_cases_extended": "app_spec/eval_cases_extended.json"
+  },
+  "schemas": {
+    "app_spec": "app_spec/app_spec.schema.json",
+    "overview": "app_spec/overview.schema.json",
+    "use_cases": "app_spec/use_cases.schema.json",
+    "user_stories": "app_spec/user_stories.schema.json",
+    "components": "app_spec/components.schema.json",
+    "apis": "app_spec/apis.schema.json",
+    "data_models": "app_spec/data_models.schema.json",
+    "permissions": "app_spec/permissions.schema.json",
+    "ui_routes": "app_spec/ui_routes.schema.json",
+    "operations": "app_spec/operations.schema.json",
+    "feature_map": "app_spec/feature_map.schema.json",
+    "acceptance_tests": "app_spec/acceptance_tests.schema.json",
+    "manifest": "app_spec/manifest.schema.json",
+    "eval_cases": "app_spec/eval_cases.schema.json",
+    "eval_cases_extended": "app_spec/eval_cases_extended.schema.json"
+  },
+  "manifest": "app_spec/manifest.json",
+  "readme": "app_spec/README.md",
+  "docs": {
+    "readme": "README.md",
+    "quick_start": "QUICK_START.md",
+    "mcp_setup": "MCP_SETUP_GUIDE.md",
+    "gmail_ui": "docs/GMAIL_UI_SETUP.md",
+    "cowork_mode": "docs/COWORK_MODE.md",
+    "observability": "docs/OBSERVABILITY.md"
+  }
+}

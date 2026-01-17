@@ -1,0 +1,61 @@
+{
+  "$schema": "app_spec/apis.schema.json",
+  "apis": [
+    {
+      "path": "/poll",
+      "method": "POST",
+      "purpose": "Poll chat/task/log state",
+      "outputs": ["logs", "contexts", "tasks", "cowork status"]
+    },
+    {
+      "path": "/settings_get",
+      "method": "POST",
+      "purpose": "Fetch settings schema"
+    },
+    {
+      "path": "/settings_set",
+      "method": "POST",
+      "purpose": "Persist settings"
+    },
+    {
+      "path": "/cowork_folders_get",
+      "method": "POST",
+      "purpose": "Get cowork allowlist"
+    },
+    {
+      "path": "/cowork_folders_set",
+      "method": "POST",
+      "purpose": "Set cowork allowlist"
+    },
+    {
+      "path": "/cowork_approvals_list",
+      "method": "POST",
+      "purpose": "List approvals for a thread"
+    },
+    {
+      "path": "/cowork_approvals_update",
+      "method": "POST",
+      "purpose": "Approve/deny/clear approvals"
+    },
+    {
+      "path": "/gmail_oauth_start",
+      "method": "POST",
+      "purpose": "Start Gmail OAuth flow"
+    },
+    {
+      "path": "/gmail_test_send",
+      "method": "POST",
+      "purpose": "Send Gmail test email"
+    },
+    {
+      "path": "/telemetry_get",
+      "method": "POST",
+      "purpose": "Fetch telemetry events and stats for a thread"
+    },
+    {
+      "path": "/telemetry_clear",
+      "method": "POST",
+      "purpose": "Clear telemetry for a thread"
+    }
+  ]
+}

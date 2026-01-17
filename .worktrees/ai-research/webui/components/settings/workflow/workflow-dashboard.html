@@ -1,0 +1,762 @@
+<html>
+
+<head>
+  <title>Workflow Dashboard</title>
+  <script type="module">
+    import { store } from "/components/settings/workflow/workflow-dashboard-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.workflowDashboardStore">
+      <div class="workflow-dashboard"
+           data-testid="workflow-dashboard"
+           x-create="$store.workflowDashboardStore.onOpen()"
+           x-destroy="$store.workflowDashboardStore.cleanup()">
+
+        <!-- Header with view tabs -->
+        <div class="workflow-header">
+          <div class="workflow-tabs" data-testid="workflow-tabs">
+            <button class="workflow-tab"
+                    data-testid="tab-dashboard"
+                    :class="{ active: $store.workflowDashboardStore.activeView === 'dashboard' }"
+                    @click="$store.workflowDashboardStore.switchView('dashboard')">
+              Dashboard
+            </button>
+            <button class="workflow-tab"
+                    data-testid="tab-workflows"
+                    :class="{ active: $store.workflowDashboardStore.activeView === 'workflows' }"
+                    @click="$store.workflowDashboardStore.switchView('workflows')">
+              Workflows
+            </button>
+            <button class="workflow-tab"
+                    data-testid="tab-training"
+                    :class="{ active: $store.workflowDashboardStore.activeView === 'training' }"
+                    @click="$store.workflowDashboardStore.switchView('training')">
+              Training
+            </button>
+            <button class="workflow-tab"
+                    data-testid="tab-skills"
+                    :class="{ active: $store.workflowDashboardStore.activeView === 'skills' }"
+                    @click="$store.workflowDashboardStore.switchView('skills')">
+              Skills
+            </button>
+          </div>
+          <div class="workflow-actions">
+            <button class="btn btn-ok"
+                    data-testid="refresh-button"
+                    @click="$store.workflowDashboardStore.refresh()"
+                    :disabled="$store.workflowDashboardStore.loading">
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Error display -->
+        <div class="workflow-error" data-testid="workflow-error" x-show="$store.workflowDashboardStore.error"
+             x-text="$store.workflowDashboardStore.error"></div>
+
+        <!-- Loading indicator -->
+        <div class="workflow-loading" data-testid="workflow-loading" x-show="$store.workflowDashboardStore.loading">
+          Loading...
+        </div>
+
+        <!-- Dashboard View -->
+        <div class="workflow-view" data-testid="view-dashboard" x-show="$store.workflowDashboardStore.activeView === 'dashboard'">
+
+          <!-- Stats Cards -->
+          <div class="workflow-stats" data-testid="workflow-stats">
+            <div class="stat-card" data-testid="stat-workflows">
+              <div class="stat-value" data-testid="stat-workflows-value" x-text="$store.workflowDashboardStore.stats.total_workflows"></div>
+              <div class="stat-label">Workflows</div>
+            </div>
+            <div class="stat-card" data-testid="stat-executions">
+              <div class="stat-value" data-testid="stat-executions-value" x-text="$store.workflowDashboardStore.stats.total_executions"></div>
+              <div class="stat-label">Executions</div>
+            </div>
+            <div class="stat-card" data-testid="stat-skills">
+              <div class="stat-value" data-testid="stat-skills-value" x-text="$store.workflowDashboardStore.stats.total_skills"></div>
+              <div class="stat-label">Skills</div>
+            </div>
+            <div class="stat-card" data-testid="stat-learning-paths">
+              <div class="stat-value" data-testid="stat-learning-paths-value" x-text="$store.workflowDashboardStore.stats.total_learning_paths"></div>
+              <div class="stat-label">Learning Paths</div>
+            </div>
+          </div>
+
+          <!-- Execution Status Breakdown -->
+          <div class="workflow-section" data-testid="status-breakdown-section" x-show="Object.keys($store.workflowDashboardStore.stats.executions_by_status || {}).length">
+            <h4>Execution Status</h4>
+            <div class="status-breakdown" data-testid="status-breakdown">
+              <template x-for="[status, count] in Object.entries($store.workflowDashboardStore.stats.executions_by_status || {})" :key="status">
+                <div class="status-item">
+                  <span class="status-badge" :class="$store.workflowDashboardStore.getStatusClass(status)" x-text="status"></span>
+                  <span class="status-count" x-text="count"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Recent Executions -->
+          <div class="workflow-section" data-testid="recent-executions-section">
+            <h4>Recent Executions</h4>
+            <div class="workflow-empty" data-testid="recent-executions-empty" x-show="!$store.workflowDashboardStore.recentExecutions.length">
+              No recent executions
+            </div>
+            <div class="execution-list" data-testid="recent-executions-list" x-show="$store.workflowDashboardStore.recentExecutions.length">
+              <template x-for="exec in $store.workflowDashboardStore.recentExecutions" :key="exec.execution_id">
+                <div class="execution-item" @click="$store.workflowDashboardStore.selectExecution(exec.execution_id)">
+                  <span class="execution-icon" x-text="$store.workflowDashboardStore.getStatusIcon(exec.status)"></span>
+                  <span class="execution-name" x-text="exec.name || exec.workflow_name"></span>
+                  <span class="execution-stage" x-text="exec.current_stage"></span>
+                  <span class="execution-date" x-text="$store.workflowDashboardStore.formatDate(exec.started_at)"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Top Skills -->
+          <div class="workflow-section" data-testid="top-skills-section">
+            <h4>Top Skills</h4>
+            <div class="workflow-empty" data-testid="top-skills-empty" x-show="!$store.workflowDashboardStore.topSkills.length">
+              No skills tracked yet
+            </div>
+            <div class="skill-list" data-testid="top-skills-list" x-show="$store.workflowDashboardStore.topSkills.length">
+              <template x-for="skill in $store.workflowDashboardStore.topSkills" :key="skill.skill_id">
+                <div class="skill-item">
+                  <span class="skill-name" x-text="skill.name"></span>
+                  <span class="skill-stars" x-text="$store.workflowDashboardStore.getSkillStars(skill.current_level || 1)"></span>
+                  <span class="skill-completions" x-text="'(' + (skill.completions || 0) + ')'"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workflows View -->
+        <div class="workflow-view" data-testid="view-workflows" x-show="$store.workflowDashboardStore.activeView === 'workflows'">
+          <div class="workflow-split">
+            <!-- Workflow List -->
+            <div class="workflow-list-panel" data-testid="workflow-list-panel">
+              <h4>Workflows</h4>
+              <div class="workflow-empty" data-testid="workflow-list-empty" x-show="!$store.workflowDashboardStore.workflows.length">
+                No workflows defined
+              </div>
+              <div class="workflow-list" data-testid="workflow-list">
+                <template x-for="wf in $store.workflowDashboardStore.workflows" :key="wf.workflow_id">
+                  <div class="workflow-item"
+                       :class="{ selected: $store.workflowDashboardStore.selectedWorkflow?.workflow_id === wf.workflow_id }"
+                       @click="$store.workflowDashboardStore.selectWorkflow(wf.workflow_id)">
+                    <div class="workflow-item-name" x-text="wf.name"></div>
+                    <div class="workflow-item-meta">
+                      <span x-text="wf.version || 'v1'"></span>
+                      <span x-text="(wf.stages?.length || 0) + ' stages'"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Workflow Detail -->
+            <div class="workflow-detail-panel" data-testid="workflow-detail-panel" x-show="$store.workflowDashboardStore.selectedWorkflow">
+              <h4 x-text="$store.workflowDashboardStore.selectedWorkflow?.name"></h4>
+              <p class="workflow-description" x-text="$store.workflowDashboardStore.selectedWorkflow?.description"></p>
+
+              <!-- Mermaid Diagram -->
+              <div class="workflow-diagram" data-testid="workflow-diagram">
+                <div id="workflow-mermaid-container" data-testid="mermaid-container"></div>
+              </div>
+
+              <!-- Stages -->
+              <div class="workflow-stages" x-show="$store.workflowDashboardStore.selectedWorkflow?.stages">
+                <h5>Stages</h5>
+                <template x-for="stage in $store.workflowDashboardStore.selectedWorkflow?.stages || []" :key="stage.id">
+                  <div class="stage-item">
+                    <div class="stage-header">
+                      <span class="stage-name" x-text="stage.name"></span>
+                      <span class="stage-type" x-text="stage.type"></span>
+                    </div>
+                    <div class="stage-tasks" x-show="stage.tasks?.length">
+                      <template x-for="task in stage.tasks" :key="task.id">
+                        <div class="task-chip" x-text="task.name"></div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Training View -->
+        <div class="workflow-view" data-testid="view-training" x-show="$store.workflowDashboardStore.activeView === 'training'">
+          <div class="workflow-split">
+            <!-- Learning Paths List -->
+            <div class="workflow-list-panel" data-testid="learning-paths-panel">
+              <h4>Learning Paths</h4>
+              <div class="workflow-empty" data-testid="learning-paths-empty" x-show="!$store.workflowDashboardStore.learningPaths.length">
+                No learning paths defined
+              </div>
+              <div class="path-list" data-testid="learning-paths-list">
+                <template x-for="path in $store.workflowDashboardStore.learningPaths" :key="path.path_id">
+                  <div class="path-item"
+                       :class="{ selected: $store.workflowDashboardStore.selectedPath?.path_id === path.path_id }"
+                       @click="$store.workflowDashboardStore.selectPath(path.path_id)">
+                    <div class="path-item-name" x-text="path.name"></div>
+                    <div class="path-item-meta">
+                      <span x-text="path.target_role"></span>
+                      <span x-text="(path.modules?.length || 0) + ' modules'"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Path Detail -->
+            <div class="workflow-detail-panel" x-show="$store.workflowDashboardStore.selectedPath">
+              <h4 x-text="$store.workflowDashboardStore.selectedPath?.name"></h4>
+              <p class="workflow-description" x-text="$store.workflowDashboardStore.selectedPath?.description"></p>
+
+              <!-- Progress -->
+              <div class="path-progress" x-show="$store.workflowDashboardStore.pathProgress">
+                <div class="progress-bar">
+                  <div class="progress-fill"
+                       :style="'width: ' + $store.workflowDashboardStore.getProgressPercent(
+                         $store.workflowDashboardStore.pathProgress?.modules_completed?.length || 0,
+                         $store.workflowDashboardStore.selectedPath?.modules?.length || 1
+                       ) + '%'"></div>
+                </div>
+                <div class="progress-label">
+                  <span x-text="($store.workflowDashboardStore.pathProgress?.modules_completed?.length || 0) + ' / ' +
+                    ($store.workflowDashboardStore.selectedPath?.modules?.length || 0) + ' modules'"></span>
+                </div>
+              </div>
+
+              <!-- Modules -->
+              <div class="path-modules">
+                <h5>Modules</h5>
+                <template x-for="mod in $store.workflowDashboardStore.selectedPath?.modules || []" :key="mod.module_id">
+                  <div class="module-item">
+                    <span class="module-icon"
+                          x-text="($store.workflowDashboardStore.pathProgress?.modules_completed || []).includes(mod.module_id) ? '\u2713' : '\u25CB'"></span>
+                    <span class="module-name" x-text="mod.module_id"></span>
+                    <span class="module-required" x-show="mod.required">Required</span>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Certification -->
+              <div class="path-certification" x-show="$store.workflowDashboardStore.selectedPath?.certification">
+                <h5>Certification</h5>
+                <div class="cert-name" x-text="$store.workflowDashboardStore.selectedPath?.certification?.name"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skills View -->
+        <div class="workflow-view" data-testid="view-skills" x-show="$store.workflowDashboardStore.activeView === 'skills'">
+          <div class="skills-grid" data-testid="skills-grid">
+            <template x-for="[category, categorySkills] in Object.entries($store.workflowDashboardStore.skillsByCategory || {})" :key="category">
+              <div class="skill-category">
+                <h4 class="category-title" x-text="category.toUpperCase()"></h4>
+                <div class="category-skills">
+                  <template x-for="skill in categorySkills" :key="skill.skill_id">
+                    <div class="skill-card">
+                      <div class="skill-card-name" x-text="skill.name"></div>
+                      <div class="skill-card-level">
+                        <span class="skill-stars" x-text="$store.workflowDashboardStore.getSkillStars(skill.current_level || 1)"></span>
+                      </div>
+                      <div class="skill-card-meta">
+                        <span x-text="'Level ' + (skill.current_level || 1)"></span>
+                        <span x-text="(skill.completions || 0) + ' completions'"></span>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="workflow-empty" data-testid="skills-empty" x-show="!Object.keys($store.workflowDashboardStore.skillsByCategory || {}).length">
+            No skills tracked yet. Skills are registered automatically when you use the workflow training tool.
+          </div>
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .workflow-dashboard {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .workflow-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .workflow-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--secondary-bg);
+      padding: 4px;
+      border-radius: 8px;
+    }
+
+    .workflow-tab {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .workflow-tab:hover {
+      background: var(--color-border);
+    }
+
+    .workflow-tab.active {
+      background: var(--color-primary);
+      color: white;
+    }
+
+    .workflow-error {
+      background: #3b1f1f;
+      color: #f7c9c9;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+
+    .workflow-loading {
+      color: var(--color-text-secondary);
+      font-style: italic;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .workflow-empty {
+      color: var(--color-text-secondary);
+      font-style: italic;
+      padding: 12px;
+    }
+
+    /* Stats Cards */
+    .workflow-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--color-primary);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      margin-top: 4px;
+    }
+
+    /* Sections */
+    .workflow-section {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .workflow-section h4 {
+      margin: 0 0 12px 0;
+      font-size: 1rem;
+    }
+
+    /* Status Breakdown */
+    .status-breakdown {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+
+    .status-completed { background: #1b4332; color: #74c69d; }
+    .status-running { background: #1a365d; color: #63b3ed; }
+    .status-pending { background: #2d3748; color: #a0aec0; }
+    .status-failed { background: #3b1f1f; color: #f7c9c9; }
+
+    /* Execution List */
+    .execution-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .execution-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .execution-item:hover {
+      background: var(--color-border);
+    }
+
+    .execution-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .execution-name {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .execution-stage {
+      color: var(--color-text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .execution-date {
+      color: var(--color-text-secondary);
+      font-size: 0.8rem;
+    }
+
+    /* Skill List */
+    .skill-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .skill-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+    }
+
+    .skill-name {
+      flex: 1;
+    }
+
+    .skill-stars {
+      color: #f6e05e;
+      letter-spacing: 2px;
+    }
+
+    .skill-completions {
+      color: var(--color-text-secondary);
+      font-size: 0.85rem;
+    }
+
+    /* Split Layout */
+    .workflow-split {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+      min-height: 400px;
+    }
+
+    @media (max-width: 768px) {
+      .workflow-split {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .workflow-list-panel,
+    .workflow-detail-panel {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .workflow-list-panel h4,
+    .workflow-detail-panel h4 {
+      margin: 0 0 12px 0;
+    }
+
+    /* Workflow List Items */
+    .workflow-list,
+    .path-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .workflow-item,
+    .path-item {
+      padding: 10px 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .workflow-item:hover,
+    .path-item:hover {
+      border-color: var(--color-primary);
+    }
+
+    .workflow-item.selected,
+    .path-item.selected {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+
+    .workflow-item.selected .workflow-item-meta,
+    .path-item.selected .path-item-meta {
+      color: rgba(255,255,255,0.8);
+    }
+
+    .workflow-item-name,
+    .path-item-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .workflow-item-meta,
+    .path-item-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    /* Workflow Detail */
+    .workflow-description {
+      color: var(--color-text-secondary);
+      margin: 0 0 16px 0;
+    }
+
+    .workflow-diagram {
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      min-height: 200px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #workflow-mermaid-container {
+      width: 100%;
+      overflow: auto;
+    }
+
+    #workflow-mermaid-container svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Stages */
+    .workflow-stages h5,
+    .path-modules h5,
+    .path-certification h5 {
+      margin: 0 0 10px 0;
+      font-size: 0.9rem;
+      color: var(--color-text-secondary);
+    }
+
+    .stage-item {
+      padding: 10px 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .stage-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .stage-name {
+      font-weight: 500;
+    }
+
+    .stage-type {
+      font-size: 0.8rem;
+      padding: 2px 8px;
+      background: var(--color-border);
+      border-radius: 4px;
+    }
+
+    .stage-tasks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .task-chip {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+    }
+
+    /* Path Progress */
+    .path-progress {
+      margin-bottom: 16px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: var(--color-border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--color-primary);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .progress-label {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+    }
+
+    /* Modules */
+    .module-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+
+    .module-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .module-name {
+      flex: 1;
+    }
+
+    .module-required {
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      background: #3b1f1f;
+      color: #f7c9c9;
+      border-radius: 4px;
+    }
+
+    /* Certification */
+    .cert-name {
+      padding: 10px 12px;
+      background: #2d3748;
+      border: 1px solid #f6e05e;
+      border-radius: 8px;
+      color: #f6e05e;
+    }
+
+    /* Skills Grid */
+    .skills-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .skill-category {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .category-title {
+      margin: 0 0 12px 0;
+      font-size: 0.9rem;
+      color: var(--color-text-secondary);
+      letter-spacing: 1px;
+    }
+
+    .category-skills {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .skill-card {
+      padding: 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+    }
+
+    .skill-card-name {
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .skill-card-level {
+      margin-bottom: 6px;
+    }
+
+    .skill-card-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+  </style>
+</body>
+
+</html>

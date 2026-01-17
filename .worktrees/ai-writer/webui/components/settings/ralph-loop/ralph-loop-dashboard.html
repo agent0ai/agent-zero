@@ -1,0 +1,811 @@
+<html>
+
+<head>
+  <title>Ralph Loop Dashboard</title>
+  <script type="module">
+    import { store } from "/components/settings/ralph-loop/ralph-loop-dashboard-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.ralphLoopDashboardStore">
+      <div class="ralph-dashboard"
+           data-testid="ralph-dashboard"
+           x-create="$store.ralphLoopDashboardStore.onOpen()"
+           x-destroy="$store.ralphLoopDashboardStore.cleanup()">
+
+        <!-- Header with view tabs -->
+        <div class="ralph-header">
+          <div class="ralph-tabs" data-testid="ralph-tabs">
+            <button class="ralph-tab"
+                    data-testid="tab-dashboard"
+                    :class="{ active: $store.ralphLoopDashboardStore.activeView === 'dashboard' }"
+                    @click="$store.ralphLoopDashboardStore.switchView('dashboard')">
+              Dashboard
+            </button>
+            <button class="ralph-tab"
+                    data-testid="tab-history"
+                    :class="{ active: $store.ralphLoopDashboardStore.activeView === 'history' }"
+                    @click="$store.ralphLoopDashboardStore.switchView('history')">
+              History
+            </button>
+          </div>
+          <div class="ralph-actions">
+            <button class="btn btn-ok"
+                    data-testid="refresh-button"
+                    @click="$store.ralphLoopDashboardStore.refresh()"
+                    :disabled="$store.ralphLoopDashboardStore.loading">
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Error display -->
+        <div class="ralph-error" data-testid="ralph-error" x-show="$store.ralphLoopDashboardStore.error"
+             x-text="$store.ralphLoopDashboardStore.error"></div>
+
+        <!-- Loading indicator -->
+        <div class="ralph-loading" data-testid="ralph-loading" x-show="$store.ralphLoopDashboardStore.loading">
+          Loading...
+        </div>
+
+        <!-- Dashboard View -->
+        <div class="ralph-view" data-testid="view-dashboard" x-show="$store.ralphLoopDashboardStore.activeView === 'dashboard'">
+
+          <!-- Stats Cards -->
+          <div class="ralph-stats" data-testid="ralph-stats">
+            <div class="stat-card" data-testid="stat-active">
+              <div class="stat-value stat-active-value" data-testid="stat-active-value" x-text="$store.ralphLoopDashboardStore.stats.active_loops"></div>
+              <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-card" data-testid="stat-completed">
+              <div class="stat-value stat-completed-value" data-testid="stat-completed-value" x-text="$store.ralphLoopDashboardStore.stats.completed_loops"></div>
+              <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card" data-testid="stat-total">
+              <div class="stat-value" data-testid="stat-total-value" x-text="$store.ralphLoopDashboardStore.stats.total_loops"></div>
+              <div class="stat-label">Total Loops</div>
+            </div>
+            <div class="stat-card" data-testid="stat-avg">
+              <div class="stat-value" data-testid="stat-avg-value" x-text="$store.ralphLoopDashboardStore.stats.avg_iterations_per_loop"></div>
+              <div class="stat-label">Avg Iterations</div>
+            </div>
+          </div>
+
+          <!-- Active Loops -->
+          <div class="ralph-section" data-testid="active-loops-section">
+            <h4>Active Loops</h4>
+            <div class="ralph-empty" data-testid="active-loops-empty" x-show="!$store.ralphLoopDashboardStore.activeLoops.length">
+              No active Ralph loops
+            </div>
+            <div class="loop-list" data-testid="active-loops-list" x-show="$store.ralphLoopDashboardStore.activeLoops.length">
+              <template x-for="loop in $store.ralphLoopDashboardStore.activeLoops" :key="loop.loop_id">
+                <div class="loop-card active-loop">
+                  <div class="loop-header">
+                    <span class="loop-icon" x-text="$store.ralphLoopDashboardStore.getStatusIcon(loop.status)"></span>
+                    <span class="loop-name" x-text="loop.name || 'Ralph Loop'"></span>
+                    <span class="iteration-badge">
+                      Iter <span x-text="loop.current_iteration"></span>/<span x-text="loop.max_iterations || '∞'"></span>
+                    </span>
+                  </div>
+                  <div class="loop-prompt" x-text="$store.ralphLoopDashboardStore.truncatePrompt(loop.prompt, 100)"></div>
+
+                  <!-- Progress bar -->
+                  <div class="loop-progress" x-show="loop.max_iterations > 0">
+                    <div class="progress-bar">
+                      <div class="progress-fill" :style="'width: ' + $store.ralphLoopDashboardStore.calculateProgress(loop) + '%'"></div>
+                    </div>
+                    <span class="progress-percent" x-text="$store.ralphLoopDashboardStore.calculateProgress(loop) + '%'"></span>
+                  </div>
+
+                  <div class="loop-meta">
+                    <span class="loop-duration" x-text="'Running ' + $store.ralphLoopDashboardStore.formatDuration(loop.started_at)"></span>
+                    <span class="loop-promise" x-show="loop.completion_promise" x-text="'Promise: ' + loop.completion_promise"></span>
+                  </div>
+
+                  <div class="loop-actions">
+                    <button class="btn btn-small btn-warning"
+                            @click="$store.ralphLoopDashboardStore.pauseLoop(loop.loop_id)"
+                            x-show="loop.status === 'active'">
+                      Pause
+                    </button>
+                    <button class="btn btn-small btn-ok"
+                            @click="$store.ralphLoopDashboardStore.resumeLoop(loop.loop_id)"
+                            x-show="loop.status === 'paused'">
+                      Resume
+                    </button>
+                    <button class="btn btn-small btn-danger"
+                            @click="$store.ralphLoopDashboardStore.cancelLoop(loop.loop_id)">
+                      Cancel
+                    </button>
+                    <button class="btn btn-small"
+                            @click="$store.ralphLoopDashboardStore.viewDetails(loop.loop_id)">
+                      Details
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Recent Completions -->
+          <div class="ralph-section" data-testid="recent-loops-section">
+            <h4>Recent Completions</h4>
+            <div class="ralph-empty" data-testid="recent-loops-empty" x-show="!$store.ralphLoopDashboardStore.recentLoops.length">
+              No completed loops yet
+            </div>
+            <div class="loop-list compact" data-testid="recent-loops-list" x-show="$store.ralphLoopDashboardStore.recentLoops.length">
+              <template x-for="loop in $store.ralphLoopDashboardStore.recentLoops" :key="loop.loop_id">
+                <div class="loop-item" @click="$store.ralphLoopDashboardStore.viewDetails(loop.loop_id)">
+                  <span class="loop-icon" x-text="$store.ralphLoopDashboardStore.getStatusIcon(loop.status)"></span>
+                  <span class="loop-name" x-text="loop.name || 'Ralph Loop'"></span>
+                  <span class="loop-status-badge" :class="$store.ralphLoopDashboardStore.getStatusClass(loop.status)" x-text="loop.status"></span>
+                  <span class="loop-iterations" x-text="loop.current_iteration + ' iterations'"></span>
+                  <span class="loop-time" x-text="$store.ralphLoopDashboardStore.formatRelativeTime(loop.completed_at || loop.started_at)"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Details View -->
+        <div class="ralph-view" data-testid="view-details" x-show="$store.ralphLoopDashboardStore.activeView === 'details'">
+          <div class="details-header">
+            <button class="btn btn-small" @click="$store.ralphLoopDashboardStore.closeDetails()">
+              ← Back
+            </button>
+            <h3 x-text="$store.ralphLoopDashboardStore.selectedLoop?.name || 'Loop Details'"></h3>
+          </div>
+
+          <template x-if="$store.ralphLoopDashboardStore.selectedLoop">
+            <div class="loop-details">
+              <!-- Loop Info -->
+              <div class="detail-card">
+                <h4>Loop Information</h4>
+                <div class="detail-grid">
+                  <div class="detail-row">
+                    <span class="detail-label">Status</span>
+                    <span class="loop-status-badge"
+                          :class="$store.ralphLoopDashboardStore.getStatusClass($store.ralphLoopDashboardStore.selectedLoop.status)"
+                          x-text="$store.ralphLoopDashboardStore.selectedLoop.status"></span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Iterations</span>
+                    <span x-text="$store.ralphLoopDashboardStore.selectedLoop.current_iteration + ' / ' + ($store.ralphLoopDashboardStore.selectedLoop.max_iterations || '∞')"></span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Started</span>
+                    <span x-text="$store.ralphLoopDashboardStore.formatDate($store.ralphLoopDashboardStore.selectedLoop.started_at)"></span>
+                  </div>
+                  <div class="detail-row" x-show="$store.ralphLoopDashboardStore.selectedLoop.completed_at">
+                    <span class="detail-label">Completed</span>
+                    <span x-text="$store.ralphLoopDashboardStore.formatDate($store.ralphLoopDashboardStore.selectedLoop.completed_at)"></span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Duration</span>
+                    <span x-text="$store.ralphLoopDashboardStore.formatDuration($store.ralphLoopDashboardStore.selectedLoop.started_at, $store.ralphLoopDashboardStore.selectedLoop.completed_at)"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Prompt -->
+              <div class="detail-card">
+                <h4>Prompt</h4>
+                <pre class="prompt-content" x-text="$store.ralphLoopDashboardStore.selectedLoop.prompt"></pre>
+              </div>
+
+              <!-- Completion Promise -->
+              <div class="detail-card" x-show="$store.ralphLoopDashboardStore.selectedLoop.completion_promise">
+                <h4>Completion Promise</h4>
+                <code class="promise-content" x-text="'<promise>' + $store.ralphLoopDashboardStore.selectedLoop.completion_promise + '</promise>'"></code>
+              </div>
+
+              <!-- Iteration History -->
+              <div class="detail-card">
+                <h4>Iteration History</h4>
+                <div class="ralph-empty" x-show="!$store.ralphLoopDashboardStore.loopHistory.length">
+                  No iteration history available
+                </div>
+                <div class="iteration-list" x-show="$store.ralphLoopDashboardStore.loopHistory.length">
+                  <template x-for="iter in $store.ralphLoopDashboardStore.loopHistory" :key="iter.iteration_id">
+                    <div class="iteration-item">
+                      <div class="iteration-header">
+                        <span class="iteration-number" x-text="'#' + iter.iteration_number"></span>
+                        <span class="iteration-status" :class="iter.success ? 'success' : (iter.success === false ? 'failed' : 'pending')">
+                          <span x-text="iter.success ? '✓' : (iter.success === false ? '✗' : '○')"></span>
+                        </span>
+                        <span class="iteration-time" x-text="$store.ralphLoopDashboardStore.formatRelativeTime(iter.started_at)"></span>
+                      </div>
+                      <div class="iteration-summary" x-show="iter.output_summary" x-text="$store.ralphLoopDashboardStore.truncatePrompt(iter.output_summary, 150)"></div>
+                      <div class="iteration-files" x-show="iter.files_modified?.length">
+                        <span class="files-label">Files:</span>
+                        <template x-for="file in (iter.files_modified || []).slice(0, 5)" :key="file">
+                          <span class="file-chip" x-text="file.split('/').pop()"></span>
+                        </template>
+                        <span class="more-files" x-show="(iter.files_modified || []).length > 5" x-text="'+' + ((iter.files_modified || []).length - 5) + ' more'"></span>
+                      </div>
+                      <div class="iteration-commit" x-show="iter.git_commit">
+                        <span class="commit-label">Commit:</span>
+                        <code x-text="iter.git_commit?.substring(0, 7)"></code>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Control Actions -->
+              <div class="detail-actions" x-show="$store.ralphLoopDashboardStore.selectedLoop.status === 'active' || $store.ralphLoopDashboardStore.selectedLoop.status === 'paused'">
+                <button class="btn btn-warning"
+                        @click="$store.ralphLoopDashboardStore.pauseLoop($store.ralphLoopDashboardStore.selectedLoop.loop_id)"
+                        x-show="$store.ralphLoopDashboardStore.selectedLoop.status === 'active'">
+                  Pause Loop
+                </button>
+                <button class="btn btn-ok"
+                        @click="$store.ralphLoopDashboardStore.resumeLoop($store.ralphLoopDashboardStore.selectedLoop.loop_id)"
+                        x-show="$store.ralphLoopDashboardStore.selectedLoop.status === 'paused'">
+                  Resume Loop
+                </button>
+                <button class="btn btn-danger"
+                        @click="$store.ralphLoopDashboardStore.cancelLoop($store.ralphLoopDashboardStore.selectedLoop.loop_id)">
+                  Cancel Loop
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- History View -->
+        <div class="ralph-view" data-testid="view-history" x-show="$store.ralphLoopDashboardStore.activeView === 'history'">
+          <div class="ralph-section">
+            <h4>All Loops</h4>
+            <div class="ralph-empty" x-show="!$store.ralphLoopDashboardStore.recentLoops.length && !$store.ralphLoopDashboardStore.activeLoops.length">
+              No Ralph loops recorded yet
+            </div>
+            <div class="history-list">
+              <!-- Active loops first -->
+              <template x-for="loop in $store.ralphLoopDashboardStore.activeLoops" :key="'active-' + loop.loop_id">
+                <div class="history-item" @click="$store.ralphLoopDashboardStore.viewDetails(loop.loop_id)">
+                  <div class="history-main">
+                    <span class="loop-icon" x-text="$store.ralphLoopDashboardStore.getStatusIcon(loop.status)"></span>
+                    <span class="loop-name" x-text="loop.name || 'Ralph Loop'"></span>
+                    <span class="loop-status-badge" :class="$store.ralphLoopDashboardStore.getStatusClass(loop.status)" x-text="loop.status"></span>
+                  </div>
+                  <div class="history-meta">
+                    <span x-text="loop.current_iteration + ' iterations'"></span>
+                    <span x-text="$store.ralphLoopDashboardStore.formatRelativeTime(loop.started_at)"></span>
+                  </div>
+                  <div class="history-prompt" x-text="$store.ralphLoopDashboardStore.truncatePrompt(loop.prompt, 80)"></div>
+                </div>
+              </template>
+              <!-- Then completed/cancelled -->
+              <template x-for="loop in $store.ralphLoopDashboardStore.recentLoops" :key="'recent-' + loop.loop_id">
+                <div class="history-item" @click="$store.ralphLoopDashboardStore.viewDetails(loop.loop_id)">
+                  <div class="history-main">
+                    <span class="loop-icon" x-text="$store.ralphLoopDashboardStore.getStatusIcon(loop.status)"></span>
+                    <span class="loop-name" x-text="loop.name || 'Ralph Loop'"></span>
+                    <span class="loop-status-badge" :class="$store.ralphLoopDashboardStore.getStatusClass(loop.status)" x-text="loop.status"></span>
+                  </div>
+                  <div class="history-meta">
+                    <span x-text="loop.current_iteration + ' iterations'"></span>
+                    <span x-text="$store.ralphLoopDashboardStore.formatRelativeTime(loop.completed_at || loop.started_at)"></span>
+                  </div>
+                  <div class="history-prompt" x-text="$store.ralphLoopDashboardStore.truncatePrompt(loop.prompt, 80)"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .ralph-dashboard {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .ralph-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .ralph-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--secondary-bg);
+      padding: 4px;
+      border-radius: 8px;
+    }
+
+    .ralph-tab {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .ralph-tab:hover {
+      background: var(--color-border);
+    }
+
+    .ralph-tab.active {
+      background: var(--color-primary);
+      color: white;
+    }
+
+    .ralph-error {
+      background: #3b1f1f;
+      color: #f7c9c9;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+
+    .ralph-loading {
+      color: var(--color-text-secondary);
+      font-style: italic;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .ralph-empty {
+      color: var(--color-text-secondary);
+      font-style: italic;
+      padding: 12px;
+    }
+
+    /* Stats Cards */
+    .ralph-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--color-primary);
+    }
+
+    .stat-active-value {
+      color: #63b3ed;
+    }
+
+    .stat-completed-value {
+      color: #74c69d;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      margin-top: 4px;
+    }
+
+    /* Sections */
+    .ralph-section {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .ralph-section h4 {
+      margin: 0 0 12px 0;
+      font-size: 1rem;
+    }
+
+    /* Loop Cards */
+    .loop-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .loop-list.compact {
+      gap: 8px;
+    }
+
+    .loop-card {
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .loop-card.active-loop {
+      border-left: 4px solid var(--color-primary);
+    }
+
+    .loop-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .loop-icon {
+      font-size: 1.2rem;
+    }
+
+    .loop-name {
+      flex: 1;
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .iteration-badge {
+      background: var(--color-primary);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .loop-prompt {
+      color: var(--color-text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .loop-progress {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 8px;
+      background: var(--color-border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--color-primary);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .progress-percent {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      min-width: 40px;
+    }
+
+    .loop-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .loop-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Loop Item (compact) */
+    .loop-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .loop-item:hover {
+      background: var(--color-border);
+    }
+
+    .loop-iterations {
+      color: var(--color-text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .loop-time {
+      color: var(--color-text-secondary);
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+
+    /* Status Badges */
+    .loop-status-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    .status-active { background: #1a365d; color: #63b3ed; }
+    .status-completed { background: #1b4332; color: #74c69d; }
+    .status-cancelled { background: #5a3d3d; color: #e57373; }
+    .status-paused { background: #4a4a1a; color: #ffd54f; }
+    .status-max_iterations { background: #3d3d5a; color: #b39ddb; }
+
+    /* Button styles */
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      background: var(--color-border);
+      color: var(--color-text);
+    }
+
+    .btn:hover {
+      filter: brightness(1.1);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-small {
+      padding: 5px 10px;
+      font-size: 0.8rem;
+    }
+
+    .btn-ok {
+      background: var(--color-primary);
+      color: white;
+    }
+
+    .btn-warning {
+      background: #b7791f;
+      color: white;
+    }
+
+    .btn-danger {
+      background: #c53030;
+      color: white;
+    }
+
+    /* Details View */
+    .details-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .details-header h3 {
+      margin: 0;
+      flex: 1;
+    }
+
+    .loop-details {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .detail-card {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .detail-card h4 {
+      margin: 0 0 12px 0;
+      font-size: 0.95rem;
+      color: var(--color-text-secondary);
+    }
+
+    .detail-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .detail-label {
+      min-width: 100px;
+      color: var(--color-text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .prompt-content {
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 12px;
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      max-height: 200px;
+      overflow: auto;
+    }
+
+    .promise-content {
+      display: block;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      color: #f6e05e;
+    }
+
+    /* Iteration List */
+    .iteration-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 400px;
+      overflow: auto;
+    }
+
+    .iteration-item {
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .iteration-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .iteration-number {
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+
+    .iteration-status {
+      font-size: 0.9rem;
+    }
+
+    .iteration-status.success { color: #74c69d; }
+    .iteration-status.failed { color: #e57373; }
+    .iteration-status.pending { color: var(--color-text-secondary); }
+
+    .iteration-time {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    .iteration-summary {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .iteration-files {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .files-label {
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    .file-chip {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+    }
+
+    .more-files {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .iteration-commit {
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .commit-label {
+      color: var(--color-text-secondary);
+    }
+
+    .iteration-commit code {
+      background: var(--secondary-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 12px;
+      padding-top: 8px;
+    }
+
+    /* History View */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-item {
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .history-item:hover {
+      background: var(--color-border);
+    }
+
+    .history-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .history-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .history-prompt {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      line-height: 1.3;
+    }
+  </style>
+</body>
+
+</html>

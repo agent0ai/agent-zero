@@ -1,0 +1,201 @@
+<html>
+
+<head>
+  <title>LLM Router Dashboard</title>
+  <script type="module">
+    import { store } from "/components/settings/llm-router/llm-router-dashboard-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.llmRouterStore">
+      <div class="llm-router-dashboard"
+           data-testid="llm-router-dashboard"
+           x-create="$store.llmRouterStore.onOpen()"
+           x-destroy="$store.llmRouterStore.cleanup()">
+
+        <!-- Header -->
+        <div class="router-header">
+          <div class="router-tabs">
+            <button class="router-tab"
+                    :class="{ active: $store.llmRouterStore.activeView === 'dashboard' }"
+                    @click="$store.llmRouterStore.switchView('dashboard')">
+              Dashboard
+            </button>
+            <button class="router-tab"
+                    :class="{ active: $store.llmRouterStore.activeView === 'models' }"
+                    @click="$store.llmRouterStore.switchView('models')">
+              Models
+            </button>
+          </div>
+          <div class="router-actions">
+            <button class="btn btn-ok"
+                    @click="$store.llmRouterStore.refresh()"
+                    :disabled="$store.llmRouterStore.loading">
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Error display -->
+        <div class="router-error" x-show="$store.llmRouterStore.error"
+             x-text="$store.llmRouterStore.error"></div>
+
+        <!-- Loading indicator -->
+        <div class="router-loading" x-show="$store.llmRouterStore.loading">
+          Loading...
+        </div>
+
+        <!-- Dashboard View -->
+        <div class="router-view" x-show="$store.llmRouterStore.activeView === 'dashboard'">
+
+          <!-- Router Toggle -->
+          <div class="router-toggle-section">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <span class="toggle-label">LLM Router</span>
+                <span class="toggle-desc">Enable dynamic model selection based on task requirements</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox"
+                       :checked="$store.llmRouterStore.routerEnabled"
+                       @change="$store.llmRouterStore.toggleRouter()">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Stats Cards -->
+          <div class="router-stats">
+            <div class="stat-card">
+              <div class="stat-value" x-text="$store.llmRouterStore.models.totalCount"></div>
+              <div class="stat-label">Total Models</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-local" x-text="$store.llmRouterStore.models.localCount"></div>
+              <div class="stat-label">Local Models</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" x-text="$store.llmRouterStore.models.cloudCount"></div>
+              <div class="stat-label">Cloud Models</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" x-text="$store.llmRouterStore.usage.last24h.calls"></div>
+              <div class="stat-label">Calls (24h)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" x-text="$store.llmRouterStore.formatCost($store.llmRouterStore.usage.last24h.costUsd)"></div>
+              <div class="stat-label">Cost (24h)</div>
+            </div>
+          </div>
+
+          <!-- Default Models Section -->
+          <div class="router-section">
+            <div class="section-header">
+              <h4>Default Models by Role</h4>
+              <button class="btn btn-secondary"
+                      @click="$store.llmRouterStore.autoConfigureModels()"
+                      :disabled="$store.llmRouterStore.loading">
+                Auto-Configure
+              </button>
+            </div>
+
+            <div class="defaults-grid">
+              <template x-for="role in ['chat', 'utility', 'browser', 'embedding', 'fallback']" :key="role">
+                <div class="default-row">
+                  <span class="role-label" x-text="role.charAt(0).toUpperCase() + role.slice(1)"></span>
+                  <select class="model-select"
+                          @change="$store.llmRouterStore.onModelSelected(role, $event)">
+                    <option value="">
+                      <span x-text="$store.llmRouterStore.getDefaultDisplay(role)"></span>
+                    </option>
+                    <template x-for="model in $store.llmRouterStore.availableModels" :key="model.provider + '/' + model.name">
+                      <option :value="model.provider + '/' + model.name"
+                              :selected="$store.llmRouterStore.defaults[role]?.provider === model.provider && $store.llmRouterStore.defaults[role]?.model_name === model.name">
+                        <span x-text="model.provider"></span>/<span x-text="model.name"></span>
+                        (<span x-text="model.isLocal ? 'Local' : 'Cloud'"></span>)
+                      </option>
+                    </template>
+                  </select>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Model Discovery Section -->
+          <div class="router-section">
+            <h4>Model Discovery</h4>
+            <div class="discovery-actions">
+              <button class="btn btn-secondary"
+                      @click="$store.llmRouterStore.discoverModels('ollama')"
+                      :disabled="$store.llmRouterStore.loading">
+                Discover Ollama Models
+              </button>
+              <button class="btn btn-secondary"
+                      @click="$store.llmRouterStore.discoverModels('all')"
+                      :disabled="$store.llmRouterStore.loading">
+                Discover All
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Models View -->
+        <div class="router-view" x-show="$store.llmRouterStore.activeView === 'models'">
+
+          <div class="router-section" x-show="Object.keys($store.llmRouterStore.models.byProvider).length === 0">
+            <div class="router-empty">
+              No models discovered yet. Click "Discover Models" on the Dashboard tab.
+            </div>
+          </div>
+
+          <template x-for="(models, provider) in $store.llmRouterStore.models.byProvider" :key="provider">
+            <div class="router-section provider-section">
+              <h4>
+                <span x-text="$store.llmRouterStore.getProviderIcon(provider)"></span>
+                <span x-text="provider.charAt(0).toUpperCase() + provider.slice(1)"></span>
+                <span class="model-count">(<span x-text="models.length"></span> models)</span>
+              </h4>
+
+              <div class="models-table">
+                <div class="models-header">
+                  <span class="col-name">Model</span>
+                  <span class="col-context">Context</span>
+                  <span class="col-cost">Cost (in/out)</span>
+                  <span class="col-type">Type</span>
+                </div>
+                <template x-for="model in models" :key="model.name">
+                  <div class="models-row">
+                    <span class="col-name">
+                      <span class="model-name" x-text="model.display_name || model.name"></span>
+                      <span class="model-id" x-text="model.name" x-show="model.display_name !== model.name"></span>
+                    </span>
+                    <span class="col-context" x-text="$store.llmRouterStore.formatContextLength(model.context_length)"></span>
+                    <span class="col-cost">
+                      <template x-if="model.is_local">
+                        <span class="cost-local">Local</span>
+                      </template>
+                      <template x-if="!model.is_local">
+                        <span x-text="'$' + (model.cost_per_1k_input || 0) + '/$' + (model.cost_per_1k_output || 0)"></span>
+                      </template>
+                    </span>
+                    <span class="col-type">
+                      <span class="type-badge" :class="model.is_local ? 'type-local' : 'type-cloud'"
+                            x-text="model.is_local ? 'Local' : 'Cloud'"></span>
+                    </span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+        </div>
+
+      </div>
+    </template>
+  </div>
+</body>
+
+</html>

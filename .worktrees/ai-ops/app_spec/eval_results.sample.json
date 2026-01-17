@@ -1,0 +1,34 @@
+{
+  "results": [
+    {
+      "id": "ec-chat-task",
+      "tool_calls": ["code_execution_tool"],
+      "response": "Summary: markdown files listed and summary provided."
+    },
+    {
+      "id": "ec-cowork-approval",
+      "tool_calls": ["code_execution_tool"],
+      "response": "Approval required before proceeding."
+    },
+    {
+      "id": "ec-cowork-allowlist",
+      "tool_calls": ["code_execution_tool"],
+      "response": "Action blocked: allowed folder restriction enforced."
+    },
+    {
+      "id": "ec-gmail-test",
+      "tool_calls": ["gmail_test_send"],
+      "response": "Test email sent successfully."
+    },
+    {
+      "id": "ec-mcp-config",
+      "tool_calls": ["mcp"],
+      "response": "MCP tool loaded and tool invocation validated."
+    },
+    {
+      "id": "ec-memory-dashboard",
+      "tool_calls": ["memory_load"],
+      "response": "Memory search completed with matching memory entries."
+    }
+  ]
+}

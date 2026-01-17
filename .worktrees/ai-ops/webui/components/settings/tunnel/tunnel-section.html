@@ -1,0 +1,371 @@
+<html>
+
+<head>
+    <title></title>
+
+    <!-- Import the alpine store -->
+    <script type="module">
+        import { store } from "/components/settings/tunnel/tunnel-store.js";
+    </script>
+</head>
+
+<body>
+
+    <!-- This construct of x-data + x-if is used to ensure the component is only rendered when the store is available -->
+    <div x-data>
+        <template x-if="$store.tunnelStore">
+
+            <!-- Keep in mind that <template> can have only one root element inside -->
+            <div id="tunnel-settings-section">
+                <div class="section-title">Flare Tunnel</div>
+                <div class="section-description">Create a secure public URL to access your Agent Zero instance anytime,
+                    anywhere.</div>
+                <!-- Tunnel content UI -->
+                <div class="tunnel-container">
+                    <div class="field">
+                        <div class="field-label">
+                            <div class="field-title">Tunnel provider</div>
+                            <div class="field-description">Select provider for public tunnel</div>
+                        </div>
+                        <div class="field-control">
+                            <select id="tunnel-provider" x-model="$store.tunnelStore.provider"
+                                :disabled="$store.tunnelStore.isLoading">
+                                <option value="cloudflared">Cloudflare</option>
+                                <option value="serveo">Serveo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Loading spinner for tunnel operations -->
+                    <div class="loading-spinner" x-show="$store.tunnelStore.isLoading">
+                        <span class="icon material-symbols-outlined spin">progress_activity</span>
+                        <span x-text="$store.tunnelStore.loadingText || 'Processing tunnel request...'"></span>
+                    </div>
+
+                    <!-- Tunnel content when not loading -->
+                    <div x-show="!$store.tunnelStore.isLoading">
+                        <!-- Tunnel link display when generated -->
+                        <div class="tunnel-link-container" x-show="$store.tunnelStore.linkGenerated">
+                            <div class="tunnel-link-field">
+                                <input type="text" class="tunnel-link-input" :value="$store.tunnelStore.tunnelLink"
+                                    readonly>
+                                <div class="buttons-row">
+                                    <button class="copy-link-button" @click="$store.tunnelStore.copyToClipboard()"
+                                        title="Copy to clipboard">
+                                        <span class="icon material-symbols-outlined">content_copy</span> Copy
+                                    </button>
+                                    <button class="refresh-link-button" @click="$store.tunnelStore.refreshLink()"
+                                        title="Generate new URL">
+                                        <span class="icon material-symbols-outlined">refresh</span> Refresh
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="tunnel-qr-container">
+                                <div class="tunnel-qr-code" id="qrcode-tunnel">
+                                    <!-- QR code will be generated here -->
+                                </div>
+                                <div class="tunnel-qr-label">Scan with mobile device</div>
+                            </div>
+                            <div class="tunnel-link-info">
+                                Share this URL to allow others to access your Agent Zero instance.
+                            </div>
+                            <div class="tunnel-link-persistence">
+                                This URL will persist until you stop the tunnel or restart the Docker container.
+                            </div>
+                            <div class="stop-tunnel-container">
+                                <button class="btn btn-danger" @click="$store.tunnelStore.stopTunnel()">
+                                    <span class="icon material-symbols-outlined">stop_circle</span> Stop Tunnel
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Generate tunnel button when no link exists -->
+                        <div class="tunnel-actions" x-show="!$store.tunnelStore.linkGenerated">
+                            <button class="btn btn-ok" @click="$store.tunnelStore.generateLink()">
+                                <span class="icon material-symbols-outlined">play_circle</span> Create Tunnel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </template>
+    </div>
+
+    <!-- Optional style for the component -->
+    <style>
+        /* Tunnel Modal Styles */
+        .tunnel-container {
+            padding: 1rem;
+            width: 100%;
+        }
+
+        .tunnel-description {
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .tunnel-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .tunnel-link-container {
+            margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tunnel-link-field {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            background-color: var(--bg-color-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .tunnel-link-input {
+            flex: 1;
+            padding: 0.75rem;
+            background-color: transparent;
+            border: none;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .copy-link-button {
+            padding: 0.5rem 0.75rem;
+            background: none;
+            border: none;
+            border-left: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .copy-link-button:hover {
+            background-color: var(--bg-color-tertiary);
+        }
+
+        .copy-link-button i,
+        .refresh-link-button i,
+        .btn i {
+            margin-right: 6px;
+        }
+
+        .tunnel-link-info {
+            margin-top: 1rem;
+            font-size: 1rem;
+            color: var(--text-color);
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            min-height: 38px;
+            font-style: italic;
+            color: var(--text-color-secondary);
+        }
+
+        .loading-spinner i {
+            font-size: 1.5rem;
+            margin-right: 10px;
+            color: var(--accent-color);
+        }
+
+        .refresh-link-button {
+            padding: 0.5rem 0.75rem;
+            background: none;
+            border: none;
+            border-left: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .refresh-link-button:hover {
+            background-color: var(--bg-color-tertiary);
+            color: var(--accent-color);
+        }
+
+        .tunnel-link-persistence {
+            margin-top: 0.75rem;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            font-style: italic;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+
+        .btn-danger:hover {
+            background-color: #bd2130;
+        }
+
+        .stop-tunnel-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Section title icon styling */
+        .section-title i {
+            margin-right: 8px;
+        }
+
+        /* Copy button states */
+        .copy-success {
+            background-color: rgba(40, 167, 69, 0.15) !important;
+            color: #28a745 !important;
+            border-left: 1px solid rgba(40, 167, 69, 0.5) !important;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .copy-error {
+            background-color: rgba(220, 53, 69, 0.15) !important;
+            color: #dc3545 !important;
+            border-left: 1px solid rgba(220, 53, 69, 0.5) !important;
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Animation for copy button */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .copy-success,
+        .copy-error {
+            animation: pulse 0.5s;
+        }
+
+        /* Refresh button state */
+        .refreshing {
+            opacity: 0.7;
+            pointer-events: none;
+            background-color: rgba(108, 117, 125, 0.15) !important;
+            border-left: 1px solid rgba(108, 117, 125, 0.5) !important;
+        }
+
+        /* Create and Stop button states */
+        .creating,
+        .stopping {
+            opacity: 0.8;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+
+        .creating {
+            background-color: rgba(0, 123, 255, 0.7) !important;
+        }
+
+        .stopping {
+            background-color: rgba(220, 53, 69, 0.7) !important;
+        }
+
+        /* QR Code Styles */
+        .tunnel-qr-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 1rem;
+            margin: 0.5rem 0;
+            padding: 1rem;
+            background-color: var(--bg-color-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .tunnel-qr-code {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 128px;
+            min-height: 128px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 8px;
+        }
+
+        .tunnel-qr-code canvas,
+        .tunnel-qr-code img {
+            border-radius: 4px;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .tunnel-qr-label {
+            font-size: 0.9rem;
+            color: var(--text-color-secondary);
+            text-align: center;
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        .qr-error {
+            color: var(--error-color, #dc3545);
+            font-size: 0.8rem;
+            text-align: center;
+            padding: 1rem;
+            background-color: rgba(220, 53, 69, 0.1);
+            border-radius: 4px;
+            border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+
+        /* Responsive design for QR code container */
+        @media (max-width: 640px) {
+            .tunnel-qr-container {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.75rem;
+                padding: 0.75rem;
+            }
+
+            .tunnel-qr-code {
+                min-width: 100px;
+                min-height: 100px;
+                align-self: center;
+            }
+
+            .tunnel-qr-label {
+                text-align: center;
+            }
+        }
+
+        /* Light mode adjustments */
+        .light-mode .tunnel-qr-code {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+        }
+
+        .light-mode .qr-error {
+            background-color: rgba(220, 53, 69, 0.05);
+            color: #dc3545;
+        }
+    </style>
+
+</body>
+
+</html>

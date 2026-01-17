@@ -1,0 +1,14 @@
+# Ollama Models - Stored in GCP Bucket
+# Download with: ./scripts/gcp_models_sync.sh download
+# Upload with: ./scripts/gcp_models_sync.sh upload
+
+# Ignore all model data
+ollama_models/models/
+ollama_models/blobs/
+
+# Keep manifest and metadata
+!ollama_models/model_manifest.json
+!ollama_models/README.md
+
+# Keep directory structure
+!ollama_models/.gitkeep

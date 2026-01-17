@@ -1,0 +1,175 @@
+<html>
+
+<head>
+    <title>Projects</title>
+    <script type="module">
+        import { store as projectsStore } from "/components/projects/projects-store.js";
+        import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.chats">
+            <div>
+                <p class="projects-intro">Projects in Agent Zero are used to separate different use cases with custom
+                    instructions and files.
+                    You can create projects for your tasks and switch between them easily.</p>
+                <div class="projects-list-header">
+                    <div x-show="$store.chats.selectedContext && $store.chats.selectedContext?.project" class="active-project-display">
+                        <span style="display: inline-flex; align-items: center; gap: 0.5em;">
+                            <span>Active:</span>
+                            <span class="project-color-ball" :style="$store.chats.selectedContext?.project?.color ? { backgroundColor: $store.chats.selectedContext?.project?.color } : { border: '1px solid var(--color-border)' }"></span>
+                            <strong x-text="$store.chats.selectedContext?.project?.name"></strong>
+                        </span>
+                        <button type="button" class="button cancel icon-button" title="Deactivate" @click="$store.projects.deactivateProject()">
+                            <span class="icon material-symbols-outlined">close</span>
+                        </button>
+                        <button type="button" class="button icon-button" title="Edit" @click="$store.projects.openEditModal($store.chats.selectedContext?.project?.name)">
+                            <span class="icon material-symbols-outlined">edit</span>
+                        </button>
+                    </div>
+                    <button @click="$store.projects.openCreateModal()" type="button"
+                        class="button projects-create-btn-top">
+                        <span class="icon material-symbols-outlined">add</span> Create project
+                    </button>
+                </div>
+
+                <template :key="project.name" x-for="project in $store.projects.projectList">
+                    <div class="projects-project-card" :class="{ 'projects-active': project.name === $store.chats.selectedContext?.project?.name }">
+                        <div class="projects-project-card-header" style="display: flex; align-items: start; justify-content: space-between; gap: 1em;">
+  <div>
+    <div class="projects-project-card-title">
+        <span class="project-color-ball" :style="project.color ? { backgroundColor: project.color } : { border: '1px solid var(--color-border)' }"></span>
+        <span x-text="project.title"></span>
+    </div>
+    <div class="projects-project-card-name">/<span x-text="project.name"></span></div>
+  </div>
+  <div class="projects-project-card-actions" style="display: flex; gap: 0.5em;">
+    <template x-if="$store.chats.selectedContext && project.name === $store.chats.selectedContext?.project?.name">
+      <button type="button" class="button cancel" title="Deactivate" style="width:9em" @click="$store.projects.deactivateProject()">
+        <span class="icon material-symbols-outlined">close</span> Deactivate
+      </button>
+    </template>
+    <template x-if="$store.chats.selectedContext && project.name !== $store.chats.selectedContext?.project?.name">
+      <button type="button" class="button confirm" title="Activate" style="width:9em" @click="$store.projects.activateProject(project.name)">
+        <span class="icon material-symbols-outlined">play_arrow</span> Activate
+      </button>
+    </template>
+    <button type="button" class="button icon-button" title="Edit" @click="$store.projects.openEditModal(project.name)">
+      <span class="icon material-symbols-outlined">edit</span>
+    </button>
+    <button type="button" class="button cancel icon-button" title="Delete" @click="$store.projects.deleteProject(project.name)">
+      <span class="icon material-symbols-outlined">delete</span>
+    </button>
+  </div>
+</div>
+<!-- <div class="projects-project-card-description"><span x-text="project.description"></span></div> -->
+                    </div>
+                </template>
+
+                <template x-if="$store.projects.projectList.length === 0">
+                    <div class="projects-no-projects">
+                        <div class="projects-project-card-title">There are no projects yet</div>
+                        <div class="projects-no-projects-actions">
+                            <button @click="$store.projects.openCreateModal()" type="button"
+                                class="button"><span class="icon material-symbols-outlined">add</span>Create project</button>
+                        </div>
+                    </div>
+                </template>
+
+            </div>
+        </template>
+    </div>
+</body>
+<style>
+    .projects-project-card {
+        border: 1px solid var(--color-border);
+        border-radius: 0.5em;
+        padding: 1em;
+        margin-top: 1em;
+    }
+
+    .projects-project-card.projects-active {
+        border-color: var(--color-highlight);
+    }
+
+    .projects-project-card-title {
+        font-weight: bold;
+        font-size: 1.2em;
+        display: flex;
+        align-items: center;
+    }
+    .projects-project-card-name {
+        margin-top: var(--spacing-xs);
+    }
+
+    .project-color-ball {
+        width: 0.6em;
+        height: 0.6em;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5em;
+        flex-shrink: 0;
+        box-sizing: border-box;
+    }
+
+    .projects-project-card-description {
+        font-size: 0.9em;
+        color: var(--color-text);
+    }
+
+    .projects-no-projects {
+        border: 1px dashed var(--color-border);
+        border-radius: 0.5em;
+        padding: 2em;
+        margin: 1em;
+        text-align: center;
+        background: var(--color-panel);
+    }
+
+    .projects-no-projects-actions {
+        margin-top: 1em;
+        display: flex;
+        justify-content: center;
+    }
+
+    .projects-create-btn-top {
+        float: right;
+        margin: var(--spacing-xs) var(--spacing-md);
+    }
+
+    .projects-list-header {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-bottom: 0.5em;
+    }
+
+    .active-project-display {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        border: 1px solid var(--color-highlight);
+        padding: 0.5em;
+        border-radius: 0.5em;
+        margin-right: auto;
+    }
+
+  @media (max-width: 600px) {
+    .projects-list-header {
+      flex-wrap: wrap;
+      gap: 1em;
+    }
+    .projects-project-card-header {
+      flex-direction: column;
+      gap: 1em;
+    }
+    .active-project-display {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+</style>
+</html>

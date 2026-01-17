@@ -1,0 +1,85 @@
+{
+  "$schema": "app_spec/feature_map.schema.json",
+  "feature_map": [
+    {
+      "feature": "Cowork approvals",
+      "specs": ["app_spec/use_cases.json#uc-cowork-approvals", "app_spec/user_stories.json#us-002", "app_spec/user_stories.json#us-003"],
+      "frontend": [
+        "webui/components/settings/cowork/cowork-manager.html",
+        "webui/components/settings/cowork/cowork-manager-store.js",
+        "webui/components/modals/file-browser/file-browser.html",
+        "webui/components/modals/file-browser/file-browser-store.js"
+      ],
+      "backend": [
+        "python/extensions/tool_execute_before/_20_cowork_approvals.py",
+        "python/helpers/cowork.py",
+        "python/api/cowork_folders_get.py",
+        "python/api/cowork_folders_set.py",
+        "python/api/cowork_approvals_list.py",
+        "python/api/cowork_approvals_update.py",
+        "python/api/poll.py"
+      ]
+    },
+    {
+      "feature": "Gmail OAuth + test utility",
+      "specs": ["app_spec/use_cases.json#uc-gmail-send", "app_spec/user_stories.json#us-005"],
+      "frontend": [
+        "webui/components/settings/external/gmail-account-manager.html",
+        "webui/components/settings/external/gmail-account-manager-store.js",
+        "webui/components/settings/external/gmail-test-utility.html",
+        "webui/components/settings/external/gmail-test-utility-store.js"
+      ],
+      "backend": [
+        "python/api/gmail_oauth_start.py",
+        "python/api/gmail_oauth_callback.py",
+        "python/api/gmail_accounts_list.py",
+        "python/api/gmail_account_remove.py",
+        "python/api/gmail_test_send.py",
+        "python/helpers/gmail_api_client.py",
+        "python/tools/email_advanced.py"
+      ]
+    },
+    {
+      "feature": "MCP configuration",
+      "specs": ["app_spec/use_cases.json#uc-mcp-config", "app_spec/user_stories.json#us-004"],
+      "frontend": [
+        "webui/components/settings/mcp/client/mcp-servers.html"
+      ],
+      "backend": [
+        "python/helpers/mcp_handler.py",
+        "python/api/mcp_servers_apply.py",
+        "python/api/mcp_servers_status.py"
+      ]
+    },
+    {
+      "feature": "Chat task execution",
+      "specs": ["app_spec/use_cases.json#uc-chat-task", "app_spec/user_stories.json#us-001"],
+      "frontend": [
+        "webui/index.html",
+        "webui/index.js",
+        "webui/components/chat"
+      ],
+      "backend": [
+        "agent.py",
+        "python/api/message_async.py",
+        "python/api/poll.py"
+      ]
+    },
+    {
+      "feature": "Observability and telemetry",
+      "specs": ["app_spec/operations.json#testing"],
+      "frontend": [
+        "webui/components/settings/observability/observability.html",
+        "webui/components/settings/observability/observability-store.js"
+      ],
+      "backend": [
+        "python/helpers/telemetry.py",
+        "python/extensions/tool_execute_before/_30_telemetry_start.py",
+        "python/extensions/tool_execute_after/_30_telemetry_end.py",
+        "python/extensions/tool_execute_error/_30_telemetry_error.py",
+        "python/api/telemetry_get.py",
+        "python/api/telemetry_clear.py"
+      ]
+    }
+  ]
+}

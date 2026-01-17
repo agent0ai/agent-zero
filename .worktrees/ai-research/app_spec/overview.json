@@ -1,0 +1,39 @@
+{
+  "$schema": "app_spec/overview.schema.json",
+  "product": {
+    "name": "Agent Zero",
+    "summary": "General-purpose local assistant that can chat, call tools, and coordinate subagents.",
+    "primary_users": [
+      "Developers",
+      "Operators",
+      "Researchers",
+      "Power users who want local agent automation"
+    ]
+  },
+  "capabilities": [
+    "Chat-driven task execution",
+    "Tool execution (shell, browser agent, email, memory, scheduler)",
+    "Subagent delegation",
+    "Knowledge and memory management",
+    "Web UI for settings, tasks, and monitoring",
+    "MCP integration",
+    "Cowork mode approvals and folder scoping",
+    "Gmail OAuth integration with test utility"
+  ],
+  "non_goals": [
+    "Fully managed SaaS hosting",
+    "End-user mobile app",
+    "Enterprise SSO"
+  ],
+  "key_constraints": [
+    "Runs locally or in Docker",
+    "Requires explicit configuration for models and API keys",
+    "Sensitive data should remain local"
+  ],
+  "core_workflows": [
+    "User sends a request in the UI",
+    "Agent generates tool calls",
+    "Tools run with optional approvals",
+    "Results appear in chat history and logs"
+  ]
+}

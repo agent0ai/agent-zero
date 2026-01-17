@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2024-01-15T00:00:00.000Z" agent="Draw.io" version="22.1.0">
+  <diagram id="cowork-system" name="Cowork System - Collaborative Approval Framework">
+    <mxGraphModel dx="1434" dy="780" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Cowork System - Collaborative Approval Framework" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="250" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Overview Section -->
+        <mxCell id="overview-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="1020" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="overview" value="Purpose: The Cowork system provides a human-in-the-loop approval mechanism for agent tool executions. When tools operate on files/folders within designated 'cowork folders', they require explicit user approval before execution." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="50" y="75" width="1000" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Core Components -->
+        <mxCell id="core-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="500" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="core-label" value="Core Components (python/helpers/cowork.py)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="155" width="350" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fingerprinting" value="Fingerprinting&#xa;───────────────────&#xa;• build_fingerprint()&#xa;• SHA256(tool_name + sorted_args)&#xa;• Deterministic hash for &#xa;  approval matching" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="60" y="185" width="180" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="path-extraction" value="Path Extraction&#xa;───────────────────&#xa;• extract_paths(tool_args)&#xa;• PATH_KEYS: path, files,&#xa;  directory, folder, etc.&#xa;• Resolve env variables" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="260" y="185" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="approval-check" value="Approval Check&#xa;───────────────────&#xa;• check_approval()&#xa;• is_in_cowork_folder()&#xa;• needs_approval()&#xa;• Hierarchical paths" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="425" y="185" width="140" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="summarize" value="Arg Summarization&#xa;• summarize_tool_args()&#xa;• Truncate long paths&#xa;• Human-readable display" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="60" y="295" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- API Endpoints -->
+        <mxCell id="api-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="560" y="150" width="500" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="api-label" value="API Endpoints (python/api/cowork_*)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="570" y="155" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="approvals-list" value="cowork_approvals_list.py&#xa;─────────────────────&#xa;GET /cowork_approvals_list&#xa;&#xa;Returns:&#xa;• Pending approvals queue&#xa;• Tool name, summarized args&#xa;• Agent number&#xa;• Timestamps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="580" y="185" width="180" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="approvals-update" value="cowork_approvals_update.py&#xa;─────────────────────&#xa;POST /cowork_approvals_update&#xa;&#xa;Body: { id, action }&#xa;Actions:&#xa;• approve&#xa;• reject&#xa;• approve_all" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="780" y="185" width="170" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="folders-apis" value="cowork_folders_get/set.py&#xa;─────────────────────&#xa;GET /cowork_folders_get&#xa;POST /cowork_folders_set&#xa;&#xa;• List protected folders&#xa;• Add/remove folders&#xa;• Per-context config" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="970" y="185" width="160" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- Extension Hook -->
+        <mxCell id="extension-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="350" width="500" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-label" value="Extension Hook (python/extensions/tool_execute_before/)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="355" width="400" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cowork-ext" value="_20_cowork_approvals.py&#xa;────────────────────────────────────────────&#xa;• Intercepts tool execution BEFORE it runs&#xa;• Checks if tool paths are in cowork folders&#xa;• If yes: creates pending approval &amp; blocks execution&#xa;• If no: allows tool to proceed normally&#xa;• Returns Response with break_loop=True if blocked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="60" y="380" width="460" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Data Structure -->
+        <mxCell id="data-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="560" y="350" width="500" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="data-label" value="Approval Data Structure (stored in AgentContext.data['cowork_approvals'])" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="570" y="355" width="480" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="approval-schema" value="{&#xa;  &quot;id&quot;: &quot;uuid-v4&quot;,&#xa;  &quot;fingerprint&quot;: &quot;sha256(tool+args)&quot;,&#xa;  &quot;tool_name&quot;: &quot;code_execution_tool&quot;,&#xa;  &quot;tool_args&quot;: {&#xa;    &quot;path&quot;: &quot;/cowork/project/...&quot;,&#xa;    &quot;content&quot;: &quot;[truncated...]&quot;&#xa;  },&#xa;  &quot;status&quot;: &quot;pending|approved|rejected&quot;,&#xa;  &quot;agent_number&quot;: 0,&#xa;  &quot;inherit&quot;: false,&#xa;  &quot;created_at&quot;: &quot;ISO8601&quot;,&#xa;  &quot;resolved_at&quot;: &quot;ISO8601&quot;,&#xa;  &quot;consumed&quot;: false,&#xa;  &quot;consumed_at&quot;: &quot;ISO8601&quot;&#xa;}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;align=left;spacingLeft=10;fontFamily=Courier New" vertex="1" parent="1">
+          <mxGeometry x="580" y="385" width="250" height="155" as="geometry" />
+        </mxCell>
+
+        <mxCell id="status-flow" value="Status Lifecycle:&#xa;&#xa;1. pending → User sees in queue&#xa;2. approved → Tool can execute&#xa;3. rejected → Tool blocked&#xa;4. consumed → Approval used&#xa;&#xa;Inheritance:&#xa;• inherit=true: approval applies&#xa;  to all sub-agents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="850" y="385" width="190" height="155" as="geometry" />
+        </mxCell>
+
+        <!-- UI Component -->
+        <mxCell id="ui-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="500" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-label" value="Web UI (webui/components/)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="475" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cowork-panel" value="panels/cowork-panel.html&#xa;──────────────────────&#xa;Quick-view in Tile Row:&#xa;• Approval count badge&#xa;• Pending items list&#xa;• Quick approve/reject&#xa;• Expand for details" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="60" y="505" width="180" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="cowork-settings" value="settings/cowork/&#xa;──────────────────────&#xa;Full configuration in Settings:&#xa;• cowork-folder-manager.html&#xa;• Add/remove folders&#xa;• Path validation&#xa;• Per-project config" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="260" y="505" width="180" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="cowork-store" value="cowork-store.js&#xa;──────────────────────&#xa;Alpine.js state:&#xa;• approvals: []&#xa;• folders: []&#xa;• loadApprovals()&#xa;• approve/reject(id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="460" y="505" width="150" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- Approval Flow Diagram -->
+        <mxCell id="flow-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="1020" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="flow-label" value="Approval Flow Sequence" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="625" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Flow Steps -->
+        <mxCell id="step1" value="1. Agent calls&#xa;tool with path&#xa;argument" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="60" y="660" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step2" value="2. Extension&#xa;intercepts&#xa;(before exec)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="190" y="660" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step3" value="3. Check if&#xa;path in cowork&#xa;folders" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="320" y="650" width="100" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="step4a" value="NO:&#xa;Execute&#xa;normally" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745" vertex="1" parent="1">
+          <mxGeometry x="320" y="750" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="step4b" value="4. YES:&#xa;Create pending&#xa;approval" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+          <mxGeometry x="450" y="660" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step5" value="5. Block tool&#xa;execution&#xa;(break_loop)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+          <mxGeometry x="580" y="660" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step6" value="6. User sees&#xa;approval in&#xa;UI queue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf" vertex="1" parent="1">
+          <mxGeometry x="710" y="660" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step7" value="7. User&#xa;approves/&#xa;rejects" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="840" y="650" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="step8" value="8. Agent retries&#xa;(approved)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745" vertex="1" parent="1">
+          <mxGeometry x="950" y="660" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Flow Arrows -->
+        <mxCell id="flow1" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="step1" target="step2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow2" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="step2" target="step3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow3a" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#28a745" edge="1" parent="1" source="step3" target="step4a">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow3b" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#b85450" edge="1" parent="1" source="step3" target="step4b">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow4" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="step4b" target="step5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow5" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="step5" target="step6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow6" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="step6" target="step7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow7" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#28a745" edge="1" parent="1" source="step7" target="step8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000" vertex="1" parent="1">
+          <mxGeometry x="570" y="565" width="490" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-label" value="Legend:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="580" y="575" width="50" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="Core Logic" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="640" y="575" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="710" y="575" width="40" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="760" y="575" width="40" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="Blocked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="810" y="575" width="50" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="Allowed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="870" y="575" width="50" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg6" value="Decision" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="930" y="570" width="60" height="30" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

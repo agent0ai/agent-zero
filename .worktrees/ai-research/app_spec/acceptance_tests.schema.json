@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/acceptance_tests.schema.json",
+  "title": "Acceptance Tests Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "acceptance_tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "story_id": {"type": "string"},
+          "title": {"type": "string"},
+          "steps": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["id", "title", "steps"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["acceptance_tests"],
+  "additionalProperties": false
+}

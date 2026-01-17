@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/overview.schema.json",
+  "title": "Overview Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "product": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "summary": {"type": "string"},
+        "primary_users": {"type": "array", "items": {"type": "string"}}
+      },
+      "required": ["name", "summary", "primary_users"],
+      "additionalProperties": false
+    },
+    "capabilities": {"type": "array", "items": {"type": "string"}},
+    "non_goals": {"type": "array", "items": {"type": "string"}},
+    "key_constraints": {"type": "array", "items": {"type": "string"}},
+    "core_workflows": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["product", "capabilities"],
+  "additionalProperties": false
+}

@@ -1,0 +1,87 @@
+<div class="platform-info-container" x-data="{ 
+    init() { 
+        $store.platformInfo.fetchDocumentation(); 
+    } 
+}">
+    <div class="platform-info-header">
+        <h3>Platform Overview & Documentation</h3>
+        <button class="btn btn-field" @click="$store.platformInfo.fetchDocumentation()" :disabled="$store.platformInfo.isLoading">
+            <span x-show="!$store.platformInfo.isLoading">🔄 Refresh</span>
+            <span x-show="$store.platformInfo.isLoading">Loading...</span>
+        </button>
+    </div>
+
+    <div class="platform-info-content">
+        <template x-if="$store.platformInfo.error">
+            <div class="error-message" x-text="$store.platformInfo.error"></div>
+        </template>
+
+        <template x-if="!$store.platformInfo.isLoading && !$store.platformInfo.error">
+            <div class="markdown-body" x-html="$store.platformInfo.renderMarkdown($store.platformInfo.content)"></div>
+        </template>
+        
+        <div x-show="$store.platformInfo.isLoading" class="loading-spinner">
+            Fetching latest platform specifications...
+        </div>
+    </div>
+
+    <div class="platform-info-footer" x-show="$store.platformInfo.lastUpdated">
+        <small>Last updated on disk: <span x-text="$store.platformInfo.lastUpdated"></span></small>
+    </div>
+</div>
+
+<style>
+    .platform-info-container {
+        padding: 20px;
+        background: var(--color-bg-secondary);
+        border-radius: 8px;
+        color: var(--color-text);
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .platform-info-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+    }
+
+    .platform-info-content {
+        line-height: 1.6;
+    }
+
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+        margin-top: 20px;
+        margin-bottom: 10px;
+        color: var(--color-primary);
+    }
+
+    .markdown-body code {
+        background: var(--color-bg-code);
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-family: monospace;
+    }
+
+    .markdown-body li {
+        margin-left: 20px;
+        list-style-type: disc;
+    }
+
+    .platform-info-footer {
+        margin-top: 20px;
+        padding-top: 10px;
+        border-top: 1px solid var(--color-border);
+        color: var(--color-text-muted);
+    }
+
+    .error-message {
+        color: var(--color-error);
+        padding: 10px;
+        border: 1px solid var(--color-error);
+        border-radius: 4px;
+    }
+</style>

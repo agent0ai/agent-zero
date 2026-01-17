@@ -1,0 +1,313 @@
+<html>
+
+<head>
+  <title>Observability</title>
+  <script type="module">
+    import { store } from "/components/settings/observability/observability-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.observabilityStore">
+      <div class="observability" x-create="$store.observabilityStore.onOpen()">
+        <div class="observability-header">
+          <h3>Telemetry (Current Thread)</h3>
+          <div class="observability-actions">
+            <button class="btn btn-ok" @click="$store.observabilityStore.refresh()"
+              :disabled="$store.observabilityStore.loading">Refresh</button>
+            <button class="btn btn-cancel" @click="$store.observabilityStore.clear()"
+              :disabled="!$store.observabilityStore.events.length">Clear</button>
+          </div>
+        </div>
+
+        <div class="observability-error" x-show="$store.observabilityStore.error"
+          x-text="$store.observabilityStore.error"></div>
+
+        <div class="observability-section">
+          <h4>Tool Stats</h4>
+          <div class="observability-empty" x-show="!$store.observabilityStore.statEntries.length">
+            No telemetry stats yet.
+          </div>
+          <div class="observability-table" x-show="$store.observabilityStore.statEntries.length">
+            <div class="observability-row header">
+              <span>Tool</span>
+              <span>Count</span>
+              <span>Errors</span>
+              <span>Avg ms</span>
+            </div>
+            <template x-for="entry in $store.observabilityStore.statEntries" :key="entry.tool">
+              <div class="observability-row">
+                <span x-text="entry.tool"></span>
+                <span x-text="entry.count"></span>
+                <span x-text="entry.error_count"></span>
+                <span x-text="Math.round(entry.avg_ms || 0)"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="observability-section">
+          <h4>Workflow Runs</h4>
+          <div class="observability-actions">
+            <button class="btn btn-ok" @click="$store.observabilityStore.saveWorkflow()"
+              :disabled="$store.observabilityStore.workflowLoading || !$store.observabilityStore.activeRun">
+              Save Run
+            </button>
+            <button class="btn btn-cancel" @click="$store.observabilityStore.clearWorkflows()"
+              :disabled="!$store.observabilityStore.workflowRuns.length && !$store.observabilityStore.savedRuns.length">
+              Clear Workflows
+            </button>
+          </div>
+          <div class="observability-empty" x-show="!$store.observabilityStore.activeRun">
+            No workflow runs yet.
+          </div>
+          <template x-if="$store.observabilityStore.activeRun">
+            <div class="workflow-run">
+              <div class="workflow-run-meta">
+                <div class="workflow-run-name" x-text="$store.observabilityStore.activeRun.name"></div>
+                <div class="workflow-run-details">
+                  <span x-text="'Steps: ' + ($store.observabilityStore.activeRun.steps?.length || 0)"></span>
+                  <span x-text="'Status: ' + ($store.observabilityStore.activeRun.status || 'in_progress')"></span>
+                </div>
+              </div>
+              <div class="workflow-steps">
+                <template x-for="step in $store.observabilityStore.activeRun.steps" :key="step.step_id">
+                  <div class="workflow-step">
+                    <div class="workflow-step-name" x-text="step.name"></div>
+                    <div class="workflow-step-meta">
+                      <span x-text="step.status"></span>
+                      <span x-text="step.duration_ms ? step.duration_ms + 'ms' : ''"></span>
+                    </div>
+                    <div class="workflow-step-error" x-show="step.error" x-text="step.error"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+          <div class="workflow-saved" x-show="$store.observabilityStore.savedRuns.length">
+            <div class="workflow-saved-title">Saved Runs</div>
+            <template x-for="run in $store.observabilityStore.savedRuns" :key="run.run_id + (run.saved_at || '')">
+              <div class="workflow-saved-item">
+                <div class="workflow-saved-name" x-text="run.label || run.name"></div>
+                <div class="workflow-saved-meta">
+                  <span x-text="'Steps: ' + (run.steps?.length || 0)"></span>
+                  <span x-text="run.saved_at || ''"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="observability-section">
+          <h4>Recent Events</h4>
+          <div class="observability-empty" x-show="!$store.observabilityStore.events.length">
+            No telemetry events yet.
+          </div>
+          <div class="observability-events">
+            <template x-for="event in $store.observabilityStore.events" :key="event.trace_id + event.timestamp">
+              <div class="observability-event">
+                <div class="event-header">
+                  <span class="event-tool" x-text="event.tool_name"></span>
+                  <span class="event-status" x-text="event.status"></span>
+                </div>
+                <div class="event-meta">
+                  <span x-text="event.stage"></span>
+                  <span x-text="event.duration_ms ? event.duration_ms + 'ms' : ''"></span>
+                  <span x-text="event.timestamp"></span>
+                </div>
+                <pre x-show="event.tool_args" x-text="JSON.stringify(event.tool_args, null, 2)"></pre>
+                <div class="event-error" x-show="event.error" x-text="event.error"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .observability {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .observability-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .observability-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .observability-error {
+      background: #3b1f1f;
+      color: #f7c9c9;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+
+    .observability-section {
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 12px;
+      background: var(--secondary-bg);
+    }
+
+    .observability-table {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .observability-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+
+    .observability-row.header {
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .observability-events {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .observability-event {
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--color-background);
+    }
+
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .event-tool {
+      font-weight: 600;
+    }
+
+    .event-meta {
+      display: flex;
+      gap: 10px;
+      color: var(--color-text-secondary);
+      font-size: 0.8rem;
+    }
+
+    .observability-event pre {
+      margin-top: 8px;
+      background: var(--secondary-bg);
+      padding: 8px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+    }
+
+    .event-error {
+      margin-top: 6px;
+      color: #f7c9c9;
+    }
+
+    .observability-empty {
+      color: var(--color-text-secondary);
+      font-style: italic;
+    }
+
+    .workflow-run {
+      background: var(--secondary-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+
+    .workflow-run-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .workflow-run-name {
+      font-weight: 600;
+    }
+
+    .workflow-run-details {
+      display: flex;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    .workflow-steps {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .workflow-step {
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 8px;
+      background: var(--color-background);
+    }
+
+    .workflow-step-name {
+      font-weight: 500;
+    }
+
+    .workflow-step-meta {
+      display: flex;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    .workflow-step-error {
+      margin-top: 4px;
+      color: #f7c9c9;
+      font-size: 0.8rem;
+    }
+
+    .workflow-saved {
+      margin-top: 10px;
+    }
+
+    .workflow-saved-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .workflow-saved-item {
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      margin-bottom: 6px;
+    }
+
+    .workflow-saved-meta {
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+      display: flex;
+      gap: 10px;
+    }
+  </style>
+</body>
+
+</html>

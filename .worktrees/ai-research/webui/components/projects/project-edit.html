@@ -1,0 +1,101 @@
+<html>
+
+<head>
+    <title>Edit project</title>
+    <script type="module">
+        import { store } from "/components/projects/projects-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject">
+            <div>
+
+
+                <div class="buttons-container" style="margin: var(--spacing-md) var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);">
+                    <div class="buttons-left">
+                        <button type="button" class="button cancel"
+                            @click="$store.projects.deleteProjectAndCloseModal()">Delete</button>
+                    </div>
+                    <div class="buttons-right">
+                        <button type="button" class="button cancel"
+                            @click="$store.projects.cancelEdit()">Cancel</button>
+                        <button type="button" class="button confirm"
+                            @click="$store.projects.confirmEdit()">Save</button>
+                    </div>
+                </div>
+
+                <div class="project-detail">
+                    <div class="project-detail-header">
+                        <span class="projects-project-card-title">Basic info</span>
+                    </div>
+                    <x-component path="projects/project-edit-basic-data.html">
+                    </x-component>
+                </div>
+
+                <div class="project-detail">
+                    <div class="project-detail-header">
+                        <span class="projects-project-card-title">Instructions</span>
+                    </div>
+                    <x-component path="projects/project-edit-instructions.html">
+                    </x-component>
+                </div>
+
+                <div class="project-detail">
+                    <div class="project-detail-header">
+                        <span class="projects-project-card-title">Memory</span>
+                    </div>
+                    <x-component path="projects/project-edit-memory.html">
+                    </x-component>
+                </div>
+
+                <div class="project-detail">
+                    <div class="project-detail-header">
+                        <span class="projects-project-card-title">File structure</span>
+                    </div>
+                    <x-component path="projects/project-edit-file-structure.html">
+                    </x-component>
+                </div>
+
+                <div class="project-detail">
+                    <div class="project-detail-header">
+                        <span class="projects-project-card-title">Secrets</span>
+                    </div>
+                    <x-component path="projects/project-edit-secrets.html">
+                    </x-component>
+                </div>
+
+                <div class="buttons-container" style="margin: var(--spacing-md) var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);">
+                    <div class="buttons-left">
+                        <button type="button" class="button cancel"
+                            @click="$store.projects.deleteProjectAndCloseModal()">Delete</button>
+                    </div>
+                    <div class="buttons-right">
+                        <button type="button" class="button cancel"
+                            @click="$store.projects.cancelEdit()">Cancel</button>
+                        <button type="button" class="button confirm"
+                            @click="$store.projects.confirmEdit()">Save</button>
+                    </div>
+                </div>
+
+
+            </div>
+        </template>
+    </div>
+</body>
+<style>
+    .project-detail {
+        border: 1px solid var(--color-border);
+        border-radius: 0.5em;
+        padding: 1em;
+        margin: 1em;
+        background: var(--color-panel);
+    }
+
+    .project-detail-header {
+        margin-bottom: 1em;
+    }
+</style>
+
+</html>

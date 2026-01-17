@@ -1,0 +1,115 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/sidebar/bottom/preferences/preferences-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.preferences">
+      <div class="pref-section">
+        <span>
+          <h3 class="pref-header" 
+              data-bs-toggle="collapse"
+              @click="$store.sidebar.toggleSection('preferences')"
+              x-effect="!$store.sidebar.isSectionOpen('preferences') ? $el.classList.add('collapsed') : $el.classList.remove('collapsed')">
+            Preferences
+            <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M8 4l8 8-8 8" />
+            </svg>
+          </h3>
+          <ul class="config-list collapse" id="preferences-collapse"
+              x-effect="(() => { const c = bootstrap.Collapse.getOrCreateInstance($el, { toggle: false }); $store.sidebar.isSectionOpen('preferences') ? c.show() : c.hide(); })()">
+            <li x-data>
+              <span>Autoscroll</span>
+              <label class="switch">
+                <input id="auto-scroll-switch" type="checkbox" x-model="$store.preferences.autoScroll">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data>
+              <span class="switch-label">Dark mode</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.darkMode">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data>
+              <span class="switch-label">Speech</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.speech">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data>
+              <span>Show thoughts</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.showThoughts">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data>
+              <span>Show JSON</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.showJson">
+                <span class="slider"></span>
+              </label>
+            </li>
+            <li x-data>
+              <span>Show utility messages</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.showUtils">
+                <span class="slider"></span>
+              </label>
+            </li>
+          </ul>
+        </span>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .pref-section {
+    font-size: var(--font-size-small);
+    padding: 0.6rem var(--spacing-md) 0.05rem var(--spacing-md);
+    }
+    /* Collapse transition */
+    .pref-section [x-cloak] {
+      display: none;
+    }
+    .pref-section .pref-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .pref-section .config-list {
+      list-style: none;
+      padding: 0.05rem 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    #preferences-collapse li {
+    opacity: 0.8;
+    }
+    .pref-section .switch-label,
+    .pref-section span {
+      font-size: 0.8rem;
+    }
+    .pref-section .switch {
+      position: relative;
+      display: inline-block;
+      width: 35px;
+      height: 19px;
+      margin-left: auto;
+    }
+    .pref-section li { display: flex; align-items: center; }
+  </style>
+</body>
+</html>
+
+

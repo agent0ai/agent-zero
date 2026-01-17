@@ -1,0 +1,308 @@
+<!-- Observability Panel - Extracted from Settings for tile row -->
+<div class="observability-panel" x-data="observabilityPanelData()" x-init="init()">
+    <div class="panel-header">
+        <h3>Observability</h3>
+        <div class="panel-actions">
+            <button class="btn-sm" @click="refresh()" :disabled="loading">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Refresh
+            </button>
+            <button class="btn-sm btn-danger" @click="clearTelemetry()" title="Clear all telemetry data">
+                Clear
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.total_events || 0"></div>
+            <div class="stat-label">Events</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.tool_calls || 0"></div>
+            <div class="stat-label">Tool Calls</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.errors || 0"></div>
+            <div class="stat-label">Errors</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="formatDuration(stats.avg_duration) || '-'"></div>
+            <div class="stat-label">Avg Time</div>
+        </div>
+    </div>
+
+    <!-- Recent Events -->
+    <div class="events-section" x-show="events.length > 0">
+        <h4>Recent Events</h4>
+        <div class="events-list">
+            <template x-for="event in events.slice(0, 5)" :key="event.id">
+                <div class="event-item" :class="'event-' + event.type">
+                    <span class="event-time" x-text="formatTime(event.timestamp)"></span>
+                    <span class="event-type" x-text="event.type"></span>
+                    <span class="event-name" x-text="event.name || event.tool_name || '-'"></span>
+                    <span class="event-duration" x-text="event.duration ? event.duration + 'ms' : ''"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="empty-state" x-show="!loading && events.length === 0">
+        No telemetry events yet.
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <button class="action-btn" @click="refresh()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+            </svg>
+            Refresh Data
+        </button>
+    </div>
+</div>
+
+<script>
+function observabilityPanelData() {
+    return {
+        loading: false,
+        stats: {},
+        events: [],
+
+        async init() {
+            await this.refresh();
+        },
+
+        async refresh() {
+            this.loading = true;
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                const resp = await fetch('/telemetry_get', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await resp.json();
+                this.events = data.events || [];
+                this.stats = data.stats || this.computeStats(this.events);
+            } catch (e) {
+                console.error('Error loading telemetry:', e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        computeStats(events) {
+            const toolCalls = events.filter(e => e.type === 'tool_call' || e.tool_name);
+            const errors = events.filter(e => e.type === 'error' || e.error);
+            const durations = events.filter(e => e.duration).map(e => e.duration);
+            const avgDuration = durations.length > 0
+                ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+                : 0;
+
+            return {
+                total_events: events.length,
+                tool_calls: toolCalls.length,
+                errors: errors.length,
+                avg_duration: avgDuration
+            };
+        },
+
+        async clearTelemetry() {
+            if (!confirm('Clear all telemetry data?')) return;
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                await fetch('/telemetry_clear', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({})
+                });
+                await this.refresh();
+            } catch (e) {
+                console.error('Error clearing telemetry:', e);
+            }
+        },
+
+        formatTime(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        },
+
+        formatDuration(ms) {
+            if (!ms) return '-';
+            if (ms < 1000) return ms + 'ms';
+            return (ms / 1000).toFixed(1) + 's';
+        }
+    };
+}
+</script>
+
+<style>
+.observability-panel {
+    color: var(--text-primary, #fff);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.panel-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-sm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn-sm:hover:not(:disabled) {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+}
+
+.btn-sm.btn-danger:hover {
+    background: var(--color-error-bg, #5a3d3d);
+    border-color: var(--color-error, #e53e3e);
+    color: var(--color-error, #e53e3e);
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-primary, #4a9eff);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.events-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-secondary, #aaa);
+}
+
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.event-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--tertiary-bg, #252525);
+    border-radius: 4px;
+    font-size: 12px;
+    border-left: 2px solid var(--color-border, #333);
+}
+
+.event-item.event-tool_call { border-left-color: var(--color-info, #3182ce); }
+.event-item.event-error { border-left-color: var(--color-error, #e53e3e); }
+.event-item.event-message { border-left-color: var(--color-success, #38a169); }
+
+.event-time {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+}
+
+.event-type {
+    padding: 2px 6px;
+    background: var(--color-border, #333);
+    border-radius: 3px;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.event-name {
+    flex: 1;
+    color: var(--text-primary, #fff);
+}
+
+.event-duration {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+}
+
+.quick-actions {
+    margin-top: 12px;
+}
+
+.action-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: var(--color-primary-bg, #1a365d);
+    color: var(--color-primary, #4a9eff);
+    border-color: var(--color-primary, #4a9eff);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary, #aaa);
+    font-size: 13px;
+}
+</style>

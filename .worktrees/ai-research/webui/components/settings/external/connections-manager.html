@@ -1,0 +1,236 @@
+<html>
+
+<head>
+    <title>Connections Manager</title>
+    <script type="module" src="/components/settings/external/connections-manager-store.js"></script>
+</head>
+
+<body>
+    <div class="connections-manager" x-data x-init="$store.connectionsManager.init()">
+        <div class="connections-header">
+            <h3>Calendar & Finance Connections</h3>
+            <p>Store provider credentials locally and start OAuth flows directly from this panel.</p>
+        </div>
+
+        <div class="connections-grid">
+            <section class="connections-card">
+                <h4>Google Calendar</h4>
+                <label>
+                    Client ID
+                    <input type="text" x-model="$store.connectionsManager.calendar.clientId"
+                        @input="$store.connectionsManager.updateField('calendar_google_client_id', $event.target.value)">
+                </label>
+                <label>
+                    Client Secret
+                    <input type="password" x-model="$store.connectionsManager.calendar.clientSecret"
+                        placeholder="Enter new secret to update">
+                </label>
+                <div class="secret-status" x-show="$store.connectionsManager.calendar.secretConfigured">
+                    Secret configured. Leave blank to keep existing value.
+                </div>
+                <label>
+                    Redirect URI
+                    <input type="text" x-model="$store.connectionsManager.calendar.redirectUri"
+                        @input="$store.connectionsManager.updateField('calendar_google_redirect_uri', $event.target.value)">
+                </label>
+                <div class="button-row">
+                    <button class="btn" @click="$store.connectionsManager.saveSettings()"
+                        :disabled="$store.connectionsManager.saving">Save</button>
+                    <button class="btn" @click="$store.connectionsManager.startCalendarOAuth()"
+                        :disabled="$store.connectionsManager.saving">Start OAuth</button>
+                    <button class="btn" @click="$store.connectionsManager.connectCalendarMock()"
+                        :disabled="$store.connectionsManager.saving">Connect Mock</button>
+                    <button class="btn btn-secondary" @click="$store.connectionsManager.clearCalendarSecret()">
+                        Clear Secret
+                    </button>
+                </div>
+                <div class="accounts-list">
+                    <div class="accounts-header">
+                        <span>Accounts</span>
+                        <button class="btn btn-secondary" @click="$store.connectionsManager.refreshCalendarAccounts()">
+                            Refresh
+                        </button>
+                    </div>
+                    <template x-if="$store.connectionsManager.calendarAccounts.length === 0">
+                        <div class="empty-state">No calendar accounts connected yet.</div>
+                    </template>
+                    <template x-for="account in $store.connectionsManager.calendarAccounts" :key="account.id">
+                        <div class="account-row">
+                            <div>
+                                <strong x-text="account.provider"></strong>
+                                <span class="meta" x-text="`#${account.id} · ${account.auth_state}`"></span>
+                            </div>
+                            <div class="row-actions">
+                                <button class="btn btn-secondary"
+                                    @click="$store.connectionsManager.completeCalendarAuth(account.id)">
+                                    Mark Connected (Mock)
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+
+            <section class="connections-card">
+                <h4>Plaid Finance</h4>
+                <label>
+                    Client ID
+                    <input type="text" x-model="$store.connectionsManager.finance.clientId"
+                        @input="$store.connectionsManager.updateField('finance_plaid_client_id', $event.target.value)">
+                </label>
+                <label>
+                    Secret
+                    <input type="password" x-model="$store.connectionsManager.finance.secret"
+                        placeholder="Enter new secret to update">
+                </label>
+                <div class="secret-status" x-show="$store.connectionsManager.finance.secretConfigured">
+                    Secret configured. Leave blank to keep existing value.
+                </div>
+                <label>
+                    Redirect URI
+                    <input type="text" x-model="$store.connectionsManager.finance.redirectUri"
+                        @input="$store.connectionsManager.updateField('finance_plaid_redirect_uri', $event.target.value)">
+                </label>
+                <label>
+                    Environment
+                    <select x-model="$store.connectionsManager.finance.environment"
+                        @change="$store.connectionsManager.updateField('finance_plaid_env', $event.target.value)">
+                        <option value="sandbox">sandbox</option>
+                        <option value="development">development</option>
+                        <option value="production">production</option>
+                    </select>
+                </label>
+                <div class="button-row">
+                    <button class="btn" @click="$store.connectionsManager.saveSettings()"
+                        :disabled="$store.connectionsManager.saving">Save</button>
+                    <button class="btn" @click="$store.connectionsManager.startFinanceOAuth()"
+                        :disabled="$store.connectionsManager.saving">Start OAuth</button>
+                    <button class="btn" @click="$store.connectionsManager.connectFinanceMock()"
+                        :disabled="$store.connectionsManager.saving">Connect Mock</button>
+                    <button class="btn btn-secondary" @click="$store.connectionsManager.clearFinanceSecret()">
+                        Clear Secret
+                    </button>
+                </div>
+                <div class="accounts-list">
+                    <div class="accounts-header">
+                        <span>Accounts</span>
+                        <button class="btn btn-secondary" @click="$store.connectionsManager.refreshFinanceAccounts()">
+                            Refresh
+                        </button>
+                    </div>
+                    <template x-if="$store.connectionsManager.financeAccounts.length === 0">
+                        <div class="empty-state">No finance accounts connected yet.</div>
+                    </template>
+                    <template x-for="account in $store.connectionsManager.financeAccounts" :key="account.id">
+                        <div class="account-row">
+                            <div>
+                                <strong x-text="account.provider"></strong>
+                                <span class="meta" x-text="`#${account.id} · ${account.status}`"></span>
+                            </div>
+                            <div class="row-actions">
+                                <button class="btn btn-secondary"
+                                    @click="$store.connectionsManager.completeFinanceAuth(account.id)">
+                                    Mark Connected (Mock)
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <style>
+        .connections-manager {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .connections-header h3 {
+            margin: 0 0 6px 0;
+        }
+
+        .connections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .connections-card {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            padding: 16px;
+            background: var(--color-bg-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .connections-card label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+
+        .connections-card input,
+        .connections-card select {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .accounts-list {
+            border-top: 1px solid var(--color-border);
+            padding-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .accounts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        .account-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            background: var(--color-bg-primary);
+        }
+
+        .account-row .meta {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .secret-status,
+        .empty-state {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</body>
+
+</html>

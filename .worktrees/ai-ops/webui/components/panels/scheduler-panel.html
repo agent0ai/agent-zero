@@ -1,0 +1,419 @@
+<!-- Scheduler Panel - Quick view for tile row -->
+<div class="scheduler-panel" x-data="schedulerPanelData()" x-init="init()">
+    <div class="panel-header">
+        <h3>Scheduler</h3>
+        <div class="panel-actions">
+            <button class="btn-sm" @click="refresh()" :disabled="loading">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.total || 0"></div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.active || 0"></div>
+            <div class="stat-label">Active</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.running || 0"></div>
+            <div class="stat-label">Running</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.paused || 0"></div>
+            <div class="stat-label">Paused</div>
+        </div>
+    </div>
+
+    <!-- Active Tasks -->
+    <div class="tasks-section" x-show="activeTasks.length > 0">
+        <h4>Active Tasks</h4>
+        <div class="task-list">
+            <template x-for="task in activeTasks.slice(0, 5)" :key="task.name">
+                <div class="task-card" :class="'task-' + task.state">
+                    <div class="task-header">
+                        <span class="task-name" x-text="task.name"></span>
+                        <span class="task-type" x-text="task.type"></span>
+                    </div>
+                    <div class="task-details">
+                        <span class="task-state" :class="'state-' + task.state" x-text="task.state"></span>
+                        <span class="task-schedule" x-text="formatSchedule(task)"></span>
+                    </div>
+                    <div class="task-actions" x-show="task.state !== 'running'">
+                        <button class="btn-xs" @click="runTask(task.name)" title="Run now">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                        </button>
+                        <button class="btn-xs" @click="toggleTask(task)" :title="task.state === 'paused' ? 'Resume' : 'Pause'">
+                            <template x-if="task.state === 'paused'">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                            </template>
+                            <template x-if="task.state !== 'paused'">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                            </template>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Upcoming Runs -->
+    <div class="upcoming-section" x-show="upcomingRuns.length > 0">
+        <h4>Next Scheduled</h4>
+        <div class="upcoming-list">
+            <template x-for="run in upcomingRuns.slice(0, 3)" :key="run.name + run.next_run">
+                <div class="upcoming-item">
+                    <span class="upcoming-name" x-text="run.name"></span>
+                    <span class="upcoming-time" x-text="formatNextRun(run.next_run)"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="empty-state" x-show="!loading && tasks.length === 0">
+        No scheduled tasks. Create tasks in Settings → Task Scheduler.
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <button class="action-btn" @click="openSettings('scheduler')">
+            Manage Tasks
+        </button>
+    </div>
+</div>
+
+<script>
+function schedulerPanelData() {
+    return {
+        loading: false,
+        tasks: [],
+        stats: {},
+
+        get activeTasks() {
+            return this.tasks.filter(t => t.state !== 'idle' || t.type === 'scheduled');
+        },
+
+        get upcomingRuns() {
+            return this.tasks
+                .filter(t => t.next_run && t.state === 'active')
+                .sort((a, b) => new Date(a.next_run) - new Date(b.next_run));
+        },
+
+        async init() {
+            await this.refresh();
+        },
+
+        async refresh() {
+            this.loading = true;
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                const resp = await fetch('/scheduler_tasks_list', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await resp.json();
+                this.tasks = data.tasks || [];
+
+                // Compute stats
+                this.stats = {
+                    total: this.tasks.length,
+                    active: this.tasks.filter(t => t.state === 'active').length,
+                    running: this.tasks.filter(t => t.state === 'running').length,
+                    paused: this.tasks.filter(t => t.state === 'paused').length
+                };
+
+                // Update tile badge with active count
+                Alpine.store('tileRowStore')?.updateTileBadge('scheduler', this.stats.running, 'info');
+            } catch (e) {
+                console.error('Error loading scheduler tasks:', e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async runTask(taskName) {
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                await fetch('/scheduler_task_run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({ name: taskName })
+                });
+                await this.refresh();
+            } catch (e) {
+                console.error('Error running task:', e);
+            }
+        },
+
+        async toggleTask(task) {
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                const newState = task.state === 'paused' ? 'active' : 'paused';
+                await fetch('/scheduler_task_update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({ name: task.name, state: newState })
+                });
+                await this.refresh();
+            } catch (e) {
+                console.error('Error toggling task:', e);
+            }
+        },
+
+        formatSchedule(task) {
+            if (task.type === 'adhoc') return 'Manual';
+            if (task.type === 'planned' && task.planned_times) {
+                return task.planned_times.length + ' times';
+            }
+            if (task.cron) return task.cron;
+            return '-';
+        },
+
+        formatNextRun(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = date - now;
+
+            if (diff < 0) return 'Due';
+            if (diff < 60000) return 'Soon';
+            if (diff < 3600000) return Math.round(diff / 60000) + 'm';
+            if (diff < 86400000) return Math.round(diff / 3600000) + 'h';
+            return date.toLocaleDateString();
+        },
+
+        openSettings(tab) {
+            Alpine.store('tileRowStore')?.collapseTile();
+            Alpine.store('settingsStore')?.setTab(tab);
+            document.getElementById('settings')?.click();
+        }
+    };
+}
+</script>
+
+<style>
+.scheduler-panel {
+    color: var(--text-primary, #fff);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.btn-sm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn-sm:hover:not(:disabled) {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-primary, #4a9eff);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tasks-section h4,
+.upcoming-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-secondary, #aaa);
+}
+
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.task-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    padding: 10px;
+    border-left: 3px solid var(--color-border, #333);
+}
+
+.task-card.task-running { border-left-color: var(--color-success, #38a169); }
+.task-card.task-active { border-left-color: var(--color-primary, #4a9eff); }
+.task-card.task-paused { border-left-color: var(--color-warning, #d69e2e); }
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.task-name {
+    font-weight: 500;
+}
+
+.task-type {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--color-border, #333);
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.task-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary, #aaa);
+    margin-bottom: 8px;
+}
+
+.task-state {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.state-running { background: #276749; color: #9ae6b4; }
+.state-active { background: #2c5282; color: #90cdf4; }
+.state-paused { background: #744210; color: #fbd38d; }
+.state-idle { background: #2d3748; color: #a0aec0; }
+
+.task-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.btn-xs {
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid var(--color-border, #333);
+    border-radius: 3px;
+    color: var(--text-secondary, #aaa);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-xs:hover {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+}
+
+.upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.upcoming-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    background: var(--tertiary-bg, #252525);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.upcoming-name {
+    color: var(--text-primary, #fff);
+}
+
+.upcoming-time {
+    color: var(--text-secondary, #aaa);
+    font-family: monospace;
+}
+
+.quick-actions {
+    margin-top: 12px;
+}
+
+.action-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: var(--color-primary-bg, #1a365d);
+    color: var(--color-primary, #4a9eff);
+    border-color: var(--color-primary, #4a9eff);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary, #aaa);
+    font-size: 13px;
+}
+</style>

@@ -1,0 +1,139 @@
+<div class="security-cockpit-container" x-data x-init="$store.securityCockpit.init()">
+    <div class="scheduler-header">
+        <h2>🛡️ Security Cockpit</h2>
+        <div class="scheduler-actions">
+            <button class="btn btn-ok" @click="$store.securityCockpit.fetchLogs()" :disabled="$store.securityCockpit.isLoading">
+                <span x-show="!$store.securityCockpit.isLoading">Refresh Logs</span>
+                <span x-show="$store.securityCockpit.isLoading">Loading...</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="security-stats-row">
+        <div class="security-stat-card">
+            <div class="stat-label">Total Audit Events</div>
+            <div class="stat-value" x-text="$store.securityCockpit.logs.length"></div>
+        </div>
+        <div class="security-stat-card">
+            <div class="stat-label">System Status</div>
+            <div class="stat-value status-secure">CONNECTED</div>
+        </div>
+    </div>
+
+    <div class="security-log-table-wrapper">
+        <table class="security-log-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Event Type</th>
+                    <th>Status</th>
+                    <th>User / IP</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="log in $store.securityCockpit.logs" :key="log.id">
+                    <tr>
+                        <td x-text="$store.securityCockpit.formatDate(log.timestamp)"></td>
+                        <td><strong x-text="log.event_type"></strong></td>
+                        <td>
+                            <span :class="$store.securityCockpit.getStatusClass(log.status)" 
+                                  x-text="log.status.toUpperCase()"></span>
+                        </td>
+                        <td>
+                            <div x-text="log.user_id"></div>
+                            <div style="font-size: 0.8em; opacity: 0.7;" x-text="log.ip_address"></div>
+                        </td>
+                        <td>
+                            <template x-if="log.details">
+                                <pre style="font-size: 0.8em; max-width: 300px; overflow: hidden; text-overflow: ellipsis;" 
+                                     x-text="JSON.stringify(log.details)"></pre>
+                            </template>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+        
+        <template x-if="$store.securityCockpit.logs.length === 0 && !$store.securityCockpit.isLoading">
+            <div style="padding: 20px; text-align: center; opacity: 0.6;">
+                No security events found in audit log.
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .security-cockpit-container {
+            padding: 20px;
+            color: #e6edf3;
+        }
+        .security-stats-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .security-stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 8px;
+            flex: 1;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+        .status-secure { color: #3fb950; }
+        
+        .security-log-table-wrapper {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .security-log-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        .security-log-table th {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px 15px;
+            font-size: 0.9em;
+        }
+        .security-log-table td {
+            padding: 12px 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            vertical-align: top;
+        }
+        .security-status-success {
+            color: #3fb950;
+            background: rgba(63, 185, 80, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .security-status-danger {
+            color: #f85149;
+            background: rgba(248, 81, 73, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .security-status-neutral {
+            color: #8b949e;
+            background: rgba(139, 148, 158, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+    </style>
+</div>

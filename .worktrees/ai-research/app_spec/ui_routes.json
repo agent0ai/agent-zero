@@ -1,0 +1,32 @@
+{
+  "$schema": "app_spec/ui_routes.schema.json",
+  "ui_routes": [
+    {
+      "name": "Chat",
+      "path": "webui/index.html",
+      "components": ["chat", "sidebar", "top-section"]
+    },
+    {
+      "name": "Settings",
+      "path": "webui/index.html#settingsModal",
+      "components": ["settings modal", "tabs", "sections"]
+    },
+    {
+      "name": "Cowork Manager",
+      "path": "webui/components/settings/cowork/cowork-manager.html",
+      "components": ["allowed folders", "approvals list"]
+    },
+    {
+      "name": "Gmail Account Manager",
+      "path": "webui/components/settings/external/gmail-account-manager.html"
+    },
+    {
+      "name": "Gmail Test Utility",
+      "path": "webui/components/settings/external/gmail-test-utility.html"
+    },
+    {
+      "name": "Observability Dashboard",
+      "path": "webui/components/settings/observability/observability.html"
+    }
+  ]
+}

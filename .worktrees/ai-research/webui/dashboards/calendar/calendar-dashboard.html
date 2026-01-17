@@ -1,0 +1,116 @@
+<!-- Calendar Dashboard -->
+<div class="dashboard-page" x-data x-init="$store.calendarDashboard?.init()">
+    <div class="dashboard-page-header">
+        <h1>
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="4" width="20" height="18" rx="2" ry="2"/>
+                <path d="M8 2v4M16 2v4M2 10h20"/>
+            </svg>
+            Calendar
+        </h1>
+        <button class="dashboard-back-btn" @click="$store.dashboardRouter?.closeDashboard()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Chat
+        </button>
+    </div>
+
+    <div class="dashboard-page-body">
+        <div class="calendar-connect" x-show="!$store.calendarDashboard?.accounts?.length">
+            <button class="dashboard-link-btn"
+                    :disabled="!$store.calendarDashboard?.authUrl"
+                    @click="$store.calendarDashboard.openAuth()">
+                Connect Google Calendar
+            </button>
+        </div>
+        <div class="calendar-connect" x-show="$store.calendarDashboard?.accounts?.length && $store.calendarDashboard?.selectedAccountId">
+            <button class="dashboard-link-btn"
+                    @click="$store.calendarDashboard.completeAuth($store.calendarDashboard.selectedAccountId)">
+                Mark Connected (Mock)
+            </button>
+        </div>
+        <div class="calendar-filters">
+            <select class="filter-select" x-model="$store.calendarDashboard.selectedAccountId"
+                    @change="$store.calendarDashboard.setAccount($event.target.value)">
+                <template x-for="acct in ($store.calendarDashboard.accounts || [])" :key="acct.id">
+                    <option :value="acct.id" x-text="acct.provider + ' #' + acct.id"></option>
+                </template>
+            </select>
+            <select class="filter-select" x-model="$store.calendarDashboard.selectedCalendarId"
+                    @change="$store.calendarDashboard.setCalendar($event.target.value)">
+                <template x-for="cal in ($store.calendarDashboard.calendars || [])" :key="cal.id">
+                    <option :value="cal.id" x-text="cal.name"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.calendarDashboard?.events.length || 0"></div>
+                <div class="dashboard-stat-label">Upcoming</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.calendarDashboard?.rules?.buffer_minutes || 0"></div>
+                <div class="dashboard-stat-label">Buffer (min)</div>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <div class="dashboard-card-title">Upcoming Events</div>
+            </div>
+            <div class="calendar-list">
+                <template x-for="event in ($store.calendarDashboard?.events || [])" :key="event.id">
+                    <div class="calendar-item">
+                        <div class="calendar-item-main">
+                            <div class="calendar-item-title" x-text="event.title"></div>
+                            <div class="calendar-item-time" x-text="event.start + ' → ' + event.end"></div>
+                        </div>
+                        <div class="calendar-item-meta">
+                            <span class="status-badge" x-text="event.status"></span>
+                        </div>
+                    </div>
+                </template>
+                <div class="dashboard-empty" x-show="!$store.calendarDashboard?.events?.length">
+                    No events yet. Connect an account or create events.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="dashboards/calendar/calendar-store.js"></script>
+
+<style>
+.calendar-connect {
+    margin-bottom: 12px;
+}
+.calendar-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.calendar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.calendar-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-message-bg);
+}
+.calendar-item-title {
+    font-weight: 600;
+}
+.calendar-item-time {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-top: 4px;
+}
+</style>

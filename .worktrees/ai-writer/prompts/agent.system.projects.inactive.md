@@ -1,0 +1,1 @@
+no project currently activated

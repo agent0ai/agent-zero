@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/user_stories.schema.json",
+  "title": "User Stories Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "user_stories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "role": {"type": "string"},
+          "goal": {"type": "string"},
+          "benefit": {"type": "string"},
+          "acceptance": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["id", "role", "goal", "benefit"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["user_stories"],
+  "additionalProperties": false
+}

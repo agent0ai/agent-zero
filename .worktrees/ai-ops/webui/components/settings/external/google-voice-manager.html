@@ -1,0 +1,443 @@
+<html>
+
+<head>
+    <title>Google Voice Manager</title>
+    <script type="module" src="/components/settings/external/google-voice-manager-store.js"></script>
+</head>
+
+<body>
+    <div class="google-voice-manager" x-data x-init="$store.googleVoiceManager.init()">
+        <div class="section-header">
+            <h3>Google Voice SMS</h3>
+            <p>Visible browser session required. Start the session, then approve drafts to send.</p>
+        </div>
+
+        <div class="action-row">
+            <button class="btn" @click="$store.googleVoiceManager.startSession()"
+                :disabled="$store.googleVoiceManager.sending">Start Browser Session</button>
+            <label class="auto-send-toggle">
+                <input type="checkbox" :checked="$store.googleVoiceManager.autoSend"
+                    @change="$store.googleVoiceManager.toggleAutoSend($event.target.checked)">
+                Auto-send drafts
+            </label>
+            <label class="auto-send-toggle">
+                <input type="checkbox" :checked="$store.googleVoiceManager.shortcutsEnabled"
+                    @change="$store.googleVoiceManager.toggleShortcuts($event.target.checked)">
+                Enable shortcuts (A=approve, R=thread, Esc=close)
+            </label>
+            <button class="btn btn-secondary" @click="$store.googleVoiceManager.refresh()"
+                :disabled="$store.googleVoiceManager.loading">Refresh Drafts</button>
+            <button class="btn btn-secondary" @click="$store.googleVoiceManager.syncInbound()"
+                :disabled="$store.googleVoiceManager.loading">Sync Inbox</button>
+        </div>
+
+        <div class="draft-card">
+            <h4>Create Draft</h4>
+            <label>
+                Phone number
+                <input type="text" x-model="$store.googleVoiceManager.toNumber" placeholder="+1 555 123 4567">
+            </label>
+            <label>
+                Message
+                <textarea rows="3" x-model="$store.googleVoiceManager.body"
+                    placeholder="Message to send after approval"></textarea>
+            </label>
+            <button class="btn" @click="$store.googleVoiceManager.createDraft()"
+                :disabled="$store.googleVoiceManager.sending">Queue Draft</button>
+        </div>
+
+        <div class="draft-list" id="google-voice-drafts">
+            <div class="draft-list-header">
+                <h4>Pending + Recent Messages</h4>
+                <button class="btn btn-secondary" @click="$store.googleVoiceManager.approveAllDrafts()"
+                    :disabled="$store.googleVoiceManager.sending">Approve All</button>
+            </div>
+            <template x-if="$store.googleVoiceManager.drafts.length === 0">
+                <div class="empty-state">No drafts yet.</div>
+            </template>
+            <template x-for="draft in $store.googleVoiceManager.drafts" :key="draft.id">
+                <div class="draft-row">
+                    <div class="draft-main">
+                        <div class="draft-meta">
+                            <strong x-text="draft.to_number"></strong>
+                            <span x-text="`#${draft.id} · ${draft.status}`"></span>
+                        </div>
+                        <div class="draft-body" x-text="draft.body"></div>
+                        <div class="draft-error" x-show="draft.error" x-text="draft.error"></div>
+                    </div>
+                    <div class="draft-actions">
+                        <button class="btn btn-secondary" x-show="draft.status === 'draft'"
+                            @click="$store.googleVoiceManager.approveDraft(draft.id)">
+                            Approve & Send
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div class="draft-list">
+            <div class="draft-list-header">
+                <h4>Inbound Messages</h4>
+                <input type="text" class="tag-filter" placeholder="Filter by tag"
+                    x-model="$store.googleVoiceManager.tagFilter">
+            </div>
+            <div class="tag-presets">
+                <div class="tag-presets-row">
+                    <select class="tag-filter" @change="$store.googleVoiceManager.applyTagPreset(JSON.parse($event.target.value))">
+                        <option value="">Select preset</option>
+                        <template x-for="preset in $store.googleVoiceManager.tagPresets" :key="preset.name">
+                            <option :value="JSON.stringify(preset)" x-text="preset.name"></option>
+                        </template>
+                    </select>
+                    <input type="text" class="tag-filter" placeholder="Preset name"
+                        x-model="$store.googleVoiceManager.newPresetName">
+                    <button class="btn btn-secondary" @click="$store.googleVoiceManager.addTagPreset()">Save Preset</button>
+                </div>
+                <div class="tag-presets-row">
+                    <template x-for="(preset, index) in $store.googleVoiceManager.tagPresets" :key="preset.name">
+                        <div class="tag-preset-chip">
+                            <span x-text="`${preset.name}: ${preset.tag}`"></span>
+                            <button class="btn btn-secondary" @click="$store.googleVoiceManager.removeTagPreset(index)">Remove</button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <template x-if="$store.googleVoiceManager.inbound.length === 0">
+                <div class="empty-state">No inbound messages yet.</div>
+            </template>
+            <template x-for="item in $store.googleVoiceManager.filteredInbound()" :key="item.id">
+                <div class="draft-row">
+                    <div class="draft-main">
+                        <div class="draft-meta">
+                            <strong x-text="item.from_number"></strong>
+                            <span x-text="item.received_at"></span>
+                        </div>
+                        <div class="draft-body" x-text="item.body"></div>
+                        <div class="contact-toggle">
+                            <label class="auto-send-toggle">
+                                <input type="checkbox" :checked="$store.googleVoiceManager.isAutoSendContact(item.from_number)"
+                                    @change="$store.googleVoiceManager.toggleContactAutoSend(item.from_number)">
+                                Auto-send for this contact
+                            </label>
+                        </div>
+                    </div>
+                    <div class="draft-actions">
+                        <textarea rows="2" class="reply-input" x-model="item.replyText"
+                            placeholder="Reply message..."></textarea>
+                        <button class="btn btn-secondary" @click="$store.googleVoiceManager.createReplyDraft(item)">
+                            Reply Draft
+                        </button>
+                        <button class="btn" @click="$store.googleVoiceManager.createReplyAndApprove(item)">
+                            Reply & Approve
+                        </button>
+                        <button class="btn btn-secondary" x-show="item.thread_context"
+                            @click="$store.googleVoiceManager.openThread(item)">
+                            View Thread
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div class="draft-list">
+            <div class="draft-list-header">
+                <h4>Contact Auto-Send Rules</h4>
+            </div>
+            <div class="contact-rules">
+                <div class="contact-add">
+                    <input type="text" x-model="$store.googleVoiceManager.newContact" placeholder="+1 555 000 0000">
+                    <button class="btn btn-secondary"
+                        @click="$store.googleVoiceManager.addContactRule($store.googleVoiceManager.newContact)">
+                        Add Contact
+                    </button>
+                </div>
+                <template x-for="entry in Object.entries($store.googleVoiceManager.getContactRules())" :key="entry[0]">
+                    <div class="contact-row">
+                        <div class="contact-info">
+                            <strong x-text="entry[0]"></strong>
+                            <label class="auto-send-toggle">
+                                <input type="checkbox" :checked="$store.googleVoiceManager.isAutoSendContact(entry[0])"
+                                    @change="$store.googleVoiceManager.toggleContactAutoSend(entry[0])">
+                                Auto-send
+                            </label>
+                        </div>
+                        <div class="contact-meta">
+                            <input type="text" placeholder="Tags (comma separated)"
+                                :value="entry[1].tags ? entry[1].tags.join(', ') : ''"
+                                @input="$store.googleVoiceManager.updateContactTags(entry[0], $event.target.value)">
+                            <textarea rows="2" placeholder="Notes"
+                                @input="$store.googleVoiceManager.updateContactNotes(entry[0], $event.target.value)"
+                                x-text="entry[1].notes || ''"></textarea>
+                        </div>
+                        <button class="btn btn-secondary" @click="$store.googleVoiceManager.removeContactRule(entry[0])">
+                            Remove
+                        </button>
+                    </div>
+                </template>
+                <template x-if="Object.keys($store.googleVoiceManager.getContactRules()).length === 0">
+                    <div class="empty-state">No contact rules yet.</div>
+                </template>
+            </div>
+        </div>
+
+        <div class="thread-modal" x-show="$store.googleVoiceManager.showThread" x-cloak>
+            <div class="thread-modal-backdrop" @click="$store.googleVoiceManager.closeThread()"></div>
+            <div class="thread-modal-content">
+                <div class="thread-modal-header">
+                    <h4>Thread View</h4>
+                    <button class="btn btn-secondary" @click="$store.googleVoiceManager.closeThread()">Close</button>
+                </div>
+                <div class="thread-modal-meta">
+                    <strong x-text="$store.googleVoiceManager.selectedThread?.from_number"></strong>
+                    <span x-text="$store.googleVoiceManager.selectedThread?.received_at"></span>
+                </div>
+                <pre class="thread-modal-body" x-text="$store.googleVoiceManager.selectedThread?.thread_context"></pre>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .google-voice-manager {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .draft-card,
+        .draft-list {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            padding: 16px;
+            background: var(--color-bg-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .draft-card label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+
+        .draft-card input,
+        .draft-card textarea {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .draft-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            background: var(--color-bg-primary);
+        }
+
+        .draft-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .draft-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .draft-body {
+            margin-top: 6px;
+        }
+
+        .draft-error {
+            margin-top: 6px;
+            color: var(--color-danger);
+            font-size: 0.8rem;
+        }
+
+        .draft-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-direction: column;
+        }
+
+        .empty-state {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .draft-context pre {
+            white-space: pre-wrap;
+            background: var(--color-bg-primary);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .reply-input {
+            width: 220px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .thread-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .thread-modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .thread-modal-content {
+            position: relative;
+            z-index: 1;
+            width: min(720px, 90vw);
+            max-height: 80vh;
+            overflow: auto;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .thread-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .thread-modal-body {
+            white-space: pre-wrap;
+            background: var(--color-bg-primary);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .contact-rules {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .contact-add {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .contact-add input {
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .contact-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: var(--color-bg-primary);
+            border-radius: 6px;
+            padding: 6px 8px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .tag-filter {
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .tag-presets {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tag-presets-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .tag-preset-chip {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            background: var(--color-bg-primary);
+            border-radius: 999px;
+            padding: 4px 8px;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 160px;
+        }
+
+        .contact-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .contact-meta input,
+        .contact-meta textarea {
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .auto-send-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</body>
+
+</html>

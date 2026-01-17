@@ -1,0 +1,13 @@
+# A0 project meta folder
+.a0proj/
+
+# Python environments & cache
+venv/
+**/__pycache__/
+
+# Node.js dependencies
+**/node_modules/
+**/.npm/
+
+# Version control metadata
+**/.git/

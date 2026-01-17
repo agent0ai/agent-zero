@@ -1,0 +1,838 @@
+"""
+LLM Router - Intelligent model selection and prioritization for Agent Zero
+
+This module provides:
+1. Auto-detection of available models (Ollama, cloud providers)
+2. Prioritization rules based on cost, speed, capability
+3. Fallback chains for model failures
+4. Usage tracking and cost estimation
+5. Context-aware model selection (USER, TASK, BACKGROUND)
+"""
+
+import asyncio
+import json
+import os
+import sqlite3
+import time
+import urllib.error
+import urllib.request
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from pathlib import Path
+from typing import Any
+
+
+class ModelCapability(Enum):
+    """Model capabilities for routing decisions"""
+    CHAT = "chat"
+    CODE = "code"
+    VISION = "vision"
+    REASONING = "reasoning"
+    FUNCTION_CALLING = "function_calling"
+    LONG_CONTEXT = "long_context"
+    FAST = "fast"
+    CHEAP = "cheap"
+
+
+class RoutingPriority(Enum):
+    """Prioritization strategies"""
+    COST = "cost"           # Minimize cost
+    SPEED = "speed"         # Minimize latency
+    QUALITY = "quality"     # Maximize capability
+    BALANCED = "balanced"   # Balance all factors
+
+
+@dataclass
+class ModelInfo:
+    """Information about an available model"""
+    provider: str           # ollama, openai, anthropic, etc.
+    name: str               # Model name/identifier
+    display_name: str       # Human-readable name
+    size_gb: float = 0.0    # Model size (for local models)
+    context_length: int = 4096
+    capabilities: list[str] = field(default_factory=list)
+    cost_per_1k_input: float = 0.0    # USD per 1K input tokens
+    cost_per_1k_output: float = 0.0   # USD per 1K output tokens
+    avg_latency_ms: int = 0           # Average response latency
+    is_local: bool = False
+    is_available: bool = True
+    last_checked: str | None = None
+    priority_score: float = 0.0       # Computed routing score
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ModelInfo":
+        return cls(**data)
+
+
+@dataclass
+class RoutingRule:
+    """Rule for model selection"""
+    name: str
+    priority: int = 0                  # Higher = more important
+    condition: str = ""                # Python expression
+    preferred_models: list[str] = field(default_factory=list)
+    excluded_models: list[str] = field(default_factory=list)
+    min_context_length: int = 0
+    required_capabilities: list[str] = field(default_factory=list)
+    max_cost_per_1k: float = 0.0       # 0 = no limit
+    max_latency_ms: int = 0            # 0 = no limit
+    enabled: bool = True
+
+
+class LLMRouterDatabase:
+    """SQLite database for router state and usage tracking"""
+
+    def __init__(self, db_path: str | None = None):
+        if db_path is None:
+            # Use data directory relative to project root
+            data_dir = Path(__file__).parent.parent.parent / "data"
+            data_dir.mkdir(exist_ok=True)
+            db_path = str(data_dir / "llm_router.db")
+
+        self.db_path = db_path
+        self._init_db()
+
+    def _init_db(self):
+        """Initialize database schema"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.executescript("""
+                -- Available models registry
+                CREATE TABLE IF NOT EXISTS models (
+                    id INTEGER PRIMARY KEY,
+                    provider TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    display_name TEXT,
+                    size_gb REAL DEFAULT 0,
+                    context_length INTEGER DEFAULT 4096,
+                    capabilities TEXT DEFAULT '[]',
+                    cost_per_1k_input REAL DEFAULT 0,
+                    cost_per_1k_output REAL DEFAULT 0,
+                    avg_latency_ms INTEGER DEFAULT 0,
+                    is_local INTEGER DEFAULT 0,
+                    is_available INTEGER DEFAULT 1,
+                    last_checked TEXT,
+                    priority_score REAL DEFAULT 0,
+                    metadata TEXT DEFAULT '{}',
+                    UNIQUE(provider, name)
+                );
+
+                -- Usage tracking
+                CREATE TABLE IF NOT EXISTS usage (
+                    id INTEGER PRIMARY KEY,
+                    provider TEXT NOT NULL,
+                    model_name TEXT NOT NULL,
+                    timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+                    input_tokens INTEGER DEFAULT 0,
+                    output_tokens INTEGER DEFAULT 0,
+                    latency_ms INTEGER DEFAULT 0,
+                    cost_usd REAL DEFAULT 0,
+                    success INTEGER DEFAULT 1,
+                    error_message TEXT,
+                    context_type TEXT,
+                    model_role TEXT
+                );
+
+                -- Routing rules
+                CREATE TABLE IF NOT EXISTS routing_rules (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    priority INTEGER DEFAULT 0,
+                    condition TEXT DEFAULT '',
+                    preferred_models TEXT DEFAULT '[]',
+                    excluded_models TEXT DEFAULT '[]',
+                    min_context_length INTEGER DEFAULT 0,
+                    required_capabilities TEXT DEFAULT '[]',
+                    max_cost_per_1k REAL DEFAULT 0,
+                    max_latency_ms INTEGER DEFAULT 0,
+                    enabled INTEGER DEFAULT 1
+                );
+
+                -- Provider configuration
+                CREATE TABLE IF NOT EXISTS provider_config (
+                    id INTEGER PRIMARY KEY,
+                    provider TEXT UNIQUE NOT NULL,
+                    api_base TEXT,
+                    is_enabled INTEGER DEFAULT 1,
+                    priority INTEGER DEFAULT 0,
+                    last_health_check TEXT,
+                    health_status TEXT DEFAULT 'unknown',
+                    metadata TEXT DEFAULT '{}'
+                );
+
+                -- Model aliases (for easy switching)
+                CREATE TABLE IF NOT EXISTS model_aliases (
+                    id INTEGER PRIMARY KEY,
+                    alias TEXT UNIQUE NOT NULL,
+                    provider TEXT NOT NULL,
+                    model_name TEXT NOT NULL,
+                    description TEXT
+                );
+
+                -- Create indexes for common queries
+                CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage(timestamp);
+                CREATE INDEX IF NOT EXISTS idx_usage_provider ON usage(provider, model_name);
+                CREATE INDEX IF NOT EXISTS idx_models_provider ON models(provider);
+            """)
+
+    def save_model(self, model: ModelInfo):
+        """Save or update a model in the registry"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO models
+                (provider, name, display_name, size_gb, context_length, capabilities,
+                 cost_per_1k_input, cost_per_1k_output, avg_latency_ms, is_local,
+                 is_available, last_checked, priority_score, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                model.provider, model.name, model.display_name, model.size_gb,
+                model.context_length, json.dumps(model.capabilities),
+                model.cost_per_1k_input, model.cost_per_1k_output, model.avg_latency_ms,
+                1 if model.is_local else 0, 1 if model.is_available else 0,
+                model.last_checked, model.priority_score, json.dumps(model.metadata)
+            ))
+
+    def get_models(self, provider: str | None = None, available_only: bool = True) -> list[ModelInfo]:
+        """Get models from registry"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            query = "SELECT * FROM models WHERE 1=1"
+            params = []
+
+            if provider:
+                query += " AND provider = ?"
+                params.append(provider)
+            if available_only:
+                query += " AND is_available = 1"
+
+            query += " ORDER BY priority_score DESC"
+
+            rows = conn.execute(query, params).fetchall()
+            return [ModelInfo(
+                provider=row["provider"],
+                name=row["name"],
+                display_name=row["display_name"] or row["name"],
+                size_gb=row["size_gb"],
+                context_length=row["context_length"],
+                capabilities=json.loads(row["capabilities"]),
+                cost_per_1k_input=row["cost_per_1k_input"],
+                cost_per_1k_output=row["cost_per_1k_output"],
+                avg_latency_ms=row["avg_latency_ms"],
+                is_local=bool(row["is_local"]),
+                is_available=bool(row["is_available"]),
+                last_checked=row["last_checked"],
+                priority_score=row["priority_score"],
+                metadata=json.loads(row["metadata"])
+            ) for row in rows]
+
+    def record_usage(self, provider: str, model_name: str, input_tokens: int,
+                    output_tokens: int, latency_ms: int, success: bool = True,
+                    error_message: str | None = None, context_type: str | None = None,
+                    model_role: str | None = None, cost_usd: float = 0):
+        """Record model usage for tracking"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT INTO usage
+                (provider, model_name, input_tokens, output_tokens, latency_ms,
+                 cost_usd, success, error_message, context_type, model_role)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                provider, model_name, input_tokens, output_tokens, latency_ms,
+                cost_usd, 1 if success else 0, error_message, context_type, model_role
+            ))
+
+    def get_usage_stats(self, hours: int = 24) -> dict:
+        """Get usage statistics for the past N hours"""
+        cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            stats = conn.execute("""
+                SELECT
+                    provider,
+                    model_name,
+                    COUNT(*) as call_count,
+                    SUM(input_tokens) as total_input_tokens,
+                    SUM(output_tokens) as total_output_tokens,
+                    SUM(cost_usd) as total_cost,
+                    AVG(latency_ms) as avg_latency,
+                    SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
+                    SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
+                FROM usage
+                WHERE timestamp >= ?
+                GROUP BY provider, model_name
+            """, (cutoff,)).fetchall()
+
+            return {
+                "period_hours": hours,
+                "by_model": [dict(row) for row in stats],
+                "total_cost": sum(row["total_cost"] or 0 for row in stats),
+                "total_calls": sum(row["call_count"] for row in stats)
+            }
+
+    def save_routing_rule(self, rule: RoutingRule):
+        """Save a routing rule"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO routing_rules
+                (name, priority, condition, preferred_models, excluded_models,
+                 min_context_length, required_capabilities, max_cost_per_1k,
+                 max_latency_ms, enabled)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                rule.name, rule.priority, rule.condition,
+                json.dumps(rule.preferred_models), json.dumps(rule.excluded_models),
+                rule.min_context_length, json.dumps(rule.required_capabilities),
+                rule.max_cost_per_1k, rule.max_latency_ms, 1 if rule.enabled else 0
+            ))
+
+    def get_routing_rules(self, enabled_only: bool = True) -> list[RoutingRule]:
+        """Get routing rules"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            query = "SELECT * FROM routing_rules"
+            if enabled_only:
+                query += " WHERE enabled = 1"
+            query += " ORDER BY priority DESC"
+
+            rows = conn.execute(query).fetchall()
+            return [RoutingRule(
+                name=row["name"],
+                priority=row["priority"],
+                condition=row["condition"],
+                preferred_models=json.loads(row["preferred_models"]),
+                excluded_models=json.loads(row["excluded_models"]),
+                min_context_length=row["min_context_length"],
+                required_capabilities=json.loads(row["required_capabilities"]),
+                max_cost_per_1k=row["max_cost_per_1k"],
+                max_latency_ms=row["max_latency_ms"],
+                enabled=bool(row["enabled"])
+            ) for row in rows]
+
+    def set_model_alias(self, alias: str, provider: str, model_name: str, description: str = ""):
+        """Set a model alias for easy switching"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO model_aliases (alias, provider, model_name, description)
+                VALUES (?, ?, ?, ?)
+            """, (alias, provider, model_name, description))
+
+    def get_model_alias(self, alias: str) -> tuple | None:
+        """Get provider and model name for an alias"""
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT provider, model_name FROM model_aliases WHERE alias = ?",
+                (alias,)
+            ).fetchone()
+            return (row[0], row[1]) if row else None
+
+
+class LLMRouter:
+    """
+    Intelligent LLM Router for Agent Zero
+
+    Features:
+    - Auto-discovery of available models
+    - Priority-based model selection
+    - Fallback chains for resilience
+    - Usage tracking and cost estimation
+    - Context-aware routing (USER, TASK, BACKGROUND)
+    """
+
+    # Known model capabilities and costs
+    MODEL_CATALOG = {
+        # Ollama models
+        "ollama/qwen2.5-coder:3b": {
+            "display_name": "Qwen 2.5 Coder 3B",
+            "size_gb": 1.9,
+            "context_length": 32768,
+            "capabilities": ["chat", "code", "fast"],
+            "cost_per_1k_input": 0,
+            "cost_per_1k_output": 0,
+            "avg_latency_ms": 500,
+            "is_local": True
+        },
+        "ollama/qwen2.5-coder:7b": {
+            "display_name": "Qwen 2.5 Coder 7B",
+            "size_gb": 4.7,
+            "context_length": 32768,
+            "capabilities": ["chat", "code", "reasoning"],
+            "cost_per_1k_input": 0,
+            "cost_per_1k_output": 0,
+            "avg_latency_ms": 1500,
+            "is_local": True
+        },
+        "ollama/phi3:mini": {
+            "display_name": "Phi-3 Mini",
+            "size_gb": 2.2,
+            "context_length": 4096,
+            "capabilities": ["chat", "fast"],
+            "cost_per_1k_input": 0,
+            "cost_per_1k_output": 0,
+            "avg_latency_ms": 400,
+            "is_local": True
+        },
+        # OpenAI models
+        "openai/gpt-4o": {
+            "display_name": "GPT-4o",
+            "context_length": 128000,
+            "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "long_context"],
+            "cost_per_1k_input": 0.005,
+            "cost_per_1k_output": 0.015,
+            "avg_latency_ms": 2000
+        },
+        "openai/gpt-4o-mini": {
+            "display_name": "GPT-4o Mini",
+            "context_length": 128000,
+            "capabilities": ["chat", "code", "vision", "function_calling", "fast", "cheap"],
+            "cost_per_1k_input": 0.00015,
+            "cost_per_1k_output": 0.0006,
+            "avg_latency_ms": 800
+        },
+        "openai/gpt-3.5-turbo": {
+            "display_name": "GPT-3.5 Turbo",
+            "context_length": 16385,
+            "capabilities": ["chat", "code", "function_calling", "fast", "cheap"],
+            "cost_per_1k_input": 0.0005,
+            "cost_per_1k_output": 0.0015,
+            "avg_latency_ms": 500
+        },
+        # Anthropic models
+        "anthropic/claude-3-5-sonnet-20241022": {
+            "display_name": "Claude 3.5 Sonnet",
+            "context_length": 200000,
+            "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "long_context"],
+            "cost_per_1k_input": 0.003,
+            "cost_per_1k_output": 0.015,
+            "avg_latency_ms": 1500
+        },
+        "anthropic/claude-3-haiku-20240307": {
+            "display_name": "Claude 3 Haiku",
+            "context_length": 200000,
+            "capabilities": ["chat", "code", "vision", "function_calling", "fast", "cheap", "long_context"],
+            "cost_per_1k_input": 0.00025,
+            "cost_per_1k_output": 0.00125,
+            "avg_latency_ms": 600
+        },
+    }
+
+    def __init__(self, db_path: str | None = None):
+        self.db = LLMRouterDatabase(db_path)
+        self._ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self._last_discovery = None
+        self._discovery_interval = 300  # 5 minutes
+
+    async def discover_models(self, force: bool = False) -> list[ModelInfo]:
+        """Discover all available models from configured providers"""
+        now = time.time()
+        if not force and self._last_discovery and (now - self._last_discovery) < self._discovery_interval:
+            return self.db.get_models()
+
+        discovered = []
+
+        # Discover Ollama models
+        ollama_models = await self._discover_ollama_models()
+        discovered.extend(ollama_models)
+
+        # Add known cloud models (check API keys)
+        cloud_models = self._get_available_cloud_models()
+        discovered.extend(cloud_models)
+
+        # Save to database
+        for model in discovered:
+            self.db.save_model(model)
+
+        self._last_discovery = now
+        return discovered
+
+    async def _discover_ollama_models(self) -> list[ModelInfo]:
+        """Discover models available in Ollama"""
+        models = []
+        try:
+            # Use synchronous urllib in executor for async compatibility
+            def fetch_ollama():
+                url = f"{self._ollama_base_url}/api/tags"
+                req = urllib.request.Request(url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    return json.loads(response.read().decode())
+
+            loop = asyncio.get_event_loop()
+            data = await loop.run_in_executor(None, fetch_ollama)
+
+            for model_data in data.get("models", []):
+                name = model_data.get("name", "")
+                size_bytes = model_data.get("size", 0)
+                size_gb = size_bytes / (1024 ** 3)
+
+                # Get catalog info if available
+                catalog_key = f"ollama/{name}"
+                catalog_info = self.MODEL_CATALOG.get(catalog_key, {})
+
+                model = ModelInfo(
+                    provider="ollama",
+                    name=name,
+                    display_name=catalog_info.get("display_name", name),
+                    size_gb=round(size_gb, 2),
+                    context_length=catalog_info.get("context_length", 4096),
+                    capabilities=catalog_info.get("capabilities", ["chat"]),
+                    cost_per_1k_input=0,
+                    cost_per_1k_output=0,
+                    avg_latency_ms=catalog_info.get("avg_latency_ms", 1000),
+                    is_local=True,
+                    is_available=True,
+                    last_checked=datetime.now().isoformat(),
+                    metadata={"modified_at": model_data.get("modified_at")}
+                )
+                models.append(model)
+        except urllib.error.URLError as e:
+            print(f"[LLMRouter] Ollama not reachable: {e}")
+        except Exception as e:
+            print(f"[LLMRouter] Error discovering Ollama models: {e}")
+
+        return models
+
+    def _get_available_cloud_models(self) -> list[ModelInfo]:
+        """Get cloud models based on available API keys"""
+        models = []
+
+        # Check OpenAI
+        openai_key = os.getenv("API_KEY_OPENAI") or os.getenv("OPENAI_API_KEY")
+        if openai_key:
+            for key, info in self.MODEL_CATALOG.items():
+                if key.startswith("openai/"):
+                    model_name = key.split("/")[1]
+                    models.append(ModelInfo(
+                        provider="openai",
+                        name=model_name,
+                        display_name=info["display_name"],
+                        context_length=info["context_length"],
+                        capabilities=info["capabilities"],
+                        cost_per_1k_input=info["cost_per_1k_input"],
+                        cost_per_1k_output=info["cost_per_1k_output"],
+                        avg_latency_ms=info["avg_latency_ms"],
+                        is_local=False,
+                        is_available=True,
+                        last_checked=datetime.now().isoformat()
+                    ))
+
+        # Check Anthropic
+        anthropic_key = os.getenv("API_KEY_ANTHROPIC") or os.getenv("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            for key, info in self.MODEL_CATALOG.items():
+                if key.startswith("anthropic/"):
+                    model_name = key.split("/")[1]
+                    models.append(ModelInfo(
+                        provider="anthropic",
+                        name=model_name,
+                        display_name=info["display_name"],
+                        context_length=info["context_length"],
+                        capabilities=info["capabilities"],
+                        cost_per_1k_input=info["cost_per_1k_input"],
+                        cost_per_1k_output=info["cost_per_1k_output"],
+                        avg_latency_ms=info["avg_latency_ms"],
+                        is_local=False,
+                        is_available=True,
+                        last_checked=datetime.now().isoformat()
+                    ))
+
+        return models
+
+    def select_model(
+        self,
+        role: str = "chat",
+        context_type: str = "user",
+        required_capabilities: list[str] | None = None,
+        priority: RoutingPriority = RoutingPriority.BALANCED,
+        min_context_length: int = 0,
+        max_cost_per_1k: float = 0,
+        preferred_provider: str | None = None,
+        excluded_providers: list[str] | None = None
+    ) -> ModelInfo | None:
+        """
+        Select the best model based on criteria
+
+        Args:
+            role: Model role (chat, utility, browser, embedding)
+            context_type: Agent context (user, task, background)
+            required_capabilities: List of required capabilities
+            priority: Routing priority strategy
+            min_context_length: Minimum context window required
+            max_cost_per_1k: Maximum cost per 1K tokens (0 = no limit)
+            preferred_provider: Preferred provider (optional)
+            excluded_providers: Providers to exclude
+
+        Returns:
+            Best matching ModelInfo or None
+        """
+        models = self.db.get_models(available_only=True)
+        if not models:
+            return None
+
+        candidates = []
+        required_capabilities = required_capabilities or []
+        excluded_providers = excluded_providers or []
+
+        for model in models:
+            # Filter by provider
+            if model.provider in excluded_providers:
+                continue
+
+            # Filter by context length
+            if min_context_length > 0 and model.context_length < min_context_length:
+                continue
+
+            # Filter by cost
+            if max_cost_per_1k > 0:
+                model_cost = max(model.cost_per_1k_input, model.cost_per_1k_output)
+                if model_cost > max_cost_per_1k:
+                    continue
+
+            # Filter by capabilities
+            if required_capabilities:
+                if not all(cap in model.capabilities for cap in required_capabilities):
+                    continue
+
+            # Calculate priority score
+            score = self._calculate_score(model, priority, context_type, preferred_provider)
+            model.priority_score = score
+            candidates.append(model)
+
+        if not candidates:
+            return None
+
+        # Sort by score (descending)
+        candidates.sort(key=lambda m: m.priority_score, reverse=True)
+        return candidates[0]
+
+    def _calculate_score(
+        self,
+        model: ModelInfo,
+        priority: RoutingPriority,
+        context_type: str,
+        preferred_provider: str | None = None
+    ) -> float:
+        """Calculate routing score for a model"""
+        score = 0.0
+
+        # Base score from capabilities
+        score += len(model.capabilities) * 10
+
+        # Priority-specific scoring
+        if priority == RoutingPriority.COST:
+            # Lower cost = higher score
+            if model.is_local:
+                score += 100  # Local models are free
+            else:
+                max_cost = max(model.cost_per_1k_input, model.cost_per_1k_output)
+                score += max(0, 50 - (max_cost * 1000))  # Penalize expensive models
+
+            if "cheap" in model.capabilities:
+                score += 30
+
+        elif priority == RoutingPriority.SPEED:
+            # Lower latency = higher score
+            if model.avg_latency_ms > 0:
+                score += max(0, 100 - (model.avg_latency_ms / 50))
+
+            if "fast" in model.capabilities:
+                score += 50
+
+            if model.is_local:
+                score += 20  # Local models often faster (no network)
+
+        elif priority == RoutingPriority.QUALITY:
+            # More capabilities = higher score
+            if "reasoning" in model.capabilities:
+                score += 50
+            if "code" in model.capabilities:
+                score += 30
+            if "vision" in model.capabilities:
+                score += 20
+            if "long_context" in model.capabilities:
+                score += 20
+
+            # Larger context = better quality potential
+            score += min(50, model.context_length / 4000)
+
+        else:  # BALANCED
+            # Mix of all factors
+            if model.is_local:
+                score += 30
+
+            if model.avg_latency_ms > 0:
+                score += max(0, 30 - (model.avg_latency_ms / 100))
+
+            score += min(30, len(model.capabilities) * 5)
+            score += min(20, model.context_length / 10000)
+
+        # Context-type adjustments
+        if context_type == "background":
+            # Background tasks prefer fast, cheap models
+            if "fast" in model.capabilities:
+                score += 20
+            if model.is_local:
+                score += 20
+
+        elif context_type == "user":
+            # User interactions prefer quality
+            if "reasoning" in model.capabilities:
+                score += 15
+
+        # Preferred provider bonus
+        if preferred_provider and model.provider == preferred_provider:
+            score += 30
+
+        return score
+
+    def get_fallback_chain(
+        self,
+        primary_model: ModelInfo,
+        required_capabilities: list[str] | None = None,
+        max_fallbacks: int = 3
+    ) -> list[ModelInfo]:
+        """
+        Build a fallback chain for a primary model
+
+        Returns a list of models to try if the primary fails
+        """
+        models = self.db.get_models(available_only=True)
+        required_capabilities = required_capabilities or []
+
+        # Filter to models with required capabilities
+        candidates = []
+        for model in models:
+            if model.provider == primary_model.provider and model.name == primary_model.name:
+                continue  # Skip primary
+
+            if required_capabilities:
+                if not all(cap in model.capabilities for cap in required_capabilities):
+                    continue
+
+            candidates.append(model)
+
+        # Sort by a fallback score (prefer local, then cheap, then fast)
+        def fallback_score(m: ModelInfo) -> float:
+            score = 0
+            if m.is_local:
+                score += 100
+            if "cheap" in m.capabilities:
+                score += 50
+            if "fast" in m.capabilities:
+                score += 30
+            return score
+
+        candidates.sort(key=fallback_score, reverse=True)
+        return candidates[:max_fallbacks]
+
+    def record_call(
+        self,
+        provider: str,
+        model_name: str,
+        input_tokens: int,
+        output_tokens: int,
+        latency_ms: int,
+        success: bool = True,
+        error_message: str | None = None,
+        context_type: str | None = None,
+        model_role: str | None = None
+    ):
+        """Record a model call for usage tracking"""
+        # Calculate cost
+        catalog_key = f"{provider}/{model_name}"
+        info = self.MODEL_CATALOG.get(catalog_key, {})
+        cost = (
+            (input_tokens / 1000) * info.get("cost_per_1k_input", 0) +
+            (output_tokens / 1000) * info.get("cost_per_1k_output", 0)
+        )
+
+        self.db.record_usage(
+            provider=provider,
+            model_name=model_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            latency_ms=latency_ms,
+            success=success,
+            error_message=error_message,
+            context_type=context_type,
+            model_role=model_role,
+            cost_usd=cost
+        )
+
+    def get_usage_stats(self, hours: int = 24) -> dict:
+        """Get usage statistics"""
+        return self.db.get_usage_stats(hours)
+
+    def set_default_model(self, role: str, provider: str, model_name: str):
+        """Set a default model for a role using aliases"""
+        alias = f"default_{role}"
+        self.db.set_model_alias(alias, provider, model_name, f"Default {role} model")
+
+    def get_default_model(self, role: str) -> tuple | None:
+        """Get the default model for a role"""
+        alias = f"default_{role}"
+        return self.db.get_model_alias(alias)
+
+    def add_routing_rule(self, rule: RoutingRule):
+        """Add a routing rule"""
+        self.db.save_routing_rule(rule)
+
+    def get_routing_rules(self) -> list[RoutingRule]:
+        """Get all routing rules"""
+        return self.db.get_routing_rules()
+
+
+# Singleton instance
+_router_instance: LLMRouter | None = None
+
+
+def get_router() -> LLMRouter:
+    """Get the global LLM router instance"""
+    global _router_instance
+    if _router_instance is None:
+        _router_instance = LLMRouter()
+    return _router_instance
+
+
+async def auto_configure_models():
+    """
+    Auto-configure models based on available resources
+
+    This function:
+    1. Discovers available models
+    2. Sets sensible defaults based on what's available
+    3. Configures fallback chains
+    """
+    router = get_router()
+
+    # Discover available models
+    models = await router.discover_models(force=True)
+
+    # Find best local model for chat
+    local_models = [m for m in models if m.is_local and "chat" in m.capabilities]
+    if local_models:
+        # Prefer smaller models that fit in GPU
+        local_models.sort(key=lambda m: m.size_gb)
+
+        # Find the largest model under 4GB (typical GPU VRAM)
+        gpu_limit_gb = float(os.getenv("GPU_VRAM_GB", "4"))
+        suitable = [m for m in local_models if m.size_gb < gpu_limit_gb]
+
+        if suitable:
+            best_local = suitable[-1]  # Largest that fits
+            router.set_default_model("chat", best_local.provider, best_local.name)
+            router.set_default_model("utility", best_local.provider, best_local.name)
+            print(f"[LLMRouter] Auto-configured chat model: {best_local.provider}/{best_local.name}")
+
+    # Set cloud fallbacks if available
+    cloud_models = [m for m in models if not m.is_local]
+    if cloud_models:
+        # Prefer cheap models for fallback
+        cloud_models.sort(key=lambda m: m.cost_per_1k_output)
+        router.set_default_model("fallback", cloud_models[0].provider, cloud_models[0].name)
+        print(f"[LLMRouter] Auto-configured fallback model: {cloud_models[0].provider}/{cloud_models[0].name}")
+
+    return models

@@ -1,0 +1,169 @@
+<html>
+
+<head>
+  <script type="module">
+    import { store } from "/components/sidebar/chats/chats-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.chats">
+      <div class="chats-list-container" x-data>
+        <h3 class="section-header">Chats</h3>
+        <ul class="config-list chats-config-list" x-show="$store.chats.contexts.length > 0">
+          <template x-for="context in $store.chats.contexts" :key="context.id">
+            <li>
+              <div :class="{'chat-container': true, 'chat-selected': context.id === $store.chats.selected}"
+                @click="$store.chats.selectChat(context.id)">
+                <div class="chat-list-button">
+                  <span class="project-color-ball"
+                    :style="context.project?.color ? { backgroundColor: context.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                  <span class="chat-name" :title="context.name ? context.name : 'Chat #' + context.no"
+                    x-text="context.name ? context.name : 'Chat #' + context.no"></span>
+                </div>
+                <button class="edit-button" @click.stop="$store.chats.killChat(context.id)">X</button>
+              </div>
+            </li>
+          </template>
+        </ul>
+        <div class="empty-list-message" x-show="$store.chats.contexts.length === 0">
+          <p><i>No chats to list.</i></p>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .chats-list-container .section-header {
+      position: sticky;
+      top: 0;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    /* Chats list container and items */
+    .chats-list-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      margin-top: var(--spacing-md);
+    }
+
+    .chats-config-list {
+      flex: 1;
+      min-height: 0;
+      overflow: scroll;
+      scroll-behavior: smooth;
+      max-height: 100%;
+      scrollbar-width: none;
+      /* Firefox */
+      -ms-overflow-style: none;
+      /* IE/Edge */
+    }
+
+    /* Hide scrollbar for Chrome/Safari/Webkit */
+    .chats-config-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    .chat-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 40px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease-in-out;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .chat-container:hover {
+      background-color: var(--color-background-hover);
+    }
+
+    .chat-list-button {
+      display: flex;
+      align-items: center;
+      flex-grow: 1;
+      padding: 8px;
+      overflow: hidden;
+      gap: 0.5em;
+    }
+
+    .project-color-ball {
+      width: 0.6em;
+      height: 0.6em;
+      border-radius: 50%;
+      display: inline-block;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+
+    .chat-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: var(--font-size-small);
+    }
+
+    .edit-button {
+      flex-shrink: 0;
+      margin-right: 8px;
+      background-color: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: 0.1875rem;
+      color: var(--color-primary);
+      cursor: pointer;
+      padding: 0.125rem 0.5rem;
+      transition: all var(--transition-speed) ease-in-out;
+      width: 2rem;
+      height: 2rem;
+    }
+
+    .edit-button:hover {
+      border-color: var(--color-primary);
+      background-color: #32455690;
+    }
+
+    .edit-button:active {
+      background-color: #131a2090;
+      color: rgba(253, 253, 253, 0.35);
+    }
+
+    .empty-list-message {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100px;
+      color: var(--color-secondary);
+      text-align: center;
+      opacity: 0.7;
+      font-style: italic;
+    }
+
+    .light-mode .empty-list-message {
+      color: var(--color-secondary-light);
+    }
+
+    /* Selected chat accent */
+    .chat-selected {
+      background-color: var(--color-background-hover);
+    }
+
+    .chat-selected .chat-name {
+      font-size: var(--font-size-normal);
+      font-weight: bold;
+    }
+
+    /* .chat-list-button.font-bold { position: relative; background-color: var(--color-border) 0.05; } */
+    /* .chat-list-button.font-bold::before { content: ""; position: absolute; left: 0; top: 0; height: 100%; width: 3px; background-color: var(--color-border); border-top-left-radius: 3px; border-bottom-left-radius: 3px; } */
+    /* .light-mode .chat-list-button.font-bold { background-color: var(--color-border) 0.05; } */
+    /* .light-mode .chat-list-button.font-bold::before { background-color: var(--color-border); } */
+  </style>
+</body>
+
+</html>

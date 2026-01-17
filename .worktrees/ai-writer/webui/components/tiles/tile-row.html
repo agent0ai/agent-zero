@@ -1,0 +1,254 @@
+<!-- Tile Row Component - Quick access dashboard tiles -->
+<div class="tile-row-container" x-data x-init="$store.tileRowStore && $store.tileRowStore.init()" x-show="$store.tileRowStore">
+
+    <!-- Tile Row -->
+    <div class="tile-row">
+        <template x-for="tile in ($store.tileRowStore ? $store.tileRowStore.tiles : [])" :key="tile.id">
+            <button
+                class="tile-button"
+                :class="{ 'active': $store.tileRowStore.isExpanded(tile.id) }"
+                @click="$store.tileRowStore.toggleTile(tile.id)"
+                :title="tile.label"
+            >
+                <span class="tile-icon" x-html="$store.tileRowStore.getIconSvg(tile.icon)"></span>
+                <span class="tile-label" x-text="tile.label"></span>
+                <template x-if="tile.badge > 0">
+                    <span
+                        class="tile-badge"
+                        :class="'badge-' + tile.badgeType"
+                        x-text="tile.badge"
+                    ></span>
+                </template>
+            </button>
+        </template>
+    </div>
+
+    <!-- Expanded Panel Area -->
+    <div
+        class="tile-panel-container"
+        x-show="$store.tileRowStore && $store.tileRowStore.expandedTile !== null"
+        x-transition:enter="panel-enter"
+        x-transition:enter-start="panel-enter-start"
+        x-transition:enter-end="panel-enter-end"
+        x-transition:leave="panel-leave"
+        x-transition:leave-start="panel-leave-start"
+        x-transition:leave-end="panel-leave-end"
+    >
+        <!-- Loading State -->
+        <div x-show="$store.tileRowStore && $store.tileRowStore.loading" class="panel-loading">
+            <div class="loading-spinner"></div>
+            <span>Loading...</span>
+        </div>
+
+        <!-- Panel Content -->
+        <div
+            x-show="!$store.tileRowStore || !$store.tileRowStore.loading"
+            x-html="$store.tileRowStore ? $store.tileRowStore.panelContent : ''"
+            class="tile-panel-content"
+        ></div>
+
+        <!-- Close Button -->
+        <button
+            class="panel-close-btn"
+            @click="$store.tileRowStore && $store.tileRowStore.collapseTile()"
+            title="Close panel"
+        >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<style>
+/* Tile Row Container */
+.tile-row-container {
+    position: relative;
+    width: 100%;
+    border-top: 1px solid var(--color-border, #333);
+}
+
+/* Tile Row */
+.tile-row {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px;
+    background: var(--secondary-bg, #1a1a1a);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+/* Tile Button */
+.tile-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    color: var(--text-secondary, #aaa);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    position: relative;
+}
+
+.tile-button:hover {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+    border-color: var(--color-primary, #4a9eff);
+}
+
+.tile-button.active {
+    background: var(--color-primary-bg, #1a365d);
+    color: var(--color-primary, #4a9eff);
+    border-color: var(--color-primary, #4a9eff);
+}
+
+/* Tile Icon */
+.tile-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tile-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Tile Label */
+.tile-label {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Tile Badge */
+.tile-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tile-badge.badge-info {
+    background: var(--color-info, #3182ce);
+    color: white;
+}
+
+.tile-badge.badge-warning {
+    background: var(--color-warning, #d69e2e);
+    color: black;
+}
+
+.tile-badge.badge-success {
+    background: var(--color-success, #38a169);
+    color: white;
+}
+
+/* Panel Container */
+.tile-panel-container {
+    position: relative;
+    background: var(--secondary-bg, #1a1a1a);
+    border-top: 1px solid var(--color-border, #333);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Panel Transitions */
+.panel-enter { transition: all 0.3s ease-out; }
+.panel-enter-start { opacity: 0; max-height: 0; }
+.panel-enter-end { opacity: 1; max-height: 400px; }
+.panel-leave { transition: all 0.2s ease-in; }
+.panel-leave-start { opacity: 1; max-height: 400px; }
+.panel-leave-end { opacity: 0; max-height: 0; }
+
+/* Panel Content */
+.tile-panel-content {
+    padding: 16px;
+}
+
+/* Panel Loading */
+.panel-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: var(--text-secondary, #aaa);
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-border, #333);
+    border-top-color: var(--color-primary, #4a9eff);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Panel Close Button */
+.panel-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #aaa);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.panel-close-btn:hover {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+}
+
+.panel-close-btn svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Panel Error */
+.panel-error {
+    padding: 20px;
+    text-align: center;
+    color: var(--color-error, #e53e3e);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tile-label {
+        display: none;
+    }
+
+    .tile-button {
+        padding: 8px;
+    }
+
+    .tile-icon {
+        width: 22px;
+        height: 22px;
+    }
+}
+</style>

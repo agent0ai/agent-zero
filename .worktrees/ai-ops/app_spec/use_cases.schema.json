@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/use_cases.schema.json",
+  "title": "Use Cases Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "use_cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "title": {"type": "string"},
+          "description": {"type": "string"},
+          "actors": {"type": "array", "items": {"type": "string"}},
+          "preconditions": {"type": "array", "items": {"type": "string"}},
+          "success": {"type": "array", "items": {"type": "string"}},
+          "touchpoints": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["id", "title", "description"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["use_cases"],
+  "additionalProperties": false
+}

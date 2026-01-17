@@ -1,0 +1,96 @@
+<html>
+
+<head>
+    <title>Skills Suggestion Component</title>
+    <script type="module">
+        import { store } from "/components/chat/skills-suggest-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.skillsSuggest">
+            <div class="skills-suggest-container"
+                 x-show="$store.skillsSuggest.visible"
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 transform translate-y-2"
+                 x-transition:enter-end="opacity-100 transform translate-y-0"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0">
+
+                <!-- Skills Dropdown -->
+                <div class="skills-dropdown"
+                     @click.outside="$store.skillsSuggest.hide()">
+
+                    <!-- Header -->
+                    <div class="skills-header">
+                        <span class="skills-title">💡 Suggested Skills</span>
+                        <button class="skills-close" @click="$store.skillsSuggest.hide()">✕</button>
+                    </div>
+
+                    <!-- Contextual Suggestions -->
+                    <div class="skills-section" x-show="$store.skillsSuggest.contextSuggestions.length > 0">
+                        <div class="section-label">Based on your message</div>
+                        <template x-for="skill in $store.skillsSuggest.contextSuggestions" :key="skill.id">
+                            <div class="skill-item"
+                                 @click="$store.skillsSuggest.selectSkill(skill)">
+                                <span class="skill-icon" x-text="skill.icon"></span>
+                                <div class="skill-info">
+                                    <span class="skill-name" x-text="skill.name"></span>
+                                    <span class="skill-desc" x-text="skill.description"></span>
+                                </div>
+                                <span class="skill-match" x-show="skill.matchedKeyword">
+                                    matched: <span x-text="skill.matchedKeyword"></span>
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- All Available Skills -->
+                    <div class="skills-section">
+                        <div class="section-label">
+                            <span>All Skills</span>
+                            <input type="text"
+                                   class="skill-search"
+                                   placeholder="Filter skills..."
+                                   x-model="$store.skillsSuggest.searchQuery"
+                                   @keydown.escape="$store.skillsSuggest.hide()">
+                        </div>
+                        <div class="skills-list">
+                            <template x-for="category in $store.skillsSuggest.getGroupedSkills()" :key="category.name">
+                                <div class="skill-category">
+                                    <div class="category-header" x-text="category.name"></div>
+                                    <template x-for="skill in category.skills" :key="skill.id">
+                                        <div class="skill-item"
+                                             @click="$store.skillsSuggest.selectSkill(skill)">
+                                            <span class="skill-icon" x-text="skill.icon"></span>
+                                            <div class="skill-info">
+                                                <span class="skill-name" x-text="skill.name"></span>
+                                                <span class="skill-desc" x-text="skill.description"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="skills-footer">
+                        <button class="skill-action" @click="$store.skillsSuggest.showAllTools()">
+                            📖 View All Tools
+                        </button>
+                        <button class="skill-action" @click="$store.skillsSuggest.openHelp()">
+                            ❓ Help
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

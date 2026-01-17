@@ -1,0 +1,174 @@
+<html>
+
+<head>
+    <title>Project basic data</title>
+    <script type="module">
+        import { store } from "/components/projects/projects-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject">
+            <div>
+
+                <template x-if="!$store.projects.selectedProject._meta.creating">
+                    <div class="projects-form-group">
+                        <label class="projects-form-label">Folder name</label>
+                        <span class="projects-form-description">Project files and settings are located in
+                            <strong><span
+                                    x-text="$store.projects.getSelectedAbsPath()"></span></strong></span>
+                        <div class="projects-input-with-button-wrapper">
+                            <input class="projects-form-input projects-disabled" type="text" x-model="$store.projects.selectedProject.name" disabled>
+                            <button class="button icon-button" @click="$store.projects.browseSelected()">
+                                <span class="icon material-symbols-outlined">folder</span>
+                                <span>Browse</span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="projects-form-group">
+                    <label class="projects-form-label">Title</label>
+                    <span class="projects-form-description">Title and description are visible to both you and the agent
+                        and can help it understand the project.</span>
+                    <input class="projects-form-input" type="text" x-model="$store.projects.selectedProject.title"
+                        placeholder="Optional title">
+                </div>
+
+                <!-- <div class="projects-form-group">
+                    <label class="projects-form-label">Description</label>
+                    <textarea class="projects-form-textarea" x-model="$store.projects.selectedProject.description"
+                        rows="5" placeholder="Optional description"></textarea>
+                </div> -->
+
+                <div class="projects-form-group">
+                    <label class="projects-form-label">Color</label>
+                    <div class="projects-color-row">
+                        <div class="projects-color-ball projects-color-none"
+                            :class="{'selected': !$store.projects.selectedProject.color}"
+                            @click="$store.projects.selectedProject.color = ''">
+                            <span class="projects-color-x">×</span>
+                        </div>
+                        <template x-for="c in $store.projects.colors" :key="c">
+                            <div class="projects-color-ball" :style="`background:${c}`"
+                                :class="{'selected': $store.projects.selectedProject.color === c}"
+                                @click="$store.projects.selectedProject.color = c">
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+
+        </template>
+    </div>
+</body>
+<style>
+    .project-path {
+        font-size: 0.8em;
+        opacity: 0.7;
+        margin-top: 0.25em;
+        word-break: break-all;
+    }
+
+    .projects-form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35em;
+        margin-bottom: 0.8em;
+    }
+
+    .projects-form-label {
+        font-size: 1em;
+        font-weight: bolder;
+        opacity: 1;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .projects-form-description {
+        font-size: 0.8em;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .projects-form-input,
+    .projects-form-textarea {
+        background: var(--color-input);
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+        border-radius: 0.375em;
+        padding: 0.5em 0.6em;
+        outline: none;
+    }
+
+    .projects-form-input:focus,
+    .projects-form-textarea:focus {
+        border-color: var(--color-primary);
+        background: var(--color-input-focus);
+    }
+
+    .projects-color-row {
+        display: flex;
+        gap: 0.5em;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .projects-color-ball {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        /* border: 2px solid var(--color-border); */
+        cursor: pointer;
+        box-shadow: none;
+        background-clip: padding-box;
+        transition: opacity 0.15s ease;
+    }
+
+    .projects-color-ball:hover {
+        opacity: 0.9;
+    }
+
+    .projects-color-ball.selected {
+        box-shadow: 0 0 0 2px var(--color-panel), 0 0 0 4px var(--color-primary);
+    }
+
+    .projects-color-none {
+        background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(127, 127, 127, 0.12) 6px 12px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .projects-color-x {
+        font-size: 16px;
+        line-height: 1;
+        color: var(--color-text);
+        opacity: 0.7;
+    }
+
+    .projects-disabled {
+        opacity: 0.7;
+    }
+
+    .projects-input-with-button-wrapper {
+        display: flex;
+        gap: 0.5em;
+        align-items: center;
+    }
+
+    .projects-input-with-button-wrapper input {
+        flex-grow: 1;
+    }
+
+    @media (max-width: 640px) {
+        .projects-input-with-button-wrapper {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+
+</style>
+
+</html>

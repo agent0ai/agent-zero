@@ -1,0 +1,203 @@
+<html>
+
+<head>
+  <script type="module">
+    import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
+  </script>
+  <!-- Wrapper composes existing sidebar components -->
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.sidebar">
+      <div id="left-panel" class="panel" x-data :class="{'hidden': !$store.sidebar.isOpen}">
+        <!--Sidebar upper elements-->
+        <div class="left-panel-top">
+          <!-- Top Section: Header Icons + Quick Actions -->
+          <x-component path="sidebar/top-section/sidebar-top.html"></x-component>
+          <!-- Chats List -->
+          <div class="config-section" id="chats-section">
+            <x-component path="sidebar/chats/chats-list.html"></x-component>
+          </div>
+
+          <!-- Tasks List -->
+          <div class="config-section" id="tasks-section">
+            <x-component path="sidebar/tasks/tasks-list.html"></x-component>
+          </div>
+        </div>
+        <!--Sidebar lower elements-->
+        <div class="left-panel-bottom">
+          <x-component path="sidebar/bottom/sidebar-bottom.html"></x-component>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    /* Left Panel styles from index.css */
+    #left-panel {
+      background-color: var(--color-panel);
+      border-right: 1px solid var(--color-border);
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all var(--transition-speed) ease-in-out;
+      width: 250px;
+      min-width: 250px;
+      color: var(--color-text);
+      box-shadow: 1px 0 5px rgba(0, 0, 0, 0.3);
+      user-select: none;
+      -webkit-user-select: none;
+      /* Safari compatibility */
+      height: 100vh;
+      /* Ensure full height */
+      overflow: hidden;
+      /* Prevent overall panel overflow */
+    }
+
+    /* Ensure component host behaves like the original direct children for flex layout */
+    #left-panel>.left-panel-top,
+    #left-panel>.left-panel-bottom {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #left-panel>.left-panel-top {
+      flex: 1;
+      min-height: 0;
+      /* allow inner flex children to shrink properly */
+    }
+
+    #left-panel.hidden {
+      margin-left: -250px;
+    }
+
+    .left-panel-top {
+      flex: 1 1 auto;
+      /* Take available space */
+      display: -webkit-flex;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      /* Critical for allowing flex children to shrink */
+      overflow: hidden;
+      justify-content: space-between;
+      margin-top: 3.5rem;
+      padding: var(--spacing-md) var(--spacing-md) 0 var(--spacing-md);
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .left-panel-top::-webkit-scrollbar {
+      width: 0px;
+    }
+
+    .left-panel-bottom {
+      position: relative;
+      flex-shrink: 0;
+      flex-grow: 0;
+      /* Prevent bottom from growing */
+    }
+
+    /* Chats section container inside sidebar */
+    #chats-section {
+      display: -webkit-flex;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 1 1 auto;
+      /* Take all available space */
+      max-height: 100%;
+      overflow: hidden;
+    }
+
+    /* Tasks section container inside sidebar */
+    #tasks-section {
+      display: -webkit-flex;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 0 0 auto;
+      /* Shrink to content, no reserved space */
+      max-height: 40%;
+      /* Limit to 40% of viewport height when expanded */
+      margin-top: 0;
+      padding-top: var(--spacing-md);
+      overflow: hidden;
+    }
+
+    /* Flatten wrapper elements to maintain flex chain for inner scroll containers */
+    #chats-section>x-component,
+    #chats-section>x-component>div[x-data],
+    #tasks-section>x-component,
+    #tasks-section>x-component>div[x-data],
+    #tasks-section>x-component>div[x-data]>div[x-data] {
+      display: contents;
+    }
+
+    /* Bootstrap collapse elements need proper display for animation to work */
+    #tasks-section .collapse {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* During the collapsing transition, allow height animation to control size */
+    #tasks-section .collapsing {
+      flex: 0 0 auto !important;
+    }
+
+    /* Common section header styling (Chats, Tasks) - matching Preferences style */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin: 0 0 0.5rem 0;
+      padding: 0;
+      -webkit-user-select: none;
+      /* Safari compatibility */
+      user-select: none;
+      font-size: var(--font-size-normal);
+    }
+
+    /* Collapsible section headers (Tasks) */
+    .section-header-collapsible {
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      #left-panel {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 250px !important;
+        /* Force width */
+        min-width: 250px;
+        z-index: 1003;
+        transition: all var(--transition-speed) ease-in-out;
+      }
+
+      #left-panel.hidden {
+        margin-left: -250px;
+      }
+    }
+
+    @media (max-height: 600px) {
+      #chats-section {
+        min-height: 100%;
+      }
+
+      .left-panel-top {
+        overflow-y: auto;
+        -webkit-scroll-behavior: smooth;
+        scroll-behavior: smooth;
+      }
+    }
+  </style>
+</body>
+
+</html>

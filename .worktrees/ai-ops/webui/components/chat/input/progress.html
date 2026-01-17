@@ -1,0 +1,29 @@
+<html>
+<head>
+    <script type="module">
+        import { store as speechStore } from "/components/chat/speech/speech-store.js";
+    </script>
+</head>
+<body>
+    <div id="progress-bar-box">
+        <h4 id="progress-bar-h">
+            <span id="progress-bar-i">|></span><span id="progress-bar"></span>
+        </h4>
+        <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
+            <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
+        </h4>
+    </div>
+
+
+    <style>
+    #progress-bar-box { background-color: var(--color-panel); padding: var(--spacing-sm) var(--spacing-md); padding-bottom: 0; display: flex; justify-content: space-between; z-index: 1001; }
+    #progress-bar-box h4 { margin: 0 1.2em 0 0; }
+    #progress-bar-h { color: var(--color-primary); display: flex; align-items: left; justify-content: flex-start; height: 1.2em; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; font-weight: normal; }
+    #progress-bar-i { font-weight: bold; padding-right: 0.5em; color: var(--color-secondary); }
+    .shiny-text { background: linear-gradient(to right, var(--color-primary-dark) 20%, var(--color-text) 40%, var(--color-text) 60%, var(--color-primary-dark) 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; animation: shine 1s linear infinite; }
+    @keyframes shine { to { background-position: -200% center; } }
+    .light-mode #progress-bar-i { color: var(--color-border-dark); opacity: 0.5; }
+    </style>
+</body>
+</html>
+

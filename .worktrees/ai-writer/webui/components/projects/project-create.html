@@ -1,0 +1,46 @@
+<html>
+
+<head>
+    <title>Create a new project</title>
+    <script type="module">
+        import { store } from "/components/projects/projects-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject">
+            <div>
+                <div class="project-detail">
+
+                    <x-component path="projects/project-edit-basic-data.html">
+                    </x-component>
+
+                        <div class="buttons-right">
+                            <button type="button" class="button cancel"
+                                @click="$store.projects.cancelCreate()">Cancel</button>
+                            <button type="button" class="button confirm" @click="$store.projects.confirmCreate()">Create and
+                                continue</button>
+                        </div>
+                </div>
+
+
+            </div>
+        </template>
+    </div>
+</body>
+<style>
+    .project-detail {
+        border: 1px solid var(--color-border);
+        border-radius: 0.5em;
+        padding: 1em;
+        margin: 1em;
+        background: var(--color-panel);
+    }
+
+    .project-detail-header {
+        margin-bottom: 1em;
+    }
+</style>
+
+</html>

@@ -1,0 +1,371 @@
+<!-- Ralph Loop Panel - Extracted from Settings for tile row -->
+<div class="ralph-panel" x-data="ralphPanelData()" x-init="init()">
+    <div class="panel-header">
+        <h3>Ralph Loops</h3>
+        <div class="panel-actions">
+            <button class="btn-sm" @click="refresh()" :disabled="loading">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.active_loops || 0"></div>
+            <div class="stat-label">Active</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.completed_loops || 0"></div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.total_iterations || 0"></div>
+            <div class="stat-label">Iterations</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.success_rate + '%' || '0%'"></div>
+            <div class="stat-label">Success</div>
+        </div>
+    </div>
+
+    <!-- Active Loops -->
+    <div class="active-section" x-show="activeLoops.length > 0">
+        <h4>Active Loops</h4>
+        <div class="loop-list">
+            <template x-for="loop in activeLoops" :key="loop.loop_id">
+                <div class="loop-card">
+                    <div class="loop-header">
+                        <span class="loop-name" x-text="loop.name"></span>
+                        <span class="loop-iter">Iter <span x-text="loop.current_iteration"></span>/<span x-text="loop.max_iterations || '∞'"></span></span>
+                    </div>
+                    <div class="loop-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" :style="'width:' + (loop.max_iterations ? (loop.current_iteration / loop.max_iterations * 100) : 50) + '%'"></div>
+                        </div>
+                    </div>
+                    <div class="loop-actions">
+                        <button class="btn-xs" @click="cancelLoop(loop.loop_id)">Cancel</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Recent Completed -->
+    <div class="recent-section" x-show="recentLoops.length > 0">
+        <h4>Recent</h4>
+        <div class="recent-list">
+            <template x-for="loop in recentLoops.slice(0, 3)" :key="loop.loop_id">
+                <div class="recent-item">
+                    <span class="status-icon" :class="'status-' + loop.status">
+                        <template x-if="loop.status === 'completed'">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                        </template>
+                        <template x-if="loop.status === 'cancelled'">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </template>
+                        <template x-if="loop.status === 'max_iterations'">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        </template>
+                    </span>
+                    <span class="recent-name" x-text="loop.name"></span>
+                    <span class="recent-iters" x-text="loop.current_iteration + ' iters'"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="empty-state" x-show="!loading && activeLoops.length === 0 && recentLoops.length === 0">
+        No Ralph loops. Start one via the agent chat.
+    </div>
+
+    <!-- Quick Action -->
+    <div class="quick-actions">
+        <button class="action-btn" @click="sendChat('{{ralph_loop(action=\"list_loops\")}}')">
+            List All Loops
+        </button>
+    </div>
+</div>
+
+<script>
+function ralphPanelData() {
+    return {
+        loading: false,
+        stats: {},
+        activeLoops: [],
+        recentLoops: [],
+
+        async init() {
+            await this.refresh();
+        },
+
+        async refresh() {
+            this.loading = true;
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                const resp = await fetch('/ralph_loop_dashboard', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.stats = data.stats || {};
+                    this.activeLoops = data.active_loops || [];
+                    this.recentLoops = data.recent_loops || [];
+                }
+            } catch (e) {
+                console.error('Error loading ralph data:', e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async cancelLoop(loopId) {
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                await fetch('/ralph_loop_control', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({ action: 'cancel', loop_id: loopId })
+                });
+                await this.refresh();
+            } catch (e) {
+                console.error('Error cancelling loop:', e);
+            }
+        },
+
+        sendChat(message) {
+            // Send message to chat
+            const chatInput = document.querySelector('#chat-input textarea, #msg');
+            if (chatInput) {
+                chatInput.value = message;
+                chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                // Try to submit
+                const form = chatInput.closest('form');
+                if (form) form.dispatchEvent(new Event('submit'));
+            }
+            Alpine.store('tileRowStore')?.collapseTile();
+        }
+    };
+}
+</script>
+
+<style>
+.ralph-panel {
+    color: var(--text-primary, #fff);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.btn-sm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn-sm:hover:not(:disabled) {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-primary, #4a9eff);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.active-section h4,
+.recent-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-secondary, #aaa);
+}
+
+.loop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.loop-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-left: 3px solid var(--color-info, #3182ce);
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.loop-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.loop-name {
+    font-weight: 500;
+}
+
+.loop-iter {
+    font-size: 12px;
+    color: var(--text-secondary, #aaa);
+}
+
+.loop-progress {
+    margin-bottom: 8px;
+}
+
+.progress-bar {
+    height: 6px;
+    background: var(--color-border, #333);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--color-info, #3182ce);
+    transition: width 0.3s ease;
+}
+
+.loop-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-xs {
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid var(--color-border, #333);
+    border-radius: 3px;
+    color: var(--text-secondary, #aaa);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.btn-xs:hover {
+    background: var(--color-error-bg, #5a3d3d);
+    border-color: var(--color-error, #e53e3e);
+    color: var(--color-error, #e53e3e);
+}
+
+.recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.recent-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--tertiary-bg, #252525);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.status-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-icon.status-completed { color: var(--color-success, #38a169); }
+.status-icon.status-cancelled { color: var(--color-error, #e53e3e); }
+.status-icon.status-max_iterations { color: var(--color-warning, #d69e2e); }
+
+.recent-name {
+    flex: 1;
+}
+
+.recent-iters {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+}
+
+.quick-actions {
+    margin-top: 12px;
+}
+
+.action-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: var(--color-primary-bg, #1a365d);
+    color: var(--color-primary, #4a9eff);
+    border-color: var(--color-primary, #4a9eff);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary, #aaa);
+    font-size: 13px;
+}
+</style>

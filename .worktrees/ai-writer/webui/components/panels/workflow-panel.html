@@ -1,0 +1,310 @@
+<!-- Workflow Panel - Extracted from Settings for tile row -->
+<div class="workflow-panel" x-data="workflowPanelData()" x-init="init()">
+    <div class="panel-header">
+        <h3>Workflow Engine</h3>
+        <div class="panel-actions">
+            <button class="btn-sm" @click="refresh()" :disabled="loading">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.total_workflows || 0"></div>
+            <div class="stat-label">Workflows</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.active_executions || 0"></div>
+            <div class="stat-label">Active</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.completed_executions || 0"></div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="stats.total_skills || 0"></div>
+            <div class="stat-label">Skills</div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <button class="action-btn" @click="sendChat('{{workflow_engine(action=\"list_workflows\")}}')">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            List Workflows
+        </button>
+        <button class="action-btn" @click="sendChat('{{workflow_training(action=\"get_proficiency\")}}')">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Check Skills
+        </button>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="recent-section" x-show="recentExecutions.length > 0">
+        <h4>Recent Activity</h4>
+        <div class="activity-list">
+            <template x-for="exec in recentExecutions.slice(0, 3)" :key="exec.execution_id">
+                <div class="activity-item">
+                    <span class="activity-status" :class="'status-' + exec.status"></span>
+                    <span class="activity-name" x-text="exec.workflow_name"></span>
+                    <span class="activity-stage" x-text="exec.current_stage"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="empty-state" x-show="!loading && stats.total_workflows === 0">
+        No workflows yet. Create one to get started.
+    </div>
+
+    <!-- Open Full Dashboard Link -->
+    <div class="dashboard-link">
+        <button class="open-dashboard-btn" @click="openDashboard()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="9" y1="21" x2="9" y2="9"/>
+            </svg>
+            Open Full Dashboard
+        </button>
+    </div>
+</div>
+
+<script>
+function workflowPanelData() {
+    return {
+        loading: false,
+        stats: {},
+        recentExecutions: [],
+
+        async init() {
+            await this.refresh();
+        },
+
+        async refresh() {
+            this.loading = true;
+            try {
+                const token = Alpine.store('csrfStore')?.token || '';
+                const resp = await fetch('/workflow_dashboard', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.stats = data.stats || {};
+                    this.recentExecutions = data.recent_executions || [];
+                }
+            } catch (e) {
+                console.error('Error loading workflow data:', e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        sendChat(message) {
+            // Send message to chat
+            const chatInput = document.querySelector('#chat-input textarea, #msg');
+            if (chatInput) {
+                chatInput.value = message;
+                chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                // Try to submit
+                const form = chatInput.closest('form');
+                if (form) form.dispatchEvent(new Event('submit'));
+            }
+            Alpine.store('tileRowStore')?.collapseTile();
+        },
+
+        openDashboard() {
+            // Collapse the tile panel first
+            Alpine.store('tileRowStore')?.collapseTile();
+            // Open the workflows dashboard
+            Alpine.store('dashboardRouter')?.showDashboard('workflows');
+        }
+    };
+}
+</script>
+
+<style>
+.workflow-panel {
+    color: var(--text-primary, #fff);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.btn-sm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn-sm:hover:not(:disabled) {
+    background: var(--hover-bg, #303030);
+    color: var(--text-primary, #fff);
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-card {
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-primary, #4a9eff);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    background: var(--tertiary-bg, #252525);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 6px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: var(--color-primary-bg, #1a365d);
+    color: var(--color-primary, #4a9eff);
+    border-color: var(--color-primary, #4a9eff);
+}
+
+.recent-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-secondary, #aaa);
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--tertiary-bg, #252525);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.activity-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.activity-status.status-active { background: var(--color-info, #3182ce); }
+.activity-status.status-completed { background: var(--color-success, #38a169); }
+.activity-status.status-failed { background: var(--color-error, #e53e3e); }
+
+.activity-name {
+    flex: 1;
+    color: var(--text-primary, #fff);
+}
+
+.activity-stage {
+    color: var(--text-secondary, #aaa);
+    font-size: 11px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary, #aaa);
+    font-size: 13px;
+}
+
+.dashboard-link {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border, #333);
+}
+
+.open-dashboard-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: transparent;
+    border: 1px dashed var(--color-primary, #4a9eff);
+    border-radius: 6px;
+    color: var(--color-primary, #4a9eff);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.open-dashboard-btn:hover {
+    background: var(--color-primary-bg, #1a365d);
+    border-style: solid;
+}
+</style>

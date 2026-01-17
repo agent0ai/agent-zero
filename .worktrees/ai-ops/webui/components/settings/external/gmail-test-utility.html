@@ -1,0 +1,252 @@
+<html>
+<head>
+    <title>Gmail Setup & Test Utility</title>
+    <script type="module" src="/components/settings/external/gmail-test-utility-store.js"></script>
+</head>
+<body class="modal-medium">
+    <div x-data x-init="$store.gmailTestUtilityStore.initialize()" x-destroy="$store.gmailTestUtilityStore.onClose()">
+        <template x-if="$store.gmailTestUtilityStore">
+            <div class="gmail-test-utility">
+                <h3>Gmail Setup & Test Utility</h3>
+                <p class="intro">Follow the steps below to configure OAuth and send a test email.</p>
+
+                <div class="status" x-show="$store.gmailTestUtilityStore.statusMessage" x-text="$store.gmailTestUtilityStore.statusMessage"></div>
+                <div class="error" x-show="$store.gmailTestUtilityStore.errorMessage" x-text="$store.gmailTestUtilityStore.errorMessage"></div>
+
+                <div class="step">
+                    <h4>Step 1: Start OAuth</h4>
+                    <p>Paste or upload your <code>credentials.json</code> and start the OAuth flow.</p>
+                    <div class="field">
+                        <label>Account Name</label>
+                        <input type="text" x-model="$store.gmailTestUtilityStore.accountName" placeholder="sales">
+                    </div>
+                    <div class="field">
+                        <label>Credentials JSON</label>
+                        <div id="gmail-test-credentials-editor" x-show="$store.gmailTestUtilityStore.aceReady"></div>
+                        <textarea x-show="!$store.gmailTestUtilityStore.aceReady"
+                            x-model="$store.gmailTestUtilityStore.credentialsJson"
+                            placeholder='{"web":{"client_id":...}}'></textarea>
+                        <div class="button-row">
+                            <label class="btn slim">
+                                Upload credentials.json
+                                <input type="file" accept="application/json" style="display: none;"
+                                    @change="$store.gmailTestUtilityStore.loadCredentialsFromFile($event)">
+                            </label>
+                            <button class="btn slim" @click="$store.gmailTestUtilityStore.formatCredentialsJson()">Reformat</button>
+                            <button class="btn slim" @click="$store.gmailTestUtilityStore.clearCredentials()">Clear</button>
+                            <button class="btn btn-ok" :disabled="$store.gmailTestUtilityStore.oauthLoading"
+                                @click="$store.gmailTestUtilityStore.startOAuth()">Start OAuth</button>
+                        </div>
+                        <div class="tips" x-show="$store.gmailTestUtilityStore.errorContext === 'oauth'">
+                            <strong>Troubleshooting tips:</strong>
+                            <ul>
+                                <li>Verify you created a Web OAuth client ID in Google Cloud Console.</li>
+                                <li>Ensure redirect URI matches <code>http://localhost:5000/gmail_oauth_callback</code>.</li>
+                                <li>Confirm Gmail API is enabled for the project.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <h4>Step 2: Confirm Account</h4>
+                    <p>Refresh accounts and select the one you want to test.</p>
+                    <div class="button-row">
+                        <button class="btn slim" :disabled="$store.gmailTestUtilityStore.loadingAccounts"
+                            @click="$store.gmailTestUtilityStore.fetchAccounts()">Refresh Accounts</button>
+                    </div>
+                    <div class="account-list">
+                        <template x-for="account in $store.gmailTestUtilityStore.accounts" :key="account.name">
+                            <div class="account-item">
+                                <div class="account-main">
+                                    <span class="account-name" x-text="account.name"></span>
+                                    <span class="account-email" x-text="account.email"></span>
+                                </div>
+                                <div class="account-status" x-text="account.valid ? 'Active ✅' : 'Needs attention ⚠️'"></div>
+                            </div>
+                        </template>
+                        <div class="empty" x-show="$store.gmailTestUtilityStore.accounts.length === 0">
+                            No accounts configured yet.
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Account to Test</label>
+                        <select x-model="$store.gmailTestUtilityStore.selectedAccount" @change="$store.gmailTestUtilityStore.onAccountSelect()">
+                            <option value="">Select an account</option>
+                            <template x-for="account in $store.gmailTestUtilityStore.accounts" :key="account.name">
+                                <option :value="account.name" x-text="account.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="tips" x-show="$store.gmailTestUtilityStore.errorContext === 'accounts'">
+                        <strong>Troubleshooting tips:</strong>
+                        <ul>
+                            <li>Complete the OAuth recognizing window and return to this page.</li>
+                            <li>Check that cookies are enabled for the UI.</li>
+                            <li>Look at server logs if the account list never refreshes.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <h4>Step 3: Send Test Email</h4>
+                    <p>Send a test message using the selected account.</p>
+                    <div class="field">
+                        <label>Recipient Email</label>
+                        <input type="email" x-model="$store.gmailTestUtilityStore.testTo" placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label>Subject</label>
+                        <input type="text" x-model="$store.gmailTestUtilityStore.testSubject">
+                    </div>
+                    <div class="field">
+                        <label>Body</label>
+                        <textarea x-model="$store.gmailTestUtilityStore.testBody"></textarea>
+                    </div>
+                    <div class="button-row">
+                        <button class="btn btn-ok" :disabled="$store.gmailTestUtilityStore.sendLoading"
+                            @click="$store.gmailTestUtilityStore.sendTestEmail()">Send Test Email</button>
+                    </div>
+                    <div class="send-result" x-show="$store.gmailTestUtilityStore.lastSendResult">
+                        <div><strong>Message ID:</strong> <span x-text="$store.gmailTestUtilityStore.lastSendResult.message_id"></span></div>
+                        <div><strong>Thread ID:</strong> <span x-text="$store.gmailTestUtilityStore.lastSendResult.thread_id"></span></div>
+                    </div>
+                    <div class="tips" x-show="$store.gmailTestUtilityStore.errorContext === 'send'">
+                        <strong>Troubleshooting tips:</strong>
+                        <ul>
+                            <li>Ensure the selected account has valid OAuth credentials.</li>
+                            <li>Try sending to the same Gmail address as the authenticated account.</li>
+                            <li>Verify Gmail API scopes include <code>gmail.send</code>.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <button class="btn btn-ok" onclick="closeModal()">Done</button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .gmail-test-utility {
+            padding: 0.8em 0.2em;
+        }
+        .gmail-test-utility h3 {
+            margin-top: 0;
+        }
+        .intro {
+            margin-bottom: 1.2em;
+            opacity: 0.8;
+        }
+        .status {
+            padding: 0.6em 0.8em;
+            border: 1px solid rgba(0, 180, 90, 0.4);
+            background: rgba(0, 180, 90, 0.08);
+            border-radius: 6px;
+            margin-bottom: 1em;
+            font-size: 0.9em;
+        }
+        .error {
+            padding: 0.6em 0.8em;
+            border: 1px solid rgba(228, 1, 56, 0.4);
+            background: rgba(228, 1, 56, 0.08);
+            border-radius: 6px;
+            margin-bottom: 1em;
+            font-size: 0.9em;
+        }
+        .step {
+            margin-bottom: 1.5em;
+            padding: 1em;
+            border: 1px solid rgba(192, 192, 192, 0.3);
+            border-radius: 8px;
+        }
+        .field {
+            margin-bottom: 0.8em;
+        }
+        .field label {
+            display: block;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+        .field textarea {
+            height: 120px;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        #gmail-test-credentials-editor {
+            width: 100%;
+            height: 180px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            background: #fff;
+        }
+        .button-row {
+            display: flex;
+            gap: 0.5em;
+            flex-wrap: wrap;
+            margin-top: 0.5em;
+        }
+        .account-list {
+            margin: 0.6em 0;
+        }
+        .account-item {
+            padding: 0.6em 0.8em;
+            border: 1px solid rgba(192, 192, 192, 0.2);
+            border-radius: 6px;
+            margin-bottom: 0.4em;
+        }
+        .account-main {
+            display: flex;
+            justify-content: space-between;
+        }
+        .account-name {
+            font-weight: bold;
+        }
+        .account-email {
+            opacity: 0.7;
+            font-size: 0.9em;
+        }
+        .account-status {
+            margin-top: 0.2em;
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+        .empty {
+            padding: 0.8em;
+            text-align: center;
+            opacity: 0.6;
+            font-style: italic;
+        }
+        .tips {
+            margin-top: 0.6em;
+            padding: 0.6em 0.8em;
+            border-left: 3px solid rgba(255, 193, 7, 0.8);
+            background: rgba(255, 193, 7, 0.1);
+            font-size: 0.85em;
+        }
+        .tips ul {
+            margin: 0.4em 0 0 1.2em;
+        }
+        .send-result {
+            margin-top: 0.6em;
+            font-size: 0.85em;
+            opacity: 0.85;
+        }
+        .footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1em;
+        }
+    </style>
+</body>
+</html>

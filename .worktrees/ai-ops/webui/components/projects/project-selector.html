@@ -1,0 +1,115 @@
+<html>
+
+<head>
+    <script type="module">
+        import { store as projectsStore } from "/components/projects/projects-store.js";
+        import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data="{ open: false }" @click.away="open = false" class="project-dropdown-container">
+        <template x-if="$store.projects && $store.chats && $store.chats.selectedContext">
+            <div>
+                <template x-if="$store.chats.selectedContext.project?.name">
+                    <button @click="open = !open" type="button" class="button project-dropdown-button">
+                        <span class="project-color-ball" :style="$store.chats.selectedContext.project.color ? { backgroundColor: $store.chats.selectedContext.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                        <span x-text="$store.chats.selectedContext.project.title"></span>
+                        <span class="icon material-symbols-outlined">arrow_drop_down</span>
+                    </button>
+                </template>
+                <template x-if="!$store.chats.selectedContext.project?.name">
+                    <button @click="open = !open" type="button" class="button project-dropdown-button">
+                        No project
+                        <span class="icon material-symbols-outlined">arrow_drop_down</span>
+                    </button>
+                </template>
+
+                <div x-show="open" x-init="$store.projects.loadProjectsList()" class="project-dropdown-menu" style="display: none;" x-transition>
+                    <a href="#" @click.prevent="$store.projects.openProjectsModal(); open = false;" class="project-dropdown-item"><span class="icon material-symbols-outlined">snippet_folder</span> <span class="project-selector-item-text">Projects</span></a>
+                    <a x-show="$store.chats.selectedContext.project?.name" href="#" @click.prevent="$store.projects.editActiveProject(); open = false;" class="project-dropdown-item"><span class="icon material-symbols-outlined">edit</span> <span class="project-selector-item-text">Edit <span x-text="$store.chats.selectedContext.project?.title"></span></span></a>
+                    <a x-show="$store.chats.selectedContext.project?.name" href="#" @click.prevent="$store.projects.deactivateProject(); open = false;" class="project-dropdown-item"><span class="icon material-symbols-outlined">close</span> <span class="project-selector-item-text">Deactivate</span></a>
+                    <!-- <a href="#" @click.prevent="$store.projects.openProjectsModal(); $store.projects.openCreateModal(); open = false;" class="project-dropdown-item">Create Project</a> -->
+                    
+                    <hr x-show=" $store.projects.projectList.length > 0" class="project-dropdown-divider">
+                    <template x-for="project in $store.projects.projectList" :key="project.name">
+                        <a href="#" @click.prevent="$store.projects.activateProject(project.name); open = false;" class="project-dropdown-item">
+                            <span class="project-color-ball" :style="project.color ? { backgroundColor: project.color } : { border: '1px solid var(--color-border)' }"></span>
+                            <span class="project-selector-item-text" x-text="project.title"></span>
+                        </a>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+<style>
+    .project-dropdown-container {
+        position: relative;
+        display: inline-block;
+    }
+
+    .project-dropdown-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3em;
+        padding-left: 0.5em;
+        padding-right: 0.5em;
+    }
+
+    .project-color-ball {
+        width: 0.6em;
+        height: 0.6em;
+        border-radius: 50%;
+        display: inline-block;
+        box-sizing: border-box;
+        flex-shrink: 0;
+    }
+
+    .project-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        z-index: 1000;
+        background-color: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 4px;
+        padding: 0.5em 0;
+        min-width: 10rem;
+        max-width: 20em;
+        max-height: 70vh;
+        overflow-y: auto;
+        margin-top: 0.25rem;
+    }
+
+    .project-dropdown-item {
+        display: flex;
+        align-items: center;
+        margin: 0.25em 0.5em 0.25em 0.5em;
+        padding: 0.5em 1em;
+        color: var(--color-text-primary);
+        border-radius: var(--spacing-xs);
+        text-decoration: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .project-dropdown-item:hover {
+        background-color: var(--color-background-hover);
+    }
+
+    .project-dropdown-divider {
+        height: 1px;
+        margin: 0.5rem 0;
+        overflow: hidden;
+        background-color: var(--color-border);
+        border: 0;
+    }
+
+    .project-selector-item-text {
+        margin-left: 0.5em;
+    }
+</style>
+</html>

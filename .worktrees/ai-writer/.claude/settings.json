@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(# Check if instruments/custom is in gitignore grep -r \"\"instruments\"\" .gitignore || echo \"\"Not in gitignore\"\" # Check git status git status instruments/custom --porcelain || echo \"\"Error checking\"\" # Check if these are tracked git ls-files instruments/custom/)"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "name": "digital-clone-aggregator",
+      "path": "skills/digital-clone-aggregator",
+      "description": "Knowledge aggregation, digests, and architecture review."
+    }
+  ],
+  "workflows": [
+    {
+      "name": "telegram-inbox-daily",
+      "description": "Collect inbound Telegram thoughts, tag them, and publish daily digest.",
+      "entry": "scripts/run_digest_pipeline.py"
+    },
+    {
+      "name": "telegram-inbox-weekly",
+      "description": "Weekly synthesis over last 7 days.",
+      "entry": "scripts/run_digest_pipeline.py --window-hours=168"
+    }
+  ],
+  "tools": [
+    "telegram_send",
+    "knowledge_ingest",
+    "digest_builder"
+  ],
+  "actors": [
+    "actor-ops",
+    "actor-research",
+    "actor-writer",
+    "agent-builder",
+    "base",
+    "digital-clone",
+    "ghost-writer"
+  ]
+}

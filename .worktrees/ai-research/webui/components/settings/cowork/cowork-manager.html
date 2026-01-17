@@ -1,0 +1,224 @@
+<html>
+
+<head>
+    <title>Cowork Manager</title>
+    <script type="module">
+        import { store } from "/components/settings/cowork/cowork-manager-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.coworkManager">
+            <div class="cowork-manager" x-create="$store.coworkManager.onOpen()">
+                <div class="cowork-error" x-show="$store.coworkManager.error"
+                    x-text="$store.coworkManager.error"></div>
+                <div class="cowork-section">
+                    <h3>Allowed Folders</h3>
+                    <p class="cowork-hint">Agents can only read/write inside these folders.</p>
+                    <div class="cowork-actions">
+                        <button class="btn btn-ok" @click="$store.coworkManager.addFolder()"
+                            :disabled="$store.coworkManager.isSaving">Add Folder</button>
+                        <button class="btn btn-cancel" @click="$store.coworkManager.refresh()"
+                            :disabled="$store.coworkManager.isLoading">Refresh</button>
+                    </div>
+                    <div class="cowork-list" x-show="!$store.coworkManager.isLoading">
+                        <template x-if="!$store.coworkManager.allowedPaths.length">
+                            <div class="cowork-empty">No folders configured yet.</div>
+                        </template>
+                        <template x-for="path in $store.coworkManager.allowedPaths" :key="path">
+                            <div class="cowork-item">
+                                <span class="cowork-path" x-text="path"></span>
+                                <button class="btn btn-cancel"
+                                    @click="$store.coworkManager.removeFolder(path)">Remove</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="cowork-section">
+                    <h3>Approvals For This Thread</h3>
+                    <p class="cowork-hint">Approve or deny actions waiting on this conversation.</p>
+                    <div class="cowork-actions">
+                        <button class="btn btn-ok" @click="$store.coworkManager.refreshApprovals()"
+                            :disabled="$store.coworkManager.isLoading">Refresh</button>
+                        <button class="btn btn-cancel" @click="$store.coworkManager.clearResolved()"
+                            :disabled="!$store.coworkManager.resolvedApprovals.length">Clear Resolved</button>
+                    </div>
+
+                    <div class="cowork-approvals" x-show="!$store.coworkManager.isLoading">
+                        <div class="cowork-empty" x-show="!$store.coworkManager.contextId">
+                            Select a chat thread to manage approvals.
+                        </div>
+                        <template x-if="$store.coworkManager.contextId && !$store.coworkManager.pendingApprovals.length">
+                            <div class="cowork-empty">No pending approvals.</div>
+                        </template>
+                        <template x-for="approval in $store.coworkManager.pendingApprovals" :key="approval.id">
+                            <div class="cowork-card">
+                                <div class="cowork-card-header">
+                                    <strong x-text="approval.tool_name"></strong>
+                                    <span class="cowork-meta" x-text="approval.agent_name"></span>
+                                </div>
+                                <div class="cowork-card-body">
+                                    <div class="cowork-meta" x-text="approval.reason"></div>
+                                    <div class="cowork-meta" x-text="approval.created_at"></div>
+                                    <label class="cowork-inherit">
+                                        <input type="checkbox" x-model="approval.inherit" />
+                                        Apply to subagents
+                                    </label>
+                                    <pre x-text="JSON.stringify(approval.tool_args, null, 2)"></pre>
+                                    <template x-if="approval.paths && approval.paths.length">
+                                        <div class="cowork-blocked">
+                                            <strong>Blocked paths:</strong>
+                                            <span x-text="approval.paths.join(', ')"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="cowork-card-actions">
+                                    <button class="btn btn-ok"
+                                        @click="$store.coworkManager.actOnApproval(approval.id, 'approve', approval.inherit)">Approve</button>
+                                    <button class="btn btn-ok"
+                                        @click="$store.coworkManager.actOnApproval(approval.id, 'approve_and_retry', approval.inherit)">Approve &amp; Retry</button>
+                                    <button class="btn btn-cancel"
+                                        @click="$store.coworkManager.actOnApproval(approval.id, 'deny', approval.inherit)">Deny</button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="$store.coworkManager.contextId && $store.coworkManager.resolvedApprovals.length">
+                            <h4>Resolved</h4>
+                            <template x-for="approval in $store.coworkManager.resolvedApprovals" :key="approval.id">
+                                <div class="cowork-card cowork-card-resolved">
+                                    <div class="cowork-card-header">
+                                        <strong x-text="approval.tool_name"></strong>
+                                        <span class="cowork-meta" x-text="approval.status"></span>
+                                    </div>
+                                    <div class="cowork-card-body">
+                                        <div class="cowork-meta" x-text="approval.resolved_at || ''"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .cowork-manager {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 16px;
+        }
+
+        .cowork-section h3,
+        .cowork-section h4 {
+            margin: 0 0 8px 0;
+        }
+
+        .cowork-error {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #3b1f1f;
+            color: #f7c9c9;
+        }
+
+        .cowork-hint {
+            margin: 0 0 12px 0;
+            color: var(--color-text-secondary);
+        }
+
+        .cowork-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .cowork-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .cowork-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-secondary);
+        }
+
+        .cowork-path {
+            font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9rem;
+        }
+
+        .cowork-approvals {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .cowork-card {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            padding: 12px;
+            background: var(--secondary-bg);
+        }
+
+        .cowork-card-resolved {
+            opacity: 0.7;
+        }
+
+        .cowork-card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .cowork-card-body pre {
+            background: var(--color-background);
+            padding: 8px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .cowork-inherit {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 8px 0;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .cowork-meta {
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .cowork-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .cowork-empty {
+            color: var(--color-text-secondary);
+            font-style: italic;
+        }
+
+        .cowork-blocked {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</body>
+
+</html>

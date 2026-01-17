@@ -1,0 +1,13 @@
+{
+  "version": "20260113-184641",
+  "timestamp": "2026-01-13T23:46:42Z",
+  "models": [
+    {
+      "name": "qwen2.5-coder:7b",
+      "path": "models/manifests/registry.ollama.ai/library/qwen2.5-coder/7b",
+      "size": "4.4G",
+      "status": "ready"
+    }
+  ],
+  "total_size": "4.4G"
+}

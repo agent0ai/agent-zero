@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/permissions.schema.json",
+  "title": "Permissions Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "permissions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "scope": {"type": "string"},
+          "inheritance": {"type": "string"},
+          "gated_actions": {"type": "array", "items": {"type": "string"}},
+          "override": {"type": "string"},
+          "owners": {"type": "array", "items": {"type": "string"}},
+          "notes": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["permissions"],
+  "additionalProperties": false
+}

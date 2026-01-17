@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2024-01-15T00:00:00.000Z" agent="Draw.io" version="22.1.0">
+  <diagram id="message-flow" name="Message Processing Flow">
+    <mxGraphModel dx="1434" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Message Processing Flow - Agent Monologue Pipeline" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="250" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- User Input -->
+        <mxCell id="user-input" value="USER MESSAGE INPUT&#xa;(webui/index.js → sendMessage())" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="400" y="70" width="300" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- API Layer -->
+        <mxCell id="api-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="140" width="1020" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="api-label" value="API Layer" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="145" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="message-async" value="POST /message_async&#xa;(python/api/message_async.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+          <mxGeometry x="400" y="150" width="200" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Agent Context -->
+        <mxCell id="context-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="1020" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="context-label" value="Context Layer" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="225" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="communicate" value="AgentContext.communicate()&#xa;(agent.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088" vertex="1" parent="1">
+          <mxGeometry x="400" y="230" width="200" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Extension Hook 1 -->
+        <mxCell id="ext1-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="1020" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ext1" value="Extension: monologue_start (user_message_ui, memory_init, etc.)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="300" y="310" width="500" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Message Loop -->
+        <mxCell id="loop-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="370" width="1020" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-label" value="MESSAGE LOOP (Agent.monologue())" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="375" width="300" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-note" value="Repeats until response tool returns break_loop=True" style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="750" y="375" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Loop Steps -->
+        <mxCell id="loop-step1" value="1. Extension: message_loop_start" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="70" y="410" width="180" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-step2" value="2. Extension: message_loop_prompts_before" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="270" y="410" width="210" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prompt-build" value="3. Build Prompt&#xa;─────────────────────────&#xa;• Load system prompt (prompts/)&#xa;• Add history messages&#xa;• Include context variables&#xa;• Apply agent profile config" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="70" y="455" width="200" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="llm-call" value="4. LLM Call (Streaming)&#xa;─────────────────────────&#xa;• Extension: before_main_llm_call&#xa;• models.get_response_streaming()&#xa;• LiteLLM → Provider (Ollama, etc.)&#xa;• Extension: response_stream" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="290" y="455" width="210" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="parse-response" value="5. Parse Response&#xa;─────────────────────────&#xa;• Extract tool requests&#xa;• Parse tool name &amp; args&#xa;• Queue for execution&#xa;• Handle text responses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="520" y="455" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tool-exec-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;opacity=70" vertex="1" parent="1">
+          <mxGeometry x="720" y="410" width="320" height="135" as="geometry" />
+        </mxCell>
+        <mxCell id="tool-label" value="6. Tool Execution (Agent.process_tools())" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="735" y="415" width="290" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tool-before" value="Extension:&#xa;tool_execute_before&#xa;────────────────&#xa;• _20_cowork_approvals&#xa;• _30_telemetry_start" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="735" y="440" width="120" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="tool-execute" value="Tool.execute()&#xa;────────────────&#xa;Run tool action&#xa;Return Response" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="865" y="440" width="80" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="tool-after" value="Extension:&#xa;tool_execute_after&#xa;────────────────&#xa;• _30_telemetry_end&#xa;• Add to history" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=5;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="955" y="440" width="110" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- Loop Decision -->
+        <mxCell id="loop-decision" value="break_loop&#xa;= True?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+          <mxGeometry x="420" y="565" width="100" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-continue" value="No: Continue Loop&#xa;(Back to step 1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+          <mxGeometry x="200" y="575" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-exit" value="Yes: Exit Loop" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745" vertex="1" parent="1">
+          <mxGeometry x="620" y="580" width="100" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Extensions -->
+        <mxCell id="ext2" value="Extension: message_loop_prompts_after (prompt_enhancer, cowork_prompt)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="500" y="410" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Post Loop -->
+        <mxCell id="post-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="750" width="1020" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="post-ext" value="Extension: message_loop_end → monologue_end (memorize_fragments, waiting_msg)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+          <mxGeometry x="250" y="760" width="600" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Response -->
+        <mxCell id="response-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;opacity=50" vertex="1" parent="1">
+          <mxGeometry x="40" y="820" width="1020" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="response" value="RESPONSE TO CLIENT&#xa;(Rendered in chat history via webui/js/messages.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="350" y="830" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="a1" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;strokeWidth=2" edge="1" parent="1" source="user-input" target="message-async">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;strokeWidth=2" edge="1" parent="1" source="message-async" target="communicate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;strokeWidth=2" edge="1" parent="1" source="communicate" target="ext1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;strokeWidth=2" edge="1" parent="1" source="ext1" target="loop-step1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="loop-step1" target="loop-step2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a6" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="loop-step2" target="ext2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a7" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="prompt-build" target="llm-call">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a8" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="llm-call" target="parse-response">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a9" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="parse-response" target="tool-before">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a10" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="tool-before" target="tool-execute">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a11" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666" edge="1" parent="1" source="tool-execute" target="tool-after">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a12" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;strokeWidth=2" edge="1" parent="1" source="tool-after" target="loop-decision">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1010" y="650" />
+              <mxPoint x="550" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a13" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#cc0000;strokeWidth=2" edge="1" parent="1" source="loop-decision" target="loop-continue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a13b" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#cc0000;strokeWidth=2;curved=1" edge="1" parent="1" source="loop-continue" target="loop-step1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="80" y="600" />
+              <mxPoint x="80" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a14" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#28a745;strokeWidth=2" edge="1" parent="1" source="loop-decision" target="loop-exit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a15" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;strokeWidth=2" edge="1" parent="1" source="loop-exit" target="post-ext">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a16" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;strokeWidth=2" edge="1" parent="1" source="post-ext" target="response">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000" vertex="1" parent="1">
+          <mxGeometry x="40" y="900" width="500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="Legend:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="50" y="910" width="50" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="Extension" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="110" y="910" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="Agent Core" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="180" y="910" width="70" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="LLM Call" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="260" y="910" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="Tool Exec" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="330" y="910" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="Decision" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="400" y="905" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg6" value="I/O" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="470" y="910" width="50" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

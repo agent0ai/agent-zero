@@ -1,0 +1,21 @@
+{
+  "$schema": "app_spec/permissions.schema.json",
+  "permissions": {
+    "cowork_mode": {
+      "scope": "Per thread",
+      "inheritance": "Optional per approval",
+      "gated_actions": ["Impactful tools", "Out-of-scope paths"],
+      "override": "User approval required"
+    },
+    "settings": {
+      "scope": "Global",
+      "owners": ["User"],
+      "notes": "Changes apply to agent contexts"
+    },
+    "secrets": {
+      "scope": "Global",
+      "owners": ["User"],
+      "notes": "Masked from chat history and logs"
+    }
+  }
+}

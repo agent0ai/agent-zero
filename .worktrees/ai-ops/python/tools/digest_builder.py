@@ -1,0 +1,63 @@
+"""Digest builder tool for Agent Zero."""
+
+from python.helpers import files
+from python.helpers.tool import Response, Tool
+
+
+class DigestBuilder(Tool):
+    """Builds digests from ingested knowledge items."""
+
+    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
+        super().__init__(agent, name, args, message, **kwargs)
+        from instruments.custom.digest_builder.digest_builder_manager import DigestBuilderManager
+
+        db_path = files.get_abs_path(
+            "./instruments/custom/knowledge_ingest/data/knowledge_ingest.db"
+        )
+        self.manager = DigestBuilderManager(db_path)
+
+    async def execute(self, **kwargs):
+        action = (self.args.get("action") or "").lower()
+
+        if action == "build_digest":
+            return self._build_digest()
+        if action == "build_architecture_review":
+            return self._build_architecture_review()
+        if action == "list_digests":
+            return self._list_digests()
+
+        return Response(
+            message="Unknown action. Use build_digest, build_architecture_review, or list_digests.",
+            break_loop=False,
+        )
+
+    def _build_digest(self):
+        window_hours = int(self.args.get("window_hours", 24))
+        max_items = int(self.args.get("max_items_per_section", 3))
+        channel = self.args.get("channel", "telegram")
+        result = self.manager.build_digest(
+            window_hours=window_hours,
+            max_items_per_section=max_items,
+            channel=channel,
+        )
+        return Response(message=result.get("summary", str(result)), break_loop=False)
+
+    def _list_digests(self):
+        limit = int(self.args.get("limit", 10))
+        result = self.manager.list_digests(limit=limit)
+        return Response(message=str(result), break_loop=False)
+
+    def _build_architecture_review(self):
+        context = self.args.get("context", "")
+        options = self.args.get("options") or []
+        decision = self.args.get("decision", "")
+        follow_ups = self.args.get("follow_ups") or []
+        open_questions = self.args.get("open_questions") or []
+        result = self.manager.build_architecture_review(
+            context=context,
+            options=options,
+            decision=decision,
+            follow_ups=follow_ups,
+            open_questions=open_questions,
+        )
+        return Response(message=result.get("adr", str(result)), break_loop=False)

@@ -1,0 +1,23 @@
+{
+  "$schema": "app_spec/operations.schema.json",
+  "operations": {
+    "run_local": [
+      "python run_ui.py"
+    ],
+    "docker": [
+      "docker compose up -d"
+    ],
+    "config": [
+      "Settings modal for models and integrations",
+      "MCP config JSON",
+      "Cowork allowlist and approvals"
+    ],
+    "testing": [
+      "Manual: open UI, send message, verify logs",
+      "Gmail: use test utility to send email",
+      "Cowork: trigger approval and approve via Cowork Manager",
+      "Observability: enable telemetry and verify events",
+      "Eval: run scripts/run_eval_cases.py against recorded results"
+    ]
+  }
+}

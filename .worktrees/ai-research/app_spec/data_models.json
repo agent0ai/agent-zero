@@ -1,0 +1,57 @@
+{
+  "$schema": "app_spec/data_models.schema.json",
+  "data_models": [
+    {
+      "name": "Settings",
+      "path": "python/helpers/settings.py",
+      "fields": [
+        "chat_model_*",
+        "util_model_*",
+        "embed_model_*",
+        "browser_model_*",
+        "memory_*",
+        "gmail_accounts",
+        "cowork_*",
+        "mcp_servers"
+      ]
+    },
+    {
+      "name": "CoworkApproval",
+      "path": "python/helpers/cowork.py",
+      "fields": [
+        "id",
+        "status",
+        "created_at",
+        "resolved_at",
+        "agent_number",
+        "agent_name",
+        "inherit",
+        "tool_name",
+        "tool_args",
+        "paths",
+        "fingerprint",
+        "consumed"
+      ]
+    },
+    {
+      "name": "AgentContext",
+      "path": "agent.py",
+      "fields": [
+        "id",
+        "name",
+        "log",
+        "paused",
+        "data",
+        "output_data"
+      ]
+    },
+    {
+      "name": "TelemetryStore",
+      "path": "python/helpers/telemetry.py",
+      "fields": [
+        "events",
+        "stats"
+      ]
+    }
+  ]
+}

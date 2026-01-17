@@ -1,0 +1,94 @@
+<html>
+<head>
+    <title>Gmail Account Manager</title>
+    <script type="module" src="/components/settings/external/gmail-account-manager-store.js"></script>
+</head>
+<body class="modal-small">
+    <div x-data x-init="$store.gmailAccountManagerStore.initialize()" x-destroy="$store.gmailAccountManagerStore.onClose()">
+        <template x-if="$store.gmailAccountManagerStore">
+            <div>
+                <div class="gmail-manager-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+                    <h3 style="margin: 0;">Connected Accounts</h3>
+                    <button class="btn btn-ok slim" @click="$store.gmailAccountManagerStore.toggleAddForm()" x-text="$store.gmailAccountManagerStore.showAddForm ? 'Cancel' : 'Add Account'"></button>
+                </div>
+
+                <!-- Add Account Form -->
+                <div x-show="$store.gmailAccountManagerStore.showAddForm" class="add-account-form" style="padding: 1em; background: rgba(0,0,0,0.05); border-radius: 8px; margin-bottom: 1.5em; border: 1px solid rgba(192,192,192,0.3);">
+                    <h4>Add New Gmail Account</h4>
+                    <p style="font-size: 0.9em; margin-bottom: 1em; opacity: 0.8;">Enter a descriptive name and paste your <code>credentials.json</code> content from Google Cloud Console.</p>
+                    
+                    <div style="margin-bottom: 1em;">
+                        <label style="display: block; font-size: 0.85em; font-weight: bold; margin-bottom: 4px;">Account Name (e.g. "personal", "sales")</label>
+                        <input type="text" x-model="$store.gmailAccountManagerStore.newAccountName" placeholder="personal" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
+                    </div>
+
+                    <div style="margin-bottom: 1em;">
+                        <label style="display: block; font-size: 0.85em; font-weight: bold; margin-bottom: 4px;">Credentials JSON Contents</label>
+                        <div id="gmail-credentials-editor" x-show="$store.gmailAccountManagerStore.aceReady"
+                            style="width: 100%; height: 160px; border: 1px solid rgba(0,0,0,0.2); border-radius: 4px;"></div>
+                        <textarea x-show="!$store.gmailAccountManagerStore.aceReady" x-model="$store.gmailAccountManagerStore.credentialsJson"
+                            placeholder='{"web":{"client_id":...}}'
+                            style="width: 100%; height: 160px; font-family: monospace; padding: 8px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2); font-size: 0.85em;"></textarea>
+                        <div style="display: flex; gap: 0.5em; margin-top: 0.5em; flex-wrap: wrap;">
+                            <label class="btn slim" style="margin: 0;">
+                                Upload credentials.json
+                                <input type="file" accept="application/json" style="display: none;"
+                                    @change="$store.gmailAccountManagerStore.loadCredentialsFromFile($event)">
+                            </label>
+                            <button class="btn slim" @click="$store.gmailAccountManagerStore.formatCredentialsJson()">Reformat</button>
+                            <button class="btn slim" @click="$store.gmailAccountManagerStore.clearCredentials()">Clear</button>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button class="btn btn-ok" @click="$store.gmailAccountManagerStore.startOAuth()">Authenticate via Google</button>
+                    </div>
+                </div>
+
+                <!-- Account List -->
+                <div class="account-list" x-show="!$store.gmailAccountManagerStore.loading">
+                    <template x-for="account in $store.gmailAccountManagerStore.accounts" :key="account.name">
+                        <div class="account-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.8em; border-bottom: 1px solid rgba(0,0,0,0.05); background: rgba(255,255,255,0.02); margin-bottom: 4px; border-radius: 4px;">
+                            <div class="account-info">
+                                <div style="font-weight: bold;" x-text="account.name"></div>
+                                <div style="font-size: 0.85em; opacity: 0.7;" x-text="account.email"></div>
+                                <div style="font-size: 0.75em; margin-top: 4px;">
+                                    <span :style="{ color: account.valid ? '#00c340' : '#e40138' }" x-text="account.valid ? 'Active ✅' : 'Invalid ❌'"></span>
+                                    <span style="opacity: 0.5; margin-left: 8px;" x-text="'Added: ' + (account.added_date ? new Date(account.added_date).toLocaleDateString() : 'N/A')"></span>
+                                </div>
+                            </div>
+                            <div class="account-actions">
+                                <button class="btn btn-cancel slim" @click="$store.gmailAccountManagerStore.removeAccount(account.name)">Remove</button>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="$store.gmailAccountManagerStore.accounts.length === 0" style="padding: 2em; text-align: center; opacity: 0.5; font-style: italic;">
+                        No accounts configured yet.
+                    </div>
+                </div>
+
+                <div x-show="$store.gmailAccountManagerStore.loading" style="padding: 2em; text-align: center;">
+                    <span class="loading-spinner"></span> Loading accounts...
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .gmail-manager-header h3 {
+            margin: 0;
+            color: var(--c-fg);
+        }
+        .add-account-form h4 {
+            margin-top: 0;
+            margin-bottom: 0.5em;
+        }
+        .account-item:last-child {
+            border-bottom: none;
+        }
+        #gmail-credentials-editor {
+            background: #fff;
+        }
+    </style>
+</body>
+</html>

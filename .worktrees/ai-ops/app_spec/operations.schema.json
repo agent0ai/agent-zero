@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/operations.schema.json",
+  "title": "Operations Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "operations": {
+      "type": "object",
+      "properties": {
+        "run_local": {"type": "array", "items": {"type": "string"}},
+        "docker": {"type": "array", "items": {"type": "string"}},
+        "config": {"type": "array", "items": {"type": "string"}},
+        "testing": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["operations"],
+  "additionalProperties": false
+}

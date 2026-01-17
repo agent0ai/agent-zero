@@ -1,0 +1,114 @@
+<!-- Life OS Dashboard -->
+<div class="dashboard-page" x-data x-init="$store.lifeOsDashboard?.init()">
+    <div class="dashboard-page-header">
+        <h1>
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 7v6l4 2"/>
+            </svg>
+            Life OS
+        </h1>
+        <button class="dashboard-back-btn" @click="$store.dashboardRouter?.closeDashboard()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Chat
+        </button>
+    </div>
+
+    <div class="dashboard-page-body">
+        <div class="lifeos-actions">
+            <button class="dashboard-link-btn" @click="$store.lifeOsDashboard.refresh()">Refresh</button>
+        </div>
+        <div class="dashboard-stats">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.lifeOsDashboard?.dashboard.event_count || 0"></div>
+                <div class="dashboard-stat-label">Recent Events</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.lifeOsDashboard?.sourceCount('workflow')"></div>
+                <div class="dashboard-stat-label">Workflow</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.lifeOsDashboard?.sourceCount('scheduler')"></div>
+                <div class="dashboard-stat-label">Scheduler</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.lifeOsDashboard?.sourceCount('property')"></div>
+                <div class="dashboard-stat-label">Property</div>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <div class="dashboard-card-title">Latest Event</div>
+            </div>
+            <div class="dashboard-empty" x-show="!$store.lifeOsDashboard?.dashboard.latest_event">
+                No events yet.
+            </div>
+            <div class="lifeos-event" x-show="$store.lifeOsDashboard?.dashboard.latest_event">
+                <div class="lifeos-event-type" x-text="$store.lifeOsDashboard?.dashboard.latest_event?.type"></div>
+                <div class="lifeos-event-meta" x-text="$store.lifeOsDashboard?.formatPayload($store.lifeOsDashboard?.dashboard.latest_event?.payload)"></div>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <div class="dashboard-card-title">Widgets</div>
+            </div>
+            <div class="lifeos-widgets">
+                <template x-for="widget in ($store.lifeOsDashboard?.dashboard.widgets || [])" :key="widget.widget_id">
+                    <div class="lifeos-widget">
+                        <div class="lifeos-widget-title" x-text="widget.widget_id"></div>
+                        <div class="lifeos-widget-meta" x-text="widget.enabled ? 'Enabled' : 'Disabled'"></div>
+                    </div>
+                </template>
+                <div class="dashboard-empty" x-show="!$store.lifeOsDashboard?.dashboard.widgets?.length">
+                    No widgets configured yet.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="dashboards/life_os/life-os-store.js"></script>
+
+<style>
+.lifeos-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+.lifeos-event {
+    padding: 12px 16px;
+    background: var(--color-message-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+.lifeos-event-type {
+    font-weight: 600;
+}
+.lifeos-event-meta {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    margin-top: 6px;
+}
+.lifeos-widgets {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+.lifeos-widget {
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-message-bg);
+}
+.lifeos-widget-title {
+    font-weight: 600;
+}
+.lifeos-widget-meta {
+    opacity: 0.7;
+    font-size: 0.8rem;
+}
+</style>

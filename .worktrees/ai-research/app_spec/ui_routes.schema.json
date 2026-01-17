@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/ui_routes.schema.json",
+  "title": "UI Routes Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "ui_routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "path": {"type": "string"},
+          "components": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["name", "path"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["ui_routes"],
+  "additionalProperties": false
+}

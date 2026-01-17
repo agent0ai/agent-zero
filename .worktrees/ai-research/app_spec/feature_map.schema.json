@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/feature_map.schema.json",
+  "title": "Feature Map Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "feature_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "feature": {"type": "string"},
+          "specs": {"type": "array", "items": {"type": "string"}},
+          "frontend": {"type": "array", "items": {"type": "string"}},
+          "backend": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["feature"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["feature_map"],
+  "additionalProperties": false
+}

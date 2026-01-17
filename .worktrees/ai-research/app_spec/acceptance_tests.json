@@ -1,0 +1,60 @@
+{
+  "$schema": "app_spec/acceptance_tests.schema.json",
+  "acceptance_tests": [
+    {
+      "id": "at-001",
+      "story_id": "us-001",
+      "title": "Chat-driven task execution",
+      "steps": [
+        "Open the UI and start a new chat",
+        "Send a simple request (e.g., list files)",
+        "Observe the agent response and tool execution",
+        "Verify the response and logs appear in chat"
+      ]
+    },
+    {
+      "id": "at-002",
+      "story_id": "us-002",
+      "title": "Cowork folder scoping",
+      "steps": [
+        "Enable Cowork mode in Settings",
+        "Open Cowork Manager and add /a0 as allowlist",
+        "Ask the agent to access a path outside /a0",
+        "Verify approval is required or action blocked"
+      ]
+    },
+    {
+      "id": "at-003",
+      "story_id": "us-003",
+      "title": "Cowork approvals per thread",
+      "steps": [
+        "Trigger an impactful tool (e.g., code_execution_tool)",
+        "Open Cowork Manager for the current thread",
+        "Approve the pending action",
+        "Verify the action continues after approval"
+      ]
+    },
+    {
+      "id": "at-004",
+      "story_id": "us-004",
+      "title": "MCP configuration",
+      "steps": [
+        "Open Settings → MCP",
+        "Paste a valid MCP config JSON",
+        "Save settings",
+        "Verify MCP tools are available in the system prompt"
+      ]
+    },
+    {
+      "id": "at-005",
+      "story_id": "us-005",
+      "title": "Gmail test utility",
+      "steps": [
+        "Configure Gmail OAuth in the account manager",
+        "Open the Gmail Test Utility",
+        "Send a test email",
+        "Verify delivery and success response"
+      ]
+    }
+  ]
+}

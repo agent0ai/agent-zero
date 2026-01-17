@@ -1,0 +1,59 @@
+# Ignore common unwanted files globally
+**/.DS_Store
+**/.env
+**/__pycache__/
+*.py[cod]
+**/.conda/
+
+#Ignore IDE files
+.cursor/
+.windsurf/
+
+# ignore test files in root dir
+/*.test.py
+
+# Ignore all contents of the virtual environment directory
+.venv/
+
+# Handle memory directory
+memory/**
+!memory/**/
+
+# Handle logs directory
+logs/*
+
+# Handle tmp and usr directory
+tmp/*
+usr/*
+
+# Handle knowledge directory
+knowledge/**
+!knowledge/**/
+# Explicitly allow the default and custom folders in knowledge
+!knowledge/default/
+!knowledge/default/**
+!knowledge/custom/
+!knowledge/custom/**
+!knowledge/INTERNAL_KNOWLEDGE_MAP.md
+
+# Handle instruments directory
+instruments/**
+!instruments/**/
+# Explicitly allow the default folder in instruments
+!instruments/default/
+!instruments/default/**
+
+# Global rule to include .gitkeep files anywhere
+!**/.gitkeep
+
+# for browser-use
+agent_history.gif
+
+# Ollama Models - Stored in GCP Bucket
+# Download with: ./scripts/gcp_models_sync.sh download
+ollama_models/models/
+ollama_models/blobs/
+!ollama_models/model_manifest.json
+!ollama_models/README.md
+!ollama_models/.gitkeep
+

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_spec/data_models.schema.json",
+  "title": "Data Models Spec",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "data_models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "path": {"type": "string"},
+          "fields": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["name", "path"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["data_models"],
+  "additionalProperties": false
+}

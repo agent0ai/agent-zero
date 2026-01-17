@@ -1,0 +1,55 @@
+{
+  "$schema": "app_spec/user_stories.schema.json",
+  "user_stories": [
+    {
+      "id": "us-001",
+      "role": "User",
+      "goal": "execute a task by chatting",
+      "benefit": "I can get work done without scripting every step.",
+      "acceptance": [
+        "Chat input accepts a request",
+        "Agent responds with progress and results"
+      ]
+    },
+    {
+      "id": "us-002",
+      "role": "User",
+      "goal": "restrict agent access to specific folders",
+      "benefit": "I can keep the agent scoped to safe directories.",
+      "acceptance": [
+        "Folders are configurable in settings",
+        "Out-of-scope paths are blocked"
+      ]
+    },
+    {
+      "id": "us-003",
+      "role": "User",
+      "goal": "approve impactful actions on a per-thread basis",
+      "benefit": "I can review high-risk actions before they run.",
+      "acceptance": [
+        "Pending approvals appear in Cowork Manager",
+        "Approving triggers action continuation"
+      ]
+    },
+    {
+      "id": "us-004",
+      "role": "User",
+      "goal": "configure MCP servers",
+      "benefit": "I can add external tools safely.",
+      "acceptance": [
+        "Settings accept MCP config JSON",
+        "Tools are available to the agent"
+      ]
+    },
+    {
+      "id": "us-005",
+      "role": "User",
+      "goal": "send a Gmail test email",
+      "benefit": "I can verify OAuth configuration quickly.",
+      "acceptance": [
+        "Account manager lists Gmail accounts",
+        "Test utility sends a message"
+      ]
+    }
+  ]
+}

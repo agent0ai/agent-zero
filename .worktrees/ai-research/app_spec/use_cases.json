@@ -1,0 +1,50 @@
+{
+  "$schema": "app_spec/use_cases.schema.json",
+  "use_cases": [
+    {
+      "id": "uc-chat-task",
+      "title": "Chat-driven task execution",
+      "description": "User asks for a task; agent plans and executes with tools.",
+      "actors": ["User", "Agent"],
+      "preconditions": ["Agent UI running", "Models configured"],
+      "success": ["Task output posted to chat", "Logs updated"],
+      "touchpoints": ["webui", "agent", "tools"]
+    },
+    {
+      "id": "uc-cowork-approvals",
+      "title": "Cowork approvals and folder scoping",
+      "description": "Agent requests approval for impactful actions and stays within allowlisted folders.",
+      "actors": ["User", "Agent"],
+      "preconditions": ["Cowork mode enabled"],
+      "success": ["Approvals recorded", "Action executed after approval"],
+      "touchpoints": ["settings", "cowork manager", "tool_execute_before"]
+    },
+    {
+      "id": "uc-gmail-send",
+      "title": "Send Gmail test message",
+      "description": "User configures OAuth and sends a test email.",
+      "actors": ["User"],
+      "preconditions": ["Gmail OAuth configured"],
+      "success": ["Email delivered", "Test result shown"],
+      "touchpoints": ["gmail account manager", "gmail test utility"]
+    },
+    {
+      "id": "uc-mcp-config",
+      "title": "Configure MCP servers",
+      "description": "User pastes MCP config in settings and loads tools.",
+      "actors": ["User"],
+      "preconditions": ["MCP server credentials"],
+      "success": ["MCP tools appear in system prompt"],
+      "touchpoints": ["settings", "mcp handler"]
+    },
+    {
+      "id": "uc-memory-dashboard",
+      "title": "Inspect memory dashboard",
+      "description": "User searches and filters memory entries.",
+      "actors": ["User"],
+      "preconditions": ["Memory enabled"],
+      "success": ["Results rendered", "Optional deletes applied"],
+      "touchpoints": ["memory dashboard", "memory API"]
+    }
+  ]
+}
