@@ -46,3 +46,7 @@ instruments/**
 # for browser-use
 agent_history.gif
 
+# local experiment files
+docker-compose.yml
+.env
+
