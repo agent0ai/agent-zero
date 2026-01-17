@@ -819,3 +819,28 @@ class CalendarSyncService:
         }
 
         return calendar_mapping.get(property_id, 1)  # Default to calendar 1
+
+    async def is_duplicate_sync(self, reservation: Reservation, calendar_id: Optional[int] = None) -> bool:
+        """
+        Check if reservation already synced to this calendar
+
+        Prevents duplicate events by checking stored metadata
+
+        Args:
+            reservation: Canonical Reservation object
+            calendar_id: Calendar ID to check (default 1)
+
+        Returns:
+            True if already synced to this calendar, False otherwise
+
+        ★ Insight ─────────────────────────────────────
+        - Prevents duplicate events on re-sync operations
+        - Uses stored calendar_event_ids metadata
+        - Allows safe retry of sync without duplicates
+        ─────────────────────────────────────────────────
+        """
+        if not hasattr(reservation, "calendar_event_ids"):
+            return False
+
+        calendar_key = f"calendar_{calendar_id or 1}"
+        return calendar_key in reservation.calendar_event_ids
