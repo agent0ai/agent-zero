@@ -43,6 +43,13 @@ const dashboardRouterModel = {
         this.activeDashboard = dashboardId;
 
         try {
+            const storeLoader = {
+                portfolio: () => import('/dashboards/portfolio/portfolio-store.js'),
+                workflows: () => import('/dashboards/workflows/workflow-store.js')
+            }[dashboardId];
+            if (storeLoader) {
+                await storeLoader();
+            }
             const response = await fetch(dashboard.component);
             if (response.ok) {
                 this.dashboardContent = await response.text();

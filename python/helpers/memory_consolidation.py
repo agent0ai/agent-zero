@@ -17,6 +17,7 @@ from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHO
 
 class ConsolidationAction(Enum):
     """Actions that can be taken during memory consolidation."""
+
     MERGE = "merge"
     REPLACE = "replace"
     KEEP_SEPARATE = "keep_separate"
@@ -27,6 +28,7 @@ class ConsolidationAction(Enum):
 @dataclass
 class ConsolidationConfig:
     """Configuration for memory consolidation behavior."""
+
     similarity_threshold: float = DEFAULT_MEMORY_THRESHOLD
     max_similar_memories: int = 10
     consolidation_sys_prompt: str = "memory.consolidation.sys.md"
@@ -42,6 +44,7 @@ class ConsolidationConfig:
 @dataclass
 class ConsolidationResult:
     """Result of memory consolidation analysis."""
+
     action: ConsolidationAction
     memories_to_remove: list[str] = field(default_factory=list)
     memories_to_update: list[dict[str, Any]] = field(default_factory=list)
@@ -53,6 +56,7 @@ class ConsolidationResult:
 @dataclass
 class MemoryAnalysisContext:
     """Context for LLM memory analysis."""
+
     new_memory: str
     similar_memories: list[Document]
     area: str
@@ -71,11 +75,7 @@ class MemoryConsolidator:
         self.config = config or ConsolidationConfig()
 
     async def process_new_memory(
-        self,
-        new_memory: str,
-        area: str,
-        metadata: dict[str, Any],
-        log_item: LogItem | None = None
+        self, new_memory: str, area: str, metadata: dict[str, Any], log_item: LogItem | None = None
     ) -> dict:
         """
         Process a new memory through the intelligent consolidation pipeline.
@@ -95,10 +95,7 @@ class MemoryConsolidator:
                 self._process_memory_with_consolidation(new_memory, area, metadata, log_item)
             )
 
-            result = await asyncio.wait_for(
-                processing_task,
-                timeout=self.config.processing_timeout_seconds
-            )
+            result = await asyncio.wait_for(processing_task, timeout=self.config.processing_timeout_seconds)
             return result
 
         except TimeoutError:
@@ -110,11 +107,7 @@ class MemoryConsolidator:
             return {"success": False, "memory_ids": []}
 
     async def _process_memory_with_consolidation(
-        self,
-        new_memory: str,
-        area: str,
-        metadata: dict[str, Any],
-        log_item: LogItem | None = None
+        self, new_memory: str, area: str, metadata: dict[str, Any], log_item: LogItem | None = None
     ) -> dict:
         """Execute the full consolidation pipeline."""
 
@@ -128,20 +121,17 @@ class MemoryConsolidator:
         if not similar_memories:
             # No similar memories found, insert directly
             if log_item:
-                log_item.update(
-                    progress="No similar memories found, inserting new memory",
-                    temp=True
-                )
+                log_item.update(progress="No similar memories found, inserting new memory", temp=True)
             try:
                 db = await Memory.get(self.agent)
-                if 'timestamp' not in metadata:
-                    metadata['timestamp'] = self._get_timestamp()
+                if "timestamp" not in metadata:
+                    metadata["timestamp"] = self._get_timestamp()
                 memory_id = await db.insert_text(new_memory, metadata)
                 if log_item:
                     log_item.update(
                         result="Memory inserted successfully",
                         memory_ids=[memory_id],
-                        consolidation_action="direct_insert"
+                        consolidation_action="direct_insert",
                     )
                 return {"success": True, "memory_ids": [memory_id]}
             except Exception as e:
@@ -154,20 +144,20 @@ class MemoryConsolidator:
             log_item.update(
                 progress=f"Found {len(similar_memories)} similar memories, analyzing...",
                 temp=True,
-                similar_memories_count=len(similar_memories)
+                similar_memories_count=len(similar_memories),
             )
 
         # Step 2: Validate that similar memories still exist (they might have been deleted by previous consolidations)
         if similar_memories:
-            memory_ids_to_check = [doc.metadata.get('id') for doc in similar_memories if doc.metadata.get('id')]
+            memory_ids_to_check = [doc.metadata.get("id") for doc in similar_memories if doc.metadata.get("id")]
             # Filter out None values and ensure all IDs are strings
             memory_ids_to_check = [str(id) for id in memory_ids_to_check if id is not None]
             db = await Memory.get(self.agent)
             still_existing = db.db.get_by_ids(memory_ids_to_check)
-            existing_ids = {doc.metadata.get('id') for doc in still_existing}
+            existing_ids = {doc.metadata.get("id") for doc in still_existing}
 
             # Filter out deleted memories
-            valid_similar_memories = [doc for doc in similar_memories if doc.metadata.get('id') in existing_ids]
+            valid_similar_memories = [doc for doc in similar_memories if doc.metadata.get("id") in existing_ids]
 
             if len(valid_similar_memories) != len(similar_memories):
                 deleted_count = len(similar_memories) - len(valid_similar_memories)
@@ -176,27 +166,24 @@ class MemoryConsolidator:
                         progress=f"Filtered out {deleted_count} deleted memories, {len(valid_similar_memories)} remain for analysis",
                         temp=True,
                         race_condition_detected=True,
-                        deleted_similar_memories_count=deleted_count
+                        deleted_similar_memories_count=deleted_count,
                     )
                 similar_memories = valid_similar_memories
 
         # If no valid similar memories remain after filtering, insert directly
         if not similar_memories:
             if log_item:
-                log_item.update(
-                    progress="No valid similar memories remain, inserting new memory",
-                    temp=True
-                )
+                log_item.update(progress="No valid similar memories remain, inserting new memory", temp=True)
             try:
                 db = await Memory.get(self.agent)
-                if 'timestamp' not in metadata:
-                    metadata['timestamp'] = self._get_timestamp()
+                if "timestamp" not in metadata:
+                    metadata["timestamp"] = self._get_timestamp()
                 memory_id = await db.insert_text(new_memory, metadata)
                 if log_item:
                     log_item.update(
                         result="Memory inserted successfully (no valid similar memories)",
                         memory_ids=[memory_id],
-                        consolidation_action="direct_insert_filtered"
+                        consolidation_action="direct_insert_filtered",
                     )
                 return {"success": True, "memory_ids": [memory_id]}
             except Exception as e:
@@ -211,28 +198,25 @@ class MemoryConsolidator:
             similar_memories=similar_memories,
             area=area,
             timestamp=self._get_timestamp(),
-            existing_metadata=metadata
+            existing_metadata=metadata,
         )
 
         consolidation_result = await self._analyze_memory_consolidation(analysis_context, log_item)
 
         if consolidation_result.action == ConsolidationAction.SKIP:
             if log_item:
-                log_item.update(
-                    progress="LLM analysis suggests skipping consolidation",
-                    temp=True
-                )
+                log_item.update(progress="LLM analysis suggests skipping consolidation", temp=True)
             try:
                 db = await Memory.get(self.agent)
-                if 'timestamp' not in metadata:
-                    metadata['timestamp'] = self._get_timestamp()
+                if "timestamp" not in metadata:
+                    metadata["timestamp"] = self._get_timestamp()
                 memory_id = await db.insert_text(new_memory, metadata)
                 if log_item:
                     log_item.update(
                         result="Memory inserted (consolidation skipped)",
                         memory_ids=[memory_id],
                         consolidation_action="skip",
-                        reasoning=consolidation_result.reasoning or "LLM analysis suggested skipping"
+                        reasoning=consolidation_result.reasoning or "LLM analysis suggested skipping",
                     )
                 return {"success": True, "memory_ids": [memory_id]}
             except Exception as e:
@@ -246,7 +230,7 @@ class MemoryConsolidator:
             consolidation_result,
             area,
             analysis_context.existing_metadata,  # Pass original metadata
-            log_item
+            log_item,
         )
 
         if log_item:
@@ -256,22 +240,19 @@ class MemoryConsolidator:
                     memory_ids=memory_ids,
                     consolidation_action=consolidation_result.action.value,
                     reasoning=consolidation_result.reasoning or "No specific reasoning provided",
-                    memories_processed=len(similar_memories) + 1  # +1 for new memory
+                    memories_processed=len(similar_memories) + 1,  # +1 for new memory
                 )
             else:
                 log_item.update(
                     result=f"Consolidation failed: {consolidation_result.action.value}",
                     consolidation_action=consolidation_result.action.value,
-                    reasoning=consolidation_result.reasoning or "Consolidation operation failed"
+                    reasoning=consolidation_result.reasoning or "Consolidation operation failed",
                 )
 
         return {"success": bool(memory_ids), "memory_ids": memory_ids or []}
 
     async def _gather_consolidated_metadata(
-        self,
-        db: Memory,
-        result: ConsolidationResult,
-        original_metadata: dict[str, Any]
+        self, db: Memory, result: ConsolidationResult, original_metadata: dict[str, Any]
     ) -> dict[str, Any]:
         """
         Gather and merge metadata from memories being consolidated to preserve important fields.
@@ -291,7 +272,7 @@ class MemoryConsolidator:
             # Add memories to be updated (UPDATE action)
             if result.memories_to_update:
                 for update_info in result.memories_to_update:
-                    memory_id = update_info.get('id')
+                    memory_id = update_info.get("id")
                     if memory_id:
                         memory_ids.append(memory_id)
 
@@ -310,7 +291,11 @@ class MemoryConsolidator:
                             consolidated_metadata[field_name] = field_value
                         elif field_name in consolidated_metadata:
                             # Field exists in both - handle special merge cases
-                            if field_name == 'tags' and isinstance(field_value, list) and isinstance(consolidated_metadata[field_name], list):
+                            if (
+                                field_name == "tags"
+                                and isinstance(field_value, list)
+                                and isinstance(consolidated_metadata[field_name], list)
+                            ):
                                 # Merge tags lists and remove duplicates
                                 merged_tags = list(set(consolidated_metadata[field_name] + field_value))
                                 consolidated_metadata[field_name] = merged_tags
@@ -325,10 +310,7 @@ class MemoryConsolidator:
             return original_metadata
 
     async def _find_similar_memories(
-        self,
-        new_memory: str,
-        area: str,
-        log_item: LogItem | None = None
+        self, new_memory: str, area: str, log_item: LogItem | None = None
     ) -> list[Document]:
         """
         Find similar memories using both semantic similarity and keyword matching.
@@ -346,7 +328,7 @@ class MemoryConsolidator:
             query=new_memory,
             limit=self.config.max_similar_memories,
             threshold=self.config.similarity_threshold,
-            filter=f"area == '{area}'"
+            filter=f"area == '{area}'",
         )
         all_similar.extend(semantic_similar)
 
@@ -359,7 +341,7 @@ class MemoryConsolidator:
                     query=query.strip(),
                     limit=max(3, self.config.max_similar_memories // queries_count),
                     threshold=self.config.similarity_threshold,
-                    filter=f"area == '{area}'"
+                    filter=f"area == '{area}'",
                 )
                 all_similar.extend(keyword_similar)
 
@@ -367,7 +349,7 @@ class MemoryConsolidator:
         seen_ids = set()
         unique_similar = []
         for doc in all_similar:
-            doc_id = doc.metadata.get('id')
+            doc_id = doc.metadata.get("id")
             if doc_id and doc_id not in seen_ids:
                 seen_ids.add(doc_id)
                 unique_similar.append(doc)
@@ -382,7 +364,7 @@ class MemoryConsolidator:
         safety_threshold = self.config.replace_similarity_threshold
 
         for i, doc in enumerate(unique_similar):
-            doc_id = doc.metadata.get('id')
+            doc_id = doc.metadata.get("id")
             if doc_id:
                 # Convert ranking to similarity score with conservative distribution
                 if total_docs == 1:
@@ -402,21 +384,17 @@ class MemoryConsolidator:
 
         # Step 6: Add similarity score to document metadata for LLM analysis
         for doc in unique_similar:
-            doc_id = doc.metadata.get('id')
+            doc_id = doc.metadata.get("id")
             estimated_similarity = similarity_scores.get(doc_id, 0.7)
             # Store for later validation
-            doc.metadata['_consolidation_similarity'] = estimated_similarity
+            doc.metadata["_consolidation_similarity"] = estimated_similarity
 
         # Step 7: Limit to max context for LLM
-        limited_similar = unique_similar[:self.config.max_llm_context_memories]
+        limited_similar = unique_similar[: self.config.max_llm_context_memories]
 
         return limited_similar
 
-    async def _extract_search_keywords(
-        self,
-        new_memory: str,
-        log_item: LogItem | None = None
-    ) -> list[str]:
+    async def _extract_search_keywords(self, new_memory: str, log_item: LogItem | None = None) -> list[str]:
         """Extract search keywords/queries from new memory using utility LLM."""
 
         try:
@@ -425,15 +403,12 @@ class MemoryConsolidator:
             )
 
             message_prompt = self.agent.read_prompt(
-                self.config.keyword_extraction_msg_prompt,
-                memory_content=new_memory
+                self.config.keyword_extraction_msg_prompt, memory_content=new_memory
             )
 
             # Call utility LLM to extract search queries
             keywords_response = await self.agent.call_utility_model(
-                system=system_prompt,
-                message=message_prompt,
-                background=True
+                system=system_prompt, message=message_prompt, background=True
             )
 
             # Parse the response - expect JSON array of strings
@@ -453,14 +428,12 @@ class MemoryConsolidator:
             if len(new_memory) <= 200:
                 fallback_content = new_memory
             else:
-                first_sentence = new_memory.split('.')[0]
+                first_sentence = new_memory.split(".")[0]
                 fallback_content = first_sentence[:200] if len(first_sentence) <= 200 else new_memory[:200]
             return [fallback_content.strip()]
 
     async def _analyze_memory_consolidation(
-        self,
-        context: MemoryAnalysisContext,
-        log_item: LogItem | None = None
+        self, context: MemoryAnalysisContext, log_item: LogItem | None = None
     ) -> ConsolidationResult:
         """Use LLM to analyze memory consolidation options."""
 
@@ -468,8 +441,8 @@ class MemoryConsolidator:
             # Prepare similar memories text
             similar_memories_text = ""
             for i, doc in enumerate(context.similar_memories):
-                timestamp = doc.metadata.get('timestamp', 'unknown')
-                doc_id = doc.metadata.get('id', f'doc_{i}')
+                timestamp = doc.metadata.get("timestamp", "unknown")
+                doc_id = doc.metadata.get("id", f"doc_{i}")
                 similar_memories_text += f"ID: {doc_id}\nTimestamp: {timestamp}\nContent: {doc.page_content}\n\n"
 
             # Build system prompt
@@ -484,14 +457,11 @@ class MemoryConsolidator:
                 similar_memories=similar_memories_text.strip(),
                 area=context.area,
                 current_timestamp=context.timestamp,
-                new_memory_metadata=json.dumps(context.existing_metadata, indent=2)
+                new_memory_metadata=json.dumps(context.existing_metadata, indent=2),
             )
 
             analysis_response = await self.agent.call_utility_model(
-                system=system_prompt,
-                message=message_prompt,
-                callback=None,
-                background=True
+                system=system_prompt, message=message_prompt, callback=None, background=True
             )
 
             # Parse LLM response
@@ -501,7 +471,7 @@ class MemoryConsolidator:
                 raise ValueError("LLM response is not a valid JSON object")
 
             # Parse consolidation result
-            action_str = result_json.get('action', 'skip')
+            action_str = result_json.get("action", "skip")
             try:
                 action = ConsolidationAction(action_str.lower())
             except ValueError:
@@ -517,27 +487,24 @@ class MemoryConsolidator:
 
             return ConsolidationResult(
                 action=action,
-                memories_to_remove=result_json.get('memories_to_remove', []),
-                memories_to_update=result_json.get('memories_to_update', []),
-                new_memory_content=result_json.get('new_memory_content', default_content),
-                metadata=result_json.get('metadata', {}),
-                reasoning=result_json.get('reasoning', '')
+                memories_to_remove=result_json.get("memories_to_remove", []),
+                memories_to_update=result_json.get("memories_to_update", []),
+                new_memory_content=result_json.get("new_memory_content", default_content),
+                metadata=result_json.get("metadata", {}),
+                reasoning=result_json.get("reasoning", ""),
             )
 
         except Exception as e:
             PrintStyle().warning(f"LLM consolidation analysis failed: {e!s}")
             # Fallback: skip consolidation
-            return ConsolidationResult(
-                action=ConsolidationAction.SKIP,
-                reasoning=f"Analysis failed: {e!s}"
-            )
+            return ConsolidationResult(action=ConsolidationAction.SKIP, reasoning=f"Analysis failed: {e!s}")
 
     async def _apply_consolidation_result(
         self,
         result: ConsolidationResult,
         area: str,
         original_metadata: dict[str, Any],  # Add original metadata parameter
-        log_item: LogItem | None = None
+        log_item: LogItem | None = None,
     ) -> list:
         """Apply the consolidation decisions to the memory database."""
 
@@ -575,7 +542,7 @@ class MemoryConsolidator:
         result: ConsolidationResult,
         area: str,
         original_metadata: dict[str, Any],  # Add original metadata parameter
-        log_item: LogItem | None = None
+        log_item: LogItem | None = None,
     ) -> list:
         """Handle KEEP_SEPARATE action: Insert new memory without touching existing ones."""
 
@@ -585,11 +552,11 @@ class MemoryConsolidator:
         # Prepare metadata for new memory
         # LLM metadata takes precedence over original metadata when there are conflicts
         final_metadata = {
-            'area': area,
-            'timestamp': self._get_timestamp(),
-            'consolidation_action': result.action.value,
+            "area": area,
+            "timestamp": self._get_timestamp(),
+            "consolidation_action": result.action.value,
             **original_metadata,  # Original metadata first
-            **result.metadata     # LLM metadata second (wins conflicts)
+            **result.metadata,  # LLM metadata second (wins conflicts)
         }
 
         # do not include reasoning in memory
@@ -605,7 +572,7 @@ class MemoryConsolidator:
         result: ConsolidationResult,
         area: str,
         original_metadata: dict[str, Any],  # Add original metadata parameter
-        log_item: LogItem | None = None
+        log_item: LogItem | None = None,
     ) -> list:
         """Handle MERGE action: Combine memories, remove originals, insert consolidated version."""
 
@@ -617,12 +584,12 @@ class MemoryConsolidator:
         if result.new_memory_content:
             # LLM metadata takes precedence over original metadata when there are conflicts
             final_metadata = {
-                'area': area,
-                'timestamp': self._get_timestamp(),
-                'consolidation_action': result.action.value,
-                'consolidated_from': result.memories_to_remove,
+                "area": area,
+                "timestamp": self._get_timestamp(),
+                "consolidation_action": result.action.value,
+                "consolidated_from": result.memories_to_remove,
                 **original_metadata,  # Original metadata first
-                **result.metadata     # LLM metadata second (wins conflicts)
+                **result.metadata,  # LLM metadata second (wins conflicts)
             }
 
             # do not include reasoning in memory
@@ -640,7 +607,7 @@ class MemoryConsolidator:
         result: ConsolidationResult,
         area: str,
         original_metadata: dict[str, Any],  # Add original metadata parameter
-        log_item: LogItem | None = None
+        log_item: LogItem | None = None,
     ) -> list:
         """Handle REPLACE action: Remove old memories, insert new version with similarity validation."""
 
@@ -651,13 +618,15 @@ class MemoryConsolidator:
 
             unsafe_replacements = []
             for memory in memories_to_check:
-                similarity = memory.metadata.get('_consolidation_similarity', 0.7)
+                similarity = memory.metadata.get("_consolidation_similarity", 0.7)
                 if similarity < self.config.replace_similarity_threshold:
-                    unsafe_replacements.append({
-                        'id': memory.metadata.get('id'),
-                        'similarity': similarity,
-                        'content_preview': memory.page_content[:100]
-                    })
+                    unsafe_replacements.append(
+                        {
+                            "id": memory.metadata.get("id"),
+                            "similarity": similarity,
+                            "content_preview": memory.page_content[:100],
+                        }
+                    )
 
             # If we have unsafe replacements, either block them or require explicit confirmation
             if unsafe_replacements:
@@ -669,13 +638,13 @@ class MemoryConsolidator:
                 # Instead of replace, just insert the new memory (keep separate)
                 if result.new_memory_content:
                     final_metadata = {
-                        'area': area,
-                        'timestamp': self._get_timestamp(),
-                        'consolidation_action': 'keep_separate_safety',  # Indicate safety conversion
-                        'original_action': 'replace',
-                        'safety_reason': f'Similarity below threshold {self.config.replace_similarity_threshold}',
+                        "area": area,
+                        "timestamp": self._get_timestamp(),
+                        "consolidation_action": "keep_separate_safety",  # Indicate safety conversion
+                        "original_action": "replace",
+                        "safety_reason": f"Similarity below threshold {self.config.replace_similarity_threshold}",
                         **original_metadata,
-                        **result.metadata
+                        **result.metadata,
                     }
 
                     # do not include reasoning in memory
@@ -695,12 +664,12 @@ class MemoryConsolidator:
         if result.new_memory_content:
             # LLM metadata takes precedence over original metadata when there are conflicts
             final_metadata = {
-                'area': area,
-                'timestamp': self._get_timestamp(),
-                'consolidation_action': result.action.value,
-                'replaced_memories': result.memories_to_remove,
+                "area": area,
+                "timestamp": self._get_timestamp(),
+                "consolidation_action": result.action.value,
+                "replaced_memories": result.memories_to_remove,
                 **original_metadata,  # Original metadata first
-                **result.metadata     # LLM metadata second (wins conflicts)
+                **result.metadata,  # LLM metadata second (wins conflicts)
             }
 
             # do not include reasoning in memory
@@ -718,7 +687,7 @@ class MemoryConsolidator:
         result: ConsolidationResult,
         area: str,
         original_metadata: dict[str, Any],  # Add original metadata parameter
-        log_item: LogItem | None = None
+        log_item: LogItem | None = None,
     ) -> list:
         """Handle UPDATE action: Modify existing memories in place with additional information."""
 
@@ -727,8 +696,8 @@ class MemoryConsolidator:
 
         # Step 1: Update existing memories
         for update_info in result.memories_to_update:
-            memory_id = update_info.get('id')
-            new_content = update_info.get('new_content', '')
+            memory_id = update_info.get("id")
+            new_content = update_info.get("new_content", "")
 
             if memory_id and new_content:
                 # Validate that the memory exists before attempting to delete it
@@ -742,12 +711,12 @@ class MemoryConsolidator:
 
                 # LLM metadata takes precedence over original metadata when there are conflicts
                 updated_metadata = {
-                    'area': area,
-                    'timestamp': self._get_timestamp(),
-                    'consolidation_action': result.action.value,
-                    'updated_from': memory_id,
-                    **original_metadata,                    # Original metadata first
-                    **update_info.get('metadata', {})       # LLM metadata second (wins conflicts)
+                    "area": area,
+                    "timestamp": self._get_timestamp(),
+                    "consolidation_action": result.action.value,
+                    "updated_from": memory_id,
+                    **original_metadata,  # Original metadata first
+                    **update_info.get("metadata", {}),  # LLM metadata second (wins conflicts)
                 }
 
                 new_id = await db.insert_text(new_content, updated_metadata)
@@ -759,11 +728,11 @@ class MemoryConsolidator:
         if result.new_memory_content:
             # LLM metadata takes precedence over original metadata when there are conflicts
             final_metadata = {
-                'area': area,
-                'timestamp': self._get_timestamp(),
-                'consolidation_action': result.action.value,
+                "area": area,
+                "timestamp": self._get_timestamp(),
+                "consolidation_action": result.action.value,
                 **original_metadata,  # Original metadata first
-                **result.metadata     # LLM metadata second (wins conflicts)
+                **result.metadata,  # LLM metadata second (wins conflicts)
             }
 
             # do not include reasoning in memory

@@ -1,12 +1,7 @@
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-
-try:
-    from datetime import UTC
-except ImportError:  # Python 3.10 fallback
-    UTC = timezone.utc
 
 
 class NotificationType(Enum):
@@ -16,6 +11,7 @@ class NotificationType(Enum):
     ERROR = "error"
     PROGRESS = "progress"
     AUTH_REQUIRED = "auth_required"
+
 
 class NotificationPriority(Enum):
     NORMAL = 10
@@ -82,6 +78,7 @@ class NotificationManager:
         group: str = "",
     ) -> NotificationItem:
         from agent import AgentContext
+
         return AgentContext.get_notification_manager().add_notification(
             type, priority, message, title, detail, display_time, group
         )
@@ -121,11 +118,9 @@ class NotificationManager:
         if priority == NotificationPriority.HIGH or type == NotificationType.ERROR:
             try:
                 from python.helpers.proactive import ProactiveManager
+
                 ProactiveManager.send_push(
-                    user_id="default_user",
-                    title=f"🚨 {title or type.value.upper()}",
-                    body=message,
-                    url="/"
+                    user_id="default_user", title=f"🚨 {title or type.value.upper()}", body=message, url="/"
                 )
             except:
                 pass

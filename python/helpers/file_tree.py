@@ -3,12 +3,7 @@ from __future__ import annotations
 import os
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
-
-try:
-    from datetime import UTC
-except ImportError:  # Python 3.10 fallback
-    UTC = timezone.utc
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from pathspec import PathSpec
@@ -81,7 +76,7 @@ def file_tree(
           while traversal and limit calculations remain breadth-first by depth. When ``max_lines`` is set, the number
           of non-comment entries (excluding the root banner) never exceeds that limit; informational summary comments
           are emitted in addition when necessary.
-        * ``created`` and ``modified`` values in structured outputs are timezone-aware UTC
+        * ``created`` and ``modified`` values in structured outputs are timezone-aware timezone.utc
           :class:`datetime.datetime` objects::
 
                 item = flat_items[0]
@@ -129,7 +124,9 @@ def file_tree(
     limit_reached = False
     visibility_cache: dict[str, bool] = {}
 
-    def make_entry(entry: os.DirEntry, parent: _TreeEntry, level: int, item_type: Literal["file", "folder"]) -> _TreeEntry:
+    def make_entry(
+        entry: os.DirEntry, parent: _TreeEntry, level: int, item_type: Literal["file", "folder"]
+    ) -> _TreeEntry:
         stat = entry.stat(follow_symlinks=False)
         rel_path = os.path.relpath(entry.path, abs_root)
         rel_posix = _normalize_relative_path(rel_path)
@@ -185,10 +182,7 @@ def file_tree(
                     break
                 trimmed_children.append(child)
                 nodes_in_order.append(child)
-                is_global_summary = (
-                    child.item_type == "comment"
-                    and child.rel_path.endswith("#summary:limit")
-                )
+                is_global_summary = child.item_type == "comment" and child.rel_path.endswith("#summary:limit")
                 if not is_global_summary:
                     rendered_count += 1
             if limit_reached and hidden_children_local:
@@ -491,11 +485,7 @@ def _resolve_ignore_patterns(ignore: str | None, root_abs_path: str) -> PathSpec
     else:
         content = ignore
 
-    lines = [
-        line.strip()
-        for line in content.splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
+    lines = [line.strip() for line in content.splitlines() if line.strip() and not line.strip().startswith("#")]
 
     if not lines:
         return None

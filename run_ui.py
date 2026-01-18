@@ -26,7 +26,7 @@ logging.getLogger().setLevel(logging.WARNING)
 os.environ["TZ"] = "UTC"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Apply the timezone change
-if hasattr(time, 'tzset'):
+if hasattr(time, "tzset"):
     time.tzset()
 
 # initialize the internal Flask server
@@ -34,10 +34,11 @@ webapp = Flask("app", static_folder=get_abs_path("./webui"), static_url_path="/"
 webapp.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 webapp.config.update(
     JSON_SORT_KEYS=False,
-    SESSION_COOKIE_NAME="session_" + runtime.get_runtime_id(),  # bind the session cookie name to runtime id to prevent session collision on same host
+    SESSION_COOKIE_NAME="session_"
+    + runtime.get_runtime_id(),  # bind the session cookie name to runtime id to prevent session collision on same host
     SESSION_COOKIE_SAMESITE="Strict",
     SESSION_PERMANENT=True,
-    PERMANENT_SESSION_LIFETIME=timedelta(days=1)
+    PERMANENT_SESSION_LIFETIME=timedelta(days=1),
 )
 
 lock = threading.Lock()
@@ -48,9 +49,7 @@ lock = threading.Lock()
 
 def is_loopback_address(address):
     loopback_checker = {
-        socket.AF_INET: lambda x: struct.unpack("!I", socket.inet_aton(x))[0]
-        >> (32 - 8)
-        == 127,
+        socket.AF_INET: lambda x: struct.unpack("!I", socket.inet_aton(x))[0] >> (32 - 8) == 127,
         socket.AF_INET6: lambda x: x == "::1",
     }
     address_type = "hostname"
@@ -79,11 +78,13 @@ def is_loopback_address(address):
                     return False
         return True
 
+
 def requires_api_key(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
         # Use the auth token from settings (same as MCP server)
         from python.helpers.settings import get_settings
+
         valid_api_key = get_settings()["mcp_server_token"]
 
         if api_key := request.headers.get("X-API-KEY"):
@@ -124,12 +125,13 @@ def requires_auth(f):
         if not user_pass_hash:
             return await f(*args, **kwargs)
 
-        if session.get('authentication') != user_pass_hash:
-            return redirect(url_for('login_handler'))
+        if session.get("authentication") != user_pass_hash:
+            return redirect(url_for("login_handler"))
 
         return await f(*args, **kwargs)
 
     return decorated
+
 
 def csrf_protect(f):
     @wraps(f)
@@ -144,35 +146,45 @@ def csrf_protect(f):
 
     return decorated
 
+
 @webapp.route("/login", methods=["GET", "POST"])
 async def login_handler():
     error = None
-    if request.method == 'POST':
+    if request.method == "POST":
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
         password = dotenv.get_dotenv_value("AUTH_PASSWORD")
 
-        if request.form['username'] == user and request.form['password'] == password:
-            session['authentication'] = login.get_credentials_hash()
-            return redirect(url_for('serve_index'))
+        if request.form["username"] == user and request.form["password"] == password:
+            session["authentication"] = login.get_credentials_hash()
+            return redirect(url_for("serve_index"))
         else:
-            error = 'Invalid Credentials. Please try again.'
+            error = "Invalid Credentials. Please try again."
 
     login_page_content = files.read_file("webui/login.html")
     return render_template_string(login_page_content, error=error)
 
+
 @webapp.route("/logout")
 async def logout_handler():
-    session.pop('authentication', None)
-    return redirect(url_for('login_handler'))
+    session.pop("authentication", None)
+    return redirect(url_for("login_handler"))
+
 
 @webapp.after_request
 def add_security_headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    response.headers['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*; img-src 'self' data: https://*; font-src 'self' data: https://fonts.gstatic.com;"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://* blob:; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://* blob:; "
+        "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://* blob:; "
+        "img-src 'self' data: https://* blob:; "
+        "font-src 'self' data: https://fonts.gstatic.com;"
+    )
     return response
+
 
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
@@ -188,11 +200,10 @@ async def serve_index():
         }
     index = files.read_file("webui/index.html")
     index = files.replace_placeholders_text(
-        _content=index,
-        version_no=gitinfo["version"],
-        version_time=gitinfo["commit_time"]
+        _content=index, version_no=gitinfo["version"], version_time=gitinfo["commit_time"]
     )
     return index
+
 
 def run():
     PrintStyle().print("Initializing framework...")
@@ -210,9 +221,7 @@ def run():
 
     # Get configuration from environment
     port = runtime.get_web_ui_port()
-    host = (
-        runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
-    )
+    host = runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     server = None
 
     def register_api_handler(app, handler: type[ApiHandler]):
@@ -266,8 +275,7 @@ def run():
     server.log_startup()
 
     # Start init_a0 in a background thread when server starts
-    # threading.Thread(target=init_a0, daemon=True).start()
-    init_a0()
+    threading.Thread(target=init_a0, daemon=True).start()
 
     # run the server
     server.serve_forever()
@@ -277,11 +285,10 @@ def init_a0():
     # Initialize all in background - don't block server startup
     # Chats will load in background, MCP connects lazily on first use
     initialize.initialize_chats()  # Background - no result_sync()
-    initialize.initialize_mcp()    # Background - connects on first tool call
+    initialize.initialize_mcp()  # Background - connects on first tool call
     initialize.initialize_job_loop()
     initialize.initialize_preload()
     PrintStyle(font_color="green").print("[✓] Background initialization started")
-
 
 
 # run the internal server

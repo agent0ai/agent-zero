@@ -3,12 +3,11 @@ Workflow Engine Database - SQLite storage for workflows, executions, and trainin
 Manages workflow definitions, execution state, and skill tracking
 """
 
-import sqlite3
 import json
 import os
+import sqlite3
 from datetime import datetime
 from typing import Optional
-from pathlib import Path
 
 
 class WorkflowEngineDatabase:
@@ -258,10 +257,18 @@ class WorkflowEngineDatabase:
 
     # ========== Workflow Definition Operations ==========
 
-    def save_workflow(self, name: str, definition: dict, version: str = "1.0.0",
-                     description: str = None, workflow_type: str = "custom",
-                     is_template: bool = False, metadata: dict = None,
-                     changed_by: str = "system", change_notes: str = None) -> int:
+    def save_workflow(
+        self,
+        name: str,
+        definition: dict,
+        version: str = "1.0.0",
+        description: str = None,
+        workflow_type: str = "custom",
+        is_template: bool = False,
+        metadata: dict = None,
+        changed_by: str = "system",
+        change_notes: str = None,
+    ) -> int:
         """Save or update a workflow definition with audit logging"""
         conn = self._get_conn()
         cursor = conn.cursor()
@@ -272,11 +279,12 @@ class WorkflowEngineDatabase:
             existing = cursor.fetchone()
 
             if existing:
-                existing_def = existing['definition']
-                workflow_id = existing['workflow_id']
-                
+                existing_def = existing["definition"]
+                workflow_id = existing["workflow_id"]
+
                 # Update existing
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE workflows SET
                         description = ?,
                         workflow_type = ?,
@@ -285,36 +293,57 @@ class WorkflowEngineDatabase:
                         metadata = ?,
                         updated_at = ?
                     WHERE workflow_id = ?
-                """, (description, workflow_type, json.dumps(definition), 
-                      is_template, json.dumps(metadata or {}), 
-                      datetime.now().isoformat(), workflow_id))
-                
+                """,
+                    (
+                        description,
+                        workflow_type,
+                        json.dumps(definition),
+                        is_template,
+                        json.dumps(metadata or {}),
+                        datetime.now().isoformat(),
+                        workflow_id,
+                    ),
+                )
+
                 action = "update"
             else:
                 # Deactivate other versions if this is a new version and we want it to be active
                 # (Assuming new saves are intended to be the active one)
                 cursor.execute("UPDATE workflows SET is_active = 0 WHERE name = ?", (name,))
-                
+
                 # Insert new version
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO workflows (name, version, description, workflow_type,
                                            definition, is_template, is_active, metadata, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (name, version, description, workflow_type,
-                      json.dumps(definition), is_template, 1,
-                      json.dumps(metadata or {}), datetime.now().isoformat()))
-                
+                """,
+                    (
+                        name,
+                        version,
+                        description,
+                        workflow_type,
+                        json.dumps(definition),
+                        is_template,
+                        1,
+                        json.dumps(metadata or {}),
+                        datetime.now().isoformat(),
+                    ),
+                )
+
                 workflow_id = cursor.lastrowid
                 existing_def = None
                 action = "create"
 
             # Audit logging
-            cursor.execute("""
-                INSERT INTO workflow_audit_log (workflow_id, action, changed_by, 
+            cursor.execute(
+                """
+                INSERT INTO workflow_audit_log (workflow_id, action, changed_by,
                                                change_notes, previous_definition, new_definition)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (workflow_id, action, changed_by, change_notes, 
-                  existing_def, json.dumps(definition)))
+            """,
+                (workflow_id, action, changed_by, change_notes, existing_def, json.dumps(definition)),
+            )
 
             conn.commit()
             return workflow_id
@@ -340,8 +369,8 @@ class WorkflowEngineDatabase:
 
         if row:
             result = dict(row)
-            result['definition'] = json.loads(result['definition'])
-            result['metadata'] = json.loads(result['metadata'])
+            result["definition"] = json.loads(result["definition"])
+            result["metadata"] = json.loads(result["metadata"])
             return result
         return None
 
@@ -350,11 +379,14 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM workflows
             WHERE name = ?
             ORDER BY version DESC
-        """, (name,))
+        """,
+            (name,),
+        )
 
         rows = cursor.fetchall()
         conn.close()
@@ -362,10 +394,47 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            if r.get('definition'):
-                r['definition'] = json.loads(r['definition'])
+            if r.get("definition"):
+                r["definition"] = json.loads(r["definition"])
             results.append(r)
         return results
+
+    def delete_workflow(self, workflow_id: int) -> bool:
+        """Delete a workflow and its related execution data"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT workflow_id FROM workflows WHERE workflow_id = ?", (workflow_id,))
+        if cursor.fetchone() is None:
+            conn.close()
+            return False
+
+        try:
+            cursor.execute(
+                """
+                DELETE FROM task_executions
+                WHERE execution_id IN (
+                    SELECT execution_id FROM workflow_executions WHERE workflow_id = ?
+                )
+                """,
+                (workflow_id,),
+            )
+            cursor.execute(
+                """
+                DELETE FROM stage_progress
+                WHERE execution_id IN (
+                    SELECT execution_id FROM workflow_executions WHERE workflow_id = ?
+                )
+                """,
+                (workflow_id,),
+            )
+            cursor.execute("DELETE FROM workflow_executions WHERE workflow_id = ?", (workflow_id,))
+            cursor.execute("DELETE FROM workflow_audit_log WHERE workflow_id = ?", (workflow_id,))
+            cursor.execute("DELETE FROM workflows WHERE workflow_id = ?", (workflow_id,))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
 
     def rollback_workflow(self, name: str, version: str, changed_by: str = "system") -> bool:
         """Set a specific version as the active one (deactivating others)"""
@@ -375,23 +444,29 @@ class WorkflowEngineDatabase:
         try:
             # First deactivate all versions of this workflow
             cursor.execute("UPDATE workflows SET is_active = FALSE WHERE name = ?", (name,))
-            
+
             # Then activate the target version
-            cursor.execute("""
-                UPDATE workflows SET is_active = TRUE 
+            cursor.execute(
+                """
+                UPDATE workflows SET is_active = TRUE
                 WHERE name = ? AND version = ?
-            """, (name, version))
-            
+            """,
+                (name, version),
+            )
+
             if cursor.rowcount == 0:
                 conn.rollback()
                 return False
 
             # Add to audit log
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO workflow_audit_log (workflow_id, action, changed_by, change_notes)
-                SELECT workflow_id, 'rollback', ?, ? FROM workflows 
+                SELECT workflow_id, 'rollback', ?, ? FROM workflows
                 WHERE name = ? AND version = ?
-            """, (changed_by, f"Rolled back to version {version}", name, version))
+            """,
+                (changed_by, f"Rolled back to version {version}", name, version),
+            )
 
             conn.commit()
             return True
@@ -409,10 +484,13 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO workflow_executions (workflow_id, name, status, started_at, context)
             VALUES (?, ?, 'running', ?, ?)
-        """, (workflow_id, name, datetime.now().isoformat(), json.dumps(context or {})))
+        """,
+            (workflow_id, name, datetime.now().isoformat(), json.dumps(context or {})),
+        )
 
         execution_id = cursor.lastrowid
         conn.commit()
@@ -432,13 +510,20 @@ class WorkflowEngineDatabase:
 
         if row:
             result = dict(row)
-            result['context'] = json.loads(result['context']) if result['context'] else {}
+            result["context"] = json.loads(result["context"]) if result["context"] else {}
             return result
         return None
 
-    def update_execution(self, execution_id: int, status: str = None,
-                        current_stage_id: str = None, current_task_id: str = None,
-                        context: dict = None, result: str = None, error: str = None):
+    def update_execution(
+        self,
+        execution_id: int,
+        status: str = None,
+        current_stage_id: str = None,
+        current_task_id: str = None,
+        context: dict = None,
+        result: str = None,
+        error: str = None,
+    ):
         """Update execution state"""
         conn = self._get_conn()
         cursor = conn.cursor()
@@ -449,7 +534,7 @@ class WorkflowEngineDatabase:
         if status:
             updates.append("status = ?")
             params.append(status)
-            if status == 'completed':
+            if status == "completed":
                 updates.append("completed_at = ?")
                 params.append(datetime.now().isoformat())
         if current_stage_id:
@@ -505,26 +590,37 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            r['context'] = json.loads(r['context']) if r['context'] else {}
+            r["context"] = json.loads(r["context"]) if r["context"] else {}
             results.append(r)
         return results
 
     # ========== Stage Progress Operations ==========
 
-    def update_stage_progress(self, execution_id: int, stage_id: str, status: str = None,
-                             entry_criteria_met: list = None, exit_criteria_met: list = None,
-                             deliverables_completed: list = None, approval_status: str = None,
-                             approved_by: str = None, notes: str = None):
+    def update_stage_progress(
+        self,
+        execution_id: int,
+        stage_id: str,
+        status: str = None,
+        entry_criteria_met: list = None,
+        exit_criteria_met: list = None,
+        deliverables_completed: list = None,
+        approval_status: str = None,
+        approved_by: str = None,
+        notes: str = None,
+    ):
         """Update stage progress"""
         conn = self._get_conn()
         cursor = conn.cursor()
 
         # Insert or update
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO stage_progress (execution_id, stage_id)
             VALUES (?, ?)
             ON CONFLICT(execution_id, stage_id) DO NOTHING
-        """, (execution_id, stage_id))
+        """,
+            (execution_id, stage_id),
+        )
 
         updates = []
         params = []
@@ -532,12 +628,16 @@ class WorkflowEngineDatabase:
         if status:
             updates.append("status = ?")
             params.append(status)
-            if status == 'in_progress' and not cursor.execute(
-                "SELECT started_at FROM stage_progress WHERE execution_id = ? AND stage_id = ? AND started_at IS NOT NULL",
-                (execution_id, stage_id)).fetchone():
+            if (
+                status == "in_progress"
+                and not cursor.execute(
+                    "SELECT started_at FROM stage_progress WHERE execution_id = ? AND stage_id = ? AND started_at IS NOT NULL",
+                    (execution_id, stage_id),
+                ).fetchone()
+            ):
                 updates.append("started_at = ?")
                 params.append(datetime.now().isoformat())
-            if status in ('completed', 'skipped'):
+            if status in ("completed", "skipped"):
                 updates.append("completed_at = ?")
                 params.append(datetime.now().isoformat())
 
@@ -562,7 +662,9 @@ class WorkflowEngineDatabase:
 
         if updates:
             params.extend([execution_id, stage_id])
-            cursor.execute(f"UPDATE stage_progress SET {', '.join(updates)} WHERE execution_id = ? AND stage_id = ?", params)
+            cursor.execute(
+                f"UPDATE stage_progress SET {', '.join(updates)} WHERE execution_id = ? AND stage_id = ?", params
+            )
 
         conn.commit()
         conn.close()
@@ -575,11 +677,11 @@ class WorkflowEngineDatabase:
         cursor = conn.cursor()
 
         if stage_id:
-            cursor.execute("SELECT * FROM stage_progress WHERE execution_id = ? AND stage_id = ?",
-                          (execution_id, stage_id))
+            cursor.execute(
+                "SELECT * FROM stage_progress WHERE execution_id = ? AND stage_id = ?", (execution_id, stage_id)
+            )
         else:
-            cursor.execute("SELECT * FROM stage_progress WHERE execution_id = ? ORDER BY progress_id",
-                          (execution_id,))
+            cursor.execute("SELECT * FROM stage_progress WHERE execution_id = ? ORDER BY progress_id", (execution_id,))
 
         rows = cursor.fetchall()
         conn.close()
@@ -587,28 +689,38 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            r['entry_criteria_met'] = json.loads(r['entry_criteria_met'])
-            r['exit_criteria_met'] = json.loads(r['exit_criteria_met'])
-            r['deliverables_completed'] = json.loads(r['deliverables_completed'])
+            r["entry_criteria_met"] = json.loads(r["entry_criteria_met"])
+            r["exit_criteria_met"] = json.loads(r["exit_criteria_met"])
+            r["deliverables_completed"] = json.loads(r["deliverables_completed"])
             results.append(r)
         return results if not stage_id else (results[0] if results else None)
 
     # ========== Task Execution Operations ==========
 
-    def update_task_execution(self, execution_id: int, stage_id: str, task_id: str,
-                             status: str = None, input_data: dict = None,
-                             output_data: dict = None, error: str = None,
-                             assigned_to: str = None):
+    def update_task_execution(
+        self,
+        execution_id: int,
+        stage_id: str,
+        task_id: str,
+        status: str = None,
+        input_data: dict = None,
+        output_data: dict = None,
+        error: str = None,
+        assigned_to: str = None,
+    ):
         """Update task execution state"""
         conn = self._get_conn()
         cursor = conn.cursor()
 
         # Insert or update
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO task_executions (execution_id, stage_id, task_id)
             VALUES (?, ?, ?)
             ON CONFLICT(execution_id, stage_id, task_id) DO NOTHING
-        """, (execution_id, stage_id, task_id))
+        """,
+            (execution_id, stage_id, task_id),
+        )
 
         updates = []
         params = []
@@ -616,11 +728,11 @@ class WorkflowEngineDatabase:
         if status:
             updates.append("status = ?")
             params.append(status)
-            if status == 'running':
+            if status == "running":
                 updates.append("started_at = ?")
                 params.append(datetime.now().isoformat())
                 updates.append("attempt_count = attempt_count + 1")
-            if status in ('completed', 'failed', 'skipped'):
+            if status in ("completed", "failed", "skipped"):
                 updates.append("completed_at = ?")
                 params.append(datetime.now().isoformat())
 
@@ -639,7 +751,10 @@ class WorkflowEngineDatabase:
 
         if updates:
             params.extend([execution_id, stage_id, task_id])
-            cursor.execute(f"UPDATE task_executions SET {', '.join(updates)} WHERE execution_id = ? AND stage_id = ? AND task_id = ?", params)
+            cursor.execute(
+                f"UPDATE task_executions SET {', '.join(updates)} WHERE execution_id = ? AND stage_id = ? AND task_id = ?",
+                params,
+            )
 
         conn.commit()
         conn.close()
@@ -652,8 +767,9 @@ class WorkflowEngineDatabase:
         cursor = conn.cursor()
 
         if stage_id:
-            cursor.execute("SELECT * FROM task_executions WHERE execution_id = ? AND stage_id = ?",
-                          (execution_id, stage_id))
+            cursor.execute(
+                "SELECT * FROM task_executions WHERE execution_id = ? AND stage_id = ?", (execution_id, stage_id)
+            )
         else:
             cursor.execute("SELECT * FROM task_executions WHERE execution_id = ?", (execution_id,))
 
@@ -663,21 +779,29 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            r['input_data'] = json.loads(r['input_data']) if r['input_data'] else None
-            r['output_data'] = json.loads(r['output_data']) if r['output_data'] else None
+            r["input_data"] = json.loads(r["input_data"]) if r["input_data"] else None
+            r["output_data"] = json.loads(r["output_data"]) if r["output_data"] else None
             results.append(r)
         return results
 
     # ========== Skill Operations ==========
 
-    def save_skill(self, skill_id: str, name: str, category: str, description: str = None,
-                  proficiency_levels: list = None, prerequisites: list = None,
-                  related_tools: list = None):
+    def save_skill(
+        self,
+        skill_id: str,
+        name: str,
+        category: str,
+        description: str = None,
+        proficiency_levels: list = None,
+        prerequisites: list = None,
+        related_tools: list = None,
+    ):
         """Save or update a skill"""
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO skills (skill_id, name, category, description,
                                proficiency_levels, prerequisites, related_tools)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -688,10 +812,17 @@ class WorkflowEngineDatabase:
                 proficiency_levels = excluded.proficiency_levels,
                 prerequisites = excluded.prerequisites,
                 related_tools = excluded.related_tools
-        """, (skill_id, name, category, description,
-              json.dumps(proficiency_levels or []),
-              json.dumps(prerequisites or []),
-              json.dumps(related_tools or [])))
+        """,
+            (
+                skill_id,
+                name,
+                category,
+                description,
+                json.dumps(proficiency_levels or []),
+                json.dumps(prerequisites or []),
+                json.dumps(related_tools or []),
+            ),
+        )
 
         conn.commit()
         conn.close()
@@ -706,9 +837,9 @@ class WorkflowEngineDatabase:
 
         if row:
             r = dict(row)
-            r['proficiency_levels'] = json.loads(r['proficiency_levels'])
-            r['prerequisites'] = json.loads(r['prerequisites'])
-            r['related_tools'] = json.loads(r['related_tools'])
+            r["proficiency_levels"] = json.loads(r["proficiency_levels"])
+            r["prerequisites"] = json.loads(r["prerequisites"])
+            r["related_tools"] = json.loads(r["related_tools"])
             return r
         return None
 
@@ -728,24 +859,33 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            r['proficiency_levels'] = json.loads(r['proficiency_levels'])
-            r['prerequisites'] = json.loads(r['prerequisites'])
-            r['related_tools'] = json.loads(r['related_tools'])
+            r["proficiency_levels"] = json.loads(r["proficiency_levels"])
+            r["prerequisites"] = json.loads(r["prerequisites"])
+            r["related_tools"] = json.loads(r["related_tools"])
             results.append(r)
         return results
 
-    def update_skill_progress(self, agent_id: str, skill_id: str, current_level: int = None,
-                             completions: int = None, assessment_score: float = None):
+    def update_skill_progress(
+        self,
+        agent_id: str,
+        skill_id: str,
+        current_level: int = None,
+        completions: int = None,
+        assessment_score: float = None,
+    ):
         """Update agent's skill progress"""
         conn = self._get_conn()
         cursor = conn.cursor()
 
         # Insert or update
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO skill_progress (agent_id, skill_id)
             VALUES (?, ?)
             ON CONFLICT(agent_id, skill_id) DO NOTHING
-        """, (agent_id, skill_id))
+        """,
+            (agent_id, skill_id),
+        )
 
         updates = ["last_practiced = ?"]
         params = [datetime.now().isoformat()]
@@ -759,10 +899,10 @@ class WorkflowEngineDatabase:
         if assessment_score is not None:
             # Append to scores array
             cursor.execute(
-                "SELECT assessment_scores FROM skill_progress WHERE agent_id = ? AND skill_id = ?",
-                (agent_id, skill_id))
+                "SELECT assessment_scores FROM skill_progress WHERE agent_id = ? AND skill_id = ?", (agent_id, skill_id)
+            )
             row = cursor.fetchone()
-            scores = json.loads(row['assessment_scores']) if row else []
+            scores = json.loads(row["assessment_scores"]) if row else []
             scores.append({"score": assessment_score, "timestamp": datetime.now().isoformat()})
             updates.append("assessment_scores = ?")
             params.append(json.dumps(scores))
@@ -779,20 +919,26 @@ class WorkflowEngineDatabase:
         cursor = conn.cursor()
 
         if skill_id:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT sp.*, s.name, s.category
                 FROM skill_progress sp
                 JOIN skills s ON sp.skill_id = s.skill_id
                 WHERE sp.agent_id = ? AND sp.skill_id = ?
-            """, (agent_id, skill_id))
+            """,
+                (agent_id, skill_id),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT sp.*, s.name, s.category
                 FROM skill_progress sp
                 JOIN skills s ON sp.skill_id = s.skill_id
                 WHERE sp.agent_id = ?
                 ORDER BY s.category, s.name
-            """, (agent_id,))
+            """,
+                (agent_id,),
+            )
 
         rows = cursor.fetchall()
         conn.close()
@@ -800,20 +946,28 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            r['assessment_scores'] = json.loads(r['assessment_scores'])
+            r["assessment_scores"] = json.loads(r["assessment_scores"])
             results.append(r)
         return results
 
     # ========== Learning Path Operations ==========
 
-    def save_learning_path(self, path_id: str, name: str, target_role: str,
-                          description: str = None, estimated_hours: float = None,
-                          modules: list = None, certification: dict = None):
+    def save_learning_path(
+        self,
+        path_id: str,
+        name: str,
+        target_role: str,
+        description: str = None,
+        estimated_hours: float = None,
+        modules: list = None,
+        certification: dict = None,
+    ):
         """Save or update a learning path"""
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO learning_paths (path_id, name, target_role, description,
                                        estimated_hours, modules, certification)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -824,8 +978,17 @@ class WorkflowEngineDatabase:
                 estimated_hours = excluded.estimated_hours,
                 modules = excluded.modules,
                 certification = excluded.certification
-        """, (path_id, name, target_role, description, estimated_hours,
-              json.dumps(modules or []), json.dumps(certification)))
+        """,
+            (
+                path_id,
+                name,
+                target_role,
+                description,
+                estimated_hours,
+                json.dumps(modules or []),
+                json.dumps(certification),
+            ),
+        )
 
         conn.commit()
         conn.close()
@@ -840,8 +1003,8 @@ class WorkflowEngineDatabase:
 
         if row:
             r = dict(row)
-            r['modules'] = json.loads(r['modules'])
-            r['certification'] = json.loads(r['certification']) if r['certification'] else None
+            r["modules"] = json.loads(r["modules"])
+            r["certification"] = json.loads(r["certification"]) if r["certification"] else None
             return r
         return None
 
@@ -861,23 +1024,27 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            r['modules'] = json.loads(r['modules'])
-            r['certification'] = json.loads(r['certification']) if r['certification'] else None
+            r["modules"] = json.loads(r["modules"])
+            r["certification"] = json.loads(r["certification"]) if r["certification"] else None
             results.append(r)
         return results
 
     # ========== Event Logging ==========
 
-    def _log_event(self, execution_id: int, event_type: str, stage_id: str = None,
-                  task_id: str = None, data: dict = None):
+    def _log_event(
+        self, execution_id: int, event_type: str, stage_id: str = None, task_id: str = None, data: dict = None
+    ):
         """Log workflow event"""
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO workflow_events (execution_id, event_type, stage_id, task_id, data)
             VALUES (?, ?, ?, ?, ?)
-        """, (execution_id, event_type, stage_id, task_id, json.dumps(data or {})))
+        """,
+            (execution_id, event_type, stage_id, task_id, json.dumps(data or {})),
+        )
 
         conn.commit()
         conn.close()
@@ -887,11 +1054,14 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM workflow_events
             WHERE execution_id = ?
             ORDER BY timestamp DESC LIMIT ?
-        """, (execution_id, limit))
+        """,
+            (execution_id, limit),
+        )
 
         rows = cursor.fetchall()
         conn.close()
@@ -899,7 +1069,7 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            r['data'] = json.loads(r['data'])
+            r["data"] = json.loads(r["data"])
             results.append(r)
         return results
 
@@ -908,13 +1078,16 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT e.*, we.name as execution_name 
+        cursor.execute(
+            """
+            SELECT e.*, we.name as execution_name
             FROM workflow_events e
             LEFT JOIN workflow_executions we ON e.execution_id = we.execution_id
             WHERE e.event_type = ?
             ORDER BY e.timestamp DESC LIMIT ?
-        """, (event_type, limit))
+        """,
+            (event_type, limit),
+        )
 
         rows = cursor.fetchall()
         conn.close()
@@ -922,9 +1095,9 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            if r.get('data'):
+            if r.get("data"):
                 try:
-                    r['data'] = json.loads(r['data'])
+                    r["data"] = json.loads(r["data"])
                 except:
                     pass
             results.append(r)
@@ -940,22 +1113,22 @@ class WorkflowEngineDatabase:
         stats = {}
 
         cursor.execute("SELECT COUNT(*) as count FROM workflows")
-        stats['total_workflows'] = cursor.fetchone()['count']
+        stats["total_workflows"] = cursor.fetchone()["count"]
 
         cursor.execute("SELECT COUNT(*) as count FROM workflows WHERE is_template = TRUE")
-        stats['workflow_templates'] = cursor.fetchone()['count']
+        stats["workflow_templates"] = cursor.fetchone()["count"]
 
         cursor.execute("SELECT COUNT(*) as count FROM workflow_executions")
-        stats['total_executions'] = cursor.fetchone()['count']
+        stats["total_executions"] = cursor.fetchone()["count"]
 
         cursor.execute("SELECT status, COUNT(*) as count FROM workflow_executions GROUP BY status")
-        stats['executions_by_status'] = {row['status']: row['count'] for row in cursor.fetchall()}
+        stats["executions_by_status"] = {row["status"]: row["count"] for row in cursor.fetchall()}
 
         cursor.execute("SELECT COUNT(*) as count FROM skills")
-        stats['total_skills'] = cursor.fetchone()['count']
+        stats["total_skills"] = cursor.fetchone()["count"]
 
         cursor.execute("SELECT COUNT(*) as count FROM learning_paths")
-        stats['total_learning_paths'] = cursor.fetchone()['count']
+        stats["total_learning_paths"] = cursor.fetchone()["count"]
 
         conn.close()
         return stats
@@ -965,12 +1138,15 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT we.*, w.name as workflow_name
             FROM workflow_executions we
             LEFT JOIN workflows w ON we.workflow_id = w.workflow_id
             ORDER BY we.started_at DESC LIMIT ?
-        """, (limit,))
+        """,
+            (limit,),
+        )
 
         rows = cursor.fetchall()
         conn.close()
@@ -978,8 +1154,8 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            if r.get('context'):
-                r['context'] = json.loads(r['context'])
+            if r.get("context"):
+                r["context"] = json.loads(r["context"])
             results.append(r)
         return results
 
@@ -988,13 +1164,16 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT s.*, sp.current_level, sp.completions
             FROM skills s
             LEFT JOIN skill_progress sp ON s.skill_id = sp.skill_id
             ORDER BY COALESCE(sp.current_level, 1) DESC, COALESCE(sp.completions, 0) DESC
             LIMIT ?
-        """, (limit,))
+        """,
+            (limit,),
+        )
 
         rows = cursor.fetchall()
         conn.close()
@@ -1002,12 +1181,12 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            if r.get('prerequisites'):
-                r['prerequisites'] = json.loads(r['prerequisites'])
-            if r.get('proficiency_levels'):
-                r['proficiency_levels'] = json.loads(r['proficiency_levels'])
-            if r.get('related_tools'):
-                r['related_tools'] = json.loads(r['related_tools'])
+            if r.get("prerequisites"):
+                r["prerequisites"] = json.loads(r["prerequisites"])
+            if r.get("proficiency_levels"):
+                r["proficiency_levels"] = json.loads(r["proficiency_levels"])
+            if r.get("related_tools"):
+                r["related_tools"] = json.loads(r["related_tools"])
             results.append(r)
         return results
 
@@ -1016,10 +1195,13 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM learning_progress
             WHERE path_id = ? AND agent_id = ?
-        """, (path_id, agent_id))
+        """,
+            (path_id, agent_id),
+        )
 
         row = cursor.fetchone()
         conn.close()
@@ -1032,12 +1214,12 @@ class WorkflowEngineDatabase:
                 "current_module": None,
                 "overall_score": 0,
                 "enrolled_at": None,
-                "certified": False
+                "certified": False,
             }
 
         result = dict(row)
-        if result.get('modules_completed'):
-            result['modules_completed'] = json.loads(result['modules_completed'])
+        if result.get("modules_completed"):
+            result["modules_completed"] = json.loads(result["modules_completed"])
         return result
 
     def get_training_module(self, module_id: str) -> Optional[dict]:
@@ -1053,10 +1235,10 @@ class WorkflowEngineDatabase:
             return None
 
         result = dict(row)
-        if result.get('skills_taught'):
-            result['skills_taught'] = json.loads(result['skills_taught'])
-        if result.get('lessons'):
-            result['lessons'] = json.loads(result['lessons'])
+        if result.get("skills_taught"):
+            result["skills_taught"] = json.loads(result["skills_taught"])
+        if result.get("lessons"):
+            result["lessons"] = json.loads(result["lessons"])
         return result
 
     def get_agent_proficiency(self, agent_id: str = "agent_0") -> list:
@@ -1064,12 +1246,15 @@ class WorkflowEngineDatabase:
         conn = self._get_conn()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT s.*, sp.current_level, sp.completions, sp.last_practiced
             FROM skills s
             LEFT JOIN skill_progress sp ON s.skill_id = sp.skill_id AND sp.agent_id = ?
             ORDER BY COALESCE(sp.current_level, 1) DESC, s.name ASC
-        """, (agent_id,))
+        """,
+            (agent_id,),
+        )
 
         rows = cursor.fetchall()
         conn.close()
@@ -1077,15 +1262,15 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            if r.get('prerequisites'):
-                r['prerequisites'] = json.loads(r['prerequisites'])
-            if r.get('proficiency_levels'):
-                r['proficiency_levels'] = json.loads(r['proficiency_levels'])
-            if r.get('related_tools'):
-                r['related_tools'] = json.loads(r['related_tools'])
+            if r.get("prerequisites"):
+                r["prerequisites"] = json.loads(r["prerequisites"])
+            if r.get("proficiency_levels"):
+                r["proficiency_levels"] = json.loads(r["proficiency_levels"])
+            if r.get("related_tools"):
+                r["related_tools"] = json.loads(r["related_tools"])
             # Ensure defaults
-            r['current_level'] = r.get('current_level') or 1
-            r['completions'] = r.get('completions') or 0
+            r["current_level"] = r.get("current_level") or 1
+            r["completions"] = r.get("completions") or 0
             results.append(r)
         return results
 
@@ -1101,13 +1286,13 @@ class WorkflowEngineDatabase:
         if workflow_type:
             conditions.append("workflow_type = ?")
             params.append(workflow_type)
-        
+
         if templates_only:
             conditions.append("is_template = TRUE")
-        
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        
+
         query += " ORDER BY name ASC, version DESC"
 
         cursor.execute(query, params)
@@ -1117,12 +1302,13 @@ class WorkflowEngineDatabase:
         results = []
         for row in rows:
             r = dict(row)
-            if r.get('definition'):
-                r['definition'] = json.loads(r['definition'])
+            if r.get("definition"):
+                r["definition"] = json.loads(r["definition"])
             results.append(r)
         return results
 
-    def save_event(self, execution_id: int, event_type: str, stage_id: str = None,
-                  task_id: str = None, data: dict = None):
+    def save_event(
+        self, execution_id: int, event_type: str, stage_id: str = None, task_id: str = None, data: dict = None
+    ):
         """Save a workflow event to the database"""
         self._log_event(execution_id, event_type, stage_id, task_id, data)

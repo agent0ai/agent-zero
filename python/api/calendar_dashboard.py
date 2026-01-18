@@ -28,7 +28,10 @@ class CalendarDashboard(ApiHandler):
             events = manager.list_events(int(calendar_id) if calendar_id else None, limit=25)
             rules = manager.get_rules(int(account_id)) if account_id else {}
 
-            auth_url = manager.get_auth_url("google")
+            try:
+                auth_url = manager.get_auth_url("google")
+            except Exception:
+                auth_url = None
 
             return {
                 "success": True,

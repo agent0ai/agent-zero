@@ -14,7 +14,7 @@ document.addEventListener('alpine:init', () => {
         async fetchLogs() {
             this.isLoading = true;
             try {
-                const response = await fetch('/api/security_audit_get', {
+                const response = await fetch('/security_audit_get', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ limit: 50 })

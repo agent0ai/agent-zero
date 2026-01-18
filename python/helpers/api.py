@@ -37,7 +37,9 @@ class ApiHandler:
 
     @classmethod
     def requires_csrf(cls) -> bool:
-        return cls.requires_auth()
+        from python.helpers import login
+
+        return cls.requires_auth() and login.is_login_required()
 
     @abstractmethod
     async def process(self, input: Input, request: Request) -> Output:
@@ -60,7 +62,6 @@ class ApiHandler:
                 # input_data = {"data": request.get_data(as_text=True)}
                 input_data = {}
 
-
             # process via handler
             output = await self.process(input_data, request)
 
@@ -69,9 +70,7 @@ class ApiHandler:
                 return output
             else:
                 response_json = json.dumps(output)
-                return Response(
-                    response=response_json, status=200, mimetype="application/json"
-                )
+                return Response(response=response_json, status=200, mimetype="application/json")
 
             # return exceptions with 500
         except Exception as e:

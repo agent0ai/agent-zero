@@ -10,12 +10,7 @@ import contextlib
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-
-try:
-    from datetime import UTC
-except ImportError:  # Python 3.10 fallback
-    UTC = timezone.utc
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -44,7 +39,6 @@ class AgentContextType(Enum):
 
 
 class AgentContext:
-
     _contexts: dict[str, "AgentContext"] = {}
     _counter: int = 0
     _notification_manager = None
@@ -91,8 +85,6 @@ class AgentContext:
         self.data = data or {}
         self.output_data = output_data or {}
 
-
-
     @staticmethod
     def get(id: str):
         return AgentContext._contexts.get(id, None)
@@ -108,7 +100,7 @@ class AgentContext:
 
     @staticmethod
     def current():
-        ctxid = context_helper.get_context_data("agent_context_id","")
+        ctxid = context_helper.get_context_data("agent_context_id", "")
         if not ctxid:
             return None
         return AgentContext.get(ctxid)
@@ -130,7 +122,8 @@ class AgentContext:
     @staticmethod
     def generate_id():
         def generate_short_id():
-            return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            return "".join(random.choices(string.ascii_letters + string.digits, k=8))
+
         while True:
             short_id = generate_short_id()
             if short_id not in AgentContext._contexts:
@@ -140,6 +133,7 @@ class AgentContext:
     def get_notification_manager(cls):
         if cls._notification_manager is None:
             from python.helpers.notification import NotificationManager  # type: ignore
+
             cls._notification_manager = NotificationManager()
         return cls._notification_manager
 
@@ -202,11 +196,7 @@ class AgentContext:
     ) -> list[Log.LogItem]:
         items: list[Log.LogItem] = []
         for context in AgentContext.all():
-            items.append(
-                context.log.log(
-                    type, heading, content, kvps, temp, update_progress, id, **kwargs
-                )
-            )
+            items.append(context.log.log(type, heading, content, kvps, temp, update_progress, id, **kwargs))
         return items
 
     def kill_process(self):
@@ -240,17 +230,13 @@ class AgentContext:
             while intervention_agent and broadcast_level != 0:
                 intervention_agent.intervention = msg
                 broadcast_level -= 1
-                intervention_agent = intervention_agent.data.get(
-                    Agent.DATA_NAME_SUPERIOR, None
-                )
+                intervention_agent = intervention_agent.data.get(Agent.DATA_NAME_SUPERIOR, None)
         else:
             self.task = self.run_task(self._process_chain, current_agent, msg)
 
         return self.task
 
-    def run_task(
-        self, func: Callable[..., Coroutine[Any, Any, Any]], *args: Any, **kwargs: Any
-    ):
+    def run_task(self, func: Callable[..., Coroutine[Any, Any, Any]], *args: Any, **kwargs: Any):
         if not self.task:
             self.task = DeferredTask(
                 thread_name=self.__class__.__name__,
@@ -265,7 +251,8 @@ class AgentContext:
                 agent.hist_add_user_message(msg)  # type: ignore
                 if user
                 else agent.hist_add_tool_result(
-                    tool_name="call_subordinate", tool_result=msg  # type: ignore
+                    tool_name="call_subordinate",
+                    tool_result=msg,  # type: ignore
                 )
             )
             response = await agent.monologue()  # type: ignore
@@ -275,7 +262,6 @@ class AgentContext:
             return response
         except Exception as e:
             agent.handle_critical_exception(e)
-
 
 
 @dataclass
@@ -335,15 +321,11 @@ class HandledException(Exception):
 
 
 class Agent:
-
     DATA_NAME_SUPERIOR = "_superior"
     DATA_NAME_SUBORDINATE = "_subordinate"
     DATA_NAME_CTX_WINDOW = "ctx_window"
 
-    def __init__(
-        self, number: int, config: AgentConfig, context: AgentContext | None = None
-    ):
-
+    def __init__(self, number: int, config: AgentConfig, context: AgentContext | None = None):
         # agent config
         self.config = config
 
@@ -377,15 +359,12 @@ class Agent:
 
                 # let the agent run message loop until he stops it with a response tool
                 while True:
-
                     self.context.streaming_agent = self  # mark self as current streamer
                     self.loop_data.iteration += 1
                     self.loop_data.params_temporary = {}  # clear temporary params
 
                     # call message_loop_start extensions
-                    await self.call_extensions(
-                        "message_loop_start", loop_data=self.loop_data
-                    )
+                    await self.call_extensions("message_loop_start", loop_data=self.loop_data)
 
                     try:
                         # prepare LLM chain (model, system, history)
@@ -433,12 +412,8 @@ class Agent:
                         )
 
                         # Notify extensions to finalize their stream filters
-                        await self.call_extensions(
-                            "reasoning_stream_end", loop_data=self.loop_data
-                        )
-                        await self.call_extensions(
-                            "response_stream_end", loop_data=self.loop_data
-                        )
+                        await self.call_extensions("reasoning_stream_end", loop_data=self.loop_data)
+                        await self.call_extensions("response_stream_end", loop_data=self.loop_data)
 
                         await self.handle_intervention(agent_response)
 
@@ -450,9 +425,7 @@ class Agent:
                             # Append warning message to the history
                             warning_msg = self.read_prompt("fw.msg_repeat.md")
                             self.hist_add_warning(message=warning_msg)
-                            PrintStyle(font_color="orange", padding=True).print(
-                                warning_msg
-                            )
+                            PrintStyle(font_color="orange", padding=True).print(warning_msg)
                             self.context.log.log(type="warning", content=warning_msg)
                             # Nudge the model away from repeating and toward a response tool.
                             self.loop_data.extras_temporary["repeat_guard"] = (
@@ -484,9 +457,7 @@ class Agent:
 
                     finally:
                         # call message_loop_end extensions
-                        await self.call_extensions(
-                            "message_loop_end", loop_data=self.loop_data
-                        )
+                        await self.call_extensions("message_loop_end", loop_data=self.loop_data)
 
             # exceptions outside message loop:
             except InterventionException:
@@ -519,17 +490,13 @@ class Agent:
             False,
             content=self.read_prompt(
                 "agent.context.extras.md",
-                extras=dirty_json.stringify(
-                    {**loop_data.extras_persistent, **loop_data.extras_temporary}
-                ),
+                extras=dirty_json.stringify({**loop_data.extras_persistent, **loop_data.extras_temporary}),
             ),
         ).output()
         loop_data.extras_temporary.clear()
 
         # convert history + extras to LLM format
-        history_langchain: list[BaseMessage] = history.output_langchain(
-            loop_data.history_output + extras
-        )
+        history_langchain: list[BaseMessage] = history.output_langchain(loop_data.history_output + extras)
 
         # build full prompt from system prompt, message history and extrS
         full_prompt: list[BaseMessage] = [
@@ -557,9 +524,7 @@ class Agent:
             PrintStyle(font_color="white", background_color="red", padding=True).print(
                 f"Context {self.context.id} terminated during message loop"
             )
-            raise HandledException(
-                exception
-            )  # Re-raise the exception to cancel the loop
+            raise HandledException(exception)  # Re-raise the exception to cancel the loop
         else:
             # Handling for general exceptions
             error_text = errors.error_text(exception)
@@ -573,9 +538,7 @@ class Agent:
                 content=error_message,
                 kvps={"text": error_text},
             )
-            PrintStyle(font_color="red", padding=True).print(
-                f"{self.agent_name}: {error_text}"
-            )
+            PrintStyle(font_color="red", padding=True).print(f"{self.agent_name}: {error_text}")
 
             raise HandledException(exception)  # Re-raise the exception to kill the loop
 
@@ -585,6 +548,7 @@ class Agent:
         # Add User Profile if available
         try:
             from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
+
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
             conn = db._get_conn()
@@ -600,40 +564,32 @@ class Agent:
                 profile_text += "- **Environment**: High-Security White-Hat Platform\n"
                 profile_text += f"- **Timezone**: {profile.get('timezone')}\n"
                 profile_text += f"- **Locale**: {profile.get('locale')}\n"
-                profile_text += "- **Security Policy**: Multi-Factor/Passkey required for high-risk tools (bash, email, etc.)\n"
-                if profile.get('phone_number'):
+                profile_text += (
+                    "- **Security Policy**: Multi-Factor/Passkey required for high-risk tools (bash, email, etc.)\n"
+                )
+                if profile.get("phone_number"):
                     profile_text += f"- **Phone**: {profile.get('phone_number')}\n"
                 system_prompt.append(profile_text)
         except Exception:
-            pass # Silently fail if DB or table not ready
+            pass  # Silently fail if DB or table not ready
 
-        await self.call_extensions(
-            "system_prompt", system_prompt=system_prompt, loop_data=loop_data
-        )
+        await self.call_extensions("system_prompt", system_prompt=system_prompt, loop_data=loop_data)
         return system_prompt
 
     def parse_prompt(self, _prompt_file: str, **kwargs):
         dirs = [files.get_abs_path("prompts")]
-        if (
-            self.config.profile
-        ):  # if agent has custom folder, use it and use default as backup
+        if self.config.profile:  # if agent has custom folder, use it and use default as backup
             prompt_dir = files.get_abs_path("agents", self.config.profile, "prompts")
             dirs.insert(0, prompt_dir)
-        prompt = files.parse_file(
-            _prompt_file, _directories=dirs, **kwargs
-        )
+        prompt = files.parse_file(_prompt_file, _directories=dirs, **kwargs)
         return prompt
 
     def read_prompt(self, file: str, **kwargs) -> str:
         dirs = [files.get_abs_path("prompts")]
-        if (
-            self.config.profile
-        ):  # if agent has custom folder, use it and use default as backup
+        if self.config.profile:  # if agent has custom folder, use it and use default as backup
             prompt_dir = files.get_abs_path("agents", self.config.profile, "prompts")
             dirs.insert(0, prompt_dir)
-        prompt = files.read_prompt_file(
-            file, _directories=dirs, **kwargs
-        )
+        prompt = files.read_prompt_file(file, _directories=dirs, **kwargs)
         prompt = files.remove_code_fences(prompt)
         return prompt
 
@@ -643,9 +599,7 @@ class Agent:
     def set_data(self, field: str, value):
         self.data[field] = value
 
-    def hist_add_message(
-        self, ai: bool, content: history.MessageContent, tokens: int = 0
-    ):
+    def hist_add_message(self, ai: bool, content: history.MessageContent, tokens: int = 0):
         self.last_message = datetime.now(UTC)
         # Allow extensions to process content before adding to history
         content_data = {"content": content}
@@ -698,24 +652,21 @@ class Agent:
         asyncio.run(self.call_extensions("hist_add_tool_result", data=data))
         return self.hist_add_message(False, content=data)
 
-    def concat_messages(
-        self, messages
-    ):  # TODO add param for message range, topic, history
+    def concat_messages(self, messages):  # TODO add param for message range, topic, history
         return self.history.output_text(human_label="user", ai_label="assistant")
 
     def get_chat_model(self):
         # Check if LLM Router should select the model
         from python.helpers import settings
+
         set = settings.get_settings()
         if set.get("llm_router_enabled", False):
             try:
                 from python.helpers.llm_router import RoutingPriority, get_router
+
                 router = get_router()
                 model_info = router.select_model(
-                    role="chat",
-                    context_type="USER",
-                    priority=RoutingPriority.QUALITY,
-                    required_capabilities=["chat"]
+                    role="chat", context_type="USER", priority=RoutingPriority.QUALITY, required_capabilities=["chat"]
                 )
                 if model_info:
                     return models.get_chat_model(
@@ -735,16 +686,18 @@ class Agent:
     def get_utility_model(self):
         # Check if LLM Router should select the model
         from python.helpers import settings
+
         set = settings.get_settings()
         if set.get("llm_router_enabled", False):
             try:
                 from python.helpers.llm_router import RoutingPriority, get_router
+
                 router = get_router()
                 model_info = router.select_model(
                     role="utility",
                     context_type="TASK",
                     priority=RoutingPriority.SPEED,  # Utility calls need speed
-                    required_capabilities=["chat"]
+                    required_capabilities=["chat"],
                 )
                 if model_info:
                     return models.get_chat_model(
@@ -813,16 +766,14 @@ class Agent:
     def get_thinking_kwargs(self) -> dict:
         """Get kwargs for thinking/extended reasoning mode if enabled."""
         from python.helpers import settings
+
         set = settings.get_settings()
 
         kwargs = {}
         if set.get("thinking_enabled", False):
             budget = set.get("thinking_budget", 1024)
             # For Anthropic Claude models with extended thinking support
-            kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": int(budget)
-            }
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": int(budget)}
         return kwargs
 
     async def call_chat_model(
@@ -851,9 +802,7 @@ class Agent:
 
         return response, reasoning
 
-    async def rate_limiter_callback(
-        self, message: str, key: str, total: int, limit: int
-    ):
+    async def rate_limiter_callback(self, message: str, key: str, total: int, limit: int):
         # show the rate limit waiting in a progress bar, no need to spam the chat history
         self.context.log.set_progress(message, True)
         return False
@@ -861,9 +810,7 @@ class Agent:
     async def handle_intervention(self, progress: str = ""):
         while self.context.paused:
             await asyncio.sleep(0.1)  # wait if paused
-        if (
-            self.intervention
-        ):  # if there is an intervention message, but not yet processed
+        if self.intervention:  # if there is an intervention message, but not yet processed
             msg = self.intervention
             self.intervention = None  # reset the intervention message
             # If a tool was running, save its progress to history
@@ -904,10 +851,12 @@ class Agent:
             tool = None
             try:
                 import python.helpers.mcp_handler as mcp_helper
+
                 mcp_tool_candidate = mcp_helper.MCPConfig.get_instance().get_tool(self, tool_name)
                 if mcp_tool_candidate:
                     tool = mcp_tool_candidate
-            except: pass
+            except:
+                pass
 
             if not tool:
                 tool = self.get_tool(
@@ -923,7 +872,9 @@ class Agent:
 
                     response = await tool.execute(**tool_args)
 
-                    await self.call_extensions("tool_execute_after", tool_args=tool_args or {}, tool_name=tool_name, response=response)
+                    await self.call_extensions(
+                        "tool_execute_after", tool_args=tool_args or {}, tool_name=tool_name, response=response
+                    )
                     await tool.after_execution(response)
                     return response
                 except Exception as e:
@@ -966,7 +917,8 @@ class Agent:
                     # Deep check
                     tool_temp = self.get_tool(name=t_name, method=None, args={}, message="", loop_data=None)
                     is_safe = getattr(tool_temp, "parallel_safe", False)
-            except: pass
+            except:
+                pass
 
             # Identify a batch of parallel-safe tools
             batch = [req]
@@ -984,15 +936,19 @@ class Agent:
                         try:
                             nt_temp = self.get_tool(name=next_name, method=None, args={}, message="", loop_data=None)
                             next_safe = getattr(nt_temp, "parallel_safe", False)
-                        except: pass
+                        except:
+                            pass
 
                     if next_safe:
                         batch.append(next_req)
                         j += 1
-                    else: break
+                    else:
+                        break
 
             if len(batch) > 1:
-                PrintStyle(font_color="cyan", bold=True).print(f"⚡ [Parallel Execution] Running {len(batch)} tools concurrently...")
+                PrintStyle(font_color="cyan", bold=True).print(
+                    f"⚡ [Parallel Execution] Running {len(batch)} tools concurrently..."
+                )
                 SecurityManager.log_event("parallel_tool_execution", "success", details={"count": len(batch)})
                 # Execute batch in parallel
                 batch_results = await asyncio.gather(*(execute_tool_task(r) for r in batch), return_exceptions=True)
@@ -1037,9 +993,7 @@ class Agent:
         except Exception:
             pass
 
-    def get_tool(
-        self, name: str, method: str | None, args: dict, message: str, loop_data: LoopData | None, **kwargs
-    ):
+    def get_tool(self, name: str, method: str | None, args: dict, message: str, loop_data: LoopData | None, **kwargs):
         from python.helpers.tool import Tool
         from python.tools.unknown import Unknown
 
@@ -1049,7 +1003,8 @@ class Agent:
         if self.config.profile:
             try:
                 classes = extract_tools.load_classes_from_file(
-                    "agents/" + self.config.profile + "/tools/" + name + ".py", Tool  # type: ignore[arg-type]
+                    "agents/" + self.config.profile + "/tools/" + name + ".py",
+                    Tool,  # type: ignore[arg-type]
                 )
             except Exception:
                 pass
@@ -1058,7 +1013,8 @@ class Agent:
         if not classes:
             try:
                 classes = extract_tools.load_classes_from_file(
-                    "python/tools/" + name + ".py", Tool  # type: ignore[arg-type]
+                    "python/tools/" + name + ".py",
+                    Tool,  # type: ignore[arg-type]
                 )
             except Exception:
                 pass

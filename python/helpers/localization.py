@@ -1,9 +1,4 @@
-from datetime import datetime, timedelta, timezone as dt_timezone
-
-try:
-    from datetime import UTC
-except ImportError:  # Python 3.10 fallback
-    UTC = dt_timezone.utc
+from datetime import UTC, datetime, timedelta, timezone as dt_timezone
 
 import pytz  # type: ignore
 
@@ -117,10 +112,13 @@ class Localization:
             return None
 
         try:
+            normalized = localtime_str.strip()
+            if normalized.endswith("Z"):
+                normalized = normalized[:-1] + "+00:00"
+
             # Handle both with and without timezone info
             try:
-                # Try parsing with timezone info first
-                local_datetime_obj = datetime.fromisoformat(localtime_str)
+                local_datetime_obj = datetime.fromisoformat(normalized)
                 if local_datetime_obj.tzinfo is None:
                     # If no timezone info, assume fixed offset
                     local_datetime_obj = local_datetime_obj.replace(
@@ -128,7 +126,7 @@ class Localization:
                     )
             except ValueError:
                 # If timezone parsing fails, try without timezone
-                base = localtime_str.split('Z')[0].split('+')[0]
+                base = normalized.split("+")[0]
                 local_datetime_obj = datetime.fromisoformat(base)
                 local_datetime_obj = local_datetime_obj.replace(
                     tzinfo=dt_timezone(timedelta(minutes=self._offset_minutes))

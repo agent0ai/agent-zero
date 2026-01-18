@@ -24,37 +24,31 @@ class PromptEnhancer(Extension):
         "prospect": "customer_lifecycle",
         "sales": "customer_lifecycle",
         "crm": "customer_lifecycle",
-
         # Project/Portfolio keywords -> portfolio_manager_tool
         "project": "portfolio_manager_tool",
         "portfolio": "portfolio_manager_tool",
         "milestone": "portfolio_manager_tool",
         "deliverable": "portfolio_manager_tool",
-
         # Workflow keywords -> workflow_engine
         "workflow": "workflow_engine",
         "stage": "workflow_engine",
         "process": "workflow_engine",
         "pipeline": "workflow_engine",
-
         # Diagram keywords -> diagram_tool
         "diagram": "diagram_tool",
         "architecture": "diagram_tool",
         "flowchart": "diagram_tool",
         "visualization": "diagram_tool",
-
         # Email keywords -> email
         "email": "email",
         "send email": "email",
         "mail": "email",
-
         # Deployment keywords -> deployment_orchestrator
         "deploy": "deployment_orchestrator",
         "deployment": "deployment_orchestrator",
         "ci/cd": "deployment_orchestrator",
         "docker": "deployment_orchestrator",
         "kubernetes": "deployment_orchestrator",
-
         # Analysis keywords -> business_xray_tool
         "analyze": "business_xray_tool",
         "roi": "business_xray_tool",
@@ -93,17 +87,13 @@ class PromptEnhancer(Extension):
             tool_list = ", ".join(suggested_tools)
             tool_context = f"\n\nRelevant Agent Zero tools for this request: {tool_list}"
 
-        message_prompt = self.agent.read_prompt(
-            "prompt.enhance.msg.md", user_message=user_text
-        ) + tool_context
+        message_prompt = self.agent.read_prompt("prompt.enhance.msg.md", user_message=user_text) + tool_context
 
         try:
             # Use LLM Router for model selection if available
             enhanced = await self._call_enhance_model(system_prompt, message_prompt)
         except Exception as e:
-            self.agent.context.log.log(
-                type="warning", content=f"Prompt enhancement failed: {e}"
-            )
+            self.agent.context.log.log(type="warning", content=f"Prompt enhancement failed: {e}")
             return
 
         enhanced = enhanced.strip()
@@ -160,7 +150,7 @@ class PromptEnhancer(Extension):
                     role="utility",
                     context_type="enhancement",
                     priority=RoutingPriority.SPEED,  # Prefer speed for preprocessing
-                    required_capabilities=["chat"]
+                    required_capabilities=["chat"],
                 )
 
                 if model_info:
@@ -179,10 +169,7 @@ class PromptEnhancer(Extension):
                         model_info.name,
                         model_config=model_config,
                     )
-                    result, _ = await model.unified_call(
-                        system_message=system,
-                        user_message=message
-                    )
+                    result, _ = await model.unified_call(system_message=system, user_message=message)
 
                     # Record usage for tracking
                     router.record_call(
@@ -191,15 +178,12 @@ class PromptEnhancer(Extension):
                         role="utility",
                         input_tokens=len(message) // 4,
                         output_tokens=len(result) // 4,
-                        success=True
+                        success=True,
                     )
 
                     return result
             except Exception as e:
-                self.agent.context.log.log(
-                    type="debug",
-                    content=f"LLM Router selection failed, using default: {e}"
-                )
+                self.agent.context.log.log(type="debug", content=f"LLM Router selection failed, using default: {e}")
 
         # Fallback to default utility model
         return await self.agent.call_utility_model(system=system, message=message)

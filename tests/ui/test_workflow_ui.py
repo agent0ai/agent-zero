@@ -55,12 +55,10 @@ def _start_ui_server(port: int) -> subprocess.Popen:
 
 def _navigate_to_workflows(page):
     """Helper to navigate to the Workflows dashboard"""
-    # Open Settings modal
-    page.click("button#settings")
-    page.wait_for_timeout(500)
-
-    # Navigate to Workflows tab
-    page.click(".settings-tab:has-text('Workflows')")
+    page.wait_for_function("window.Alpine && Alpine.store('dashboardRouter')", timeout=10000)
+    # Navigate to Workflows dashboard from sidebar
+    page.wait_for_selector(".dashboard-nav-btn:has-text('Workflows')", timeout=10000)
+    page.click(".dashboard-nav-btn:has-text('Workflows')")
 
     # Wait for the dashboard to load
     page.wait_for_selector("[data-testid='workflow-dashboard']", timeout=10000)
@@ -221,7 +219,9 @@ def test_workflow_dashboard_stats_display():
             assert page.locator("[data-testid='stat-workflows']").count() == 1, "Workflows stat card should exist"
             assert page.locator("[data-testid='stat-executions']").count() == 1, "Executions stat card should exist"
             assert page.locator("[data-testid='stat-skills']").count() == 1, "Skills stat card should exist"
-            assert page.locator("[data-testid='stat-learning-paths']").count() == 1, "Learning paths stat card should exist"
+            assert (
+                page.locator("[data-testid='stat-learning-paths']").count() == 1
+            ), "Learning paths stat card should exist"
 
             # Verify stat values exist (may be 0 on fresh install)
             assert page.locator("[data-testid='stat-workflows-value']").count() == 1
@@ -270,7 +270,10 @@ def test_workflow_refresh_button():
             refresh_btn.click()
 
             # Button may briefly show loading state - wait for it to complete
-            page.wait_for_timeout(1000)
+            page.wait_for_function(
+                "!document.querySelector(\"[data-testid='refresh-button']\").disabled",
+                timeout=5000,
+            )
 
             # Verify button is still present and enabled after refresh
             assert refresh_btn.is_visible(), "Refresh button should still be visible after click"
@@ -326,8 +329,9 @@ def test_workflow_empty_state():
             # Either workflows list or empty message should be visible
             workflow_list = page.locator("[data-testid='workflow-list']")
             workflow_empty = page.locator("[data-testid='workflow-list-empty']")
-            assert workflow_list.count() == 1 or workflow_empty.count() == 1, \
-                "Either workflow list or empty message should exist"
+            assert (
+                workflow_list.count() == 1 or workflow_empty.count() == 1
+            ), "Either workflow list or empty message should exist"
 
             # Switch to Skills tab and check empty state
             page.locator("[data-testid='tab-skills']").click()
@@ -336,8 +340,9 @@ def test_workflow_empty_state():
             # Either skills grid or empty message should be visible
             skills_grid = page.locator("[data-testid='skills-grid']")
             skills_empty = page.locator("[data-testid='skills-empty']")
-            assert skills_grid.count() == 1 or skills_empty.count() == 1, \
-                "Either skills grid or empty message should exist"
+            assert (
+                skills_grid.count() == 1 or skills_empty.count() == 1
+            ), "Either skills grid or empty message should exist"
 
             browser.close()
     finally:
@@ -436,7 +441,8 @@ def test_workflow_ui_no_console_errors():
 
             # Filter out expected/benign errors
             critical_errors = [
-                e for e in console_errors
+                e
+                for e in console_errors
                 if "404" not in str(e.text)
                 and "favicon" not in str(e.text).lower()
                 and "mermaid" not in str(e.text).lower()
@@ -485,16 +491,15 @@ def test_workflow_settings_persistence():
             page.locator("[data-testid='tab-skills']").click()
             page.wait_for_timeout(500)
 
-            # Navigate away to General settings
-            page.click(".settings-tab:has-text('General')")
+            # Navigate away by closing the dashboard
+            page.click(".dashboard-back-btn")
             page.wait_for_timeout(500)
 
             # Verify workflows dashboard is no longer visible
-            assert not dashboard.is_visible(), "Dashboard should not be visible when on General tab"
+            assert not dashboard.is_visible(), "Dashboard should not be visible after closing"
 
             # Navigate back to Workflows
-            page.click(".settings-tab:has-text('Workflows')")
-            page.wait_for_timeout(500)
+            _navigate_to_workflows(page)
 
             # Verify dashboard is visible again
             dashboard = page.locator("[data-testid='workflow-dashboard']")

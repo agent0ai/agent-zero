@@ -5,11 +5,10 @@ Routes webhooks to appropriate handlers and emits events to EventBus
 """
 
 import json
-import hmac
-import hashlib
-from typing import Dict, Any
-from python.helpers.api import ApiHandler, Request, Response
+from typing import Any
+
 from instruments.custom.pms_hub.provider_registry import ProviderRegistry
+from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.event_bus import EventBus, EventStore
 
 
@@ -22,8 +21,9 @@ class PMSWebhookReceive(ApiHandler):
     Body: JSON webhook payload
     """
 
-    def __init__(self):
+    def __init__(self, app, thread_lock):
         """Initialize webhook receiver"""
+        super().__init__(app, thread_lock)
         self.registry = ProviderRegistry()
         # Initialize event bus
         import os
@@ -112,9 +112,7 @@ class PMSWebhookReceive(ApiHandler):
                 "code": 500,
             }
 
-    async def _verify_webhook(
-        self, provider_id: str, payload: Dict[str, Any], signature: str
-    ) -> bool:
+    async def _verify_webhook(self, provider_id: str, payload: dict[str, Any], signature: str) -> bool:
         """
         Verify webhook signature
 

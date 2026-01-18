@@ -14,11 +14,11 @@ from python.helpers import files
 class SecurityManager:
     """Manages white-hat security protections, auditing, and rate limiting."""
 
-    _rate_limits = {} # simple in-memory rate limiting. {ip_action: [timestamps]}
-    _authorized_sessions = {} # {user_id: last_authorized_time}
-    _pending_requests = {} # {request_id: {tool, user_id, status}}
-    _action_history = [] # List of (timestamp, user_id, action) for anomaly detection
-    _storage_key = None # Derived key for storage encryption
+    _rate_limits = {}  # simple in-memory rate limiting. {ip_action: [timestamps]}
+    _authorized_sessions = {}  # {user_id: last_authorized_time}
+    _pending_requests = {}  # {request_id: {tool, user_id, status}}
+    _action_history = []  # List of (timestamp, user_id, action) for anomaly detection
+    _storage_key = None  # Derived key for storage encryption
 
     # Async Logging Queue
     _log_queue = queue.Queue()
@@ -26,13 +26,20 @@ class SecurityManager:
 
     # Toggle for feature rollout
     ENFORCE_PASSKEY = False
-    STRICT_HARDWARE_ONLY = True # Require hardware TPM/Secure Enclave
+    STRICT_HARDWARE_ONLY = True  # Require hardware TPM/Secure Enclave
 
     HIGH_RISK_TOOLS = [
-        "code_execution_tool", "email", "email_advanced",
-        "memory_delete", "memory_forget", "workflow_engine",
-        "run_in_terminal", "cowork_approval", "memory_access"
+        "code_execution_tool",
+        "email",
+        "email_advanced",
+        "memory_delete",
+        "memory_forget",
+        "workflow_engine",
+        "run_in_terminal",
+        "cowork_approval",
+        "memory_access",
     ]
+    AUTH_WINDOW_SECONDS = 3600
 
     @classmethod
     def _start_log_worker(cls):
@@ -42,12 +49,14 @@ class SecurityManager:
 
         def worker():
             from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
+
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
 
             while True:
                 item = cls._log_queue.get()
-                if item is None: break # Shutdown signal
+                if item is None:
+                    break  # Shutdown signal
 
                 try:
                     event_type, status, user_id, ip, ua, details = item
@@ -55,10 +64,13 @@ class SecurityManager:
                     # Enable WAL mode for better performance
                     conn.execute("PRAGMA journal_mode=WAL;")
                     cursor = conn.cursor()
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO security_audit_log (event_type, status, user_id, ip_address, device_info, details)
                         VALUES (?, ?, ?, ?, ?, ?)
-                    """, (event_type, status, user_id, ip, ua, json.dumps(details) if details else None))
+                    """,
+                        (event_type, status, user_id, ip, ua, json.dumps(details) if details else None),
+                    )
                     conn.commit()
                     conn.close()
                 except Exception as e:
@@ -84,6 +96,26 @@ class SecurityManager:
     @classmethod
     def is_tool_authorized(cls, tool_name, user_id="default_user", limit=15, window=60):
         """
+        Gate tool usage based on authorization, then rate limit.
+        """
+        if cls.ENFORCE_PASSKEY and tool_name in cls.HIGH_RISK_TOOLS:
+            last_auth = cls._authorized_sessions.get(user_id)
+            if not last_auth or (time.time() - last_auth) > cls.AUTH_WINDOW_SECONDS:
+                cls.log_event("tool_blocked", "warning", user_id, details={"tool": tool_name})
+                return False
+
+        return cls.check_rate_limit(tool_name, limit=limit, window=window)
+
+    @classmethod
+    def set_authorized(cls, user_id="default_user"):
+        """Authorize a user session for high-risk tools."""
+        cls._authorized_sessions[user_id] = time.time()
+        cls.log_event("authorization_granted", "success", user_id)
+        return True
+
+    @classmethod
+    def check_rate_limit(cls, action, limit=15, window=60):
+        """
         Simple rate limiter.
         action: string identifier for the action
         limit: max attempts
@@ -92,11 +124,12 @@ class SecurityManager:
         # In a real CLI it might come from environment, here we mock or use localhost
         ip = "127.0.0.1"
         try:
-            from flask import request
-            if request: ip = request.remote_addr
-        except: pass
+            if request:
+                ip = request.remote_addr
+        except Exception:
+            pass
 
-        key = f"{ip}_{tool_name}"
+        key = f"{ip}_{action}"
         now = time.time()
 
         if key not in cls._rate_limits:
@@ -106,7 +139,7 @@ class SecurityManager:
         cls._rate_limits[key] = [t for t in cls._rate_limits[key] if now - t < window]
 
         if len(cls._rate_limits[key]) >= limit:
-            cls.log_event("rate_limit_exceeded", "warning", details={"tool": tool_name, "limit": limit})
+            cls.log_event("rate_limit_exceeded", "warning", details={"tool": action, "limit": limit})
             return False
 
         cls._rate_limits[key].append(now)
@@ -129,13 +162,14 @@ class SecurityManager:
         if any(keyword in args_str for keyword in sentinel_keywords):
             # If it's a known high-risk tool like bash, we monitor it more strictly
             if tool_name in ["run_in_terminal", "run_command"]:
-                return False # Trigger Auth Required
+                return False  # Trigger Auth Required
         return True
 
     @classmethod
     def get_storage_key(cls):
         """Derives a storage key from the vault's unique platform secret."""
-        if cls._storage_key: return cls._storage_key
+        if cls._storage_key:
+            return cls._storage_key
 
         # We use the VAPID private key as a seed for the platform derivation
         seed = SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "agent-zero-storage-fallback")
@@ -153,7 +187,7 @@ class SecurityManager:
             return (nonce + ciphertext).hex()
         except Exception as e:
             cls.log_event("encryption_error", "fail", details={"error": str(e)})
-            return plaintext # Fallback to plain if encryption fails
+            return plaintext  # Fallback to plain if encryption fails
 
     @classmethod
     def decrypt_data(cls, hex_ciphertext: str) -> str:
@@ -166,7 +200,7 @@ class SecurityManager:
             ciphertext = data[12:]
             return aesgcm.decrypt(nonce, ciphertext, None).decode()
         except:
-            return hex_ciphertext # Return as-is if decryption fails
+            return hex_ciphertext  # Return as-is if decryption fails
 
     @classmethod
     def check_heuristics(cls, user_id="default_user"):
@@ -180,19 +214,22 @@ class SecurityManager:
         # Velocity Check: Max 15 actions per minute for high-security mode
         if len(cls._action_history) > 15:
             cls.panic_lock(user_id)
-            cls.log_event("anomaly_detected", "critical", user_id, details={
-                "reason": "velocity_limit_exceeded",
-                "actions_per_min": len(cls._action_history)
-            })
+            cls.log_event(
+                "anomaly_detected",
+                "critical",
+                user_id,
+                details={"reason": "velocity_limit_exceeded", "actions_per_min": len(cls._action_history)},
+            )
 
             # Send Emergency Push
             try:
                 from python.helpers.proactive import ProactiveManager
+
                 ProactiveManager.send_push(
                     user_id=user_id,
                     title="🚨 EMERGENCY LOCK",
                     body=f"Agent activity spike detected ({len(cls._action_history)} actions/min). Security lock engaged.",
-                    url="/logs"
+                    url="/logs",
                 )
             except:
                 pass
@@ -204,12 +241,13 @@ class SecurityManager:
     def create_auth_request(cls, tool_name, user_id="default_user"):
         """Creates a pending authorization request and returns its ID."""
         import uuid
+
         request_id = str(uuid.uuid4())
         cls._pending_requests[request_id] = {
             "tool": tool_name,
             "user_id": user_id,
             "status": "pending",
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
         # Cleanup old requests (older than 10 mins)
         now = time.time()
@@ -237,16 +275,20 @@ class SecurityManager:
         """Retrieves recent security events from the audit log."""
         try:
             from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
+
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
             conn = db._get_conn()
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, event_type, status, user_id, ip_address, device_info, details, timestamp
                 FROM security_audit_log
                 ORDER BY timestamp DESC LIMIT ?
-            """, (limit,))
+            """,
+                (limit,),
+            )
 
             rows = cursor.fetchall()
             logs = []
@@ -271,6 +313,7 @@ class SecurityManager:
 
         return True, None
 
+
 class SecurityVaultManager:
     """Manages sensitive keys and secrets that are hardware-bound or encrypted."""
 
@@ -290,8 +333,8 @@ class SecurityVaultManager:
                 sk = ecdsa.SigningKey.generate(curve=ecdsa.NIST256p)
                 vk = sk.get_verifying_key()
 
-                private_key = base64.urlsafe_b64encode(sk.to_string()).decode('utf-8').strip("=")
-                public_key = base64.urlsafe_b64encode(b"\x04" + vk.to_string()).decode('utf-8').strip("=")
+                private_key = base64.urlsafe_b64encode(sk.to_string()).decode("utf-8").strip("=")
+                public_key = base64.urlsafe_b64encode(b"\x04" + vk.to_string()).decode("utf-8").strip("=")
 
                 cls.set_secret("VAPID_PRIVATE_KEY", private_key)
                 cls.set_secret("VAPID_PUBLIC_KEY", public_key)
@@ -328,6 +371,6 @@ class SecurityVaultManager:
                 pass
 
         vault[key_name] = value
-        with open(abs_path, 'w') as f:
+        with open(abs_path, "w") as f:
             json.dump(vault, f)
         return True

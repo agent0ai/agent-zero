@@ -24,6 +24,35 @@ export async function callJsonApi(endpoint, data) {
 }
 
 /**
+ * Load settings and flatten them to a simple key/value map.
+ * @returns {Promise<Object>} Flattened settings map.
+ */
+export async function loadSettings() {
+  const response = await callJsonApi("/settings_get", {});
+  const flat = {};
+  const sections = response?.settings?.sections || [];
+  for (const section of sections) {
+    const fields = section?.fields || [];
+    for (const field of fields) {
+      if (field?.id !== undefined) {
+        flat[field.id] = field.value;
+      }
+    }
+  }
+  return flat;
+}
+
+/**
+ * Save a partial settings delta using the settings_set API.
+ * @param {Object} delta - Partial settings fields to update.
+ * @returns {Promise<Object>} API response.
+ */
+export async function saveSettings(delta) {
+  const fields = Object.entries(delta || {}).map(([id, value]) => ({ id, value }));
+  return await callJsonApi("/settings_set", { sections: [{ fields }] });
+}
+
+/**
  * Fetch wrapper for A0 APIs that ensures token exchange
  * Automatically adds CSRF token to request headers
  * @param {string} url - The URL to fetch
@@ -33,7 +62,12 @@ export async function callJsonApi(endpoint, data) {
 export async function fetchApi(url, request) {
   async function _wrap(retry) {
     // get the CSRF token
-    const token = await getCsrfToken();
+    let token = null;
+    try {
+      token = await getCsrfToken();
+    } catch (err) {
+      console.warn("CSRF token unavailable, continuing without token:", err);
+    }
 
     // create a new request object if none was provided
     const finalRequest = request || {};
@@ -42,7 +76,9 @@ export async function fetchApi(url, request) {
     finalRequest.headers = finalRequest.headers || {};
 
     // add the CSRF token to the headers
-    finalRequest.headers["X-CSRF-Token"] = token;
+    if (token) {
+      finalRequest.headers["X-CSRF-Token"] = token;
+    }
 
     // perform the fetch with the updated request
     const response = await fetch(url, finalRequest);
@@ -79,9 +115,17 @@ let csrfToken = null;
  */
 async function getCsrfToken() {
   if (csrfToken) return csrfToken;
-  const response = await fetch("/csrf_token", {
-    credentials: "same-origin",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  let response;
+  try {
+    response = await fetch("/csrf_token", {
+      credentials: "same-origin",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (response.redirected && response.url.endsWith("/login")) {
     // redirect to login
     window.location.href = response.url;

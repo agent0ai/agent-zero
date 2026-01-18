@@ -7,7 +7,6 @@ from python.helpers.wait import managed_wait
 
 
 class WaitTool(Tool):
-
     async def execute(self, **kwargs) -> Response:
         await self.agent.handle_intervention()
 
@@ -59,16 +58,13 @@ class WaitTool(Tool):
             target_time=target_time,
             is_duration_wait=is_duration_wait,
             log=self.log,
-            get_heading_callback=self.get_heading
+            get_heading_callback=self.get_heading,
         )
 
         if self.log:
             self.log.update(heading=self.get_heading("Done", done=True))
 
-        message = self.agent.read_prompt(
-            "fw.wait_complete.md",
-            target_time=target_time.isoformat()
-        )
+        message = self.agent.read_prompt("fw.wait_complete.md", target_time=target_time.isoformat())
 
         return Response(
             message=message,

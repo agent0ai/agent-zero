@@ -13,7 +13,6 @@ from python.helpers.api import (
 
 
 class GetCsrfToken(ApiHandler):
-
     @classmethod
     def get_methods(cls) -> list[str]:
         return ["GET"]
@@ -23,11 +22,10 @@ class GetCsrfToken(ApiHandler):
         return False
 
     async def process(self, input: Input, request: Request) -> Output:
-
         # check for allowed origin to prevent dns rebinding attacks
         origin_check = await self.check_allowed_origin(request)
         if not origin_check["ok"]:
-            allowed_origins_str = ", ".join(origin_check['allowed_origins'])
+            allowed_origins_str = ", ".join(origin_check["allowed_origins"])
             return {
                 "ok": False,
                 "error": f"Origin {self.get_origin_from_request(request)} not allowed when login is disabled. Set login and password or add your URL to ALLOWED_ORIGINS env variable. Currently allowed origins: {allowed_origins_str}",
@@ -55,16 +53,16 @@ class GetCsrfToken(ApiHandler):
         # get the origin from the request
         origin = self.get_origin_from_request(request)
         if not origin:
+            remote_addr = getattr(request, "remote_addr", "") or ""
+            if remote_addr.startswith("127.") or remote_addr == "::1":
+                return {"ok": True, "origin": "", "allowed_origins": []}
             return {"ok": False, "origin": "", "allowed_origins": ""}
 
         # list of allowed origins
         allowed_origins = await self.get_allowed_origins()
 
         # check if the origin is allowed
-        match = any(
-            fnmatch.fnmatch(origin, allowed_origin)
-            for allowed_origin in allowed_origins
-        )
+        match = any(fnmatch.fnmatch(origin, allowed_origin) for allowed_origin in allowed_origins)
         return {"ok": match, "origin": origin, "allowed_origins": allowed_origins}
 
     def get_origin_from_request(self, request: Request):
@@ -72,11 +70,7 @@ class GetCsrfToken(ApiHandler):
         r = request.headers.get("Origin") or request.environ.get("HTTP_ORIGIN")
         if not r:
             # try referer if origin not present
-            r = (
-                request.headers.get("Referer")
-                or request.referrer
-                or request.environ.get("HTTP_REFERER")
-            )
+            r = request.headers.get("Referer") or request.referrer or request.environ.get("HTTP_REFERER")
         if not r:
             return None
         # parse and normalize
@@ -88,9 +82,7 @@ class GetCsrfToken(ApiHandler):
     async def get_allowed_origins(self) -> list[str]:
         # get the allowed origins from the environment
         allowed_origins = [
-            origin.strip()
-            for origin in (dotenv.get_dotenv_value("ALLOWED_ORIGINS") or "").split(",")
-            if origin.strip()
+            origin.strip() for origin in (dotenv.get_dotenv_value("ALLOWED_ORIGINS") or "").split(",") if origin.strip()
         ]
 
         # if there are no allowed origins, allow default localhosts

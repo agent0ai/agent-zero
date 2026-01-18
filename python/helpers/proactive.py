@@ -2,14 +2,21 @@ import json
 
 from python.helpers import files
 
+try:
+    from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
+except Exception:
+    WorkflowEngineDatabase = None
+
 # Optional: pywebpush for push notifications
 try:
     from pywebpush import WebPushException, webpush
+
     PYWEBPUSH_AVAILABLE = True
 except ImportError:
     webpush = None
     WebPushException = Exception
     PYWEBPUSH_AVAILABLE = False
+
 
 class ProactiveManager:
     """Manages proactive alerts and push notifications for the user."""
@@ -18,30 +25,37 @@ class ProactiveManager:
     ENABLED = False
 
     # VAPID Claims
-    VAPID_CLAIMS = { "sub": "mailto:admin@agent-zero.local" }
+    VAPID_CLAIMS = {"sub": "mailto:admin@agent-zero.local"}
 
     @classmethod
     def get_public_key(cls):
         """Retrieves the public key for frontend subscription."""
         from python.helpers.security import SecurityVaultManager
+
         SecurityVaultManager.initialize_keys()
-        return SecurityVaultManager.get_secret("VAPID_PUBLIC_KEY", "BEl62iC769AsE_YQ-bMIn2404u2S5yTzOsVIdgYxOnvIowh-G5hV_Iq12_9E2D8y")
+        return SecurityVaultManager.get_secret(
+            "VAPID_PUBLIC_KEY", "BEl62iC769AsE_YQ-bMIn2404u2S5yTzOsVIdgYxOnvIowh-G5hV_Iq12_9E2D8y"
+        )
 
     @classmethod
     def get_private_key(cls):
         """Retrieves the private key for signing push payloads."""
         from python.helpers.security import SecurityVaultManager
+
         SecurityVaultManager.initialize_keys()
         return SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "PLACEHOLDER_PRIVATE_KEY")
 
     @classmethod
     def send_push(cls, user_id, title, body, url="/", actions=None, requestId=None):
         """Sends a physical push notification to a registered user device."""
-        if not cls.ENABLED or not PYWEBPUSH_AVAILABLE:
+        if not cls.ENABLED:
+            return False
+        if webpush is None:
             return False
 
         try:
-            from instruments.custom.workflow_engine.workflow_db import WorkflowEngineDatabase
+            if WorkflowEngineDatabase is None:
+                return False
             db_path = files.get_abs_path("./instruments/custom/workflow_engine/data/workflow.db")
             db = WorkflowEngineDatabase(db_path)
             conn = db._get_conn()
@@ -56,11 +70,7 @@ class ProactiveManager:
 
             subscription_info = json.loads(row[0])
 
-            payload = {
-                "title": title,
-                "body": body,
-                "url": url
-            }
+            payload = {"title": title, "body": body, "url": url}
             if actions:
                 payload["actions"] = actions
             if requestId:
@@ -70,7 +80,7 @@ class ProactiveManager:
                 subscription_info=subscription_info,
                 data=json.dumps(payload),
                 vapid_private_key=cls.get_private_key(),
-                vapid_claims=cls.VAPID_CLAIMS
+                vapid_claims=cls.VAPID_CLAIMS,
             )
             return True
         except WebPushException as ex:
@@ -100,9 +110,12 @@ class ProactiveManager:
 
             # Example: Low Battery Nudge
             if battery and battery.get("level", 100) < 20 and not battery.get("charging"):
-                cls.send_push(user_id, "🔋 Low Battery Alert",
-                             f"Your phone is at {battery['level']}%. Need me to wrap up anything before it dies?",
-                             "/")
+                cls.send_push(
+                    user_id,
+                    "🔋 Low Battery Alert",
+                    f"Your phone is at {battery['level']}%. Need me to wrap up anything before it dies?",
+                    "/",
+                )
 
             # Example: Security nudge - check if MFA is enabled
             if not profile.get("mfa_enabled"):
@@ -115,13 +128,10 @@ class ProactiveManager:
     @classmethod
     def notify_tool_usage(cls, tool_name, user_id="default_user"):
         """Nudge user when a sensitive tool is being accessed."""
-        sensitive_tools = ['run_in_terminal', 'run_command', 'write_file', 'delete_file', 'email']
+        sensitive_tools = ["run_in_terminal", "run_command", "write_file", "delete_file", "email"]
         if any(st in tool_name.lower() for st in sensitive_tools):
             cls.send_push(
-                user_id,
-                title="🛡️ Security Monitor",
-                body=f"Agent is accessing sensitive tool: {tool_name}",
-                url="/logs"
+                user_id, title="🛡️ Security Monitor", body=f"Agent is accessing sensitive tool: {tool_name}", url="/logs"
             )
             return True
         return False

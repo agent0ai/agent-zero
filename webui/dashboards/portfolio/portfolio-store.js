@@ -295,7 +295,13 @@ const portfolioDashboardModel = {
     }
 };
 
-// Register the store when Alpine loads
-document.addEventListener('alpine:init', () => {
+// Register the store when Alpine is ready
+const registerPortfolioStore = () => {
     Alpine.store('portfolioDashboard', portfolioDashboardModel);
-});
+};
+
+if (globalThis.Alpine) {
+    registerPortfolioStore();
+} else {
+    document.addEventListener('alpine:init', registerPortfolioStore);
+}
