@@ -158,7 +158,7 @@ class LogItem:
     agent_number: int = 0
 
     def __post_init__(self):
-        self.guid = self.log.get_guid()
+        self.guid = self.log.guid
         self.timestamp = self.timestamp or time.time()
 
     def update(
@@ -171,7 +171,7 @@ class LogItem:
         update_progress: ProgressUpdate | None = None,
         **kwargs,
     ):
-        if self.guid == self.log.get_guid():
+        if self.guid == self.log.guid:
             self.log._update_item(
                 self.no,
                 type=type,

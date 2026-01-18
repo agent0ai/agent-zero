@@ -41,7 +41,12 @@ const model = {
   _queuedPayload: null,
   _inFlightPayload: null,
   _seenFirstConnect: false,
+  _lastConnectWasFirst: true,
   _pendingReconnectToast: null,
+  _wasDegraded: false,
+  _degradedToastShown: false,
+  _degradedToastTimer: null,
+  _degradedToastDelayMs: 100,
 
   runtimeEpoch: null,
   seqBase: 0,
@@ -52,6 +57,61 @@ const model = {
     if (oldMode === newMode) return;
     this.mode = newMode;
     debug("[syncStore] Mode transition:", oldMode, "→", newMode, reason ? `(${reason})` : "");
+
+    if (newMode !== SYNC_MODES.DEGRADED) {
+      if (this._degradedToastTimer) {
+        clearTimeout(this._degradedToastTimer);
+        this._degradedToastTimer = null;
+      }
+    }
+
+    if (newMode === SYNC_MODES.DISCONNECTED) {
+      this._wasDegraded = false;
+      this._degradedToastShown = false;
+    }
+
+    if (newMode === SYNC_MODES.DEGRADED) {
+      this._wasDegraded = true;
+      if (this._degradedToastShown || this._degradedToastTimer) {
+        return;
+      }
+      this._degradedToastTimer = setTimeout(() => {
+        this._degradedToastTimer = null;
+        this._degradedToastShown = true;
+        notificationStore
+          .frontendWarning(
+            "WebSocket connection problems - using polling fallback",
+            "Connection",
+            5,
+            "sync-mode",
+            undefined,
+            true
+          )
+          .catch((error) => {
+            console.error("[syncStore] degraded toast failed:", error);
+          });
+      }, this._degradedToastDelayMs);
+      return;
+    }
+
+    if (newMode === SYNC_MODES.HEALTHY) {
+      if (this._degradedToastShown) {
+        notificationStore
+          .frontendSuccess(
+            "WebSocket connection restored",
+            "Connection",
+            4,
+            "sync-mode",
+            undefined,
+            true
+          )
+          .catch((error) => {
+            console.error("[syncStore] recovery toast failed:", error);
+          });
+      }
+      this._wasDegraded = false;
+      this._degradedToastShown = false;
+    }
   },
 
   async _flushPendingReconnectToast() {
@@ -94,6 +154,7 @@ const model = {
         debug("[syncStore] websocket connected", { needsHandshake: this.needsHandshake });
 
         const firstConnect = Boolean(info && info.firstConnect);
+        this._lastConnectWasFirst = firstConnect;
         if (firstConnect) {
           this._seenFirstConnect = true;
         } else if (this._seenFirstConnect) {
@@ -136,6 +197,15 @@ const model = {
         });
       });
       debug("[syncStore] subscribed to state_push");
+
+      await stateSocket.on("server_restart", (envelope) => {
+        // Avoid showing restart toast on the initial connect; prefer reconnect flows.
+        if (this._lastConnectWasFirst) return;
+        const runtimeId = envelope?.data?.runtimeId || null;
+        debug("[syncStore] server_restart received", { runtimeId });
+        this._pendingReconnectToast = "restart";
+      });
+      debug("[syncStore] subscribed to server_restart");
 
       await this.sendStateRequest({ forceFull: true });
     } catch (error) {

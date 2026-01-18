@@ -1,5 +1,5 @@
 import { io } from "/vendor/socket.io.esm.min.js";
-import { getCsrfToken, invalidateCsrfToken } from "/js/api.js";
+import { getCsrfToken, getRuntimeId, invalidateCsrfToken } from "/js/api.js";
 
 const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB hard cap per contract
 const DEFAULT_TIMEOUT_MS = 0;
@@ -572,7 +572,7 @@ class WebSocketClient {
       this._connectErrorRetryAttempt = 0;
       this._clearConnectErrorRetryTimer();
 
-      const runtimeId = window.runtimeInfo?.id || null;
+      const runtimeId = getRuntimeId();
       const runtimeChanged = Boolean(
         this._lastRuntimeId &&
           runtimeId &&

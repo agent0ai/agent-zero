@@ -72,6 +72,18 @@ export async function fetchApi(url, request) {
 // csrf token stored locally
 let csrfToken = null;
 let csrfTokenPromise = null;
+let runtimeIdCache = null;
+
+export function getRuntimeId() {
+  if (runtimeIdCache) return runtimeIdCache;
+  const injected =
+    window.runtimeInfo &&
+    typeof window.runtimeInfo.id === "string" &&
+    window.runtimeInfo.id.length > 0
+      ? window.runtimeInfo.id
+      : null;
+  return injected;
+}
 
 export function invalidateCsrfToken() {
   csrfToken = null;
@@ -103,16 +115,19 @@ export async function getCsrfToken() {
         ? json.runtime_id
         : null;
 
-    window.runtimeInfo = window.runtimeInfo || { id: null, isDevelopment: false };
-    if (runtimeId) {
-      window.runtimeInfo = { ...(window.runtimeInfo || {}), id: runtimeId };
-    }
-
     csrfToken = json.token;
     if (runtimeId) {
-      document.cookie = `csrf_token_${runtimeId}=${csrfToken}; SameSite=Strict; Path=/`;
+      runtimeIdCache = runtimeId;
+    }
+    const injectedRuntimeId =
+      window.runtimeInfo && typeof window.runtimeInfo.id === "string" && window.runtimeInfo.id.length > 0
+        ? window.runtimeInfo.id
+        : null;
+    const cookieRuntimeId = runtimeId || injectedRuntimeId;
+    if (cookieRuntimeId) {
+      document.cookie = `csrf_token_${cookieRuntimeId}=${csrfToken}; SameSite=Strict; Path=/`;
     } else {
-      console.warn("CSRF runtime id missing from response; skipping cookie name binding.");
+      console.warn("CSRF runtime id missing; skipping cookie name binding.");
     }
     return csrfToken;
   } else {
