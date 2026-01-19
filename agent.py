@@ -177,7 +177,7 @@ class AgentContext:
                 if self.last_message
                 else Localization.get().serialize_datetime(datetime.fromtimestamp(0))
             ),
-            "type": self.type.value,
+            "type": self.type.value if hasattr(self, 'type') else AgentContextType.USER.value,
             **self.output_data,
         }
 

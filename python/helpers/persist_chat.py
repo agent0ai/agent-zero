@@ -32,7 +32,7 @@ def get_chat_msg_files_folder(ctxid: str):
 def save_tmp_chat(context: AgentContext):
     """Save context to the chats folder"""
     # Skip saving BACKGROUND contexts as they should be ephemeral
-    if context.type == AgentContextType.BACKGROUND:
+    if hasattr(context, 'type') and context.type == AgentContextType.BACKGROUND:
         return
 
     path = _get_chat_file_path(context.id)
@@ -46,7 +46,7 @@ def save_tmp_chats():
     """Save all contexts to the chats folder"""
     for _, context in AgentContext._contexts.items():
         # Skip BACKGROUND contexts as they should be ephemeral
-        if context.type == AgentContextType.BACKGROUND:
+        if hasattr(context, 'type') and context.type == AgentContextType.BACKGROUND:
             continue
         save_tmp_chat(context)
 
@@ -135,7 +135,7 @@ def _serialize_context(context: AgentContext):
             if context.created_at
             else datetime.fromtimestamp(0).isoformat()
         ),
-        "type": context.type.value,
+        "type": context.type.value if hasattr(context, 'type') else AgentContextType.USER.value,
         "last_message": (
             context.last_message.isoformat()
             if context.last_message
