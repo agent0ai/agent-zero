@@ -20,6 +20,11 @@ const DISPLAY_CODES = {
   'memory_load': 'MEM',
   'memory_forget': 'MEM',
   'memory_delete': 'MEM',
+  // AI Scientist tools
+  'semantic_scholar': 'S2',
+  'generate_idea': 'IDE',
+  'run_experiment': 'EXP',
+  'write_paper': 'PAP',
 
   // --- Step Types ---
   'agent': 'GEN',
@@ -138,7 +143,10 @@ const model = {
       if (toolName === 'call_subordinate') {
         return 'status-sub';
       }
-      // Add other specific tool mappings here if needed in the future
+      // AI Scientist tools get purple (SCI color)
+      if (['semantic_scholar', 'generate_idea', 'run_experiment', 'write_paper'].includes(toolName)) {
+        return 'status-sci';
+      }
     }
     
     const colors = {

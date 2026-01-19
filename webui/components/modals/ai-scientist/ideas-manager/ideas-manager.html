@@ -1,0 +1,261 @@
+<html>
+<head>
+    <title>Research Ideas Manager</title>
+    <script type="module">
+        import { store } from "/components/modals/ai-scientist/ideas-manager/ideas-manager-store.js";
+    </script>
+</head>
+<body>
+    <div x-data
+         x-create="$store.ideasManagerStore.onOpen()"
+         x-destroy="$store.ideasManagerStore.cleanup()">
+        <template x-if="$store.ideasManagerStore">
+            <div class="ideas-manager">
+                <!-- Topic Input Section -->
+                <div class="section">
+                    <div class="section-title">Generate New Ideas</div>
+                    <div class="section-description">
+                        Describe your research topic to generate novel research ideas with novelty validation.
+                    </div>
+                    <div class="input-group">
+                        <textarea
+                            x-model="$store.ideasManagerStore.topic"
+                            placeholder="Describe your research topic (e.g., 'Improving transformer efficiency through sparse attention mechanisms')..."
+                            rows="3"></textarea>
+                    </div>
+                    <div class="input-row">
+                        <label>
+                            Number of ideas:
+                            <select x-model.number="$store.ideasManagerStore.numIdeas">
+                                <option value="3">3</option>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                            </select>
+                        </label>
+                        <button class="btn btn-ok"
+                                @click="$store.ideasManagerStore.generateIdeas()"
+                                :disabled="$store.ideasManagerStore.generatingIdeas || !$store.ideasManagerStore.topic.trim()">
+                            <span x-show="!$store.ideasManagerStore.generatingIdeas">Generate Ideas</span>
+                            <span x-show="$store.ideasManagerStore.generatingIdeas">Generating...</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ideas List Section -->
+                <div class="section">
+                    <div class="section-title">Research Ideas</div>
+                    <div class="ideas-list" x-show="!$store.ideasManagerStore.loading">
+                        <template x-if="$store.ideasManagerStore.ideas.length === 0">
+                            <div class="empty-state">No ideas generated yet. Enter a topic above to get started.</div>
+                        </template>
+                        <template x-for="idea in $store.ideasManagerStore.ideas" :key="idea.Name">
+                            <div class="idea-card"
+                                 :class="{'selected': $store.ideasManagerStore.selectedIdea?.Name === idea.Name}"
+                                 @click="$store.ideasManagerStore.selectIdea(idea.Name)">
+                                <div class="idea-title" x-text="idea.Title"></div>
+                                <div class="idea-hypothesis" x-text="idea['Short Hypothesis']"></div>
+                                <div class="idea-meta">
+                                    <span class="idea-name" x-text="idea.Name"></span>
+                                    <span class="novelty-badge"
+                                          :class="$store.ideasManagerStore.getNoveltyClass(idea.novelty_score)"
+                                          x-text="'Novelty: ' + (idea.novelty_score || 'N/A') + '/10'"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="loading" x-show="$store.ideasManagerStore.loading"></div>
+                </div>
+
+                <!-- Selected Idea Detail -->
+                <template x-if="$store.ideasManagerStore.selectedIdea">
+                    <div class="section idea-detail">
+                        <div class="section-title" x-text="$store.ideasManagerStore.selectedIdea.Title"></div>
+
+                        <div class="detail-row">
+                            <strong>Hypothesis:</strong>
+                            <p x-text="$store.ideasManagerStore.selectedIdea['Short Hypothesis']"></p>
+                        </div>
+
+                        <div class="detail-row">
+                            <strong>Abstract:</strong>
+                            <p x-text="$store.ideasManagerStore.selectedIdea.Abstract"></p>
+                        </div>
+
+                        <div class="detail-row">
+                            <strong>Proposed Experiments:</strong>
+                            <ul>
+                                <template x-for="exp in $store.ideasManagerStore.selectedIdea.Experiments || []">
+                                    <li x-text="exp"></li>
+                                </template>
+                            </ul>
+                        </div>
+
+                        <div class="detail-row">
+                            <strong>Risk Factors:</strong>
+                            <ul>
+                                <template x-for="risk in ($store.ideasManagerStore.selectedIdea['Risk Factors and Limitations'] || [])">
+                                    <li x-text="risk"></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer" data-modal-footer>
+        <button class="btn btn-ok"
+                @click="$store.ideasManagerStore.startExperiment()"
+                :disabled="!$store.ideasManagerStore.selectedIdea">
+            Run Experiment
+        </button>
+        <button class="btn btn-cancel" @click="closeModal()">Close</button>
+    </div>
+
+    <style>
+        .ideas-manager {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .input-group textarea {
+            width: 100%;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-input);
+            color: var(--color-text);
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-sm);
+        }
+
+        .input-row label {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .input-row select {
+            padding: var(--spacing-xs, 4px) 8px;
+            border-radius: 4px;
+            background: var(--color-input);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+
+        .ideas-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .idea-card {
+            padding: var(--spacing-md);
+            background: var(--color-input);
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--transition-speed);
+        }
+
+        .idea-card:hover {
+            border-color: var(--color-border);
+        }
+
+        .idea-card.selected {
+            border-color: var(--color-accent);
+            background: var(--color-panel);
+        }
+
+        .idea-title {
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-xs, 4px);
+        }
+
+        .idea-hypothesis {
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            opacity: 0.8;
+        }
+
+        .idea-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: var(--spacing-sm);
+        }
+
+        .idea-name {
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--color-text);
+            opacity: 0.6;
+        }
+
+        .novelty-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: var(--color-panel);
+        }
+
+        .novelty-badge.high {
+            background: var(--color-success-bg, rgba(34, 197, 94, 0.2));
+            color: var(--color-success, #22c55e);
+        }
+
+        .novelty-badge.medium {
+            background: var(--color-warning-bg, rgba(234, 179, 8, 0.2));
+            color: var(--color-warning, #eab308);
+        }
+
+        .novelty-badge.low {
+            background: var(--color-error-bg, rgba(239, 68, 68, 0.2));
+            color: var(--color-error, #ef4444);
+        }
+
+        .idea-detail {
+            background: var(--color-panel);
+            padding: var(--spacing-md);
+            border-radius: 8px;
+        }
+
+        .detail-row {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .detail-row strong {
+            color: var(--color-primary);
+        }
+
+        .detail-row p {
+            margin: var(--spacing-xs, 4px) 0 0 0;
+        }
+
+        .detail-row ul {
+            margin: var(--spacing-xs, 4px) 0 0 0;
+            padding-left: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-lg);
+            color: var(--color-text);
+            opacity: 0.6;
+        }
+    </style>
+</body>
+</html>

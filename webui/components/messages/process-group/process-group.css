@@ -226,6 +226,12 @@
   color: var(--step-accent);
 }
 
+/* SCI - AI Scientist tools (purple) */
+.status-sci {
+  --step-accent: #a855f7;
+  color: var(--step-accent);
+}
+
 /* Animated spinner for active status (CSS-only, no Material Icons) */
 .status-badge.status-active::after {
   content: "";
@@ -778,6 +784,11 @@
 
 .light-mode .status-usr {
   --step-accent: #0284c7;
+  color: var(--step-accent);
+}
+
+.light-mode .status-sci {
+  --step-accent: #9333ea;
   color: var(--step-accent);
 }
 

@@ -1,0 +1,5 @@
+{
+  "title": "AI Scientist",
+  "description": "Agent specialized in autonomous scientific research - generates ideas, runs experiments via tree search, and writes papers.",
+  "context": "Use this agent for ML research: hypothesis generation, experiment execution, ablation studies, and paper writing. Supports 4-stage pipeline: initial implementation → baseline tuning → creative research → ablation studies."
+}
