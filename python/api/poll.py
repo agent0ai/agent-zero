@@ -56,7 +56,7 @@ class Poll(ApiHandler):
                 continue
 
             # Skip BACKGROUND contexts as they should be invisible to users
-            if ctx.type == AgentContextType.BACKGROUND:
+            if hasattr(ctx, 'type') and ctx.type == AgentContextType.BACKGROUND:
                 processed_contexts.add(ctx.id)
                 continue
 
