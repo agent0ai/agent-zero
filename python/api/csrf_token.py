@@ -11,6 +11,8 @@ from python.helpers.api import (
 from python.helpers import runtime, dotenv, login
 import fnmatch
 
+ALLOWED_ORIGINS_KEY = "ALLOWED_ORIGINS"
+
 
 class GetCsrfToken(ApiHandler):
 
@@ -29,7 +31,7 @@ class GetCsrfToken(ApiHandler):
         if not origin_check["ok"]:
             return {
                 "ok": False,
-                "error": f"Origin {self.get_origin_from_request(request)} not allowed when login is disabled. Set login and password or add your URL to ALLOWED_ORIGINS env variable. Currently allowed origins: {",".join(origin_check['allowed_origins'])}",
+                "error": f"Origin {self.get_origin_from_request(request)} not allowed when login is disabled. Set login and password or add your URL to ALLOWED_ORIGINS env variable. Currently allowed origins: {','.join(origin_check['allowed_origins'])}",
             }
 
         # generate a csrf token if it doesn't exist
@@ -44,9 +46,11 @@ class GetCsrfToken(ApiHandler):
         }
 
     async def check_allowed_origin(self, request: Request):
-        # if login is required, this che
+        # if login is required, this check is unnecessary
         if login.is_login_required():
             return {"ok": True, "origin": "", "allowed_origins": ""}
+        # initialize allowed origins if not yet set
+        self.initialize_allowed_origins(request)
         # otherwise, check if the origin is allowed
         return await self.is_allowed_origin(request)
 
@@ -65,6 +69,7 @@ class GetCsrfToken(ApiHandler):
             for allowed_origin in allowed_origins
         )
         return {"ok": match, "origin": origin, "allowed_origins": allowed_origins}
+
 
     def get_origin_from_request(self, request: Request):
         # get from origin
@@ -88,7 +93,7 @@ class GetCsrfToken(ApiHandler):
         # get the allowed origins from the environment
         allowed_origins = [
             origin.strip()
-            for origin in (dotenv.get_dotenv_value("ALLOWED_ORIGINS") or "").split(",")
+            for origin in (dotenv.get_dotenv_value(ALLOWED_ORIGINS_KEY) or "").split(",")
             if origin.strip()
         ]
 
@@ -110,3 +115,34 @@ class GetCsrfToken(ApiHandler):
 
     def get_default_allowed_origins(self) -> list[str]:
         return ["*://localhost:*", "*://127.0.0.1:*", "*://0.0.0.0:*"]
+
+    def initialize_allowed_origins(self, request: Request):
+        """
+        If A0 is hosted on a server, add the first visit origin to ALLOWED_ORIGINS.
+        This simplifies deployment process as users can access their new instance without 
+        additional setup while keeping it secure.
+        """
+        # dotenv value is already set, do nothing
+        denv = dotenv.get_dotenv_value(ALLOWED_ORIGINS_KEY)
+        if denv:
+            return
+
+        # get the origin from the request
+        req_origin = self.get_origin_from_request(request)
+        if not req_origin:
+            return
+
+        # check if the origin is allowed by default
+        allowed_origins = self.get_default_allowed_origins()
+        match = any(
+            fnmatch.fnmatch(req_origin, allowed_origin)
+            for allowed_origin in allowed_origins
+        )
+        if match:
+            return
+
+        # if not, add it to the allowed origins
+        allowed_origins.append(req_origin)
+        dotenv.save_dotenv_value(ALLOWED_ORIGINS_KEY, ",".join(allowed_origins))
+
+        

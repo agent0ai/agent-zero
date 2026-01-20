@@ -64,6 +64,9 @@ chat:
   azure:
     name: OpenAI Azure
     litellm_provider: azure
+  bedrock:
+    name: AWS Bedrock
+    litellm_provider: bedrock
   openrouter:
     name: OpenRouter
     litellm_provider: openrouter
@@ -84,6 +87,16 @@ chat:
   xai:
     name: xAI
     litellm_provider: xai
+  zai:
+    name: Z.AI
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.z.ai/api/paas/v4
+  zai_coding:
+    name: Z.AI Coding
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.z.ai/api/coding/paas/v4
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
@@ -110,6 +123,9 @@ embedding:
   azure:
     name: OpenAI Azure
     litellm_provider: azure
+  bedrock:
+    name: AWS Bedrock
+    litellm_provider: bedrock
   # TODO: OpenRouter not yet supported by LiteLLM, replace with native litellm_provider openrouter and remove api_base when ready
   openrouter:
     name: OpenRouter

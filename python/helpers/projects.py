@@ -25,7 +25,9 @@ class FileStructureInjectionSettings(TypedDict):
     max_lines: int
     gitignore: str
 
-
+class SubAgentSettings(TypedDict):
+    enabled: bool
+    
 class BasicProjectData(TypedDict):
     title: str
     description: str
@@ -36,13 +38,14 @@ class BasicProjectData(TypedDict):
     ]  # in the future we can add cutom and point to another existing folder
     file_structure: FileStructureInjectionSettings
 
-
 class EditProjectData(BasicProjectData):
     name: str
     instruction_files_count: int
     knowledge_files_count: int
     variables: str
     secrets: str
+    subagents: dict[str, SubAgentSettings]
+
 
 
 def get_projects_parent_folder():
@@ -128,6 +131,7 @@ def _normalizeEditData(data: EditProjectData):
             "file_structure",
             _default_file_structure_settings(),
         ),
+        subagents=data.get("subagents", {}),
     )
 
 
@@ -152,6 +156,7 @@ def update_project(name: str, data: EditProjectData):
     # save secrets
     save_project_variables(name, current["variables"])
     save_project_secrets(name, current["secrets"])
+    save_project_subagents(name, current["subagents"])
 
     reactivate_project_in_chats(name)
     return name
@@ -170,6 +175,7 @@ def load_edit_project_data(name: str) -> EditProjectData:
     )  # for additional info
     variables = load_project_variables(name)
     secrets = load_project_secrets_masked(name)
+    subagents = load_project_subagents(name)
     knowledge_files_count = get_knowledge_files_count(name)
     data = EditProjectData(
         **data,
@@ -178,6 +184,7 @@ def load_edit_project_data(name: str) -> EditProjectData:
         knowledge_files_count=knowledge_files_count,
         variables=variables,
         secrets=secrets,
+        subagents=subagents,
     )
     data = _normalizeEditData(data)
     return data
@@ -312,6 +319,46 @@ def load_project_variables(name: str):
 def save_project_variables(name: str, variables: str):
     abs_path = files.get_abs_path(get_project_meta_folder(name), "variables.env")
     files.write_file(abs_path, variables)
+
+
+def load_project_subagents(name: str) -> dict[str, SubAgentSettings]:
+    try:
+        abs_path = files.get_abs_path(get_project_meta_folder(name), "agents.json")
+        data = dirty_json.parse(files.read_file(abs_path))
+        if isinstance(data, dict):
+            return _normalize_subagents(data)  # type: ignore[arg-type,return-value]
+        return {}
+    except Exception:
+        return {}
+
+
+def save_project_subagents(name: str, subagents_data: dict[str, SubAgentSettings]):
+    abs_path = files.get_abs_path(get_project_meta_folder(name), "agents.json")
+    normalized = _normalize_subagents(subagents_data)
+    content = dirty_json.stringify(normalized)
+    files.write_file(abs_path, content)
+
+
+def _normalize_subagents(
+    subagents_data: dict[str, SubAgentSettings]
+) -> dict[str, SubAgentSettings]:
+    from python.helpers import subagents
+
+    agents_dict = subagents.get_agents_dict()
+
+    normalized: dict[str, SubAgentSettings] = {}
+    for key, value in subagents_data.items():
+        agent = agents_dict.get(key)
+        if not agent:
+            continue
+
+        enabled = bool(value["enabled"])
+        if agent.enabled == enabled:
+            continue
+
+        normalized[key] = {"enabled": enabled}
+
+    return normalized
 
 
 def load_project_secrets_masked(name: str, merge_with_global=False):

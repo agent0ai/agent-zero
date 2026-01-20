@@ -20,7 +20,7 @@ python3.13 -m venv /opt/venv
 source /opt/venv/bin/activate
 
 # upgrade pip and install static packages
-pip install --no-cache-dir --upgrade pip ipython requests
+pip install --no-cache-dir --upgrade pip pipx ipython requests
 
 echo "====================PYTHON PYVENV===================="
 

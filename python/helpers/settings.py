@@ -4,7 +4,7 @@ import json
 import os
 import re
 import subprocess
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
 from python.helpers import runtime, whisper, defer, git
@@ -13,6 +13,41 @@ from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers
 from python.helpers.secrets import get_default_secrets_manager
 from python.helpers import dirty_json
+
+
+T = TypeVar('T')
+
+def get_default_value(name: str, value: T) -> T:
+    """
+    Load setting value from .env with A0_SET_ prefix, falling back to default.
+
+    Args:
+        name: Setting name (will be prefixed with A0_SET_)
+        value: Default value to use if env var not set
+
+    Returns:
+        Environment variable value (type-normalized) or default value
+    """
+    env_value = dotenv.get_dotenv_value(f"A0_SET_{name}", dotenv.get_dotenv_value(f"A0_SET_{name.upper()}", None))
+
+    if env_value is None:
+        return value
+
+    # Normalize type to match value param type
+    try:
+        if isinstance(value, bool):
+            return env_value.strip().lower() in ('true', '1', 'yes', 'on')  # type: ignore
+        elif isinstance(value, dict):
+            return json.loads(env_value.strip())  # type: ignore
+        elif isinstance(value, str):
+            return str(env_value).strip()  # type: ignore
+        else:
+            return type(value)(env_value.strip())  # type: ignore
+    except (ValueError, TypeError, json.JSONDecodeError) as e:
+        PrintStyle(background_color="yellow", font_color="black").print(
+            f"Warning: Invalid value for A0_SET_{name}='{env_value}': {e}. Using default: {value}"
+        )
+        return value
 
 
 class Settings(TypedDict):
@@ -1240,6 +1275,28 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "external",
     }
 
+    # Skills section (UI-friendly import)
+    skills_fields: list[SettingsField] = []
+    skills_fields.append(
+        {
+            "id": "skills_import",
+            "title": "Import Skills",
+            "description": "Import a Skills pack (.zip) into <code>skills/shared/&lt;namespace&gt;/...</code> "
+            "using the open Agent Skills (SKILL.md) standard.",
+            "type": "button",
+            "value": "Import Skills",
+        }
+    )
+
+    skills_section: SettingsSection = {
+        "id": "skills",
+        "title": "Skills",
+        "description": "Skills are portable bundles of instructions, scripts, and resources that agents can discover and load on demand. "
+        "See the spec at <code>agentskills.io</code>.",
+        "fields": skills_fields,
+        "tab": "agent",
+    }
+    
     # Backup & Restore section
     backup_fields: list[SettingsField] = []
 
@@ -1456,83 +1513,83 @@ def _write_sensitive_settings(settings: Settings):
 def get_default_settings() -> Settings:
     return Settings(
         version=_get_version(),
-        chat_model_provider="openrouter",
-        chat_model_name="openai/gpt-4.1",
-        chat_model_api_base="",
-        chat_model_kwargs={"temperature": "0"},
-        chat_model_ctx_length=100000,
-        chat_model_ctx_history=0.7,
-        chat_model_vision=True,
-        chat_model_rl_requests=0,
-        chat_model_rl_input=0,
-        chat_model_rl_output=0,
-        util_model_provider="openrouter",
-        util_model_name="openai/gpt-4.1-mini",
-        util_model_api_base="",
-        util_model_ctx_length=100000,
-        util_model_ctx_input=0.7,
-        util_model_kwargs={"temperature": "0"},
-        util_model_rl_requests=0,
-        util_model_rl_input=0,
-        util_model_rl_output=0,
-        embed_model_provider="huggingface",
-        embed_model_name="sentence-transformers/all-MiniLM-L6-v2",
-        embed_model_api_base="",
-        embed_model_kwargs={},
-        embed_model_rl_requests=0,
-        embed_model_rl_input=0,
-        browser_model_provider="openrouter",
-        browser_model_name="openai/gpt-4.1",
-        browser_model_api_base="",
-        browser_model_vision=True,
-        browser_model_rl_requests=0,
-        browser_model_rl_input=0,
-        browser_model_rl_output=0,
-        browser_model_kwargs={"temperature": "0"},
-        browser_http_headers={},
-        memory_recall_enabled=True,
-        memory_recall_delayed=False,
-        memory_recall_interval=3,
-        memory_recall_history_len=10000,
-        memory_recall_memories_max_search=12,
-        memory_recall_solutions_max_search=8,
-        memory_recall_memories_max_result=5,
-        memory_recall_solutions_max_result=3,
-        memory_recall_similarity_threshold=0.7,
-        memory_recall_query_prep=True,
-        memory_recall_post_filter=True,
-        memory_memorize_enabled=True,
-        memory_memorize_consolidation=True,
-        memory_memorize_replace_threshold=0.9,
+        chat_model_provider=get_default_value("chat_model_provider", "openrouter"),
+        chat_model_name=get_default_value("chat_model_name", "openai/gpt-4.1"),
+        chat_model_api_base=get_default_value("chat_model_api_base", ""),
+        chat_model_kwargs=get_default_value("chat_model_kwargs", {"temperature": "0"}),
+        chat_model_ctx_length=get_default_value("chat_model_ctx_length", 100000),
+        chat_model_ctx_history=get_default_value("chat_model_ctx_history", 0.7),
+        chat_model_vision=get_default_value("chat_model_vision", True),
+        chat_model_rl_requests=get_default_value("chat_model_rl_requests", 0),
+        chat_model_rl_input=get_default_value("chat_model_rl_input", 0),
+        chat_model_rl_output=get_default_value("chat_model_rl_output", 0),
+        util_model_provider=get_default_value("util_model_provider", "openrouter"),
+        util_model_name=get_default_value("util_model_name", "openai/gpt-4.1-mini"),
+        util_model_api_base=get_default_value("util_model_api_base", ""),
+        util_model_ctx_length=get_default_value("util_model_ctx_length", 100000),
+        util_model_ctx_input=get_default_value("util_model_ctx_input", 0.7),
+        util_model_kwargs=get_default_value("util_model_kwargs", {"temperature": "0"}),
+        util_model_rl_requests=get_default_value("util_model_rl_requests", 0),
+        util_model_rl_input=get_default_value("util_model_rl_input", 0),
+        util_model_rl_output=get_default_value("util_model_rl_output", 0),
+        embed_model_provider=get_default_value("embed_model_provider", "huggingface"),
+        embed_model_name=get_default_value("embed_model_name", "sentence-transformers/all-MiniLM-L6-v2"),
+        embed_model_api_base=get_default_value("embed_model_api_base", ""),
+        embed_model_kwargs=get_default_value("embed_model_kwargs", {}),
+        embed_model_rl_requests=get_default_value("embed_model_rl_requests", 0),
+        embed_model_rl_input=get_default_value("embed_model_rl_input", 0),
+        browser_model_provider=get_default_value("browser_model_provider", "openrouter"),
+        browser_model_name=get_default_value("browser_model_name", "openai/gpt-4.1"),
+        browser_model_api_base=get_default_value("browser_model_api_base", ""),
+        browser_model_vision=get_default_value("browser_model_vision", True),
+        browser_model_rl_requests=get_default_value("browser_model_rl_requests", 0),
+        browser_model_rl_input=get_default_value("browser_model_rl_input", 0),
+        browser_model_rl_output=get_default_value("browser_model_rl_output", 0),
+        browser_model_kwargs=get_default_value("browser_model_kwargs", {"temperature": "0"}),
+        browser_http_headers=get_default_value("browser_http_headers", {}),
+        memory_recall_enabled=get_default_value("memory_recall_enabled", True),
+        memory_recall_delayed=get_default_value("memory_recall_delayed", False),
+        memory_recall_interval=get_default_value("memory_recall_interval", 3),
+        memory_recall_history_len=get_default_value("memory_recall_history_len", 10000),
+        memory_recall_memories_max_search=get_default_value("memory_recall_memories_max_search", 12),
+        memory_recall_solutions_max_search=get_default_value("memory_recall_solutions_max_search", 8),
+        memory_recall_memories_max_result=get_default_value("memory_recall_memories_max_result", 5),
+        memory_recall_solutions_max_result=get_default_value("memory_recall_solutions_max_result", 3),
+        memory_recall_similarity_threshold=get_default_value("memory_recall_similarity_threshold", 0.7),
+        memory_recall_query_prep=get_default_value("memory_recall_query_prep", True),
+        memory_recall_post_filter=get_default_value("memory_recall_post_filter", True),
+        memory_memorize_enabled=get_default_value("memory_memorize_enabled", True),
+        memory_memorize_consolidation=get_default_value("memory_memorize_consolidation", True),
+        memory_memorize_replace_threshold=get_default_value("memory_memorize_replace_threshold", 0.9),
         api_keys={},
         auth_login="",
         auth_password="",
         root_password="",
-        agent_profile="agent0",
-        agent_memory_subdir="default",
-        agent_knowledge_subdir="custom",
-        rfc_auto_docker=True,
-        rfc_url="localhost",
+        agent_profile=get_default_value("agent_profile", "agent0"),
+        agent_memory_subdir=get_default_value("agent_memory_subdir", "default"),
+        agent_knowledge_subdir=get_default_value("agent_knowledge_subdir", "custom"),
+        rfc_auto_docker=get_default_value("rfc_auto_docker", True),
+        rfc_url=get_default_value("rfc_url", "localhost"),
         rfc_password="",
-        rfc_port_http=55080,
-        rfc_port_ssh=55022,
-        shell_interface="local" if runtime.is_dockerized() else "ssh",
-        stt_model_size="base",
-        stt_language="en",
-        stt_silence_threshold=0.3,
-        stt_silence_duration=1000,
-        stt_waiting_timeout=2000,
-        tts_kokoro=True,
-        mcp_servers='{\n    "mcpServers": {}\n}',
-        mcp_client_init_timeout=10,
-        mcp_client_tool_timeout=120,
-        mcp_server_enabled=False,
+        rfc_port_http=get_default_value("rfc_port_http", 55080),
+        rfc_port_ssh=get_default_value("rfc_port_ssh", 55022),
+        shell_interface=get_default_value("shell_interface", "local" if runtime.is_dockerized() else "ssh"),
+        stt_model_size=get_default_value("stt_model_size", "base"),
+        stt_language=get_default_value("stt_language", "en"),
+        stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
+        stt_silence_duration=get_default_value("stt_silence_duration", 1000),
+        stt_waiting_timeout=get_default_value("stt_waiting_timeout", 2000),
+        tts_kokoro=get_default_value("tts_kokoro", True),
+        mcp_servers=get_default_value("mcp_servers", '{\n    "mcpServers": {}\n}'),
+        mcp_client_init_timeout=get_default_value("mcp_client_init_timeout", 10),
+        mcp_client_tool_timeout=get_default_value("mcp_client_tool_timeout", 120),
+        mcp_server_enabled=get_default_value("mcp_server_enabled", False),
         mcp_server_token=create_auth_token(),
-        a2a_server_enabled=False,
+        a2a_server_enabled=get_default_value("a2a_server_enabled", False),
         variables="",
         secrets="",
-        litellm_global_kwargs={},
-        update_check_enabled=True,
+        litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
+        update_check_enabled=get_default_value("update_check_enabled", True),
     )
 
 

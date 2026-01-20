@@ -1,31 +1,34 @@
 import json
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from python.helpers.files import VariablesPlugin
-from python.helpers import files
+from python.helpers import files, projects, subagents
 from python.helpers.print_style import PrintStyle
+
+if TYPE_CHECKING:
+    from agent import Agent
 
 
 class CallSubordinate(VariablesPlugin):
-    def get_variables(self, file: str, backup_dirs: list[str] | None = None) -> dict[str, Any]:
+    def get_variables(
+        self, file: str, backup_dirs: list[str] | None = None, **kwargs
+    ) -> dict[str, Any]:
 
-        # collect all prompt profiles from subdirectories (_context.md file)
-        profiles = []
-        agent_subdirs = files.get_subdirectories("agents", exclude=["_example"])
-        for agent_subdir in agent_subdirs:
-            try:
-                context = files.read_prompt_file(
-                    "_context.md",
-                    [files.get_abs_path("agents", agent_subdir)]
-                )
-                profiles.append({"name": agent_subdir, "context": context})
-            except Exception as e:
-                PrintStyle().error(f"Error loading agent profile '{agent_subdir}': {e}")
+        # current agent instance
+        agent: Agent | None = kwargs.get("_agent", None)
+        # current project
+        project = projects.get_context_project_name(agent.context) if agent else None
+        # available agents in project (or global)
+        agents = subagents.get_available_agents_dict(project)
 
-        # in case of no profiles
-        if not profiles:
-            # PrintStyle().error("No agent profiles found")
-            profiles = [
-                {"name": "default", "context": "Default Agent-Zero AI Assistant"}
-            ]
-
-        return {"agent_profiles": profiles}
+        if agents:
+            profiles = {}
+            for name, subagent in agents.items():
+                profiles[name] = {
+                    "title": subagent.title,
+                    "description": subagent.description,
+                    "context": subagent.context,
+                }
+            return {"agent_profiles": profiles}
+        else:
+            return {"agent_profiles": None}
+        

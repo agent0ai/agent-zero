@@ -813,7 +813,7 @@ def _parse_chunk(chunk: Any) -> ChatChunk:
         message.get("content", "")
         if isinstance(message, dict)
         else getattr(message, "content", "")
-    )
+    ) or ""
     reasoning_delta = (
         delta.get("reasoning_content", "")
         if isinstance(delta, dict)
@@ -822,7 +822,7 @@ def _parse_chunk(chunk: Any) -> ChatChunk:
         message.get("reasoning_content", "")
         if isinstance(message, dict)
         else getattr(message, "reasoning_content", "")
-    )
+    ) or ""
 
     return ChatChunk(reasoning_delta=reasoning_delta, response_delta=response_delta)
 
