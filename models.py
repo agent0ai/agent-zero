@@ -16,6 +16,7 @@ from typing import (
 
 from litellm import completion, acompletion, embedding
 import litellm
+from litellm.exceptions import RateLimitError as LiteLLMRateLimitError, APIConnectionError as LiteLLMAPIConnectionError
 import openai
 from litellm.types.utils import ModelResponse
 
@@ -225,8 +226,36 @@ def get_rate_limiter(
     return limiter
 
 
+def _is_non_transient_error(exc: Exception) -> bool:
+    """Check if error is non-transient (should not be retried)"""
+    error_str = str(exc).lower()
+    
+    # Model not found errors are not transient
+    if "model" in error_str and ("not found" in error_str or "does not exist" in error_str):
+        return True
+    
+    # Invalid model name errors
+    if "invalid model" in error_str or "unknown model" in error_str:
+        return True
+    
+    # Authentication errors (401, 403) are typically not transient
+    status_code = getattr(exc, "status_code", None)
+    if isinstance(status_code, int) and status_code in (401, 403):
+        return True
+    
+    return False
+
+
 def _is_transient_litellm_error(exc: Exception) -> bool:
     """Uses status_code when available, else falls back to exception types"""
+    # First check if this is a non-transient error (don't retry)
+    if _is_non_transient_error(exc):
+        return False
+    
+    # Check for LiteLLM-specific exceptions first
+    if isinstance(exc, LiteLLMRateLimitError):
+        return True
+    
     # Prefer explicit status codes if present
     status_code = getattr(exc, "status_code", None)
     if isinstance(status_code, int):
@@ -485,81 +514,110 @@ class LiteLLMChatWrapper(SimpleChatModel):
             self.a0_model_conf, str(msgs_conv), rate_limiter_callback
         )
 
-        # Prepare call kwargs and retry config (strip A0-only params before calling LiteLLM)
+        # Prepare call kwargs (strip A0-only params before calling LiteLLM)
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
-        max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
-        retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
 
         # results
         result = ChatGenerationResult()
 
-        attempt = 0
-        while True:
-            got_any_chunk = False
-            try:
-                # call model
-                _completion = await acompletion(
-                    model=self.model_name,
-                    messages=msgs_conv,
-                    stream=stream,
-                    **call_kwargs,
-                )
+        try:
+            # call model
+            _completion = await acompletion(
+                model=self.model_name,
+                messages=msgs_conv,
+                stream=stream,
+                **call_kwargs,
+            )
 
-                if stream:
-                    # iterate over chunks
-                    async for chunk in _completion:  # type: ignore
-                        got_any_chunk = True
-                        # parse chunk
-                        parsed = _parse_chunk(chunk)
-                        output = result.add_chunk(parsed)
-
-                        # collect reasoning delta and call callbacks
-                        if output["reasoning_delta"]:
-                            if reasoning_callback:
-                                await reasoning_callback(output["reasoning_delta"], result.reasoning)
-                            if tokens_callback:
-                                await tokens_callback(
-                                    output["reasoning_delta"],
-                                    approximate_tokens(output["reasoning_delta"]),
-                                )
-                            # Add output tokens to rate limiter if configured
-                            if limiter:
-                                limiter.add(output=approximate_tokens(output["reasoning_delta"]))
-                        # collect response delta and call callbacks
-                        if output["response_delta"]:
-                            if response_callback:
-                                await response_callback(output["response_delta"], result.response)
-                            if tokens_callback:
-                                await tokens_callback(
-                                    output["response_delta"],
-                                    approximate_tokens(output["response_delta"]),
-                                )
-                            # Add output tokens to rate limiter if configured
-                            if limiter:
-                                limiter.add(output=approximate_tokens(output["response_delta"]))
-
-                # non-stream response
-                else:
-                    parsed = _parse_chunk(_completion)
+            if stream:
+                # iterate over chunks
+                async for chunk in _completion:  # type: ignore
+                    # parse chunk
+                    parsed = _parse_chunk(chunk)
                     output = result.add_chunk(parsed)
-                    if limiter:
-                        if output["response_delta"]:
-                            limiter.add(output=approximate_tokens(output["response_delta"]))
-                        if output["reasoning_delta"]:
+
+                    # collect reasoning delta and call callbacks
+                    if output["reasoning_delta"]:
+                        if reasoning_callback:
+                            await reasoning_callback(output["reasoning_delta"], result.reasoning)
+                        if tokens_callback:
+                            await tokens_callback(
+                                output["reasoning_delta"],
+                                approximate_tokens(output["reasoning_delta"]),
+                            )
+                        # Add output tokens to rate limiter if configured
+                        if limiter:
                             limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+                    # collect response delta and call callbacks
+                    if output["response_delta"]:
+                        if response_callback:
+                            await response_callback(output["response_delta"], result.response)
+                        if tokens_callback:
+                            await tokens_callback(
+                                output["response_delta"],
+                                approximate_tokens(output["response_delta"]),
+                            )
+                        # Add output tokens to rate limiter if configured
+                        if limiter:
+                            limiter.add(output=approximate_tokens(output["response_delta"]))
 
-                # Successful completion of stream
-                return result.response, result.reasoning
+            # non-stream response
+            else:
+                parsed = _parse_chunk(_completion)
+                output = result.add_chunk(parsed)
+                if limiter:
+                    if output["response_delta"]:
+                        limiter.add(output=approximate_tokens(output["response_delta"]))
+                    if output["reasoning_delta"]:
+                        limiter.add(output=approximate_tokens(output["reasoning_delta"]))
 
-            except Exception as e:
-                import asyncio
+            # Successful completion
+            return result.response, result.reasoning
 
-                # Retry only if no chunks received and error is transient
-                if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
-                    raise
-                attempt += 1
-                await asyncio.sleep(retry_delay_s)
+        except Exception as e:
+            # Check for OpenRouter data policy error and provide helpful guidance
+            error_str = str(e)
+            if "openrouter" in self.provider.lower() and ("data policy" in error_str.lower() or "free model publication" in error_str.lower()):
+                raise Exception(
+                    f"OpenRouter data policy error: {error_str}\n\n"
+                    "To fix this, please:\n"
+                    "1. Go to https://openrouter.ai/settings/privacy\n"
+                    "2. Enable 'Free model publication' in your data policy settings\n"
+                    "3. Or use a different model that matches your current data policy"
+                ) from e
+
+            # Check for model not found errors (especially Ollama) and provide helpful guidance
+            if _is_non_transient_error(e):
+                error_lower = error_str.lower()
+                if "ollama" in error_lower or "ollama" in self.provider.lower():
+                    if "model" in error_lower and ("not found" in error_lower or "does not exist" in error_lower):
+                        # Extract model name from error if possible
+                        model_name = self.model_name.split("/")[-1] if "/" in self.model_name else self.model_name
+                        raise Exception(
+                            f"Ollama model not found: {error_str}\n\n"
+                            f"To fix this, please:\n"
+                            f"1. Make sure Ollama is running: `ollama serve`\n"
+                            f"2. Pull the model: `ollama pull {model_name}`\n"
+                            f"3. Verify the model exists: `ollama list`\n"
+                            f"4. Check that the model name '{model_name}' is correct"
+                        ) from e
+                raise Exception(f"Configuration error (not retriable): {error_str}") from e
+
+            # Provide helpful error message for rate limit errors
+            if isinstance(e, LiteLLMRateLimitError):
+                error_msg = f"Rate limit error: {error_str}"
+                if "openrouter" in self.provider.lower():
+                    error_msg += (
+                        "\n\nOpenRouter rate limit suggestions:\n"
+                        "1. Wait a few moments and try again\n"
+                        "2. Add your own API key at https://openrouter.ai/settings/integrations to accumulate rate limits\n"
+                        "3. Consider using a different model or provider"
+                    )
+                raise Exception(error_msg) from e
+            
+            # Re-raise all other errors as-is
+            raise
 
 
 class AsyncAIChatReplacement:
@@ -617,13 +675,12 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self._wrapper.a0_model_conf, str(messages))
 
-        # Call the model
         try:
             model = kwargs.pop("model", None)
             kwrgs = {**self._wrapper.kwargs, **kwargs}
 
             # hack from browser-use to fix json schema for gemini (additionalProperties, $defs, $ref)
-            if "response_format" in kwrgs and "json_schema" in kwrgs["response_format"] and model.startswith("gemini/"):
+            if "response_format" in kwrgs and "json_schema" in kwrgs["response_format"] and model and model.startswith("gemini/"):
                 kwrgs["response_format"]["json_schema"] = ChatGoogle("")._fix_gemini_schema(kwrgs["response_format"]["json_schema"])
 
             resp = await acompletion(
@@ -644,7 +701,48 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
                 pass
 
         except Exception as e:
-            raise e
+            # Check for OpenRouter data policy error and provide helpful guidance
+            error_str = str(e)
+            if "openrouter" in self.provider.lower() and ("data policy" in error_str.lower() or "free model publication" in error_str.lower()):
+                raise Exception(
+                    f"OpenRouter data policy error: {error_str}\n\n"
+                    "To fix this, please:\n"
+                    "1. Go to https://openrouter.ai/settings/privacy\n"
+                    "2. Enable 'Free model publication' in your data policy settings\n"
+                    "3. Or use a different model that matches your current data policy"
+                ) from e
+
+            # Check for model not found errors (especially Ollama) and provide helpful guidance
+            if _is_non_transient_error(e):
+                error_lower = error_str.lower()
+                if "ollama" in error_lower or "ollama" in self.provider.lower():
+                    if "model" in error_lower and ("not found" in error_lower or "does not exist" in error_lower):
+                        # Extract model name from error if possible
+                        model_name = self.model_name.split("/")[-1] if "/" in self.model_name else self.model_name
+                        raise Exception(
+                            f"Ollama model not found: {error_str}\n\n"
+                            f"To fix this, please:\n"
+                            f"1. Make sure Ollama is running: `ollama serve`\n"
+                            f"2. Pull the model: `ollama pull {model_name}`\n"
+                            f"3. Verify the model exists: `ollama list`\n"
+                            f"4. Check that the model name '{model_name}' is correct"
+                        ) from e
+                raise Exception(f"Configuration error (not retriable): {error_str}") from e
+
+            # Provide helpful error message for rate limit errors
+            if isinstance(e, LiteLLMRateLimitError):
+                error_msg = f"Rate limit error: {error_str}"
+                if "openrouter" in self.provider.lower():
+                    error_msg += (
+                        "\n\nOpenRouter rate limit suggestions:\n"
+                        "1. Wait a few moments and try again\n"
+                        "2. Add your own API key at https://openrouter.ai/settings/integrations to accumulate rate limits\n"
+                        "3. Consider using a different model or provider"
+                    )
+                raise Exception(error_msg) from e
+            
+            # Re-raise all other errors as-is
+            raise
 
         # another hack for browser-use post process invalid jsons
         try:

@@ -1532,7 +1532,7 @@ def get_default_settings() -> Settings:
         variables="",
         secrets="",
         litellm_global_kwargs={},
-        update_check_enabled=True,
+        update_check_enabled=False,
     )
 
 

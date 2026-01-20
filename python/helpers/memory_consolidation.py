@@ -34,7 +34,7 @@ class ConsolidationConfig:
     max_llm_context_memories: int = 5
     keyword_extraction_sys_prompt: str = "memory.keyword_extraction.sys.md"
     keyword_extraction_msg_prompt: str = "memory.keyword_extraction.msg.md"
-    processing_timeout_seconds: int = 60
+    processing_timeout_seconds: int = 180  # Increased from 60 to 180 seconds for complex consolidations
     # Add safety threshold for REPLACE actions
     replace_similarity_threshold: float = 0.9  # Higher threshold for replacement safety
 
@@ -102,7 +102,17 @@ class MemoryConsolidator:
             return result
 
         except asyncio.TimeoutError:
-            PrintStyle().error(f"Memory consolidation timeout for area {area}")
+            PrintStyle().error(
+                f"Memory consolidation timeout for area '{area}' "
+                f"(exceeded {self.config.processing_timeout_seconds}s). "
+                f"This may occur with large memory databases or slow LLM responses. "
+                f"Consider increasing processing_timeout_seconds in ConsolidationConfig."
+            )
+            if log_item:
+                log_item.update(
+                    result=f"Timeout after {self.config.processing_timeout_seconds}s",
+                    error="consolidation_timeout"
+                )
             return {"success": False, "memory_ids": []}
 
         except Exception as e:
@@ -790,7 +800,7 @@ def create_memory_consolidator(agent: Agent, **config_overrides) -> MemoryConsol
     - replace_similarity_threshold: Safety threshold for REPLACE actions (default 0.9)
     - max_similar_memories: Maximum memories to discover (default 10)
     - max_llm_context_memories: Maximum memories to send to LLM (default 5)
-    - processing_timeout_seconds: Timeout for consolidation processing (default 30)
+    - processing_timeout_seconds: Timeout for consolidation processing (default 180)
     """
     config = ConsolidationConfig(**config_overrides)
     return MemoryConsolidator(agent, config)
