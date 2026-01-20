@@ -13,5 +13,6 @@
     },
     // Optional: point VSCode to jsconfig.json if you add one
     "jsconfig.json": "${workspaceFolder}/jsconfig.json",
-    "postman.settings.dotenv-detection-notification-visibility": false
+    "postman.settings.dotenv-detection-notification-visibility": false,
+    "cursorpyright.analysis.typeCheckingMode": "standard"
 }
