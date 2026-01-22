@@ -96,6 +96,21 @@
 
           <div class="field">
             <div class="field-label">
+              <div class="field-title">Structured output</div>
+              <div class="field-description">
+                Enables strict JSON output for responses to reduce agent message misformatting.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settingsStore.settings.chat_model_structured_output" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
               <div class="field-title">Requests per minute limit</div>
               <div class="field-description">
                 Limits the number of requests per minute to the chat model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.

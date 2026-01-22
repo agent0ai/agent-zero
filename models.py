@@ -77,6 +77,7 @@ class ModelConfig:
     limit_input: int = 0
     limit_output: int = 0
     vision: bool = False
+    structured_output: bool = False
     kwargs: dict = field(default_factory=dict)
 
     def build_kwargs(self):

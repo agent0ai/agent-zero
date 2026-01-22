@@ -60,6 +60,7 @@ class Settings(TypedDict):
     chat_model_ctx_length: int
     chat_model_ctx_history: float
     chat_model_vision: bool
+    chat_model_structured_output: bool
     chat_model_rl_requests: int
     chat_model_rl_input: int
     chat_model_rl_output: int
@@ -459,6 +460,7 @@ def get_default_settings() -> Settings:
         chat_model_ctx_length=get_default_value("chat_model_ctx_length", 100000),
         chat_model_ctx_history=get_default_value("chat_model_ctx_history", 0.7),
         chat_model_vision=get_default_value("chat_model_vision", True),
+        chat_model_structured_output=get_default_value("chat_model_structured_output", True),
         chat_model_rl_requests=get_default_value("chat_model_rl_requests", 0),
         chat_model_rl_input=get_default_value("chat_model_rl_input", 0),
         chat_model_rl_output=get_default_value("chat_model_rl_output", 0),

@@ -1,12 +1,13 @@
 import asyncio, random, string
 import nest_asyncio
+from pydantic import BaseModel
 
 nest_asyncio.apply()
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Coroutine, Dict, Literal
+from typing import Any, Awaitable, Coroutine, Dict, List, Literal
 from enum import Enum
 import models
 
@@ -323,6 +324,13 @@ class LoopData:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+# output structure for agent chat
+class AgentResponseSchema(BaseModel):
+    thoughts: List[str]
+    headline: str
+    tool_name: str
+    tool_args: Dict[str, Any]
+
 
 # intervention exception class - skips rest of message loop iteration
 class InterventionException(Exception):
@@ -435,6 +443,7 @@ class Agent:
                             messages=prompt,
                             response_callback=stream_callback,
                             reasoning_callback=reasoning_callback,
+                            allow_structured_output=True,
                         )
 
                         # Notify extensions to finalize their stream filters
@@ -776,11 +785,18 @@ class Agent:
         response_callback: Callable[[str, str], Awaitable[None]] | None = None,
         reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
         background: bool = False,
+        allow_structured_output: bool = False,
     ):
         response = ""
 
         # model class
         model = self.get_chat_model()
+
+        kwargs = {}
+        # use structured output if agent message and is enabled in config
+        if allow_structured_output and model.a0_model_conf and model.a0_model_conf.structured_output:
+            kwargs["response_format"] = AgentResponseSchema
+            # kwargs["response_format"] = {"type": "json_object"} # alternative
 
         # call model
         response, reasoning = await model.unified_call(
@@ -790,6 +806,7 @@ class Agent:
             rate_limiter_callback=(
                 self.rate_limiter_callback if not background else None
             ),
+            **kwargs,
         )
 
         return response, reasoning
