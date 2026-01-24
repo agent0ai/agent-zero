@@ -1,0 +1,85 @@
+# .github/workflows/sync-upstream.yml
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    # Run weekly on Monday at 6:00 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no push)'
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/agent0ai/agent-zero.git
+          git fetch upstream
+          
+      - name: Sync main branch
+        id: sync
+        run: |
+          git checkout main
+          git merge upstream/main --no-edit
+        continue-on-error: true
+
+      - name: Push to main
+        if: ${{ steps.sync.outcome == 'success' && !inputs.dry_run }}
+        run: git push origin main
+          
+      - name: Create PR if conflicts
+        if: steps.sync.outcome == 'failure'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          title: "⚠️ Upstream sync requires manual resolution"
+          body: |
+            Automated sync with upstream failed due to conflicts.
+            
+            **Action Required:**
+            1. Check out this branch locally
+            2. Resolve conflicts
+            3. Push resolution
+            4. Merge this PR
+            
+            **Upstream changes:** https://github.com/agent0ai/agent-zero/commits/main
+          branch: upstream-sync-conflict
+          labels: upstream-sync,needs-attention
+          
+      - name: Trigger quorum branch update
+        if: steps.sync.outcome == 'success'
+        run: |
+          gh workflow run update-quorum.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Upstream sync failed',
+              body: `Automated sync failed. Check workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['upstream-sync', 'needs-attention']
+            })
