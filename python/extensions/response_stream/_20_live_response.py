@@ -1,9 +1,5 @@
-from python.helpers import persist_chat, tokens
 from python.helpers.extension import Extension
 from agent import LoopData
-import asyncio
-from python.helpers.log import LogItem
-from python.helpers import log
 
 
 class LiveResponse(Extension):
@@ -11,18 +7,16 @@ class LiveResponse(Extension):
     async def execute(
         self,
         loop_data: LoopData = LoopData(),
-        text: str = "",
-        parsed: dict = {},
+        _text: str = "",
+        parsed: dict | None = None,
         **kwargs,
     ):
         try:
-            if (
-                not "tool_name" in parsed
-                or parsed["tool_name"] != "response"
-                or "tool_args" not in parsed
-                or "text" not in parsed["tool_args"]
-                or not parsed["tool_args"]["text"]
-            ):
+            parsed = parsed if isinstance(parsed, dict) else {}
+            tool_args = parsed.get("tool_args")
+            is_response = parsed.get("tool_name") == "response"
+            has_text = isinstance(tool_args, dict) and bool(tool_args.get("text"))
+            if not (is_response and has_text):
                 return  # not a response
 
             # create log message and store it in loop data temporary params
@@ -37,5 +31,5 @@ class LiveResponse(Extension):
             # update log message
             log_item = loop_data.params_temporary["log_item_response"]
             log_item.update(content=parsed["tool_args"]["text"])
-        except Exception as e:
+        except Exception:
             pass

@@ -1,0 +1,689 @@
+import { io } from "/vendor/socket.io.esm.min.js";
+import { getCsrfToken, getRuntimeId, invalidateCsrfToken } from "/js/api.js";
+
+const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB hard cap per contract
+const DEFAULT_TIMEOUT_MS = 0;
+
+const _UUID_HEX = [..."0123456789abcdef"];
+const _OPTION_KEYS = new Set(["correlationId"]);
+
+/**
+ * @param {unknown} value
+ * @param {string} fieldName
+ * @returns {Record<string, any>}
+ */
+function assertPlainObject(value, fieldName) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${fieldName} must be a plain object`);
+  }
+  return /** @type {Record<string, any>} */ (value);
+}
+
+/**
+ * @returns {string}
+ */
+function generateUuid() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  const buffer = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(buffer);
+  } else {
+    for (let i = 0; i < buffer.length; i += 1) {
+      buffer[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  buffer[6] = (buffer[6] & 0x0f) | 0x40; // version 4
+  buffer[8] = (buffer[8] & 0x3f) | 0x80; // variant 10
+
+  let uuid = "";
+  for (let i = 0; i < buffer.length; i += 1) {
+    if (i === 4 || i === 6 || i === 8 || i === 10) {
+      uuid += "-";
+    }
+    uuid += _UUID_HEX[buffer[i] >> 4];
+    uuid += _UUID_HEX[buffer[i] & 0x0f];
+  }
+  return uuid;
+}
+
+/**
+ * @param {unknown} value
+ * @param {string} fieldName
+ * @param {{ allowEmpty?: boolean }} [options]
+ * @returns {string[] | undefined}
+ */
+function normalizeStringList(value, fieldName, options = {}) {
+  if (value == null) return undefined;
+  const raw = Array.isArray(value) ? value : [value];
+  const normalized = [];
+  for (const item of raw) {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      throw new Error(`${fieldName} must contain non-empty strings`);
+    }
+    normalized.push(item.trim());
+  }
+  const deduped = Array.from(new Set(normalized));
+  if (!options.allowEmpty && deduped.length === 0) {
+    throw new Error(`${fieldName} must contain at least one value`);
+  }
+  return deduped.length > 0 ? deduped : undefined;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string[] | undefined}
+ */
+function normalizeSidList(value) {
+  return normalizeStringList(value, "excludeSids", { allowEmpty: true });
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string | undefined}
+ */
+function normalizeCorrelationId(value) {
+  if (value == null) return undefined;
+  if (typeof value !== "string") {
+    throw new Error("correlationId must be a non-empty string");
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("correlationId must be a non-empty string");
+  }
+  return trimmed;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function normalizeNamespace(value) {
+  if (typeof value !== "string") {
+    throw new Error("namespace must be a non-empty string");
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("namespace must be a non-empty string");
+  }
+  if (trimmed === "/") {
+    return "/";
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+/**
+ * Generate a correlation identifier using UUIDv4 semantics.
+ *
+ * @param {string} [prefix]
+ * @returns {string}
+ */
+export function createCorrelationId(prefix) {
+  const uuid = generateUuid();
+  if (typeof prefix !== "string" || prefix.trim().length === 0) {
+    return uuid;
+  }
+
+  const normalizedPrefix = prefix.trim();
+  const suffix = normalizedPrefix.endsWith("-") ? "" : "-";
+  return `${normalizedPrefix}${suffix}${uuid}`;
+}
+
+/**
+ * @typedef {Object} NormalizedProducerOptions
+ * @property {string[]=} includeHandlers
+ * @property {string[]=} excludeHandlers
+ * @property {string[]=} excludeSids
+ * @property {string=} correlationId
+ */
+
+/**
+ * Normalise producer options used for emit/request/broadcast helpers.
+ *
+ * @param {Record<string, any> | undefined} options
+ * @returns {NormalizedProducerOptions}
+ */
+export function normalizeProducerOptions(options) {
+  if (options == null) return {};
+  const source = assertPlainObject(options, "options");
+
+  const unknownKeys = Object.keys(source).filter((key) => !_OPTION_KEYS.has(key));
+  if (unknownKeys.length > 0) {
+    throw new Error(`Unsupported producer option(s): ${unknownKeys.join(", ")}`);
+  }
+
+  const normalized = {};
+
+  const includeHandlers = normalizeStringList(source.includeHandlers, "includeHandlers");
+  if (includeHandlers) {
+    normalized.includeHandlers = includeHandlers;
+  }
+
+  const excludeHandlers = normalizeStringList(
+    source.excludeHandlers,
+    "excludeHandlers",
+    { allowEmpty: true },
+  );
+  if (excludeHandlers && excludeHandlers.length > 0) {
+    normalized.excludeHandlers = excludeHandlers;
+  }
+
+  const excludeSids = normalizeSidList(source.excludeSids);
+  if (excludeSids && excludeSids.length > 0) {
+    normalized.excludeSids = excludeSids;
+  }
+
+  const correlationId = normalizeCorrelationId(source.correlationId);
+  if (correlationId) {
+    normalized.correlationId = correlationId;
+  }
+
+  if (normalized.includeHandlers && normalized.excludeHandlers) {
+    throw new Error("includeHandlers and excludeHandlers cannot be used together");
+  }
+
+  return normalized;
+}
+
+/**
+ * @typedef {Object} ServerDeliveryEnvelope
+ * @property {string} handlerId
+ * @property {string} eventId
+ * @property {string} correlationId
+ * @property {string} ts
+ * @property {Record<string, any>} data
+ */
+
+/**
+ * Validate a server-sent delivery envelope before invoking subscribers.
+ *
+ * @param {unknown} envelope
+ * @returns {ServerDeliveryEnvelope}
+ */
+export function validateServerEnvelope(envelope) {
+  const value = assertPlainObject(envelope, "envelope");
+
+  const handlerId = normalizeCorrelationId(value.handlerId)?.trim();
+  if (!handlerId) {
+    throw new Error("Server envelope missing handlerId");
+  }
+
+  const eventId = normalizeCorrelationId(value.eventId)?.trim();
+  if (!eventId) {
+    throw new Error("Server envelope missing eventId");
+  }
+
+  const correlationId = normalizeCorrelationId(value.correlationId);
+  if (!correlationId) {
+    throw new Error("Server envelope missing correlationId");
+  }
+
+  if (typeof value.ts !== "string" || value.ts.trim().length === 0) {
+    throw new Error("Server envelope missing timestamp");
+  }
+  const timestamp = value.ts.trim();
+  if (Number.isNaN(Date.parse(timestamp))) {
+    throw new Error("Server envelope timestamp is invalid");
+  }
+
+  let data = value.data;
+  if (data == null) {
+    data = {};
+  } else if (typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("Server envelope data must be a plain object");
+  }
+
+  const normalized = {
+    handlerId,
+    eventId,
+    correlationId,
+    ts: timestamp,
+    data: Object.freeze({ ...data }),
+  };
+
+  return Object.freeze(normalized);
+}
+
+class WebSocketClient {
+  constructor(namespace = "/") {
+    this.namespace = normalizeNamespace(namespace);
+    this.socket = null;
+    this.connected = false;
+    this.connecting = false;
+    this.connectPromise = null;
+    this.subscriptions = new Map(); // eventType -> { handler, callbacks: Set<Function> }
+    this.connectCallbacks = new Set();
+    this.disconnectCallbacks = new Set();
+    this.errorCallbacks = new Set();
+    this.isDevelopment = Boolean(window.runtimeInfo?.isDevelopment);
+    this._manualDisconnect = false;
+    this._hasConnectedOnce = false;
+    this._lastRuntimeId = null;
+    this._csrfInvalidatedForConnectError = false;
+    this._connectErrorRetryTimer = null;
+    this._connectErrorRetryAttempt = 0;
+  }
+
+  _clearConnectErrorRetryTimer() {
+    if (this._connectErrorRetryTimer) {
+      clearTimeout(this._connectErrorRetryTimer);
+      this._connectErrorRetryTimer = null;
+    }
+  }
+
+  _scheduleConnectErrorRetry(reason) {
+    if (this._manualDisconnect) return;
+    if (this.connected) return;
+    if (!this.socket) return;
+    if (this.socket.connected) return;
+    if (this._connectErrorRetryTimer) return;
+
+    const attempt = Math.max(0, Number(this._connectErrorRetryAttempt) || 0);
+    const baseMs = 250;
+    const capMs = 10000;
+    const delayMs = Math.min(capMs, baseMs * 2 ** attempt);
+    this._connectErrorRetryAttempt = attempt + 1;
+
+    this.debugLog("schedule connect retry", { reason, attempt, delayMs });
+    this._connectErrorRetryTimer = setTimeout(() => {
+      this._connectErrorRetryTimer = null;
+      if (this._manualDisconnect) return;
+      if (this.connected) return;
+      this.connect().catch(() => {});
+    }, delayMs);
+  }
+
+  buildPayload(data) {
+    const ts = new Date().toISOString();
+    if (data == null) {
+      return { ts, data: {} };
+    }
+    if (typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("WebSocket payload must be a plain object");
+    }
+    return { ts, data: { ...data } };
+  }
+
+  applyProducerOptions(payload, normalizedOptions, allowances) {
+    const result = payload;
+
+    if (normalizedOptions.includeHandlers) {
+      if (!allowances.includeHandlers) {
+        throw new Error("This operation does not support includeHandlers");
+      }
+      result.includeHandlers = [...normalizedOptions.includeHandlers];
+    }
+
+    if (normalizedOptions.excludeHandlers) {
+      if (!allowances.excludeHandlers) {
+        throw new Error("This operation does not support excludeHandlers");
+      }
+      result.excludeHandlers = [...normalizedOptions.excludeHandlers];
+    }
+
+    if (normalizedOptions.excludeSids) {
+      if (!allowances.excludeSids) {
+        throw new Error("This operation does not support excludeSids");
+      }
+      result.excludeSids = [...normalizedOptions.excludeSids];
+    }
+
+    if (normalizedOptions.correlationId) {
+      result.correlationId = normalizedOptions.correlationId;
+    }
+
+    return result;
+  }
+
+  setDevelopmentFlag(value) {
+    const normalized = Boolean(value);
+    this.isDevelopment = normalized;
+    window.runtimeInfo = { ...(window.runtimeInfo || {}), isDevelopment: normalized };
+  }
+
+  debugLog(...args) {
+    if (this.isDevelopment) {
+      console.debug(`[websocket:${this.namespace}]`, ...args);
+    }
+  }
+
+  async connect() {
+    if (this.connected) return;
+    if (this.connectPromise) return this.connectPromise;
+
+    this._manualDisconnect = false;
+    this.connecting = true;
+    this.connectPromise = (async () => {
+      if (!this.socket) {
+        this.initializeSocket();
+      }
+
+      if (this.socket.connected) return;
+
+      // Ensure the current runtime-bound session + CSRF cookies exist before initiating
+      // the Engine.IO handshake. This is required for seamless reconnect after backend
+      // restarts that rotate runtime_id and session cookie names.
+      try {
+        await getCsrfToken();
+      } catch (error) {
+        this.debugLog("csrf prefetch failed - continuing", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      await new Promise((resolve, reject) => {
+        const onConnect = () => {
+          this.socket.off("connect_error", onError);
+          resolve();
+        };
+        const onError = (error) => {
+          this.socket.off("connect", onConnect);
+          reject(error instanceof Error ? error : new Error(String(error)));
+        };
+
+        this.socket.once("connect", onConnect);
+        this.socket.once("connect_error", onError);
+        this.socket.connect();
+      });
+    })()
+      .catch((error) => {
+        throw new Error(`WebSocket connection failed: ${error.message || error}`);
+      })
+      .finally(() => {
+        this.connecting = false;
+        this.connectPromise = null;
+      });
+
+    return this.connectPromise;
+  }
+
+  async disconnect() {
+    if (!this.socket) return;
+    this._manualDisconnect = true;
+    this.socket.disconnect();
+    this.connected = false;
+  }
+
+  isConnected() {
+    return this.connected;
+  }
+
+  async emit(eventType, data, options = {}) {
+    const correlationId =
+      normalizeCorrelationId(options?.correlationId) || createCorrelationId("emit");
+    const payload = this.buildPayload(data);
+    payload.correlationId = correlationId;
+
+    this.debugLog("emit", {
+      eventType,
+      correlationId,
+    });
+    this.ensurePayloadSize(payload);
+    await this.connect();
+    if (!this.isConnected()) {
+      throw new Error("Not connected");
+    }
+    this.socket.emit(eventType, payload);
+  }
+
+  async request(eventType, data, options = {}) {
+    const correlationId =
+      normalizeCorrelationId(options?.correlationId) ||
+      createCorrelationId("request");
+    const payload = this.buildPayload(data);
+    payload.correlationId = correlationId;
+
+    const timeoutMs = Number(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    this.debugLog("request", { eventType, correlationId, timeoutMs });
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+      throw new Error("timeoutMs must be a non-negative number");
+    }
+    this.ensurePayloadSize(payload);
+    await this.connect();
+    if (!this.isConnected()) {
+      throw new Error("Not connected");
+    }
+
+    return new Promise((resolve, reject) => {
+      if (timeoutMs > 0) {
+      this.socket
+          .timeout(timeoutMs)
+          .emit(eventType, payload, (err, response) => {
+          if (err) {
+            reject(new Error("Request timeout"));
+            return;
+          }
+            resolve(this.normalizeRequestResponse(response));
+          });
+        return;
+      }
+
+      this.socket.emit(eventType, payload, (response) => {
+        resolve(this.normalizeRequestResponse(response));
+        });
+    });
+  }
+
+  normalizeRequestResponse(response) {
+    if (!response || typeof response !== "object") {
+      return { correlationId: null, results: [] };
+    }
+    const correlationId =
+      typeof response.correlationId === "string" && response.correlationId.trim().length > 0
+        ? response.correlationId.trim()
+        : null;
+    const results = Array.isArray(response.results) ? response.results : [];
+    return { correlationId, results };
+  }
+
+  async on(eventType, callback) {
+    if (typeof callback !== "function") {
+      throw new Error("Callback must be a function");
+    }
+
+    await this.connect();
+
+    if (!this.subscriptions.has(eventType)) {
+      const handler = (payload) => {
+        const entry = this.subscriptions.get(eventType);
+        if (!entry) return;
+        let envelope;
+        try {
+          envelope = validateServerEnvelope(payload);
+        } catch (error) {
+          console.error("WebSocket envelope validation failed:", error);
+          this.invokeErrorCallbacks(error);
+          return;
+        }
+
+        entry.callbacks.forEach((cb) => {
+          try {
+            cb(envelope);
+          } catch (error) {
+            console.error("WebSocket callback error:", error);
+          }
+        });
+      };
+
+      this.subscriptions.set(eventType, {
+        handler,
+        callbacks: new Set(),
+      });
+
+      this.socket.on(eventType, handler);
+    }
+
+    const entry = this.subscriptions.get(eventType);
+    entry.callbacks.add(callback);
+  }
+
+  off(eventType, callback) {
+    const entry = this.subscriptions.get(eventType);
+    if (!entry) return;
+
+    if (callback) {
+      entry.callbacks.delete(callback);
+    } else {
+      entry.callbacks.clear();
+    }
+
+    if (entry.callbacks.size === 0) {
+      if (this.socket) {
+        this.socket.off(eventType, entry.handler);
+      }
+      this.subscriptions.delete(eventType);
+    }
+  }
+
+  onConnect(callback) {
+    if (typeof callback === "function") {
+      this.connectCallbacks.add(callback);
+    }
+  }
+
+  onDisconnect(callback) {
+    if (typeof callback === "function") {
+      this.disconnectCallbacks.add(callback);
+    }
+  }
+
+  onError(callback) {
+    if (typeof callback === "function") {
+      this.errorCallbacks.add(callback);
+    }
+  }
+
+  initializeSocket() {
+    this.socket = io(this.namespace, {
+      autoConnect: false,
+      reconnection: true,
+      transports: ["websocket", "polling"],
+      withCredentials: true,
+      auth: (cb) => {
+        getCsrfToken()
+          .then((token) => cb({ csrf_token: token }))
+          .catch((error) => {
+            console.error("[websocket] failed to fetch CSRF token for connect", error);
+            cb({});
+          });
+      },
+    });
+
+    this.socket.on("connect", () => {
+      this.connected = true;
+      this._csrfInvalidatedForConnectError = false;
+      this._connectErrorRetryAttempt = 0;
+      this._clearConnectErrorRetryTimer();
+
+      const runtimeId = getRuntimeId();
+      const runtimeChanged = Boolean(
+        this._lastRuntimeId &&
+          runtimeId &&
+          this._lastRuntimeId !== runtimeId
+      );
+      const firstConnect = !this._hasConnectedOnce;
+      this._hasConnectedOnce = true;
+      this._lastRuntimeId = runtimeId;
+
+      this.debugLog("socket connected", {
+        sid: this.socket.id,
+        runtimeId,
+        runtimeChanged,
+        firstConnect,
+      });
+      this.connectCallbacks.forEach((cb) => {
+        try {
+          cb({ runtimeId, runtimeChanged, firstConnect });
+        } catch (error) {
+          console.error("WebSocket onConnect callback error:", error);
+        }
+      });
+    });
+
+    this.socket.on("disconnect", (reason) => {
+      this.connected = false;
+      this.debugLog("socket disconnected", { reason });
+      this.disconnectCallbacks.forEach((cb) => {
+        try {
+          cb(reason);
+        } catch (error) {
+          console.error("WebSocket onDisconnect callback error:", error);
+        }
+      });
+    });
+
+    this.socket.on("connect_error", (error) => {
+      this.debugLog("socket connect_error", error);
+      this.invokeErrorCallbacks(error);
+      if (!this._csrfInvalidatedForConnectError) {
+        this._csrfInvalidatedForConnectError = true;
+        invalidateCsrfToken();
+      }
+      this._scheduleConnectErrorRetry("connect_error");
+    });
+
+    this.socket.on("error", (error) => {
+      this.debugLog("socket error", error);
+      this.invokeErrorCallbacks(error);
+    });
+  }
+
+  invokeErrorCallbacks(error) {
+    this.errorCallbacks.forEach((cb) => {
+      try {
+        cb(error);
+      } catch (err) {
+        console.error("WebSocket onError callback error:", err);
+      }
+    });
+  }
+
+  ensurePayloadSize(data) {
+    const size = this.calculatePayloadSize(data);
+    if (size > MAX_PAYLOAD_BYTES) {
+      throw new Error("Payload too large");
+    }
+  }
+
+  calculatePayloadSize(data) {
+    try {
+      return new TextEncoder().encode(JSON.stringify(data ?? null)).length;
+    } catch (_error) {
+      // Fallback: rough estimate if stringify fails
+      const stringified = String(data);
+      return stringified.length * 2;
+    }
+  }
+}
+
+const _namespacedClients = new Map();
+
+/**
+ * Create a new Socket.IO client bound to a specific namespace.
+ *
+ * @param {string} namespace
+ * @returns {WebSocketClient}
+ */
+export function createNamespacedClient(namespace) {
+  return new WebSocketClient(namespace);
+}
+
+/**
+ * Return a cached Socket.IO client for the given namespace (one per browser tab/window).
+ *
+ * @param {string} namespace
+ * @returns {WebSocketClient}
+ */
+export function getNamespacedClient(namespace) {
+  const key = normalizeNamespace(namespace);
+  const existing = _namespacedClients.get(key);
+  if (existing) return existing;
+  const client = new WebSocketClient(key);
+  _namespacedClients.set(key, client);
+  return client;
+}
+
+export const websocket = getNamespacedClient("/");

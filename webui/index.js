@@ -270,8 +270,152 @@ let lastLogVersion = 0;
 let lastLogGuid = "";
 let lastSpokenNo = 0;
 
-export async function poll() {
+export function buildStateRequestPayload(options = {}) {
+  const { forceFull = false } = options || {};
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return {
+    context: context || null,
+    log_from: forceFull ? 0 : lastLogVersion,
+    notifications_from: forceFull ? 0 : notificationStore.lastNotificationVersion || 0,
+    timezone,
+  };
+}
+
+export async function applySnapshot(snapshot, options = {}) {
+  const { touchConnectionStatus = false, onLogGuidReset = null } = options || {};
+
   let updated = false;
+
+  // Check if the snapshot is valid
+  if (!snapshot || typeof snapshot !== "object") {
+    console.error("Invalid snapshot payload");
+    return { updated: false };
+  }
+
+  // deselect chat if it is requested by the backend
+  if (snapshot.deselect_chat) {
+    chatsStore.deselectChat();
+    return { updated: false };
+  }
+
+  if (
+    snapshot.context != context &&
+    context !== null
+  ) {
+    return { updated: false };
+  }
+
+  // If the chat has been reset, reset cursors and request a resync from the caller.
+  // Note: on first snapshot after a context switch, lastLogGuid is intentionally empty,
+  // so the mismatch is expected and should not trigger a second state_request/poll.
+  if (lastLogGuid != snapshot.log_guid) {
+    if (lastLogGuid) {
+      const chatHistoryEl = document.getElementById("chat-history");
+      if (chatHistoryEl) chatHistoryEl.innerHTML = "";
+      msgs.resetProcessGroups(); // Reset process groups on chat reset
+      lastLogVersion = 0;
+      lastLogGuid = snapshot.log_guid;
+      if (typeof onLogGuidReset === "function") {
+        await onLogGuidReset();
+      }
+      return { updated: false, resynced: true };
+    }
+    // First guid observed for this context: accept it and continue applying snapshot.
+    lastLogVersion = 0;
+    lastLogGuid = snapshot.log_guid;
+  }
+
+  if (lastLogVersion != snapshot.log_version) {
+    updated = true;
+    for (const log of snapshot.logs) {
+      const messageId = log.id || log.no; // Use log.id if available
+      setMessage(
+        messageId,
+        log.type,
+        log.heading,
+        log.content,
+        log.temp,
+        log.kvps,
+        log.timestamp,
+        log.duration_ms,
+        log.agent_number || 0
+      );
+    }
+    afterMessagesUpdate(snapshot.logs);
+  }
+
+  lastLogVersion = snapshot.log_version;
+  lastLogGuid = snapshot.log_guid;
+
+  updateProgress(snapshot.log_progress, snapshot.log_progress_active);
+
+  // Update notifications from snapshot
+  notificationStore.updateFromPoll(snapshot);
+
+  // set ui model vars from backend
+  inputStore.paused = snapshot.paused;
+
+  // Optional: treat snapshot application as proof of connectivity (poll path)
+  if (touchConnectionStatus) {
+    setConnectionStatus(true);
+  }
+
+  // Update chats list using store
+  let contexts = snapshot.contexts || [];
+  chatsStore.applyContexts(contexts);
+
+  // Update tasks list using store
+  let tasks = snapshot.tasks || [];
+  tasksStore.applyTasks(tasks);
+
+  // Make sure the active context is properly selected in both lists
+  if (context) {
+    // Update selection in both stores
+    chatsStore.setSelected(context);
+
+    const contextInChats = chatsStore.contains(context);
+    const contextInTasks = tasksStore.contains(context);
+
+    if (contextInTasks) {
+      tasksStore.setSelected(context);
+    }
+
+    if (!contextInChats && !contextInTasks) {
+      if (chatsStore.contexts.length > 0) {
+        // If it doesn't exist in the list but other contexts do, fall back to the first
+        const firstChatId = chatsStore.firstId();
+        if (firstChatId) {
+          setContext(firstChatId);
+          chatsStore.setSelected(firstChatId);
+        }
+      } else if (typeof deselectChat === "function") {
+        // No contexts remain - clear state so the welcome screen can surface
+        deselectChat();
+      }
+    }
+
+    tasksStore.setSelected(context);
+  } else {
+    const welcomeStore =
+      globalThis.Alpine && typeof globalThis.Alpine.store === "function"
+        ? globalThis.Alpine.store("welcomeStore")
+        : null;
+    const welcomeVisible = Boolean(welcomeStore && welcomeStore.isVisible);
+
+    // No context selected, try to select the first available item unless welcome screen is active
+    if (!welcomeVisible && contexts.length > 0) {
+      const firstChatId = chatsStore.firstId();
+      if (firstChatId) {
+        setContext(firstChatId);
+        chatsStore.setSelected(firstChatId);
+      }
+    }
+  }
+
+  return { updated };
+}
+
+export async function poll() {
   try {
     // Get timezone from navigator
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -284,117 +428,16 @@ export async function poll() {
       timezone: timezone,
     });
 
-    // Check if the response is valid
-    if (!response) {
-      console.error("Invalid response from poll endpoint");
-      return false;
-    }
-
-    // deselect chat if it is requested by the backend
-    if (response.deselect_chat) {
-      chatsStore.deselectChat();
-      return
-    }
-
-    if (
-      response.context != context &&
-      !(response.context === null && context === null) &&
-      context !== null
-    ) {
-      return;
-    }
-
-    // if the chat has been reset, restart this poll as it may have been called with incorrect log_from
-    if (lastLogGuid != response.log_guid) {
-      const chatHistoryEl = document.getElementById("chat-history");
-      if (chatHistoryEl) chatHistoryEl.innerHTML = "";
-      lastLogVersion = 0;
-      lastLogGuid = response.log_guid;
-      await poll();
-      return;
-    }
-
-    if (lastLogVersion != response.log_version) {
-      updated = true;
-      for (const log of response.logs) {
-        setMessage(log);
-      }
-      afterMessagesUpdate(response.logs);
-      applyModeSteps(preferencesStore.detailMode, preferencesStore.showUtils);
-    }
-
-    lastLogVersion = response.log_version;
-    lastLogGuid = response.log_guid;
-
-    updateProgress(response.log_progress, response.log_progress_active);
-
-    // Update notifications from response
-    notificationStore.updateFromPoll(response);
-
-    //set ui model vars from backend
-    inputStore.paused = response.paused;
-
-    // Update status icon state
-    setConnectionStatus(true);
-
-    // Update chats list using store
-    let contexts = response.contexts || [];
-    chatsStore.applyContexts(contexts);
-
-    // Update tasks list using store
-    let tasks = response.tasks || [];
-    tasksStore.applyTasks(tasks);
-
-    // Make sure the active context is properly selected in both lists
-    if (context) {
-      // Update selection in both stores
-      chatsStore.setSelected(context);
-
-      const contextInChats = chatsStore.contains(context);
-      const contextInTasks = tasksStore.contains(context);
-
-      if (contextInTasks) {
-        tasksStore.setSelected(context);
-      }
-
-      if (!contextInChats && !contextInTasks) {
-        if (chatsStore.contexts.length > 0) {
-          // If it doesn't exist in the list but other contexts do, fall back to the first
-          const firstChatId = chatsStore.firstId();
-          if (firstChatId) {
-            setContext(firstChatId);
-            chatsStore.setSelected(firstChatId);
-          }
-        } else if (typeof deselectChat === "function") {
-          // No contexts remain – clear state so the welcome screen can surface
-          deselectChat();
-        }
-      }
-    } else {
-      const welcomeStore =
-        globalThis.Alpine && typeof globalThis.Alpine.store === "function"
-          ? globalThis.Alpine.store("welcomeStore")
-          : null;
-      const welcomeVisible = Boolean(welcomeStore && welcomeStore.isVisible);
-
-      // No context selected, try to select the first available item unless welcome screen is active
-      if (!welcomeVisible && contexts.length > 0) {
-        const firstChatId = chatsStore.firstId();
-        if (firstChatId) {
-          setContext(firstChatId);
-          chatsStore.setSelected(firstChatId);
-        }
-      }
-    }
-
-    lastLogVersion = response.log_version;
-    lastLogGuid = response.log_guid;
+    const result = await applySnapshot(response, {
+      touchConnectionStatus: true,
+      onLogGuidReset: poll,
+    });
+    return { ok: true, updated: Boolean(result && result.updated) };
   } catch (error) {
     console.error("Error:", error);
     setConnectionStatus(false);
+    return { ok: false, updated: false };
   }
-
-  return updated;
 }
 globalThis.poll = poll;
 
@@ -506,6 +549,22 @@ export const setContext = function (id) {
   chatsStore.setSelected(id);
   tasksStore.setSelected(id);
 
+  // Trigger a new WS handshake for the newly selected context (push-based sync).
+  // This keeps the UI current without needing /poll during healthy operation.
+  try {
+    const syncStore =
+      globalThis.Alpine && typeof globalThis.Alpine.store === "function"
+        ? globalThis.Alpine.store("sync")
+        : null;
+    if (syncStore && typeof syncStore.sendStateRequest === "function") {
+      syncStore.sendStateRequest({ forceFull: true }).catch((error) => {
+        console.error("[index] syncStore.sendStateRequest failed:", error);
+      });
+    }
+  } catch (_error) {
+    // no-op: sync store may not be initialized yet
+  }
+
   //skip one speech if enabled when switching context
   if (localStorage.getItem("speech") == "true") skipOneSpeech = true;
 };
@@ -598,25 +657,116 @@ import { store as _chatNavigationStore } from "/components/chat/navigation/chat-
 // setInterval(poll, 250);
 
 async function startPolling() {
-  const shortInterval = 25;
-  const longInterval = 250;
-  const shortIntervalPeriod = 100;
-  let shortIntervalCount = 0;
+  // Fallback polling cadence:
+  // - DISCONNECTED: do not poll (transport down, avoid request spam)
+  // - HANDSHAKE_PENDING/DEGRADED: steady fallback cadence to keep UI responsive
+  const degradedIntervalMs = 250;
+  let missingSyncSinceMs = null;
+  let consecutivePollFailures = 0;
+  let lastHandshakeKickMs = 0;
+  const startedAtMs = Date.now();
+  const initialNoPollGraceMs = 2000;
+  let pollInFlight = false;
 
   async function _doPoll() {
-    let nextInterval = longInterval;
+    const tickStartedAt = Date.now();
+    let nextInterval = degradedIntervalMs;
 
     try {
-      const result = await poll();
-      if (result) shortIntervalCount = shortIntervalPeriod; // Reset the counter when the result is true
-      if (shortIntervalCount > 0) shortIntervalCount--; // Decrease the counter on each call
-      nextInterval = shortIntervalCount > 0 ? shortInterval : longInterval;
+      const syncStore =
+        globalThis.Alpine && typeof globalThis.Alpine.store === "function"
+          ? globalThis.Alpine.store("sync")
+          : null;
+      const syncMode = syncStore && typeof syncStore.mode === "string" ? syncStore.mode : null;
+      // Polling is a fallback. In V1:
+      // - DEGRADED: poll at fallback cadence to keep the UI usable while WS sync is unavailable.
+      // - DISCONNECTED: do not poll; rely on Socket.IO reconnect and avoid console/network spam.
+      // Safety net: if the sync store never loads, start polling after a short grace period.
+      if (!syncStore || !syncMode) {
+        if (missingSyncSinceMs == null) {
+          missingSyncSinceMs = Date.now();
+        }
+      } else {
+        missingSyncSinceMs = null;
+      }
+
+      const shouldPoll =
+        syncMode === "DEGRADED" ||
+        (missingSyncSinceMs != null && Date.now() - missingSyncSinceMs > 2000);
+      if (!shouldPoll) {
+        setTimeout(_doPoll.bind(this), nextInterval);
+        return;
+      }
+
+      if (pollInFlight) {
+        setTimeout(_doPoll.bind(this), nextInterval);
+        return;
+      }
+
+      // Avoid a “single poll on boot” while the websocket handshake is racing to take over.
+      if (Date.now() - startedAtMs < initialNoPollGraceMs && (!syncStore || !syncMode)) {
+        setTimeout(_doPoll.bind(this), nextInterval);
+        return;
+      }
+
+      // Call through `globalThis.poll` so test harnesses (and future instrumentation)
+      // can wrap/spy on polling behaviour. Fall back to the module-local function
+      // if the global is unavailable.
+      const pollFn = typeof globalThis.poll === "function" ? globalThis.poll : poll;
+      pollInFlight = true;
+      let result;
+      try {
+        result = await pollFn();
+      } finally {
+        pollInFlight = false;
+      }
+      const pollOk = Boolean(result && result.ok);
+
+      if (!pollOk) {
+        consecutivePollFailures += 1;
+      } else {
+        consecutivePollFailures = 0;
+      }
+
+      // If we are degraded but polling repeatedly fails, upgrade to DISCONNECTED.
+      if (
+        syncStore &&
+        syncMode === "DEGRADED" &&
+        !pollOk &&
+        consecutivePollFailures >= 3
+      ) {
+        syncStore.mode = "DISCONNECTED";
+      }
+
+      // If we're polling and the backend responds, try to re-establish push sync immediately.
+      if (syncStore && pollOk) {
+        const now = Date.now();
+        const modeNow = typeof syncStore.mode === "string" ? syncStore.mode : null;
+        const kickCooldownMs = modeNow === "DISCONNECTED" ? 0 : 3000;
+        const eligible =
+          (modeNow === "DISCONNECTED" || modeNow === "DEGRADED") &&
+          typeof syncStore.sendStateRequest === "function" &&
+          now - lastHandshakeKickMs >= kickCooldownMs;
+        if (eligible) {
+          lastHandshakeKickMs = now;
+          syncStore.sendStateRequest({ forceFull: true }).catch(() => {});
+        }
+      }
+
+      const effectiveMode =
+        syncStore && typeof syncStore.mode === "string" ? syncStore.mode : syncMode;
+      nextInterval =
+        effectiveMode === "DEGRADED" || effectiveMode === "HANDSHAKE_PENDING"
+          ? degradedIntervalMs
+          : degradedIntervalMs;
     } catch (error) {
       console.error("Error:", error);
     }
 
     // Call the function again after the selected interval
-    setTimeout(_doPoll.bind(this), nextInterval);
+    const elapsedMs = Date.now() - tickStartedAt;
+    const delayMs = Math.max(0, nextInterval - elapsedMs);
+    setTimeout(_doPoll.bind(this), delayMs);
   }
 
   _doPoll();

@@ -124,6 +124,8 @@ class Settings(TypedDict):
     rfc_port_ssh: int
 
     shell_interface: Literal['local','ssh']
+    websocket_server_restart_enabled: bool
+    uvicorn_access_logs_enabled: bool
 
     stt_model_size: str
     stt_language: str
@@ -199,6 +201,8 @@ class SettingsOutputAdditional(TypedDict):
     knowledge_subdirs: list[FieldOption]
     stt_models: list[FieldOption]
     is_dockerized: bool
+    runtime_settings: dict[str, Any]
+
 
 class SettingsOutput(TypedDict):
     settings: Settings
@@ -210,6 +214,7 @@ API_KEY_PLACEHOLDER = "************"
 
 SETTINGS_FILE = files.get_abs_path("tmp/settings.json")
 _settings: Settings | None = None
+_runtime_settings_snapshot: Settings | None = None
 
 OptionT = TypeVar("OptionT", bound=FieldOption)
 
@@ -247,14 +252,25 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 {"value": "medium", "label": "Medium (769M, English)"},
                 {"value": "large", "label": "Large (1.5B, Multilingual)"},
                 {"value": "turbo", "label": "Turbo (Multilingual)"},
-            ]
-
-        )
+            ],
+            runtime_settings={},
+        ),
     )
 
     # ensure dropdown options include currently selected values
     additional = out["additional"]
     current = out["settings"]
+
+    default_settings = get_default_settings()
+    runtime_settings = _runtime_settings_snapshot or settings
+    additional["runtime_settings"] = {
+        "uvicorn_access_logs_enabled": bool(
+            runtime_settings.get(
+                "uvicorn_access_logs_enabled",
+                default_settings["uvicorn_access_logs_enabled"],
+            )
+        ),
+    }
 
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("chat_model_provider"))
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("util_model_provider"))
@@ -339,6 +355,11 @@ def get_settings() -> Settings:
     return norm
 
 
+def set_runtime_settings_snapshot(settings: Settings) -> None:
+    global _runtime_settings_snapshot
+    _runtime_settings_snapshot = settings.copy()
+
+
 def set_settings(settings: Settings, apply: bool = True):
     global _settings
     previous = _settings
@@ -399,6 +420,7 @@ def _adjust_to_version(settings: Settings, default: Settings):
     if "version" not in settings or settings["version"].startswith("v0.8"):
         if "agent_profile" not in settings or settings["agent_profile"] == "default":
             settings["agent_profile"] = "agent0"
+
 
 
 def _read_settings_file() -> Settings | None:
@@ -514,6 +536,8 @@ def get_default_settings() -> Settings:
         rfc_port_http=get_default_value("rfc_port_http", 55080),
         rfc_port_ssh=get_default_value("rfc_port_ssh", 55022),
         shell_interface=get_default_value("shell_interface", "local" if runtime.is_dockerized() else "ssh"),
+        websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
+        uvicorn_access_logs_enabled=get_default_value("uvicorn_access_logs_enabled", False),
         stt_model_size=get_default_value("stt_model_size", "base"),
         stt_language=get_default_value("stt_language", "en"),
         stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
@@ -540,7 +564,7 @@ def _apply_settings(previous: Settings | None):
         from initialize import initialize_agent
 
         config = initialize_agent()
-        for ctx in AgentContext._contexts.values():
+        for ctx in AgentContext.all():
             ctx.config = config  # reinitialize context config with new settings
             # apply config to agents
             agent = ctx.agent0
@@ -744,3 +768,4 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
+

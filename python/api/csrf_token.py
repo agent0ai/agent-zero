@@ -25,7 +25,6 @@ class GetCsrfToken(ApiHandler):
         return False
 
     async def process(self, input: Input, request: Request) -> Output:
-
         # check for allowed origin to prevent dns rebinding attacks
         origin_check = await self.check_allowed_origin(request)
         if not origin_check["ok"]:
@@ -38,7 +37,6 @@ class GetCsrfToken(ApiHandler):
         if "csrf_token" not in session:
             session["csrf_token"] = secrets.token_urlsafe(32)
 
-        # return the csrf token and runtime id
         return {
             "ok": True,
             "token": session["csrf_token"],

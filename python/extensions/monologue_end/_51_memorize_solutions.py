@@ -17,7 +17,7 @@ class MemorizeSolutions(Extension):
 
         if not set["memory_memorize_enabled"]:
             return
- 
+
         # show full util message
         log_item = self.agent.context.log.log(
             type="util",
@@ -26,7 +26,22 @@ class MemorizeSolutions(Extension):
 
         # memorize in background
         task = asyncio.create_task(self.memorize(loop_data, log_item))
+        # Ensure progress bar resets after background work completes when the chat is idle.
+        task.add_done_callback(lambda _task, owner_no=log_item.no: self._reset_progress_if_idle(owner_no))
         return task
+
+    def _reset_progress_if_idle(self, owner_no: int) -> None:
+        try:
+            ctx = self.agent.context
+            if ctx and ctx.streaming_agent is None:
+                # Only reset if this background task is still the source of the current progress.
+                # This prevents clobbering progress from a newer operation that started meanwhile.
+                if getattr(ctx.log, "progress_no", None) != owner_no:
+                    return
+                ctx.log.set_initial_progress()
+        except Exception:
+            # Best-effort only: do not let background completion callbacks raise.
+            return
 
     async def memorize(self, loop_data: LoopData, log_item: LogItem, **kwargs):
 

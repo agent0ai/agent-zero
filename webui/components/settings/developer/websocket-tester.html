@@ -1,0 +1,188 @@
+<html>
+<head>
+  <title>WebSocket Test Harness</title>
+  <script type="module">
+    import { store as websocketTesterStore } from "/components/settings/developer/websocket-test-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="window.runtimeInfo?.isDevelopment && $store.websocketTesterStore">
+      <div class="ws-tester" x-create="$store.websocketTesterStore.onOpen()" x-destroy="$store.websocketTesterStore.detach()">
+        <h2>WebSocket Developer Harness</h2>
+        <p class="ws-description">
+          Run automated and manual validations for the WebSocket client. Automatic tests cover fire-and-forget emit, request/response, timeout handling, subscription persistence, and requestAll aggregation.
+        </p>
+
+        <div class="ws-section">
+          <div class="ws-section-header">
+            <h3>Automatic Validation Suite</h3>
+            <button class="btn btn-ok" :disabled="$store.websocketTesterStore.running" @click="$store.websocketTesterStore.runAutomaticSuite()">
+              <span x-show="!$store.websocketTesterStore.running">Run Full Suite</span>
+              <span x-show="$store.websocketTesterStore.running">Running...</span>
+            </button>
+          </div>
+          <p class="ws-section-info">
+            Executes all WebSocket feature tests sequentially. Progress and results appear in the log below and via toasts (5s).
+          </p>
+        </div>
+
+        <div class="ws-section">
+          <div class="ws-section-header">
+            <h3>Manual Tests</h3>
+            <div class="ws-button-grid">
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualEmit()">Fire-and-forget emit</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualRequest()">Request/Response</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualRequestTimeout()">Request timeout</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualPersistence()">Subscription persistence</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualRequestAll()">requestAll aggregation</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualStateSync()">State sync (no poll when healthy)</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualContextSwitch()">Context switching</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualFallbackRecovery()">Fallback + recovery (DEGRADED)</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.runManualResyncTriggers()">Resync triggers (runtime_epoch/seq gap)</button>
+              <button class="btn" :disabled="$store.websocketTesterStore.manualRunning" @click="$store.websocketTesterStore.triggerBroadcastDemo()">Broadcast demo</button>
+            </div>
+            <p class="ws-section-info">
+              Manual tests trigger individual scenarios and show toast results. Open a second browser tab for requestAll/broadcast demos to observe multi-connection behaviour.
+            </p>
+          </div>
+        </div>
+
+        <div class="ws-section">
+          <div class="ws-section-header">
+            <h3>Log Output</h3>
+            <div class="ws-log-actions">
+              <button class="btn slim" @click="$store.websocketTesterStore.clearLog()">Clear</button>
+            </div>
+          </div>
+          <textarea class="ws-log" readonly x-model="$store.websocketTesterStore.logs"></textarea>
+        </div>
+
+        <div class="ws-section" x-show="$store.websocketTesterStore.lastAggregated">
+          <div class="ws-section-header">
+            <h3>Last Aggregated Results</h3>
+          </div>
+          <pre class="ws-json" x-text="JSON.stringify($store.websocketTesterStore.lastAggregated, null, 2)"></pre>
+        </div>
+
+        <div class="ws-section" x-show="$store.websocketTesterStore.receivedBroadcasts.length">
+          <div class="ws-section-header">
+            <h3>Recent Broadcast Payloads</h3>
+          </div>
+          <ul class="ws-list">
+            <template x-for="item in $store.websocketTesterStore.receivedBroadcasts.slice(-10)" :key="item.id || (item.timestamp + item.eventType)">
+              <li><strong x-text="item.eventType"></strong>: <span x-text="JSON.stringify(item.payload)"></span> <em x-text="item.timestamp"></em></li>
+            </template>
+          </ul>
+        </div>
+      </div>
+    </template>
+    <template x-if="!window.runtimeInfo?.isDevelopment">
+      <div class="ws-tester ws-disabled">
+        <h2>WebSocket Developer Harness</h2>
+        <p class="ws-description">
+          The WebSocket test harness is available only when Agent Zero runs in development mode.
+        </p>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .ws-tester {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      color: var(--color-text-primary);
+    }
+
+    .ws-description {
+      margin: 0;
+      color: var(--color-text-secondary);
+    }
+
+    .ws-disabled {
+      align-items: flex-start;
+    }
+
+    .ws-section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 1rem;
+    }
+
+    .ws-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .ws-section-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .ws-section-info {
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .ws-button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    .ws-log {
+      width: 100%;
+      min-height: 12em;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 0.75rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+    }
+
+    .ws-log-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .ws-json {
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 0.75rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      overflow: auto;
+      max-height: 200px;
+    }
+
+    .ws-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .ws-list li {
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 0.5rem;
+    }
+  </style>
+</body>
+</html>

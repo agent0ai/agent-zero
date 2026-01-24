@@ -12,7 +12,7 @@ class CreateChat(ApiHandler):
 
         # context instance - get or create
         current_context = AgentContext.get(current_ctxid)
-        
+
         # get/create new context
         new_context = self.use_context(new_ctxid)
 
@@ -24,6 +24,10 @@ class CreateChat(ApiHandler):
             current_data_2 = current_context.get_output_data(projects.CONTEXT_DATA_KEY_PROJECT)
             if current_data_2:
                 new_context.set_output_data(projects.CONTEXT_DATA_KEY_PROJECT, current_data_2)
+
+        # New context should appear in other tabs' chat lists via state_push.
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="api.chat_create.CreateChat")
 
         return {
             "ok": True,

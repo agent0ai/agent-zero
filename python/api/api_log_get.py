@@ -55,7 +55,7 @@ class ApiLogGet(ApiHandler):
                     "returned_items": len(log_items),
                     "start_position": start_pos,
                     "progress": context.log.progress,
-                    "progress_active": context.log.progress_active,
+                    "progress_active": bool(context.log.progress_active),
                     "items": log_items
                 }
             }

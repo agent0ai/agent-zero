@@ -1,0 +1,271 @@
+<html>
+<head>
+  <title>WebSocket Event Console</title>
+  <script type="module">
+    import { store as websocketEventConsoleStore } from "/components/settings/developer/websocket-event-console-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="window.runtimeInfo?.isDevelopment && $store.websocketEventConsoleStore">
+      <div
+        class="ws-console"
+        x-create="$store.websocketEventConsoleStore.onOpen()"
+        x-destroy="$store.websocketEventConsoleStore.detach({ notify: false })"
+      >
+        <h2>WebSocket Event Console</h2>
+        <p class="ws-description">
+          Capture inbound/outbound WebSocket envelopes, lifecycle broadcasts, and diagnostic metadata while capture is enabled.
+          This modal is the display layer for the bounded in-memory buffer.
+        </p>
+
+        <div class="ws-controls">
+          <button
+            class="btn"
+            x-show="!$store.websocketEventConsoleStore.captureEnabled"
+            @click="$store.websocketEventConsoleStore.startCapture()"
+          >
+            Start capture
+          </button>
+          <button
+            class="btn"
+            x-show="$store.websocketEventConsoleStore.captureEnabled"
+            @click="$store.websocketEventConsoleStore.stopCapture()"
+          >
+            Stop capture
+          </button>
+          <button
+            class="btn"
+            :disabled="!$store.websocketEventConsoleStore.captureEnabled"
+            @click="$store.websocketEventConsoleStore.reconnect()"
+          >
+            Resubscribe
+          </button>
+          <button class="btn" @click="$store.websocketEventConsoleStore.clear()">Clear</button>
+          <label class="ws-toggle">
+            <input
+              type="checkbox"
+              x-model="$store.websocketEventConsoleStore.showHandledOnly"
+            />
+            Show inbound events with handlers only
+          </label>
+        </div>
+
+        <div class="ws-status">
+          <span
+            class="badge"
+            :class="($store.websocketEventConsoleStore.captureEnabled && $store.websocketEventConsoleStore.subscriptionActive) ? 'badge-success' : 'badge-warning'"
+            x-text="!$store.websocketEventConsoleStore.captureEnabled ? 'Capture OFF' : ($store.websocketEventConsoleStore.subscriptionActive ? 'Capture ON' : 'Capture ON (not subscribed)')"
+          ></span>
+          <span
+            class="ws-error"
+            x-show="$store.websocketEventConsoleStore.lastError"
+            x-text="$store.websocketEventConsoleStore.lastError"
+          ></span>
+        </div>
+
+        <div class="ws-entries">
+          <template
+            x-for="entry in $store.websocketEventConsoleStore.filteredEntries().slice().reverse()"
+            :key="entry.eventId"
+          >
+            <div class="ws-entry">
+              <div class="ws-entry-header">
+                <span class="badge" :class="`badge-${entry.kind}`" x-text="entry.kind"></span>
+                <strong x-text="entry.eventType"></strong>
+                <span class="ws-meta" x-text="entry.timestamp"></span>
+              </div>
+              <div class="ws-entry-body">
+                <div class="ws-row">
+                  <div>
+                    <span class="ws-label">Correlation:</span>
+                    <span x-text="entry.correlationId || '—'"></span>
+                  </div>
+                  <div>
+                    <span class="ws-label">SID:</span>
+                    <span x-text="entry.sid || (entry.targets && entry.targets.join(', ') ) || '—'"></span>
+                  </div>
+                  <div>
+                    <span class="ws-label">Handlers:</span>
+                    <span
+                      x-text="entry.resultSummary?.handlerCount ?? entry.resultSummary?.handlers?.length ?? 0"
+                    ></span>
+                    <template x-if="entry.resultSummary?.ok || entry.resultSummary?.error">
+                      <span class="ws-inline-summary">
+                        <span>OK: <span x-text="entry.resultSummary.ok || 0"></span></span>
+                        <span>Errors: <span x-text="entry.resultSummary.error || 0"></span></span>
+                      </span>
+                    </template>
+                  </div>
+                </div>
+
+                <div class="ws-json-grid">
+                  <div>
+                    <h4>Payload Summary</h4>
+                    <pre x-text="JSON.stringify(entry.payloadSummary || {}, null, 2)"></pre>
+                  </div>
+                  <div>
+                    <h4>Result Summary</h4>
+                    <pre x-text="JSON.stringify(entry.resultSummary || {}, null, 2)"></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!window.runtimeInfo?.isDevelopment">
+      <div class="ws-console ws-disabled">
+        <h2>WebSocket Event Console</h2>
+        <p class="ws-description">
+          The event console is available only when Agent Zero runs in development mode.
+        </p>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .ws-console {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      color: var(--color-text-primary);
+    }
+
+    .ws-description {
+      margin: 0;
+      color: var(--color-text-secondary);
+    }
+
+    .ws-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .ws-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.9rem;
+      color: var(--color-text-secondary);
+    }
+
+    .ws-status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .ws-error {
+      color: var(--color-danger);
+      font-size: 0.9rem;
+    }
+
+    .ws-entries {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .ws-entry {
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      background: var(--color-bg-secondary);
+    }
+
+    .ws-entry-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .ws-entry-body {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .ws-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .ws-label {
+      font-weight: 600;
+      margin-right: 0.25rem;
+    }
+
+    .ws-inline-summary {
+      display: inline-flex;
+      gap: 0.5rem;
+      margin-left: 0.5rem;
+    }
+
+    .ws-json-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.5rem;
+    }
+
+    .ws-json-grid pre {
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 0.5rem;
+      font-size: 0.8rem;
+      max-height: 160px;
+      overflow: auto;
+    }
+
+    .badge {
+      padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-success {
+      background: var(--color-success, #16a34a);
+      color: var(--color-bg-primary);
+    }
+
+    .badge-warning {
+      background: var(--color-warning, #f59e0b);
+      color: var(--color-bg-primary);
+    }
+
+    .badge-inbound {
+      background: var(--color-accent, #6366f1);
+      color: var(--color-bg-primary);
+    }
+
+    .badge-outbound {
+      background: var(--color-info, #0ea5e9);
+      color: var(--color-bg-primary);
+    }
+
+    .badge-lifecycle {
+      background: var(--color-success, #16a34a);
+      color: var(--color-bg-primary);
+    }
+
+    .ws-disabled {
+      border: 1px dashed var(--color-border);
+      padding: 1rem;
+      border-radius: 6px;
+    }
+  </style>
+</body>
+</html>

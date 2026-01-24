@@ -27,7 +27,7 @@ class FileStructureInjectionSettings(TypedDict):
 
 class SubAgentSettings(TypedDict):
     enabled: bool
-    
+
 class BasicProjectData(TypedDict):
     title: str
     description: str
@@ -229,7 +229,7 @@ def _get_projects_list(parent_dir):
     return projects
 
 
-def activate_project(context_id: str, name: str):
+def activate_project(context_id: str, name: str, *, mark_dirty: bool = True):
     from agent import AgentContext
 
     data = load_edit_project_data(name)
@@ -247,8 +247,12 @@ def activate_project(context_id: str, name: str):
     # persist
     persist_chat.save_tmp_chat(context)
 
+    if mark_dirty:
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="projects.activate_project")
 
-def deactivate_project(context_id: str):
+
+def deactivate_project(context_id: str, *, mark_dirty: bool = True):
     from agent import AgentContext
 
     context = AgentContext.get(context_id)
@@ -260,14 +264,21 @@ def deactivate_project(context_id: str):
     # persist
     persist_chat.save_tmp_chat(context)
 
+    if mark_dirty:
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="projects.deactivate_project")
+
 
 def reactivate_project_in_chats(name: str):
     from agent import AgentContext
 
     for context in AgentContext.all():
         if context.get_data(CONTEXT_DATA_KEY_PROJECT) == name:
-            activate_project(context.id, name)
+            activate_project(context.id, name, mark_dirty=False)
         persist_chat.save_tmp_chat(context)
+
+    from python.helpers.state_monitor_integration import mark_dirty_all
+    mark_dirty_all(reason="projects.reactivate_project_in_chats")
 
 
 def deactivate_project_in_chats(name: str):
@@ -275,8 +286,11 @@ def deactivate_project_in_chats(name: str):
 
     for context in AgentContext.all():
         if context.get_data(CONTEXT_DATA_KEY_PROJECT) == name:
-            deactivate_project(context.id)
+            deactivate_project(context.id, mark_dirty=False)
         persist_chat.save_tmp_chat(context)
+
+    from python.helpers.state_monitor_integration import mark_dirty_all
+    mark_dirty_all(reason="projects.deactivate_project_in_chats")
 
 
 def build_system_prompt_vars(name: str):
@@ -409,7 +423,7 @@ def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str
     project_folder = get_project_folder(name)
     if basic_data is None:
         basic_data = load_basic_project_data(name)
-    
+
     tree = str(file_tree.file_tree(
         project_folder,
         max_depth=basic_data["file_structure"]["max_depth"],
@@ -425,5 +439,3 @@ def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str
         tree += "\n # Empty"
 
     return tree
-
-    
