@@ -26,38 +26,74 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-      - name: Merge main into quorum
-        id: merge
+      - name: Check for upstream changes
+        id: check
         run: |
           git fetch origin main
-          git merge origin/main --no-edit -m "chore: sync with upstream"
-          git push origin quorum
+          CHANGES=$(git rev-list --count quorum..origin/main)
+          echo "changes=$CHANGES" >> $GITHUB_OUTPUT
+          if [ "$CHANGES" -eq "0" ]; then
+            echo "No new changes from main to merge"
+          else
+            echo "Found $CHANGES commits to merge from main"
+          fi
+          
+      - name: Create sync branch and merge
+        if: steps.check.outputs.changes != '0'
+        id: merge
+        run: |
+          # Create a new branch for the sync
+          BRANCH_NAME="sync-main-to-quorum-$(date +%Y%m%d-%H%M%S)"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+          git checkout -b $BRANCH_NAME
+          git merge origin/main --no-edit -m "chore: sync quorum with upstream main"
+          git push origin $BRANCH_NAME
         continue-on-error: true
         
-      - name: Create PR if conflicts
-        if: steps.merge.outcome == 'failure'
+      - name: Create Pull Request
+        if: steps.check.outputs.changes != '0' && steps.merge.outcome == 'success'
         uses: peter-evans/create-pull-request@v5
         with:
-          title: "⚠️ Quorum branch sync requires resolution"
-          body: |
-            Merging upstream changes into quorum failed.
-            
-            This likely means upstream changes conflict with our customizations.
-            
-            **Review carefully** - customizations may need adjustment.
-          branch: quorum-sync-conflict
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.merge.outputs.branch }}
           base: quorum
-          labels: quorum-sync,needs-attention
+          title: "🔄 Sync quorum with upstream main"
+          body: |
+            Automated sync of upstream changes from main branch to quorum.
+            
+            **Changes included:**
+            - Commits from upstream that have been merged into main
+            
+            **Review notes:**
+            - Check for any conflicts with quorum customizations
+            - Verify customizations still work after merge
+          labels: upstream-sync,automated
+          delete-branch: true
+          
+      - name: Handle merge conflicts
+        if: steps.check.outputs.changes != '0' && steps.merge.outcome == 'failure'
+        run: |
+          echo "## ⚠️ Merge Conflict Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Upstream changes conflict with quorum customizations." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Manual resolution required:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Checkout quorum branch locally" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run: \`git merge origin/main\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Resolve conflicts" >> $GITHUB_STEP_SUMMARY
+          echo "4. Push resolution" >> $GITHUB_STEP_SUMMARY
+          exit 1
 
-      - name: Notify on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 Quorum branch sync failed',
-              body: `Automated quorum sync failed. Check workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              labels: ['quorum-sync', 'needs-attention']
-            })
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Quorum Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Changes from main: ${{ steps.check.outputs.changes }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.changes }}" == "0" ]; then
+            echo "✅ Quorum is already up to date with main" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.merge.outcome }}" == "success" ]; then
+            echo "✅ PR created to sync changes" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Manual intervention required" >> $GITHUB_STEP_SUMMARY
+          fi
