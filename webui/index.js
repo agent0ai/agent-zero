@@ -632,19 +632,18 @@ globalThis.updateAfterScroll = updateAfterScroll;
 async function startPolling() {
   // Fallback polling cadence:
   // - DISCONNECTED: do not poll (transport down, avoid request spam)
-  // - DEGRADED: 1Hz idle, burst to 4Hz briefly when activity is detected
-  const degradedIdleIntervalMs = 1000;
-  const degradedActiveIntervalMs = 250;
-  const degradedActiveWindowTicks = 8; // 8 * 250ms = 2s burst window
-  let shortIntervalCount = 0;
+  // - HANDSHAKE_PENDING/DEGRADED: steady fallback cadence to keep UI responsive
+  const degradedIntervalMs = 250;
   let missingSyncSinceMs = null;
   let consecutivePollFailures = 0;
   let lastHandshakeKickMs = 0;
   const startedAtMs = Date.now();
   const initialNoPollGraceMs = 2000;
+  let pollInFlight = false;
 
   async function _doPoll() {
-    let nextInterval = degradedIdleIntervalMs;
+    const tickStartedAt = Date.now();
+    let nextInterval = degradedIntervalMs;
 
     try {
       const syncStore =
@@ -672,6 +671,11 @@ async function startPolling() {
         return;
       }
 
+      if (pollInFlight) {
+        setTimeout(_doPoll.bind(this), nextInterval);
+        return;
+      }
+
       // Avoid a “single poll on boot” while the websocket handshake is racing to take over.
       if (Date.now() - startedAtMs < initialNoPollGraceMs && (!syncStore || !syncMode)) {
         setTimeout(_doPoll.bind(this), nextInterval);
@@ -682,9 +686,14 @@ async function startPolling() {
       // can wrap/spy on polling behaviour. Fall back to the module-local function
       // if the global is unavailable.
       const pollFn = typeof globalThis.poll === "function" ? globalThis.poll : poll;
-      const result = await pollFn();
+      pollInFlight = true;
+      let result;
+      try {
+        result = await pollFn();
+      } finally {
+        pollInFlight = false;
+      }
       const pollOk = Boolean(result && result.ok);
-      const updated = Boolean(result && result.updated);
 
       if (!pollOk) {
         consecutivePollFailures += 1;
@@ -717,20 +726,20 @@ async function startPolling() {
         }
       }
 
-      if (updated) shortIntervalCount = degradedActiveWindowTicks; // Reset the counter when updates were applied
-      if (shortIntervalCount > 0) shortIntervalCount--; // Decrease the counter on each call
       const effectiveMode =
         syncStore && typeof syncStore.mode === "string" ? syncStore.mode : syncMode;
       nextInterval =
-        effectiveMode === "DEGRADED"
-          ? (shortIntervalCount > 0 ? degradedActiveIntervalMs : degradedIdleIntervalMs)
-          : degradedIdleIntervalMs;
+        effectiveMode === "DEGRADED" || effectiveMode === "HANDSHAKE_PENDING"
+          ? degradedIntervalMs
+          : degradedIntervalMs;
     } catch (error) {
       console.error("Error:", error);
     }
 
     // Call the function again after the selected interval
-    setTimeout(_doPoll.bind(this), nextInterval);
+    const elapsedMs = Date.now() - tickStartedAt;
+    const delayMs = Math.max(0, nextInterval - elapsedMs);
+    setTimeout(_doPoll.bind(this), delayMs);
   }
 
   _doPoll();

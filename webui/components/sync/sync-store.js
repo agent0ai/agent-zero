@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { getNamespacedClient } from "/js/websocket.js";
+import { invalidateCsrfToken } from "/js/api.js";
 import { applySnapshot, buildStateRequestPayload } from "/index.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
@@ -18,9 +19,13 @@ function isDevelopmentRuntime() {
 }
 
 function isSyncDebugEnabled() {
-  if (!isDevelopmentRuntime()) return false;
   try {
-    return globalThis.localStorage?.getItem("a0_debug_sync") === "true";
+    let value = globalThis.localStorage?.getItem("a0_debug_sync");
+    if (isDevelopmentRuntime()) {
+      globalThis.localStorage?.setItem("a0_debug_sync", "true");
+      value = "true";
+    }
+    return value === "true";
   } catch (_error) {
     return false;
   }
@@ -30,6 +35,13 @@ function debug(...args) {
   if (!isSyncDebugEnabled()) return;
   // eslint-disable-next-line no-console
   console.debug(...args);
+}
+
+function isRestartToastActive() {
+  return (
+    Array.isArray(notificationStore.toastStack) &&
+    notificationStore.toastStack.some((toast) => toast && toast.group === "restart")
+  );
 }
 
 const model = {
@@ -47,6 +59,15 @@ const model = {
   _degradedToastShown: false,
   _degradedToastTimer: null,
   _degradedToastDelayMs: 100,
+  _handshakeRetryTimer: null,
+  _handshakeRetryAttempt: 0,
+  _handshakeRetryBaseMs: 500,
+  _handshakeRetryCapMs: 5000,
+  _handshakeFailureCount: 0,
+  _forceReconnectCooldownMs: 5000,
+  _lastForceReconnectAtMs: 0,
+  _forceReconnectThreshold: 3,
+  _suppressDisconnectToastOnce: false,
 
   runtimeEpoch: null,
   seqBase: 0,
@@ -114,6 +135,83 @@ const model = {
     }
   },
 
+  _clearHandshakeRetry() {
+    if (this._handshakeRetryTimer) {
+      clearTimeout(this._handshakeRetryTimer);
+      this._handshakeRetryTimer = null;
+    }
+  },
+
+  _scheduleHandshakeRetry(reason, forceReconnect = false) {
+    if (this._handshakeRetryTimer) return;
+    if (!this.needsHandshake) return;
+    if (!stateSocket.isConnected()) return;
+
+    const attempt = Math.max(0, Number(this._handshakeRetryAttempt) || 0);
+    const delayMs = Math.min(this._handshakeRetryCapMs, this._handshakeRetryBaseMs * 2 ** attempt);
+    this._handshakeRetryAttempt = attempt + 1;
+
+    debug("[syncStore] scheduling handshake retry", {
+      reason,
+      attempt,
+      delayMs,
+      forceReconnect,
+    });
+    this._handshakeRetryTimer = setTimeout(() => {
+      this._handshakeRetryTimer = null;
+      if (!stateSocket.isConnected()) return;
+      if (!this.needsHandshake) return;
+      if (forceReconnect) {
+        this._forceReconnect(reason);
+        return;
+      }
+      this.sendStateRequest({ forceFull: true }).catch((error) => {
+        console.error("[syncStore] handshake retry failed:", error);
+      });
+    }, delayMs);
+  },
+
+  _handleHandshakeFailure(reason) {
+    this._handshakeFailureCount += 1;
+    debug("[syncStore] handshake failure tracked", {
+      reason,
+      count: this._handshakeFailureCount,
+      threshold: this._forceReconnectThreshold,
+    });
+    if (this._handshakeFailureCount < this._forceReconnectThreshold) {
+      this._scheduleHandshakeRetry(reason, false);
+      return;
+    }
+    this._handshakeFailureCount = 0;
+    this._scheduleHandshakeRetry(reason, true);
+  },
+
+  _forceReconnect(reason) {
+    const now = Date.now();
+    if (now - this._lastForceReconnectAtMs < this._forceReconnectCooldownMs) {
+      return;
+    }
+    this._lastForceReconnectAtMs = now;
+    this._suppressDisconnectToastOnce = true;
+    debug("[syncStore] forcing socket reconnect", { reason });
+    try {
+      invalidateCsrfToken();
+    } catch (_error) {
+      // no-op
+    }
+    try {
+      stateSocket.disconnect();
+    } catch (error) {
+      console.error("[syncStore] forced disconnect failed:", error);
+    }
+    this.needsHandshake = true;
+    this._clearHandshakeRetry();
+    this._handshakeRetryAttempt = 0;
+    stateSocket.connect().catch((error) => {
+      console.error("[syncStore] forced reconnect failed:", error);
+    });
+  },
+
   async _flushPendingReconnectToast() {
     const pending = this._pendingReconnectToast;
     if (!pending) return;
@@ -161,6 +259,8 @@ const model = {
           const runtimeChanged = Boolean(info && info.runtimeChanged);
           this._pendingReconnectToast = runtimeChanged ? "restart" : "reconnect";
         }
+        this._clearHandshakeRetry();
+        this._handshakeRetryAttempt = 0;
 
         // Always re-handshake on every Socket.IO connect.
         //
@@ -175,14 +275,21 @@ const model = {
 
       stateSocket.onDisconnect(() => {
         chatTopStore.connected = false;
-        this._setMode(SYNC_MODES.DISCONNECTED, "ws disconnect");
+        const restartToastActive = isRestartToastActive();
+        this._setMode(
+          SYNC_MODES.DISCONNECTED,
+          restartToastActive ? "ws disconnect (restart toast active)" : "ws disconnect",
+        );
         this.needsHandshake = true;
+        this._clearHandshakeRetry();
         debug("[syncStore] websocket disconnected");
 
         // Tab-local UX: brief "Disconnected" toast. This intentionally does not go through
         // the backend notification pipeline (no cross-tab intent, avoids request storms).
         // Uses the same group as "Reconnected" so the reconnect toast replaces it if still visible.
-        if (this._seenFirstConnect) {
+        const suppressToast = this._suppressDisconnectToastOnce;
+        this._suppressDisconnectToastOnce = false;
+        if (this._seenFirstConnect && !restartToastActive && !suppressToast) {
           notificationStore
             .frontendWarning("Disconnected", "Connection", 5, "reconnect", undefined, true)
             .catch((error) => {
@@ -284,6 +391,7 @@ const model = {
           stateSocket.isConnected() ? SYNC_MODES.DEGRADED : SYNC_MODES.DISCONNECTED,
           "state_request failed",
         );
+        this._handleHandshakeFailure("state_request failed");
         throw error;
       }
 
@@ -295,6 +403,7 @@ const model = {
             : "HANDSHAKE_FAILED";
         this._setMode(SYNC_MODES.DEGRADED, `handshake failed: ${code}`);
         this.needsHandshake = true;
+        this._handleHandshakeFailure(`handshake failed: ${code}`);
         throw new Error(`state_request failed: ${code}`);
       }
 
@@ -308,6 +417,9 @@ const model = {
       }
 
       this.needsHandshake = false;
+      this._handshakeFailureCount = 0;
+      this._clearHandshakeRetry();
+      this._handshakeRetryAttempt = 0;
       this._setMode(SYNC_MODES.HEALTHY, "handshake ok");
     })().finally(() => {
       this.handshakePromise = null;

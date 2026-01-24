@@ -66,6 +66,7 @@ socketio_server = socketio.AsyncServer(
 
 websocket_manager = WebSocketManager(socketio_server, lock)
 _settings = settings_helper.get_settings()
+settings_helper.set_runtime_settings_snapshot(_settings)
 websocket_manager.set_server_restart_broadcast(
     _settings.get("websocket_server_restart_enabled", True)
 )

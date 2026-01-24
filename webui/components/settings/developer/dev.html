@@ -101,6 +101,15 @@
               <div class="field-description">
                 Temporarily enable uvicorn access logs for debugging WebSocket transport issues (default off).
               </div>
+              <template
+                x-if="$store.settingsStore.additional?.runtime_settings &&
+                  $store.settingsStore.settings?.uvicorn_access_logs_enabled !==
+                    $store.settingsStore.additional.runtime_settings.uvicorn_access_logs_enabled"
+              >
+                <div class="field-description">
+                  Applies after backend restart.
+                </div>
+              </template>
             </div>
             <div class="field-control">
               <label class="toggle">
@@ -111,37 +120,44 @@
           </div>
 
           <template x-if="!$store.settingsStore.additional?.is_dockerized">
-            <div class="field">
-              <div class="field-label">
-                <div class="field-title">WebSocket Test Harness</div>
-                <div class="field-description">
-                  Open the developer harness to run automated and manual WebSocket validation suites.
-                </div>
+            <div>
+              <div class="section-title">Testing</div>
+              <div class="section-description">
+                Utilities for validating WebSocket infrastructure in development environments.
               </div>
-              <div class="field-control">
-                <button
-                  class="btn btn-field"
-                  @click="openModal('settings/developer/websocket-tester.html');"
-                >
-                  Open Harness
-                </button>
-              </div>
-            </div>
 
-            <div class="field">
-              <div class="field-label">
-                <div class="field-title">WebSocket Event Console</div>
-                <div class="field-description">
-                  Inspect inbound and outbound envelopes and lifecycle events in real time (development only).
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">WebSocket Test Harness</div>
+                  <div class="field-description">
+                    Open the developer harness to run automated and manual WebSocket validation suites.
+                  </div>
+                </div>
+                <div class="field-control">
+                  <button
+                    class="btn btn-field"
+                    @click="openModal('settings/developer/websocket-tester.html');"
+                  >
+                    Open Harness
+                  </button>
                 </div>
               </div>
-              <div class="field-control">
-                <button
-                  class="btn btn-field"
-                  @click="openModal('settings/developer/websocket-event-console.html');"
-                >
-                  Open Console
-                </button>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">WebSocket Event Console</div>
+                  <div class="field-description">
+                    Inspect inbound and outbound envelopes and lifecycle events in real time (development only).
+                  </div>
+                </div>
+                <div class="field-control">
+                  <button
+                    class="btn btn-field"
+                    @click="openModal('settings/developer/websocket-event-console.html');"
+                  >
+                    Open Console
+                  </button>
+                </div>
               </div>
             </div>
           </template>

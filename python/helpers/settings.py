@@ -200,6 +200,7 @@ class SettingsOutputAdditional(TypedDict):
     knowledge_subdirs: list[FieldOption]
     stt_models: list[FieldOption]
     is_dockerized: bool
+    runtime_settings: dict[str, Any]
 
 
 class SettingsOutput(TypedDict):
@@ -212,6 +213,7 @@ API_KEY_PLACEHOLDER = "************"
 
 SETTINGS_FILE = files.get_abs_path("tmp/settings.json")
 _settings: Settings | None = None
+_runtime_settings_snapshot: Settings | None = None
 
 OptionT = TypeVar("OptionT", bound=FieldOption)
 
@@ -250,12 +252,24 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 {"value": "large", "label": "Large (1.5B, Multilingual)"},
                 {"value": "turbo", "label": "Turbo (Multilingual)"},
             ],
+            runtime_settings={},
         ),
     )
 
     # ensure dropdown options include currently selected values
     additional = out["additional"]
     current = out["settings"]
+
+    default_settings = get_default_settings()
+    runtime_settings = _runtime_settings_snapshot or settings
+    additional["runtime_settings"] = {
+        "uvicorn_access_logs_enabled": bool(
+            runtime_settings.get(
+                "uvicorn_access_logs_enabled",
+                default_settings["uvicorn_access_logs_enabled"],
+            )
+        ),
+    }
 
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("chat_model_provider"))
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("util_model_provider"))
@@ -338,6 +352,11 @@ def get_settings() -> Settings:
         _settings = get_default_settings()
     norm = normalize_settings(_settings)
     return norm
+
+
+def set_runtime_settings_snapshot(settings: Settings) -> None:
+    global _runtime_settings_snapshot
+    _runtime_settings_snapshot = settings.copy()
 
 
 def set_settings(settings: Settings, apply: bool = True):

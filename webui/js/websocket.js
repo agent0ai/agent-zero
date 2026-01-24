@@ -366,7 +366,13 @@ class WebSocketClient {
       // Ensure the current runtime-bound session + CSRF cookies exist before initiating
       // the Engine.IO handshake. This is required for seamless reconnect after backend
       // restarts that rotate runtime_id and session cookie names.
-      await getCsrfToken();
+      try {
+        await getCsrfToken();
+      } catch (error) {
+        this.debugLog("csrf prefetch failed - continuing", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       await new Promise((resolve, reject) => {
         const onConnect = () => {
