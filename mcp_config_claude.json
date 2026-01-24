@@ -148,6 +148,19 @@
         "AWS_REGION": "us-east-1"
       },
       "description": "AWS Knowledge Base retrieval"
+    },
+    "opencode": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@opencode-ai/mcp-server"
+      ],
+      "env": {
+        "OPENCODE_MODEL_PROVIDER": "ollama",
+        "OPENCODE_MODEL_NAME": "qwen2.5-coder:7b",
+        "OPENCODE_API_BASE": "http://localhost:11434"
+      },
+      "description": "OpenCode AI coding agent for specialized code generation"
     }
   }
 }
