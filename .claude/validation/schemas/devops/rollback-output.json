@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Rollback Output Schema",
+  "description": "Validation schema for /devops/rollback command output",
+  "type": "object",
+  "required": ["rollback_status", "previous_version", "rollback_verified"],
+  "properties": {
+    "rollback_status": {
+      "type": "string",
+      "enum": ["success", "failed"]
+    },
+    "previous_version": {
+      "type": "string"
+    },
+    "rollback_verified": {
+      "type": "boolean"
+    }
+  }
+}

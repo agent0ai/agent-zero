@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prompt Review Output Validation",
+  "description": "Validates output from /prompt/review command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "object",
+      "required": ["review_report"],
+      "properties": {
+        "review_report": {
+          "type": "string",
+          "pattern": "^prompts/.*-review\\.md$",
+          "description": "Path to review report file"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "compliance_score_calculated",
+        "violations_identified",
+        "recommendations_provided",
+        "best_practices_checked"
+      ],
+      "properties": {
+        "compliance_score_calculated": {
+          "type": "boolean",
+          "description": "Review includes numerical compliance score"
+        },
+        "violations_identified": {
+          "type": "boolean",
+          "description": "Review identifies specific violations"
+        },
+        "recommendations_provided": {
+          "type": "boolean",
+          "description": "Review provides specific improvement recommendations"
+        },
+        "best_practices_checked": {
+          "type": "boolean",
+          "description": "Review checks against OpenAI/Anthropic/Google best practices"
+        },
+        "min_violations_checked": {
+          "type": "integer",
+          "minimum": 5,
+          "description": "At least 5 best practice categories checked"
+        },
+        "min_report_length": {
+          "type": "integer",
+          "minimum": 800,
+          "description": "Review report must be at least 800 bytes"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["compliance_score", "review_depth_score"],
+      "properties": {
+        "compliance_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Overall compliance score calculated for the prompt"
+        },
+        "review_depth_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Depth of review analysis (threshold ≥0.85)"
+        },
+        "actionability_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "How actionable the recommendations are (threshold ≥0.85)"
+        }
+      }
+    }
+  }
+}

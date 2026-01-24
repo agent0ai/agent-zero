@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Multi-Environment Deployment Output Validation",
+  "description": "Validates output from /devops/deploy command",
+  "type": "object",
+  "required": ["deployment_results", "content_validation", "quality_metrics"],
+  "properties": {
+    "deployment_results": {
+      "type": "object",
+      "required": ["deployment_status", "environment", "deployment_url"],
+      "properties": {
+        "deployment_status": {
+          "type": "string",
+          "enum": ["success", "failed", "partial", "rolled-back"],
+          "description": "Final deployment status"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["production", "staging", "development"],
+          "description": "Deployment target environment"
+        },
+        "deployment_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of deployed application"
+        },
+        "deployment_id": {
+          "type": "string",
+          "description": "Unique deployment identifier"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "pre_deployment_backup",
+        "deployment_executed",
+        "health_checks_passed",
+        "rollback_plan_ready"
+      ],
+      "properties": {
+        "pre_deployment_backup": {
+          "type": "boolean",
+          "description": "Backup created before deployment"
+        },
+        "deployment_executed": {
+          "type": "boolean",
+          "description": "Deployment successfully executed"
+        },
+        "health_checks_passed": {
+          "type": "boolean",
+          "description": "Post-deployment health checks passed"
+        },
+        "rollback_plan_ready": {
+          "type": "boolean",
+          "description": "Rollback plan documented and tested"
+        },
+        "smoke_tests_passed": {
+          "type": "boolean",
+          "description": "Smoke tests passed after deployment"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["deployment_duration_seconds", "deployment_success_score"],
+      "properties": {
+        "deployment_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken for deployment"
+        },
+        "deployment_success_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Deployment success score (threshold ≥0.95)"
+        },
+        "zero_downtime": {
+          "type": "boolean",
+          "description": "Deployment achieved zero downtime"
+        }
+      }
+    }
+  }
+}

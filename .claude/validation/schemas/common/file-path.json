@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/common/file-path.json",
+  "version": "1.0.0",
+  "title": "File Path Validation Schema",
+  "description": "Validates file paths used in command arguments and outputs",
+  "type": "string",
+  "pattern": "^[a-zA-Z0-9/_.-]+$",
+  "minLength": 1,
+  "maxLength": 255,
+  "examples": [
+    "agent-os/specs/user-auth/spec.md",
+    "design-os/dashboard/components/Header.tsx",
+    ".claude/standards/global/coding-style.md"
+  ],
+  "errorMessage": {
+    "pattern": "File path must contain only letters, numbers, slashes, dots, hyphens, and underscores",
+    "minLength": "File path cannot be empty",
+    "maxLength": "File path must not exceed 255 characters"
+  }
+}

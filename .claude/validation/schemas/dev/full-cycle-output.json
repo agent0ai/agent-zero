@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Full-Cycle Output Schema",
+  "description": "Validation schema for /dev/full-cycle command output",
+  "type": "object",
+  "required": [
+    "cycle_status",
+    "feature_name",
+    "phases_completed",
+    "total_time_minutes",
+    "deployment_status",
+    "quality_metrics",
+    "summary_document_path"
+  ],
+  "properties": {
+    "cycle_status": {
+      "type": "string",
+      "description": "Overall full-cycle status",
+      "enum": ["completed", "partial", "failed", "cancelled"]
+    },
+    "feature_name": {
+      "type": "string",
+      "description": "Name of feature developed",
+      "minLength": 3
+    },
+    "phases_completed": {
+      "type": "object",
+      "description": "Status of each phase",
+      "required": ["planning", "implementation", "testing", "review", "pr_merge", "deployment"],
+      "properties": {
+        "planning": {
+          "type": "boolean"
+        },
+        "implementation": {
+          "type": "boolean"
+        },
+        "testing": {
+          "type": "boolean"
+        },
+        "review": {
+          "type": "boolean"
+        },
+        "pr_merge": {
+          "type": "boolean"
+        },
+        "deployment": {
+          "type": "boolean"
+        }
+      }
+    },
+    "total_time_minutes": {
+      "type": "integer",
+      "description": "Total time from start to finish (minutes)",
+      "minimum": 0
+    },
+    "phase_durations": {
+      "type": "object",
+      "description": "Duration of each phase in minutes",
+      "properties": {
+        "planning": {
+          "type": "integer"
+        },
+        "implementation": {
+          "type": "integer"
+        },
+        "testing": {
+          "type": "integer"
+        },
+        "review": {
+          "type": "integer"
+        },
+        "pr_merge": {
+          "type": "integer"
+        },
+        "deployment": {
+          "type": "integer"
+        }
+      }
+    },
+    "files_changed": {
+      "type": "integer",
+      "description": "Total files changed",
+      "minimum": 1
+    },
+    "lines_added": {
+      "type": "integer",
+      "description": "Total lines added",
+      "minimum": 0
+    },
+    "tests_added": {
+      "type": "integer",
+      "description": "Total tests added",
+      "minimum": 0
+    },
+    "quality_metrics": {
+      "type": "object",
+      "description": "Quality assessment metrics",
+      "required": ["test_coverage", "code_review_score", "security_score", "performance_score"],
+      "properties": {
+        "test_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "code_review_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "security_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "performance_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "critical_vulnerabilities": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "deployment_status": {
+      "type": "string",
+      "description": "Deployment status",
+      "enum": ["deployed", "pending", "failed", "not_deployed", "cancelled"]
+    },
+    "deployment_verified": {
+      "type": "boolean",
+      "description": "Whether deployment verification passed"
+    },
+    "pr_number": {
+      "type": "integer",
+      "description": "Pull request number"
+    },
+    "merge_commit_sha": {
+      "type": "string",
+      "description": "Merge commit SHA",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "summary_document_path": {
+      "type": "string",
+      "description": "Path to full-cycle summary document",
+      "pattern": "^\\.claude/full-cycle-summary-.+\\.md$"
+    },
+    "checkpoints_approved": {
+      "type": "integer",
+      "description": "Number of human checkpoints approved",
+      "minimum": 0
+    },
+    "time_saved_vs_manual": {
+      "type": "integer",
+      "description": "Estimated time saved vs manual workflow (minutes)",
+      "minimum": 0
+    }
+  }
+}

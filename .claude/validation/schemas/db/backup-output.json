@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Database Backup Output Validation",
+  "description": "Validates output from /db/backup command",
+  "type": "object",
+  "required": ["backup_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "backup_created": {
+      "type": "object",
+      "required": ["backup_file", "backup_location", "backup_checksum"],
+      "properties": {
+        "backup_file": {
+          "type": "string",
+          "pattern": "^backup_.*\\.(sql|dump|tar\\.gz)(\\.gz)?$",
+          "description": "Backup filename with timestamp"
+        },
+        "backup_location": {
+          "type": "string",
+          "pattern": "^(gs://|s3://|/)",
+          "description": "Cloud storage or local path"
+        },
+        "backup_checksum": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "description": "SHA256 checksum for integrity"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "backup_completed",
+        "integrity_verified",
+        "uploaded_to_cloud",
+        "old_backups_cleaned"
+      ],
+      "properties": {
+        "backup_completed": {
+          "type": "boolean",
+          "description": "Backup successfully created"
+        },
+        "integrity_verified": {
+          "type": "boolean",
+          "description": "Checksum calculated and verified"
+        },
+        "uploaded_to_cloud": {
+          "type": "boolean",
+          "description": "Uploaded to cloud storage (GCS/S3)"
+        },
+        "old_backups_cleaned": {
+          "type": "boolean",
+          "description": "Expired backups removed per retention policy"
+        },
+        "backup_size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Backup file size in bytes"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Retention period for backup"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["backup_duration_seconds", "backup_reliability_score"],
+      "properties": {
+        "backup_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken to create backup"
+        },
+        "backup_reliability_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Backup reliability score (threshold ≥0.95)"
+        },
+        "compression_ratio": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Compression achieved (original/compressed)"
+        }
+      }
+    }
+  }
+}

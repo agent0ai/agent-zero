@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Code Review Output Schema",
+  "description": "Validation schema for /dev/review command output",
+  "type": "object",
+  "required": [
+    "review_status",
+    "files_reviewed",
+    "issues_found",
+    "issues_by_severity",
+    "automated_checks_passed",
+    "overall_assessment",
+    "ready_for_pr"
+  ],
+  "properties": {
+    "review_status": {
+      "type": "string",
+      "description": "Overall review status",
+      "enum": ["passed", "passed_with_warnings", "needs_improvements", "failed"]
+    },
+    "files_reviewed": {
+      "type": "integer",
+      "description": "Number of files reviewed",
+      "minimum": 0
+    },
+    "issues_found": {
+      "type": "integer",
+      "description": "Total number of issues found",
+      "minimum": 0
+    },
+    "issues_by_severity": {
+      "type": "object",
+      "description": "Issues categorized by severity",
+      "required": ["critical", "high", "medium", "low"],
+      "properties": {
+        "critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "automated_checks_passed": {
+      "type": "object",
+      "description": "Results of automated checks",
+      "properties": {
+        "linting": {
+          "type": "boolean"
+        },
+        "type_checking": {
+          "type": "boolean"
+        },
+        "tests": {
+          "type": "boolean"
+        },
+        "security_scan": {
+          "type": "boolean"
+        },
+        "secrets_scan": {
+          "type": "boolean"
+        }
+      }
+    },
+    "test_coverage": {
+      "type": "number",
+      "description": "Test coverage percentage",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "overall_assessment": {
+      "type": "string",
+      "description": "Overall code quality assessment",
+      "enum": ["excellent", "good", "needs_work", "significant_issues"]
+    },
+    "ready_for_pr": {
+      "type": "boolean",
+      "description": "Whether code is ready for PR creation"
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "List of improvement recommendations",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_fixes": {
+      "type": "array",
+      "description": "Issues that must be fixed before PR",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

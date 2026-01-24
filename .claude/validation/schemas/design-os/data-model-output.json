@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/design-os/data-model-output.json",
+  "version": "1.0.0",
+  "title": "Data Model Output Schema",
+  "description": "Validates output from /design-os/data-model command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "required_sections"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^design-os/[a-z0-9-]+/data-model\\.md$"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 1200
+          },
+          "required_sections": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Entity Definitions",
+                "Relationships",
+                "ERD Diagram",
+                "Data Flow",
+                "Validation Rules"
+              ]
+            },
+            "minItems": 4
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "properties": {
+        "entities_defined": {
+          "type": "number",
+          "minimum": 3
+        },
+        "relationships_defined": {
+          "type": "number",
+          "minimum": 2
+        },
+        "erd_diagram_present": {
+          "type": "boolean"
+        },
+        "validation_rules_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "properties": {
+        "clarity_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "completeness_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        }
+      }
+    }
+  }
+}

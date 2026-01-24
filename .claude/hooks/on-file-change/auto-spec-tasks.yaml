@@ -1,0 +1,137 @@
+---
+name: auto-spec-tasks
+version: 1.0.0
+description: Automatically create tasks when spec is completed
+trigger: on-file-change
+priority: medium
+enabled: true
+
+# File watch configuration
+config:
+  watch_patterns:
+    - "agent-os/specs/*/spec.md"
+    - "agent-os/specs/*/requirements.md"
+  debounce: 5000  # Wait 5 seconds after last change
+  parallel_execution: false
+  timeout: 300  # 5 minutes max
+
+# Detection logic
+detection:
+  # Spec completion indicators
+  completion_markers:
+    - "## Specification Complete"
+    - "Status: Ready for Implementation"
+    - "<!-- SPEC_COMPLETE -->"
+
+  # Additional validation
+  required_sections:
+    - "## Overview"
+    - "## Requirements"
+    - "## Technical Design"
+    - "## Implementation Plan"
+
+  # Minimum content length
+  min_lines: 50
+
+# Automated steps
+steps:
+  # 1. Validate spec completeness
+  - name: validate-spec
+    description: Verify spec meets quality standards
+    command: /agent-os/verify-spec ${SPEC_NAME}
+    required: true
+    timeout: 120
+    on_failure:
+      action: notify
+      message: "Spec validation failed. Please review and complete required sections."
+    validation:
+      exit_code: 0
+      completeness_score: 0.8  # 80% complete
+
+  # 2. Auto-create tasks
+  - name: create-tasks
+    description: Generate implementation tasks from spec
+    command: /agent-os/create-tasks ${SPEC_NAME}
+    required: true
+    timeout: 180
+    on_failure:
+      action: retry
+      max_attempts: 2
+      message: "Task creation failed. Retrying..."
+    validation:
+      exit_code: 0
+      min_tasks_created: 5
+      required_files:
+        - "agent-os/specs/${SPEC_NAME}/tasks.md"
+
+  # 3. Notify team
+  - name: notify-team
+    description: Send notification that spec is ready for implementation
+    command: /assistant:email --template spec-ready --data "spec_name=${SPEC_NAME},tasks_file=agent-os/specs/${SPEC_NAME}/tasks.md"
+    required: false
+    timeout: 30
+    on_failure:
+      action: log
+      message: "Team notification failed but tasks were created successfully."
+
+  # 4. Update roadmap
+  - name: update-roadmap
+    description: Mark spec as ready in product roadmap
+    command: /agent-os/update-roadmap --spec ${SPEC_NAME} --status ready-for-implementation
+    required: false
+    timeout: 30
+
+# Variable extraction
+variables:
+  # Extract spec name from file path
+  SPEC_NAME:
+    from: file_path
+    pattern: "agent-os/specs/(.*)/spec.md"
+    group: 1
+
+  # Extract last modified time
+  LAST_MODIFIED:
+    from: file_metadata
+    field: mtime
+
+# Conditional execution
+conditions:
+  # Only run for new completions (not updates)
+  skip_if_exists:
+    - "agent-os/specs/${SPEC_NAME}/tasks.md"
+
+  # Only run during business hours (optional)
+  time_window:
+    enabled: false
+    start: "09:00"
+    end: "18:00"
+    timezone: "America/New_York"
+
+  # Skip for draft specs
+  skip_if_contains:
+    - "DRAFT"
+    - "WIP"
+    - "DO NOT IMPLEMENT"
+
+# Reporting
+reporting:
+  format: summary
+  include_metrics: false
+  log_file: .claude/hooks/logs/auto-spec-tasks.log
+  notify:
+    on_success: true
+    on_failure: true
+    channels:
+      - console
+      - slack
+
+# Metrics tracking
+metrics:
+  track:
+    - specs_processed
+    - tasks_created_count
+    - success_rate
+    - avg_processing_time
+  alert_thresholds:
+    success_rate: 0.9  # Alert if < 90%
+    avg_processing_time: 180  # Alert if avg > 3 min

@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Create Branch Output Validation",
+  "description": "Validates output from /dev/create-branch command",
+  "type": "object",
+  "required": ["branch_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "branch_created": {
+      "type": "object",
+      "required": ["branch_name", "base_branch", "pushed_to_remote"],
+      "properties": {
+        "branch_name": {
+          "type": "string",
+          "pattern": "^(feature|bugfix|hotfix)/[a-z0-9-]+$",
+          "description": "Branch name following naming convention"
+        },
+        "base_branch": {
+          "type": "string",
+          "enum": ["main", "master", "develop"],
+          "description": "Base branch (main/master/develop)"
+        },
+        "pushed_to_remote": {
+          "type": "boolean",
+          "description": "Branch pushed to remote repository"
+        },
+        "issue_linked": {
+          "type": "boolean",
+          "description": "Linked to GitHub issue (if issue number provided)"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "clean_working_directory",
+        "up_to_date_with_remote",
+        "branch_unique",
+        "upstream_set"
+      ],
+      "properties": {
+        "clean_working_directory": {
+          "type": "boolean",
+          "description": "No uncommitted changes before branch creation"
+        },
+        "up_to_date_with_remote": {
+          "type": "boolean",
+          "description": "Base branch synced with remote"
+        },
+        "branch_unique": {
+          "type": "boolean",
+          "description": "Branch name doesn't already exist"
+        },
+        "upstream_set": {
+          "type": "boolean",
+          "description": "Upstream tracking set (git push -u)"
+        },
+        "initial_commit_created": {
+          "type": "boolean",
+          "description": "Optional initial commit created"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["setup_duration_seconds", "branch_readiness_score"],
+      "properties": {
+        "setup_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 60,
+          "description": "Time to create and setup branch"
+        },
+        "branch_readiness_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Branch readiness score (threshold ≥0.90)"
+        },
+        "development_environment_ready": {
+          "type": "boolean",
+          "description": "Dependencies installed, migrations run, etc."
+        }
+      }
+    }
+  }
+}

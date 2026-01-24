@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/design-os/design-shell-output.json",
+  "version": "1.0.0",
+  "title": "Design Shell Output Schema",
+  "description": "Validates output from /design-os/design-shell command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "component_type"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^design-os/[a-z0-9-]+/shell/.*\\.(tsx|jsx)$"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 200
+          },
+          "component_type": {
+            "type": "string",
+            "enum": ["navigation", "layout", "header", "footer", "sidebar"]
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "properties": {
+        "react_typescript": {
+          "type": "boolean"
+        },
+        "tailwind_css": {
+          "type": "boolean"
+        },
+        "responsive_design": {
+          "type": "boolean"
+        },
+        "accessibility_attributes": {
+          "type": "boolean"
+        },
+        "navigation_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "properties": {
+        "code_quality_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "accessibility_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        }
+      }
+    }
+  }
+}

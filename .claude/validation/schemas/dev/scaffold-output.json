@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Project Scaffolding Output Validation",
+  "description": "Validates output from /dev/scaffold command",
+  "type": "object",
+  "required": ["scaffold_results", "content_validation", "quality_metrics"],
+  "properties": {
+    "scaffold_results": {
+      "type": "object",
+      "required": ["project_created", "files_generated", "dependencies_installed"],
+      "properties": {
+        "project_created": {
+          "type": "boolean",
+          "description": "Project directory and structure created"
+        },
+        "files_generated": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of files generated from templates"
+        },
+        "dependencies_installed": {
+          "type": "boolean",
+          "description": "Project dependencies installed"
+        },
+        "project_directory": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "Project directory name"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "template_applied",
+        "config_files_created",
+        "git_initialized",
+        "readme_generated"
+      ],
+      "properties": {
+        "template_applied": {
+          "type": "boolean",
+          "description": "Project template successfully applied"
+        },
+        "config_files_created": {
+          "type": "boolean",
+          "description": "Configuration files (package.json, tsconfig.json, etc.) created"
+        },
+        "git_initialized": {
+          "type": "boolean",
+          "description": "Git repository initialized"
+        },
+        "readme_generated": {
+          "type": "boolean",
+          "description": "README.md with project info generated"
+        },
+        "tests_passing": {
+          "type": "boolean",
+          "description": "Initial test suite passing"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["scaffold_duration_seconds", "project_completeness_score"],
+      "properties": {
+        "scaffold_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken to scaffold project"
+        },
+        "project_completeness_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Project completeness score (threshold ≥0.85)"
+        },
+        "ready_for_development": {
+          "type": "boolean",
+          "description": "Project is ready for immediate development"
+        }
+      }
+    }
+  }
+}

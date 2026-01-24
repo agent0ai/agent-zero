@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/design-os/sample-data-output.json",
+  "version": "1.0.0",
+  "title": "Sample Data Output Schema",
+  "description": "Validates output from /design-os/sample-data command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "file_type"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^design-os/[a-z0-9-]+/sections/[a-z0-9-]+/(sample-data\\.json|types\\.ts)$"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 200
+          },
+          "file_type": {
+            "type": "string",
+            "enum": ["sample_data", "typescript_types"]
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "properties": {
+        "sample_count": {
+          "type": "number",
+          "minimum": 10
+        },
+        "typescript_types_defined": {
+          "type": "boolean"
+        },
+        "realistic_data": {
+          "type": "boolean"
+        },
+        "data_variety": {
+          "type": "boolean"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "properties": {
+        "realism_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "type_safety_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        }
+      }
+    }
+  }
+}

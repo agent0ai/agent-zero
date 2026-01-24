@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Database Restore Output Validation",
+  "description": "Validates output from /db/restore command",
+  "type": "object",
+  "required": ["restore_completed", "content_validation", "quality_metrics"],
+  "properties": {
+    "restore_completed": {
+      "type": "object",
+      "required": ["restore_status", "safety_backup_created", "tables_restored"],
+      "properties": {
+        "restore_status": {
+          "type": "string",
+          "enum": ["success", "failed", "verify-only"],
+          "description": "Final restore status"
+        },
+        "safety_backup_created": {
+          "type": "boolean",
+          "description": "Safety backup created before restore"
+        },
+        "tables_restored": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tables restored"
+        },
+        "restore_mode": {
+          "type": "string",
+          "enum": ["full", "partial", "table-level", "verify-only"],
+          "description": "Type of restore performed"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "backup_integrity_verified",
+        "approval_obtained",
+        "connectivity_verified",
+        "data_validated"
+      ],
+      "properties": {
+        "backup_integrity_verified": {
+          "type": "boolean",
+          "description": "Backup checksum verified before restore"
+        },
+        "approval_obtained": {
+          "type": "boolean",
+          "description": "User approval obtained for destructive operation"
+        },
+        "connectivity_verified": {
+          "type": "boolean",
+          "description": "Database connectivity tested after restore"
+        },
+        "data_validated": {
+          "type": "boolean",
+          "description": "Record counts and critical tables verified"
+        },
+        "backup_compatible": {
+          "type": "boolean",
+          "description": "Backup version compatible with database"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["restore_duration_seconds", "restore_success_score"],
+      "properties": {
+        "restore_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken to restore database"
+        },
+        "restore_success_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Restore success score (threshold ≥0.95)"
+        },
+        "records_restored": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total records restored"
+        }
+      }
+    }
+  }
+}

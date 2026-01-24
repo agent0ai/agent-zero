@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "title": "Output Validation Error Templates",
+  "description": "Error messages for output validation failures",
+  "errors": {
+    "FILE_NOT_CREATED": {
+      "message": "Required file was not created: {{file_path}}",
+      "hint": "Agent should have created this file. Check agent logs for errors.",
+      "severity": "error",
+      "code": "E2001",
+      "recovery": "Re-run the command or manually create the file"
+    },
+    "FILE_TOO_SMALL": {
+      "message": "File {{file_path}} is too small ({{size}} chars). Minimum: {{min_size}} chars.",
+      "hint": "The file may be incomplete or missing content",
+      "severity": "error",
+      "code": "E2002",
+      "recovery": "Re-run the command with more detailed requirements"
+    },
+    "MISSING_REQUIRED_SECTION": {
+      "message": "Required section '{{section}}' not found in {{file_path}}",
+      "hint": "The file must contain all required sections",
+      "severity": "error",
+      "code": "E2003",
+      "recovery": "Manually add the section or re-run the command"
+    },
+    "QUALITY_THRESHOLD_NOT_MET": {
+      "message": "Quality score {{score}} below threshold {{threshold}} for {{metric}}",
+      "hint": "Review output for completeness and accuracy",
+      "severity": "warning",
+      "code": "E2004",
+      "recovery": "Run verification command to identify specific issues"
+    },
+    "INSUFFICIENT_USER_STORIES": {
+      "message": "Only {{count}} user stories found. Minimum: {{min_count}}",
+      "hint": "Add more user stories to cover all use cases",
+      "severity": "error",
+      "code": "E2005",
+      "recovery": "Re-run with request for more comprehensive user stories"
+    },
+    "INSUFFICIENT_ACCEPTANCE_CRITERIA": {
+      "message": "Only {{count}} acceptance criteria found. Minimum: {{min_count}}",
+      "hint": "Define clear, testable acceptance criteria for all requirements",
+      "severity": "error",
+      "code": "E2006",
+      "recovery": "Add more specific acceptance criteria"
+    },
+    "NO_STANDARDS_REFERENCED": {
+      "message": "No standards referenced from .claude/standards/",
+      "hint": "Reference relevant coding standards, API patterns, or testing guidelines",
+      "severity": "warning",
+      "code": "E2007",
+      "recovery": "Add references to applicable standards"
+    },
+    "MISSING_DIAGRAMS": {
+      "message": "No diagrams found in {{file_path}}. Expected at least {{min_count}}",
+      "hint": "Add architecture, sequence, or ERD diagrams using mermaid syntax",
+      "severity": "error",
+      "code": "E2008",
+      "recovery": "Add mermaid diagrams to visualize architecture and flows"
+    },
+    "INSUFFICIENT_API_ENDPOINTS": {
+      "message": "Only {{count}} API endpoints defined. Minimum: {{min_count}}",
+      "hint": "Define all necessary API endpoints with request/response schemas",
+      "severity": "error",
+      "code": "E2009",
+      "recovery": "Review requirements and add missing endpoints"
+    },
+    "INSUFFICIENT_TEST_COVERAGE": {
+      "message": "Test coverage {{coverage}}% is below minimum {{min_coverage}}%",
+      "hint": "Add more unit tests, integration tests, or E2E tests",
+      "severity": "error",
+      "code": "E2010",
+      "recovery": "Write additional tests to cover untested code paths"
+    },
+    "TESTS_FAILING": {
+      "message": "{{count}} tests failing",
+      "hint": "Fix failing tests before considering implementation complete",
+      "severity": "error",
+      "code": "E2011",
+      "recovery": "Review test failures and fix implementation or test code"
+    },
+    "LINT_ERRORS": {
+      "message": "{{count}} lint errors found",
+      "hint": "Fix code style issues to maintain consistency",
+      "severity": "warning",
+      "code": "E2012",
+      "recovery": "Run linter with auto-fix or manually fix violations"
+    },
+    "TYPE_ERRORS": {
+      "message": "{{count}} type errors found",
+      "hint": "Fix type annotations and type safety issues",
+      "severity": "error",
+      "code": "E2013",
+      "recovery": "Fix type errors to ensure type safety"
+    },
+    "BUILD_FAILED": {
+      "message": "Build failed with exit code {{exit_code}}",
+      "hint": "Review build errors and fix compilation issues",
+      "severity": "error",
+      "code": "E2014",
+      "recovery": "Fix syntax errors, missing dependencies, or build configuration"
+    },
+    "ACCESSIBILITY_VIOLATIONS": {
+      "message": "{{count}} accessibility violations found",
+      "hint": "Fix WCAG violations to ensure accessibility",
+      "severity": "error",
+      "code": "E2015",
+      "recovery": "Run accessibility audit and fix violations (missing alt text, ARIA labels, etc.)"
+    },
+    "INCOMPLETE_TASKS": {
+      "message": "{{count}} tasks not completed in tasks.md",
+      "hint": "All tasks must be completed before verification",
+      "severity": "error",
+      "code": "E2016",
+      "recovery": "Complete remaining tasks or remove unnecessary tasks"
+    },
+    "MISSING_DOCUMENTATION": {
+      "message": "Required documentation not created: {{doc_type}}",
+      "hint": "Create {{doc_type}} to document the feature",
+      "severity": "warning",
+      "code": "E2017",
+      "recovery": "Add API docs, code comments, or README documentation"
+    },
+    "PERFORMANCE_DEGRADATION": {
+      "message": "Performance metric {{metric}} ({{value}}) exceeds threshold {{threshold}}",
+      "hint": "Optimize {{metric}} to meet performance requirements",
+      "severity": "warning",
+      "code": "E2018",
+      "recovery": "Profile and optimize slow operations"
+    },
+    "SECURITY_VULNERABILITY": {
+      "message": "Security vulnerability detected: {{vulnerability_type}}",
+      "hint": "Fix security issue before deployment",
+      "severity": "critical",
+      "code": "E2019",
+      "recovery": "Address security vulnerability (SQL injection, XSS, etc.)"
+    }
+  }
+}

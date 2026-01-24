@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Cost Optimization Output Schema",
+  "description": "Validation schema for /devops/cost-optimize command output",
+  "type": "object",
+  "required": ["optimization_status", "savings_identified", "recommendations_count"],
+  "properties": {
+    "optimization_status": {
+      "type": "string",
+      "enum": ["completed", "failed"]
+    },
+    "savings_identified": {
+      "type": "number",
+      "minimum": 0
+    },
+    "recommendations_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

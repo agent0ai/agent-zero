@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CICD Setup Output Schema",
+  "description": "Validation schema for /cicd/setup command output",
+  "type": "object",
+  "required": ["setup_status", "pipeline_created", "workflows_count"],
+  "properties": {
+    "setup_status": {
+      "type": "string",
+      "enum": ["completed", "failed"]
+    },
+    "pipeline_created": {
+      "type": "boolean"
+    },
+    "workflows_count": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

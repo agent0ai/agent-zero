@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/design-os/screenshot-output.json",
+  "version": "1.0.0",
+  "title": "Screenshot Output Schema",
+  "description": "Validates output from /design-os/screenshot-design command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "viewport_type"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^design-os/[a-z0-9-]+/sections/[a-z0-9-]+/screenshots/.*\\.(png|jpg)$"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 10000
+          },
+          "viewport_type": {
+            "type": "string",
+            "enum": ["desktop", "tablet", "mobile"]
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "properties": {
+        "desktop_screenshot": {
+          "type": "boolean"
+        },
+        "tablet_screenshot": {
+          "type": "boolean"
+        },
+        "mobile_screenshot": {
+          "type": "boolean"
+        },
+        "high_quality_images": {
+          "type": "boolean"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "properties": {
+        "coverage_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "quality_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        }
+      }
+    }
+  }
+}

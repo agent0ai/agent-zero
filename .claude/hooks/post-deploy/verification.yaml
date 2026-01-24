@@ -1,0 +1,134 @@
+---
+name: post-deploy-verification
+version: 1.0.0
+description: Automated verification after deployment
+trigger: on-deploy
+priority: critical
+enabled: true
+
+# Deployment verification configuration
+config:
+  environment: production
+  rollback_on_failure: true
+  parallel_execution: false  # Sequential for proper verification
+  timeout: 900  # 15 minutes max
+  retry: 2
+
+# Verification steps
+steps:
+  # 1. Health check
+  - name: health-check
+    description: Verify all services are healthy
+    command: /devops:verify --critical-path-only
+    required: true
+    timeout: 120
+    on_failure:
+      action: rollback
+      message: "Health check failed. Initiating automatic rollback."
+    validation:
+      exit_code: 0
+      required_metrics:
+        - http_200_response
+        - database_connection
+        - cache_connection
+
+  # 2. Smoke tests
+  - name: smoke-tests
+    description: Run critical path smoke tests
+    command: /dev:test --smoke --environment production
+    required: true
+    timeout: 300
+    on_failure:
+      action: rollback
+      message: "Smoke tests failed. Deployment verification incomplete."
+    validation:
+      exit_code: 0
+      min_tests_passed: 10
+
+  # 3. Monitor metrics
+  - name: monitor-metrics
+    description: Monitor key performance metrics
+    command: /devops:monitor --duration 5m --metrics response-time,error-rate,throughput
+    required: true
+    timeout: 360
+    on_failure:
+      action: alert
+      message: "Performance degradation detected. Review metrics."
+    validation:
+      response_time_p95: 500  # ms
+      error_rate: 0.01  # 1%
+      throughput_min: 100  # req/min
+
+  # 4. Database migration verification
+  - name: verify-migrations
+    description: Ensure database migrations completed successfully
+    command: /db:verify --migrations --environment production
+    required: true
+    timeout: 60
+    on_failure:
+      action: rollback
+      message: "Database migration verification failed."
+    validation:
+      exit_code: 0
+      pending_migrations: 0
+
+  # 5. Integration tests
+  - name: integration-tests
+    description: Run integration tests against production
+    command: /dev:test --integration --environment production
+    required: false  # Optional but recommended
+    timeout: 300
+    on_failure:
+      action: alert
+      message: "Integration tests failed. Investigate immediately."
+
+# Rollback configuration
+rollback:
+  enabled: true
+  automatic: true
+  command: /devops:rollback --environment production --reason "Post-deploy verification failed"
+  max_attempts: 1
+  verify_rollback: true
+
+# Environment-specific config
+environments:
+  production:
+    critical_checks: ["health-check", "smoke-tests", "verify-migrations"]
+    monitoring_duration: 300  # 5 minutes
+    alert_channels: ["slack", "email", "pagerduty"]
+
+  staging:
+    critical_checks: ["health-check", "smoke-tests"]
+    monitoring_duration: 120  # 2 minutes
+    alert_channels: ["slack"]
+
+  development:
+    critical_checks: ["health-check"]
+    monitoring_duration: 60  # 1 minute
+    alert_channels: ["console"]
+
+# Reporting
+reporting:
+  format: detailed
+  include_metrics: true
+  include_logs: true
+  log_file: .claude/hooks/logs/post-deploy.log
+  notify:
+    on_success: true
+    on_failure: true
+    channels:
+      - slack
+      - email
+      - console
+
+# Metrics tracking
+metrics:
+  track:
+    - deployment_success_rate
+    - verification_time
+    - rollback_count
+    - failure_reasons
+  alert_thresholds:
+    deployment_success_rate: 0.95  # Alert if < 95%
+    avg_verification_time: 600  # Alert if avg > 10 min
+    rollback_rate: 0.1  # Alert if > 10% deployments rolled back

@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Feature Request Output Schema",
+  "description": "Validation schema for /dev/feature-request command output",
+  "type": "object",
+  "required": [
+    "feature_name",
+    "spec_created",
+    "spec_file_path",
+    "complexity",
+    "estimated_days",
+    "components_affected",
+    "tasks_count",
+    "risks_identified"
+  ],
+  "properties": {
+    "feature_name": {
+      "type": "string",
+      "description": "Name of the feature",
+      "minLength": 3
+    },
+    "spec_created": {
+      "type": "boolean",
+      "description": "Whether feature spec was created"
+    },
+    "spec_file_path": {
+      "type": "string",
+      "description": "Path to feature specification document",
+      "pattern": "^docs/features/.+\\.md$"
+    },
+    "user_story": {
+      "type": "object",
+      "description": "User story components",
+      "required": ["user_type", "goal", "benefit"],
+      "properties": {
+        "user_type": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "benefit": {
+          "type": "string"
+        }
+      }
+    },
+    "priority": {
+      "type": "string",
+      "description": "Feature priority",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "complexity": {
+      "type": "string",
+      "description": "Feature complexity estimate",
+      "enum": ["simple", "medium", "complex"]
+    },
+    "estimated_days": {
+      "type": "number",
+      "description": "Estimated development days",
+      "minimum": 0.5,
+      "maximum": 30
+    },
+    "components_affected": {
+      "type": "array",
+      "description": "List of components affected",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "tasks_count": {
+      "type": "integer",
+      "description": "Number of implementation tasks",
+      "minimum": 1
+    },
+    "database_changes_needed": {
+      "type": "boolean",
+      "description": "Whether database changes required"
+    },
+    "api_changes_needed": {
+      "type": "boolean",
+      "description": "Whether API changes required"
+    },
+    "risks_identified": {
+      "type": "integer",
+      "description": "Number of risks identified",
+      "minimum": 0
+    },
+    "github_issue_created": {
+      "type": "boolean",
+      "description": "Whether GitHub issue was created"
+    },
+    "github_issue_number": {
+      "type": "integer",
+      "description": "GitHub issue number if created"
+    },
+    "success_metrics_defined": {
+      "type": "boolean",
+      "description": "Whether success metrics were defined"
+    }
+  }
+}

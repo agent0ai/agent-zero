@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Infrastructure Monitoring Output Validation",
+  "description": "Validates output from /devops/monitor command",
+  "type": "object",
+  "required": ["monitoring_setup", "content_validation", "quality_metrics"],
+  "properties": {
+    "monitoring_setup": {
+      "type": "object",
+      "required": ["monitoring_enabled", "dashboards_created", "alerts_configured"],
+      "properties": {
+        "monitoring_enabled": {
+          "type": "boolean",
+          "description": "Monitoring successfully enabled"
+        },
+        "dashboards_created": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Dashboard URLs or identifiers"
+        },
+        "alerts_configured": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of alerts configured"
+        },
+        "monitoring_config_file": {
+          "type": "string",
+          "pattern": "^monitoring/.*\\.(yaml|json)$",
+          "description": "Monitoring configuration file"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "metrics_collecting",
+        "alerts_working",
+        "dashboards_accessible"
+      ],
+      "properties": {
+        "metrics_collecting": {
+          "type": "boolean",
+          "description": "Metrics are being collected from infrastructure"
+        },
+        "alerts_working": {
+          "type": "boolean",
+          "description": "Alert rules are functioning"
+        },
+        "dashboards_accessible": {
+          "type": "boolean",
+          "description": "Dashboards are accessible via URL"
+        },
+        "notification_channels_configured": {
+          "type": "boolean",
+          "description": "Slack/Email/PagerDuty notifications configured"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["setup_duration_seconds", "monitoring_coverage_score"],
+      "properties": {
+        "setup_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken to setup monitoring"
+        },
+        "monitoring_coverage_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Monitoring coverage score (threshold ≥0.85)"
+        },
+        "critical_metrics_covered": {
+          "type": "boolean",
+          "description": "All critical metrics (CPU, memory, disk, network) covered"
+        }
+      }
+    }
+  }
+}

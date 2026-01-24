@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/agent-os/spec-output.json",
+  "version": "1.0.0",
+  "title": "Specification Output Validation Schema",
+  "description": "Validates output from /agent-os/write-spec command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "required_sections"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^agent-os/specs/[a-z0-9-]+/spec\\.md$",
+            "description": "Path to spec.md file"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 2000,
+            "description": "Minimum file size in characters"
+          },
+          "required_sections": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Overview",
+                "Architecture",
+                "API Design",
+                "Database Schema",
+                "Frontend Components",
+                "Backend Services",
+                "Data Flow",
+                "Security Considerations",
+                "Performance Requirements",
+                "Testing Strategy",
+                "Deployment Plan",
+                "Monitoring & Observability"
+              ]
+            },
+            "minItems": 8
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": ["diagrams_count", "api_endpoints_count", "database_tables_count"],
+      "properties": {
+        "diagrams_count": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Minimum number of mermaid diagrams (architecture, sequence, ERD)"
+        },
+        "api_endpoints_count": {
+          "type": "number",
+          "minimum": 3,
+          "description": "Minimum number of API endpoints defined"
+        },
+        "database_tables_count": {
+          "type": "number",
+          "minimum": 2,
+          "description": "Minimum number of database tables defined"
+        },
+        "frontend_components_count": {
+          "type": "number",
+          "minimum": 3,
+          "description": "Minimum number of frontend components defined"
+        },
+        "test_cases_defined": {
+          "type": "number",
+          "minimum": 10,
+          "description": "Minimum number of test cases defined"
+        },
+        "references_requirements": {
+          "type": "boolean",
+          "description": "Whether spec references requirements.md"
+        },
+        "references_standards": {
+          "type": "number",
+          "minimum": 3,
+          "description": "Minimum number of standards files referenced"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["technical_depth", "implementation_readiness", "testability"],
+      "properties": {
+        "technical_depth": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "implementation_readiness": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "testability": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        }
+      }
+    }
+  }
+}

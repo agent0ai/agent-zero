@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Create PR Output Schema",
+  "description": "Validation schema for /dev/create-pr command output",
+  "type": "object",
+  "required": [
+    "pr_number",
+    "pr_url",
+    "pr_title",
+    "pr_status",
+    "source_branch",
+    "target_branch",
+    "files_changed",
+    "commits_count",
+    "reviewers_requested",
+    "labels_added",
+    "ci_triggered"
+  ],
+  "properties": {
+    "pr_number": {
+      "type": "integer",
+      "description": "GitHub PR number",
+      "minimum": 1
+    },
+    "pr_url": {
+      "type": "string",
+      "description": "Full URL to the pull request",
+      "format": "uri",
+      "pattern": "^https://github\\.com/.+/pull/[0-9]+$"
+    },
+    "pr_title": {
+      "type": "string",
+      "description": "Pull request title",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "pr_status": {
+      "type": "string",
+      "description": "PR status (open/draft)",
+      "enum": ["open", "draft"]
+    },
+    "source_branch": {
+      "type": "string",
+      "description": "Source branch name",
+      "minLength": 1
+    },
+    "target_branch": {
+      "type": "string",
+      "description": "Target branch name (usually main)",
+      "minLength": 1
+    },
+    "files_changed": {
+      "type": "integer",
+      "description": "Number of files changed in PR",
+      "minimum": 1
+    },
+    "commits_count": {
+      "type": "integer",
+      "description": "Number of commits in PR",
+      "minimum": 1
+    },
+    "reviewers_requested": {
+      "type": "array",
+      "description": "List of reviewers requested",
+      "items": {
+        "type": "string"
+      }
+    },
+    "labels_added": {
+      "type": "array",
+      "description": "Labels added to PR",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ci_triggered": {
+      "type": "boolean",
+      "description": "Whether CI/CD was triggered"
+    },
+    "linked_issues": {
+      "type": "array",
+      "description": "Issues linked to this PR",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "description_generated": {
+      "type": "boolean",
+      "description": "Whether AI generated PR description"
+    }
+  }
+}

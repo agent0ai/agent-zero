@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prompt Optimization Output Validation",
+  "description": "Validates output from /prompt/optimize command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "object",
+      "required": ["optimized_prompt", "optimization_report"],
+      "properties": {
+        "optimized_prompt": {
+          "type": "string",
+          "pattern": "^prompts/.*-optimized\\.md$",
+          "description": "Path to optimized prompt file"
+        },
+        "optimization_report": {
+          "type": "string",
+          "pattern": "^prompts/.*-optimization-report\\.md$",
+          "description": "Path to optimization report explaining changes"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "improvements_documented",
+        "token_efficiency_analyzed",
+        "clarity_improved",
+        "specificity_improved"
+      ],
+      "properties": {
+        "improvements_documented": {
+          "type": "boolean",
+          "description": "All improvements are documented in report"
+        },
+        "token_efficiency_analyzed": {
+          "type": "boolean",
+          "description": "Token usage efficiency analyzed and improved"
+        },
+        "clarity_improved": {
+          "type": "boolean",
+          "description": "Prompt clarity measurably improved"
+        },
+        "specificity_improved": {
+          "type": "boolean",
+          "description": "Prompt specificity measurably improved"
+        },
+        "min_improvements": {
+          "type": "integer",
+          "minimum": 3,
+          "description": "At least 3 specific improvements made"
+        },
+        "optimization_report_length": {
+          "type": "integer",
+          "minimum": 600,
+          "description": "Optimization report at least 600 bytes"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["improvement_score", "before_quality", "after_quality"],
+      "properties": {
+        "improvement_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Improvement score (threshold ≥0.10 for meaningful optimization)"
+        },
+        "before_quality": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Quality score before optimization"
+        },
+        "after_quality": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Quality score after optimization (threshold ≥0.85)"
+        },
+        "token_reduction_percent": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 100.0,
+          "description": "Percentage of token reduction achieved"
+        }
+      }
+    }
+  }
+}

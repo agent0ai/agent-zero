@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DevOps Verify Output Schema",
+  "description": "Validation schema for /devops/verify command output",
+  "type": "object",
+  "required": ["verification_status", "checks_passed", "checks_total"],
+  "properties": {
+    "verification_status": {
+      "type": "string",
+      "enum": ["passed", "failed", "partial"]
+    },
+    "checks_passed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "checks_total": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

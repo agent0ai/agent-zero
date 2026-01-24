@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DevServices Output Schema",
+  "description": "Validation schema for /devops/devservices command output",
+  "type": "object",
+  "required": ["services_status", "services_running"],
+  "properties": {
+    "services_status": {
+      "type": "string",
+      "enum": ["running", "stopped", "partial"]
+    },
+    "services_running": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

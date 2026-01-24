@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CI/CD Pipeline Testing Output Validation",
+  "description": "Validates output from /cicd/test-pipeline command",
+  "type": "object",
+  "required": ["pipeline_test_results", "content_validation", "quality_metrics"],
+  "properties": {
+    "pipeline_test_results": {
+      "type": "object",
+      "required": ["pipeline_status", "stages_tested", "test_report_file"],
+      "properties": {
+        "pipeline_status": {
+          "type": "string",
+          "enum": ["success", "failed", "partial"],
+          "description": "Overall pipeline test status"
+        },
+        "stages_tested": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of pipeline stages tested"
+        },
+        "stages_passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of stages that passed"
+        },
+        "test_report_file": {
+          "type": "string",
+          "pattern": "^cicd-tests/.*\\.(json|html)$",
+          "description": "Pipeline test report file"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "pipeline_validated",
+        "syntax_checked",
+        "secrets_verified",
+        "deploy_tested"
+      ],
+      "properties": {
+        "pipeline_validated": {
+          "type": "boolean",
+          "description": "Pipeline configuration validated"
+        },
+        "syntax_checked": {
+          "type": "boolean",
+          "description": "YAML/workflow syntax checked"
+        },
+        "secrets_verified": {
+          "type": "boolean",
+          "description": "Required secrets/variables verified"
+        },
+        "deploy_tested": {
+          "type": "boolean",
+          "description": "Deployment stage tested (dry-run)"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["test_duration_seconds", "pipeline_reliability_score"],
+      "properties": {
+        "test_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken to test pipeline"
+        },
+        "pipeline_reliability_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Pipeline reliability score (threshold ≥0.90)"
+        },
+        "all_stages_passing": {
+          "type": "boolean",
+          "description": "All pipeline stages passed tests"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Test Execution Output Validation",
+  "description": "Validates output from /dev/test command",
+  "type": "object",
+  "required": ["test_results", "content_validation", "quality_metrics"],
+  "properties": {
+    "test_results": {
+      "type": "object",
+      "required": ["total_tests", "passed", "failed", "test_report_file"],
+      "properties": {
+        "total_tests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of tests executed"
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tests that passed"
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tests that failed"
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tests skipped"
+        },
+        "test_report_file": {
+          "type": "string",
+          "pattern": "^test-results/.*\\.(json|xml|html)$",
+          "description": "Test report file path"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "tests_executed",
+        "report_generated",
+        "coverage_calculated"
+      ],
+      "properties": {
+        "tests_executed": {
+          "type": "boolean",
+          "description": "Test suite was executed"
+        },
+        "report_generated": {
+          "type": "boolean",
+          "description": "Test report was generated"
+        },
+        "coverage_calculated": {
+          "type": "boolean",
+          "description": "Code coverage calculated (if enabled)"
+        },
+        "failures_analyzed": {
+          "type": "boolean",
+          "description": "Failed tests analyzed by AI (if failures present)"
+        },
+        "coverage_percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Code coverage percentage"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["test_duration_seconds", "test_success_rate"],
+      "properties": {
+        "test_duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken to run all tests"
+        },
+        "test_success_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Pass rate (threshold ≥0.80 for quality gate)"
+        },
+        "coverage_meets_threshold": {
+          "type": "boolean",
+          "description": "Coverage meets project threshold (typically ≥80%)"
+        }
+      }
+    }
+  }
+}

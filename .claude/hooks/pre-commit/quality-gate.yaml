@@ -1,0 +1,117 @@
+---
+name: pre-commit-quality-gate
+version: 1.0.0
+description: Automated quality checks before git commits
+trigger: on-commit
+priority: high
+enabled: true
+
+# Quality gate configuration
+config:
+  block_on_failure: true
+  parallel_execution: true
+  timeout: 600  # 10 minutes max
+  retry: 1
+
+# Quality check steps
+steps:
+  # 1. Run test suite
+  - name: run-tests
+    description: Execute all unit and integration tests
+    command: /dev:test
+    required: true
+    timeout: 300
+    on_failure:
+      action: block
+      message: "Tests failed. Fix failing tests before committing."
+    validation:
+      exit_code: 0
+      required_output: "All tests passed"
+
+  # 2. Accessibility compliance check
+  - name: accessibility-check
+    description: Verify WCAG 2.1 AA compliance
+    command: /accessibility:test --ci --fail-on critical
+    required: true
+    timeout: 120
+    on_failure:
+      action: block
+      message: "Critical accessibility violations found. Run /accessibility:fix --auto-apply"
+    validation:
+      exit_code: 0
+      max_critical_issues: 0
+
+  # 3. Security audit
+  - name: security-audit
+    description: Check for security vulnerabilities
+    command: /auth:audit --level comprehensive
+    required: true
+    timeout: 180
+    on_failure:
+      action: warn  # Warn but don't block for security issues
+      message: "Security issues detected. Review before deploying."
+    validation:
+      max_high_severity: 0
+
+  # 4. Code quality analysis
+  - name: code-quality
+    description: Static analysis and linting
+    command: npm run lint
+    required: false  # Optional check
+    timeout: 60
+    on_failure:
+      action: warn
+      message: "Code quality issues found. Consider fixing."
+
+  # 5. Type checking
+  - name: type-check
+    description: TypeScript type validation
+    command: npm run type-check
+    required: true
+    timeout: 90
+    on_failure:
+      action: block
+      message: "Type errors found. Fix type issues before committing."
+    validation:
+      exit_code: 0
+
+# Conditional execution
+conditions:
+  # Only run on certain file changes
+  file_patterns:
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.md"
+
+  # Skip for certain branches
+  skip_branches:
+    - "wip/*"
+    - "draft/*"
+
+  # Skip for certain commit messages
+  skip_patterns:
+    - "^WIP:"
+    - "^DRAFT:"
+    - "^docs:"  # Documentation-only commits
+
+# Reporting
+reporting:
+  format: summary
+  include_metrics: true
+  log_file: .claude/hooks/logs/pre-commit.log
+  notify:
+    on_failure: true
+    channels:
+      - console
+
+# Metrics tracking
+metrics:
+  track:
+    - execution_time
+    - success_rate
+    - failure_reasons
+  alert_thresholds:
+    avg_execution_time: 300  # Alert if avg > 5 min
+    success_rate: 0.8  # Alert if success rate < 80%

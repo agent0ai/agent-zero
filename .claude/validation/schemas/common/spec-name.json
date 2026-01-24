@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/common/spec-name.json",
+  "version": "1.0.0",
+  "title": "Spec Name Validation Schema",
+  "description": "Validates feature/spec names used across agent-os and design-os commands",
+  "type": "string",
+  "pattern": "^[a-z0-9-]+$",
+  "minLength": 3,
+  "maxLength": 50,
+  "examples": [
+    "user-authentication",
+    "payment-flow",
+    "dashboard-ui",
+    "api-integration",
+    "data-sync"
+  ],
+  "errorMessage": {
+    "pattern": "Spec name must be lowercase, alphanumeric, and hyphens only (no underscores, spaces, or special characters)",
+    "minLength": "Spec name must be at least 3 characters long",
+    "maxLength": "Spec name must not exceed 50 characters"
+  }
+}

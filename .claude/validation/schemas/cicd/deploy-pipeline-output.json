@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Deploy Pipeline Output Schema",
+  "description": "Validation schema for /cicd/deploy-pipeline command output",
+  "type": "object",
+  "required": ["deployment_status", "pipeline_executed", "stages_passed"],
+  "properties": {
+    "deployment_status": {
+      "type": "string",
+      "enum": ["success", "failed", "partial"]
+    },
+    "pipeline_executed": {
+      "type": "boolean"
+    },
+    "stages_passed": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

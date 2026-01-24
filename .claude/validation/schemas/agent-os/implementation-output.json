@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/agent-os/implementation-output.json",
+  "version": "1.0.0",
+  "title": "Implementation Output Validation Schema",
+  "description": "Validates output from /agent-os/implement-tasks command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "object",
+      "required": ["source_files", "test_files", "documentation_files"],
+      "properties": {
+        "source_files": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "string"
+          },
+          "description": "Source code files created"
+        },
+        "test_files": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string"
+          },
+          "description": "Test files created"
+        },
+        "documentation_files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Documentation files created/updated"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": ["all_tasks_completed", "tests_passing", "test_coverage"],
+      "properties": {
+        "all_tasks_completed": {
+          "type": "boolean",
+          "description": "Whether all tasks in tasks.md are marked as completed"
+        },
+        "tests_passing": {
+          "type": "boolean",
+          "description": "Whether all tests pass"
+        },
+        "test_coverage": {
+          "type": "number",
+          "minimum": 0.8,
+          "maximum": 1.0,
+          "description": "Test coverage percentage (0.8 = 80%)"
+        },
+        "lint_errors": {
+          "type": "number",
+          "maximum": 0,
+          "description": "Number of lint errors"
+        },
+        "type_errors": {
+          "type": "number",
+          "maximum": 0,
+          "description": "Number of type errors"
+        },
+        "accessibility_violations": {
+          "type": "number",
+          "maximum": 0,
+          "description": "Number of accessibility violations (for frontend)"
+        },
+        "build_successful": {
+          "type": "boolean",
+          "description": "Whether the build succeeds"
+        },
+        "references_standards": {
+          "type": "boolean",
+          "description": "Whether implementation follows standards in .claude/standards/"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["code_quality", "test_quality", "documentation_quality"],
+      "properties": {
+        "code_quality": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85,
+          "description": "Code quality (clean code, best practices, standards compliance)"
+        },
+        "test_quality": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85,
+          "description": "Test quality (coverage, edge cases, integration tests)"
+        },
+        "documentation_quality": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.8,
+          "description": "Documentation quality (code comments, API docs, README)"
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "description": "Post-implementation verification results",
+      "properties": {
+        "manual_testing_completed": {
+          "type": "boolean"
+        },
+        "screenshots_captured": {
+          "type": "boolean",
+          "description": "Whether UI screenshots were captured (for frontend features)"
+        },
+        "performance_benchmarks": {
+          "type": "object",
+          "properties": {
+            "response_time_ms": {
+              "type": "number",
+              "description": "Average API response time in milliseconds"
+            },
+            "page_load_time_ms": {
+              "type": "number",
+              "description": "Average page load time in milliseconds"
+            },
+            "lighthouse_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        }
+      }
+    }
+  }
+}

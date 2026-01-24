@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PR Merge Output Schema",
+  "description": "Validation schema for /dev/merge command output",
+  "type": "object",
+  "required": [
+    "pr_number",
+    "merge_status",
+    "merge_method",
+    "merge_commit_sha",
+    "branch_deleted",
+    "local_main_updated",
+    "deployment_triggered"
+  ],
+  "properties": {
+    "pr_number": {
+      "type": "integer",
+      "description": "GitHub PR number that was merged",
+      "minimum": 1
+    },
+    "merge_status": {
+      "type": "string",
+      "description": "Merge operation status",
+      "enum": ["success", "failed", "cancelled"]
+    },
+    "merge_method": {
+      "type": "string",
+      "description": "Merge strategy used",
+      "enum": ["squash", "rebase", "merge"]
+    },
+    "merge_commit_sha": {
+      "type": "string",
+      "description": "Git commit SHA of the merge",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "source_branch": {
+      "type": "string",
+      "description": "Feature branch that was merged",
+      "minLength": 1
+    },
+    "target_branch": {
+      "type": "string",
+      "description": "Branch merged into (usually main)",
+      "minLength": 1
+    },
+    "branch_deleted": {
+      "type": "boolean",
+      "description": "Whether feature branch was deleted"
+    },
+    "local_main_updated": {
+      "type": "boolean",
+      "description": "Whether local main branch was updated"
+    },
+    "deployment_triggered": {
+      "type": "boolean",
+      "description": "Whether deployment workflow was triggered"
+    },
+    "release_tag_created": {
+      "type": "boolean",
+      "description": "Whether release tag was created"
+    },
+    "release_version": {
+      "type": "string",
+      "description": "Release version if tag created",
+      "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+.*$"
+    },
+    "deployment_url": {
+      "type": "string",
+      "description": "URL to deployment workflow run",
+      "format": "uri"
+    },
+    "commits_merged": {
+      "type": "integer",
+      "description": "Number of commits merged",
+      "minimum": 1
+    },
+    "files_changed": {
+      "type": "integer",
+      "description": "Number of files changed in merge",
+      "minimum": 1
+    }
+  }
+}

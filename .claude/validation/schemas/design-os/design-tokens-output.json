@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/design-os/design-tokens-output.json",
+  "version": "1.0.0",
+  "title": "Design Tokens Output Schema",
+  "description": "Validates output from /design-os/design-tokens command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "required_tokens"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^design-os/[a-z0-9-]+/design-tokens\\.json$"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 500
+          },
+          "required_tokens": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "colors",
+                "typography",
+                "spacing",
+                "breakpoints",
+                "shadows",
+                "borderRadius"
+              ]
+            },
+            "minItems": 4
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "properties": {
+        "tailwind_compliant": {
+          "type": "boolean"
+        },
+        "google_fonts_used": {
+          "type": "boolean"
+        },
+        "color_palette_count": {
+          "type": "number",
+          "minimum": 5
+        },
+        "responsive_breakpoints": {
+          "type": "number",
+          "minimum": 3
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "properties": {
+        "accessibility_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "consistency_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        }
+      }
+    }
+  }
+}

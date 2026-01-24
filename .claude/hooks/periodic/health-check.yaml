@@ -1,0 +1,257 @@
+---
+name: periodic-health-check
+version: 1.0.0
+description: Daily system health audit and maintenance
+trigger: periodic
+priority: medium
+enabled: true
+
+# Schedule configuration
+schedule:
+  frequency: daily
+  time: "03:00"  # 3 AM
+  timezone: "America/New_York"
+  skip_weekends: false
+  retry_on_failure: true
+  max_retry_attempts: 2
+
+# Alternative schedules (commented out)
+# schedule:
+#   frequency: hourly
+#   interval: 6  # Every 6 hours
+
+# schedule:
+#   frequency: weekly
+#   day: monday
+#   time: "09:00"
+
+# Health check configuration
+config:
+  comprehensive: true
+  parallel_execution: true
+  timeout: 1800  # 30 minutes max
+  generate_report: true
+
+# Health check categories
+checks:
+  # 1. Codebase health
+  - category: code
+    name: code-quality-scan
+    description: Scan codebase for quality issues
+    command: /system:health-check --category code --detailed
+    timeout: 300
+    severity: medium
+    thresholds:
+      max_critical_issues: 0
+      max_high_issues: 5
+      code_quality_score: 0.8
+
+  # 2. Dependencies health
+  - category: dependencies
+    name: dependency-audit
+    description: Check for outdated and vulnerable dependencies
+    command: /system:health-check --category deps --detailed
+    timeout: 180
+    severity: high
+    thresholds:
+      max_critical_vulnerabilities: 0
+      max_high_vulnerabilities: 2
+      max_outdated_major: 5
+
+  # 3. Infrastructure health
+  - category: infrastructure
+    name: infra-status-check
+    description: Verify infrastructure services and resources
+    command: /system:health-check --category infra --detailed
+    timeout: 120
+    severity: critical
+    thresholds:
+      service_uptime: 0.99
+      disk_usage: 0.8  # Alert if > 80%
+      memory_usage: 0.85  # Alert if > 85%
+
+  # 4. Database health
+  - category: database
+    name: database-health-check
+    description: Check database performance and integrity
+    command: /system:health-check --category db --detailed
+    timeout: 240
+    severity: critical
+    thresholds:
+      connection_pool_usage: 0.8
+      slow_query_count: 10
+      database_size_gb: 100
+
+  # 5. Security health
+  - category: security
+    name: security-audit
+    description: Security vulnerability scan
+    command: /system:health-check --category security --detailed
+    timeout: 300
+    severity: critical
+    thresholds:
+      max_critical_vulnerabilities: 0
+      max_high_vulnerabilities: 0
+      security_score: 0.9
+
+  # 6. Monitoring health
+  - category: monitoring
+    name: monitoring-check
+    description: Verify monitoring and alerting systems
+    command: /system:health-check --category monitoring --detailed
+    timeout: 60
+    severity: medium
+    thresholds:
+      alert_success_rate: 0.95
+      monitoring_uptime: 0.99
+
+# Automated maintenance tasks
+maintenance:
+  # 1. Cleanup old logs
+  - name: cleanup-logs
+    description: Remove logs older than 30 days
+    command: find .claude/hooks/logs -name "*.log" -mtime +30 -delete
+    timeout: 60
+    enabled: true
+
+  # 2. Cleanup temporary files
+  - name: cleanup-temp
+    description: Remove temporary files
+    command: find /tmp -name "claude-*" -mtime +7 -delete
+    timeout: 60
+    enabled: true
+
+  # 3. Update dependencies (dry-run)
+  - name: check-updates
+    description: Check for available dependency updates
+    command: npm outdated --json > .claude/hooks/data/outdated-deps.json
+    timeout: 120
+    enabled: true
+
+  # 4. Database optimization
+  - name: optimize-database
+    description: Run database optimization and vacuum
+    command: /db:optimize --auto --tables all
+    timeout: 600
+    enabled: false  # Disabled by default, enable if needed
+
+  # 5. Cache cleanup
+  - name: cleanup-cache
+    description: Clear expired cache entries
+    command: /system:cleanup --cache --expired-only
+    timeout: 120
+    enabled: true
+
+# Report generation
+reporting:
+  enabled: true
+  format: detailed
+  include_metrics: true
+  include_trends: true  # Compare with previous reports
+  include_recommendations: true
+
+  # Report destinations
+  destinations:
+    - type: file
+      path: .claude/hooks/reports/health-check-${DATE}.md
+      format: markdown
+
+    - type: file
+      path: .claude/hooks/reports/health-check-${DATE}.json
+      format: json
+
+    - type: email
+      enabled: false
+      recipients: ["team@example.com"]
+      subject: "Daily System Health Report - ${DATE}"
+      template: health-report-email
+
+    - type: slack
+      enabled: false
+      channel: "#system-health"
+      summary_only: true
+
+# Alerting rules
+alerts:
+  # Critical alerts
+  - condition: any_critical_check_failed
+    severity: critical
+    channels: ["pagerduty", "slack", "email"]
+    message: "Critical health check failed: ${FAILED_CHECKS}"
+
+  # Health degradation
+  - condition: health_score < 0.7
+    severity: high
+    channels: ["slack", "email"]
+    message: "System health degraded to ${HEALTH_SCORE}. Review report."
+
+  # Disk space warning
+  - condition: disk_usage > 0.8
+    severity: high
+    channels: ["slack"]
+    message: "Disk usage at ${DISK_USAGE}%. Consider cleanup."
+
+  # Dependency vulnerabilities
+  - condition: critical_vulnerabilities > 0
+    severity: critical
+    channels: ["slack", "email"]
+    message: "${VULNERABILITY_COUNT} critical vulnerabilities found. Update immediately."
+
+# Historical tracking
+tracking:
+  enabled: true
+  retention_days: 90
+  metrics:
+    - health_score
+    - check_duration
+    - failed_checks_count
+    - vulnerabilities_count
+    - disk_usage
+    - memory_usage
+    - dependency_count
+
+  # Trend analysis
+  trends:
+    enabled: true
+    lookback_days: 30
+    alert_on_degradation: true
+    degradation_threshold: 0.1  # 10% degradation
+
+# Metrics tracking
+metrics:
+  track:
+    - health_checks_run
+    - avg_health_score
+    - checks_failed_count
+    - maintenance_tasks_completed
+    - report_generation_time
+  alert_thresholds:
+    avg_health_score: 0.8  # Alert if avg < 80%
+    checks_failed_rate: 0.1  # Alert if > 10% checks fail
+    report_generation_time: 300  # Alert if > 5 min
+
+# Auto-remediation
+auto_remediation:
+  enabled: false  # Disabled by default for safety
+  allowed_actions:
+    - cleanup_logs
+    - cleanup_temp
+    - restart_services  # Only if explicitly enabled
+    - update_dependencies  # Only non-breaking updates
+
+  require_approval:
+    - database_operations
+    - dependency_updates
+    - service_restarts
+
+# Integration with monitoring
+integrations:
+  prometheus:
+    enabled: false
+    push_gateway: "http://localhost:9091"
+    job_name: "claude-code-health-check"
+
+  grafana:
+    enabled: false
+    dashboard_id: "system-health"
+    api_key: "${GRAFANA_API_KEY}"

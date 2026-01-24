@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/design-os/export-package-output.json",
+  "version": "1.0.0",
+  "title": "Export Package Output Schema",
+  "description": "Validates output from /design-os/export-product command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "document_type"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^design-os/[a-z0-9-]+/export/.*\\.(md|json|zip)$"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 500
+          },
+          "document_type": {
+            "type": "string",
+            "enum": [
+              "implementation_guide",
+              "design_documentation",
+              "asset_manifest",
+              "handoff_package"
+            ]
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "properties": {
+        "implementation_guide_present": {
+          "type": "boolean"
+        },
+        "all_assets_included": {
+          "type": "boolean"
+        },
+        "documentation_complete": {
+          "type": "boolean"
+        },
+        "developer_ready": {
+          "type": "boolean"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "properties": {
+        "completeness_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.95
+        },
+        "organization_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        }
+      }
+    }
+  }
+}

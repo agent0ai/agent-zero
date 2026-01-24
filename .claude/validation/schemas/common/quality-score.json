@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/common/quality-score.json",
+  "version": "1.0.0",
+  "title": "Quality Score Validation Schema",
+  "description": "Validates quality scores for agent outputs and command results",
+  "type": "number",
+  "minimum": 0,
+  "maximum": 1,
+  "examples": [0.85, 0.92, 0.75, 1.0],
+  "errorMessage": {
+    "minimum": "Quality score must be at least 0.0",
+    "maximum": "Quality score must not exceed 1.0",
+    "type": "Quality score must be a number"
+  },
+  "thresholds": {
+    "excellent": 0.95,
+    "good": 0.85,
+    "acceptable": 0.75,
+    "poor": 0.65,
+    "failing": 0.5
+  }
+}

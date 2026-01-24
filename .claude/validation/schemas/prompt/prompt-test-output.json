@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prompt Testing Output Validation",
+  "description": "Validates output from /prompt/test command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "object",
+      "required": ["test_results", "comparison_report"],
+      "properties": {
+        "test_results": {
+          "type": "string",
+          "pattern": "^prompts/.*-test-results\\.json$",
+          "description": "Path to test results JSON file"
+        },
+        "comparison_report": {
+          "type": "string",
+          "pattern": "^prompts/.*-comparison\\.md$",
+          "description": "Path to variant comparison report"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "test_cases_executed",
+        "variants_compared",
+        "metrics_calculated",
+        "winner_determined"
+      ],
+      "properties": {
+        "test_cases_executed": {
+          "type": "boolean",
+          "description": "Test cases were executed against prompt variants"
+        },
+        "variants_compared": {
+          "type": "boolean",
+          "description": "Multiple prompt variants were tested and compared"
+        },
+        "metrics_calculated": {
+          "type": "boolean",
+          "description": "Performance metrics calculated for each variant"
+        },
+        "winner_determined": {
+          "type": "boolean",
+          "description": "Best-performing variant identified"
+        },
+        "min_test_cases": {
+          "type": "integer",
+          "minimum": 3,
+          "description": "At least 3 test cases executed per variant"
+        },
+        "min_variants": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "At least 2 variants tested for comparison"
+        },
+        "comparison_report_length": {
+          "type": "integer",
+          "minimum": 700,
+          "description": "Comparison report at least 700 bytes"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["test_coverage_score", "variant_differentiation_score"],
+      "properties": {
+        "test_coverage_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Test coverage score (threshold ≥0.80)"
+        },
+        "variant_differentiation_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "How well variants are differentiated (threshold ≥0.70)"
+        },
+        "statistical_significance": {
+          "type": "boolean",
+          "description": "Results are statistically significant"
+        },
+        "best_variant_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Performance score of best variant"
+        }
+      }
+    }
+  }
+}

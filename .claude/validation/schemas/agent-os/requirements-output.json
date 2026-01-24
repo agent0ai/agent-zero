@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mahoosuc.dev/schemas/agent-os/requirements-output.json",
+  "version": "1.0.0",
+  "title": "Requirements Output Validation Schema",
+  "description": "Validates output from /agent-os/shape-spec command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "array",
+      "description": "Files that should be created by the command",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "min_size", "required_sections"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^agent-os/specs/[a-z0-9-]+/requirements\\.md$",
+            "description": "Path to requirements.md file"
+          },
+          "min_size": {
+            "type": "number",
+            "minimum": 1000,
+            "description": "Minimum file size in characters"
+          },
+          "required_sections": {
+            "type": "array",
+            "description": "Required markdown sections",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Overview",
+                "User Stories",
+                "Acceptance Criteria",
+                "Technical Requirements",
+                "Non-Functional Requirements",
+                "Dependencies",
+                "Constraints",
+                "Success Metrics",
+                "Standards References"
+              ]
+            },
+            "minItems": 5
+          }
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "description": "Content-specific validation rules",
+      "required": ["user_stories_count", "acceptance_criteria_count", "standards_referenced"],
+      "properties": {
+        "user_stories_count": {
+          "type": "number",
+          "minimum": 3,
+          "description": "Minimum number of user stories"
+        },
+        "acceptance_criteria_count": {
+          "type": "number",
+          "minimum": 5,
+          "description": "Minimum number of acceptance criteria"
+        },
+        "standards_referenced": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Minimum number of standards files referenced"
+        },
+        "questions_asked": {
+          "type": "number",
+          "minimum": 5,
+          "description": "Minimum number of clarifying questions asked to user"
+        },
+        "visuals_analyzed": {
+          "type": "boolean",
+          "description": "Whether visual references (screenshots, mockups) were analyzed"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["completeness_score", "clarity_score", "actionability_score"],
+      "properties": {
+        "completeness_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        },
+        "clarity_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "actionability_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.85
+        },
+        "overall_score": {
+          "$ref": "https://mahoosuc.dev/schemas/common/quality-score.json",
+          "minimum": 0.9
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "files_created": [
+        {
+          "path": "agent-os/specs/user-auth/requirements.md",
+          "min_size": 2500,
+          "required_sections": [
+            "Overview",
+            "User Stories",
+            "Acceptance Criteria",
+            "Technical Requirements",
+            "Non-Functional Requirements",
+            "Standards References"
+          ]
+        }
+      ],
+      "content_validation": {
+        "user_stories_count": 8,
+        "acceptance_criteria_count": 15,
+        "standards_referenced": 3,
+        "questions_asked": 12,
+        "visuals_analyzed": true
+      },
+      "quality_metrics": {
+        "completeness_score": 0.95,
+        "clarity_score": 0.92,
+        "actionability_score": 0.94,
+        "overall_score": 0.93
+      }
+    }
+  ]
+}

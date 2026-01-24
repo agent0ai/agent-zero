@@ -1,0 +1,220 @@
+---
+name: error-notification
+version: 1.0.0
+description: Alert on command failures and critical errors
+trigger: on-error
+priority: high
+enabled: true
+
+# Error notification configuration
+config:
+  notification_delay: 0  # Immediate notification
+  deduplication_window: 300  # 5 minutes - prevent duplicate alerts
+  parallel_execution: true
+  timeout: 60  # 1 minute max
+
+# Error classification
+error_types:
+  critical:
+    severity: critical
+    notify_immediately: true
+    escalate: true
+    examples:
+      - deployment_failure
+      - database_connection_lost
+      - data_corruption
+      - security_breach
+
+  high:
+    severity: high
+    notify_immediately: true
+    escalate: false
+    examples:
+      - test_suite_failure
+      - api_integration_failure
+      - performance_degradation
+
+  medium:
+    severity: medium
+    notify_immediately: false
+    batch_notifications: true
+    examples:
+      - accessibility_violations
+      - linting_errors
+      - deprecated_api_usage
+
+  low:
+    severity: low
+    notify_immediately: false
+    log_only: true
+    examples:
+      - warning_messages
+      - optimization_suggestions
+
+# Automated response steps
+steps:
+  # 1. Classify error
+  - name: classify-error
+    description: Determine error severity and type
+    action: analyze
+    timeout: 10
+    logic:
+      - if: contains("deployment", "database", "security")
+        then: critical
+      - if: contains("test", "integration", "performance")
+        then: high
+      - if: contains("accessibility", "lint", "deprecated")
+        then: medium
+      - else: low
+
+  # 2. Capture context
+  - name: capture-context
+    description: Gather error context and diagnostics
+    action: collect
+    timeout: 20
+    collect:
+      - error_message
+      - stack_trace
+      - command_executed
+      - file_path
+      - user_info
+      - system_state
+      - recent_changes
+
+  # 3. Notify appropriate channels
+  - name: notify
+    description: Send notifications based on severity
+    action: notify
+    timeout: 30
+    routing:
+      critical:
+        channels: ["pagerduty", "slack", "email", "sms"]
+        recipients: ["on-call-engineer", "team-lead"]
+        template: critical-error-alert
+      high:
+        channels: ["slack", "email"]
+        recipients: ["team-channel", "developer"]
+        template: high-priority-error
+      medium:
+        channels: ["slack"]
+        recipients: ["team-channel"]
+        template: medium-priority-error
+      low:
+        channels: ["console"]
+        recipients: []
+        template: log-entry
+
+  # 4. Create incident (for critical/high)
+  - name: create-incident
+    description: Create incident ticket for tracking
+    action: conditional
+    timeout: 20
+    condition: severity in ["critical", "high"]
+    command: /workflow:create-incident --severity ${SEVERITY} --error "${ERROR_MESSAGE}" --context "${CONTEXT}"
+
+  # 5. Suggest fixes
+  - name: suggest-fixes
+    description: AI-powered error resolution suggestions
+    action: analyze
+    timeout: 30
+    logic:
+      - analyze: error_message
+      - search: similar_errors_database
+      - generate: fix_suggestions
+      - rank: by_success_probability
+
+  # 6. Auto-recovery (if possible)
+  - name: auto-recovery
+    description: Attempt automatic recovery for known errors
+    action: conditional
+    timeout: 120
+    condition: auto_recoverable == true
+    recovery_strategies:
+      - retry_with_backoff
+      - clear_cache_retry
+      - restart_service
+      - rollback_change
+
+# Known error patterns and responses
+known_errors:
+  - pattern: "ECONNREFUSED.*database"
+    classification: critical
+    auto_recovery: restart_database_connection
+    fix_suggestion: "Database connection lost. Check database service status."
+
+  - pattern: "Test suite failed.*\\d+ failing"
+    classification: high
+    auto_recovery: false
+    fix_suggestion: "Run failed tests individually to identify root cause."
+
+  - pattern: "WCAG.*critical violation"
+    classification: medium
+    auto_recovery: false
+    fix_suggestion: "Run /accessibility:fix --auto-apply to resolve common issues."
+
+  - pattern: "npm.*WARN.*deprecated"
+    classification: low
+    auto_recovery: false
+    fix_suggestion: "Update dependencies using npm update or npm audit fix."
+
+# Escalation rules
+escalation:
+  enabled: true
+  rules:
+    - condition: severity == "critical" AND no_response_time > 300  # 5 min
+      action: escalate_to_manager
+      channels: ["phone", "sms"]
+
+    - condition: same_error_count > 5 AND time_window < 3600  # 1 hour
+      action: escalate_severity
+      from: high
+      to: critical
+
+    - condition: recovery_attempts > 3 AND all_failed
+      action: escalate_to_senior_engineer
+      channels: ["slack", "email"]
+
+# Reporting
+reporting:
+  format: detailed
+  include_stack_trace: true
+  include_system_state: true
+  include_fix_suggestions: true
+  log_file: .claude/hooks/logs/errors.log
+  error_database: .claude/hooks/data/error-history.json
+
+# Metrics tracking
+metrics:
+  track:
+    - error_count_by_severity
+    - error_count_by_type
+    - mean_time_to_recovery
+    - auto_recovery_success_rate
+    - escalation_count
+  alert_thresholds:
+    critical_errors_per_day: 5
+    high_errors_per_day: 20
+    auto_recovery_success_rate: 0.6  # Alert if < 60%
+    mean_time_to_recovery: 1800  # Alert if avg > 30 min
+
+# Integration with monitoring systems
+integrations:
+  sentry:
+    enabled: false
+    api_key: "${SENTRY_API_KEY}"
+    project: "mahoosuc-os"
+
+  datadog:
+    enabled: false
+    api_key: "${DATADOG_API_KEY}"
+    tags: ["environment:production", "service:claude-code"]
+
+  slack:
+    enabled: true
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#alerts"
+
+  pagerduty:
+    enabled: false
+    integration_key: "${PAGERDUTY_KEY}"
+    escalation_policy: "critical-errors"

@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Implement Output Schema",
+  "description": "Validation schema for /dev/implement command output",
+  "type": "object",
+  "required": [
+    "implementation_status",
+    "feature_name",
+    "files_created",
+    "files_modified",
+    "tests_added",
+    "commits_made",
+    "documentation_updated"
+  ],
+  "properties": {
+    "implementation_status": {
+      "type": "string",
+      "description": "Overall implementation status",
+      "enum": ["completed", "partial", "failed"]
+    },
+    "feature_name": {
+      "type": "string",
+      "description": "Name of implemented feature",
+      "minLength": 3
+    },
+    "files_created": {
+      "type": "integer",
+      "description": "Number of files created",
+      "minimum": 0
+    },
+    "files_modified": {
+      "type": "integer",
+      "description": "Number of files modified",
+      "minimum": 0
+    },
+    "lines_added": {
+      "type": "integer",
+      "description": "Total lines of code added",
+      "minimum": 0
+    },
+    "lines_removed": {
+      "type": "integer",
+      "description": "Total lines of code removed",
+      "minimum": 0
+    },
+    "tests_added": {
+      "type": "integer",
+      "description": "Number of tests added",
+      "minimum": 0
+    },
+    "commits_made": {
+      "type": "integer",
+      "description": "Number of commits during implementation",
+      "minimum": 1
+    },
+    "components_implemented": {
+      "type": "array",
+      "description": "List of components implemented",
+      "items": {
+        "type": "string"
+      }
+    },
+    "database_migrations_created": {
+      "type": "boolean",
+      "description": "Whether database migrations were created"
+    },
+    "api_endpoints_added": {
+      "type": "integer",
+      "description": "Number of API endpoints added",
+      "minimum": 0
+    },
+    "documentation_updated": {
+      "type": "boolean",
+      "description": "Whether documentation was updated"
+    },
+    "code_quality_score": {
+      "type": "number",
+      "description": "Code quality assessment score",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "agents_used": {
+      "type": "array",
+      "description": "List of agents used for implementation",
+      "items": {
+        "type": "string"
+      }
+    },
+    "implementation_time_minutes": {
+      "type": "integer",
+      "description": "Total implementation time in minutes",
+      "minimum": 0
+    },
+    "ready_for_testing": {
+      "type": "boolean",
+      "description": "Whether implementation is ready for testing"
+    }
+  }
+}

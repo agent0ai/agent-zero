@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DevOps Setup Output Schema",
+  "description": "Validation schema for /devops/setup command output",
+  "type": "object",
+  "required": ["setup_status", "components_configured", "infrastructure_ready"],
+  "properties": {
+    "setup_status": {
+      "type": "string",
+      "enum": ["completed", "partial", "failed"]
+    },
+    "components_configured": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    },
+    "infrastructure_ready": {
+      "type": "boolean"
+    }
+  }
+}

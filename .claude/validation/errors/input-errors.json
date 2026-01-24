@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "title": "Input Validation Error Templates",
+  "description": "Error messages for input validation failures",
+  "errors": {
+    "INVALID_SPEC_NAME": {
+      "message": "Invalid spec name: '{{name}}'. Must be lowercase, alphanumeric, and hyphens only.",
+      "hint": "Try: user-authentication, payment-flow, dashboard-ui",
+      "severity": "error",
+      "code": "E1001",
+      "examples": {
+        "valid": ["user-auth", "payment-flow", "api-v2"],
+        "invalid": ["User_Auth", "payment flow", "api@v2"]
+      }
+    },
+    "MISSING_ARGUMENT": {
+      "message": "Missing required argument: {{arg_name}}",
+      "hint": "Usage: {{command}} {{args}}",
+      "severity": "error",
+      "code": "E1002"
+    },
+    "INVALID_FILE_PATH": {
+      "message": "Invalid file path: '{{path}}'. Contains illegal characters.",
+      "hint": "File paths must contain only letters, numbers, slashes, dots, hyphens, and underscores",
+      "severity": "error",
+      "code": "E1003",
+      "examples": {
+        "valid": ["agent-os/specs/user-auth/spec.md", "design-os/dashboard/components/Header.tsx"],
+        "invalid": ["agent os/specs/user@auth/spec.md", "design-os/dashboard/components/Header!.tsx"]
+      }
+    },
+    "SPEC_NAME_TOO_SHORT": {
+      "message": "Spec name '{{name}}' is too short ({{length}} characters). Minimum length is 3.",
+      "hint": "Use a descriptive name that clearly indicates the feature",
+      "severity": "error",
+      "code": "E1004"
+    },
+    "SPEC_NAME_TOO_LONG": {
+      "message": "Spec name '{{name}}' is too long ({{length}} characters). Maximum length is 50.",
+      "hint": "Shorten the name while keeping it descriptive",
+      "severity": "error",
+      "code": "E1005"
+    },
+    "PREREQUISITE_NOT_MET": {
+      "message": "Prerequisite not met: {{prerequisite}}",
+      "hint": "Run {{prerequisite_command}} first",
+      "severity": "error",
+      "code": "E1006",
+      "recovery": "Run the prerequisite command and try again"
+    },
+    "FILE_NOT_FOUND": {
+      "message": "Required file not found: {{file_path}}",
+      "hint": "Ensure the file exists before running this command",
+      "severity": "error",
+      "code": "E1007",
+      "recovery": "Create the file or run the appropriate command to generate it"
+    },
+    "INVALID_ENUM_VALUE": {
+      "message": "Invalid value '{{value}}' for {{parameter}}. Allowed values: {{allowed_values}}",
+      "hint": "Choose one of the allowed values",
+      "severity": "error",
+      "code": "E1008"
+    },
+    "PATTERN_MISMATCH": {
+      "message": "Value '{{value}}' does not match required pattern: {{pattern}}",
+      "hint": "{{pattern_description}}",
+      "severity": "error",
+      "code": "E1009"
+    },
+    "TYPE_MISMATCH": {
+      "message": "Expected {{expected_type}} but got {{actual_type}} for {{parameter}}",
+      "hint": "Provide a value of type {{expected_type}}",
+      "severity": "error",
+      "code": "E1010"
+    },
+    "RANGE_ERROR": {
+      "message": "Value {{value}} is out of range for {{parameter}}. Expected {{min}} to {{max}}",
+      "hint": "Provide a value within the allowed range",
+      "severity": "error",
+      "code": "E1011"
+    },
+    "DUPLICATE_SPEC_NAME": {
+      "message": "Spec '{{name}}' already exists at {{existing_path}}",
+      "hint": "Choose a different name or delete the existing spec",
+      "severity": "error",
+      "code": "E1012",
+      "recovery": "Use a unique name or remove the existing spec with the same name"
+    }
+  }
+}

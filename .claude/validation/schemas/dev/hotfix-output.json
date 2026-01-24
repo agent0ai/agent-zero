@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hotfix Output Schema",
+  "description": "Validation schema for /dev/hotfix command output",
+  "type": "object",
+  "required": [
+    "hotfix_status",
+    "bug_description",
+    "severity",
+    "branch_name",
+    "fix_applied",
+    "tests_passing",
+    "safety_checks_passed",
+    "pr_created",
+    "deployment_status",
+    "time_to_fix_minutes"
+  ],
+  "properties": {
+    "hotfix_status": {
+      "type": "string",
+      "description": "Overall hotfix status",
+      "enum": ["completed", "deployed", "failed", "rolled_back"]
+    },
+    "bug_description": {
+      "type": "string",
+      "description": "Description of the bug fixed",
+      "minLength": 10
+    },
+    "severity": {
+      "type": "string",
+      "description": "Bug severity level",
+      "enum": ["critical", "high"]
+    },
+    "branch_name": {
+      "type": "string",
+      "description": "Hotfix branch name",
+      "pattern": "^hotfix/"
+    },
+    "fix_applied": {
+      "type": "boolean",
+      "description": "Whether fix was successfully applied"
+    },
+    "tests_passing": {
+      "type": "boolean",
+      "description": "Whether all tests passed after fix"
+    },
+    "safety_checks_passed": {
+      "type": "object",
+      "description": "Safety check results",
+      "required": ["no_secrets", "no_debug_code", "minimal_changes"],
+      "properties": {
+        "no_secrets": {
+          "type": "boolean"
+        },
+        "no_debug_code": {
+          "type": "boolean"
+        },
+        "minimal_changes": {
+          "type": "boolean"
+        },
+        "files_changed": {
+          "type": "integer"
+        },
+        "lines_changed": {
+          "type": "integer"
+        }
+      }
+    },
+    "pr_created": {
+      "type": "boolean",
+      "description": "Whether PR was created"
+    },
+    "pr_number": {
+      "type": "integer",
+      "description": "PR number if created"
+    },
+    "deployment_status": {
+      "type": "string",
+      "description": "Deployment status",
+      "enum": ["deployed", "pending", "failed", "not_deployed"]
+    },
+    "verification_passed": {
+      "type": "boolean",
+      "description": "Post-deployment verification status"
+    },
+    "time_to_fix_minutes": {
+      "type": "integer",
+      "description": "Time from start to fix deployed (minutes)",
+      "minimum": 0,
+      "maximum": 180
+    },
+    "root_cause": {
+      "type": "string",
+      "description": "Root cause of the bug"
+    },
+    "post_mortem_created": {
+      "type": "boolean",
+      "description": "Whether post-mortem document was created"
+    }
+  }
+}

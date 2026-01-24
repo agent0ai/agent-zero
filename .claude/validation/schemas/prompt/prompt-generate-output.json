@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prompt Generation Output Validation",
+  "description": "Validates output from /prompt/generate command",
+  "type": "object",
+  "required": ["files_created", "content_validation", "quality_metrics"],
+  "properties": {
+    "files_created": {
+      "type": "object",
+      "required": ["prompt_file"],
+      "properties": {
+        "prompt_file": {
+          "type": "string",
+          "pattern": "^prompts/.*\\.md$",
+          "description": "Path to generated prompt file in prompts/ directory"
+        }
+      }
+    },
+    "content_validation": {
+      "type": "object",
+      "required": [
+        "has_role_definition",
+        "has_expertise_areas",
+        "has_mission_objective",
+        "has_input_protocol",
+        "has_reasoning_methodology",
+        "has_output_specs",
+        "has_quality_checklist"
+      ],
+      "properties": {
+        "has_role_definition": {
+          "type": "boolean",
+          "description": "Prompt includes clear role and expertise definition"
+        },
+        "has_expertise_areas": {
+          "type": "boolean",
+          "description": "Prompt specifies domain expertise areas"
+        },
+        "has_mission_objective": {
+          "type": "boolean",
+          "description": "Prompt defines mission critical objective"
+        },
+        "has_input_protocol": {
+          "type": "boolean",
+          "description": "Prompt includes input processing protocol"
+        },
+        "has_reasoning_methodology": {
+          "type": "boolean",
+          "description": "Prompt specifies reasoning approach (CoT, ReAct, etc.)"
+        },
+        "has_output_specs": {
+          "type": "boolean",
+          "description": "Prompt defines output specifications"
+        },
+        "has_quality_checklist": {
+          "type": "boolean",
+          "description": "Prompt includes quality control checklist"
+        },
+        "min_length_bytes": {
+          "type": "integer",
+          "minimum": 1000,
+          "description": "Prompt must be at least 1000 bytes for completeness"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "required": ["clarity_score", "specificity_score", "completeness_score"],
+      "properties": {
+        "clarity_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Clarity score (0.0-1.0, threshold ≥0.85)"
+        },
+        "specificity_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Specificity score (0.0-1.0, threshold ≥0.85)"
+        },
+        "completeness_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Completeness score (0.0-1.0, threshold ≥0.90)"
+        },
+        "overall_quality": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Overall quality threshold ≥0.85"
+        }
+      }
+    }
+  }
+}
