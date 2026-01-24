@@ -1,0 +1,104 @@
+# Mahoosuc OS Commands Index
+
+**Imported**: 2026-01-24
+**Source**: mahoosuc-operating-system
+**Total Categories**: 95
+**Total Commands**: 414
+
+## Categories
+
+- **accessibility**: 3 commands
+- **agent-foundry**: 8 commands
+- **agent-os**: 11 commands
+- **agent**: 6 commands
+- **ai-search**: 4 commands
+- **analytics**: 4 commands
+- **api**: 4 commands
+- **architecture**: 4 commands
+- **assistant**: 5 commands
+- **auth**: 4 commands
+- **automation**: 5 commands
+- **autonomous**: 3 commands
+- **billing**: 5 commands
+- **brand**: 4 commands
+- **calendar**: 1 commands
+- **campaign**: 2 commands
+- **cicd**: 4 commands
+- **content**: 2 commands
+- **context**: 5 commands
+- **customer-success**: 4 commands
+- **dashboard**: 5 commands
+- **db**: 5 commands
+- **decision**: 5 commands
+- **design-os**: 10 commands
+- **design**: 4 commands
+- **dev**: 13 commands
+- **devops**: 9 commands
+- **docker**: 4 commands
+- **docs**: 5 commands
+- **email**: 2 commands
+- **finance**: 5 commands
+- **gamify**: 4 commands
+- **github**: 1 commands
+- **google**: 3 commands
+- **gpu**: 4 commands
+- **hr**: 1 commands
+- **integrations**: 3 commands
+- **knowledge**: 8 commands
+- **landing-page**: 2 commands
+- **landing**: 3 commands
+- **leads**: 3 commands
+- **legal**: 2 commands
+- **license**: 6 commands
+- **life**: 4 commands
+- **local**: 3 commands
+- **marketing**: 3 commands
+- **mcp**: 4 commands
+- **media**: 5 commands
+- **meeting**: 5 commands
+- **model**: 4 commands
+- **monitoring**: 2 commands
+- **motion**: 3 commands
+- **notion**: 2 commands
+- **nutrition**: 5 commands
+- **optimize**: 1 commands
+- **performance**: 4 commands
+- **pitch**: 4 commands
+- **priority**: 5 commands
+- **product**: 6 commands
+- **productivity**: 1 commands
+- **project**: 5 commands
+- **prompt**: 4 commands
+- **real-estate**: 4 commands
+- **relationships**: 5 commands
+- **research**: 5 commands
+- **resume**: 5 commands
+- **sales**: 9 commands
+- **scenario**: 5 commands
+- **schedule**: 1 commands
+- **scripts**: 5 commands
+- **security**: 3 commands
+- **seo**: 5 commands
+- **shopify**: 4 commands
+- **social**: 4 commands
+- **software-business**: 4 commands
+- **solve**: 10 commands
+- **spec-kit**: 5 commands
+- **startup**: 5 commands
+- **strategy**: 6 commands
+- **stripe**: 7 commands
+- **subscription**: 7 commands
+- **support**: 3 commands
+- **swarm**: 7 commands
+- **system**: 3 commands
+- **testing**: 5 commands
+- **travel**: 5 commands
+- **trello**: 1 commands
+- **usage**: 4 commands
+- **utils**: 5 commands
+- **viz**: 4 commands
+- **workflow**: 6 commands
+- **zoho**: 4 commands
+- **autopilot:predict-tasks** (standalone)
+- **capture** (standalone)
+- **find** (standalone)
