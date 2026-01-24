@@ -904,13 +904,13 @@ class LLMRouter:
         # Second: smallest local model with "baseline" capability
         local_baseline = [m for m in models if m.is_local and "baseline" in m.capabilities]
         if local_baseline:
-            local_baseline.sort(key=lambda m: m.size_gb)
+            local_baseline.sort(key=lambda m: m.size_gb or 0)
             return local_baseline[0]
 
         # Last resort: smallest available local model
         local_models = [m for m in models if m.is_local]
         if local_models:
-            local_models.sort(key=lambda m: m.size_gb)
+            local_models.sort(key=lambda m: m.size_gb or 0)
             return local_models[0]
 
         return None

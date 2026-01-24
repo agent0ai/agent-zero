@@ -2,6 +2,8 @@
 Tests for baseline model configuration and fallback logic
 """
 
+from unittest.mock import patch
+
 import pytest
 
 from python.helpers.llm_router import LLMRouter, ModelInfo
@@ -41,23 +43,69 @@ class TestBaselineModel:
             )
         ]
 
-        router.db.get_models = lambda available_only=False: mock_models
+        with patch.object(router.db, "get_models", return_value=mock_models):
+            baseline = router.get_baseline_model()
 
-        baseline = router.get_baseline_model()
+            assert baseline is not None
+            assert baseline.name == "qwen2.5-coder:3b"
+            assert baseline.metadata.get("priority_baseline") is True
 
-        assert baseline is not None
-        assert baseline.name == "qwen2.5-coder:3b"
-        assert baseline.metadata.get("priority_baseline") is True
+    def test_get_baseline_model_falls_back_to_capability(self):
+        """Should select smallest local model with baseline capability when no priority_baseline"""
+        router = LLMRouter()
+
+        # Mock models with baseline capability but no priority_baseline flag
+        mock_models = [
+            ModelInfo(
+                provider="ollama",
+                name="llama3.2:3b",
+                display_name="Llama 3.2 3B",
+                capabilities=["chat", "baseline"],
+                is_local=True,
+                is_available=True,
+                size_gb=2.0,
+                context_length=8192,
+                metadata={},
+            ),
+            ModelInfo(
+                provider="ollama",
+                name="phi3:mini",
+                display_name="Phi-3 Mini",
+                capabilities=["chat", "baseline"],
+                is_local=True,
+                is_available=True,
+                size_gb=2.3,
+                context_length=4096,
+                metadata={},
+            ),
+            ModelInfo(
+                provider="ollama",
+                name="gemma:2b",
+                display_name="Gemma 2B",
+                capabilities=["chat", "baseline"],
+                is_local=True,
+                is_available=True,
+                size_gb=1.4,
+                context_length=8192,
+                metadata={},
+            ),
+        ]
+
+        with patch.object(router.db, "get_models", return_value=mock_models):
+            baseline = router.get_baseline_model()
+
+            assert baseline is not None
+            assert baseline.name == "gemma:2b"  # Smallest by size_gb
+            assert baseline.size_gb == 1.4
 
     def test_get_baseline_model_when_unavailable(self):
         """Should return None when no baseline model available"""
         router = LLMRouter()
 
-        router.db.get_models = lambda available_only=False: []
+        with patch.object(router.db, "get_models", return_value=[]):
+            baseline = router.get_baseline_model()
 
-        baseline = router.get_baseline_model()
-
-        assert baseline is None
+            assert baseline is None
 
 
 if __name__ == "__main__":
