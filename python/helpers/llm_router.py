@@ -735,6 +735,13 @@ class LLMRouter:
             candidates.append(model)
 
         if not candidates:
+            # Try baseline model as last resort
+            baseline = self.get_baseline_model()
+            if baseline:
+                # Check if baseline meets required capabilities
+                if not required_capabilities or all(cap in baseline.capabilities for cap in required_capabilities):
+                    print("[LLMRouter] No candidates matched, falling back to baseline model")
+                    return baseline
             return None
 
         # Sort by score (descending)
