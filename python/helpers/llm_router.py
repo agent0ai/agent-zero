@@ -411,14 +411,18 @@ class LLMRouter:
     MODEL_CATALOG = {
         # Ollama models
         "ollama/qwen2.5-coder:3b": {
-            "display_name": "Qwen 2.5 Coder 3B",
+            "display_name": "Qwen 2.5 Coder 3B (Baseline)",
             "size_gb": 1.9,
             "context_length": 32768,
-            "capabilities": ["chat", "code", "fast"],
+            "capabilities": ["chat", "code", "fast", "cheap", "baseline"],
             "cost_per_1k_input": 0,
             "cost_per_1k_output": 0,
             "avg_latency_ms": 500,
             "is_local": True,
+            "priority_baseline": True,
+            "supports_native_tools": False,
+            "supports_hermes_tools": False,
+            "supports_react_tools": True,
         },
         "ollama/qwen2.5-coder:7b": {
             "display_name": "Qwen 2.5 Coder 7B",
@@ -531,6 +535,46 @@ class LLMRouter:
             "cache_enabled": True,
             "cache_ttl_seconds": 300,
             "supports_batch": True,
+        },
+        # Claude Code (via local CLI using Max plan)
+        "claude-code/sonnet-4-5": {
+            "display_name": "Claude Sonnet 4.5 (via Claude Code)",
+            "context_length": 200000,
+            "max_output_tokens": 8192,
+            "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "long_context", "agent"],
+            "cost_per_1k_input": 0.0,  # Uses Max plan, not API credits
+            "cost_per_1k_output": 0.0,
+            "avg_latency_ms": 1800,
+            "uses_max_plan": True,
+            "requires_local_cli": True,
+            "supports_caching": True,  # Inherits from Claude.ai
+            "cache_enabled": True,
+            "cache_ttl_seconds": 300,
+        },
+        "claude-code/opus-4-5": {
+            "display_name": "Claude Opus 4.5 (via Claude Code)",
+            "context_length": 200000,
+            "max_output_tokens": 64000,
+            "capabilities": [
+                "chat",
+                "code",
+                "vision",
+                "reasoning",
+                "function_calling",
+                "long_context",
+                "agent",
+                "computer_use",
+                "best_coding",
+            ],
+            "cost_per_1k_input": 0.0,  # Uses Max plan, not API credits
+            "cost_per_1k_output": 0.0,
+            "avg_latency_ms": 2500,
+            "uses_max_plan": True,
+            "requires_local_cli": True,
+            "supports_caching": True,  # Inherits from Claude.ai
+            "cache_enabled": True,
+            "cache_ttl_seconds": 3600,
+            "quality_score": 10,
         },
     }
 
@@ -665,6 +709,36 @@ class LLMRouter:
                             supports_ptc=info.get("supports_ptc", False),
                             supports_batch=info.get("supports_batch", False),
                             effort_levels=info.get("effort_levels", []),
+                        )
+                    )
+
+        # Check Claude Code (local CLI)
+        claude_code_enabled = os.getenv("CLAUDE_CODE_ENABLED", "false").lower() == "true"
+        if claude_code_enabled:
+            for key, info in self.MODEL_CATALOG.items():
+                if key.startswith("claude-code/"):
+                    model_name = key.split("/")[1]
+                    models.append(
+                        ModelInfo(
+                            provider="claude-code",
+                            name=model_name,
+                            display_name=info["display_name"],
+                            context_length=info["context_length"],
+                            capabilities=info["capabilities"],
+                            cost_per_1k_input=info["cost_per_1k_input"],
+                            cost_per_1k_output=info["cost_per_1k_output"],
+                            avg_latency_ms=info["avg_latency_ms"],
+                            is_local=True,  # Uses local CLI
+                            is_available=True,
+                            last_checked=isoformat_z(utc_now()),
+                            # Caching configuration (inherits from Claude.ai)
+                            supports_caching=info.get("supports_caching", False),
+                            cache_enabled=info.get("cache_enabled", False),
+                            cache_ttl_seconds=info.get("cache_ttl_seconds", 300),
+                            metadata={
+                                "uses_max_plan": info.get("uses_max_plan", False),
+                                "requires_local_cli": info.get("requires_local_cli", False),
+                            },
                         )
                     )
 
@@ -812,6 +886,34 @@ class LLMRouter:
             score += 30
 
         return score
+
+    def get_baseline_model(self) -> ModelInfo | None:
+        """
+        Get the baseline model (always available fallback)
+
+        Returns the configured baseline model (typically Qwen 2.5 3B)
+        or the smallest available local model as last resort.
+        """
+        models = self.db.get_models(available_only=True)
+
+        # First: explicitly marked baseline
+        baseline = [m for m in models if m.metadata.get("priority_baseline", False)]
+        if baseline:
+            return baseline[0]
+
+        # Second: smallest local model with "baseline" capability
+        local_baseline = [m for m in models if m.is_local and "baseline" in m.capabilities]
+        if local_baseline:
+            local_baseline.sort(key=lambda m: m.size_gb)
+            return local_baseline[0]
+
+        # Last resort: smallest available local model
+        local_models = [m for m in models if m.is_local]
+        if local_models:
+            local_models.sort(key=lambda m: m.size_gb)
+            return local_models[0]
+
+        return None
 
     def get_fallback_chain(
         self, primary_model: ModelInfo, required_capabilities: list[str] | None = None, max_fallbacks: int = 3
