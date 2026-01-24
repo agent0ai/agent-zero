@@ -7,3 +7,11 @@ healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+[variables]
+FALKORDB_HOST = "falkordb.railway.internal"
+FALKORDB_PORT = "6379"
+GRAPH_NAME = "anymaker"
+ANYMAKER_SEED = "1"
+A0_GUI_PORT = "8081"
+# FALKORDB_PASSWORD - set in Railway dashboard or link from FalkorDB service
