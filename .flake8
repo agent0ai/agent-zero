@@ -1,0 +1,20 @@
+# ============================================
+# Agent Zero GitHub Template - Flake8 Config
+# Version: 1.0.0
+# ============================================
+
+[flake8]
+max-line-length = 120
+ignore = E501, W503, E203
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    .venv,
+    backups,
+    build,
+    dist
+per-file-ignores =
+    __init__.py: F401
+    tests/*: S101
+max-complexity = 10

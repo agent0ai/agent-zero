@@ -1,0 +1,57 @@
+# ============================================
+# Agent Zero GitHub Template - FULL Tier
+# Comprehensive pre-commit hooks with all checks
+# Version: 1.0.0
+# ============================================
+
+repos:
+  # Python code quality - flake8
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--config=.flake8']
+        exclude: ^(backups/|venv/)
+
+  # Python linting - pylint (requires local install)
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args: ['--rcfile=.pylintrc', '--fail-under=7.0']
+        exclude: ^(backups/|venv/|tests/)
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        args: ['--config', '.markdownlint.json']
+        files: \.(md|markdown)$
+        exclude: ^(backups/|archive/)
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(backups/)
+      - id: end-of-file-fixer
+        exclude: ^(backups/)
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: detect-private-key
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.7
+    hooks:
+      - id: bandit
+        args: ['-c', 'pyproject.toml', '-r', '.']
+        exclude: ^(backups/|venv/|tests/)
+        additional_dependencies: ['bandit[toml]']
