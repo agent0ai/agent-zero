@@ -433,6 +433,10 @@ class LLMRouter:
             "cost_per_1k_output": 0,
             "avg_latency_ms": 1500,
             "is_local": True,
+            "supports_native_tools": False,
+            "supports_hermes_tools": True,
+            "supports_react_tools": True,
+            "tool_parser": "hermes",
         },
         "ollama/phi3:mini": {
             "display_name": "Phi-3 Mini",
