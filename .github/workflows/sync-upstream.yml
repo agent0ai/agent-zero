@@ -18,12 +18,14 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
       
     steps:
       - name: Checkout fork
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
           
       - name: Configure Git
         run: |
@@ -38,7 +40,6 @@ jobs:
       - name: Sync main branch
         id: sync
         run: |
-          git checkout main
           git merge upstream/main --no-edit
         continue-on-error: true
 
