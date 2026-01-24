@@ -823,24 +823,31 @@ class LLMRouter:
         """
         Build a fallback chain for a primary model
 
-        Returns a list of models to try if the primary fails
+        Returns a list of models to try if the primary fails.
+        Always includes baseline model as final fallback.
         """
         models = self.db.get_models(available_only=True)
         required_capabilities = required_capabilities or []
 
-        # Filter to models with required capabilities
         candidates = []
-        for model in models:
-            if model.provider == primary_model.provider and model.name == primary_model.name:
-                continue  # Skip primary
+        baseline_model = self.get_baseline_model()
 
-            if required_capabilities:
-                if not all(cap in model.capabilities for cap in required_capabilities):
-                    continue
+        for model in models:
+            # Skip primary model
+            if model.provider == primary_model.provider and model.name == primary_model.name:
+                continue
+
+            # Skip baseline (will be added at end)
+            if baseline_model and model.provider == baseline_model.provider and model.name == baseline_model.name:
+                continue
+
+            # Check required capabilities
+            if required_capabilities and not all(cap in model.capabilities for cap in required_capabilities):
+                continue
 
             candidates.append(model)
 
-        # Sort by a fallback score (prefer local, then cheap, then fast)
+        # Sort by fallback score (local > cheap > fast)
         def fallback_score(m: ModelInfo) -> float:
             score = 0
             if m.is_local:
@@ -852,7 +859,17 @@ class LLMRouter:
             return score
 
         candidates.sort(key=fallback_score, reverse=True)
-        return candidates[:max_fallbacks]
+
+        # Take top N-1 candidates (reserve last spot for baseline)
+        fallback_chain = candidates[: max_fallbacks - 1]
+
+        # Always append baseline as final fallback (if available and meets requirements)
+        if baseline_model:
+            # Check if baseline meets required capabilities
+            if not required_capabilities or all(cap in baseline_model.capabilities for cap in required_capabilities):
+                fallback_chain.append(baseline_model)
+
+        return fallback_chain
 
     def record_call(
         self,

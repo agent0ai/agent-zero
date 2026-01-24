@@ -108,5 +108,96 @@ class TestBaselineModel:
             assert baseline is None
 
 
+class TestFallbackChain:
+    """Test fallback chain includes baseline"""
+
+    def test_fallback_chain_includes_baseline_as_last(self):
+        """Fallback chain should always include baseline as final fallback"""
+        router = LLMRouter()
+
+        # Mock models
+        mock_models = [
+            ModelInfo(
+                provider="ollama",
+                name="qwen2.5-coder:3b",
+                display_name="Qwen 2.5 Coder 3B",
+                capabilities=["chat", "code", "baseline"],
+                is_local=True,
+                is_available=True,
+                size_gb=1.9,
+                context_length=32768,
+                metadata={"priority_baseline": True},
+            ),
+            ModelInfo(
+                provider="ollama",
+                name="qwen2.5-coder:7b",
+                display_name="Qwen 2.5 Coder 7B",
+                capabilities=["chat", "code"],
+                is_local=True,
+                is_available=True,
+                size_gb=4.7,
+                context_length=32768,
+                metadata={},
+            ),
+            ModelInfo(
+                provider="openai",
+                name="gpt-4o-mini",
+                display_name="GPT-4o Mini",
+                capabilities=["chat", "code", "fast"],
+                is_local=False,
+                is_available=True,
+                size_gb=0,
+                context_length=128000,
+                metadata={},
+            ),
+        ]
+
+        with patch.object(router.db, "get_models", return_value=mock_models):
+            primary = mock_models[1]  # Use 7b as primary
+            fallback_chain = router.get_fallback_chain(primary, max_fallbacks=3)
+
+            # Baseline should be last in chain
+            assert len(fallback_chain) > 0
+            assert fallback_chain[-1].name == "qwen2.5-coder:3b"
+            assert fallback_chain[-1].metadata.get("priority_baseline") is True
+
+    def test_fallback_chain_respects_capabilities(self):
+        """Fallback chain should only include models with required capabilities"""
+        router = LLMRouter()
+
+        mock_models = [
+            ModelInfo(
+                provider="ollama",
+                name="qwen2.5-coder:3b",
+                display_name="Qwen 2.5 Coder 3B",
+                capabilities=["chat", "code", "baseline"],
+                is_local=True,
+                is_available=True,
+                size_gb=1.9,
+                context_length=32768,
+                metadata={"priority_baseline": True},
+            ),
+            ModelInfo(
+                provider="ollama",
+                name="phi3:mini",
+                display_name="Phi-3 Mini",
+                capabilities=["chat", "fast"],  # No "code" capability
+                is_local=True,
+                is_available=True,
+                size_gb=2.2,
+                context_length=4096,
+                metadata={},
+            ),
+        ]
+
+        with patch.object(router.db, "get_models", return_value=mock_models):
+            primary = mock_models[0]
+            fallback_chain = router.get_fallback_chain(primary, required_capabilities=["code"], max_fallbacks=3)
+
+            # Only models with "code" capability should be included
+            for model in fallback_chain:
+                assert "code" in model.capabilities
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
