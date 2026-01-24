@@ -26,6 +26,28 @@ Or see DeepWiki generated documentation:
 
 </div>
 
+## 🌍 Quorum Earth Fork
+
+This is a fork of [Agent Zero](https://github.com/agent0ai/agent-zero) maintained by [Quorum Earth](https://github.com/QuorumEarth).
+
+### Fork-Specific Features
+- **4 specialized agents** for pitch deck development (Data_Architect, ProForma_Agent, Narrative_Agent, Khosla_Advisor)
+- **MCP integrations** (Sequential Thinking, Context7)
+- **Custom prompt profiles** for Quorum Earth workflows
+- **GitHub automation templates** (3-tier: minimal, standard, full)
+
+### Branch Structure
+| Branch | Purpose | Sync |
+|--------|---------|------|
+| `main` | Mirrors upstream | Auto-synced weekly |
+| `quorum` | Stable customizations | Development branch |
+
+### Staying Current
+This fork automatically syncs with upstream weekly. See [CUSTOMIZATIONS.md](./CUSTOMIZATIONS.md) for divergence tracking.
+
+---
+
+
 
 <div align="center">
 
