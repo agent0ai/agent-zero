@@ -411,14 +411,18 @@ class LLMRouter:
     MODEL_CATALOG = {
         # Ollama models
         "ollama/qwen2.5-coder:3b": {
-            "display_name": "Qwen 2.5 Coder 3B",
+            "display_name": "Qwen 2.5 Coder 3B (Baseline)",
             "size_gb": 1.9,
             "context_length": 32768,
-            "capabilities": ["chat", "code", "fast"],
+            "capabilities": ["chat", "code", "fast", "cheap", "baseline"],
             "cost_per_1k_input": 0,
             "cost_per_1k_output": 0,
             "avg_latency_ms": 500,
             "is_local": True,
+            "priority_baseline": True,
+            "supports_native_tools": False,
+            "supports_hermes_tools": False,
+            "supports_react_tools": True,
         },
         "ollama/qwen2.5-coder:7b": {
             "display_name": "Qwen 2.5 Coder 7B",
@@ -882,6 +886,34 @@ class LLMRouter:
             model_role=model_role,
             cost_usd=cost,
         )
+
+    def get_baseline_model(self) -> ModelInfo | None:
+        """
+        Get the baseline model (always available fallback)
+
+        Returns the configured baseline model (typically Qwen 2.5 3B)
+        or the smallest available local model as last resort.
+        """
+        models = self.db.get_models(available_only=True)
+
+        # First: explicitly marked baseline
+        baseline = [m for m in models if m.metadata.get("priority_baseline", False)]
+        if baseline:
+            return baseline[0]
+
+        # Second: smallest local model with "baseline" capability
+        local_baseline = [m for m in models if m.is_local and "baseline" in m.capabilities]
+        if local_baseline:
+            local_baseline.sort(key=lambda m: m.size_gb)
+            return local_baseline[0]
+
+        # Last resort: smallest available local model
+        local_models = [m for m in models if m.is_local]
+        if local_models:
+            local_models.sort(key=lambda m: m.size_gb)
+            return local_models[0]
+
+        return None
 
     def get_usage_stats(self, hours: int = 24) -> dict:
         """Get usage statistics"""
