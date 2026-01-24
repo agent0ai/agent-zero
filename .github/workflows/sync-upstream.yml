@@ -18,7 +18,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      issues: write
+      actions: write
       
     steps:
       - name: Checkout fork
@@ -66,21 +66,19 @@ jobs:
           labels: upstream-sync,needs-attention
           
       - name: Trigger quorum branch update
-        if: steps.sync.outcome == 'success'
+        if: ${{ steps.sync.outcome == 'success' && !inputs.dry_run }}
         run: |
-          gh workflow run update-quorum.yml
+          gh workflow run update-quorum.yml --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Notify on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 Upstream sync failed',
-              body: `Automated sync failed. Check workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              labels: ['upstream-sync', 'needs-attention']
-            })
+      - name: Summary
+        run: |
+          echo "## Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Sync outcome: ${{ steps.sync.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Dry run: ${{ inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.sync.outcome }}" == "success" ]; then
+            echo "✅ Successfully synced with upstream" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Sync failed - check for conflicts" >> $GITHUB_STEP_SUMMARY
+          fi
