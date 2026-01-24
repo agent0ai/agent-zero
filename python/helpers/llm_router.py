@@ -22,9 +22,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from python.helpers.datetime_utils import isoformat_z, utc_now
+
 
 class ModelCapability(Enum):
     """Model capabilities for routing decisions"""
+
     CHAT = "chat"
     CODE = "code"
     VISION = "vision"
@@ -37,29 +40,39 @@ class ModelCapability(Enum):
 
 class RoutingPriority(Enum):
     """Prioritization strategies"""
-    COST = "cost"           # Minimize cost
-    SPEED = "speed"         # Minimize latency
-    QUALITY = "quality"     # Maximize capability
-    BALANCED = "balanced"   # Balance all factors
+
+    COST = "cost"  # Minimize cost
+    SPEED = "speed"  # Minimize latency
+    QUALITY = "quality"  # Maximize capability
+    BALANCED = "balanced"  # Balance all factors
 
 
 @dataclass
 class ModelInfo:
     """Information about an available model"""
-    provider: str           # ollama, openai, anthropic, etc.
-    name: str               # Model name/identifier
-    display_name: str       # Human-readable name
-    size_gb: float = 0.0    # Model size (for local models)
+
+    provider: str  # ollama, openai, anthropic, etc.
+    name: str  # Model name/identifier
+    display_name: str  # Human-readable name
+    size_gb: float = 0.0  # Model size (for local models)
     context_length: int = 4096
     capabilities: list[str] = field(default_factory=list)
-    cost_per_1k_input: float = 0.0    # USD per 1K input tokens
-    cost_per_1k_output: float = 0.0   # USD per 1K output tokens
-    avg_latency_ms: int = 0           # Average response latency
+    cost_per_1k_input: float = 0.0  # USD per 1K input tokens
+    cost_per_1k_output: float = 0.0  # USD per 1K output tokens
+    avg_latency_ms: int = 0  # Average response latency
     is_local: bool = False
     is_available: bool = True
     last_checked: str | None = None
-    priority_score: float = 0.0       # Computed routing score
+    priority_score: float = 0.0  # Computed routing score
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Prompt caching configuration
+    supports_caching: bool = False  # Model supports prompt caching
+    cache_enabled: bool = False  # Caching enabled for this model
+    cache_ttl_seconds: int = 300  # Default cache TTL (5 minutes)
+    # Advanced features
+    supports_ptc: bool = False  # Programmatic Tool Calling
+    supports_batch: bool = False  # Batch API support
+    effort_levels: list[str] = field(default_factory=list)  # Available effort levels
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -72,15 +85,16 @@ class ModelInfo:
 @dataclass
 class RoutingRule:
     """Rule for model selection"""
+
     name: str
-    priority: int = 0                  # Higher = more important
-    condition: str = ""                # Python expression
+    priority: int = 0  # Higher = more important
+    condition: str = ""  # Python expression
     preferred_models: list[str] = field(default_factory=list)
     excluded_models: list[str] = field(default_factory=list)
     min_context_length: int = 0
     required_capabilities: list[str] = field(default_factory=list)
-    max_cost_per_1k: float = 0.0       # 0 = no limit
-    max_latency_ms: int = 0            # 0 = no limit
+    max_cost_per_1k: float = 0.0  # 0 = no limit
+    max_latency_ms: int = 0  # 0 = no limit
     enabled: bool = True
 
 
@@ -182,19 +196,31 @@ class LLMRouterDatabase:
     def save_model(self, model: ModelInfo):
         """Save or update a model in the registry"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO models
                 (provider, name, display_name, size_gb, context_length, capabilities,
                  cost_per_1k_input, cost_per_1k_output, avg_latency_ms, is_local,
                  is_available, last_checked, priority_score, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                model.provider, model.name, model.display_name, model.size_gb,
-                model.context_length, json.dumps(model.capabilities),
-                model.cost_per_1k_input, model.cost_per_1k_output, model.avg_latency_ms,
-                1 if model.is_local else 0, 1 if model.is_available else 0,
-                model.last_checked, model.priority_score, json.dumps(model.metadata)
-            ))
+            """,
+                (
+                    model.provider,
+                    model.name,
+                    model.display_name,
+                    model.size_gb,
+                    model.context_length,
+                    json.dumps(model.capabilities),
+                    model.cost_per_1k_input,
+                    model.cost_per_1k_output,
+                    model.avg_latency_ms,
+                    1 if model.is_local else 0,
+                    1 if model.is_available else 0,
+                    model.last_checked,
+                    model.priority_score,
+                    json.dumps(model.metadata),
+                ),
+            )
 
     def get_models(self, provider: str | None = None, available_only: bool = True) -> list[ModelInfo]:
         """Get models from registry"""
@@ -212,38 +238,61 @@ class LLMRouterDatabase:
             query += " ORDER BY priority_score DESC"
 
             rows = conn.execute(query, params).fetchall()
-            return [ModelInfo(
-                provider=row["provider"],
-                name=row["name"],
-                display_name=row["display_name"] or row["name"],
-                size_gb=row["size_gb"],
-                context_length=row["context_length"],
-                capabilities=json.loads(row["capabilities"]),
-                cost_per_1k_input=row["cost_per_1k_input"],
-                cost_per_1k_output=row["cost_per_1k_output"],
-                avg_latency_ms=row["avg_latency_ms"],
-                is_local=bool(row["is_local"]),
-                is_available=bool(row["is_available"]),
-                last_checked=row["last_checked"],
-                priority_score=row["priority_score"],
-                metadata=json.loads(row["metadata"])
-            ) for row in rows]
+            return [
+                ModelInfo(
+                    provider=row["provider"],
+                    name=row["name"],
+                    display_name=row["display_name"] or row["name"],
+                    size_gb=row["size_gb"],
+                    context_length=row["context_length"],
+                    capabilities=json.loads(row["capabilities"]),
+                    cost_per_1k_input=row["cost_per_1k_input"],
+                    cost_per_1k_output=row["cost_per_1k_output"],
+                    avg_latency_ms=row["avg_latency_ms"],
+                    is_local=bool(row["is_local"]),
+                    is_available=bool(row["is_available"]),
+                    last_checked=row["last_checked"],
+                    priority_score=row["priority_score"],
+                    metadata=json.loads(row["metadata"]),
+                )
+                for row in rows
+            ]
 
-    def record_usage(self, provider: str, model_name: str, input_tokens: int,
-                    output_tokens: int, latency_ms: int, success: bool = True,
-                    error_message: str | None = None, context_type: str | None = None,
-                    model_role: str | None = None, cost_usd: float = 0):
+    def record_usage(
+        self,
+        provider: str,
+        model_name: str,
+        input_tokens: int,
+        output_tokens: int,
+        latency_ms: int,
+        success: bool = True,
+        error_message: str | None = None,
+        context_type: str | None = None,
+        model_role: str | None = None,
+        cost_usd: float = 0,
+    ):
         """Record model usage for tracking"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO usage
                 (provider, model_name, input_tokens, output_tokens, latency_ms,
                  cost_usd, success, error_message, context_type, model_role)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                provider, model_name, input_tokens, output_tokens, latency_ms,
-                cost_usd, 1 if success else 0, error_message, context_type, model_role
-            ))
+            """,
+                (
+                    provider,
+                    model_name,
+                    input_tokens,
+                    output_tokens,
+                    latency_ms,
+                    cost_usd,
+                    1 if success else 0,
+                    error_message,
+                    context_type,
+                    model_role,
+                ),
+            )
 
     def get_usage_stats(self, hours: int = 24) -> dict:
         """Get usage statistics for the past N hours"""
@@ -251,7 +300,8 @@ class LLMRouterDatabase:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
 
-            stats = conn.execute("""
+            stats = conn.execute(
+                """
                 SELECT
                     provider,
                     model_name,
@@ -265,30 +315,41 @@ class LLMRouterDatabase:
                 FROM usage
                 WHERE timestamp >= ?
                 GROUP BY provider, model_name
-            """, (cutoff,)).fetchall()
+            """,
+                (cutoff,),
+            ).fetchall()
 
             return {
                 "period_hours": hours,
                 "by_model": [dict(row) for row in stats],
                 "total_cost": sum(row["total_cost"] or 0 for row in stats),
-                "total_calls": sum(row["call_count"] for row in stats)
+                "total_calls": sum(row["call_count"] for row in stats),
             }
 
     def save_routing_rule(self, rule: RoutingRule):
         """Save a routing rule"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO routing_rules
                 (name, priority, condition, preferred_models, excluded_models,
                  min_context_length, required_capabilities, max_cost_per_1k,
                  max_latency_ms, enabled)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                rule.name, rule.priority, rule.condition,
-                json.dumps(rule.preferred_models), json.dumps(rule.excluded_models),
-                rule.min_context_length, json.dumps(rule.required_capabilities),
-                rule.max_cost_per_1k, rule.max_latency_ms, 1 if rule.enabled else 0
-            ))
+            """,
+                (
+                    rule.name,
+                    rule.priority,
+                    rule.condition,
+                    json.dumps(rule.preferred_models),
+                    json.dumps(rule.excluded_models),
+                    rule.min_context_length,
+                    json.dumps(rule.required_capabilities),
+                    rule.max_cost_per_1k,
+                    rule.max_latency_ms,
+                    1 if rule.enabled else 0,
+                ),
+            )
 
     def get_routing_rules(self, enabled_only: bool = True) -> list[RoutingRule]:
         """Get routing rules"""
@@ -300,34 +361,37 @@ class LLMRouterDatabase:
             query += " ORDER BY priority DESC"
 
             rows = conn.execute(query).fetchall()
-            return [RoutingRule(
-                name=row["name"],
-                priority=row["priority"],
-                condition=row["condition"],
-                preferred_models=json.loads(row["preferred_models"]),
-                excluded_models=json.loads(row["excluded_models"]),
-                min_context_length=row["min_context_length"],
-                required_capabilities=json.loads(row["required_capabilities"]),
-                max_cost_per_1k=row["max_cost_per_1k"],
-                max_latency_ms=row["max_latency_ms"],
-                enabled=bool(row["enabled"])
-            ) for row in rows]
+            return [
+                RoutingRule(
+                    name=row["name"],
+                    priority=row["priority"],
+                    condition=row["condition"],
+                    preferred_models=json.loads(row["preferred_models"]),
+                    excluded_models=json.loads(row["excluded_models"]),
+                    min_context_length=row["min_context_length"],
+                    required_capabilities=json.loads(row["required_capabilities"]),
+                    max_cost_per_1k=row["max_cost_per_1k"],
+                    max_latency_ms=row["max_latency_ms"],
+                    enabled=bool(row["enabled"]),
+                )
+                for row in rows
+            ]
 
     def set_model_alias(self, alias: str, provider: str, model_name: str, description: str = ""):
         """Set a model alias for easy switching"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO model_aliases (alias, provider, model_name, description)
                 VALUES (?, ?, ?, ?)
-            """, (alias, provider, model_name, description))
+            """,
+                (alias, provider, model_name, description),
+            )
 
     def get_model_alias(self, alias: str) -> tuple | None:
         """Get provider and model name for an alias"""
         with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute(
-                "SELECT provider, model_name FROM model_aliases WHERE alias = ?",
-                (alias,)
-            ).fetchone()
+            row = conn.execute("SELECT provider, model_name FROM model_aliases WHERE alias = ?", (alias,)).fetchone()
             return (row[0], row[1]) if row else None
 
 
@@ -354,7 +418,7 @@ class LLMRouter:
             "cost_per_1k_input": 0,
             "cost_per_1k_output": 0,
             "avg_latency_ms": 500,
-            "is_local": True
+            "is_local": True,
         },
         "ollama/qwen2.5-coder:7b": {
             "display_name": "Qwen 2.5 Coder 7B",
@@ -364,7 +428,7 @@ class LLMRouter:
             "cost_per_1k_input": 0,
             "cost_per_1k_output": 0,
             "avg_latency_ms": 1500,
-            "is_local": True
+            "is_local": True,
         },
         "ollama/phi3:mini": {
             "display_name": "Phi-3 Mini",
@@ -374,7 +438,7 @@ class LLMRouter:
             "cost_per_1k_input": 0,
             "cost_per_1k_output": 0,
             "avg_latency_ms": 400,
-            "is_local": True
+            "is_local": True,
         },
         # OpenAI models
         "openai/gpt-4o": {
@@ -383,7 +447,7 @@ class LLMRouter:
             "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "long_context"],
             "cost_per_1k_input": 0.005,
             "cost_per_1k_output": 0.015,
-            "avg_latency_ms": 2000
+            "avg_latency_ms": 2000,
         },
         "openai/gpt-4o-mini": {
             "display_name": "GPT-4o Mini",
@@ -391,7 +455,7 @@ class LLMRouter:
             "capabilities": ["chat", "code", "vision", "function_calling", "fast", "cheap"],
             "cost_per_1k_input": 0.00015,
             "cost_per_1k_output": 0.0006,
-            "avg_latency_ms": 800
+            "avg_latency_ms": 800,
         },
         "openai/gpt-3.5-turbo": {
             "display_name": "GPT-3.5 Turbo",
@@ -399,16 +463,62 @@ class LLMRouter:
             "capabilities": ["chat", "code", "function_calling", "fast", "cheap"],
             "cost_per_1k_input": 0.0005,
             "cost_per_1k_output": 0.0015,
-            "avg_latency_ms": 500
+            "avg_latency_ms": 500,
         },
         # Anthropic models
+        "anthropic/claude-opus-4-5-20251101": {
+            "display_name": "Claude Opus 4.5",
+            "context_length": 200000,
+            "max_output_tokens": 64000,
+            "capabilities": [
+                "chat",
+                "code",
+                "vision",
+                "reasoning",
+                "function_calling",
+                "long_context",
+                "agent",
+                "computer_use",
+                "best_coding",
+            ],
+            "cost_per_1k_input": 0.005,  # $5 per million
+            "cost_per_1k_output": 0.025,  # $25 per million
+            "avg_latency_ms": 2500,
+            "supports_caching": True,
+            "cache_enabled": True,
+            "cache_ttl_seconds": 3600,  # 1 hour for extended thinking
+            "supports_ptc": True,
+            "supports_batch": True,
+            "effort_levels": ["low", "medium", "high"],
+            "quality_score": 10,  # SWE-bench 80.9%
+        },
+        "anthropic/claude-sonnet-4-5-20250929": {
+            "display_name": "Claude Sonnet 4.5",
+            "context_length": 200000,
+            "max_output_tokens": 8192,
+            "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "long_context", "agent"],
+            "cost_per_1k_input": 0.003,  # $3 per million
+            "cost_per_1k_output": 0.015,  # $15 per million
+            "avg_latency_ms": 1800,
+            "supports_caching": True,
+            "cache_enabled": True,
+            "cache_ttl_seconds": 300,  # 5 minutes default
+            "supports_ptc": True,
+            "supports_batch": True,
+            "quality_score": 9,
+        },
         "anthropic/claude-3-5-sonnet-20241022": {
             "display_name": "Claude 3.5 Sonnet",
             "context_length": 200000,
             "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "long_context"],
             "cost_per_1k_input": 0.003,
             "cost_per_1k_output": 0.015,
-            "avg_latency_ms": 1500
+            "avg_latency_ms": 1500,
+            "supports_caching": True,
+            "cache_enabled": True,
+            "cache_ttl_seconds": 300,
+            "supports_ptc": True,
+            "supports_batch": True,
         },
         "anthropic/claude-3-haiku-20240307": {
             "display_name": "Claude 3 Haiku",
@@ -416,7 +526,11 @@ class LLMRouter:
             "capabilities": ["chat", "code", "vision", "function_calling", "fast", "cheap", "long_context"],
             "cost_per_1k_input": 0.00025,
             "cost_per_1k_output": 0.00125,
-            "avg_latency_ms": 600
+            "avg_latency_ms": 600,
+            "supports_caching": True,
+            "cache_enabled": True,
+            "cache_ttl_seconds": 300,
+            "supports_batch": True,
         },
     }
 
@@ -457,7 +571,7 @@ class LLMRouter:
             def fetch_ollama():
                 url = f"{self._ollama_base_url}/api/tags"
                 req = urllib.request.Request(url, headers={"Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=10) as response:
+                with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310 - localhost Ollama URL only
                     return json.loads(response.read().decode())
 
             loop = asyncio.get_event_loop()
@@ -466,7 +580,7 @@ class LLMRouter:
             for model_data in data.get("models", []):
                 name = model_data.get("name", "")
                 size_bytes = model_data.get("size", 0)
-                size_gb = size_bytes / (1024 ** 3)
+                size_gb = size_bytes / (1024**3)
 
                 # Get catalog info if available
                 catalog_key = f"ollama/{name}"
@@ -484,8 +598,8 @@ class LLMRouter:
                     avg_latency_ms=catalog_info.get("avg_latency_ms", 1000),
                     is_local=True,
                     is_available=True,
-                    last_checked=datetime.now().isoformat(),
-                    metadata={"modified_at": model_data.get("modified_at")}
+                    last_checked=isoformat_z(utc_now()),
+                    metadata={"modified_at": model_data.get("modified_at")},
                 )
                 models.append(model)
         except urllib.error.URLError as e:
@@ -505,39 +619,54 @@ class LLMRouter:
             for key, info in self.MODEL_CATALOG.items():
                 if key.startswith("openai/"):
                     model_name = key.split("/")[1]
-                    models.append(ModelInfo(
-                        provider="openai",
-                        name=model_name,
-                        display_name=info["display_name"],
-                        context_length=info["context_length"],
-                        capabilities=info["capabilities"],
-                        cost_per_1k_input=info["cost_per_1k_input"],
-                        cost_per_1k_output=info["cost_per_1k_output"],
-                        avg_latency_ms=info["avg_latency_ms"],
-                        is_local=False,
-                        is_available=True,
-                        last_checked=datetime.now().isoformat()
-                    ))
+                    models.append(
+                        ModelInfo(
+                            provider="openai",
+                            name=model_name,
+                            display_name=info["display_name"],
+                            context_length=info["context_length"],
+                            capabilities=info["capabilities"],
+                            cost_per_1k_input=info["cost_per_1k_input"],
+                            cost_per_1k_output=info["cost_per_1k_output"],
+                            avg_latency_ms=info["avg_latency_ms"],
+                            is_local=False,
+                            is_available=True,
+                            last_checked=isoformat_z(utc_now()),
+                        )
+                    )
 
         # Check Anthropic
         anthropic_key = os.getenv("API_KEY_ANTHROPIC") or os.getenv("ANTHROPIC_API_KEY")
+        anthropic_caching_enabled = os.getenv("ANTHROPIC_ENABLE_CACHING", "true").lower() == "true"
+        anthropic_cache_ttl = int(os.getenv("ANTHROPIC_CACHE_TTL_SECONDS", "300"))
+
         if anthropic_key:
             for key, info in self.MODEL_CATALOG.items():
                 if key.startswith("anthropic/"):
                     model_name = key.split("/")[1]
-                    models.append(ModelInfo(
-                        provider="anthropic",
-                        name=model_name,
-                        display_name=info["display_name"],
-                        context_length=info["context_length"],
-                        capabilities=info["capabilities"],
-                        cost_per_1k_input=info["cost_per_1k_input"],
-                        cost_per_1k_output=info["cost_per_1k_output"],
-                        avg_latency_ms=info["avg_latency_ms"],
-                        is_local=False,
-                        is_available=True,
-                        last_checked=datetime.now().isoformat()
-                    ))
+                    models.append(
+                        ModelInfo(
+                            provider="anthropic",
+                            name=model_name,
+                            display_name=info["display_name"],
+                            context_length=info["context_length"],
+                            capabilities=info["capabilities"],
+                            cost_per_1k_input=info["cost_per_1k_input"],
+                            cost_per_1k_output=info["cost_per_1k_output"],
+                            avg_latency_ms=info["avg_latency_ms"],
+                            is_local=False,
+                            is_available=True,
+                            last_checked=isoformat_z(utc_now()),
+                            # Caching configuration
+                            supports_caching=info.get("supports_caching", False),
+                            cache_enabled=info.get("supports_caching", False) and anthropic_caching_enabled,
+                            cache_ttl_seconds=info.get("cache_ttl_seconds", anthropic_cache_ttl),
+                            # Advanced features
+                            supports_ptc=info.get("supports_ptc", False),
+                            supports_batch=info.get("supports_batch", False),
+                            effort_levels=info.get("effort_levels", []),
+                        )
+                    )
 
         return models
 
@@ -550,7 +679,7 @@ class LLMRouter:
         min_context_length: int = 0,
         max_cost_per_1k: float = 0,
         preferred_provider: str | None = None,
-        excluded_providers: list[str] | None = None
+        excluded_providers: list[str] | None = None,
     ) -> ModelInfo | None:
         """
         Select the best model based on criteria
@@ -609,11 +738,7 @@ class LLMRouter:
         return candidates[0]
 
     def _calculate_score(
-        self,
-        model: ModelInfo,
-        priority: RoutingPriority,
-        context_type: str,
-        preferred_provider: str | None = None
+        self, model: ModelInfo, priority: RoutingPriority, context_type: str, preferred_provider: str | None = None
     ) -> float:
         """Calculate routing score for a model"""
         score = 0.0
@@ -689,10 +814,7 @@ class LLMRouter:
         return score
 
     def get_fallback_chain(
-        self,
-        primary_model: ModelInfo,
-        required_capabilities: list[str] | None = None,
-        max_fallbacks: int = 3
+        self, primary_model: ModelInfo, required_capabilities: list[str] | None = None, max_fallbacks: int = 3
     ) -> list[ModelInfo]:
         """
         Build a fallback chain for a primary model
@@ -738,15 +860,14 @@ class LLMRouter:
         success: bool = True,
         error_message: str | None = None,
         context_type: str | None = None,
-        model_role: str | None = None
+        model_role: str | None = None,
     ):
         """Record a model call for usage tracking"""
         # Calculate cost
         catalog_key = f"{provider}/{model_name}"
         info = self.MODEL_CATALOG.get(catalog_key, {})
-        cost = (
-            (input_tokens / 1000) * info.get("cost_per_1k_input", 0) +
-            (output_tokens / 1000) * info.get("cost_per_1k_output", 0)
+        cost = (input_tokens / 1000) * info.get("cost_per_1k_input", 0) + (output_tokens / 1000) * info.get(
+            "cost_per_1k_output", 0
         )
 
         self.db.record_usage(
@@ -759,7 +880,7 @@ class LLMRouter:
             error_message=error_message,
             context_type=context_type,
             model_role=model_role,
-            cost_usd=cost
+            cost_usd=cost,
         )
 
     def get_usage_stats(self, hours: int = 24) -> dict:

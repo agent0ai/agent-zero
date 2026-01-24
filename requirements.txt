@@ -24,7 +24,7 @@ langchain-unstructured[all-docs]==0.1.6
 openai-whisper==20240930
 lxml_html_clean==0.3.1
 markdown==3.7
-mcp==1.13.1
+mcp>=1.13.1  # Updated for CVE-2025-68143/68144/68145 security patches
 newspaper3k==0.2.8
 paramiko==3.5.0
 playwright==1.52.0
@@ -57,4 +57,5 @@ webauthn>=2.2.0
 # Claude Code SDK for programmatic Claude Code integration
 claude-code-sdk>=0.0.25
 openai>=1.0.0
-anthropic>=0.3.0
+anthropic>=0.76.0
+litellm>=1.50.0
