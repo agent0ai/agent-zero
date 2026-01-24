@@ -1,0 +1,25 @@
+# Anymaker core dependencies
+falkordb>=1.0.0
+graphiti-core>=0.1.0
+flask>=3.0.0
+httpx>=0.25.0
+redis>=5.0.0
+
+# LLM providers
+langchain-core>=0.1.0
+langchain-community>=0.0.10
+langchain-openai>=0.0.5
+langchain-anthropic>=0.1.0
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Utilities
+pydantic>=2.0.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+duckduckgo-search>=4.0.0
+tiktoken>=0.5.0
+python-dotenv>=1.0.0
+
+# Embeddings (for Graphiti)
+sentence-transformers>=2.2.0
