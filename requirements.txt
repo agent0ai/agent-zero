@@ -16,6 +16,7 @@ simpleeval==1.0.3
 langchain-core==0.3.49
 langchain-community==0.3.19
 langchain-unstructured[all-docs]==0.1.6
+litellm==1.79.3
 openai-whisper==20240930
 lxml_html_clean==0.3.1
 markdown==3.7
