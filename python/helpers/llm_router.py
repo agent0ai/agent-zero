@@ -1058,3 +1058,50 @@ async def auto_configure_models():
         print(f"[LLMRouter] Auto-configured fallback model: {cloud_models[0].provider}/{cloud_models[0].name}")
 
     return models
+
+
+async def ensure_baseline_model():
+    """
+    Ensure baseline model is available
+    Auto-pulls Qwen 2.5 3B if enabled and Ollama is running
+
+    Security: Uses subprocess.run() with list args (not shell=True)
+    to prevent command injection vulnerabilities.
+    """
+    router = get_router()
+
+    # Check if baseline is already available
+    baseline = router.get_baseline_model()
+    if baseline and baseline.is_available:
+        print(f"[LLMRouter] Baseline model available: {baseline.display_name}")
+        return True
+
+    # Check if auto-pull enabled
+    auto_pull = os.getenv("BASELINE_AUTO_PULL", "true").lower() == "true"
+    if not auto_pull:
+        print("[LLMRouter] Baseline model not available, auto-pull disabled")
+        return False
+
+    # Pull baseline model using subprocess.run (safe, no shell injection)
+    baseline_name = os.getenv("BASELINE_MODEL_NAME", "qwen2.5-coder:3b")
+    print(f"[LLMRouter] Pulling baseline model: {baseline_name}...")
+
+    try:
+        import subprocess
+
+        # Using subprocess.run with list args - safe from injection
+        # No shell=True, parameters passed as list elements
+        result = subprocess.run(
+            ["docker", "exec", "ollama", "ollama", "pull", baseline_name], capture_output=True, text=True, timeout=300
+        )
+
+        if result.returncode == 0:
+            print(f"[LLMRouter] Successfully pulled baseline model: {baseline_name}")
+            await router.discover_models(force=True)
+            return True
+        else:
+            print(f"[LLMRouter] Failed to pull baseline model: {result.stderr}")
+            return False
+    except Exception as e:
+        print(f"[LLMRouter] Error pulling baseline model: {e}")
+        return False
