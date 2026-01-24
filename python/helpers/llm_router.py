@@ -961,6 +961,51 @@ class LLMRouter:
         """Get all routing rules"""
         return self.db.get_routing_rules()
 
+    async def health_check_models(self, providers: list[str] | None = None) -> dict:
+        """
+        Perform health check on model providers
+
+        Returns dict with provider status and recommendations
+        """
+        results = {"healthy": [], "degraded": [], "unavailable": [], "baseline_available": False, "recommendations": []}
+
+        # Check Ollama
+        if not providers or "ollama" in providers:
+            try:
+
+                def check_ollama():
+                    url = f"{self._ollama_base_url}/api/tags"
+                    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+                    with urllib.request.urlopen(req, timeout=5) as response:  # nosec B310 - URL is from controlled config
+                        return json.loads(response.read().decode())
+
+                loop = asyncio.get_event_loop()
+                data = await loop.run_in_executor(None, check_ollama)
+                results["healthy"].append("ollama")
+
+                # Check for baseline model
+                model_names = [m.get("name", "") for m in data.get("models", [])]
+                if "qwen2.5-coder:3b" in model_names:
+                    results["baseline_available"] = True
+            except Exception as e:
+                results["unavailable"].append(f"ollama: {e!s}")
+                results["recommendations"].append("Start Ollama: docker start ollama")
+
+        # Check cloud providers
+        if os.getenv("OPENAI_API_KEY"):
+            results["healthy"].append("openai")
+        if os.getenv("ANTHROPIC_API_KEY"):
+            results["healthy"].append("anthropic")
+
+        # Generate recommendations
+        if not results["baseline_available"]:
+            results["recommendations"].append("Pull baseline model: docker exec ollama ollama pull qwen2.5-coder:3b")
+
+        if not results["healthy"]:
+            results["recommendations"].append("No models available! Start Ollama or configure API providers.")
+
+        return results
+
 
 # Singleton instance
 _router_instance: LLMRouter | None = None
