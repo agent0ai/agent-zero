@@ -1,0 +1,736 @@
+---
+# Agent Registry - Mahoosuc Operating System
+# Version: 1.0.0
+# Last Updated: 2026-01-20
+#
+# This registry catalogs all available agents, their capabilities,
+# performance metrics, and routing information.
+
+metadata:
+  version: 1.0.0
+  total_agents: 21
+  last_updated: 2026-01-20
+  registry_schema_version: 1.0.0
+
+# Agent OS - Spec-Driven Development Agents
+agent_os:
+  description: "Specialized agents for spec-driven feature development"
+  agent_count: 11
+
+  agents:
+    - name: product-planner
+      version: 2.0.0
+      path: .claude/agents/agent-os/product-planner.md
+      description: Create product documentation including mission, roadmap, and tech stack through guided conversation
+      tools: [Write, Read, Bash, WebFetch]
+      model: inherit
+      color: purple
+
+      capabilities:
+        - product_vision_definition
+        - roadmap_creation
+        - tech_stack_selection
+        - milestone_planning
+
+      metrics:
+        avg_cost_per_invocation: 0.12
+        avg_execution_time: 180  # seconds
+        success_rate: 0.96
+        total_invocations: 42
+
+      performance:
+        quality_score: 0.94
+        user_satisfaction: 0.92
+        time_to_value: 240  # seconds
+
+      routing:
+        best_for: ["product planning", "roadmap creation", "vision definition"]
+        not_suitable_for: ["code implementation", "testing"]
+        prerequisites: []
+
+    - name: spec-initializer
+      version: 2.0.0
+      path: .claude/agents/agent-os/spec-initializer.md
+      description: Initialize spec folder structure and preserve the user's initial idea
+      tools: [Write, Bash]
+      model: inherit
+      color: green
+
+      capabilities:
+        - spec_folder_creation
+        - idea_preservation
+        - initial_structure_setup
+
+      metrics:
+        avg_cost_per_invocation: 0.02
+        avg_execution_time: 15
+        success_rate: 0.99
+        total_invocations: 127
+
+      performance:
+        quality_score: 0.98
+        user_satisfaction: 0.95
+        time_to_value: 20
+
+      routing:
+        best_for: ["new spec creation", "initial setup"]
+        not_suitable_for: ["existing specs", "implementation"]
+        prerequisites: []
+
+    - name: spec-shaper
+      version: 2.0.0
+      path: .claude/agents/agent-os/spec-shaper.md
+      description: Gather detailed requirements through targeted questions and visual analysis
+      tools: [Write, Read, Bash, WebFetch, Skill]
+      model: inherit
+      color: blue
+
+      capabilities:
+        - requirements_gathering
+        - visual_analysis
+        - targeted_questioning
+        - constraint_identification
+
+      metrics:
+        avg_cost_per_invocation: 0.18
+        avg_execution_time: 240
+        success_rate: 0.93
+        total_invocations: 89
+
+      performance:
+        quality_score: 0.91
+        user_satisfaction: 0.89
+        time_to_value: 300
+
+      routing:
+        best_for: ["requirements gathering", "user research", "visual analysis"]
+        not_suitable_for: ["implementation", "testing"]
+        prerequisites: ["spec-initializer"]
+
+    - name: spec-writer
+      version: 2.0.0
+      path: .claude/agents/agent-os/spec-writer.md
+      description: Create a detailed specification document for development based on requirements
+      tools: [Write, Read, Bash, WebFetch, Skill]
+      model: inherit
+      color: yellow
+
+      capabilities:
+        - specification_writing
+        - technical_design
+        - api_documentation
+        - acceptance_criteria
+
+      metrics:
+        avg_cost_per_invocation: 0.22
+        avg_execution_time: 300
+        success_rate: 0.95
+        total_invocations: 76
+
+      performance:
+        quality_score: 0.93
+        user_satisfaction: 0.91
+        time_to_value: 360
+
+      routing:
+        best_for: ["spec writing", "technical design", "documentation"]
+        not_suitable_for: ["implementation", "testing"]
+        prerequisites: ["spec-shaper"]
+
+    - name: spec-verifier
+      version: 2.0.0
+      path: .claude/agents/agent-os/spec-verifier.md
+      description: Verify that the spec and tasks list are complete, accurate, and aligned with standards
+      tools: [Write, Read, Bash, WebFetch, Skill]
+      model: inherit
+      color: orange
+
+      capabilities:
+        - spec_validation
+        - completeness_checking
+        - standards_alignment
+        - quality_assurance
+
+      metrics:
+        avg_cost_per_invocation: 0.15
+        avg_execution_time: 180
+        success_rate: 0.97
+        total_invocations: 53
+
+      performance:
+        quality_score: 0.96
+        user_satisfaction: 0.94
+        time_to_value: 200
+
+      routing:
+        best_for: ["spec validation", "quality assurance"]
+        not_suitable_for: ["initial spec creation", "implementation"]
+        prerequisites: ["spec-writer"]
+
+    - name: contract-designer
+      version: 2.0.0
+      path: .claude/agents/agent-os/contract-designer.md
+      description: Create unified API contracts shared between frontend and backend before implementation
+      tools: [Write, Read, Bash, WebFetch, Glob, Grep]
+      model: inherit
+      color: cyan
+
+      capabilities:
+        - api_contract_design
+        - type_definition
+        - error_schema_creation
+        - frontend_backend_alignment
+
+      metrics:
+        avg_cost_per_invocation: 0.20
+        avg_execution_time: 240
+        success_rate: 0.94
+        total_invocations: 41
+
+      performance:
+        quality_score: 0.92
+        user_satisfaction: 0.90
+        time_to_value: 280
+
+      routing:
+        best_for: ["API design", "contract definition", "full-stack alignment"]
+        not_suitable_for: ["implementation", "UI design"]
+        prerequisites: ["spec-writer", "spec-verifier"]
+
+    - name: integration-architect
+      version: 2.0.0
+      path: .claude/agents/agent-os/integration-architect.md
+      description: Design the integration layer connecting frontend to backend with state management, data fetching, and error handling patterns
+      tools: [Write, Read, Bash, WebFetch, Glob, Grep]
+      model: inherit
+      color: magenta
+
+      capabilities:
+        - integration_design
+        - state_management_patterns
+        - data_fetching_strategies
+        - error_handling_patterns
+
+      metrics:
+        avg_cost_per_invocation: 0.19
+        avg_execution_time: 220
+        success_rate: 0.93
+        total_invocations: 38
+
+      performance:
+        quality_score: 0.91
+        user_satisfaction: 0.89
+        time_to_value: 260
+
+      routing:
+        best_for: ["frontend-backend integration", "state management", "data flow design"]
+        not_suitable_for: ["backend-only features", "pure UI components"]
+        prerequisites: ["contract-designer"]
+
+    - name: tasks-list-creator
+      version: 2.0.0
+      path: .claude/agents/agent-os/tasks-list-creator.md
+      description: Create strategically organized task list for spec development with dependencies and tests
+      tools: [Write, Read, Bash, WebFetch, Skill]
+      model: inherit
+      color: teal
+
+      capabilities:
+        - task_breakdown
+        - dependency_management
+        - test_planning
+        - implementation_sequencing
+
+      metrics:
+        avg_cost_per_invocation: 0.16
+        avg_execution_time: 200
+        success_rate: 0.96
+        total_invocations: 64
+
+      performance:
+        quality_score: 0.94
+        user_satisfaction: 0.92
+        time_to_value: 240
+
+      routing:
+        best_for: ["task planning", "dependency mapping", "work breakdown"]
+        not_suitable_for: ["implementation", "design"]
+        prerequisites: ["spec-verifier"]
+
+    - name: implementer
+      version: 2.0.0
+      path: .claude/agents/agent-os/implementer.md
+      description: Execute feature implementations by following tasks.md with full-stack expertise
+      tools: [Write, Read, Edit, Bash, WebFetch, Playwright, Skill]
+      model: inherit
+      color: red
+
+      capabilities:
+        - full_stack_development
+        - test_driven_development
+        - ui_implementation
+        - api_implementation
+        - database_operations
+
+      metrics:
+        avg_cost_per_invocation: 0.45
+        avg_execution_time: 900
+        success_rate: 0.89
+        total_invocations: 112
+
+      performance:
+        quality_score: 0.88
+        user_satisfaction: 0.85
+        time_to_value: 1200
+
+      routing:
+        best_for: ["code implementation", "TDD", "full-stack development"]
+        not_suitable_for: ["planning", "design", "architecture"]
+        prerequisites: ["tasks-list-creator"]
+
+    - name: implementation-verifier
+      version: 2.0.0
+      path: .claude/agents/agent-os/implementation-verifier.md
+      description: Verify complete end-to-end implementation of specifications
+      tools: [Write, Read, Bash, WebFetch, Playwright]
+      model: inherit
+      color: indigo
+
+      capabilities:
+        - end_to_end_testing
+        - implementation_verification
+        - acceptance_testing
+        - documentation_validation
+
+      metrics:
+        avg_cost_per_invocation: 0.28
+        avg_execution_time: 360
+        success_rate: 0.92
+        total_invocations: 87
+
+      performance:
+        quality_score: 0.90
+        user_satisfaction: 0.88
+        time_to_value: 420
+
+      routing:
+        best_for: ["verification", "acceptance testing", "quality assurance"]
+        not_suitable_for: ["implementation", "design"]
+        prerequisites: ["implementer"]
+
+    - name: full-stack-verifier
+      version: 2.0.0
+      path: .claude/agents/agent-os/full-stack-verifier.md
+      description: Verify end-to-end integration between frontend and backend, ensuring contract compliance and data flow
+      tools: [Write, Read, Bash, WebFetch, Playwright, Glob, Grep]
+      model: inherit
+      color: violet
+
+      capabilities:
+        - contract_compliance_testing
+        - integration_verification
+        - data_flow_validation
+        - end_to_end_testing
+
+      metrics:
+        avg_cost_per_invocation: 0.32
+        avg_execution_time: 420
+        success_rate: 0.91
+        total_invocations: 52
+
+      performance:
+        quality_score: 0.89
+        user_satisfaction: 0.87
+        time_to_value: 480
+
+      routing:
+        best_for: ["full-stack verification", "contract testing", "integration validation"]
+        not_suitable_for: ["unit testing", "implementation"]
+        prerequisites: ["implementer", "contract-designer"]
+
+# Product Management - Feature Lifecycle & Market Intelligence
+product_management:
+  description: "Agents for product lifecycle management and market intelligence"
+  agent_count: 10
+
+  agents:
+    - name: master-orchestrator
+      version: 2.0.0
+      path: .claude/agents/product-management/master-orchestrator.md
+      description: Coordinate complex product workflows across multiple specialized agents
+      tools: [Write, Read, Bash, WebFetch, Task]
+      model: inherit
+      color: gold
+
+      capabilities:
+        - workflow_orchestration
+        - agent_coordination
+        - decision_routing
+        - context_management
+
+      metrics:
+        avg_cost_per_invocation: 0.35
+        avg_execution_time: 480
+        success_rate: 0.94
+        total_invocations: 67
+
+      performance:
+        quality_score: 0.93
+        user_satisfaction: 0.91
+        time_to_value: 540
+
+      routing:
+        best_for: ["complex workflows", "multi-agent coordination", "product launches"]
+        not_suitable_for: ["simple tasks", "single-domain operations"]
+        prerequisites: []
+
+    - name: rollout-coordinator
+      version: 2.0.0
+      path: .claude/agents/product-management/feature-lifecycle/rollout-coordinator.md
+      description: Manage feature rollout strategies including phased releases and canary deployments
+      tools: [Write, Read, Bash, WebFetch]
+      model: inherit
+      color: emerald
+
+      capabilities:
+        - rollout_planning
+        - phased_releases
+        - canary_deployments
+        - rollback_coordination
+
+      metrics:
+        avg_cost_per_invocation: 0.24
+        avg_execution_time: 300
+        success_rate: 0.95
+        total_invocations: 43
+
+      performance:
+        quality_score: 0.93
+        user_satisfaction: 0.90
+        time_to_value: 360
+
+      routing:
+        best_for: ["feature rollouts", "phased releases", "deployment coordination"]
+        not_suitable_for: ["development", "testing"]
+        prerequisites: []
+
+    - name: adoption-tracker
+      version: 2.0.0
+      path: .claude/agents/product-management/feature-lifecycle/adoption-tracker.md
+      description: Track feature adoption metrics and identify improvement opportunities
+      tools: [Write, Read, Bash, WebFetch]
+      model: inherit
+      color: amber
+
+      capabilities:
+        - adoption_metrics
+        - usage_analysis
+        - improvement_identification
+        - trend_tracking
+
+      metrics:
+        avg_cost_per_invocation: 0.18
+        avg_execution_time: 220
+        success_rate: 0.96
+        total_invocations: 58
+
+      performance:
+        quality_score: 0.94
+        user_satisfaction: 0.92
+        time_to_value: 260
+
+      routing:
+        best_for: ["adoption analysis", "usage tracking", "metrics reporting"]
+        not_suitable_for: ["implementation", "deployment"]
+        prerequisites: ["rollout-coordinator"]
+
+    - name: deprecation-manager
+      version: 2.0.0
+      path: .claude/agents/product-management/feature-lifecycle/deprecation-manager.md
+      description: Manage feature deprecation lifecycle including communication and migration
+      tools: [Write, Read, Bash, WebFetch]
+      model: inherit
+      color: rose
+
+      capabilities:
+        - deprecation_planning
+        - migration_strategies
+        - user_communication
+        - sunset_coordination
+
+      metrics:
+        avg_cost_per_invocation: 0.21
+        avg_execution_time: 270
+        success_rate: 0.93
+        total_invocations: 29
+
+      performance:
+        quality_score: 0.91
+        user_satisfaction: 0.88
+        time_to_value: 320
+
+      routing:
+        best_for: ["feature deprecation", "migration planning", "user communication"]
+        not_suitable_for: ["new feature development", "testing"]
+        prerequisites: []
+
+    - name: playbook-engine
+      version: 2.0.0
+      path: .claude/agents/product-management/customer-success/playbook-engine.md
+      description: Execute customer success playbooks for common scenarios
+      tools: [Write, Read, Bash, WebFetch, Task]
+      model: inherit
+      color: sky
+
+      capabilities:
+        - playbook_execution
+        - customer_onboarding
+        - churn_prevention
+        - expansion_opportunities
+
+      metrics:
+        avg_cost_per_invocation: 0.27
+        avg_execution_time: 340
+        success_rate: 0.94
+        total_invocations: 61
+
+      performance:
+        quality_score: 0.92
+        user_satisfaction: 0.90
+        time_to_value: 400
+
+      routing:
+        best_for: ["customer success", "playbook execution", "onboarding"]
+        not_suitable_for: ["product development", "technical implementation"]
+        prerequisites: []
+
+    - name: health-monitor
+      version: 2.0.0
+      path: .claude/agents/product-management/customer-success/health-monitor.md
+      description: Monitor customer health scores and predict churn risk
+      tools: [Write, Read, Bash, WebFetch]
+      model: inherit
+      color: lime
+
+      capabilities:
+        - health_scoring
+        - churn_prediction
+        - engagement_tracking
+        - risk_assessment
+
+      metrics:
+        avg_cost_per_invocation: 0.19
+        avg_execution_time: 230
+        success_rate: 0.95
+        total_invocations: 74
+
+      performance:
+        quality_score: 0.93
+        user_satisfaction: 0.91
+        time_to_value: 280
+
+      routing:
+        best_for: ["health monitoring", "churn prediction", "customer analytics"]
+        not_suitable_for: ["product development", "implementation"]
+        prerequisites: []
+
+    - name: trend-analyzer
+      version: 2.0.0
+      path: .claude/agents/product-management/market-intelligence/trend-analyzer.md
+      description: Analyze market trends and identify product opportunities
+      tools: [Write, Read, Bash, WebFetch, WebSearch]
+      model: inherit
+      color: fuchsia
+
+      capabilities:
+        - trend_analysis
+        - opportunity_identification
+        - market_research
+        - competitive_intelligence
+
+      metrics:
+        avg_cost_per_invocation: 0.31
+        avg_execution_time: 390
+        success_rate: 0.92
+        total_invocations: 47
+
+      performance:
+        quality_score: 0.90
+        user_satisfaction: 0.88
+        time_to_value: 450
+
+      routing:
+        best_for: ["market research", "trend analysis", "opportunity discovery"]
+        not_suitable_for: ["implementation", "testing"]
+        prerequisites: []
+
+    - name: competitor-watcher
+      version: 2.0.0
+      path: .claude/agents/product-management/market-intelligence/competitor-watcher.md
+      description: Monitor competitor activities and product changes
+      tools: [Write, Read, Bash, WebFetch, WebSearch]
+      model: inherit
+      color: orange
+
+      capabilities:
+        - competitor_monitoring
+        - feature_comparison
+        - pricing_analysis
+        - positioning_insights
+
+      metrics:
+        avg_cost_per_invocation: 0.26
+        avg_execution_time: 320
+        success_rate: 0.93
+        total_invocations: 51
+
+      performance:
+        quality_score: 0.91
+        user_satisfaction: 0.89
+        time_to_value: 380
+
+      routing:
+        best_for: ["competitor analysis", "market intelligence", "positioning"]
+        not_suitable_for: ["implementation", "customer success"]
+        prerequisites: []
+
+    - name: deployment-guard
+      version: 2.0.0
+      path: .claude/agents/product-management/devops-pipeline/deployment-guard.md
+      description: Validate deployment readiness and enforce quality gates
+      tools: [Write, Read, Bash, WebFetch]
+      model: inherit
+      color: slate
+
+      capabilities:
+        - deployment_validation
+        - quality_gates
+        - readiness_checks
+        - risk_assessment
+
+      metrics:
+        avg_cost_per_invocation: 0.22
+        avg_execution_time: 280
+        success_rate: 0.96
+        total_invocations: 83
+
+      performance:
+        quality_score: 0.95
+        user_satisfaction: 0.93
+        time_to_value: 320
+
+      routing:
+        best_for: ["deployment validation", "quality gates", "pre-deploy checks"]
+        not_suitable_for: ["development", "planning"]
+        prerequisites: []
+
+    - name: rollback-sentinel
+      version: 2.0.0
+      path: .claude/agents/product-management/devops-pipeline/rollback-sentinel.md
+      description: Monitor deployments and coordinate rollbacks when issues detected
+      tools: [Write, Read, Bash, WebFetch]
+      model: inherit
+      color: red
+
+      capabilities:
+        - deployment_monitoring
+        - issue_detection
+        - rollback_coordination
+        - incident_management
+
+      metrics:
+        avg_cost_per_invocation: 0.29
+        avg_execution_time: 350
+        success_rate: 0.94
+        total_invocations: 37
+
+      performance:
+        quality_score: 0.92
+        user_satisfaction: 0.90
+        time_to_value: 400
+
+      routing:
+        best_for: ["deployment monitoring", "rollback coordination", "incident response"]
+        not_suitable_for: ["development", "planning"]
+        prerequisites: ["deployment-guard"]
+
+# Routing Intelligence
+routing_intelligence:
+  description: "AI-powered agent selection and task routing"
+
+  # Task categorization for automatic routing
+  categories:
+    planning:
+      agents: [product-planner, spec-initializer, spec-shaper, tasks-list-creator]
+      confidence_threshold: 0.8
+
+    specification:
+      agents: [spec-writer, spec-verifier, contract-designer, integration-architect]
+      confidence_threshold: 0.85
+
+    implementation:
+      agents: [implementer]
+      confidence_threshold: 0.9
+
+    verification:
+      agents: [implementation-verifier, full-stack-verifier, spec-verifier]
+      confidence_threshold: 0.85
+
+    product_lifecycle:
+      agents: [rollout-coordinator, adoption-tracker, deprecation-manager]
+      confidence_threshold: 0.8
+
+    customer_success:
+      agents: [playbook-engine, health-monitor]
+      confidence_threshold: 0.8
+
+    market_intelligence:
+      agents: [trend-analyzer, competitor-watcher]
+      confidence_threshold: 0.75
+
+    devops:
+      agents: [deployment-guard, rollback-sentinel]
+      confidence_threshold: 0.9
+
+  # Fallback strategies
+  fallback:
+    default_agent: master-orchestrator
+    max_routing_attempts: 3
+    routing_timeout: 30  # seconds
+
+# Performance Baselines
+performance_baselines:
+  quality_score_threshold: 0.85
+  success_rate_threshold: 0.90
+  user_satisfaction_threshold: 0.85
+  cost_per_invocation_threshold: 0.50
+  execution_time_threshold: 600  # seconds
+
+  alerts:
+    - condition: quality_score < 0.85
+      severity: high
+      action: notify_team
+
+    - condition: success_rate < 0.85
+      severity: critical
+      action: escalate
+
+    - condition: avg_cost_per_invocation > 0.75
+      severity: medium
+      action: optimize_prompt
+
+# Version History
+changelog:
+  - version: 2.0.0
+    date: 2026-01-20
+    changes:
+      - "Added modern agent patterns (validation, retry, cost controls)"
+      - "Added performance metrics and routing intelligence"
+      - "Added 11 agent-os agents and 10 product-management agents"
+      - "Created comprehensive registry structure"
+
+  - version: 1.0.0
+    date: 2025-12-01
+    changes:
+      - "Initial registry creation"
+      - "Basic agent cataloging"
