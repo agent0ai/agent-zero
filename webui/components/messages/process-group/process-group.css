@@ -145,113 +145,82 @@
 /* GEN - agent type (blue/cyan) */
 .status-gen {
   --step-accent: #38bdf8;
-  color: var(--step-accent);
 }
 
 /* END - response/done type (green) */
 .status-end {
   --step-accent: #22c55e;
-  color: var(--step-accent);
 }
 
 /* USE - tool usage (amber/yellow) */
 .status-tool {
   --step-accent: #fbbf24;
-  color: var(--step-accent);
 }
 
 /* MCP - mcp type (amber/yellow) */
 .status-mcp {
   --step-accent: #fbbf24;
-  color: var(--step-accent);
 }
 
 /* SUB - subagent type (teal) */
 .status-sub {
   --step-accent: #14b8a6;
-  color: var(--step-accent);
 }
 
 /* EXE - code_exe type (magenta/purple) */
 .status-exe {
   --step-accent: #ba68c8;
-  color: var(--step-accent);
 }
 
-/* BRW - browser type (indigo) */
-.status-brw {
+/* WWW - browser type (indigo) */
+.status-www {
   --step-accent: #818cf8;
-  color: var(--step-accent);
 }
 
 /* WAIT - progress type (slate) */
 .status-wait {
   --step-accent: #94a3b8;
-  color: var(--step-accent);
 }
 
 /* INF - info type (gray) */
 .status-inf {
   --step-accent: #94a3b8;
-  color: var(--step-accent);
 }
 
 /* HNT - hint type (yellow-green) */
 .status-hnt {
   --step-accent: #a3e635;
-  color: var(--step-accent);
 }
 
 /* WRN - warning type (orange) */
 .status-wrn {
   --step-accent: #f97316;
-  color: var(--step-accent);
 }
 
 /* ERR - error type (red) */
 .status-err {
-  --step-accent: #ef4444;
-  color: var(--step-accent);
+  --step-accent: var(--color-error-text);
 }
 
 /* UTL - util type (gray-blue) */
 .status-utl {
   --step-accent: #64748b;
-  color: var(--step-accent);
 }
 
 /* USR - user type (sky) */
 .status-usr {
   --step-accent: #38bdf8;
+}
+
+
+.process-step .status-badge{
   color: var(--step-accent);
 }
 
-/* Animated spinner for active status (CSS-only, no Material Icons) */
-.status-badge.status-active::after {
-  content: "";
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border: 1.5px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-left: 4px;
-  flex-shrink: 0;
+.process-step .kvps-key{
+  color: var(--step-accent);
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Don't show spinner pseudo-element on END/ERR (they have their own indicators) */
-.status-badge.status-end::after,
-.status-badge.status-err::after {
-  display: none;
-}
-
-/* END status with checkmark icon (icon added via JS, no ::before needed) */
 
 /* Completed process group styling */
 .process-group-completed {
@@ -277,7 +246,8 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  margin-left: auto;
+  /* margin-left: auto; */
+  margin-left: 2em;
   font-size: 0.65rem;
   font-family: var(--font-family-code);
   color: var(--color-text);
@@ -293,6 +263,18 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+
+.process-group-header .group-metrics .metric-notifications {
+  font-weight: 600;
+}
+
+.process-group-header .group-metrics .metric-notifications[hidden] {
+  display: none;
+}
+
+.process-group-header .group-metrics .metric-notifications .material-symbols-outlined {
+  opacity: 0.85;
 }
 
 /* Legacy timestamp/duration (for backwards compatibility) */
@@ -316,7 +298,7 @@
 
 /* Process Group Content - Animated expand/collapse */
 .process-group-content {
-  display: grid;
+  /* display: grid; */
   grid-template-rows: 0fr;
   opacity: 0;
   margin-top: 0;
@@ -335,7 +317,7 @@
 }
 
 .process-group.expanded .process-group-content {
-  grid-template-rows: 1fr;
+  /* grid-template-rows: 1fr; */
   opacity: 1;
   margin-top: var(--spacing-xs);
   padding-top: var(--spacing-xs);
@@ -356,10 +338,6 @@
   flex-direction: column;
   padding: 0.1em;
   transition: background-color 0.15s ease;
-}
-
-.step-expanded {
-  padding: var(--spacing-xs) 0;
 }
 
 /* Utility/Info/Hint steps have subtle background tint */
@@ -390,16 +368,6 @@
   user-select: none;
   gap: 4px;
   min-height: 18px;
-}
-
-/* Step icon removed - using status badges instead */
-.process-step-header .step-icon {
-  display: none;
-}
-
-/* Step type label removed - using status badges instead */
-.process-step-header .step-type {
-  display: none;
 }
 
 /* Step title */
@@ -446,7 +414,6 @@
   transition: grid-template-rows 0.2s ease-out, opacity 0.15s ease-out, margin-top 0.2s ease-out;
   overflow: hidden;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scroll-behavior: smooth;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
   overscroll-behavior: contain; /* avoid scroll chaining */
@@ -488,7 +455,7 @@
 }
 
 .process-step.step-expanded > .process-step-detail > .process-step-detail-content {
-  max-height: 300px;
+  max-height: 350px;
   overflow-y: auto;
 }
 
@@ -500,13 +467,11 @@
   background-color: transparent;
   font-size: 0.7rem;
   line-height: 1.5;
-  max-height: 300px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scroll-behavior: smooth;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
-  overscroll-behavior: contain; /* avoid scroll chaining */
+  overscroll-behavior-x: contain; /* avoid scroll chaining */
 }
 
 .process-step-detail-content pre {
@@ -656,29 +621,49 @@
   margin: var(--spacing-xs) 0 0 0;
   padding: var(--spacing-xs);
   background: rgba(0, 0, 0, 0.8);
-  border-radius: 4px;
+  border-radius: 8px;
   color: #c9d1d9;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 200px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scroll-behavior: smooth;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-  overscroll-behavior: contain; /* avoid scroll chaining */
+  white-space: pre;
+  max-width: fit-content;
+  max-height: 300px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+  overscroll-behavior-x: contain;
 }
 
 .process-step-detail-content .terminal-output::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  width: 4px;
+  height: 4px;
+}
+
+.process-step-detail-content .terminal-output::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.process-step-detail-content .terminal-output::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.process-step-detail-content .terminal-output::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* Light mode terminal */
 .light-mode .process-step-detail-content .terminal-output {
   background: rgba(0, 0, 0, 0.05);
   color: black;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.light-mode .process-step-detail-content .terminal-output::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.light-mode .process-step-detail-content .terminal-output::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* Light mode adjustments */
@@ -728,7 +713,7 @@
   color: var(--step-accent);
 }
 
-.light-mode .status-brw {
+.light-mode .status-www {
   --step-accent: #4f46e5;
   color: var(--step-accent);
 }
@@ -754,7 +739,7 @@
 }
 
 .light-mode .status-err {
-  --step-accent: #b91c1c;
+  --step-accent: var(--color-error-text);
   color: var(--step-accent);
 }
 
@@ -774,9 +759,8 @@
   50% { opacity: 0.8; }
 }
 
-.process-step.loading .step-icon {
-  animation: pulse-step 1.2s ease-in-out infinite;
-}
+.step-title.shiny-text { color: transparent !important; -webkit-background-clip: text; background-clip: text; animation: shine 1s linear infinite; }
+    @keyframes shine { to { background-position: -100% center; } }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -784,16 +768,12 @@
     padding: var(--spacing-xs) var(--spacing-sm);
   }
   
-  .process-step-header .step-type {
-    display: none;
-  }
-  
   .process-step-header .step-title {
     font-size: 0.7rem;
   }
   
   .process-step-detail-content {
-    margin-left: 16px;
+    margin-left: 0;
   }
 }
 
@@ -805,10 +785,6 @@
 /* Utility steps - default hidden (controlled by showUtils) */
 .process-step.message-util {
   display: none;
-}
-
-.process-step.message-util.show-util {
-  display: flex;
 }
 
 /* Thoughts KVP row */
@@ -880,7 +856,6 @@
   opacity: 0.9;
   margin: var(--spacing-xs) 0;
   padding: var(--spacing-xs);
-  background: rgba(255, 165, 0, 0.08);
   border-left: 2px solid var(--color-warning);
   border-radius: 3px;
 }
@@ -910,3 +885,17 @@
 .light-mode .process-step-detail-content .screenshot-img:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+/* View Details button in step detail */
+.step-detail-actions {
+  display: flex;
+  padding-left: 18px;
+  min-height: 0; /* Required for grid collapse animation */
+}
+
+/* Hide View Details button when step is collapsed */
+.process-step:not(.step-expanded) > .process-step-detail > .step-detail-actions {
+  display: none;
+}
+
+

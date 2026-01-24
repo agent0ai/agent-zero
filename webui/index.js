@@ -11,6 +11,7 @@ import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
+import { applyModeSteps } from "/components/messages/process-group/process-group-dom.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -46,6 +47,9 @@ export async function sendMessage() {
     const hasAttachments = attachmentsWithUrls.length > 0;
 
     if (message || hasAttachments) {
+      // Sending a message is an explicit user intent to go to the bottom
+      forceScrollChatToBottom();
+
       let response;
       const messageId = generateGUID();
 
@@ -59,12 +63,12 @@ export async function sendMessage() {
         const heading =
           attachmentsWithUrls.length > 0
             ? "Uploading attachments..."
-            : "User message";
+            : "";
 
         // Render user message with attachments
-        setMessage(messageId, "user", heading, message, false, {
+        setMessage({ id: messageId, type: "user", heading, content: message, kvps: {
           // attachments: attachmentsWithUrls, // skip here, let the backend properly log them
-        });
+        }});
 
         // sleep one frame to render the message before upload starts - better UX
         sleep(0);
@@ -111,6 +115,17 @@ export async function sendMessage() {
   }
 }
 globalThis.sendMessage = sendMessage;
+
+function getChatHistoryEl() {
+  return document.getElementById("chat-history");
+}
+
+function forceScrollChatToBottom() {
+  const chatHistoryEl = getChatHistoryEl();
+  if (!chatHistoryEl) return;
+  chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+}
+globalThis.forceScrollChatToBottom = forceScrollChatToBottom;
 
 export function toastFetchError(text, error) {
   console.error(text, error);
@@ -185,8 +200,8 @@ async function updateUserTime() {
 updateUserTime();
 setInterval(updateUserTime, 1000);
 
-function setMessage(id, type, heading, content, temp, kvps = null, timestamp = null, durationMs = null, /* tokensIn = 0, tokensOut = 0, */ agentNumber = 0) {
-  const result = msgs.setMessage(id, type, heading, content, temp, kvps, timestamp, durationMs, /* tokensIn, tokensOut, */ agentNumber);
+function setMessage(...params) {
+  const result = msgs.setMessage(...params);
   const chatHistoryEl = document.getElementById("chat-history");
   if (preferencesStore.autoScroll && chatHistoryEl) {
     chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
@@ -474,16 +489,23 @@ function updateProgress(progress, active) {
   if (!progressBarEl) return;
   if (!progress) progress = "";
 
-  if (!active) {
-    removeClassFromElement(progressBarEl, "shiny-text");
-  } else {
-    addClassToElement(progressBarEl, "shiny-text");
-  }
+  setProgressBarShine(progressBarEl, active);
 
   progress = msgs.convertIcons(progress);
 
   if (progressBarEl.innerHTML != progress) {
     progressBarEl.innerHTML = progress;
+  }
+}
+
+function setProgressBarShine(progressBarEl, active) {
+  if (!progressBarEl) return;
+  if (!active) {
+    removeClassFromElement(progressBarEl, "shiny-text");
+    // clear any lingering shines in process steps
+    msgs.clearActiveStepShine();
+  } else {
+    addClassToElement(progressBarEl, "shiny-text");
   }
 }
 
@@ -518,9 +540,6 @@ export const setContext = function (id) {
 
   // Stop speech when switching chats
   speechStore.stopAudio();
-
-  // Reset process groups for new context
-  msgs.resetProcessGroups();
 
   // Clear the chat history immediately to avoid showing stale content
   const chatHistoryEl = document.getElementById("chat-history");
@@ -615,7 +634,8 @@ function scrollChanged(isAtBottom) {
 export function updateAfterScroll() {
   // const toleranceEm = 1; // Tolerance in em units
   // const tolerancePx = toleranceEm * parseFloat(getComputedStyle(document.documentElement).fontSize); // Convert em to pixels
-  const tolerancePx = 10;
+  // Larger trigger zone near bottom for autoscroll
+  const tolerancePx = 80;
   const chatHistory = document.getElementById("chat-history");
   if (!chatHistory) return;
 
@@ -626,6 +646,13 @@ export function updateAfterScroll() {
   scrollChanged(isAtBottom);
 }
 globalThis.updateAfterScroll = updateAfterScroll;
+
+import { store as _chatNavigationStore } from "/components/chat/navigation/chat-navigation-store.js";
+
+
+// Navigation logic in chat-navigation-store.js
+// forceScrollChatToBottom is kept here as it is used by system events
+
 
 // setInterval(poll, 250);
 

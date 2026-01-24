@@ -266,6 +266,9 @@ def _deserialize_log(data: dict[str, Any]) -> "Log":
     # Deserialize the list of LogItem objects
     i = 0
     for item_data in data.get("logs", []):
+        agentno = item_data.get("agentno")
+        if agentno is None:
+            agentno = item_data.get("agent_number", 0)
         log.logs.append(
             LogItem(
                 log=log,  # restore the log reference
@@ -274,12 +277,9 @@ def _deserialize_log(data: dict[str, Any]) -> "Log":
                 heading=item_data.get("heading", ""),
                 content=item_data.get("content", ""),
                 kvps=OrderedDict(item_data["kvps"]) if item_data["kvps"] else None,
-                temp=item_data.get("temp", False),
-                id=item_data.get("id", None),
-                # Pass metrics directly to constructor
                 timestamp=item_data.get("timestamp", 0.0),
-                duration_ms=item_data.get("duration_ms"),
-                agent_number=item_data.get("agent_number", 0),
+                agentno=agentno,
+                id=item_data.get("id"),
             )
         )
         log.updates.append(i)

@@ -68,7 +68,6 @@ class GetCsrfToken(ApiHandler):
         )
         return {"ok": match, "origin": origin, "allowed_origins": allowed_origins}
 
-
     def get_origin_from_request(self, request: Request):
         # get from origin
         r = request.headers.get("Origin") or request.environ.get("HTTP_ORIGIN")
@@ -91,7 +90,9 @@ class GetCsrfToken(ApiHandler):
         # get the allowed origins from the environment
         allowed_origins = [
             origin.strip()
-            for origin in (dotenv.get_dotenv_value(ALLOWED_ORIGINS_KEY) or "").split(",")
+            for origin in (dotenv.get_dotenv_value(ALLOWED_ORIGINS_KEY) or "").split(
+                ","
+            )
             if origin.strip()
         ]
 
@@ -112,7 +113,14 @@ class GetCsrfToken(ApiHandler):
         return allowed_origins
 
     def get_default_allowed_origins(self) -> list[str]:
-        return ["*://localhost:*", "*://127.0.0.1:*", "*://0.0.0.0:*"]
+        return [
+            "*://localhost",
+            "*://localhost:*",
+            "*://127.0.0.1",
+            "*://127.0.0.1:*",
+            "*://0.0.0.0",
+            "*://0.0.0.0:*",
+        ]
 
     def initialize_allowed_origins(self, request: Request):
         """

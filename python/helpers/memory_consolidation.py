@@ -130,7 +130,6 @@ class MemoryConsolidator:
             if log_item:
                 log_item.update(
                     progress="No similar memories found, inserting new memory",
-                    temp=True
                 )
             try:
                 db = await Memory.get(self.agent)
@@ -153,7 +152,6 @@ class MemoryConsolidator:
         if log_item:
             log_item.update(
                 progress=f"Found {len(similar_memories)} similar memories, analyzing...",
-                temp=True,
                 similar_memories_count=len(similar_memories)
             )
 
@@ -174,7 +172,6 @@ class MemoryConsolidator:
                 if log_item:
                     log_item.update(
                         progress=f"Filtered out {deleted_count} deleted memories, {len(valid_similar_memories)} remain for analysis",
-                        temp=True,
                         race_condition_detected=True,
                         deleted_similar_memories_count=deleted_count
                     )
@@ -185,7 +182,6 @@ class MemoryConsolidator:
             if log_item:
                 log_item.update(
                     progress="No valid similar memories remain, inserting new memory",
-                    temp=True
                 )
             try:
                 db = await Memory.get(self.agent)
@@ -220,7 +216,6 @@ class MemoryConsolidator:
             if log_item:
                 log_item.update(
                     progress="LLM analysis suggests skipping consolidation",
-                    temp=True
                 )
             try:
                 db = await Memory.get(self.agent)

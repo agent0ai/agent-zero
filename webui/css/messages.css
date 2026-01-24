@@ -17,7 +17,7 @@
   scrollbar-color: #555 transparent;
   padding-left: var(--spacing-sm);
   padding-right: var(--spacing-sm);
-  padding-bottom:5em;
+  padding-bottom: 5em;
 }
 
 #chat-history > *:first-child {
@@ -70,20 +70,25 @@
   margin: 0;
 }
 
-.center-container .message {
-  /* margin-bottom: var(--spacing-sm); */
-}
-
-.message .message-body {
-  /* padding-top: 0.5em;
-  padding-bottom: 0.5em; */
-}
-
-.message-user {
+.message.message-user {
   text-align: end;
   margin-bottom: var(--spacing-md);
+  width: 100%;
+}
+
+.message-user .message-user-heading {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-smaller);
+  color: var(--color-text-muted);
+}
+
+.message-user .message-text {
+  display: inline-block;
+  padding: var(--spacing-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
+  max-width: 80%;
+  width: auto;
 }
 
 .message-user > div {
@@ -111,18 +116,9 @@
   color: #2e2e2e;
 } */
 
-.message-ai {
-  /* border-bottom-left-radius: var(--spacing-xxs); */
-}
-
 .message-center {
   align-self: center;
   /* border-bottom-left-radius: unset; */
-}
-
-.message-followup {
-  /* margin-left: var(--spacing-lg); */
-  /* margin-bottom: var(--spacing-lg); */
 }
 
 .message-followup .message {
@@ -264,9 +260,9 @@
   white-space: nowrap;
 }
 
-.message-body code {
+/* .message-body code {
   white-space: break-spaces;
-}
+} */
 
 /* Light mode code-exe styling moved to main terminal block above */
 
@@ -287,11 +283,136 @@
   background-color: transparent;
 }
 
-.message-error {
-  background-color: rgba(180, 40, 40, 0.25);
-  border: 1px solid rgba(220, 60, 60, 0.5);
-  border-radius: 8px !important;
-  padding: 12px !important;
+/* Collapsible Error Group */
+
+.message-error-group {
+  background: transparent;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.error-group {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  margin: var(--spacing-xs) 0;
+  padding: var(--spacing-xs) 0;
+  min-width: 200px;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* Error Group Header */
+.error-group-header {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease;
+  min-height: 22px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.error-group-header:hover {
+  opacity: 0.85;
+}
+
+/* Expand/collapse triangle */
+.error-group-header .expand-icon {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent #ef4444;
+  opacity: 0.7;
+  transition:
+    transform 0.2s ease,
+    opacity 0.15s ease;
+  flex-shrink: 0;
+  font-size: 0;
+  margin-right: 2px;
+}
+
+.error-group-header:hover .expand-icon {
+  opacity: 1;
+}
+
+.error-group.expanded .error-group-header .expand-icon {
+  transform: rotate(90deg);
+}
+
+/* Error title */
+.error-group-header .error-title {
+  flex: 0 0 auto;
+  font-size: var(--font-size-medium);
+  font-weight: 600;
+  color: var(--color-error-text);
+}
+
+/* Error subtitle (short description) */
+.error-group-header .error-subtitle {
+  flex: 1 1 auto;
+  font-size: 0.75rem;
+  color: var(--color-text);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: var(--spacing-xs);
+  font-family: var(--font-family-code);
+}
+
+/* Error Group Content - Animated expand/collapse */
+.error-group-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  transition:
+    grid-template-rows 0.25s ease-out,
+    opacity 0.2s ease-out,
+    margin-top 0.25s ease-out,
+    padding-top 0.25s ease-out;
+  overflow: hidden;
+}
+
+.error-group-content > .error-content-inner {
+  min-height: 0;
+}
+
+.error-group.expanded .error-group-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+}
+
+.error-content-inner {
+  padding: var(--spacing-md);
+  border-radius: 8px;
+  /* border: 1px solid var(--color-error-text); */
+  margin-left: var(--spacing-md);
+}
+
+/* Callstack styling */
+.error-callstack {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-family-code);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--color-error-text);
+  max-height: 30vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-error-text) transparent;
 }
 
 /* Terminal styling moved to new terminal block above */
@@ -311,21 +432,24 @@
   width: 100%;
 }
 
+.kvps-val{
+  font-size: 0.75rem;
+}
+
 .kvps-val pre {
   white-space: pre-wrap; /* keep \n, collapse no spaces, allow wrapping */
   word-break: break-word; /* optional – forces really long “words” to break */
   font-family: var(--font-family-code);
   font-optical-sizing: auto;
   -webkit-font-optical-sizing: auto;
-  font-size: 0.75rem;
 }
 
 .msg-kvps th,
 .msg-kvps td {
-  align-content: center;
+  align-content: start;
   padding: 0.25rem;
   padding-left: 0;
-  text-align: left;
+  /* text-align: left; */
 }
 
 .msg-kvps th {
@@ -370,12 +494,6 @@
   opacity: 1;
 }
 
-/* Legacy copy button styles - DEPRECATED
- * These styles have been replaced by the new action buttons component
- * located at /components/messages/action-buttons/message-action-buttons.css
- * Remove this section after confirming all functionality works with action buttons
- */
-
 /* Make message containers relative for absolute positioning of copy buttons */
 .msg-content,
 .kvps-row,
@@ -394,12 +512,19 @@
 .kvps-key {
   font-weight: 500;
   font-size: var(--font-size-small);
-  min-width: 7em;
+  /* min-width: 7em; */
+  max-width: 10em;
+  text-align: right;
+}
+
+.kvps-key .material-symbols-outlined{
+  font-size: var(--font-size-smaller);
 }
 
 .kvps-val {
   /* margin: 0.65rem 0 0.65rem 0.4rem; */
   white-space: pre-wrap;
+  font-size: var(--font-size-small);
 }
 
 .kvps-img {
@@ -415,18 +540,6 @@
   width: 100%;
 }
 
-.msg-json {
-  display: none;
-}
-
-.msg-thoughts {
-  display: auto;
-}
-
-.msg-thoughts .kvps-val {
-  max-height: 20em;
-  overflow: auto;
-}
 
 .msg-content {
   margin-bottom: 0;
@@ -434,13 +547,6 @@
   overflow: hidden;
 }
 
-.message-temp {
-  display: none;
-}
-
-.message-temp:not([style*="display: none"]):last-of-type {
-  display: block; /* or any style you want for visibility */
-}
 
 /* Math (KaTeX) */
 .katex {
@@ -449,17 +555,17 @@
 }
 
 /* Media Queries */
-@media (min-width: 55em) {
+/* Chat width controlled by --chat-max-width CSS variable (set via preferences, default 55em) */
+@media (min-width: 1025px) {
   #chat-history {
-    padding-left: max(var(--spacing-sm), calc((100% - 55em) / 2)) !important;
-    padding-right: max(var(--spacing-sm), calc((100% - 55em) / 2)) !important;
-  }
-}
-
-@media (min-width: 1025px) and (max-width: 55em) {
-  #chat-history {
-    padding-left: var(--spacing-sm) !important;
-    padding-right: var(--spacing-sm) !important;
+    padding-left: max(
+      var(--spacing-sm),
+      calc((100% - var(--chat-max-width, 55em)) / 2)
+    ) !important;
+    padding-right: max(
+      var(--spacing-sm),
+      calc((100% - var(--chat-max-width, 55em)) / 2)
+    ) !important;
   }
 }
 
@@ -518,12 +624,6 @@
   border-bottom: none;
 }
 
-.light-mode .message-error {
-  background-color: rgba(220, 60, 60, 0.15);
-  border: 1px solid rgba(180, 40, 40, 0.4);
-  color: #8f1010;
-}
-
 .light-mode .message-user {
   color: #4e4e4e;
 }
@@ -538,8 +638,19 @@
 }
 
 .message-agent-response .msg-content img {
-  max-width: 100%;
-  max-height: 100em;
+  margin: var(--spacing-xs);
+  max-width: 25em;
+  max-height: 25em;
+  border-radius: var(--border-radius);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-panel) 0 10px,
+    var(--color-chat-background) 10px 20px
+  );
+}
+
+.message-agent-response .msg-content .message-markdown-image-wrap img:hover {
+  transform: translateY(-2px);
 }
 
 .msg-content h1 {
@@ -653,20 +764,23 @@
 .message-group-right {
   width: 100%;
   justify-content: end;
-  margin-top: 5em;
-  margin-bottom:5em;
-}
-
-.message-group-mid {
-  margin-left: 2em;
+  margin-top: 4em;
+  margin-bottom: 4em;
 }
 
 .message-container {
-  animation: fadeIn 0.5s;
-  -webkit-animation: fadeIn 0.5s;
+  animation: fadeIn 0.2s;
+  -webkit-animation: fadeIn 0.2s;
   /* margin-bottom: var(--spacing-sm); */
   width: 100%;
   max-width: 100%;
+  scroll-margin-top: 60px; /* Ensure nice spacing when scrolling into view */
+}
+
+/* User messages appear instantly */
+.message-container.user-container {
+  animation: none !important;
+  -webkit-animation: none !important;
 }
 
 .message {

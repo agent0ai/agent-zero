@@ -884,7 +884,7 @@ class TaskScheduler:
                 # Log the message with message_id and attachments
                 context.log.log(
                     type="user",
-                    heading="User message",
+                    heading="",
                     content=task_prompt,
                     kvps={"attachments": attachment_filenames},
                     id=str(uuid.uuid4()),
