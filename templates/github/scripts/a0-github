@@ -1,0 +1,72 @@
+#!/bin/bash
+# ===========================================
+# a0-github - Agent Zero GitHub CLI
+# ===========================================
+
+# Use absolute path to templates directory
+TEMPLATE_DIR="/a0/templates/github"
+SCRIPT_DIR="$TEMPLATE_DIR/scripts"
+BOOTSTRAP="$SCRIPT_DIR/bootstrap.py"
+AUDIT="$SCRIPT_DIR/audit.py"
+DETECTOR="$SCRIPT_DIR/project_detector.py"
+
+show_help() {
+    echo "🚀 a0-github - Agent Zero GitHub CLI"
+    echo ""
+    echo "Commands:"
+    echo "  init [--tier TIER] [PATH]   Initialize project with templates"
+    echo "  audit [--tier TIER] [PATH]  Audit project against best practices"
+    echo "  fix [--tier TIER] [PATH]    Audit and auto-fix missing files"
+    echo "  detect [PATH]               Check if project needs GitHub setup"
+    echo "  list-tiers                  Show available template tiers"
+    echo "  help                        Show this help message"
+    echo ""
+    echo "Tiers: minimal, standard (default), full"
+    echo ""
+    echo "Examples:"
+    echo "  a0-github init                        # Standard tier, current dir"
+    echo "  a0-github init --tier full ~/project  # Full tier, specific path"
+    echo "  a0-github audit --tier full           # Audit against full tier"
+    echo "  a0-github detect /path/to/project     # Check setup status"
+    echo "  a0-github fix                         # Fix missing standard files"
+}
+
+list_tiers() {
+    echo "📋 Available Template Tiers"
+    echo ""
+    echo "  minimal   - Quick experiments, basic .gitignore + 5 pre-commit hooks"
+    echo "  standard  - Most projects (default), + flake8, security, basic CI"
+    echo "  full      - Production-grade, + pylint, markdownlint, comprehensive CI"
+    echo ""
+    echo "Use --tier TIER to specify (default: standard)"
+}
+
+case "${1:-help}" in
+    init)
+        shift
+        python "$BOOTSTRAP" "$@"
+        ;;
+    audit)
+        shift
+        python "$AUDIT" "$@"
+        ;;
+    fix)
+        shift
+        python "$AUDIT" --fix "$@"
+        ;;
+    detect|check|status)
+        shift
+        python "$DETECTOR" "$@"
+        ;;
+    list-tiers|tiers)
+        list_tiers
+        ;;
+    help|--help|-h|"")
+        show_help
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo "Run 'a0-github help' for usage"
+        exit 1
+        ;;
+esac

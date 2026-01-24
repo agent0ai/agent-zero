@@ -1,0 +1,84 @@
+# ============================================
+# Agent Zero GitHub Template - FULL Tier
+# Version: 1.0.0
+# ============================================
+
+# Agent Zero specific
+.a0proj/
+*.a0session
+/a0/tmp/
+work/chats/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.env
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+*.coverage
+.tox/
+.nox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+.spyderproject
+.spyproject
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Large media files (GitHub 100MB limit)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.zip
+*.tar.gz
+*.rar
+
+# Secrets (use A0 secrets system instead)
+*.pem
+*.key
+*.p12
+secrets.json
+credentials.json
+
+# Project backups (keep in separate location)
+backups/
+
+# Node (if using JS tools like markdownlint)
+node_modules/
+.npm/
+package-lock.json
+
+# Documentation builds
+docs/_build/
+site/

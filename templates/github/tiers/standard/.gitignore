@@ -1,0 +1,47 @@
+# ============================================
+# Agent Zero GitHub Template - STANDARD Tier
+# Version: 1.0.0
+# ============================================
+
+# Agent Zero specific
+.a0proj/
+*.a0session
+/a0/tmp/
+work/chats/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.env
+.venv/
+pip-log.txt
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/

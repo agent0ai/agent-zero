@@ -1,0 +1,132 @@
+# ============================================
+# Agent Zero GitHub Template - FULL Tier
+# Comprehensive CI Pipeline
+# Version: 1.0.0
+# ============================================
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-python:
+    name: Python Linting
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pylint
+
+    - name: Run flake8
+      run: |
+        flake8 . --count --show-source --statistics
+
+    - name: Run pylint
+      run: |
+        pylint **/*.py --fail-under=7.0 || true
+
+  lint-markdown:
+    name: Markdown Linting
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install markdownlint
+      run: npm install -g markdownlint-cli
+
+    - name: Run markdownlint
+      run: |
+        markdownlint '**/*.md' --ignore node_modules --ignore venv || true
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install security tools
+      run: |
+        pip install bandit safety
+
+    - name: Run Bandit
+      run: |
+        bandit -r . -x ./venv,./backups --severity-level medium || true
+
+    - name: Check for hardcoded secrets
+      run: |
+        echo "Checking for potential secrets..."
+        ! grep -rE "(password|secret|api_key|token)\s*=\s*['"][^'"]+['"]" --include="*.py" . || echo "Warning: Review matches above"
+
+  secret-detection:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: TruffleHog Secret Scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        extra_args: --only-verified
+
+  tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Run tests with coverage
+      run: |
+        pytest tests/ -v --tb=short           --cov=src           --cov-report=term-missing           --cov-report=xml:coverage.xml           --cov-fail-under=20 || true
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage.xml
+        retention-days: 30

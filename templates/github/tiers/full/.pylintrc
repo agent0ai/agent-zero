@@ -1,0 +1,30 @@
+# ============================================
+# Agent Zero GitHub Template - Pylint Config
+# Version: 1.0.0
+# ============================================
+
+[MAIN]
+ignore=venv,backups,build,dist
+ignore-patterns=test_.*
+
+[MESSAGES CONTROL]
+disable=
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    R0903,  # too-few-public-methods
+    W0511,  # fixme
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-args=7
+max-locals=15
+max-returns=6
+max-branches=12
+
+[SIMILARITIES]
+min-similarity-lines=6
+ignore-comments=yes
+ignore-docstrings=yes

@@ -1,0 +1,36 @@
+# ============================================
+# Agent Zero GitHub Template - STANDARD Tier
+# Pre-commit hooks with Python linting & security
+# Version: 1.0.0
+# ============================================
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(backups/)
+      - id: end-of-file-fixer
+        exclude: ^(backups/)
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: detect-private-key
+
+  # Python code quality
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--max-line-length=120', '--ignore=E501,W503']
+        exclude: ^(backups/|venv/)
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.7
+    hooks:
+      - id: bandit
+        args: ['-ll', '-q']  # Low severity, quiet
+        exclude: ^(backups/|venv/|tests/)

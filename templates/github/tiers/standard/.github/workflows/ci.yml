@@ -1,0 +1,56 @@
+# ============================================
+# Agent Zero GitHub Template - STANDARD Tier
+# Basic CI Pipeline
+# Version: 1.0.0
+# ============================================
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    name: Python Linting
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+
+    - name: Run flake8
+      run: |
+        flake8 . --count --show-source --statistics
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install bandit
+      run: pip install bandit
+
+    - name: Run Bandit
+      run: |
+        bandit -r . -x ./venv,./tests --severity-level medium || true

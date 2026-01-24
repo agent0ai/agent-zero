@@ -1,0 +1,24 @@
+# ============================================
+# Agent Zero GitHub Template - MINIMAL Tier
+# Version: 1.0.0
+# ============================================
+
+# Agent Zero specific
+.a0proj/
+*.a0session
+
+# Python basics
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
