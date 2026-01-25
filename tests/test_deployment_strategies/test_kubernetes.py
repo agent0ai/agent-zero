@@ -1,5 +1,8 @@
 # tests/test_deployment_strategies/test_kubernetes.py
+from unittest.mock import MagicMock, patch
+
 import pytest
+from kubernetes.client.exceptions import ApiException
 
 from python.tools.deployment_strategies.kubernetes import KubernetesStrategy
 
@@ -43,15 +46,37 @@ async def test_kubernetes_execute_deployment_returns_success():
     """Test that execute_deployment returns success result"""
     strategy = KubernetesStrategy()
 
-    config = {"kubectl_context": "test-cluster", "manifest_path": "k8s/test/", "deployment_name": "test-api"}
+    config = {
+        "kubectl_context": "test-cluster",
+        "manifest_path": "tests/fixtures/k8s/deployment.yaml",
+        "deployment_name": "test-api",
+    }
 
-    # This is a mock test - real implementation would use subprocess
-    result = None
-    async for item in strategy.execute_deployment(config):
-        result = item
+    # Mock kubernetes client
+    with patch("kubernetes.config.load_kube_config"):
+        with patch("kubernetes.client.ApiClient"):
+            with patch("kubernetes.client.AppsV1Api") as mock_apps_api:
+                with patch("kubernetes.client.CoreV1Api"):
+                    # Mock deployment status for rollout waiting
+                    mock_deployment = MagicMock()
+                    mock_deployment.metadata.name = "test-api"
+                    mock_deployment.spec.replicas = 3
+                    mock_deployment.status.updated_replicas = 3
+                    mock_deployment.status.ready_replicas = 3
+                    mock_deployment.status.available_replicas = 3
 
-    assert result["status"] == "success"
-    assert "deployment_name" in result
+                    mock_api_instance = mock_apps_api.return_value
+                    mock_api_instance.read_namespaced_deployment.side_effect = [
+                        ApiException(status=404),
+                        mock_deployment,
+                    ]
+
+                    result = None
+                    async for item in strategy.execute_deployment(config):
+                        result = item
+
+                    assert result["status"] == "success"
+                    assert "deployment_name" in result
 
 
 @pytest.mark.asyncio
@@ -72,11 +97,79 @@ async def test_kubernetes_smoke_tests_check_http_endpoint():
 async def test_kubernetes_rollback_undoes_deployment():
     """Test that rollback executes kubectl rollout undo"""
     strategy = KubernetesStrategy()
-    strategy.last_deployment = "api-server"
 
-    # This is a mock test - real implementation would use subprocess
-    result = None
-    async for item in strategy.rollback():
-        result = item
+    # Set up deployment metadata (normally set by execute_deployment)
+    strategy.last_deployment_metadata = {
+        "deployment_name": "api-server",
+        "namespace": "default",
+        "kubectl_context": "test-context",
+        "timestamp": 1234567890.0,
+    }
 
-    assert result["rollback_successful"]
+    # Mock kubernetes client
+    with patch("kubernetes.config.load_kube_config"):
+        with patch("kubernetes.client.ApiClient"):
+            with patch("kubernetes.client.AppsV1Api") as mock_apps_api:
+                with patch("kubernetes.client.CoreV1Api"):
+                    # Mock deployment for rollback
+                    mock_deployment = MagicMock()
+                    mock_deployment.metadata.name = "api-server"
+                    mock_deployment.metadata.annotations = {"deployment.kubernetes.io/revision": "3"}
+                    mock_deployment.spec.replicas = 3
+                    mock_deployment.status.updated_replicas = 3
+                    mock_deployment.status.ready_replicas = 3
+                    mock_deployment.status.available_replicas = 3
+
+                    mock_api_instance = mock_apps_api.return_value
+                    mock_api_instance.read_namespaced_deployment.return_value = mock_deployment
+
+                    result = None
+                    async for item in strategy.rollback():
+                        result = item
+
+                    assert result["rollback_successful"]
+
+
+@pytest.mark.asyncio
+async def test_kubernetes_real_deployment_with_mock():
+    """Test real Kubernetes deployment logic with mocked client"""
+    strategy = KubernetesStrategy()
+
+    config = {
+        "kubectl_context": "test-context",
+        "namespace": "default",
+        "manifest_path": "tests/fixtures/k8s/deployment.yaml",
+        "deployment_name": "test-app",
+    }
+
+    # Mock kubernetes client
+    with patch("kubernetes.config.load_kube_config"):
+        with patch("kubernetes.client.ApiClient"):
+            with patch("kubernetes.client.AppsV1Api") as mock_apps_api:
+                with patch("kubernetes.client.CoreV1Api"):
+                    # Mock deployment status for rollout waiting
+                    mock_deployment = MagicMock()
+                    mock_deployment.metadata.name = "test-app"
+                    mock_deployment.spec.replicas = 3
+                    mock_deployment.status.updated_replicas = 3
+                    mock_deployment.status.ready_replicas = 3
+                    mock_deployment.status.available_replicas = 3
+
+                    # First call for create/update check (404 = not found)
+                    # Second+ calls for rollout waiting (return ready deployment)
+                    mock_api_instance = mock_apps_api.return_value
+                    mock_api_instance.read_namespaced_deployment.side_effect = [
+                        ApiException(status=404),  # Not found, will create
+                        mock_deployment,  # Rollout check - ready
+                    ]
+
+                    result = None
+                    async for update in strategy.execute_deployment(config, "rolling"):
+                        if update.get("type") != "progress":
+                            result = update
+
+                    assert result["status"] == "success"
+                    assert result["deployment_name"] == "test-app"
+
+                    # Verify deployment was created
+                    mock_api_instance.create_namespaced_deployment.assert_called_once()
