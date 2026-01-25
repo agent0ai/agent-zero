@@ -57,6 +57,9 @@ instruments/custom/**/__pycache__/**
 # for browser-use
 agent_history.gif
 
+# Git worktrees directory
+.worktrees/
+
 # Ollama Models - Stored in GCP Bucket
 # Download with: ./scripts/gcp_models_sync.sh download
 ollama_models/models/
