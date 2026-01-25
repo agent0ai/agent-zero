@@ -36,7 +36,9 @@ async def test_aws_execute_deployment_returns_success():
 
     config = {"service": "ecs", "cluster": "prod-cluster", "task_definition": "api-server"}
 
-    result = await strategy.execute_deployment(config)
+    result = None
+    async for item in strategy.execute_deployment(config):
+        result = item
 
     assert result["status"] == "success"
     assert "deployment_id" in result

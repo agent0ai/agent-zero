@@ -1,4 +1,5 @@
 # python/tools/deployment_strategies/kubernetes.py
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from python.tools.deployment_strategies.base import DeploymentStrategy
@@ -16,6 +17,7 @@ class KubernetesStrategy(DeploymentStrategy):
     """
 
     def __init__(self):
+        super().__init__()
         self.last_deployment = None
 
     async def validate_config(self, config: dict[str, Any]) -> bool:
@@ -28,7 +30,9 @@ class KubernetesStrategy(DeploymentStrategy):
 
         return True
 
-    async def execute_deployment(self, config: dict[str, Any]) -> dict[str, Any]:
+    async def execute_deployment(
+        self, config: dict[str, Any], deployment_mode: str = "rolling"
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Execute Kubernetes deployment.
 
@@ -38,7 +42,7 @@ class KubernetesStrategy(DeploymentStrategy):
         deployment_name = config.get("deployment_name", "unknown")
         self.last_deployment = deployment_name
 
-        return {"status": "success", "deployment_name": deployment_name, "message": "Deployed to Kubernetes cluster"}
+        yield {"status": "success", "deployment_name": deployment_name, "message": "Deployed to Kubernetes cluster"}
 
     async def run_smoke_tests(self, config: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         """
@@ -51,14 +55,14 @@ class KubernetesStrategy(DeploymentStrategy):
 
         return True, results
 
-    async def rollback(self) -> dict[str, Any]:
+    async def rollback(self) -> AsyncGenerator[dict[str, Any], None]:
         """
         Rollback Kubernetes deployment.
 
         POC Implementation: Returns simulated success.
         Full implementation will run: kubectl rollout undo deployment/{name}
         """
-        return {
+        yield {
             "rollback_successful": True,
             "deployment": self.last_deployment,
             "message": f"Rolled back {self.last_deployment}",

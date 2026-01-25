@@ -46,7 +46,9 @@ async def test_kubernetes_execute_deployment_returns_success():
     config = {"kubectl_context": "test-cluster", "manifest_path": "k8s/test/", "deployment_name": "test-api"}
 
     # This is a mock test - real implementation would use subprocess
-    result = await strategy.execute_deployment(config)
+    result = None
+    async for item in strategy.execute_deployment(config):
+        result = item
 
     assert result["status"] == "success"
     assert "deployment_name" in result
@@ -73,6 +75,8 @@ async def test_kubernetes_rollback_undoes_deployment():
     strategy.last_deployment = "api-server"
 
     # This is a mock test - real implementation would use subprocess
-    result = await strategy.rollback()
+    result = None
+    async for item in strategy.rollback():
+        result = item
 
     assert result["rollback_successful"]

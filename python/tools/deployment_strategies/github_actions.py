@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from python.tools.deployment_strategies.base import DeploymentStrategy
@@ -14,6 +15,7 @@ class GitHubActionsStrategy(DeploymentStrategy):
     """
 
     def __init__(self):
+        super().__init__()
         self.last_repository = None
         self.last_run_id = None
 
@@ -27,7 +29,9 @@ class GitHubActionsStrategy(DeploymentStrategy):
 
         return True
 
-    async def execute_deployment(self, config: dict[str, Any]) -> dict[str, Any]:
+    async def execute_deployment(
+        self, config: dict[str, Any], deployment_mode: str = "rolling"
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Execute GitHub Actions deployment.
 
@@ -38,7 +42,7 @@ class GitHubActionsStrategy(DeploymentStrategy):
         self.last_repository = repository
         self.last_run_id = "123456789"
 
-        return {
+        yield {
             "status": "success",
             "workflow_run_id": self.last_run_id,
             "repository": repository,
@@ -56,14 +60,14 @@ class GitHubActionsStrategy(DeploymentStrategy):
 
         return True, results
 
-    async def rollback(self) -> dict[str, Any]:
+    async def rollback(self) -> AsyncGenerator[dict[str, Any], None]:
         """
         Rollback GitHub Actions deployment.
 
         POC Implementation: Returns simulated success.
         Full implementation will trigger rollback workflow.
         """
-        return {
+        yield {
             "rollback_successful": True,
             "repository": self.last_repository,
             "message": f"Triggered rollback workflow for {self.last_repository}",

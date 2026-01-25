@@ -36,7 +36,9 @@ async def test_gcp_execute_deployment_returns_success():
 
     config = {"service": "cloudrun", "service_name": "api-server", "region": "us-central1"}
 
-    result = await strategy.execute_deployment(config)
+    result = None
+    async for item in strategy.execute_deployment(config):
+        result = item
 
     assert result["status"] == "success"
     assert "deployment_id" in result

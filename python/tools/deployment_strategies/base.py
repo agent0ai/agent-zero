@@ -1,14 +1,44 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from collections.abc import AsyncGenerator
+from typing import Any, Optional
 
 
 class DeploymentStrategy(ABC):
     """
     Abstract base class for deployment platform strategies.
 
-    Each deployment platform (GitHub Actions, Kubernetes, SSH, AWS, GCP)
-    implements this interface to provide platform-specific deployment logic.
+    Enhanced with:
+    - Progress reporting support
+    - Deployment metadata tracking
+    - Deployment mode parameter
+    - Async generator for streaming results
     """
+
+    def __init__(self):
+        """Initialize strategy with progress reporter and metadata tracking"""
+        self.last_deployment_metadata: Optional[dict] = None
+        self.progress_reporter: Optional[Any] = None  # ProgressReporter type
+
+    def set_progress_reporter(self, reporter):
+        """
+        Set progress reporter for streaming updates.
+
+        Args:
+            reporter: ProgressReporter instance
+        """
+        self.progress_reporter = reporter
+
+    async def _report_progress(self, message: str, percent: Optional[int] = None):
+        """
+        Helper to report progress if reporter is set.
+
+        Args:
+            message: Progress message
+            percent: Optional completion percentage
+        """
+        if self.progress_reporter:
+            async for _ in self.progress_reporter.report(message, percent):
+                pass  # Consume generator
 
     @abstractmethod
     async def validate_config(self, config: dict[str, Any]) -> bool:
@@ -16,57 +46,48 @@ class DeploymentStrategy(ABC):
         Validate platform-specific configuration.
 
         Args:
-            config: Platform-specific configuration dictionary
+            config: Configuration dictionary
 
         Returns:
-            True if config is valid, False otherwise
-
-        Raises:
-            ValueError: If config is invalid with specific error message
+            True if valid, raises ValueError if invalid
         """
         pass
 
     @abstractmethod
-    async def execute_deployment(self, config: dict[str, Any]) -> dict[str, Any]:
+    async def execute_deployment(
+        self, config: dict[str, Any], deployment_mode: str = "rolling"
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Execute the actual deployment.
+        Execute deployment with progress streaming.
 
         Args:
-            config: Platform-specific configuration
+            config: Deployment configuration
+            deployment_mode: Deployment mode (rolling|blue-green|immediate)
 
-        Returns:
-            Dictionary with deployment result:
-            {
-                'status': 'success'|'failed',
-                'message': 'Deployment details',
-                ... platform-specific fields
-            }
+        Yields:
+            Progress updates and final deployment result
         """
         pass
 
     @abstractmethod
     async def run_smoke_tests(self, config: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         """
-        Run immediate smoke tests after deployment.
+        Run health checks after deployment.
 
         Args:
-            config: Platform-specific configuration with health check settings
+            config: Configuration including optional health_endpoint
 
         Returns:
-            Tuple of (all_passed: bool, results: dict)
+            (all_passed, detailed_results) tuple
         """
         pass
 
     @abstractmethod
-    async def rollback(self) -> dict[str, Any]:
+    async def rollback(self) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Rollback to previous version.
+        Rollback to previous deployment.
 
-        Returns:
-            Dictionary with rollback result:
-            {
-                'rollback_successful': bool,
-                'message': 'Rollback details'
-            }
+        Yields:
+            Progress updates and final rollback result
         """
         pass

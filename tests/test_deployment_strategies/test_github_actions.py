@@ -44,7 +44,9 @@ async def test_github_actions_execute_deployment_triggers_workflow():
 
     config = {"repository": "owner/repo", "workflow_file": "deploy.yml", "environment": "production"}
 
-    result = await strategy.execute_deployment(config)
+    result = None
+    async for item in strategy.execute_deployment(config):
+        result = item
 
     assert result["status"] == "success"
     assert "workflow_run_id" in result
@@ -69,6 +71,8 @@ async def test_github_actions_rollback_triggers_rollback_workflow():
     strategy = GitHubActionsStrategy()
     strategy.last_repository = "owner/repo"
 
-    result = await strategy.rollback()
+    result = None
+    async for item in strategy.rollback():
+        result = item
 
     assert result["rollback_successful"]
