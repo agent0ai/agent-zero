@@ -18,7 +18,8 @@ async def test_streaming_progress_reporter():
     assert messages[0]["percent"] == 50
 
 
-def test_logging_progress_reporter(caplog):
+@pytest.mark.asyncio
+async def test_logging_progress_reporter(caplog):
     """Test logging progress reporter logs messages"""
     import logging
 
@@ -28,8 +29,7 @@ def test_logging_progress_reporter(caplog):
     logger = logging.getLogger("test")
     reporter = LoggingProgressReporter(logger)
 
-    # Note: This is sync, not async
-    reporter.report("Starting deployment", 10)
+    await reporter.report("Starting deployment", 10)
 
     assert "Starting deployment" in caplog.text
     assert "[10%]" in caplog.text
@@ -49,7 +49,8 @@ async def test_streaming_reporter_without_percent():
     assert messages[0]["message"] == "Loading config..."
 
 
-def test_logging_reporter_without_percent(caplog):
+@pytest.mark.asyncio
+async def test_logging_reporter_without_percent(caplog):
     """Test logging reporter without percentage"""
     import logging
 
@@ -59,7 +60,7 @@ def test_logging_reporter_without_percent(caplog):
     logger = logging.getLogger("test")
     reporter = LoggingProgressReporter(logger)
 
-    reporter.report("Configuration loaded")
+    await reporter.report("Configuration loaded")
 
     assert "Configuration loaded" in caplog.text
     assert "[" not in caplog.text  # No percentage bracket

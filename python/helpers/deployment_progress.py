@@ -40,7 +40,7 @@ class LoggingProgressReporter:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def report(self, message: str, percent: Optional[int] = None):
+    async def report(self, message: str, percent: Optional[int] = None):
         """
         Log progress message.
 
