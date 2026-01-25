@@ -4,9 +4,21 @@ Converted from Mahoosuc /devops:deploy command
 
 Deploys applications to production, staging, or development environments
 with comprehensive safety checks, backups, and health monitoring.
+
+Enhanced with multi-platform deployment strategies:
+- Kubernetes (kubectl)
+- SSH (traditional servers)
+- GitHub Actions (CI/CD workflows)
+- AWS (ECS, Lambda, CodeDeploy)
+- GCP (Cloud Run, GKE, Cloud Build)
 """
 
 from python.helpers.tool import Response, Tool
+from python.tools.deployment_strategies.aws import AWSStrategy
+from python.tools.deployment_strategies.gcp import GCPStrategy
+from python.tools.deployment_strategies.github_actions import GitHubActionsStrategy
+from python.tools.deployment_strategies.kubernetes import KubernetesStrategy
+from python.tools.deployment_strategies.ssh import SSHStrategy
 
 
 class DevOpsDeploy(Tool):
@@ -63,6 +75,33 @@ class DevOpsDeploy(Tool):
         )
 
         return Response(message=report, break_loop=False)
+
+    def _select_strategy(self):
+        """
+        Select deployment strategy based on platform parameter.
+
+        Returns:
+            DeploymentStrategy instance or None if no platform specified
+        """
+        platform = self.args.get("platform") if self.args else None
+
+        if not platform:
+            return None
+
+        platform_map = {
+            "kubernetes": KubernetesStrategy,
+            "ssh": SSHStrategy,
+            "github-actions": GitHubActionsStrategy,
+            "aws": AWSStrategy,
+            "gcp": GCPStrategy,
+        }
+
+        strategy_class = platform_map.get(platform)
+
+        if strategy_class:
+            return strategy_class()
+
+        return None
 
     def _validate_environment(self, environment: str) -> str:
         """
