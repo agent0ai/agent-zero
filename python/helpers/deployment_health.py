@@ -1,3 +1,4 @@
+import asyncio
 import time
 from typing import Optional
 
@@ -42,7 +43,7 @@ async def check_http_endpoint(
                     "url": url,
                     "success": success,
                 }
-    except TimeoutError:
+    except asyncio.TimeoutError:
         return False, {"error": f"Request timeout after {timeout}s", "url": url, "success": False}
     except Exception as e:
         return False, {"error": str(e), "url": url, "success": False}

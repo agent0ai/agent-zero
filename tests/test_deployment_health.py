@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -76,8 +77,8 @@ async def test_health_check_timeout():
         patch("python.helpers.deployment_health.aiohttp.ClientSession") as mock_session_cls,
         patch("python.helpers.deployment_health.aiohttp.TCPConnector"),
     ):
-        # Mock session.get() to raise TimeoutError
-        mock_get = MagicMock(side_effect=TimeoutError())
+        # Mock session.get() to raise asyncio.TimeoutError
+        mock_get = MagicMock(side_effect=asyncio.TimeoutError())
 
         # Mock session instance
         mock_session = MagicMock()

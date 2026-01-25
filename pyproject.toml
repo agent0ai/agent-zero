@@ -54,6 +54,7 @@ ignore = [
     "SIM115", # Use context manager for files (existing patterns)
     "SIM117", # Single with statement (existing patterns)
     "UP007",  # Use X | Y for type annotations (keep Optional for clarity)
+    "UP017",  # Use TimeoutError instead of asyncio.TimeoutError (Python 3.10 needs asyncio.TimeoutError)
     "RUF001", # String contains ambiguous unicode (intentional emoji)
     "RUF002", # Docstring contains ambiguous unicode (intentional)
     "RUF003", # Comment contains ambiguous unicode (intentional dashes)
