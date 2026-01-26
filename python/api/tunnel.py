@@ -18,16 +18,19 @@ async def process(input: dict) -> dict | Response:
         port = runtime.get_web_ui_port()
         provider = input.get("provider", "serveo")  # Default to serveo
         tunnel_url = tunnel_manager.start_tunnel(port, provider)
-        if tunnel_url is None:
-            # Add a little delay and check again - tunnel might be starting
-            import time
-            time.sleep(2)
-            tunnel_url = tunnel_manager.get_tunnel_url()
+        error = tunnel_manager.get_last_error()
+        if error:
+            return {
+                "success": False,
+                "tunnel_url": None,
+                "message": error,
+                "notifications": tunnel_manager.get_notifications()
+            }
         
         return {
             "success": tunnel_url is not None,
             "tunnel_url": tunnel_url,
-            "message": "Tunnel creation in progress" if tunnel_url is None else "Tunnel created successfully"
+            "notifications": tunnel_manager.get_notifications()
         }
     
     elif action == "stop":
@@ -41,9 +44,17 @@ async def process(input: dict) -> dict | Response:
             "is_running": tunnel_manager.is_running
         }
     
+    elif action == "notifications":
+        return {
+            "success": True,
+            "notifications": tunnel_manager.get_notifications(),
+            "tunnel_url": tunnel_manager.get_tunnel_url(),
+            "is_running": tunnel_manager.is_running
+        }
+    
     return {
         "success": False,
-        "error": "Invalid action. Use 'create', 'stop', or 'get'."
+        "error": "Invalid action. Use 'create', 'stop', 'get', or 'notifications'."
     } 
 
 def stop():

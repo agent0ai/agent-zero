@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import json
+import time
 from typing import Any, Literal, Optional, Dict, TypeVar, TYPE_CHECKING
 
 T = TypeVar("T")
@@ -20,12 +21,14 @@ Type = Literal[
     "agent",
     "browser",
     "code_exe",
+    "subagent",
     "error",
     "hint",
     "info",
     "progress",
     "response",
     "tool",
+    "mcp",
     "input",
     "user",
     "util",
@@ -126,14 +129,16 @@ class LogItem:
     type: Type
     heading: str = ""
     content: str = ""
-    temp: bool = False
     update_progress: Optional[ProgressUpdate] = "persistent"
     kvps: Optional[OrderedDict] = None  # Use OrderedDict for kvps
     id: Optional[str] = None  # Add id field
     guid: str = ""
+    timestamp: float = 0.0
+    agentno: int = 0
 
     def __post_init__(self):
         self.guid = self.log.guid
+        self.timestamp = self.timestamp or time.time()
 
     def update(
         self,
@@ -141,7 +146,6 @@ class LogItem:
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
-        temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         **kwargs,
     ):
@@ -152,7 +156,6 @@ class LogItem:
                 heading=heading,
                 content=content,
                 kvps=kvps,
-                temp=temp,
                 update_progress=update_progress,
                 **kwargs,
             )
@@ -179,8 +182,9 @@ class LogItem:
             "type": self.type,
             "heading": self.heading,
             "content": self.content,
-            "temp": self.temp,
             "kvps": self.kvps,
+            "timestamp": self.timestamp,
+            "agentno": self.agentno,
         }
 
 
@@ -199,18 +203,27 @@ class Log:
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
-        temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         id: Optional[str] = None,
         **kwargs,
     ) -> LogItem:
 
         # add a minimal item to the log
+        # Determine agent number from streaming agent
+        agentno = 0
+        if self.context and self.context.streaming_agent:
+            agentno = self.context.streaming_agent.number
+        
         item = LogItem(
             log=self,
             no=len(self.logs),
             type=type,
+            agentno=agentno,
         )
+        # Set duration on previous item and mark it as updated
+        if self.logs:
+            prev = self.logs[-1]
+            self.updates += [prev.no]
         self.logs.append(item)
 
         # and update it (to have just one implementation)
@@ -220,7 +233,6 @@ class Log:
             heading=heading,
             content=content,
             kvps=kvps,
-            temp=temp,
             update_progress=update_progress,
             id=id,
             **kwargs,
@@ -234,7 +246,6 @@ class Log:
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
-        temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         id: Optional[str] = None,
         **kwargs,
@@ -246,9 +257,6 @@ class Log:
 
         if type is not None:
             item.type = type
-
-        if temp is not None:
-            item.temp = temp
 
         if update_progress is not None:
             item.update_progress = update_progress

@@ -1,0 +1,31 @@
+<html>
+  <head>
+    <title>Update Checker</title>
+  </head>
+
+  <body>
+    <div x-data="{ get settings() { return $store.settingsStore.settings } }">
+      <template x-if="settings">
+        <div>
+          <div class="section-title">Update Checker</div>
+          <div class="section-description">
+            Update checker periodically checks for new releases of Agent Zero and will notify when an update is recommended.<br>No personal data is sent to the update server, only randomized+anonymized unique ID and current version number, which help us evaluate the importance of the update in case of critical bug fixes etc.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Enable Update Checker</div>
+              <div class="field-description">Enable update checker to notify about newer versions of Agent Zero.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="settings.update_check_enabled" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

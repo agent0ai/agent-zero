@@ -84,7 +84,7 @@ class Message(ApiHandler):
         # Log the message with message_id and attachments
         context.log.log(
             type="user",
-            heading="User message",
+            heading="",
             content=message,
             kvps={"attachments": attachment_filenames},
             id=message_id,

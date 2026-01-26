@@ -10,14 +10,21 @@
         <p>Other agents can connect using the URL below (replace host if needed):</p>
 
         <!-- API Token Information -->
-        <div
-            style="background-color: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; margin: 16px 0;">
-            <h4 style="margin: 0 0 8px 0; color: var(--color-text-primary);">API Token Information</h4>
-            <p style="margin: 0; color: var(--color-text-secondary); font-size: 14px;">
-                The token used in the URL is automatically generated from your username and password.
-                This same token is also used for external API endpoints. The token changes when you update your
-                credentials.
-            </p>
+        <div x-data>
+            <template x-if="$store.settingsStore.settings">
+                <div style="background-color: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; margin: 16px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: var(--color-text-primary);">API Token Information</h4>
+                    <p style="margin: 0 0 8px 0; color: var(--color-text-secondary); font-size: 14px;">
+                        The token used in the URL is automatically generated from your username and password.
+                        This same token is also used for external API endpoints. The token changes when you update your
+                        credentials.
+                    </p>
+                    <div style="margin-top: 8px;">
+                        <label style="display: block; margin-bottom: 4px; color: var(--color-text-secondary); font-size: 12px; font-weight: 600;">Token:</label>
+                        <input type="text" readonly x-model="$store.settingsStore.settings.mcp_server_token" style="width: 100%; padding: 6px 8px; background-color: var(--color-bg-primary); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: 4px; font-family: monospace; font-size: 13px;" />
+                    </div>
+                </div>
+            </template>
         </div>
 
         <h3>A2A Connection URL</h3>
@@ -35,15 +42,18 @@
         <div id="a2a-connection-example"></div>
 
         <script>
-            setTimeout(async () => {
+            (async () => {
+                const API = await import("/js/api.js");
                 const url = window.location.origin;
-                // Try to get a2a_token first, fallback to mcp_server_token
-                let tokenField = null;
+                
+                // Fetch token from settings API - try a2a_token first, fallback to mcp_server_token
+                let token = "";
                 try {
-                    const allFields = settingsModalProxy.settings.sections.flatMap(s => s.fields);
-                    tokenField = allFields.find(f => f.id === 'a2a_token') || allFields.find(f => f.id === 'mcp_server_token');
-                } catch (e) { }
-                const token = tokenField ? tokenField.value : '';
+                    const response = await API.callJsonApi("settings_get", null);
+                    token = response?.settings?.mcp_server_token || "";
+                } catch (e) {
+                    console.error("Failed to fetch token:", e);
+                }
 
                 // Fetch and populate projects
                 const projectSelect = document.getElementById('a2a-project-select');
@@ -87,7 +97,7 @@
 
                 // Update URL when project selection changes
                 projectSelect.addEventListener('change', updateConnectionUrl);
-            }, 0);
+            })();
         </script>
     </div>
 

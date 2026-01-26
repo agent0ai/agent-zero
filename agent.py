@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Coroutine, Dict, Literal
 from enum import Enum
-import uuid
 import models
 
 from python.helpers import (
@@ -479,7 +478,7 @@ class Agent:
                         await self.call_extensions("error_format", msg=msg)
                         self.hist_add_warning(msg["message"])
                         PrintStyle(font_color="red", padding=True).print(msg["message"])
-                        self.context.log.log(type="error", content=msg["message"])
+                        self.context.log.log(type="warning", content=msg["message"])
                     except Exception as e:
                         # Retry critical exceptions before failing
                         error_retries = await self.retry_critical_exception(
@@ -488,9 +487,10 @@ class Agent:
 
                     finally:
                         # call message_loop_end extensions
-                        await self.call_extensions(
-                            "message_loop_end", loop_data=self.loop_data
-                        )
+                        if self.context.task and self.context.task.is_alive(): # don't call extensions post mortem
+                            await self.call_extensions(
+                                "message_loop_end", loop_data=self.loop_data
+                            )
 
             # exceptions outside message loop:
             except InterventionException as e:
@@ -504,7 +504,8 @@ class Agent:
             finally:
                 self.context.streaming_agent = None  # unset current streamer
                 # call monologue_end extensions
-                await self.call_extensions("monologue_end", loop_data=self.loop_data)  # type: ignore
+                if self.context.task and self.context.task.is_alive(): # don't call extensions post mortem
+                    await self.call_extensions("monologue_end", loop_data=self.loop_data)  # type: ignore
 
     async def prepare_prompt(self, loop_data: LoopData) -> list[BaseMessage]:
         self.context.log.set_progress("Building prompt")
@@ -628,7 +629,8 @@ class Agent:
     def read_prompt(self, file: str, **kwargs) -> str:
         dirs = subagents.get_paths(self, "prompts")
         prompt = files.read_prompt_file(file, _directories=dirs, _agent=self, **kwargs)
-        prompt = files.remove_code_fences(prompt)
+        if files.is_full_json_template(prompt):
+            prompt = files.remove_code_fences(prompt)
         return prompt
 
     def get_data(self, field: str):
@@ -829,8 +831,8 @@ class Agent:
         tool_request = extract_tools.json_parse_dirty(msg)
 
         if tool_request is not None:
-            raw_tool_name = tool_request.get("tool_name", "")  # Get the raw tool name
-            tool_args = tool_request.get("tool_args", {})
+            raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
+            tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
 
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
@@ -907,14 +909,14 @@ class Agent:
                 self.hist_add_warning(error_detail)
                 PrintStyle(font_color="red", padding=True).print(error_detail)
                 self.context.log.log(
-                    type="error", content=f"{self.agent_name}: {error_detail}"
+                    type="warning", content=f"{self.agent_name}: {error_detail}"
                 )
         else:
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
             self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
             self.context.log.log(
-                type="error",
+                type="warning",
                 content=f"{self.agent_name}: Message misformat, no valid tool request found.",
             )
 

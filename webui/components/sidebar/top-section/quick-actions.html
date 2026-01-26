@@ -2,79 +2,248 @@
 
 <head>
   <script type="module">
-    import { store } from "/components/sidebar/chats/chats-store.js";
+    import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    import { store as projectsStore } from "/components/projects/projects-store.js";
+    import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
   </script>
 </head>
 
 <body>
-  <div class="config-section" x-data>
-    <button class="config-button" id="resetChat" @click="$store.chats.resetChat()">Reset Chat</button>
-    <button class="config-button" id="newChat" @click="$store.chats.newChat()">New Chat</button>
-    <button class="config-button" id="loadChats" @click="$store.chats.loadChats()">Load Chat</button>
-    <button class="config-button" id="loadChat" @click="$store.chats.saveChat()">Save Chat</button>
-    <button class="config-button" id="restart" @click="$store.chats.restart()">Restart</button>
-    <button class="config-button" id="settings" @click="settingsModalProxy.openModal()"><svg
-        xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="-5.0 -17.0 110.0 135.0" fill="currentColor" width="24"
-        height="24">
-        <path
-          d="m52.301 90.102h-4.1016c-3 0-5 0-6.8984-1.3984-1.8984-1.3984-2.5-3.3008-3.5-6.1016l-1.1016-3.6016c-0.19922-0.60156-0.69922-1.1992-1.3984-1.6016l-1.1016-0.60156c-0.60156-0.30078-1.5-0.39844-2.3008-0.19922l-4.3008 1.1992c-3.1016 0.89844-5.1016 1.5-7.3984 0.5-2.3008-0.89844-3.3984-2.8008-5-5.6016l-1.8008-3.1016c-1.5-2.5-2.5-4.3008-2.3008-6.6992 0.19922-2.3984 1.6016-3.8008 3.6016-6.1016l3.8008-4.1992c0.19922-0.19922 0.60156-1.3984 0.60156-2.6016 0-1.1016-0.5-2.3008-0.80078-2.6992l-3.6016-4c-2-2.1992-3.3008-3.6992-3.6016-6.1016-0.19922-2.3984 0.80078-4.1992 2.3008-6.6992l1.8008-3.1016c1.6016-2.8008 2.6992-4.6016 5-5.6016 2.3008-0.89844 4.3008-0.39844 7.3984 0.5l4.3984 1.1992c0.69922 0.10156 1.5 0 2.3008-0.30078l1.1016-0.60156c0.5-0.30078 1-0.89844 1.3008-1.6992l1.1992-3.5c0.89844-2.8008 1.6016-4.6992 3.5-6.1016 1.8984-1.3984 3.8984-1.3984 6.8984-1.3984h4.1016c3 0 5 0 6.8984 1.3984 1.8984 1.3984 2.5 3.1992 3.5 6.1016l1.1992 3.6016c0.19922 0.60156 0.69922 1.1992 1.3984 1.6016l1.1016 0.60156c0.60156 0.30078 1.5 0.39844 2.3008 0.19922l4.3008-1.1992c3.1016-0.89844 5.1016-1.5 7.3984-0.5 2.3008 0.89844 3.3984 2.8008 5 5.5l1.8008 3.1016c1.3984 2.5 2.5 4.3008 2.3008 6.6992-0.19922 2.3984-1.6016 3.8008-3.6016 6.1016l-3.9961 4.4062c-0.19922 0.19922-0.60156 1.3984-0.60156 2.6016 0 1.1016 0.5 2.3008 0.80078 2.6992l3.6016 4c2 2.1992 3.3008 3.6992 3.6016 6.1016 0.19922 2.3984-0.80078 4.1992-2.3008 6.6992l-1.8008 3.1016c-1.6016 2.8008-2.6992 4.6016-5 5.6016-2.3008 0.89844-4.3984 0.39844-7.3984-0.5l-4.3984-1.1992c-0.69922-0.10156-1.5 0-2.3008 0.30078l-1.1016 0.60156c-0.5 0.30078-1 0.89844-1.3008 1.6992l-1.1992 3.5c-0.89844 2.8008-1.6016 4.6992-3.5 6.1016-1.8008 1.293-3.8008 1.293-6.8008 1.293zm-6.6016-7.3008c0.5 0.10156 1.6016 0.10156 2.6016 0.10156h4.1016c1 0 2 0 2.6016-0.10156 0.19922-0.5 0.60156-1.5 0.89844-2.3984l1.1992-3.6016c0.89844-2.3008 2.3984-4.1992 4.3984-5.3984l1.3984-0.80078c2.3984-1.3008 5.1016-1.6016 7.6016-1l4.6016 1.3008c1 0.30078 2.1016 0.60156 2.6992 0.69922 0.30078-0.5 0.89844-1.5 1.3984-2.3984l1.8008-3.1016c0.5-0.80078 1-1.8008 1.1992-2.3008-0.30078-0.39844-1-1.1992-1.6992-2l-3.8008-4.1992c-1.6016-2-2.5-4.8008-2.5-7.3984 0-2.6016 0.89844-5.3984 2.3008-7.3008l3.8984-4.3984c0.69922-0.69922 1.3984-1.5 1.6992-2-0.19922-0.5-0.80078-1.3984-1.1992-2.3008l-1.8984-3.1016c-0.5-0.89844-1.1016-1.8984-1.3984-2.3984-0.60156 0.10156-1.6992 0.39844-2.6992 0.69922l-4.3984 1.3008c-2.6992 0.60156-5.3008 0.30078-7.6016-0.89844l-1.4023-0.80469c-2.1016-1.3984-3.6016-3.1992-4.3984-5.3984l-1.3008-3.8008c-0.30078-0.89844-0.60156-1.8984-0.89844-2.3984-0.5-0.10156-1.6016-0.10156-2.6016-0.10156h-4.1016c-1 0-2 0-2.6016 0.10156-0.19922 0.5-0.60156 1.5-0.89844 2.3984l-1.1992 3.6016c-0.89844 2.3008-2.3984 4.1992-4.3984 5.3984l-1.3984 0.80078c-2.3984 1.3008-5.1016 1.6016-7.6016 1l-4.6016-1.3008c-1-0.30078-2.1016-0.60156-2.6992-0.69922-0.30078 0.5-0.89844 1.5-1.3984 2.3984l-1.8008 3.1016c-0.5 0.80078-1 1.8008-1.1992 2.3008 0.30078 0.39844 1 1.1992 1.6992 2l3.8008 4.1992c1.6016 2 2.5 4.8008 2.5 7.3984 0 2.6016-0.89844 5.3984-2.3008 7.3008l-3.8984 4.3984c-0.69922 0.69922-1.3984 1.5-1.6992 2 0.19922 0.5 0.80078 1.3984 1.1992 2.3008l1.8008 3.1016c0.5 0.89844 1.1016 1.8984 1.3984 2.3984 0.60156-0.10156 1.6992-0.39844 2.6992-0.69922l4.3984-1.1992c2.6992-0.60156 5.3008-0.30078 7.6016 0.89844l1.3984 0.80078c2.1016 1.3008 3.6016 3.1992 4.3984 5.3984l1.3008 3.8008c0.5 0.80078 0.80078 1.8008 1 2.3008z">
-        </path>
-        <path
-          d="m50.301 66.5c-9 0-16.398-7.3008-16.398-16.398 0-9.1016 7.3008-16.398 16.398-16.398 9.1016 0 16.398 7.3008 16.398 16.398 0 9.0977-7.3984 16.398-16.398 16.398zm0-25.5c-5 0-9.1016 4.1016-9.1016 9.1016s4.1016 9.1016 9.1016 9.1016 9.1016-4.1016 9.1016-9.1016c-0.003906-5-4.1016-9.1016-9.1016-9.1016z">
-        </path>
-      </svg>Settings</button>
-    <button class="config-button" id="memory-dash"
-      @click="openModal('settings/memory/memory-dashboard.html');">Memory</button>
-    <button class="config-button" id="dashboard" @click="deselectChat()">Dashboard</button>
+  <div class="wrapper" x-data="{ dropdownOpen: false }" @click.outside="dropdownOpen = false" @keydown.escape.window="dropdownOpen = false" x-init="$watch('dropdownOpen', v => v && $store.sidebar.updateDropdownPosition($el))">
+    <div id="quick-actions">
+      <!-- Dashboard -->
+      <button class="config-button" id="dashboard" @click="deselectChat()" title="Dashboard">
+        <span class="material-symbols-outlined">home</span>
+      </button>
 
+      <!-- Memory -->
+      <button class="config-button" id="memory-dash" @click="openModal('modals/memory/memory-dashboard.html')" title="Memory">
+        <span class="material-symbols-outlined">psychology</span>
+      </button>
+
+      <!-- Scheduler -->
+      <button class="config-button" id="scheduler" @click="openModal('modals/scheduler/scheduler-modal.html')" title="Scheduler">
+        <span class="material-symbols-outlined">schedule</span>
+      </button>
+
+      <!-- Settings -->
+      <button class="config-button" id="settings" @click="openModal('settings/settings.html')" title="Settings">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+
+      <!-- Dropdown Toggle -->
+      <button class="config-button dropdown-toggle" @click="dropdownOpen = !dropdownOpen" title="More options">
+        <span class="material-symbols-outlined" :class="dropdownOpen ? 'rotated' : ''">expand_more</span>
+      </button>
+    </div>
+
+    <!-- Dropdown Menu -->
+    <div class="dropdown-menu quick-actions-dropdown" 
+         x-show="dropdownOpen"
+         :style="$store.sidebar.dropdownStyle">
+      
+      <div class="dropdown-header">Navigation</div>
+      
+      <button class="dropdown-item" @click="deselectChat(); dropdownOpen = false">
+        <span class="material-symbols-outlined">home</span>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="dropdown-item" @click="$store.projects.openProjectsModal(); dropdownOpen = false">
+        <span class="material-symbols-outlined">snippet_folder</span>
+        <span>Projects</span>
+      </button>
+      
+      <button class="dropdown-item" @click="openModal('modals/memory/memory-dashboard.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">psychology</span>
+        <span>Memories</span>
+      </button>
+      
+      <button class="dropdown-item" @click="openModal('modals/scheduler/scheduler-modal.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Scheduler</span>
+      </button>
+      
+      <button class="dropdown-item" @click="openModal('settings/settings.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">settings</span>
+        <span>Settings</span>
+      </button>
+      
+      <div class="dropdown-separator"></div>
+      <div class="dropdown-header">Chat Actions</div>
+      
+      <button class="dropdown-item" @click="$store.chats.newChat(); dropdownOpen = false">
+        <span class="material-symbols-outlined">edit_square</span>
+        <span>New Chat</span>
+      </button>
+      
+      <button class="dropdown-item" @click="$store.chats.loadChats(); dropdownOpen = false">
+        <span class="material-symbols-outlined">folder_open</span>
+        <span>Load Chat</span>
+      </button>
+      
+      <button class="dropdown-item" @click="$store.chats.saveChat(); dropdownOpen = false" :disabled="!$store.chats.selected">
+        <span class="material-symbols-outlined">save</span>
+        <span>Save Chat</span>
+      </button>
+
+      <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.resetChat(); dropdownOpen = false })" :disabled="!$store.chats.selected">
+        <span class="material-symbols-outlined">delete_sweep</span>
+        <span>Clear Chat</span>
+      </button>
+      
+      <div class="dropdown-separator"></div>
+      
+      <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); dropdownOpen = false })">
+        <span class="material-symbols-outlined">restart_alt</span>
+        <span>Restart A0</span>
+      </button>
+
+    </div>
   </div>
 </body>
+
 <style>
+  /* Wrapper container for icon toolbar */
+  .wrapper {
+    position: relative;
+    border-radius: 0.6rem;
+    z-index: 100;
+    /* Ensure dropdown appears above all sidebar content */
+  }
+
+  /* Icon toolbar layout */
+  #quick-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0;
+    gap: 0;
+  }
+
+  /* Config button - icon only style */
   .config-button {
-    background-color: var(--color-background);
-    border: 0.1rem solid var(--color-border);
-    border-radius: var(--spacing-xs);
+    background-color: var(--color-panel);
+    border: 0.05rem solid var(--color-border);
+    border-radius: 6px;
     cursor: pointer;
-    display: inline;
-    font-family: "Rubik", Arial, Helvetica, sans-serif;
-    font-size: var(--font-size-small);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0.8;
-    text-wrap: nowrap;
-    width: calc(50% - var(--spacing-xs));
-    float: left;
-    margin: 0 var(--spacing-xs) var(--spacing-xs) 0;
-    padding: var(--spacing-sm) 0.75rem;
-    max-height: 2.3rem;
-    -webkit-transition: all var(--transition-speed), transform 0.1s ease-in-out;
+    padding: var(--spacing-xs);
+    flex: 1;
+    min-width: 0;
     transition: all var(--transition-speed), transform 0.1s ease-in-out;
   }
 
+  .config-button .material-symbols-outlined {
+    font-size: 22px;
+    transition: transform 0.2s ease;
+  }
+
+  .config-button .material-symbols-outlined.rotated {
+    transform: rotate(180deg);
+  }
+
+  /* Connected button borders */
+  .config-button:not(:last-child) {
+    margin-right: -1px;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .config-button:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .config-button:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  .config-button:not(:first-child):not(:last-child) {
+    border-radius: 0;
+  }
+
   .config-button:hover {
-    background-color: var(--color-secondary);
+    background-color: var(--color-background-hover);
     opacity: 1;
+    z-index: 1;
+    position: relative;
   }
 
   .config-button:active {
     opacity: 0.5;
+    transform: scale(0.95);
   }
 
-  #settings {
-    display: flex;
-    align-items: center;
+  /* Dropdown specific positioning - fixed to escape overflow:hidden */
+  .quick-actions-dropdown {
+    position: fixed;
+    z-index: 9999;
   }
 
+  /* Unified scrollbar styling for dropdown */
+  .quick-actions-dropdown::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .quick-actions-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+    border-radius: 6px;
+  }
+
+  .quick-actions-dropdown::-webkit-scrollbar-thumb {
+    background-color: rgba(155, 155, 155, 0.5);
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+  }
+
+  .quick-actions-dropdown::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(155, 155, 155, 0.7);
+  }
+
+  /* Dropdown item icon sizing */
+  .dropdown-item .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  /* New Chat Button */
+  #newChat {
+  display: flex;
+  flex-wrap: nowrap;
+  background-color: transparent;
+  border: none;
+  align-items: center;
+  opacity: 0.6;
+  cursor: pointer;
+  -webkit-transition: all 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
+  transition: all 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
+  }
+  #newChat:hover { opacity: 0.85; transform: scale(1.04); }
+  #newChat:active { opacity: 0.5; transform: scale(0.98); }
+  #newChat .material-symbols-outlined { 
+    color: var(--color-text); 
+    font-size: 24px;
+  }
+
+  /* Light mode */
   .light-mode .config-button {
     background-color: var(--color-background);
     color: #333333;
   }
 
-  .light-mode .config-button:hover {
-    background-color: #d6dae8;
-  }
+  .light-mode .config-button:hover { background-color: var(--color-background-hover); }
+  .light-mode .config-button:active { background-color: var(--color-background-hover); }
 
-  .light-mode .config-button:active {
-    background-color: #bdc0cb;
-  }
+  /* Transition helpers */
+  .-translate-y-1 { transform: translateY(-0.25rem); }
+  .translate-y-0 { transform: translateY(0); }
 </style>
 
 </html>

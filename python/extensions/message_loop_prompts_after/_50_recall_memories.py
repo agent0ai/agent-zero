@@ -89,7 +89,7 @@ class RecallMemories(Extension):
             except Exception as e:
                 err = errors.format_error(e)
                 self.agent.context.log.log(
-                    type="error", heading="Recall memories extension error:", content=err
+                    type="warning", heading="Recall memories extension error:", content=err
                 )
                 query = ""
 
@@ -180,7 +180,7 @@ class RecallMemories(Extension):
             except Exception as e:
                 err = errors.format_error(e)
                 self.agent.context.log.log(
-                    type="error", heading="Failed to filter relevant memories", content=err
+                    type="warning", heading="Failed to filter relevant memories", content=err
                 )
                 filter_inds = []
 

@@ -10,9 +10,10 @@ import models
 from python.helpers import runtime, whisper, defer, git
 from . import files, dotenv
 from python.helpers.print_style import PrintStyle
-from python.helpers.providers import get_providers
+from python.helpers.providers import get_providers, FieldOption as ProvidersFO
 from python.helpers.secrets import get_default_secrets_manager
 from python.helpers import dirty_json
+from python.helpers.notification import NotificationManager, NotificationType, NotificationPriority
 
 
 T = TypeVar('T')
@@ -159,7 +160,6 @@ class FieldOption(TypedDict):
     value: str
     label: str
 
-
 class SettingsField(TypedDict, total=False):
     id: str
     title: str
@@ -191,9 +191,21 @@ class SettingsSection(TypedDict, total=False):
     fields: list[SettingsField]
     tab: str  # Indicates which tab this section belongs to
 
+class ModelProvider(ProvidersFO):
+    pass
+
+class SettingsOutputAdditional(TypedDict):
+    chat_providers: list[ModelProvider]
+    embedding_providers: list[ModelProvider]
+    shell_interfaces: list[FieldOption]
+    agent_subdirs: list[FieldOption]
+    knowledge_subdirs: list[FieldOption]
+    stt_models: list[FieldOption]
+    is_dockerized: bool
 
 class SettingsOutput(TypedDict):
-    sections: list[SettingsSection]
+    settings: Settings
+    additional: SettingsOutputAdditional
 
 
 PASSWORD_PLACEHOLDER = "****PSWD****"
@@ -202,968 +214,91 @@ API_KEY_PLACEHOLDER = "************"
 SETTINGS_FILE = files.get_abs_path("tmp/settings.json")
 _settings: Settings | None = None
 
+OptionT = TypeVar("OptionT", bound=FieldOption)
+
+def _ensure_option_present(options: list[OptionT] | None, current_value: str | None) -> list[OptionT]:
+    """
+    Ensure the currently selected value exists in a dropdown options list.
+    If missing, inserts it at the front as {value: current_value, label: current_value}.
+    """
+    opts = list(options or [])
+    if not current_value:
+        return opts
+    for o in opts:
+        if o.get("value") == current_value:
+            return opts
+    opts.insert(0, cast(OptionT, {"value": current_value, "label": current_value}))
+    return opts
 
 def convert_out(settings: Settings) -> SettingsOutput:
-    default_settings = get_default_settings()
-
-    # main model section
-    chat_model_fields: list[SettingsField] = []
-    chat_model_fields.append(
-        {
-            "id": "chat_model_provider",
-            "title": "Chat model provider",
-            "description": "Select provider for main chat model used by Agent Zero",
-            "type": "select",
-            "value": settings["chat_model_provider"],
-            "options": cast(list[FieldOption], get_providers("chat")),
-        }
-    )
-    chat_model_fields.append(
-        {
-            "id": "chat_model_name",
-            "title": "Chat model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
-            "value": settings["chat_model_name"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_api_base",
-            "title": "Chat model API base URL",
-            "description": "API base URL for main chat model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
-            "type": "text",
-            "value": settings["chat_model_api_base"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_ctx_length",
-            "title": "Chat model context length",
-            "description": "Maximum number of tokens in the context window for LLM. System prompt, chat history, RAG and response all count towards this limit.",
-            "type": "number",
-            "value": settings["chat_model_ctx_length"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_ctx_history",
-            "title": "Context window space for chat history",
-            "description": "Portion of context window dedicated to chat history visible to the agent. Chat history will automatically be optimized to fit. Smaller size will result in shorter and more summarized history. The remaining space will be used for system prompt, RAG and response.",
-            "type": "range",
-            "min": 0.01,
-            "max": 1,
-            "step": 0.01,
-            "value": settings["chat_model_ctx_history"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_vision",
-            "title": "Supports Vision",
-            "description": "Models capable of Vision can for example natively see the content of image attachments.",
-            "type": "switch",
-            "value": settings["chat_model_vision"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_rl_requests",
-            "title": "Requests per minute limit",
-            "description": "Limits the number of requests per minute to the chat model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["chat_model_rl_requests"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_rl_input",
-            "title": "Input tokens per minute limit",
-            "description": "Limits the number of input tokens per minute to the chat model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["chat_model_rl_input"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_rl_output",
-            "title": "Output tokens per minute limit",
-            "description": "Limits the number of output tokens per minute to the chat model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["chat_model_rl_output"],
-        }
-    )
-
-    chat_model_fields.append(
-        {
-            "id": "chat_model_kwargs",
-            "title": "Chat model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
-            "type": "textarea",
-            "value": _dict_to_env(settings["chat_model_kwargs"]),
-        }
-    )
-
-    chat_model_section: SettingsSection = {
-        "id": "chat_model",
-        "title": "Chat Model",
-        "description": "Selection and settings for main chat model used by Agent Zero",
-        "fields": chat_model_fields,
-        "tab": "agent",
-    }
-
-    # main model section
-    util_model_fields: list[SettingsField] = []
-    util_model_fields.append(
-        {
-            "id": "util_model_provider",
-            "title": "Utility model provider",
-            "description": "Select provider for utility model used by the framework",
-            "type": "select",
-            "value": settings["util_model_provider"],
-            "options": cast(list[FieldOption], get_providers("chat")),
-        }
-    )
-    util_model_fields.append(
-        {
-            "id": "util_model_name",
-            "title": "Utility model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
-            "value": settings["util_model_name"],
-        }
-    )
-
-    util_model_fields.append(
-        {
-            "id": "util_model_api_base",
-            "title": "Utility model API base URL",
-            "description": "API base URL for utility model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
-            "type": "text",
-            "value": settings["util_model_api_base"],
-        }
-    )
-
-    util_model_fields.append(
-        {
-            "id": "util_model_rl_requests",
-            "title": "Requests per minute limit",
-            "description": "Limits the number of requests per minute to the utility model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["util_model_rl_requests"],
-        }
-    )
-
-    util_model_fields.append(
-        {
-            "id": "util_model_rl_input",
-            "title": "Input tokens per minute limit",
-            "description": "Limits the number of input tokens per minute to the utility model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["util_model_rl_input"],
-        }
-    )
-
-    util_model_fields.append(
-        {
-            "id": "util_model_rl_output",
-            "title": "Output tokens per minute limit",
-            "description": "Limits the number of output tokens per minute to the utility model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["util_model_rl_output"],
-        }
-    )
-
-    util_model_fields.append(
-        {
-            "id": "util_model_kwargs",
-            "title": "Utility model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
-            "type": "textarea",
-            "value": _dict_to_env(settings["util_model_kwargs"]),
-        }
-    )
-
-    util_model_section: SettingsSection = {
-        "id": "util_model",
-        "title": "Utility model",
-        "description": "Smaller, cheaper, faster model for handling utility tasks like organizing memory, preparing prompts, summarizing.",
-        "fields": util_model_fields,
-        "tab": "agent",
-    }
-
-    # embedding model section
-    embed_model_fields: list[SettingsField] = []
-    embed_model_fields.append(
-        {
-            "id": "embed_model_provider",
-            "title": "Embedding model provider",
-            "description": "Select provider for embedding model used by the framework",
-            "type": "select",
-            "value": settings["embed_model_provider"],
-            "options": cast(list[FieldOption], get_providers("embedding")),
-        }
-    )
-    embed_model_fields.append(
-        {
-            "id": "embed_model_name",
-            "title": "Embedding model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
-            "value": settings["embed_model_name"],
-        }
-    )
-
-    embed_model_fields.append(
-        {
-            "id": "embed_model_api_base",
-            "title": "Embedding model API base URL",
-            "description": "API base URL for embedding model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
-            "type": "text",
-            "value": settings["embed_model_api_base"],
-        }
-    )
-
-    embed_model_fields.append(
-        {
-            "id": "embed_model_rl_requests",
-            "title": "Requests per minute limit",
-            "description": "Limits the number of requests per minute to the embedding model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["embed_model_rl_requests"],
-        }
-    )
-
-    embed_model_fields.append(
-        {
-            "id": "embed_model_rl_input",
-            "title": "Input tokens per minute limit",
-            "description": "Limits the number of input tokens per minute to the embedding model. Waits if the limit is exceeded. Set to 0 to disable rate limiting.",
-            "type": "number",
-            "value": settings["embed_model_rl_input"],
-        }
-    )
-
-    embed_model_fields.append(
-        {
-            "id": "embed_model_kwargs",
-            "title": "Embedding model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
-            "type": "textarea",
-            "value": _dict_to_env(settings["embed_model_kwargs"]),
-        }
-    )
-
-    embed_model_section: SettingsSection = {
-        "id": "embed_model",
-        "title": "Embedding Model",
-        "description": f"Settings for the embedding model used by Agent Zero.<br><h4>⚠️ No need to change</h4>The default HuggingFace model {default_settings['embed_model_name']} is preloaded and runs locally within the docker container and there's no need to change it unless you have a specific requirements for embedding.",
-        "fields": embed_model_fields,
-        "tab": "agent",
-    }
-
-    # embedding model section
-    browser_model_fields: list[SettingsField] = []
-    browser_model_fields.append(
-        {
-            "id": "browser_model_provider",
-            "title": "Web Browser model provider",
-            "description": "Select provider for web browser model used by <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> framework",
-            "type": "select",
-            "value": settings["browser_model_provider"],
-            "options": cast(list[FieldOption], get_providers("chat")),
-        }
-    )
-    browser_model_fields.append(
-        {
-            "id": "browser_model_name",
-            "title": "Web Browser model name",
-            "description": "Exact name of model from selected provider",
-            "type": "text",
-            "value": settings["browser_model_name"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_api_base",
-            "title": "Web Browser model API base URL",
-            "description": "API base URL for web browser model. Leave empty for default. Only relevant for Azure, local and custom (other) providers.",
-            "type": "text",
-            "value": settings["browser_model_api_base"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_vision",
-            "title": "Use Vision",
-            "description": "Models capable of Vision can use it to analyze web pages from screenshots. Increases quality but also token usage.",
-            "type": "switch",
-            "value": settings["browser_model_vision"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_rl_requests",
-            "title": "Web Browser model rate limit requests",
-            "description": "Rate limit requests for web browser model.",
-            "type": "number",
-            "value": settings["browser_model_rl_requests"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_rl_input",
-            "title": "Web Browser model rate limit input",
-            "description": "Rate limit input for web browser model.",
-            "type": "number",
-            "value": settings["browser_model_rl_input"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_rl_output",
-            "title": "Web Browser model rate limit output",
-            "description": "Rate limit output for web browser model.",
-            "type": "number",
-            "value": settings["browser_model_rl_output"],
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_model_kwargs",
-            "title": "Web Browser model additional parameters",
-            "description": "Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string.",
-            "type": "textarea",
-            "value": _dict_to_env(settings["browser_model_kwargs"]),
-        }
-    )
-
-    browser_model_fields.append(
-        {
-            "id": "browser_http_headers",
-            "title": "HTTP Headers",
-            "description": "HTTP headers to include with all browser requests. Format is KEY=VALUE on individual lines, like .env file. Value can also contain JSON objects - when unquoted, it is treated as object, number etc., when quoted, it is treated as string. Example: Authorization=Bearer token123",
-            "type": "textarea",
-            "value": _dict_to_env(settings.get("browser_http_headers", {})),
-        }
-    )
-
-    browser_model_section: SettingsSection = {
-        "id": "browser_model",
-        "title": "Web Browser Model",
-        "description": "Settings for the web browser model. Agent Zero uses <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> agentic framework to handle web interactions.",
-        "fields": browser_model_fields,
-        "tab": "agent",
-    }
-
-    # basic auth section
-    auth_fields: list[SettingsField] = []
-
-    auth_fields.append(
-        {
-            "id": "auth_login",
-            "title": "UI Login",
-            "description": "Set user name for web UI",
-            "type": "text",
-            "value": dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) or "",
-        }
-    )
-
-    auth_fields.append(
-        {
-            "id": "auth_password",
-            "title": "UI Password",
-            "description": "Set user password for web UI",
-            "type": "password",
-            "value": (
-                PASSWORD_PLACEHOLDER
-                if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD)
-                else ""
-            ),
-        }
-    )
-
-    if runtime.is_dockerized():
-        auth_fields.append(
-            {
-                "id": "root_password",
-                "title": "root Password",
-                "description": "Change linux root password in docker container. This password can be used for SSH access. Original password was randomly generated during setup.",
-                "type": "password",
-                "value": "",
-            }
-        )
-
-    auth_section: SettingsSection = {
-        "id": "auth",
-        "title": "Authentication",
-        "description": "Settings for authentication to use Agent Zero Web UI.",
-        "fields": auth_fields,
-        "tab": "external",
-    }
-
-    # api keys model section
-    api_keys_fields: list[SettingsField] = []
-
-    # Collect unique providers from both chat and embedding sections
-    providers_seen: set[str] = set()
-    for p_type in ("chat", "embedding"):
-        for provider in get_providers(p_type):
-            pid_lower = provider["value"].lower()
-            if pid_lower in providers_seen:
-                continue
-            providers_seen.add(pid_lower)
-            api_keys_fields.append(
-                _get_api_key_field(settings, pid_lower, provider["label"])
-            )
-
-    api_keys_section: SettingsSection = {
-        "id": "api_keys",
-        "title": "API Keys",
-        "description": "API keys for model providers and services used by Agent Zero. You can set multiple API keys separated by a comma (,). They will be used in round-robin fashion.<br>For more information abou Agent Zero Venice provider, see <a href='http://agent-zero.ai/?community/api-dashboard/about' target='_blank'>Agent Zero Venice</a>.",
-        "fields": api_keys_fields,
-        "tab": "external",
-    }
-
-    # LiteLLM global config section
-    litellm_fields: list[SettingsField] = []
-
-    litellm_fields.append(
-        {
-            "id": "litellm_global_kwargs",
-            "title": "LiteLLM global parameters",
-            "description": "Global LiteLLM params (e.g. timeout, stream_timeout) in .env format: one KEY=VALUE per line. Example: <code>stream_timeout=30</code>. Applied to all LiteLLM calls unless overridden. See <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a> and <a href='https://docs.litellm.ai/docs/proxy/timeout' target='_blank'>timeouts</a>.",
-            "type": "textarea",
-            "value": _dict_to_env(settings["litellm_global_kwargs"]),
-            "style": "height: 12em",
-        }
-    )
-
-    litellm_section: SettingsSection = {
-        "id": "litellm",
-        "title": "LiteLLM Global Settings",
-        "description": "Configure global parameters passed to LiteLLM for all providers.",
-        "fields": litellm_fields,
-        "tab": "external",
-    }
-
-    # Agent config section
-    agent_fields: list[SettingsField] = []
-
-    agent_fields.append(
-        {
-            "id": "agent_profile",
-            "title": "Default agent profile",
-            "description": "Subdirectory of /agents folder to be used by default agent no. 0. Subordinate agents can be spawned with other profiles, that is on their superior agent to decide. This setting affects the behaviour of the top level agent you communicate with.",
-            "type": "select",
-            "value": settings["agent_profile"],
-            "options": [
-                {"value": subdir, "label": subdir}
+    out = SettingsOutput(
+        settings = settings.copy(),
+        additional = SettingsOutputAdditional(
+            chat_providers=get_providers("chat"),
+            embedding_providers=get_providers("embedding"),
+            shell_interfaces=[{"value": "local", "label": "Local Python TTY"}, {"value": "ssh", "label": "SSH"}],
+            is_dockerized=runtime.is_dockerized(),
+            agent_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("agents")
-                if subdir != "_example"
-            ],
-        }
-    )
-
-    agent_fields.append(
-        {
-            "id": "agent_knowledge_subdir",
-            "title": "Knowledge subdirectory",
-            "description": "Subdirectory of /knowledge folder to use for agent knowledge import. 'default' subfolder is always imported and contains framework knowledge.",
-            "type": "select",
-            "value": settings["agent_knowledge_subdir"],
-            "options": [
-                {"value": subdir, "label": subdir}
-                for subdir in files.get_subdirectories("knowledge", exclude="default")
-            ],
-        }
-    )
-
-    agent_section: SettingsSection = {
-        "id": "agent",
-        "title": "Agent Config",
-        "description": "Agent parameters.",
-        "fields": agent_fields,
-        "tab": "agent",
-    }
-
-    memory_fields: list[SettingsField] = []
-
-    memory_fields.append(
-        {
-            "id": "agent_memory_subdir",
-            "title": "Memory Subdirectory",
-            "description": "Subdirectory of /memory folder to use for agent memory storage. Used to separate memory storage between different instances.",
-            "type": "text",
-            "value": settings["agent_memory_subdir"],
-            # "options": [
-            #     {"value": subdir, "label": subdir}
-            #     for subdir in files.get_subdirectories("memory", exclude="embeddings")
-            # ],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_dashboard",
-            "title": "Memory Dashboard",
-            "description": "View and explore all stored memories in a table format with filtering and search capabilities.",
-            "type": "button",
-            "value": "Open Dashboard",
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_enabled",
-            "title": "Memory auto-recall enabled",
-            "description": "Agent Zero will automatically recall memories based on convesation context.",
-            "type": "switch",
-            "value": settings["memory_recall_enabled"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_delayed",
-            "title": "Memory auto-recall delayed",
-            "description": "The agent will not wait for auto memory recall. Memories will be delivered one message later. This speeds up agent's response time but may result in less relevant first step.",
-            "type": "switch",
-            "value": settings["memory_recall_delayed"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_query_prep",
-            "title": "Auto-recall AI query preparation",
-            "description": "Enables vector DB query preparation from conversation context by utility LLM for auto-recall. Improves search quality, adds 1 utility LLM call per auto-recall.",
-            "type": "switch",
-            "value": settings["memory_recall_query_prep"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_post_filter",
-            "title": "Auto-recall AI post-filtering",
-            "description": "Enables memory relevance filtering by utility LLM for auto-recall. Improves search quality, adds 1 utility LLM call per auto-recall.",
-            "type": "switch",
-            "value": settings["memory_recall_post_filter"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_interval",
-            "title": "Memory auto-recall interval",
-            "description": "Memories are recalled after every user or superior agent message. During agent's monologue, memories are recalled every X turns based on this parameter.",
-            "type": "range",
-            "min": 1,
-            "max": 10,
-            "step": 1,
-            "value": settings["memory_recall_interval"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_history_len",
-            "title": "Memory auto-recall history length",
-            "description": "The length of conversation history passed to memory recall LLM for context (in characters).",
-            "type": "number",
-            "value": settings["memory_recall_history_len"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_similarity_threshold",
-            "title": "Memory auto-recall similarity threshold",
-            "description": "The threshold for similarity search in memory recall (0 = no similarity, 1 = exact match).",
-            "type": "range",
-            "min": 0,
-            "max": 1,
-            "step": 0.01,
-            "value": settings["memory_recall_similarity_threshold"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_memories_max_search",
-            "title": "Memory auto-recall max memories to search",
-            "description": "The maximum number of memories returned by vector DB for further processing.",
-            "type": "number",
-            "value": settings["memory_recall_memories_max_search"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_memories_max_result",
-            "title": "Memory auto-recall max memories to use",
-            "description": "The maximum number of memories to inject into A0's context window.",
-            "type": "number",
-            "value": settings["memory_recall_memories_max_result"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_solutions_max_search",
-            "title": "Memory auto-recall max solutions to search",
-            "description": "The maximum number of solutions returned by vector DB for further processing.",
-            "type": "number",
-            "value": settings["memory_recall_solutions_max_search"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_recall_solutions_max_result",
-            "title": "Memory auto-recall max solutions to use",
-            "description": "The maximum number of solutions to inject into A0's context window.",
-            "type": "number",
-            "value": settings["memory_recall_solutions_max_result"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_memorize_enabled",
-            "title": "Auto-memorize enabled",
-            "description": "A0 will automatically memorize facts and solutions from conversation history.",
-            "type": "switch",
-            "value": settings["memory_memorize_enabled"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_memorize_consolidation",
-            "title": "Auto-memorize AI consolidation",
-            "description": "A0 will automatically consolidate similar memories using utility LLM. Improves memory quality over time, adds 2 utility LLM calls per memory.",
-            "type": "switch",
-            "value": settings["memory_memorize_consolidation"],
-        }
-    )
-
-    memory_fields.append(
-        {
-            "id": "memory_memorize_replace_threshold",
-            "title": "Auto-memorize replacement threshold",
-            "description": "Only applies when AI consolidation is disabled. Replaces previous similar memories with new ones based on this threshold. 0 = replace even if not similar at all, 1 = replace only if exact match.",
-            "type": "range",
-            "min": 0,
-            "max": 1,
-            "step": 0.01,
-            "value": settings["memory_memorize_replace_threshold"],
-        }
-    )
-
-    memory_section: SettingsSection = {
-        "id": "memory",
-        "title": "Memory",
-        "description": "Configuration of A0's memory system. A0 memorizes and recalls memories automatically to help it's context awareness.",
-        "fields": memory_fields,
-        "tab": "agent",
-    }
-
-    dev_fields: list[SettingsField] = []
-
-    dev_fields.append(
-        {
-            "id": "shell_interface",
-            "title": "Shell Interface",
-            "description": "Terminal interface used for Code Execution Tool. Local Python TTY works locally in both dockerized and development environments. SSH always connects to dockerized environment (automatically at localhost or RFC host address).",
-            "type": "select",
-            "value": settings["shell_interface"],
-            "options": [{"value": "local", "label": "Local Python TTY"}, {"value": "ssh", "label": "SSH"}],
-        }
-    )
-
-    if runtime.is_development():
-        # dev_fields.append(
-        #     {
-        #         "id": "rfc_auto_docker",
-        #         "title": "RFC Auto Docker Management",
-        #         "description": "Automatically create dockerized instance of A0 for RFCs using this instance's code base and, settings and .env.",
-        #         "type": "text",
-        #         "value": settings["rfc_auto_docker"],
-        #     }
-        # )
-
-        dev_fields.append(
-            {
-                "id": "rfc_url",
-                "title": "RFC Destination URL",
-                "description": "URL of dockerized A0 instance for remote function calls. Do not specify port here.",
-                "type": "text",
-                "value": settings["rfc_url"],
-            }
-        )
-
-    dev_fields.append(
-        {
-            "id": "rfc_password",
-            "title": "RFC Password",
-            "description": "Password for remote function calls. Passwords must match on both instances. RFCs can not be used with empty password.",
-            "type": "password",
-            "value": (
-                PASSWORD_PLACEHOLDER
-                if dotenv.get_dotenv_value(dotenv.KEY_RFC_PASSWORD)
-                else ""
-            ),
-        }
-    )
-
-    if runtime.is_development():
-        dev_fields.append(
-            {
-                "id": "rfc_port_http",
-                "title": "RFC HTTP port",
-                "description": "HTTP port for dockerized instance of A0.",
-                "type": "text",
-                "value": settings["rfc_port_http"],
-            }
-        )
-
-        dev_fields.append(
-            {
-                "id": "rfc_port_ssh",
-                "title": "RFC SSH port",
-                "description": "SSH port for dockerized instance of A0.",
-                "type": "text",
-                "value": settings["rfc_port_ssh"],
-            }
-        )
-
-    dev_section: SettingsSection = {
-        "id": "dev",
-        "title": "Development",
-        "description": "Parameters for A0 framework development. RFCs (remote function calls) are used to call functions on another A0 instance. You can develop and debug A0 natively on your local system while redirecting some functions to A0 instance in docker. This is crucial for development as A0 needs to run in standardized environment to support all features.",
-        "fields": dev_fields,
-        "tab": "developer",
-    }
-
-    # code_exec_fields: list[SettingsField] = []
-
-    # code_exec_fields.append(
-    #     {
-    #         "id": "code_exec_ssh_enabled",
-    #         "title": "Use SSH for code execution",
-    #         "description": "Code execution will use SSH to connect to the terminal. When disabled, a local python terminal interface is used instead. SSH should only be used in development environment or when encountering issues with the local python terminal interface.",
-    #         "type": "switch",
-    #         "value": settings["code_exec_ssh_enabled"],
-    #     }
-    # )
-
-    # code_exec_fields.append(
-    #     {
-    #         "id": "code_exec_ssh_addr",
-    #         "title": "Code execution SSH address",
-    #         "description": "Address of the SSH server for code execution. Only applies when SSH is enabled.",
-    #         "type": "text",
-    #         "value": settings["code_exec_ssh_addr"],
-    #     }
-    # )
-
-    # code_exec_fields.append(
-    #     {
-    #         "id": "code_exec_ssh_port",
-    #         "title": "Code execution SSH port",
-    #         "description": "Port of the SSH server for code execution. Only applies when SSH is enabled.",
-    #         "type": "text",
-    #         "value": settings["code_exec_ssh_port"],
-    #     }
-    # )
-
-    # code_exec_section: SettingsSection = {
-    #     "id": "code_exec",
-    #     "title": "Code execution",
-    #     "description": "Configuration of code execution by the agent.",
-    #     "fields": code_exec_fields,
-    #     "tab": "developer",
-    # }
-
-    # Speech to text section
-    stt_fields: list[SettingsField] = []
-
-    stt_fields.append(
-        {
-            "id": "stt_microphone_section",
-            "title": "Microphone device",
-            "description": "Select the microphone device to use for speech-to-text.",
-            "value": "<x-component path='/settings/speech/microphone.html' />",
-            "type": "html",
-        }
-    )
-
-    stt_fields.append(
-        {
-            "id": "stt_model_size",
-            "title": "Speech-to-text model size",
-            "description": "Select the speech-to-text model size",
-            "type": "select",
-            "value": settings["stt_model_size"],
-            "options": [
+                if subdir != "_example"],
+            knowledge_subdirs=[{"value": subdir, "label": subdir}
+                for subdir in files.get_subdirectories("knowledge", exclude="default")],
+            stt_models=[
                 {"value": "tiny", "label": "Tiny (39M, English)"},
                 {"value": "base", "label": "Base (74M, English)"},
                 {"value": "small", "label": "Small (244M, English)"},
                 {"value": "medium", "label": "Medium (769M, English)"},
                 {"value": "large", "label": "Large (1.5B, Multilingual)"},
                 {"value": "turbo", "label": "Turbo (Multilingual)"},
-            ],
-        }
+            ]
+
+        )
     )
 
-    stt_fields.append(
-        {
-            "id": "stt_language",
-            "title": "Speech-to-text language code",
-            "description": "Language code (e.g. en, fr, it)",
-            "type": "text",
-            "value": settings["stt_language"],
-        }
+    # ensure dropdown options include currently selected values
+    additional = out["additional"]
+    current = out["settings"]
+
+    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("chat_model_provider"))
+    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("util_model_provider"))
+    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("browser_model_provider"))
+    additional["embedding_providers"] = _ensure_option_present(additional.get("embedding_providers"), current.get("embed_model_provider"))
+    additional["shell_interfaces"] = _ensure_option_present(additional.get("shell_interfaces"), current.get("shell_interface"))
+    additional["agent_subdirs"] = _ensure_option_present(additional.get("agent_subdirs"), current.get("agent_profile"))
+    additional["knowledge_subdirs"] = _ensure_option_present(additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir"))
+    additional["stt_models"] = _ensure_option_present(additional.get("stt_models"), current.get("stt_model_size"))
+
+    # masked api keys
+    providers = get_providers("chat") + get_providers("embedding")
+    for provider in providers:
+        provider_name = provider["value"]
+        api_key = settings["api_keys"].get(provider_name, models.get_api_key(provider_name))
+        settings["api_keys"][provider_name] = API_KEY_PLACEHOLDER if api_key and api_key != "None" else ""
+
+    # load auth from dotenv
+    out["settings"]["auth_login"] = dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) or ""
+    out["settings"]["auth_password"] = (
+        PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD) else ""
+    )
+    out["settings"]["rfc_password"] = (
+        PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_RFC_PASSWORD) else ""
+    )
+    out["settings"]["root_password"] = (
+        PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_ROOT_PASSWORD) else ""
     )
 
-    stt_fields.append(
-        {
-            "id": "stt_silence_threshold",
-            "title": "Microphone silence threshold",
-            "description": "Silence detection threshold. Lower values are more sensitive to noise.",
-            "type": "range",
-            "min": 0,
-            "max": 1,
-            "step": 0.01,
-            "value": settings["stt_silence_threshold"],
-        }
-    )
-
-    stt_fields.append(
-        {
-            "id": "stt_silence_duration",
-            "title": "Microphone silence duration (ms)",
-            "description": "Duration of silence before the system considers speaking to have ended.",
-            "type": "text",
-            "value": settings["stt_silence_duration"],
-        }
-    )
-
-    stt_fields.append(
-        {
-            "id": "stt_waiting_timeout",
-            "title": "Microphone waiting timeout (ms)",
-            "description": "Duration of silence before the system closes the microphone.",
-            "type": "text",
-            "value": settings["stt_waiting_timeout"],
-        }
-    )
-
-    # TTS fields
-    tts_fields: list[SettingsField] = []
-
-    tts_fields.append(
-        {
-            "id": "tts_kokoro",
-            "title": "Enable Kokoro TTS",
-            "description": "Enable higher quality server-side AI (Kokoro) instead of browser-based text-to-speech.",
-            "type": "switch",
-            "value": settings["tts_kokoro"],
-        }
-    )
-
-    speech_section: SettingsSection = {
-        "id": "speech",
-        "title": "Speech",
-        "description": "Voice transcription and speech synthesis settings.",
-        "fields": stt_fields + tts_fields,
-        "tab": "agent",
-    }
-
-    # MCP section
-    mcp_client_fields: list[SettingsField] = []
-
-    mcp_client_fields.append(
-        {
-            "id": "mcp_servers_config",
-            "title": "MCP Servers Configuration",
-            "description": "External MCP servers can be configured here.",
-            "type": "button",
-            "value": "Open",
-        }
-    )
-
-    mcp_client_fields.append(
-        {
-            "id": "mcp_servers",
-            "title": "MCP Servers",
-            "description": "(JSON list of) >> RemoteServer <<: [name, url, headers, timeout (opt), sse_read_timeout (opt), disabled (opt)] / >> Local Server <<: [name, command, args, env, encoding (opt), encoding_error_handler (opt), disabled (opt)]",
-            "type": "textarea",
-            "value": settings["mcp_servers"],
-            "hidden": True,
-        }
-    )
-
-    mcp_client_fields.append(
-        {
-            "id": "mcp_client_init_timeout",
-            "title": "MCP Client Init Timeout",
-            "description": "Timeout for MCP client initialization (in seconds). Higher values might be required for complex MCPs, but might also slowdown system startup.",
-            "type": "number",
-            "value": settings["mcp_client_init_timeout"],
-        }
-    )
-
-    mcp_client_fields.append(
-        {
-            "id": "mcp_client_tool_timeout",
-            "title": "MCP Client Tool Timeout",
-            "description": "Timeout for MCP client tool execution. Higher values might be required for complex tools, but might also result in long responses with failing tools.",
-            "type": "number",
-            "value": settings["mcp_client_tool_timeout"],
-        }
-    )
-
-    mcp_client_section: SettingsSection = {
-        "id": "mcp_client",
-        "title": "External MCP Servers",
-        "description": "Agent Zero can use external MCP servers, local or remote as tools.",
-        "fields": mcp_client_fields,
-        "tab": "mcp",
-    }
-
-   # Secrets section
-    secrets_fields: list[SettingsField] = []
-
+    #secrets
     secrets_manager = get_default_secrets_manager()
     try:
-        secrets = secrets_manager.get_masked_secrets()
+        out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
     except Exception:
-        secrets = ""
+        out["settings"]["secrets"] = ""
 
-    secrets_fields.append({
-        "id": "variables",
-        "title": "Variables Store",
-        "description": "Store non-sensitive variables in .env format e.g. EMAIL_IMAP_SERVER=\"imap.gmail.com\", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href=\"javascript:openModal('settings/secrets/example-vars.html')\">example</a>.<br>These variables are visible to LLMs and in chat history, they are not being masked.",
-        "type": "textarea",
-        "value": settings["variables"].strip(),
-        "style": "height: 20em",
-    })
+    # mask API keys before sending to frontend
+    if isinstance(out["settings"].get("api_keys"), dict):
+        for provider, value in list(out["settings"]["api_keys"].items()):
+            if value:
+                out["settings"]["api_keys"][provider] = API_KEY_PLACEHOLDER
 
     secrets_fields.append({
         "id": "secrets",
@@ -1393,6 +528,13 @@ def convert_out(settings: Settings) -> SettingsOutput:
             # code_exec_section,
         ]
     }
+
+    # normalize certain fields
+    for key, value in list(result["settings"].items()):
+        # convert kwargs dicts to .env format
+        if (key.endswith("_kwargs") or key=="browser_http_headers") and isinstance(value, dict):
+            result["settings"][key] = _dict_to_env(value)
+
     return result
 
 
@@ -1407,26 +549,18 @@ def _get_api_key_field(settings: Settings, provider: str, title: str) -> Setting
     }
 
 
-def convert_in(settings: dict) -> Settings:
+def convert_in(settings: Settings) -> Settings:
     current = get_settings()
-    for section in settings["sections"]:
-        if "fields" in section:
-            for field in section["fields"]:
-                # Skip saving if value is a placeholder
-                should_skip = (
-                    field["value"] == PASSWORD_PLACEHOLDER or
-                    field["value"] == API_KEY_PLACEHOLDER
-                )
 
-                if not should_skip:
-                    # Special handling for browser_http_headers
-                    if field["id"] == "browser_http_headers" or field["id"].endswith("_kwargs"):
-                        current[field["id"]] = _env_to_dict(field["value"])
-                    elif field["id"].startswith("api_key_"):
-                        current["api_keys"][field["id"]] = field["value"]
-                    else:
-                        current[field["id"]] = field["value"]
+    for key, value in settings.items():
+        # Special handling for browser_http_headers and *_kwargs (stored as .env text)
+        if (key == "browser_http_headers" or key.endswith("_kwargs")) and isinstance(value, str):
+            current[key] = _env_to_dict(value)
+            continue
+
+        current[key] = value
     return current
+
 
 def get_settings() -> Settings:
     global _settings
@@ -1445,12 +579,13 @@ def set_settings(settings: Settings, apply: bool = True):
     _write_settings_file(_settings)
     if apply:
         _apply_settings(previous)
+    return _settings
 
 
 def set_settings_delta(delta: dict, apply: bool = True):
     current = get_settings()
     new = {**current, **delta}
-    set_settings(new, apply)  # type: ignore
+    return set_settings(new, apply)  # type: ignore
 
 
 def merge_settings(original: Settings, delta: dict) -> Settings:
@@ -1528,18 +663,18 @@ def _remove_sensitive_settings(settings: Settings):
 
 def _write_sensitive_settings(settings: Settings):
     for key, val in settings["api_keys"].items():
-        dotenv.save_dotenv_value(key.upper(), val)
+        if val != API_KEY_PLACEHOLDER:
+            dotenv.save_dotenv_value(f"API_KEY_{key.upper()}", val)
 
     dotenv.save_dotenv_value(dotenv.KEY_AUTH_LOGIN, settings["auth_login"])
-    if settings["auth_password"]:
+    if settings["auth_password"] != PASSWORD_PLACEHOLDER:
         dotenv.save_dotenv_value(dotenv.KEY_AUTH_PASSWORD, settings["auth_password"])
-    if settings["rfc_password"]:
+    if settings["rfc_password"] != PASSWORD_PLACEHOLDER:
         dotenv.save_dotenv_value(dotenv.KEY_RFC_PASSWORD, settings["rfc_password"])
-
-    if settings["root_password"]:
-        dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, settings["root_password"])
-    if settings["root_password"]:
-        set_root_password(settings["root_password"])
+    if settings["root_password"] != PASSWORD_PLACEHOLDER:
+        if runtime.is_dockerized():
+            dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, settings["root_password"])
+            set_root_password(settings["root_password"])
 
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
     secrets_manager = get_default_secrets_manager()
@@ -1671,18 +806,24 @@ def _apply_settings(previous: Settings | None):
                 PrintStyle(
                     background_color="black", font_color="white", padding=True
                 ).print("Updating MCP config...")
-                AgentContext.log_to_all(
-                    type="info", content="Updating MCP settings...", temp=True
+                NotificationManager.send_notification(
+                    type=NotificationType.INFO,
+                    priority=NotificationPriority.NORMAL,
+                    message="Updating MCP settings...",
+                    display_time=999,
+                    group="settings-mcp"
                 )
 
                 mcp_config = MCPConfig.get_instance()
                 try:
                     MCPConfig.update(mcp_servers)
                 except Exception as e:
-                    AgentContext.log_to_all(
-                        type="error",
-                        content=f"Failed to update MCP settings: {e}",
-                        temp=False,
+                    
+                    NotificationManager.send_notification(
+                        type=NotificationType.ERROR,
+                        priority=NotificationPriority.HIGH,
+                        message="Failed to update MCP settings",
+                        detail=str(e),                        
                     )
                     (
                         PrintStyle(
@@ -1703,8 +844,11 @@ def _apply_settings(previous: Settings | None):
                         background_color="#334455", font_color="white", padding=False
                     ).print(mcp_config.model_dump_json())
                 )
-                AgentContext.log_to_all(
-                    type="info", content="Finished updating MCP settings.", temp=True
+                NotificationManager.send_notification(
+                    type=NotificationType.INFO,
+                    priority=NotificationPriority.NORMAL,
+                    message="Finished updating MCP settings.",
+                    group="settings-mcp"
                 )
 
             task2 = defer.DeferredTask().start_task(

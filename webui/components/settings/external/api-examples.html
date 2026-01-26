@@ -190,10 +190,20 @@
         </div>
         -->
 
-        <script>
-            setTimeout(() => {
+        <script type="module">
+            import * as API from "/js/api.js";
+
+            setTimeout(async () => {
                 const url = window.location.origin;
-                const token = settingsModalProxy.settings.sections.filter(x => x.id == "mcp_server")[0].fields.filter(x => x.id == "mcp_server_token")[0].value;
+
+                // Fetch token from settings API
+                let token = "";
+                try {
+                    const response = await API.callJsonApi("settings_get", null);
+                    token = response?.settings?.mcp_server_token || "";
+                } catch (e) {
+                    console.error("Failed to fetch token:", e);
+                }
 
                 // Basic usage example
                 const basicExample = `// Basic message example

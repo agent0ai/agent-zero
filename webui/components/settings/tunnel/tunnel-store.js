@@ -9,9 +9,118 @@ const model = {
   loadingText: "",
   qrCodeInstance: null,
   provider: "cloudflared",
+  microsoftLoginCode: "",
+  microsoftLoginUrl: "",
+  codeCopied: false,
+  notificationPollInterval: null,
+  hasError: false,
 
   init() {
     this.checkTunnelStatus();
+  },
+
+  clearMicrosoftLogin() {
+    this.microsoftLoginCode = "";
+    this.microsoftLoginUrl = "";
+    this.codeCopied = false;
+  },
+
+  copyLoginCode() {
+    if (!this.microsoftLoginCode) return;
+    navigator.clipboard.writeText(this.microsoftLoginCode).then(() => {
+      this.codeCopied = true;
+      window.toastFrontendInfo("Login code copied to clipboard!", "Clipboard");
+      // Reset after 3 seconds
+      setTimeout(() => {
+        this.codeCopied = false;
+      }, 3000);
+    }).catch((err) => {
+      console.error("Failed to copy code: ", err);
+      window.toastFrontendError("Failed to copy login code", "Clipboard Error");
+    });
+  },
+
+  processNotifications(notifications) {
+    if (!notifications || !Array.isArray(notifications)) return;
+    
+    for (const n of notifications) {
+      switch (n.event) {
+        case "downloading":
+          this.loadingText = n.message;
+          break;
+        case "download_progress":
+          if (n.data && n.data.percent !== undefined) {
+            this.loadingText = `Downloading: ${n.data.percent.toFixed(1)}%`;
+          } else {
+            this.loadingText = n.message;
+          }
+          break;
+        case "download_complete":
+          this.loadingText = n.message;
+          break;
+        case "creating_tunnel":
+          this.clearMicrosoftLogin();
+          this.loadingText = n.message;
+          break;
+        case "info":
+          // Check for Microsoft login code
+          if (n.data && n.data.code) {
+            this.microsoftLoginCode = n.data.code;
+            this.microsoftLoginUrl = n.data.url || "";
+            this.loadingText = "Waiting for Microsoft login...";
+          } else {
+            this.loadingText = n.message;
+          }
+          break;
+        case "error":
+          this.hasError = true;
+          window.toastFrontendError(n.message, "Tunnel Error");
+          this.stopNotificationPolling();
+          break;
+        case "tunnel_url":
+          if (n.data && n.data.url) {
+            this.tunnelLink = n.data.url;
+            this.linkGenerated = true;
+          }
+          break;
+        case "tunnel_stopped":
+          this.loadingText = n.message;
+          break;
+      }
+    }
+  },
+
+  startNotificationPolling() {
+    this.stopNotificationPolling();
+    this.hasError = false;
+    this.notificationPollInterval = setInterval(async () => {
+      try {
+        const response = await fetchApi("/tunnel_proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "notifications" }),
+        });
+        const data = await response.json();
+        if (data.notifications) {
+          this.processNotifications(data.notifications);
+        }
+        // Check if tunnel is ready
+        if (data.tunnel_url && data.is_running) {
+          this.tunnelLink = data.tunnel_url;
+          this.linkGenerated = true;
+          this.stopNotificationPolling();
+        }
+      } catch (error) {
+        console.error("Error polling notifications:", error);
+      }
+    }, 500);
+  },
+
+  stopNotificationPolling() {
+    if (this.notificationPollInterval) {
+      clearInterval(this.notificationPollInterval);
+      this.notificationPollInterval = null;
+    }
   },
 
   generateQRCode() {
@@ -110,6 +219,8 @@ const model = {
     ) {
 
       this.isLoading = true;
+      this.hasError = false;
+      this.clearMicrosoftLogin();
       this.loadingText = "Refreshing tunnel...";
 
       // Change refresh button appearance
@@ -162,27 +273,9 @@ const model = {
       // Find the auth_login and auth_password in the settings
       let hasAuth = false;
 
-      if (authData && authData.settings && authData.settings.sections) {
-        for (const section of authData.settings.sections) {
-          if (section.fields) {
-            const authLoginField = section.fields.find(
-              (field) => field.id === "auth_login"
-            );
-            const authPasswordField = section.fields.find(
-              (field) => field.id === "auth_password"
-            );
-
-            if (
-              authLoginField &&
-              authPasswordField &&
-              authLoginField.value &&
-              authPasswordField.value
-            ) {
-              hasAuth = true;
-              break;
-            }
-          }
-        }
+      if (authData && authData.settings) {
+        const { auth_login, auth_password } = authData.settings;
+        hasAuth = Boolean(auth_login && auth_password);
       }
 
       // If no authentication is set, warn the user
@@ -206,7 +299,9 @@ const model = {
     }
 
     this.isLoading = true;
-    this.loadingText = "Creating tunnel...";
+    this.hasError = false;
+    this.clearMicrosoftLogin();
+    this.loadingText = "Starting tunnel...";
 
     // Change create button appearance
     const createButton = document.querySelector("#tunnel-settings-section .tunnel-actions .btn-ok");
@@ -216,6 +311,9 @@ const model = {
       createButton.disabled = true;
       createButton.classList.add("creating");
     }
+
+    // Start polling for notifications
+    this.startNotificationPolling();
 
     try {
       // Call the backend API to create a tunnel
@@ -227,11 +325,24 @@ const model = {
         body: JSON.stringify({
           action: "create",
           provider: this.provider,
-          // port: window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
         }),
       });
 
       const data = await response.json();
+
+      // Process any notifications from response
+      if (data.notifications) {
+        this.processNotifications(data.notifications);
+      }
+
+      // Check for error
+      if (!data.success && data.message) {
+        this.hasError = true;
+        window.toastFrontendError(data.message, "Tunnel Error");
+        console.error("Tunnel creation failed:", data);
+        this.stopNotificationPolling();
+        return;
+      }
 
       if (data.success && data.tunnel_url) {
         // Store the tunnel URL in localStorage for persistence
@@ -239,6 +350,7 @@ const model = {
 
         this.tunnelLink = data.tunnel_url;
         this.linkGenerated = true;
+        this.stopNotificationPolling();
 
         // Generate QR code for the tunnel URL
         Sleep.Skip().then(() => this.generateQRCode());
@@ -248,52 +360,6 @@ const model = {
           "Tunnel created successfully",
           "Tunnel Status"
         );
-      } else {
-        // The tunnel might still be starting up, check again after a delay
-        this.loadingText = "Tunnel creation taking longer than expected...";
-
-        // Wait for 5 seconds and check if the tunnel is running
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-
-        // Check if tunnel is running now
-        try {
-          const statusResponse = await fetchApi("/tunnel_proxy", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ action: "get" }),
-          });
-
-          const statusData = await statusResponse.json();
-
-          if (statusData.success && statusData.tunnel_url) {
-            // Tunnel is now running, we can update the UI
-            localStorage.setItem(
-              "agent_zero_tunnel_url",
-              statusData.tunnel_url
-            );
-            this.tunnelLink = statusData.tunnel_url;
-            this.linkGenerated = true;
-
-            // Generate QR code for the tunnel URL
-            Sleep.Skip().then(() => this.generateQRCode());
-
-            window.toastFrontendInfo(
-              "Tunnel created successfully",
-              "Tunnel Status"
-            );
-            return;
-          }
-        } catch (statusError) {
-          console.error("Error checking tunnel status:", statusError);
-        }
-
-        // If we get here, the tunnel really failed to start
-        const errorMessage =
-          data.message || "Failed to create tunnel. Please try again.";
-        window.toastFrontendError(errorMessage, "Tunnel Error");
-        console.error("Tunnel creation failed:", data);
       }
     } catch (error) {
       window.toastFrontendError("Error creating tunnel", "Tunnel Error");
@@ -301,6 +367,8 @@ const model = {
     } finally {
       this.isLoading = false;
       this.loadingText = "";
+      this.stopNotificationPolling();
+      this.clearMicrosoftLogin();
 
       // Reset create button if it's still in the DOM
       const createButton = document.querySelector("#tunnel-settings-section .tunnel-actions .btn-ok");

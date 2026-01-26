@@ -22,7 +22,7 @@ from python.helpers.print_style import PrintStyle
 from python.helpers.defer import DeferredTask
 from python.helpers.files import get_abs_path, make_dirs, read_file, write_file
 from python.helpers.localization import Localization
-from python.helpers import projects
+from python.helpers import projects, guids
 import pytz
 from typing import Annotated
 
@@ -118,7 +118,7 @@ class TaskPlan(BaseModel):
 
 
 class BaseTask(BaseModel):
-    uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    uuid: str = Field(default_factory=lambda: guids.generate_id())
     context_id: Optional[str] = Field(default=None)
     state: TaskState = Field(default=TaskState.IDLE)
     name: str = Field()
@@ -874,7 +874,7 @@ class TaskScheduler:
                 # Log the message with message_id and attachments
                 context.log.log(
                     type="user",
-                    heading="User message",
+                    heading="",
                     content=task_prompt,
                     kvps={"attachments": attachment_filenames},
                     id=str(uuid.uuid4()),

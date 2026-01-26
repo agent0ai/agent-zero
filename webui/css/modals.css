@@ -124,7 +124,6 @@ some classes like modal-header are shared between the old and the new system */
 .modal-content {
   padding: 0.5rem 1.5rem 0 1.5rem;
   overflow-y: auto;
-  overflow-x: hidden;
   height: calc(90vh);
   flex-grow: 1;
   background-clip: border-box;
@@ -163,7 +162,7 @@ some classes like modal-header are shared between the old and the new system */
   margin: 4px 0;
   border-radius: 6px;
 }
-.modal-content::-webkit-scrollbar-thumb, .modal-scroll::webkit-scrollbar-thumb {
+.modal-content::-webkit-scrollbar-thumb, .modal-scroll::-webkit-scrollbar-thumb {
   background-color: rgba(155, 155, 155, 0.5);
   border-radius: 6px;
   transition: background-color 0.2s ease;
@@ -382,27 +381,40 @@ input[type="range"] {
   background: var(--color-border);
   border-radius: 2px;
   outline: none;
+  transition: all 0.2s ease;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 16px;
   height: 16px;
-  background: var(--color-text);
+  background: var(--color-primary);
   border-radius: 50%;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
+
 input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  background: var(--color-text);
+  background: var(--color-primary);
   border-radius: 50%;
   cursor: pointer;
   border: none;
+  transition: all 0.2s ease;
 }
+
 .range-value {
   min-width: 3em;
   text-align: right;
+}
+
+/* Light mode overrides */
+.light-mode input[type="range"]::-webkit-slider-thumb {
+  background: #777;
+}
+.light-mode input[type="range"]::-moz-range-thumb {
+  background: #777;
 }
 
 /* Responsive Design */
@@ -427,7 +439,7 @@ input[type="range"]::-moz-range-thumb {
     flex-grow: 1;
   }
   .modal-footer {
-    padding: var(--spacing-sm) 0 var(--spacing-sm) 0 !important;
+    padding: var(--spacing-sm) !important;
   }
   .section {
     margin-bottom: 1.5rem;

@@ -40,6 +40,7 @@ chat:
       extra_headers:
         "Editor-Version": "vscode/1.85.1"
         "Copilot-Integration-Id": "vscode-chat"
+        "Copilot-Vision-Request": "true"
   google:
     name: Google
     litellm_provider: gemini

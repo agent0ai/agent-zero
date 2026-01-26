@@ -172,7 +172,6 @@ const model = {
 
   // --- File actions --------------------------------------------------------
   async deleteFile(file) {
-    if (!confirm(`Are you sure you want to delete ${file.name}?`)) return;
     try {
       const resp = await fetchApi("/delete_work_dir_file", {
         method: "POST",
@@ -186,9 +185,9 @@ const model = {
         this.browser.entries = this.browser.entries.filter(
           (e) => e.path !== file.path
         );
-        alert("File deleted successfully.");
+        window.toastFrontendSuccess("File deleted successfully", "File Deleted");
       } else {
-        alert(`Error deleting file: ${await resp.text()}`);
+        window.toastFrontendError(`Error deleting file: ${await resp.text()}`, "Delete Error");
       }
     } catch (e) {
       window.toastFrontendError(

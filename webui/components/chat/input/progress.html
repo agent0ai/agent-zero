@@ -2,6 +2,7 @@
 <head>
     <script type="module">
         import { store as speechStore } from "/components/chat/speech/speech-store.js";
+        import { store as chatNavStore } from "/components/chat/navigation/chat-navigation-store.js";
     </script>
 </head>
 <body>
@@ -9,17 +10,39 @@
         <h4 id="progress-bar-h">
             <span id="progress-bar-i">|></span><span id="progress-bar"></span>
         </h4>
-        <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
-            <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
-        </h4>
+        <div id="progress-bar-right">
+          <div id="chat-nav-buttons" aria-label="Chat navigation">
+            <button class="btn-icon-action" title="Scroll to top" x-on:click="$store.chatNavigation.scrollToTop()">
+              <span class="material-symbols-outlined">vertical_align_top</span>
+            </button>
+            <button class="btn-icon-action" title="Previous user message" x-on:click="$store.chatNavigation.scrollToPrevUserMessage()">
+              <span class="material-symbols-outlined">keyboard_arrow_up</span>
+            </button>
+            <button class="btn-icon-action" title="Next user message" x-on:click="$store.chatNavigation.scrollToNextUserMessage()">
+              <span class="material-symbols-outlined">keyboard_arrow_down</span>
+            </button>
+            <button class="btn-icon-action" title="Scroll to bottom" x-on:click="$store.chatNavigation.scrollToBottom()">
+              <span class="material-symbols-outlined">vertical_align_bottom</span>
+            </button>
+          </div>
+          <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
+              <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
+          </h4>
+        </div>
     </div>
 
 
     <style>
-    #progress-bar-box { background-color: var(--color-panel); padding: var(--spacing-sm) var(--spacing-md); padding-bottom: 0; display: flex; justify-content: space-between; z-index: 1001; }
+    #progress-bar-box { background-color: var(--color-panel); padding: var(--spacing-sm) var(--spacing-md); padding-bottom: 0; display: flex; justify-content: space-between; z-index: 1001; gap: var(--spacing-sm); }
     #progress-bar-box h4 { margin: 0 1.2em 0 0; }
     #progress-bar-h { color: var(--color-primary); display: flex; align-items: left; justify-content: flex-start; height: 1.2em; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; font-weight: normal; }
     #progress-bar-i { font-weight: bold; padding-right: 0.5em; color: var(--color-secondary); }
+    #progress-bar-right { display: flex; align-items: center; gap: var(--spacing-sm); flex-shrink: 0; }
+    #chat-nav-buttons { display: flex; align-items: center; gap: 2px; opacity: 0.85; }
+    #chat-nav-buttons .btn-icon-action { padding: var(--spacing-xs); }
+    #chat-nav-buttons .btn-icon-action {
+      border: none !important;
+    }
     .shiny-text { background: linear-gradient(to right, var(--color-primary-dark) 20%, var(--color-text) 40%, var(--color-text) 60%, var(--color-primary-dark) 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; animation: shine 1s linear infinite; }
     @keyframes shine { to { background-position: -200% center; } }
     .light-mode #progress-bar-i { color: var(--color-border-dark); opacity: 0.5; }

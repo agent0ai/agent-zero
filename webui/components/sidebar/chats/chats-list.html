@@ -10,7 +10,16 @@
   <div x-data>
     <template x-if="$store.chats">
       <div class="chats-list-container" x-data>
-        <h3 class="section-header">Chats</h3>
+        <div class="section-header-row">
+          <h3 class="section-header">Chats</h3>
+          <!-- New Chat Button -->
+          <button id="newChat" class="btn-icon-action chat-list-action-btn" @click="$store.chats.newChat()" aria-label="New Chat" title="New Chat" data-bs-placement="top" data-bs-trigger="hover">
+            <span class="material-symbols-outlined">edit_square</span>
+          </button>
+        </div>
+
+
+
         <ul class="config-list chats-config-list" x-show="$store.chats.contexts.length > 0">
           <template x-for="context in $store.chats.contexts" :key="context.id">
             <li>
@@ -19,10 +28,12 @@
                 <div class="chat-list-button">
                   <span class="project-color-ball"
                     :style="context.project?.color ? { backgroundColor: context.project.color } : { border: '1px solid var(--color-border)' }"></span>
-                  <span class="chat-name" :title="context.name ? context.name : 'Chat #' + context.no"
+                  <span class="chat-name"
                     x-text="context.name ? context.name : 'Chat #' + context.no"></span>
                 </div>
-                <button class="edit-button" @click.stop="$store.chats.killChat(context.id)">X</button>
+                <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
               </div>
             </li>
           </template>
@@ -35,11 +46,19 @@
   </div>
 
   <style>
-    .chats-list-container .section-header {
+    .chats-list-container .section-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       position: sticky;
       top: 0;
       flex-shrink: 0;
+      margin-bottom: var(--spacing-xs);
       z-index: 10;
+    }
+
+    .chats-list-container .section-header {
+      margin: 0;
     }
 
     /* Chats list container and items */
@@ -76,13 +95,8 @@
       width: 100%;
       min-height: 40px;
       border-radius: 4px;
-      transition: background-color 0.2s ease-in-out;
       overflow: hidden;
       cursor: pointer;
-    }
-
-    .chat-container:hover {
-      background-color: var(--color-background-hover);
     }
 
     .chat-list-button {
@@ -110,28 +124,32 @@
       font-size: var(--font-size-small);
     }
 
-    .edit-button {
+    .chat-list-action-btn {
       flex-shrink: 0;
       margin-right: 8px;
-      background-color: transparent;
-      border: 1px solid var(--color-border);
-      border-radius: 0.1875rem;
-      color: var(--color-primary);
-      cursor: pointer;
-      padding: 0.125rem 0.5rem;
-      transition: all var(--transition-speed) ease-in-out;
-      width: 2rem;
-      height: 2rem;
     }
 
-    .edit-button:hover {
-      border-color: var(--color-primary);
-      background-color: #32455690;
+    .chat-container:hover{
+      background-color: var(--color-background-hover);
     }
 
-    .edit-button:active {
-      background-color: #131a2090;
-      color: rgba(253, 253, 253, 0.35);
+    .device-pointer .chat-container .chat-list-action-btn {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0s;
+    }
+
+    .device-pointer .chat-container:hover .chat-list-action-btn {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .device-touch .chats-list-container .chat-list-action-btn {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
     }
 
     .empty-list-message {
@@ -150,10 +168,6 @@
     }
 
     /* Selected chat accent */
-    .chat-selected {
-      background-color: var(--color-background-hover);
-    }
-
     .chat-selected .chat-name {
       font-size: var(--font-size-normal);
       font-weight: bold;

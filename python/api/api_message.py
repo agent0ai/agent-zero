@@ -136,7 +136,7 @@ class ApiMessage(ApiHandler):
             # Add user message to chat history so it's visible in the UI
             context.log.log(
                 type="user",
-                heading="User message",
+                heading="",
                 content=message,
                 kvps={"attachments": attachment_filenames},
             )
