@@ -13,6 +13,7 @@ from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers, FieldOption as ProvidersFO
 from python.helpers.secrets import get_default_secrets_manager
 from python.helpers import dirty_json
+from python.helpers.notification import NotificationManager, NotificationType, NotificationPriority
 
 
 T = TypeVar('T')
@@ -430,7 +431,7 @@ def _remove_sensitive_settings(settings: Settings):
 def _write_sensitive_settings(settings: Settings):
     for key, val in settings["api_keys"].items():
         if val != API_KEY_PLACEHOLDER:
-            dotenv.save_dotenv_value(key.upper(), val)
+            dotenv.save_dotenv_value(f"API_KEY_{key.upper()}", val)
 
     dotenv.save_dotenv_value(dotenv.KEY_AUTH_LOGIN, settings["auth_login"])
     if settings["auth_password"] != PASSWORD_PLACEHOLDER:
@@ -571,18 +572,24 @@ def _apply_settings(previous: Settings | None):
                 PrintStyle(
                     background_color="black", font_color="white", padding=True
                 ).print("Updating MCP config...")
-                AgentContext.log_to_all(
-                    type="info", content="Updating MCP settings...", temp=True
+                NotificationManager.send_notification(
+                    type=NotificationType.INFO,
+                    priority=NotificationPriority.NORMAL,
+                    message="Updating MCP settings...",
+                    display_time=999,
+                    group="settings-mcp"
                 )
 
                 mcp_config = MCPConfig.get_instance()
                 try:
                     MCPConfig.update(mcp_servers)
                 except Exception as e:
-                    AgentContext.log_to_all(
-                        type="error",
-                        content=f"Failed to update MCP settings: {e}",
-                        temp=False,
+                    
+                    NotificationManager.send_notification(
+                        type=NotificationType.ERROR,
+                        priority=NotificationPriority.HIGH,
+                        message="Failed to update MCP settings",
+                        detail=str(e),                        
                     )
                     (
                         PrintStyle(
@@ -603,8 +610,11 @@ def _apply_settings(previous: Settings | None):
                         background_color="#334455", font_color="white", padding=False
                     ).print(mcp_config.model_dump_json())
                 )
-                AgentContext.log_to_all(
-                    type="info", content="Finished updating MCP settings.", temp=True
+                NotificationManager.send_notification(
+                    type=NotificationType.INFO,
+                    priority=NotificationPriority.NORMAL,
+                    message="Finished updating MCP settings.",
+                    group="settings-mcp"
                 )
 
             task2 = defer.DeferredTask().start_task(

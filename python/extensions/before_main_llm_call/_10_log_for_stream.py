@@ -22,7 +22,7 @@ class LogForStream(Extension):
 def build_heading(agent, text: str, icon: str = "network_intelligence"):
     # Include agent identifier for all agents (A0:, A1:, A2:, etc.)
     agent_prefix = f"{agent.agent_name}: "
-    return f"icon://{icon} {agent_prefix}{text}"
+    return f"{agent_prefix}{text}"
 
 def build_default_heading(agent):
     return build_heading(agent, "Generating...") 

@@ -121,7 +121,6 @@ class MemorizeSolutions(Extension):
                     # solution_log = self.agent.context.log.log(
                     #     type="util",
                     #     heading=f"Processing solution: {txt[:50]}...",
-                    #     temp=False,
                     #     update_progress="none"  # Don't affect status bar
                     # )
 
@@ -140,7 +139,6 @@ class MemorizeSolutions(Extension):
                             solution_log.update(
                                 result="Solution processed successfully",
                                 heading=f"Solution completed: {txt[:50]}...",
-                                temp=False,  # Show completion message
                                 update_progress="none"  # Show briefly then disappear
                             )
                     else:
@@ -148,7 +146,6 @@ class MemorizeSolutions(Extension):
                             solution_log.update(
                                 result="Solution processing failed",
                                 heading=f"Solution failed: {txt[:50]}...",
-                                temp=False,  # Show completion message
                                 update_progress="none"  # Show briefly then disappear
                             )
                     total_processed += 1

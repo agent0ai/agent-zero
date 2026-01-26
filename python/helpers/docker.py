@@ -73,7 +73,7 @@ class DockerContainerManager:
         if existing_container:
             if existing_container.status != 'running':
                 PrintStyle.standard(f"Starting existing container: {self.name} for safe code execution...")
-                if self.logger: self.logger.log(type="info", content=f"Starting existing container: {self.name} for safe code execution...", temp=True)
+                if self.logger: self.logger.log(type="info", content=f"Starting existing container: {self.name} for safe code execution...")
                 
                 existing_container.start()
                 self.container = existing_container
@@ -84,7 +84,7 @@ class DockerContainerManager:
                 # PrintStyle.standard(f"Container with name '{self.name}' is already running with ID: {existing_container.id}")
         else:
             PrintStyle.standard(f"Initializing docker container {self.name} for safe code execution...")
-            if self.logger: self.logger.log(type="info", content=f"Initializing docker container {self.name} for safe code execution...", temp=True)
+            if self.logger: self.logger.log(type="info", content=f"Initializing docker container {self.name} for safe code execution...")
 
             self.container = self.client.containers.run(
                 self.image,

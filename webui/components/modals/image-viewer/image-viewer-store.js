@@ -11,6 +11,23 @@ const model = {
   refreshInterval: 0,
   activeIntervalId: null,
   closePromise: null,
+  
+  // Image dimensions
+  naturalWidth: 0,
+  naturalHeight: 0,
+  baseScale: 1,
+  
+  // Pan state
+  panX: 0,
+  panY: 0,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  dragStartPanX: 0,
+  dragStartPanY: 0,
+  activePointerId: null,
+  windowDragMoveHandler: null,
+  windowDragUpHandler: null,
 
   /**
    * Open image viewer modal
@@ -129,29 +146,161 @@ const model = {
     this.imageError = false;
     this.zoomLevel = 1;
     this.refreshInterval = 0;
+    this.naturalWidth = 0;
+    this.naturalHeight = 0;
+    this.baseScale = 1;
+    this.panX = 0;
+    this.panY = 0;
+    this.isDragging = false;
+    this.activePointerId = null;
+    this.removeWindowDragListeners();
+  },
+
+  onImageLoad(event) {
+    const img = event.target;
+    this.naturalWidth = img.naturalWidth;
+    this.naturalHeight = img.naturalHeight;
+    this.imageLoaded = true;
+    this.zoomLevel = 1;
+    this.panX = 0;
+    this.panY = 0;
+    // Reset any previous transform
+    img.classList.remove('zoomed');
+    img.style.width = '';
+    img.style.height = '';
+    img.style.transform = '';
+  },
+
+  // Drag/pan methods
+  startDrag(event) {
+    // Pointer events: mouse (button 0) or touch/pen (button can be -1/undefined)
+    if (typeof event.button === 'number' && event.button !== 0) return;
+    event.preventDefault();
+
+    this.isDragging = true;
+    this.activePointerId = typeof event.pointerId === 'number' ? event.pointerId : null;
+    this.dragStartX = event.clientX;
+    this.dragStartY = event.clientY;
+    this.dragStartPanX = this.panX;
+    this.dragStartPanY = this.panY;
+
+    const canvas = document.querySelector('.image-canvas');
+    if (canvas && this.activePointerId !== null && typeof canvas.setPointerCapture === 'function') {
+      try {
+        canvas.setPointerCapture(this.activePointerId);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    this.addWindowDragListeners();
+  },
+
+  onDrag(event) {
+    if (!this.isDragging) return;
+    if (this.activePointerId !== null && typeof event.pointerId === 'number' && event.pointerId !== this.activePointerId) {
+      return;
+    }
+    event.preventDefault();
+    const dx = event.clientX - this.dragStartX;
+    const dy = event.clientY - this.dragStartY;
+    this.panX = this.dragStartPanX + dx;
+    this.panY = this.dragStartPanY + dy;
+    this.updateImageTransform();
+  },
+
+  endDrag() {
+    if (!this.isDragging) return;
+    this.isDragging = false;
+    this.activePointerId = null;
+    this.removeWindowDragListeners();
+  },
+
+  addWindowDragListeners() {
+    this.removeWindowDragListeners();
+
+    this.windowDragMoveHandler = (e) => this.onDrag(e);
+    this.windowDragUpHandler = () => this.endDrag();
+
+    window.addEventListener('pointermove', this.windowDragMoveHandler, { passive: false });
+    window.addEventListener('pointerup', this.windowDragUpHandler, { passive: false });
+    window.addEventListener('pointercancel', this.windowDragUpHandler, { passive: false });
+  },
+
+  removeWindowDragListeners() {
+    if (this.windowDragMoveHandler) {
+      window.removeEventListener('pointermove', this.windowDragMoveHandler);
+      this.windowDragMoveHandler = null;
+    }
+    if (this.windowDragUpHandler) {
+      window.removeEventListener('pointerup', this.windowDragUpHandler);
+      window.removeEventListener('pointercancel', this.windowDragUpHandler);
+      this.windowDragUpHandler = null;
+    }
+  },
+
+  clampPan(containerWidth, containerHeight, displayWidth, displayHeight) {
+    const margin = 25;
+
+    const limitX = Math.max(0, (containerWidth + displayWidth) / 2 - margin);
+    const limitY = Math.max(0, (containerHeight + displayHeight) / 2 - margin);
+
+    this.panX = Math.max(-limitX, Math.min(limitX, this.panX));
+    this.panY = Math.max(-limitY, Math.min(limitY, this.panY));
+  },
+
+  getDisplaySize(containerWidth, containerHeight) {
+    // Fit in both dimensions without upscaling
+    const scaleX = containerWidth / this.naturalWidth;
+    const scaleY = containerHeight / this.naturalHeight;
+    const fitScale = Math.min(scaleX, scaleY, 1);
+    const scale = fitScale * this.zoomLevel;
+
+    return {
+      width: this.naturalWidth * scale,
+      height: this.naturalHeight * scale,
+    };
   },
 
   // Zoom controls
   zoomIn() {
-    this.zoomLevel = Math.min(this.zoomLevel * 1.2, 5); // Max 5x zoom
-    this.updateImageZoom();
+    this.zoomLevel = Math.min(this.zoomLevel * 1.25, 10);
+    this.updateImageTransform();
   },
 
   zoomOut() {
-    this.zoomLevel = Math.max(this.zoomLevel / 1.2, 0.1); // Min 0.1x zoom
-    this.updateImageZoom();
+    this.zoomLevel = Math.max(this.zoomLevel / 1.25, 0.1);
+    this.updateImageTransform();
   },
 
   resetZoom() {
     this.zoomLevel = 1;
-    this.updateImageZoom();
+    this.panX = 0;
+    this.panY = 0;
+    const img = document.querySelector('.modal-image');
+    if (img) {
+      img.classList.remove('zoomed');
+      img.style.width = '';
+      img.style.height = '';
+      img.style.transform = '';
+    }
   },
 
-  updateImageZoom() {
-    const img = document.querySelector(".modal-image");
-    if (img) {
-      img.style.transform = `scale(${this.zoomLevel})`;
-    }
+  updateImageTransform() {
+    const img = document.querySelector('.modal-image');
+    const wrapper = document.querySelector('.image-canvas');
+    if (!img || !wrapper || !this.naturalWidth || !this.naturalHeight) return;
+
+    const containerWidth = wrapper.clientWidth;
+    const containerHeight = wrapper.clientHeight;
+
+    const displaySize = this.getDisplaySize(containerWidth, containerHeight);
+    this.clampPan(containerWidth, containerHeight, displaySize.width, displaySize.height);
+
+    img.classList.add('zoomed');
+    img.style.width = `${displaySize.width}px`;
+    img.style.height = `${displaySize.height}px`;
+    img.style.transform = `translate(${this.panX}px, ${this.panY}px)`;
   },
 
   // Utility methods

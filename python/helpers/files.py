@@ -505,12 +505,14 @@ def dirname(path: str):
 
 
 def is_in_base_dir(path: str):
-    # check if the given path is within the base directory
-    base_dir = get_base_dir()
-    # normalize paths to handle relative paths and symlinks
+    return is_in_dir(path,get_base_dir())
+
+
+def is_in_dir(path:str,dir:str):
+    # check if the given path is within the directory
     abs_path = os.path.abspath(path)
-    # check if the absolute path starts with the base directory
-    return os.path.commonpath([abs_path, base_dir]) == base_dir
+    abs_dir = os.path.abspath(dir)
+    return os.path.commonpath([abs_path, abs_dir]) == abs_dir
 
 
 def get_subdirectories(

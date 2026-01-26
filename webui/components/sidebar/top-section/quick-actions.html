@@ -94,7 +94,7 @@
       
       <div class="dropdown-separator"></div>
       
-      <button class="dropdown-item" @click="$store.chats.restart(); dropdownOpen = false">
+      <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); dropdownOpen = false })">
         <span class="material-symbols-outlined">restart_alt</span>
         <span>Restart A0</span>
       </button>

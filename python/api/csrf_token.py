@@ -70,7 +70,6 @@ class GetCsrfToken(ApiHandler):
         )
         return {"ok": match, "origin": origin, "allowed_origins": allowed_origins}
 
-
     def get_origin_from_request(self, request: Request):
         # get from origin
         r = request.headers.get("Origin") or request.environ.get("HTTP_ORIGIN")
@@ -93,7 +92,9 @@ class GetCsrfToken(ApiHandler):
         # get the allowed origins from the environment
         allowed_origins = [
             origin.strip()
-            for origin in (dotenv.get_dotenv_value(ALLOWED_ORIGINS_KEY) or "").split(",")
+            for origin in (dotenv.get_dotenv_value(ALLOWED_ORIGINS_KEY) or "").split(
+                ","
+            )
             if origin.strip()
         ]
 
@@ -114,12 +115,19 @@ class GetCsrfToken(ApiHandler):
         return allowed_origins
 
     def get_default_allowed_origins(self) -> list[str]:
-        return ["*://localhost:*", "*://127.0.0.1:*", "*://0.0.0.0:*"]
+        return [
+            "*://localhost",
+            "*://localhost:*",
+            "*://127.0.0.1",
+            "*://127.0.0.1:*",
+            "*://0.0.0.0",
+            "*://0.0.0.0:*",
+        ]
 
     def initialize_allowed_origins(self, request: Request):
         """
         If A0 is hosted on a server, add the first visit origin to ALLOWED_ORIGINS.
-        This simplifies deployment process as users can access their new instance without 
+        This simplifies deployment process as users can access their new instance without
         additional setup while keeping it secure.
         """
         # dotenv value is already set, do nothing
@@ -144,5 +152,3 @@ class GetCsrfToken(ApiHandler):
         # if not, add it to the allowed origins
         allowed_origins.append(req_origin)
         dotenv.save_dotenv_value(ALLOWED_ORIGINS_KEY, ",".join(allowed_origins))
-
-        

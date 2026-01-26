@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as css from "/js/css.js";
 import { store as speechStore } from "/components/chat/speech/speech-store.js";
+import { applyModeSteps } from "/components/messages/process-group/process-group-dom.js";
 
 // Preferences store centralizes user preference toggles and side-effects
 const model = {
@@ -41,15 +42,40 @@ const model = {
   },
   _showUtils: false,
 
-  // Process group collapse preference
-  get collapseProcessGroups() {
-    return this._collapseProcessGroups;
+  // Chat container width preference for HiDPI/large screens
+  get chatWidth() {
+    return this._chatWidth;
   },
-  set collapseProcessGroups(value) {
-    this._collapseProcessGroups = value;
-    this._applyCollapseProcessGroups(value);
+  set chatWidth(value) {
+    this._chatWidth = value;
+    this._applyChatWidth(value);
   },
-  _collapseProcessGroups: true, // Default to collapsed
+  _chatWidth: "55", // Default width in em (standard)
+
+  // Width presets: { label, value in em }
+  chatWidthOptions: [
+    { label: "MIN", value: "40" },
+    { label: "WIDE", value: "55" },
+    { label: "2X", value: "80" },
+    { label: "<>", value: "full" },
+  ],
+
+  // Detail mode for process groups/steps expansion
+  get detailMode() {
+    return this._detailMode;
+  },
+  set detailMode(value) {
+    this._detailMode = value;
+    this._applyDetailMode(value);
+  },
+  _detailMode: "current", // Default: show current step only
+
+  // Detail mode options for UI sidebar
+  detailModeOptions: [
+    { label: "NONE", value: "collapsed", title: "All collapsed" },
+    { label: "STEP", value: "current", title: "Current step only" },
+    { label: "ALL", value: "expanded", title: "All expanded" },
+  ],
 
   // Initialize preferences and apply current state
   init() {
@@ -69,12 +95,32 @@ const model = {
         this._speech = false; // Default to speech off if localStorage is unavailable
       }
 
-      // Load collapse process groups preference
+      // Load chat width preference
       try {
-        const storedCollapse = localStorage.getItem("collapseProcessGroups");
-        this._collapseProcessGroups = storedCollapse !== "false"; // Default true
+        const storedChatWidth = localStorage.getItem("chatWidth");
+        if (storedChatWidth && this.chatWidthOptions.some(opt => opt.value === storedChatWidth)) {
+          this._chatWidth = storedChatWidth;
+        }
       } catch {
-        this._collapseProcessGroups = true;
+        this._chatWidth = "55"; // Default to standard
+      }
+
+      // Load detail mode preference
+      try {
+        const storedDetailMode = localStorage.getItem("detailMode");
+        if (storedDetailMode && this.detailModeOptions.some(opt => opt.value === storedDetailMode)) {
+          this._detailMode = storedDetailMode;
+        }
+      } catch {
+        this._detailMode = "current"; // Default
+      }
+
+      // load utility messages preference
+      try{
+        const storedShowUtils = localStorage.getItem("showUtils");
+        this._showUtils = storedShowUtils === "true";
+      } catch {
+        this._showUtils = false; // Default to speech off if localStorage is unavailable
       }
 
       // Apply all preferences
@@ -82,7 +128,8 @@ const model = {
       this._applyAutoScroll(this._autoScroll);
       this._applySpeech(this._speech);
       this._applyShowUtils(this._showUtils);
-      this._applyCollapseProcessGroups(this._collapseProcessGroups);
+      this._applyChatWidth(this._chatWidth);
+      this._applyDetailMode(this._detailMode);
     } catch (e) {
       console.error("Failed to initialize preferences store", e);
     }
@@ -110,29 +157,29 @@ const model = {
 
 
   _applyShowUtils(value) {
-    // For original messages
+    localStorage.setItem("showUtils", value);
     css.toggleCssProperty(
-      ".message-util",
+      ".process-step.message-util",
       "display",
       value ? undefined : "none"
     );
-    // For process steps - toggle class on all existing elements
-    document.querySelectorAll(".process-step.message-util").forEach((el) => {
-      el.classList.toggle("show-util", value);
-    });
   },
 
-  _applyCollapseProcessGroups(value) {
-    localStorage.setItem("collapseProcessGroups", value);
-    // Update process group store default
-    try {
-      const processGroupStore = window.Alpine?.store("processGroup");
-      if (processGroupStore) {
-        processGroupStore.defaultCollapsed = value;
-      }
-    } catch (e) {
-      // Store may not be initialized yet
+  _applyChatWidth(value) {
+    localStorage.setItem("chatWidth", value);
+    // Set CSS custom property for chat max-width
+    const root = document.documentElement;
+    if (value === "full") {
+      root.style.setProperty("--chat-max-width", "100%");
+    } else {
+      root.style.setProperty("--chat-max-width", `${value}em`);
     }
+  },
+
+  _applyDetailMode(value) {
+    localStorage.setItem("detailMode", value);
+    // Apply mode to all existing DOM elements
+    applyModeSteps(this._detailMode, this._showUtils);
   },
 };
 

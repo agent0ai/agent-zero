@@ -93,7 +93,7 @@ class Message(ApiHandler):
         # Log the message with message_id, attachments, and repo mentions
         context.log.log(
             type="user",
-            heading="User message",
+            heading="",
             content=message,
             kvps={
                 "attachments": attachment_filenames,

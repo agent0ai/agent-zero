@@ -88,7 +88,7 @@
   flex: 0 1 auto;
   font-size: var(--font-size-medium);
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--color-text-muted);
   opacity: 0.9;
   white-space: nowrap;
   overflow: hidden;
@@ -111,7 +111,7 @@
    =========================================== */
 
 /* Base status badge */
-.status-badge {
+.step-badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -127,131 +127,135 @@
 }
 
 /* Status badge with icon */
-.status-badge .material-symbols-outlined {
+.step-badge .material-symbols-outlined {
   font-size: 0.8rem;
   line-height: 1;
 }
 
 /* Badge icon styling */
-.status-badge .badge-icon {
-  font-size: 0.7rem;
+.step-badge .badge-icon {
+  font-size: var(--font-size-xs);
   margin-right: 2px;
   opacity: 0.9;
 }
 
-/* Status colors - mapped from backend types via store */
+/* Status colors */
 /* Each status defines --step-accent for cascading to internal icons */
 
 /* GEN - agent type (blue/cyan) */
-.status-gen {
+.process-group .GEN {
   --step-accent: #38bdf8;
-  color: var(--step-accent);
+}
+.light-mode .process-group .GEN {
+  --step-accent: #0284c7;
 }
 
 /* END - response/done type (green) */
-.status-end {
+.process-group .END {
   --step-accent: #22c55e;
-  color: var(--step-accent);
+}
+.light-mode .process-group .END {
+  --step-accent: #15803d;
 }
 
 /* USE - tool usage (amber/yellow) */
-.status-tool {
+.process-group .USE {
   --step-accent: #fbbf24;
-  color: var(--step-accent);
+}
+.light-mode .process-group .USE {
+  --step-accent: #b45309;
 }
 
 /* MCP - mcp type (amber/yellow) */
-.status-mcp {
+.process-group .MCP {
   --step-accent: #fbbf24;
-  color: var(--step-accent);
+}
+.light-mode .process-group .MCP {
+  --step-accent: #b45309;
 }
 
 /* SUB - subagent type (teal) */
-.status-sub {
+.process-group .SUB {
   --step-accent: #14b8a6;
-  color: var(--step-accent);
+}
+.light-mode .process-group .SUB {
+  --step-accent: #0f766e;
 }
 
 /* EXE - code_exe type (magenta/purple) */
-.status-exe {
+.process-group .EXE {
   --step-accent: #ba68c8;
-  color: var(--step-accent);
+}
+.light-mode .process-group .EXE {
+  --step-accent: #7c3aed;
 }
 
-/* BRW - browser type (indigo) */
-.status-brw {
+/* WWW - browser type (indigo) */
+.process-group .WWW {
   --step-accent: #818cf8;
-  color: var(--step-accent);
+}
+.light-mode .process-group .WWW {
+  --step-accent: #4f46e5;
 }
 
 /* WAIT - progress type (slate) */
-.status-wait {
+.process-group .HDL {
   --step-accent: #94a3b8;
-  color: var(--step-accent);
+}
+.light-mode .process-group .HDL {
+  --step-accent: #475569;
 }
 
 /* INF - info type (gray) */
-.status-inf {
+.process-group .INF {
   --step-accent: #94a3b8;
-  color: var(--step-accent);
+}
+.light-mode .process-group .INF {
+  --step-accent: #475569;
 }
 
 /* HNT - hint type (yellow-green) */
-.status-hnt {
+.process-group .HNT {
   --step-accent: #a3e635;
-  color: var(--step-accent);
+}
+.light-mode .process-group .HNT {
+  --step-accent: #65a30d;
 }
 
 /* WRN - warning type (orange) */
-.status-wrn {
+.process-group .WRN {
   --step-accent: #f97316;
-  color: var(--step-accent);
+}
+.light-mode .process-group .WRN {
+  --step-accent: #c2410c;
 }
 
+
 /* ERR - error type (red) */
-.status-err {
-  --step-accent: #ef4444;
-  color: var(--step-accent);
+.process-group .ERR {
+  --step-accent: var(--color-error-text);
+}
+.light-mode .process-group .ERR {
+  --step-accent: var(--color-error-text);
 }
 
 /* UTL - util type (gray-blue) */
-.status-utl {
+.process-group .UTL {
   --step-accent: #64748b;
+}
+.light-mode .process-group .UTL {
+  --step-accent: #334155;
+}
+
+
+.process-group .step-badge{
   color: var(--step-accent);
 }
 
-/* USR - user type (sky) */
-.status-usr {
-  --step-accent: #38bdf8;
+.process-group .kvps-key{
   color: var(--step-accent);
 }
 
-/* Animated spinner for active status (CSS-only, no Material Icons) */
-.status-badge.status-active::after {
-  content: "";
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border: 1.5px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-left: 4px;
-  flex-shrink: 0;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Don't show spinner pseudo-element on END/ERR (they have their own indicators) */
-.status-badge.status-end::after,
-.status-badge.status-err::after {
-  display: none;
-}
-
-/* END status with checkmark icon (icon added via JS, no ::before needed) */
 
 /* Completed process group styling */
 .process-group-completed {
@@ -277,7 +281,8 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  margin-left: auto;
+  /* margin-left: auto; */
+  margin-left: 2em;
   font-size: 0.65rem;
   font-family: var(--font-family-code);
   color: var(--color-text);
@@ -285,7 +290,7 @@
 }
 
 .process-group-header .group-metrics .material-symbols-outlined {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   opacity: 0.7;
 }
 
@@ -293,6 +298,18 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+
+.process-group-header .group-metrics .metric-notifications {
+  font-weight: 600;
+}
+
+.process-group-header .group-metrics .metric-notifications[hidden] {
+  display: none;
+}
+
+.process-group-header .group-metrics .metric-notifications .material-symbols-outlined {
+  opacity: 0.85;
 }
 
 /* Legacy timestamp/duration (for backwards compatibility) */
@@ -305,7 +322,7 @@
 }
 
 .process-group-header .group-duration {
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   color: #81c784;
   flex-shrink: 0;
   font-family: var(--font-family-code);
@@ -328,6 +345,7 @@
               padding-top 0.25s ease-out,
               border-color 0.2s ease-out;
   overflow: hidden;
+  color: var(--color-text-muted);
 }
 
 .process-group-content > .process-steps {
@@ -356,10 +374,6 @@
   flex-direction: column;
   padding: 0.1em;
   transition: background-color 0.15s ease;
-}
-
-.step-expanded {
-  padding: var(--spacing-xs) 0;
 }
 
 /* Utility/Info/Hint steps have subtle background tint */
@@ -392,21 +406,11 @@
   min-height: 18px;
 }
 
-/* Step icon removed - using status badges instead */
-.process-step-header .step-icon {
-  display: none;
-}
-
-/* Step type label removed - using status badges instead */
-.process-step-header .step-type {
-  display: none;
-}
-
 /* Step title */
 .process-step-header .step-title {
   flex: 1;
   font-size: 0.8rem;
-  color: var(--color-text);
+  /* color: var(--color-text-muted); */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -439,14 +443,13 @@
 
 /* Step Detail Content - Animated expand/collapse */
 .process-step-detail {
-  display: grid;
+  /* display: grid; */
   grid-template-rows: 0fr;
   opacity: 0;
   margin-top: 0;
   transition: grid-template-rows 0.2s ease-out, opacity 0.15s ease-out, margin-top 0.2s ease-out;
   overflow: hidden;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scroll-behavior: smooth;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
   overscroll-behavior: contain; /* avoid scroll chaining */
@@ -456,7 +459,7 @@
   margin-top: 0;
 }
 
-.process-step:not(.step-expanded) > .process-step-detail > .process-step-detail-content {
+.process-step:not(.step-expanded) > .process-step-detail > .process-step-detail-scroll {
   padding: 0;
   margin-top: 0;
   max-height: 0;
@@ -469,69 +472,70 @@
   height: 0;
 }
 
-.process-step-detail-content::-webkit-scrollbar {
+.process-step-detail-scroll::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
 }
 
-.process-step-detail > .process-step-detail-content {
+.process-step-detail > .process-step-detail-scroll {
   min-height: 0;
 }
 
 /* Use direct child selector (>) to prevent cascading to nested steps */
 .process-step.step-expanded > .process-step-detail {
-  grid-template-rows: 1fr;
+  /* grid-template-rows: 1fr; */
   opacity: 1;
   overflow: visible;
   margin-top: var(--spacing-xs);
 }
 
-.process-step.step-expanded > .process-step-detail > .process-step-detail-content {
-  max-height: 300px;
+.process-step.step-expanded > .process-step-detail > .process-step-detail-scroll {
+  max-height: 40em;
   overflow-y: auto;
 }
 
-.process-step-detail-content {
+.process-step.step-expanded > .process-step-detail > .process-step-detail-scroll > .process-step-detail-scroll {
+}
+
+.process-step-detail-scroll {
   transition: max-height 0.2s ease-out, padding 0.2s ease-out, margin-top 0.2s ease-out;
   padding: var(--spacing-xs) 0;
   margin-top: var(--spacing-xxs);
-  margin-left: 28px; /* Align with icon */
+  /* margin-left: 28px;  */
   background-color: transparent;
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   line-height: 1.5;
-  max-height: 300px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scroll-behavior: smooth;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
-  overscroll-behavior: contain; /* avoid scroll chaining */
+  overscroll-behavior-x: contain; /* avoid scroll chaining */
 }
 
-.process-step-detail-content pre {
+/* .process-step-detail-scroll pre {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-family-code);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text);
-  /* opacity: 0.8; */
-}
+   opacity: 0.8;
+} */
 
 /* KVPs in step detail - CSS Grid for aligned columns */
-.process-step-detail-content .step-kvps {
+.process-step-detail-scroll .step-kvps {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--spacing-xs) var(--spacing-sm);
   align-items: start;
 }
 
-.process-step-detail-content .step-kvp {
+.process-step-detail-scroll .step-kvp {
   display: contents; /* Children participate in parent grid */
 }
 
-.process-step-detail-content .step-kvp-key {
+.process-step-detail-scroll .step-kvp-key {
   color: var(--step-accent, var(--color-primary));
   font-weight: 500;
   opacity: 0.8;
@@ -540,13 +544,13 @@
   justify-content: end;
 }
 
-.process-step-detail-content .step-kvp-key .material-symbols-outlined {
+.process-step-detail-scroll .step-kvp-key .material-symbols-outlined {
   font-size: 0.9rem;
   color: var(--step-accent, var(--color-primary)) !important;
 }
 
-.process-step-detail-content .step-kvp-value {
-  color: var(--color-text);
+.process-step-detail-scroll .step-kvp-value {
+  /* color: var(--color-text); */
   opacity: 0.85;
   word-break: break-word;
   white-space: pre-wrap;
@@ -554,131 +558,117 @@
   line-height: 1.5;
 }
 
-/* Thoughts styling - single icon with plain text */
-.process-step-detail-content .step-thoughts {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
-  margin: var(--spacing-xs) 0;
-}
-
-.process-step-detail-content .thought-icon {
-  font-size: 0.85rem;
-  color: var(--step-accent, #38bdf8);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.process-step-detail-content .thought-text {
-  font-size: 0.7rem;
-  font-weight: 300;
-  color: var(--color-text);
-  opacity: 0.65;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* Light mode thoughts - uses step accent if available */
-.light-mode .process-step-detail-content .thought-icon {
-  color: var(--step-accent, #b45309);
-}
 
 /* Tool arguments - CSS Grid for aligned columns */
-.process-step-detail-content .step-tool-args {
+/* .process-step-detail-scroll .step-tool-args {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 4px 8px;
   margin: var(--spacing-xs) 0;
   align-items: baseline;
-}
+} */
 
-.process-step-detail-content .tool-arg-row {
-  display: contents; /* Children participate in parent grid */
-}
+/* .process-step-detail-scroll .tool-arg-row {
+  display: contents;
+} */
 
-.process-step-detail-content .tool-arg-label {
+/* .process-step-detail-scroll .tool-arg-label {
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--step-accent, var(--color-primary));
   display: flex;
   align-items: center;
   justify-content: end;
-}
+} */
 
-.process-step-detail-content .tool-arg-label .material-symbols-outlined {
+/* .process-step-detail-scroll .tool-arg-label .material-symbols-outlined {
   font-size: 0.9rem;
   opacity: 0.85;
   color: var(--step-accent, var(--color-primary));
-}
+} */
 
-.process-step-detail-content .tool-arg-value {
-  font-size: 0.7rem;
+/* .process-step-detail-scroll .tool-arg-value {
+  font-size: var(--font-size-xs);
   color: var(--color-text);
   opacity: 0.85;
   word-break: break-word;
   font-family: var(--font-family-code);
-}
+} */
 
 /* Light mode tool args - transparent like dark mode */
-.light-mode .process-step-detail-content .step-tool-args {
+/* .light-mode .process-step-detail-scroll .step-tool-args {
   background: transparent;
   border-left-color: transparent;
-}
+} */
 
-.process-step-detail-content .step-tool-header .tool-icon {
+/* .process-step-detail-scroll .step-tool-header .tool-icon {
   font-size: 0.85rem;
   color: var(--step-accent, var(--color-warning));
   opacity: 0.85;
-}
+} */
 
-.process-step-detail-content .step-tool-header .tool-label {
+/* .process-step-detail-scroll .step-tool-header .tool-label {
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--step-accent, var(--color-warning));
   opacity: 0.85;
-}
+} */
 
-.process-step-detail-content .step-tool-header .tool-name {
+/* .process-step-detail-scroll .step-tool-header .tool-name {
   font-size: 0.72rem;
   color: var(--color-text);
   opacity: 0.85;
-}
+} */
 
-/* Terminal-style output for code_exe */
-.process-step-detail-content .step-terminal {
-  margin: var(--spacing-xs) 0;
-  font-family: var(--font-family-code);
-  font-size: 0.72rem;
-}
 
-.process-step-detail-content .terminal-output {
+.process-step-detail .terminal-output {
   margin: var(--spacing-xs) 0 0 0;
   padding: var(--spacing-xs);
   background: rgba(0, 0, 0, 0.8);
-  border-radius: 4px;
+  border-radius: 8px;
   color: #c9d1d9;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 200px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scroll-behavior: smooth;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-  overscroll-behavior: contain; /* avoid scroll chaining */
+  white-space: pre;
+  font-family: monospace;
+  max-width: fit-content;
+  /* max-height: 300px; */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+  overscroll-behavior-x: contain;
 }
 
-.process-step-detail-content .terminal-output::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+.process-step-detail .terminal-output::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.process-step-detail .terminal-output::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.process-step-detail .terminal-output::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.process-step-detail .terminal-output::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* Light mode terminal */
-.light-mode .process-step-detail-content .terminal-output {
+.light-mode .process-step-detail .terminal-output {
   background: rgba(0, 0, 0, 0.05);
   color: black;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.light-mode .process-step-detail .terminal-output::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.light-mode .process-step-detail .terminal-output::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* Light mode adjustments */
@@ -686,87 +676,17 @@
   border-top-color: rgba(0, 0, 0, 0.06);
 }
 
-.light-mode .process-step-detail-content {
+.light-mode .process-step-detail-scroll {
   background-color: transparent;
 }
 
 /* Light mode text colors for process group */
 .light-mode .process-group-header .group-title,
 .light-mode .process-step-header .step-title {
-  color: var(--color-text);
+  color: var(--color-text-muted);
 }
 
-/* Light mode status badge adjustments for better contrast */
-/* Override --step-accent for cascading to internal icons */
-.light-mode .status-gen {
-  --step-accent: #0284c7;
-  color: var(--step-accent);
-}
 
-.light-mode .status-end {
-  --step-accent: #15803d;
-  color: var(--step-accent);
-}
-
-.light-mode .status-tool {
-  --step-accent: #b45309;
-  color: var(--step-accent);
-}
-
-.light-mode .status-mcp {
-  --step-accent: #b45309;
-  color: var(--step-accent);
-}
-
-.light-mode .status-sub {
-  --step-accent: #0f766e;
-  color: var(--step-accent);
-}
-
-.light-mode .status-exe {
-  --step-accent: #7c3aed;
-  color: var(--step-accent);
-}
-
-.light-mode .status-brw {
-  --step-accent: #4f46e5;
-  color: var(--step-accent);
-}
-
-.light-mode .status-wait {
-  --step-accent: #475569;
-  color: var(--step-accent);
-}
-
-.light-mode .status-inf {
-  --step-accent: #475569;
-  color: var(--step-accent);
-}
-
-.light-mode .status-hnt {
-  --step-accent: #65a30d;
-  color: var(--step-accent);
-}
-
-.light-mode .status-wrn {
-  --step-accent: #c2410c;
-  color: var(--step-accent);
-}
-
-.light-mode .status-err {
-  --step-accent: #b91c1c;
-  color: var(--step-accent);
-}
-
-.light-mode .status-utl {
-  --step-accent: #334155;
-  color: var(--step-accent);
-}
-
-.light-mode .status-usr {
-  --step-accent: #0284c7;
-  color: var(--step-accent);
-}
 
 /* Animation for loading state */
 @keyframes pulse-step {
@@ -774,9 +694,8 @@
   50% { opacity: 0.8; }
 }
 
-.process-step.loading .step-icon {
-  animation: pulse-step 1.2s ease-in-out infinite;
-}
+.step-title.shiny-text { color: transparent !important; -webkit-background-clip: text; background-clip: text; animation: shine 1s linear infinite; }
+    @keyframes shine { to { background-position: -100% center; } }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -784,16 +703,12 @@
     padding: var(--spacing-xs) var(--spacing-sm);
   }
   
-  .process-step-header .step-type {
-    display: none;
-  }
-  
   .process-step-header .step-title {
-    font-size: 0.7rem;
+    font-size: var(--font-size-xs);
   }
   
-  .process-step-detail-content {
-    margin-left: 16px;
+  .process-step-detail-scroll {
+    margin-left: 0;
   }
 }
 
@@ -802,24 +717,17 @@
    These rules work with preferences-store toggles
    =========================================== */
 
-/* Utility steps - default hidden (controlled by showUtils) */
-.process-step.message-util {
+/* .process-step.message-util {
   display: none;
 }
 
-.process-step.message-util.show-util {
-  display: flex;
-}
-
-/* Thoughts KVP row */
 .step-kvp.msg-thoughts {
   display: none;
 }
 
-/* JSON pre content - default hidden */
-.process-step-detail-content pre.msg-json {
+.process-step-detail-scroll pre.msg-json {
   display: none;
-}
+} */
 
 /* Nested Process Steps (Subordinate Agents) */
 
@@ -854,7 +762,7 @@
 }
 
 /* Response content in process steps */
-.process-step-detail-content .step-response-content {
+.process-step-detail-scroll .step-response-content {
   font-size: 0.75rem;
   line-height: 1.6;
   color: var(--color-text);
@@ -862,31 +770,30 @@
   margin: var(--spacing-xs) 0;
 }
 
-.process-step-detail-content .step-response-content p {
+.process-step-detail-scroll .step-response-content p {
   margin: 0.5em 0;
 }
 
-.process-step-detail-content .step-response-content ul,
-.process-step-detail-content .step-response-content ol {
+.process-step-detail-scroll .step-response-content ul,
+.process-step-detail-scroll .step-response-content ol {
   margin: 0.5em 0;
   padding-left: 1.5em;
 }
 
 /* Warning/error content in process steps */
-.process-step-detail-content .step-warning-content {
+.process-step-detail-scroll .step-warning-content {
   font-size: 0.72rem;
   line-height: 1.5;
   color: var(--color-warning);
   opacity: 0.9;
   margin: var(--spacing-xs) 0;
   padding: var(--spacing-xs);
-  background: rgba(255, 165, 0, 0.08);
   border-left: 2px solid var(--color-warning);
   border-radius: 3px;
 }
 
 /* Browser screenshot content in process steps */
-.process-step-detail-content .screenshot-img {
+.process-step-detail-scroll .screenshot-img {
   max-width: 100%;
   max-height: 400px;
   border-radius: 4px;
@@ -896,17 +803,31 @@
   object-fit: contain;
 }
 
-.process-step-detail-content .screenshot-img:hover {
+.process-step-detail-scroll .screenshot-img:hover {
   transform: scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Light mode screenshot border */
-.light-mode .process-step-detail-content .screenshot-img {
+.light-mode .process-step-detail-scroll .screenshot-img {
   border: 1px solid rgba(0, 0, 0, 0.15);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.light-mode .process-step-detail-content .screenshot-img:hover {
+.light-mode .process-step-detail-scroll .screenshot-img:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+/* View Details button in step detail */
+.step-detail-actions {
+  display: flex;
+  padding-left: 18px;
+  min-height: 0; /* Required for grid collapse animation */
+}
+
+/* Hide View Details button when step is collapsed */
+.process-step:not(.step-expanded) > .process-step-detail > .step-detail-actions {
+  display: none;
+}
+
+

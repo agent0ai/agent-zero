@@ -42,7 +42,21 @@ class LogFromStream(Extension):
         kvps = {}
         if log_item.kvps is not None and "reasoning" in log_item.kvps:
             kvps["reasoning"] = log_item.kvps["reasoning"]
+        
+        # step description for UI - using tool XY, writing Python code, etc.
+        if parsed is not None and "tool_name" in parsed and parsed["tool_name"]:
+            kvps["step"] = f"Using {parsed['tool_name']}..." # using tool XY
+            if parsed["tool_name"]=="code_execution_tool":
+                if "tool_args" in parsed and "runtime" in parsed["tool_args"]:
+                    if parsed["tool_args"]["runtime"] == "python":
+                        kvps["step"] = "Writing Python code..."
+                    elif parsed["tool_args"]["runtime"] == "nodejs":
+                        kvps["step"] = "Writing Node.js code..."
+                    elif parsed["tool_args"]["runtime"] == "terminal":
+                        kvps["step"] = "Writing terminal command..."
         kvps.update(parsed)
+
+
 
         # update the log item
         log_item.update(heading=heading, content=text, kvps=kvps)

@@ -98,7 +98,6 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
                 heading="Remote user message",
                 content=agent_message.message,
                 kvps={"from": "A2A"},
-                temp=False,
             )
 
             # Process message through Agent Zero (includes response)

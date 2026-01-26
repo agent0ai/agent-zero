@@ -21,6 +21,7 @@ Type = Literal[
     "agent",
     "browser",
     "code_exe",
+    "subagent",
     "error",
     "hint",
     "info",
@@ -127,14 +128,12 @@ class LogItem:
     type: Type
     heading: str = ""
     content: str = ""
-    temp: bool = False
     update_progress: Optional[ProgressUpdate] = "persistent"
     kvps: Optional[OrderedDict] = None  # Use OrderedDict for kvps
     id: Optional[str] = None  # Add id field
     guid: str = ""
     timestamp: float = 0.0
-    duration_ms: Optional[int] = None
-    agent_number: int = 0
+    agentno: int = 0
 
     def __post_init__(self):
         self.guid = self.log.guid
@@ -146,7 +145,6 @@ class LogItem:
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
-        temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         **kwargs,
     ):
@@ -157,7 +155,6 @@ class LogItem:
                 heading=heading,
                 content=content,
                 kvps=kvps,
-                temp=temp,
                 update_progress=update_progress,
                 **kwargs,
             )
@@ -184,11 +181,9 @@ class LogItem:
             "type": self.type,
             "heading": self.heading,
             "content": self.content,
-            "temp": self.temp,
             "kvps": self.kvps,
             "timestamp": self.timestamp,
-            "duration_ms": self.duration_ms,
-            "agent_number": self.agent_number,
+            "agentno": self.agentno,
         }
 
 
@@ -207,7 +202,6 @@ class Log:
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
-        temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         id: Optional[str] = None,
         **kwargs,
@@ -215,20 +209,19 @@ class Log:
 
         # add a minimal item to the log
         # Determine agent number from streaming agent
-        agent_number = 0
+        agentno = 0
         if self.context and self.context.streaming_agent:
-            agent_number = self.context.streaming_agent.number
+            agentno = self.context.streaming_agent.number
         
         item = LogItem(
             log=self,
             no=len(self.logs),
             type=type,
-            agent_number=agent_number,
+            agentno=agentno,
         )
         # Set duration on previous item and mark it as updated
         if self.logs:
             prev = self.logs[-1]
-            prev.duration_ms = int((item.timestamp - prev.timestamp) * 1000)
             self.updates += [prev.no]
         self.logs.append(item)
 
@@ -239,7 +232,6 @@ class Log:
             heading=heading,
             content=content,
             kvps=kvps,
-            temp=temp,
             update_progress=update_progress,
             id=id,
             **kwargs,
@@ -253,7 +245,6 @@ class Log:
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
-        temp: bool | None = None,
         update_progress: ProgressUpdate | None = None,
         id: Optional[str] = None,
         **kwargs,
@@ -265,9 +256,6 @@ class Log:
 
         if type is not None:
             item.type = type
-
-        if temp is not None:
-            item.temp = temp
 
         if update_progress is not None:
             item.update_progress = update_progress
