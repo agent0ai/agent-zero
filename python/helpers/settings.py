@@ -201,6 +201,7 @@ class SettingsOutputAdditional(TypedDict):
     agent_subdirs: list[FieldOption]
     knowledge_subdirs: list[FieldOption]
     stt_models: list[FieldOption]
+    framework_options: list[FieldOption]
     is_dockerized: bool
 
 class SettingsOutput(TypedDict):
@@ -231,6 +232,8 @@ def _ensure_option_present(options: list[OptionT] | None, current_value: str | N
     return opts
 
 def convert_out(settings: Settings) -> SettingsOutput:
+    from python.helpers import frameworks
+
     out = SettingsOutput(
         settings = settings.copy(),
         additional = SettingsOutputAdditional(
@@ -250,8 +253,8 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 {"value": "medium", "label": "Medium (769M, English)"},
                 {"value": "large", "label": "Large (1.5B, Multilingual)"},
                 {"value": "turbo", "label": "Turbo (Multilingual)"},
-            ]
-
+            ],
+            framework_options=cast(list[FieldOption], frameworks.get_framework_options()),
         )
     )
 
@@ -267,6 +270,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     additional["agent_subdirs"] = _ensure_option_present(additional.get("agent_subdirs"), current.get("agent_profile"))
     additional["knowledge_subdirs"] = _ensure_option_present(additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir"))
     additional["stt_models"] = _ensure_option_present(additional.get("stt_models"), current.get("stt_model_size"))
+    additional["framework_options"] = _ensure_option_present(additional.get("framework_options"), current.get("dev_framework"))
 
     # masked api keys
     providers = get_providers("chat") + get_providers("embedding")
@@ -300,243 +304,12 @@ def convert_out(settings: Settings) -> SettingsOutput:
             if value:
                 out["settings"]["api_keys"][provider] = API_KEY_PLACEHOLDER
 
-    secrets_fields.append({
-        "id": "secrets",
-        "title": "Secrets Store",
-        "description": "Store secrets and credentials in .env format e.g. EMAIL_PASSWORD=\"s3cret-p4$$w0rd\", one item per line. You can use comments starting with # to add descriptions for the agent. See <a href=\"javascript:openModal('settings/secrets/example-secrets.html')\">example</a>.<br>These variables are not visile to LLMs and in chat history, they are being masked. ⚠️ only values with length >= 4 are being masked to prevent false positives. ",
-        "type": "textarea",
-        "value": secrets,
-        "style": "height: 20em",
-    })
-
-    secrets_section: SettingsSection = {
-        "id": "secrets",
-        "title": "Secrets Management",
-        "description": "Manage secrets and credentials that agents can use without exposing values to LLMs, chat history or logs. Placeholders are automatically replaced with values just before tool calls. If bare passwords occur in tool results, they are masked back to placeholders.",
-        "fields": secrets_fields,
-        "tab": "external",
-    }
-
-    mcp_server_fields: list[SettingsField] = []
-
-    mcp_server_fields.append(
-        {
-            "id": "mcp_server_enabled",
-            "title": "Enable A0 MCP Server",
-            "description": "Expose Agent Zero as an SSE/HTTP MCP server. This will make this A0 instance available to MCP clients.",
-            "type": "switch",
-            "value": settings["mcp_server_enabled"],
-        }
-    )
-
-    mcp_server_fields.append(
-        {
-            "id": "mcp_server_token",
-            "title": "MCP Server Token",
-            "description": "Token for MCP server authentication.",
-            "type": "text",
-            "hidden": True,
-            "value": settings["mcp_server_token"],
-        }
-    )
-
-    mcp_server_section: SettingsSection = {
-        "id": "mcp_server",
-        "title": "A0 MCP Server",
-        "description": "Agent Zero can be exposed as an SSE MCP server. See <a href=\"javascript:openModal('settings/mcp/server/example.html')\">connection example</a>.",
-        "fields": mcp_server_fields,
-        "tab": "mcp",
-    }
-
-    # -------- A2A Section --------
-    a2a_fields: list[SettingsField] = []
-
-    a2a_fields.append(
-        {
-            "id": "a2a_server_enabled",
-            "title": "Enable A2A server",
-            "description": "Expose Agent Zero as A2A server. This allows other agents to connect to A0 via A2A protocol.",
-            "type": "switch",
-            "value": settings["a2a_server_enabled"],
-        }
-    )
-
-    a2a_section: SettingsSection = {
-        "id": "a2a_server",
-        "title": "A0 A2A Server",
-        "description": "Agent Zero can be exposed as an A2A server. See <a href=\"javascript:openModal('settings/a2a/a2a-connection.html')\">connection example</a>.",
-        "fields": a2a_fields,
-        "tab": "mcp",
-    }
-
-
-    # External API section
-    external_api_fields: list[SettingsField] = []
-
-    external_api_fields.append(
-        {
-            "id": "external_api_examples",
-            "title": "API Examples",
-            "description": "View examples for using Agent Zero's external API endpoints with API key authentication.",
-            "type": "button",
-            "value": "Show API Examples",
-        }
-    )
-
-    external_api_section: SettingsSection = {
-        "id": "external_api",
-        "title": "External API",
-        "description": "Agent Zero provides external API endpoints for integration with other applications. "
-                       "These endpoints use API key authentication and support text messages and file attachments.",
-        "fields": external_api_fields,
-        "tab": "external",
-    }
-
-    # update checker section
-    update_checker_fields: list[SettingsField] = []
-
-    update_checker_fields.append(
-        {
-            "id": "update_check_enabled",
-            "title": "Enable Update Checker",
-            "description": "Enable update checker to notify about newer versions of Agent Zero.",
-            "type": "switch",
-            "value": settings["update_check_enabled"],
-        }
-    )
-
-    update_checker_section: SettingsSection = {
-        "id": "update_checker",
-        "title": "Update Checker",
-        "description": "Update checker periodically checks for new releases of Agent Zero and will notify when an update is recommended.<br>No personal data is sent to the update server, only randomized+anonymized unique ID and current version number, which help us evaluate the importance of the update in case of critical bug fixes etc.",
-        "fields": update_checker_fields,
-        "tab": "external",
-    }
-
-    # Skills section (UI-friendly import)
-    skills_fields: list[SettingsField] = []
-    skills_fields.append(
-        {
-            "id": "skills_import",
-            "title": "Import Skills",
-            "description": "Import a Skills pack (.zip) into <code>skills/shared/&lt;namespace&gt;/...</code> "
-            "using the open Agent Skills (SKILL.md) standard.",
-            "type": "button",
-            "value": "Import Skills",
-        }
-    )
-
-    skills_section: SettingsSection = {
-        "id": "skills",
-        "title": "Skills",
-        "description": "Skills are portable bundles of instructions, scripts, and resources that agents can discover and load on demand. "
-        "See the spec at <code>agentskills.io</code>.",
-        "fields": skills_fields,
-        "tab": "agent",
-    }
-
-    # Development Framework section
-    from python.helpers import frameworks
-    framework_fields: list[SettingsField] = []
-
-    framework_fields.append(
-        {
-            "id": "dev_framework",
-            "title": "Development Framework",
-            "description": "Select a structured development workflow methodology. When active, framework-specific skills are prioritized and workflow guidance is injected into the system prompt.",
-            "type": "select",
-            "value": settings["dev_framework"],
-            "options": cast(list[FieldOption], frameworks.get_framework_options()),
-        }
-    )
-
-    framework_fields.append(
-        {
-            "id": "framework_info",
-            "title": "Framework Details",
-            "description": "View detailed information about the selected framework and its workflow steps.",
-            "type": "button",
-            "value": "View Details",
-        }
-    )
-
-    framework_section: SettingsSection = {
-        "id": "dev_framework",
-        "title": "Development Framework",
-        "description": "Choose a structured development workflow methodology to guide the agent. "
-        "Frameworks provide phased approaches to software development tasks with specialized skills for each phase.",
-        "fields": framework_fields,
-        "tab": "agent",
-    }
-
-    # Backup & Restore section
-    backup_fields: list[SettingsField] = []
-
-    backup_fields.append(
-        {
-            "id": "backup_create",
-            "title": "Create Backup",
-            "description": "Create a backup archive of selected files and configurations "
-            "using customizable patterns.",
-            "type": "button",
-            "value": "Create Backup",
-        }
-    )
-
-    backup_fields.append(
-        {
-            "id": "backup_restore",
-            "title": "Restore from Backup",
-            "description": "Restore files and configurations from a backup archive "
-            "with pattern-based selection.",
-            "type": "button",
-            "value": "Restore Backup",
-        }
-    )
-
-    backup_section: SettingsSection = {
-        "id": "backup_restore",
-        "title": "Backup & Restore",
-        "description": "Backup and restore Agent Zero data and configurations "
-        "using glob pattern-based file selection.",
-        "fields": backup_fields,
-        "tab": "backup",
-    }
-
-    # Add the section to the result
-    result: SettingsOutput = {
-        "sections": [
-            agent_section,
-            framework_section,
-            chat_model_section,
-            util_model_section,
-            browser_model_section,
-            embed_model_section,
-            memory_section,
-            speech_section,
-            api_keys_section,
-            litellm_section,
-            secrets_section,
-            auth_section,
-            mcp_client_section,
-            mcp_server_section,
-            a2a_section,
-            external_api_section,
-            update_checker_section,
-            backup_section,
-            dev_section,
-            # code_exec_section,
-        ]
-    }
-
     # normalize certain fields
-    for key, value in list(result["settings"].items()):
+    for key, value in list(out["settings"].items()):
         # convert kwargs dicts to .env format
         if (key.endswith("_kwargs") or key=="browser_http_headers") and isinstance(value, dict):
-            result["settings"][key] = _dict_to_env(value)
-
-    return result
-
+            out["settings"][key] = _dict_to_env(value)
+    return out
 
 def _get_api_key_field(settings: Settings, provider: str, title: str) -> SettingsField:
     key = settings["api_keys"].get(provider, models.get_api_key(provider))
