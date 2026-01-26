@@ -35,16 +35,10 @@ const model = {
     },
 
     getCurrentFrameworkId() {
-        // Get from settings store if available
-        const settingsStore = window.Alpine?.store("settings");
-        if (settingsStore?.settings) {
-            for (const section of settingsStore.settings.sections || []) {
-                for (const field of section.fields || []) {
-                    if (field.id === "dev_framework") {
-                        return field.value || "none";
-                    }
-                }
-            }
+        // Get from settings store - new structure has settings.dev_framework directly
+        const settingsStore = window.Alpine?.store("settingsStore");
+        if (settingsStore?.settings?.dev_framework) {
+            return settingsStore.settings.dev_framework;
         }
         return "none";
     },
