@@ -285,6 +285,8 @@ const settingsModalProxy = {
             openModal("settings/memory/memory-dashboard.html");
         } else if (field.id === "skills_import") {
             openModal("settings/skills/import.html");
+        } else if (field.id === "framework_info") {
+            openModal("settings/frameworks/framework-details.html");
         }
     }
 };

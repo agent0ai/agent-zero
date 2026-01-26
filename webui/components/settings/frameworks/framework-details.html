@@ -1,0 +1,273 @@
+<html>
+<head>
+    <title>Development Framework Details</title>
+    <script type="module">
+        import { store } from "/components/settings/frameworks/framework-store.js";
+    </script>
+</head>
+<body>
+    <div x-data class="framework-modal-container">
+        <template x-if="$store.frameworkStore">
+            <div x-init="$store.frameworkStore.init()" x-destroy="$store.frameworkStore.onClose()">
+
+                <div x-show="$store.frameworkStore.loading" class="loading">
+                    Loading frameworks...
+                </div>
+
+                <div x-show="$store.frameworkStore.error" class="error">
+                    <span x-text="$store.frameworkStore.error"></span>
+                </div>
+
+                <div x-show="!$store.frameworkStore.loading && !$store.frameworkStore.error">
+
+                    <!-- Framework selector -->
+                    <div class="framework-selector">
+                        <label class="selector-label">
+                            <span>View Framework:</span>
+                            <select class="framework-dropdown"
+                                    @change="$store.frameworkStore.selectFramework($event.target.value)">
+                                <template x-for="fw in $store.frameworkStore.frameworks" :key="fw.id">
+                                    <option :value="fw.id"
+                                            :selected="$store.frameworkStore.selectedFramework?.id === fw.id"
+                                            x-text="fw.name"></option>
+                                </template>
+                            </select>
+                        </label>
+                    </div>
+
+                    <!-- Framework details -->
+                    <template x-if="$store.frameworkStore.selectedFramework">
+                        <div class="framework-details">
+                            <div class="framework-header">
+                                <h3 x-text="$store.frameworkStore.selectedFramework.name"></h3>
+                                <span class="framework-id" x-text="'ID: ' + $store.frameworkStore.selectedFramework.id"></span>
+                            </div>
+
+                            <p class="framework-description" x-text="$store.frameworkStore.selectedFramework.description"></p>
+
+                            <!-- Workflow steps -->
+                            <template x-if="$store.frameworkStore.selectedFramework.workflows?.length > 0">
+                                <div class="workflow-section">
+                                    <h4>Workflow Steps</h4>
+                                    <div class="workflow-steps">
+                                        <template x-for="(step, index) in $store.frameworkStore.selectedFramework.workflows" :key="step.skill_name">
+                                            <div class="workflow-step">
+                                                <div class="step-number" x-text="step.sequence"></div>
+                                                <div class="step-content">
+                                                    <div class="step-name" x-text="step.name"></div>
+                                                    <div class="step-skill">
+                                                        <code x-text="step.skill_name"></code>
+                                                    </div>
+                                                    <div class="step-description" x-text="step.description"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- No workflows message -->
+                            <template x-if="!$store.frameworkStore.selectedFramework.workflows?.length">
+                                <div class="no-workflows">
+                                    <p>This framework has no predefined workflow steps.</p>
+                                </div>
+                            </template>
+
+                            <!-- Usage hint -->
+                            <div class="usage-hint">
+                                <h4>How to Use</h4>
+                                <p>When this framework is active:</p>
+                                <ul>
+                                    <li>Framework skills are prioritized in skill discovery</li>
+                                    <li>Workflow guidance is injected into the system prompt</li>
+                                    <li>Use <code>skills_tool</code> to load specific workflow skills</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- No selection -->
+                    <template x-if="!$store.frameworkStore.selectedFramework">
+                        <div class="no-selection">
+                            <p>Select a framework to view its details.</p>
+                        </div>
+                    </template>
+                </div>
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .framework-modal-container {
+            padding: 0.5rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--color-secondary);
+        }
+
+        .error {
+            color: var(--color-error);
+            padding: 1rem;
+            background: var(--color-error-bg);
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .framework-selector {
+            margin-bottom: 1.5rem;
+        }
+
+        .selector-label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+        }
+
+        .framework-dropdown {
+            flex: 1;
+            max-width: 300px;
+            padding: 0.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-size: 0.95rem;
+        }
+
+        .framework-details {
+            background: var(--color-input);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .framework-header {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .framework-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--color-primary);
+        }
+
+        .framework-id {
+            font-size: 0.8rem;
+            color: var(--color-secondary);
+            font-family: monospace;
+        }
+
+        .framework-description {
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        .workflow-section h4,
+        .usage-hint h4 {
+            font-size: 1rem;
+            margin: 0 0 0.75rem 0;
+            color: var(--color-primary);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 0.5rem;
+        }
+
+        .workflow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .workflow-step {
+            display: flex;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: var(--color-bg-primary);
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+        }
+
+        .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            background: var(--color-accent);
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-skill {
+            margin-bottom: 0.25rem;
+        }
+
+        .step-skill code {
+            font-size: 0.8rem;
+            background: var(--color-input);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            color: var(--color-accent);
+        }
+
+        .step-description {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        .no-workflows,
+        .no-selection {
+            text-align: center;
+            padding: 2rem;
+            color: var(--color-secondary);
+        }
+
+        .usage-hint {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+        }
+
+        .usage-hint p {
+            margin: 0 0 0.5rem 0;
+            color: var(--color-text-secondary);
+        }
+
+        .usage-hint ul {
+            margin: 0;
+            padding-left: 1.5rem;
+            color: var(--color-text-secondary);
+        }
+
+        .usage-hint li {
+            margin-bottom: 0.25rem;
+        }
+
+        .usage-hint code {
+            font-size: 0.85rem;
+            background: var(--color-input);
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+        }
+    </style>
+</body>
+</html>

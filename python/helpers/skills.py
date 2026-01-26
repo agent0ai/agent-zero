@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover
     yaml = None  # type: ignore
 
 
-SkillSource = Literal["custom", "builtin", "shared"]
+SkillSource = Literal["custom", "builtin", "shared", "framework"]
 
 
 @dataclass(slots=True)
@@ -42,10 +42,31 @@ def get_skills_base_dir() -> Path:
     return Path(files.get_abs_path("skills"))
 
 
-def get_skill_roots(order: Optional[List[SkillSource]] = None) -> List[Tuple[SkillSource, Path]]:
+def get_skill_roots(
+    order: Optional[List[SkillSource]] = None,
+    framework_id: Optional[str] = None,
+) -> List[Tuple[SkillSource, Path]]:
+    """
+    Get skill root directories in priority order.
+
+    Args:
+        order: List of skill sources to search (default: custom, builtin, shared)
+        framework_id: If provided and not "none", framework skills are added at highest priority
+
+    Returns:
+        List of (source, path) tuples in priority order
+    """
     base = get_skills_base_dir()
     order = order or ["custom", "builtin", "shared"]
-    return [(src, base / src) for src in order]
+    roots: List[Tuple[SkillSource, Path]] = [(src, base / src) for src in order]
+
+    # Framework skills take priority when active
+    if framework_id and framework_id != "none":
+        fw_path = base / "frameworks" / framework_id
+        if fw_path.exists():
+            roots.insert(0, ("framework", fw_path))
+
+    return roots
 
 
 def _is_hidden_path(path: Path) -> bool:
@@ -254,10 +275,11 @@ def list_skills(
     include_content: bool = False,
     dedupe: bool = True,
     root_order: Optional[List[SkillSource]] = None,
+    framework_id: Optional[str] = None,
 ) -> List[Skill]:
     skills: List[Skill] = []
 
-    roots = get_skill_roots(order=root_order)
+    roots = get_skill_roots(order=root_order, framework_id=framework_id)
     for source, root in roots:
         for skill_md in discover_skill_md_files(root):
             s = skill_from_markdown(skill_md, source, include_content=include_content)
@@ -281,12 +303,13 @@ def find_skill(
     *,
     include_content: bool = False,
     root_order: Optional[List[SkillSource]] = None,
+    framework_id: Optional[str] = None,
 ) -> Optional[Skill]:
     target = _normalize_name(skill_name)
     if not target:
         return None
 
-    roots = get_skill_roots(order=root_order)
+    roots = get_skill_roots(order=root_order, framework_id=framework_id)
     for source, root in roots:
         for skill_md in discover_skill_md_files(root):
             s = skill_from_markdown(skill_md, source, include_content=include_content)
@@ -297,13 +320,18 @@ def find_skill(
     return None
 
 
-def search_skills(query: str, *, limit: int = 25) -> List[Skill]:
+def search_skills(
+    query: str,
+    *,
+    limit: int = 25,
+    framework_id: Optional[str] = None,
+) -> List[Skill]:
     q = (query or "").strip().lower()
     if not q:
         return []
 
     terms = [t for t in re.split(r"\s+", q) if t]
-    candidates = list_skills(include_content=False, dedupe=True)
+    candidates = list_skills(include_content=False, dedupe=True, framework_id=framework_id)
 
     scored: List[Tuple[int, Skill]] = []
     for s in candidates:

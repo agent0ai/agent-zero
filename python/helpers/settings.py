@@ -148,6 +148,9 @@ class Settings(TypedDict):
 
     update_check_enabled: bool
 
+    # Development framework selection
+    dev_framework: str
+
 class PartialSettings(Settings, total=False):
     pass
 
@@ -1296,7 +1299,41 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "fields": skills_fields,
         "tab": "agent",
     }
-    
+
+    # Development Framework section
+    from python.helpers import frameworks
+    framework_fields: list[SettingsField] = []
+
+    framework_fields.append(
+        {
+            "id": "dev_framework",
+            "title": "Development Framework",
+            "description": "Select a structured development workflow methodology. When active, framework-specific skills are prioritized and workflow guidance is injected into the system prompt.",
+            "type": "select",
+            "value": settings["dev_framework"],
+            "options": cast(list[FieldOption], frameworks.get_framework_options()),
+        }
+    )
+
+    framework_fields.append(
+        {
+            "id": "framework_info",
+            "title": "Framework Details",
+            "description": "View detailed information about the selected framework and its workflow steps.",
+            "type": "button",
+            "value": "View Details",
+        }
+    )
+
+    framework_section: SettingsSection = {
+        "id": "dev_framework",
+        "title": "Development Framework",
+        "description": "Choose a structured development workflow methodology to guide the agent. "
+        "Frameworks provide phased approaches to software development tasks with specialized skills for each phase.",
+        "fields": framework_fields,
+        "tab": "agent",
+    }
+
     # Backup & Restore section
     backup_fields: list[SettingsField] = []
 
@@ -1335,6 +1372,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     result: SettingsOutput = {
         "sections": [
             agent_section,
+            framework_section,
             chat_model_section,
             util_model_section,
             browser_model_section,
@@ -1590,6 +1628,7 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
+        dev_framework=get_default_value("dev_framework", "none"),
     )
 
 
