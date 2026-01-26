@@ -15,6 +15,7 @@ const model = {
   projectList: [],
   selectedProject: null,
   editData: null,
+  frameworkOptions: [],
   colors: [
     "#7b2cbf", // Deep Purple
     "#8338ec", // Blue Violet
@@ -71,14 +72,35 @@ const model = {
 
   async openCreateModal() {
     this.selectedProject = this._createNewProjectData();
+    await this.loadFrameworkOptions();
     await modals.openModal(createModal);
     this.selectedProject = null;
   },
 
   async openEditModal(name) {
     this.selectedProject = await this._createEditProjectData(name);
+    await this.loadFrameworkOptions();
     await modals.openModal(editModal);
     this.selectedProject = null;
+  },
+
+  async loadFrameworkOptions() {
+    try {
+      const response = await api.callJsonApi("frameworks", { action: "list" });
+      if (response?.ok && response?.data) {
+        // Add "Use Global Setting" option at the top
+        this.frameworkOptions = [
+          { value: "", label: "Use Global Setting" },
+          ...response.data.map(fw => ({ value: fw.id, label: fw.name }))
+        ];
+      } else {
+        // Fallback if API fails
+        this.frameworkOptions = [{ value: "", label: "Use Global Setting" }];
+      }
+    } catch (error) {
+      console.error("Error loading framework options:", error);
+      this.frameworkOptions = [{ value: "", label: "Use Global Setting" }];
+    }
   },
 
   async cancelCreate() {
@@ -308,6 +330,7 @@ const model = {
       title: `Project #${this.projectList.length + 1}`,
       description: "",
       color: "",
+      dev_framework: "",
     };
   },
 

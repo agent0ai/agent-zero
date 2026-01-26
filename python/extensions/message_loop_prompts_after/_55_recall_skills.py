@@ -6,6 +6,7 @@ from agent import LoopData
 from python.helpers.memory import Memory
 from python.helpers import files
 from python.helpers import skills as skills_helper
+from python.helpers import frameworks
 
 
 class RecallSkills(Extension):
@@ -56,8 +57,10 @@ class RecallSkills(Extension):
                     break
 
         if not recalled:
-            # cheap lexical fallback
-            matches = skills_helper.search_skills(user_instruction, limit=6)
+            # cheap lexical fallback - include framework skills if a framework is active
+            framework = frameworks.get_active_framework(self.agent.context)
+            framework_id = framework.id if framework else None
+            matches = skills_helper.search_skills(user_instruction, limit=6, framework_id=framework_id)
             for s in matches:
                 recalled.append(str(s.skill_md_path))
 
@@ -75,12 +78,15 @@ class RecallSkills(Extension):
                 text = abs_path.read_text(encoding="utf-8", errors="replace")
                 fm, body = skills_helper.split_frontmatter(text)
 
-                # Infer source if possible (custom/builtin/shared), else "unknown"
+                # Infer source if possible (custom/builtin/shared/framework), else "unknown"
                 source = "unknown"
                 try:
                     rel = abs_path.resolve().relative_to(base_skills_dir)
-                    if rel.parts and rel.parts[0] in ("custom", "builtin", "shared"):
+                    if rel.parts and rel.parts[0] in ("custom", "builtin", "shared", "frameworks"):
                         source = rel.parts[0]
+                        # Normalize "frameworks" to "framework" for display
+                        if source == "frameworks":
+                            source = "framework"
                 except Exception:
                     pass
 

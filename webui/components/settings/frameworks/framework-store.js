@@ -18,7 +18,7 @@ const model = {
         this.loading = true;
         this.error = null;
         try {
-            const response = await callJsonApi("/frameworks", { action: "list" });
+            const response = await callJsonApi("frameworks", { action: "list" });
             if (response.ok) {
                 this.frameworks = response.data;
                 // Select current framework from settings

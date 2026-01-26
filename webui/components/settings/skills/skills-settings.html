@@ -1,0 +1,28 @@
+<html>
+  <head>
+    <title>Skills Settings</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore">
+        <div>
+          <nav>
+            <ul>
+              <li>
+                <a href="#section-skills-import">
+                  <img src="/public/skills.svg" alt="Import Skills" />
+                  <span>Import Skills</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+
+          <div id="section-skills-import" class="section">
+            <x-component path="settings/skills/import.html"></x-component>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

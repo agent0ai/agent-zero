@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 from python.helpers.tool import Tool, Response
 from python.helpers import files
 from python.helpers import skills as skills_helper
+from python.helpers import frameworks
 
 
 class SkillsTool(Tool):
@@ -72,8 +73,17 @@ class SkillsTool(Tool):
         except Exception as e:  # keep tool robust; return error instead of crashing loop
             return Response(message=f"Error in skills_tool: {e}", break_loop=False)
 
+    def _get_active_framework_id(self) -> str | None:
+        """Get the active framework ID from the agent's context."""
+        try:
+            framework = frameworks.get_active_framework(self.agent.context)
+            return framework.id if framework else None
+        except Exception:
+            return None
+
     def _list(self) -> str:
-        skills = skills_helper.list_skills(include_content=False, dedupe=True)
+        framework_id = self._get_active_framework_id()
+        skills = skills_helper.list_skills(include_content=False, dedupe=True, framework_id=framework_id)
         if not skills:
             return "No skills found. Expected SKILL.md files under: skills/{custom,builtin,shared}."
 
@@ -97,7 +107,8 @@ class SkillsTool(Tool):
         if not query:
             return "Error: 'query' is required for method=search."
 
-        results = skills_helper.search_skills(query, limit=25)
+        framework_id = self._get_active_framework_id()
+        results = skills_helper.search_skills(query, limit=25, framework_id=framework_id)
         if not results:
             return f"No skills matched query: {query!r}"
 
@@ -116,7 +127,8 @@ class SkillsTool(Tool):
         if not skill_name:
             return "Error: 'skill_name' is required for method=load."
 
-        skill = skills_helper.find_skill(skill_name, include_content=True)
+        framework_id = self._get_active_framework_id()
+        skill = skills_helper.find_skill(skill_name, include_content=True, framework_id=framework_id)
         if not skill:
             return f"Error: skill not found: {skill_name!r}. Try skills_tool method=list or method=search."
 
@@ -166,7 +178,8 @@ class SkillsTool(Tool):
         if not file_path:
             return "Error: 'file_path' is required for method=read_file."
 
-        skill = skills_helper.find_skill(skill_name, include_content=False)
+        framework_id = self._get_active_framework_id()
+        skill = skills_helper.find_skill(skill_name, include_content=False, framework_id=framework_id)
         if not skill:
             return f"Error: skill not found: {skill_name!r}."
 
@@ -195,7 +208,8 @@ class SkillsTool(Tool):
         if not script_path:
             return Response(message="Error: 'script_path' is required for method=execute_script.", break_loop=False)
 
-        skill = skills_helper.find_skill(skill_name, include_content=False)
+        framework_id = self._get_active_framework_id()
+        skill = skills_helper.find_skill(skill_name, include_content=False, framework_id=framework_id)
         if not skill:
             return Response(message=f"Error: skill not found: {skill_name!r}.", break_loop=False)
 

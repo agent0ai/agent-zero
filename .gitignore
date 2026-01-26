@@ -46,3 +46,5 @@ skills/**
 # for browser-use
 agent_history.gif
 
+.agent/**
+.claude/**

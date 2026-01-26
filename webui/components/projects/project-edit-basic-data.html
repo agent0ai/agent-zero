@@ -58,6 +58,18 @@
                         </template>
                     </div>
                 </div>
+
+                <div class="projects-form-group">
+                    <label class="projects-form-label">Development Framework</label>
+                    <span class="projects-form-description">Override the global development framework for this project.
+                        Framework skills will be prioritized when working on this project.</span>
+                    <select class="projects-form-select" x-model="$store.projects.selectedProject.dev_framework">
+                        <template x-for="option in $store.projects.frameworkOptions" :key="option.value">
+                            <option :value="option.value" x-text="option.label"
+                                :selected="option.value === ($store.projects.selectedProject.dev_framework || '')"></option>
+                        </template>
+                    </select>
+                </div>
             </div>
 
 
@@ -92,7 +104,8 @@
     }
 
     .projects-form-input,
-    .projects-form-textarea {
+    .projects-form-textarea,
+    .projects-form-select {
         background: var(--color-input);
         color: var(--color-text);
         border: 1px solid var(--color-border);
@@ -102,9 +115,14 @@
     }
 
     .projects-form-input:focus,
-    .projects-form-textarea:focus {
+    .projects-form-textarea:focus,
+    .projects-form-select:focus {
         border-color: var(--color-primary);
         background: var(--color-input-focus);
+    }
+
+    .projects-form-select {
+        cursor: pointer;
     }
 
     .projects-color-row {

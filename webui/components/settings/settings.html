@@ -30,13 +30,17 @@
         <!-- Tab Navigation -->
         <div class="settings-tabs-container">
           <div class="settings-tabs">
-            <div class="settings-tab" 
+            <div class="settings-tab"
                  :class="{'active': $store.settingsStore.activeTab === 'agent'}"
-                 @click="$store.settingsStore.switchTab('agent')" 
+                 @click="$store.settingsStore.switchTab('agent')"
                  title="Agent Settings">Agent Settings</div>
-            <div class="settings-tab" 
+            <div class="settings-tab"
+                 :class="{'active': $store.settingsStore.activeTab === 'skills'}"
+                 @click="$store.settingsStore.switchTab('skills')"
+                 title="Skills">Skills</div>
+            <div class="settings-tab"
                  :class="{'active': $store.settingsStore.activeTab === 'external'}"
-                 @click="$store.settingsStore.switchTab('external')" 
+                 @click="$store.settingsStore.switchTab('external')"
                  title="External Services">External Services</div>
             <div class="settings-tab" 
                  :class="{'active': $store.settingsStore.activeTab === 'mcp'}"
@@ -57,6 +61,9 @@
         <div id="settings-sections">
           <div x-show="$store.settingsStore.activeTab === 'agent'">
             <x-component path="settings/agent/agent-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settingsStore.activeTab === 'skills'">
+            <x-component path="settings/skills/skills-settings.html"></x-component>
           </div>
           <div x-show="$store.settingsStore.activeTab === 'external'">
             <x-component path="settings/external/external-settings.html"></x-component>
