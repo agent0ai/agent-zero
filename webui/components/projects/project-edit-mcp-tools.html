@@ -1,0 +1,320 @@
+<html>
+<head>
+    <title>Project MCP Servers</title>
+    <script type="module">
+        import { store } from "/components/projects/projects-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject">
+            <div x-init="$nextTick(() => $store.projects.initMcpEditor())">
+                <p class="mcp-description">
+                    Configure MCP servers for this project. These are separate from global MCP servers.
+                </p>
+
+                <div class="mcp-import-section" x-show="$store.projects.getMcpGlobalServerNames().length > 0">
+                    <h4 class="mcp-section-title">Import from Global</h4>
+                    <div class="mcp-server-list">
+                        <template x-for="serverName in $store.projects.getMcpGlobalServerNames()" :key="serverName">
+                            <div class="mcp-server-item">
+                                <span class="mcp-server-name" x-text="serverName"></span>
+                                <label class="mcp-toggle">
+                                    <input type="checkbox"
+                                           :checked="$store.projects.isMcpServerImported(serverName)"
+                                           @change="$store.projects.toggleMcpServerImport(serverName)">
+                                    <span class="mcp-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="mcp-tools-section" x-show="$store.projects.getProjectImportedServers().length > 0">
+                    <h4 class="mcp-section-title">Server Tools</h4>
+                    <div class="mcp-imported-servers">
+                        <template x-for="serverName in $store.projects.getProjectImportedServers()" :key="serverName">
+                            <div class="mcp-imported-server">
+                                <div class="mcp-imported-server-header" @click="$store.projects.toggleServerExpanded(serverName)">
+                                    <span class="mcp-imported-server-name" x-text="serverName"></span>
+                                    <span class="mcp-imported-server-toggle" :class="{ 'expanded': $store.projects.isServerExpanded(serverName) }">▶</span>
+                                </div>
+                                <div class="mcp-imported-server-tools" x-show="$store.projects.isServerExpanded(serverName)">
+                                    <template x-if="$store.projects.getServerTools(serverName).length > 0">
+                                        <div class="mcp-tool-list">
+                                            <template x-for="tool in $store.projects.getServerTools(serverName)" :key="tool.name">
+                                                <div class="mcp-tool-item">
+                                                    <div class="mcp-tool-info">
+                                                        <span class="mcp-tool-name" x-text="tool.name"></span>
+                                                        <span class="mcp-tool-desc" x-text="tool.description || '-'"></span>
+                                                    </div>
+                                                    <label class="mcp-toggle">
+                                                        <input type="checkbox"
+                                                               :checked="!$store.projects.isProjectToolDisabled(serverName, tool.name)"
+                                                               @change="$store.projects.toggleProjectTool(serverName, tool.name)">
+                                                        <span class="mcp-toggle-slider"></span>
+                                                    </label>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="$store.projects.getServerTools(serverName).length === 0">
+                                        <div class="mcp-tools-empty">No tools available or server not running.</div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="mcp-editor-section">
+                    <div class="mcp-editor-header">
+                        <h4 class="mcp-section-title">Configuration JSON</h4>
+                        <div class="mcp-editor-actions">
+                            <button class="btn slim" @click="$store.projects.formatMcpJson()">Reformat</button>
+                            <button class="btn slim primary" 
+                                    @click="$store.projects.applyProjectMcp()"
+                                    :disabled="$store.projects.mcpApplying">
+                                <span x-show="!$store.projects.mcpApplying">Apply Now</span>
+                                <span x-show="$store.projects.mcpApplying">Applying...</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mcp-editor-wrapper">
+                        <div id="project-mcp-editor" class="mcp-editor"></div>
+                        <div x-show="$store.projects.mcpLoading" class="mcp-loading-overlay">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .mcp-description {
+            color: var(--c-fg2);
+            font-size: 0.9em;
+            margin-bottom: 1em;
+        }
+
+        .mcp-section-title {
+            margin: 0 0 0.5em 0;
+            font-size: 0.95em;
+            font-weight: 600;
+        }
+
+        .mcp-import-section {
+            margin-bottom: 1em;
+            padding: 0.75em;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-panel-darker);
+        }
+
+        .mcp-server-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5em;
+        }
+
+        .mcp-server-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5em 0.75em;
+            background: var(--color-panel);
+            border-radius: 4px;
+        }
+
+        .mcp-server-name {
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .mcp-toggle {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+
+        .mcp-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .mcp-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--color-border);
+            transition: 0.3s;
+            border-radius: 22px;
+        }
+
+        .mcp-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .mcp-toggle input:checked + .mcp-toggle-slider {
+            background-color: var(--c-accent);
+        }
+
+        .mcp-toggle input:checked + .mcp-toggle-slider:before {
+            transform: translateX(18px);
+        }
+
+        .mcp-editor-section {
+            margin-top: 0.5em;
+        }
+
+        .mcp-editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5em;
+        }
+
+        .mcp-editor-actions {
+            display: flex;
+            gap: 0.5em;
+        }
+
+        .mcp-editor-wrapper {
+            position: relative;
+        }
+
+        .mcp-editor {
+            width: 100%;
+            height: 20em;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+        }
+
+        .mcp-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-panel);
+            border-radius: 4px;
+            color: var(--c-fg2);
+        }
+
+        .mcp-tools-section {
+            margin-top: 1em;
+            padding: 0.75em;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-panel-darker);
+        }
+
+        .mcp-imported-servers {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5em;
+        }
+
+        .mcp-imported-server {
+            background: var(--color-panel);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .mcp-imported-server-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5em 0.75em;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .mcp-imported-server-header:hover {
+            background: var(--color-panel-darker);
+        }
+
+        .mcp-imported-server-name {
+            font-family: monospace;
+            font-size: 0.9em;
+            color: var(--c-accent);
+        }
+
+        .mcp-imported-server-toggle {
+            font-size: 0.7em;
+            color: var(--c-fg2);
+            transition: transform 0.2s;
+        }
+
+        .mcp-imported-server-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .mcp-imported-server-tools {
+            border-top: 1px solid var(--color-border);
+        }
+
+        .mcp-tool-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .mcp-tool-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5em 0.75em;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .mcp-tool-item:last-child {
+            border-bottom: none;
+        }
+
+        .mcp-tool-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15em;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mcp-tool-name {
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+
+        .mcp-tool-desc {
+            font-size: 0.8em;
+            color: var(--c-fg2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mcp-tools-empty {
+            padding: 1em;
+            text-align: center;
+            color: var(--c-fg2);
+            font-size: 0.9em;
+        }
+    </style>
+</body>
+</html>

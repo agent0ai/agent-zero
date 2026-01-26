@@ -43,6 +43,7 @@ class ToolResponse(BaseModel):
         description="The response from the remote Agent Zero Instance"
     )
     chat_id: str = Field(description="The id of the chat this message belongs to.")
+    disabled_tools: list[str] = Field(default_factory=list)
 
 
 class ToolError(BaseModel):

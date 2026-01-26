@@ -25,9 +25,11 @@ class FileStructureInjectionSettings(TypedDict):
     max_lines: int
     gitignore: str
 
+
 class SubAgentSettings(TypedDict):
     enabled: bool
-    
+
+
 class BasicProjectData(TypedDict):
     title: str
     description: str
@@ -38,6 +40,7 @@ class BasicProjectData(TypedDict):
     ]  # in the future we can add cutom and point to another existing folder
     file_structure: FileStructureInjectionSettings
 
+
 class EditProjectData(BasicProjectData):
     name: str
     instruction_files_count: int
@@ -45,7 +48,6 @@ class EditProjectData(BasicProjectData):
     variables: str
     secrets: str
     subagents: dict[str, SubAgentSettings]
-
 
 
 def get_projects_parent_folder():
@@ -61,9 +63,12 @@ def get_project_meta_folder(name: str, *sub_dirs: str):
 
 
 def delete_project(name: str):
+    from python.helpers.mcp_handler import MCPConfig
+
     abs_path = files.get_abs_path(PROJECTS_PARENT_DIR, name)
     files.delete_dir(abs_path)
     deactivate_project_in_chats(name)
+    MCPConfig.get_instance().unload_project_servers(name)
     return name
 
 
@@ -231,6 +236,7 @@ def _get_projects_list(parent_dir):
 
 def activate_project(context_id: str, name: str):
     from agent import AgentContext
+    from python.helpers.mcp_handler import MCPConfig
 
     data = load_edit_project_data(name)
     context = AgentContext.get(context_id)
@@ -244,7 +250,9 @@ def activate_project(context_id: str, name: str):
         {"name": name, "title": display_name, "color": data.get("color", "")},
     )
 
-    # persist
+    mcp_config_str = load_project_mcp_servers(name)
+    MCPConfig.get_instance().load_project_servers(name, mcp_config_str)
+
     persist_chat.save_tmp_chat(context)
 
 
@@ -340,7 +348,7 @@ def save_project_subagents(name: str, subagents_data: dict[str, SubAgentSettings
 
 
 def _normalize_subagents(
-    subagents_data: dict[str, SubAgentSettings]
+    subagents_data: dict[str, SubAgentSettings],
 ) -> dict[str, SubAgentSettings]:
     from python.helpers import subagents
 
@@ -405,25 +413,85 @@ def get_knowledge_files_count(name: str):
     )
     return len(files.list_files_in_dir_recursively(knowledge_folder))
 
-def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str:
+
+MCP_SERVERS_FILE = "mcp_servers.json"
+
+
+def load_project_mcp_servers(name: str) -> str:
+    try:
+        abs_path = files.get_abs_path(get_project_meta_folder(name), MCP_SERVERS_FILE)
+        return files.read_file(abs_path)
+    except Exception:
+        return '{\n    "mcpServers": {}\n}'
+
+
+def save_project_mcp_servers(name: str, mcp_servers_json: str):
+    abs_path = files.get_abs_path(get_project_meta_folder(name), MCP_SERVERS_FILE)
+    files.write_file(abs_path, mcp_servers_json)
+    reload_project_mcp_servers(name)
+
+
+def reload_project_mcp_servers(name: str):
+    import threading
+
+    def _reload():
+        from python.helpers.mcp_handler import MCPConfig
+
+        mcp_config_str = load_project_mcp_servers(name)
+        MCPConfig.get_instance().load_project_servers(name, mcp_config_str)
+
+    thread = threading.Thread(target=_reload, daemon=True)
+    thread.start()
+
+
+def get_project_mcp_servers_parsed(name: str) -> dict:
+    try:
+        raw = load_project_mcp_servers(name)
+        return dirty_json.parse(raw) or {"mcpServers": {}}
+    except Exception:
+        return {"mcpServers": {}}
+
+
+def import_global_mcp_server_to_project(project_name: str, server_name: str) -> dict:
+    from python.helpers.mcp_handler import MCPConfig
+    from python.helpers.settings import get_settings
+
+    global_config_str = get_settings().get("mcp_servers", '{"mcpServers": {}}')
+    global_config = dirty_json.parse(global_config_str) or {"mcpServers": {}}
+
+    global_servers = global_config.get("mcpServers", {})
+    if server_name not in global_servers:
+        raise ValueError(f"Server '{server_name}' not found in global MCP config")
+
+    project_config = get_project_mcp_servers_parsed(project_name)
+    if "mcpServers" not in project_config:
+        project_config["mcpServers"] = {}
+
+    project_config["mcpServers"][server_name] = global_servers[server_name].copy()
+
+    save_project_mcp_servers(project_name, dirty_json.stringify(project_config))
+    return project_config
+
+
+def get_file_structure(name: str, basic_data: BasicProjectData | None = None) -> str:
     project_folder = get_project_folder(name)
     if basic_data is None:
         basic_data = load_basic_project_data(name)
-    
-    tree = str(file_tree.file_tree(
-        project_folder,
-        max_depth=basic_data["file_structure"]["max_depth"],
-        max_files=basic_data["file_structure"]["max_files"],
-        max_folders=basic_data["file_structure"]["max_folders"],
-        max_lines=basic_data["file_structure"]["max_lines"],
-        ignore=basic_data["file_structure"]["gitignore"],
-        output_mode=file_tree.OUTPUT_MODE_STRING
-    ))
+
+    tree = str(
+        file_tree.file_tree(
+            project_folder,
+            max_depth=basic_data["file_structure"]["max_depth"],
+            max_files=basic_data["file_structure"]["max_files"],
+            max_folders=basic_data["file_structure"]["max_folders"],
+            max_lines=basic_data["file_structure"]["max_lines"],
+            ignore=basic_data["file_structure"]["gitignore"],
+            output_mode=file_tree.OUTPUT_MODE_STRING,
+        )
+    )
 
     # empty?
     if "\n" not in tree:
         tree += "\n # Empty"
 
     return tree
-
-    

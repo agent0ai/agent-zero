@@ -3,12 +3,40 @@ import sleep from "/js/sleep.js";
 import * as API from "/js/api.js";
 import { store as settingsStore } from "/components/settings/settings-store.js";
 
+// Normalize server name to match backend behavior (lowercase, replace non-alphanumeric with underscore)
+function normalizeName(name) {
+  if (!name) return "";
+  return name.trim().toLowerCase().replace(/[^\w]/g, "_");
+}
+
+// Find server object in config by normalized name, returns { serverObj, configKey }
+function findServerInConfig(config, normalizedServerName) {
+  if (Array.isArray(config)) {
+    const serverObj = config.find(s => normalizeName(s.name) === normalizedServerName);
+    return serverObj ? { serverObj, configKey: null } : null;
+  } else if (config.mcpServers) {
+    if (Array.isArray(config.mcpServers)) {
+      const serverObj = config.mcpServers.find(s => normalizeName(s.name) === normalizedServerName);
+      return serverObj ? { serverObj, configKey: null } : null;
+    } else {
+      // mcpServers is an object/dict - iterate keys
+      for (const key of Object.keys(config.mcpServers)) {
+        if (normalizeName(key) === normalizedServerName) {
+          return { serverObj: config.mcpServers[key], configKey: key };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 const model = {
   editor: null,
   servers: [],
   loading: true,
   statusCheck: false,
   serverLog: "",
+  currentDetailServer: null, // Added to hold tool details
 
   async initialize() {
     // Initialize the JSON Viewer after the modal is rendered
@@ -102,7 +130,8 @@ const model = {
     if (this.loading) return;
     this.loading = true;
     try {
-      scrollModal("mcp-servers-status");
+      // Only scroll if we aren't in the tools modal (checked via currentDetailServer existence implies focus elsewhere, but keeping simpler)
+      // scrollModal("mcp-servers-status"); 
       const resp = await API.callJsonApi("mcp_servers_apply", {
         mcp_servers: this.getEditorValue(),
       });
@@ -111,8 +140,8 @@ const model = {
         this.servers.sort((a, b) => a.name.localeCompare(b.name));
       }
       this.loading = false;
-      await sleep(100); // wait for ui and scroll
-      scrollModal("mcp-servers-status");
+      await sleep(100); 
+      // scrollModal("mcp-servers-status");
     } catch (error) {
       console.error("Failed to apply MCP servers:", error);
     }
@@ -135,10 +164,57 @@ const model = {
       server_name: serverName,
     });
     if (resp.success) {
-      this.serverDetail = resp.detail;
+      this.currentDetailServer = resp.detail; // Store detail for the modal
       openModal("settings/mcp/client/mcp-server-tools.html");
     }
   },
+
+  // --- New Logic for Tool Toggling ---
+
+  isToolDisabled(toolName) {
+    if (!this.currentDetailServer || !this.currentDetailServer.disabled_tools) return false;
+    return this.currentDetailServer.disabled_tools.includes(toolName);
+  },
+
+  async toggleTool(toolName) {
+    if (!this.currentDetailServer) return;
+    
+    try {
+        const rawConfig = this.getEditorValue();
+        const config = JSON.parse(rawConfig);
+        const serverName = this.currentDetailServer.name;
+
+        const found = findServerInConfig(config, serverName);
+        if (!found) {
+            alert(`Could not find configuration block for server: ${serverName}`);
+            return;
+        }
+
+        const { serverObj } = found;
+
+        if (!serverObj.disabled_tools) {
+            serverObj.disabled_tools = [];
+        }
+
+        if (serverObj.disabled_tools.includes(toolName)) {
+            serverObj.disabled_tools = serverObj.disabled_tools.filter(t => t !== toolName);
+        } else {
+            serverObj.disabled_tools.push(toolName);
+        }
+
+        const newJson = JSON.stringify(config, null, 2);
+        this.editor.setValue(newJson);
+        this.editor.clearSelection();
+
+        this.currentDetailServer.disabled_tools = [...serverObj.disabled_tools];
+
+        await this.applyNow();
+
+    } catch (e) {
+        console.error("Error toggling tool:", e);
+        alert("Cannot toggle tool: Config JSON is invalid.");
+    }
+  }
 };
 
 const store = createStore("mcpServersStore", model);

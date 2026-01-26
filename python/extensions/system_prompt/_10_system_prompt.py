@@ -7,12 +7,11 @@ from python.helpers import projects
 
 
 class SystemPrompt(Extension):
-
     async def execute(
         self,
         system_prompt: list[str] = [],
         loop_data: LoopData = LoopData(),
-        **kwargs: Any
+        **kwargs: Any,
     ):
         # append main system prompt and tools
         main = get_main_prompt(self.agent)
@@ -44,13 +43,18 @@ def get_tools_prompt(agent: Agent):
 
 def get_mcp_tools_prompt(agent: Agent):
     mcp_config = MCPConfig.get_instance()
-    if mcp_config.servers:
+    project_name = projects.get_context_project_name(agent.context) or ""
+
+    if project_name and project_name in mcp_config.project_servers:
+        has_servers = bool(mcp_config.project_servers[project_name])
+    else:
+        has_servers = bool(mcp_config.servers)
+
+    if has_servers:
         pre_progress = agent.context.log.progress
-        agent.context.log.set_progress(
-            "Collecting MCP tools"
-        )  # MCP might be initializing, better inform via progress bar
-        tools = MCPConfig.get_instance().get_tools_prompt()
-        agent.context.log.set_progress(pre_progress)  # return original progress
+        agent.context.log.set_progress("Collecting MCP tools")
+        tools = mcp_config.get_tools_prompt(project_name=project_name)
+        agent.context.log.set_progress(pre_progress)
         return tools
     return ""
 

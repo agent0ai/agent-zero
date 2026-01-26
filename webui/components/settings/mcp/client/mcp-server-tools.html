@@ -1,51 +1,155 @@
-<html>
-
-<head>
-    <title>MCP Server Detail</title>
-
-    <script type="module">
-        import { store } from "/components/settings/mcp/client/mcp-servers-store.js";
-    </script>
-</head>
-
-<body>
-    <div x-data>
-        <template x-if="$store.mcpServersStore">
-            <div>
-                <h3 x-text="$store.mcpServersStore.serverDetail.name"></h3>
-                <p x-text="$store.mcpServersStore.serverDetail.description"></p>
-
-                <div class="tools-container">
-                    <template x-for="tool in $store.mcpServersStore.serverDetail.tools" :key="tool.name">
-                        <div class="tool-item">
-                            <h4 x-text="tool.name"></h4>
-                            <p class="tool-description" x-text="tool.description"></p>
-
-                            <template x-if="tool.input_schema?.properties">
-                                <div class="tool-properties">
-                                    <p class="properties-title">Properties:</p>
-                                    <ul>
-                                        <template x-for="(prop, propName) in tool.input_schema.properties"
-                                            :key="propName">
-                                            <li>
-                                                <span class="prop-name" x-text="propName"></span>:
-                                                <span class="prop-type" x-text="prop.type || 'any'"></span>
-                                                <template x-if="prop.description">
-                                                    <span class="prop-desc" x-text="' - ' + prop.description"></span>
-                                                </template>
-                                            </li>
-                                        </template>
-                                    </ul>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
+<div class="modal-content-inner" x-data>
+    <template x-if="$store.mcpServersStore.currentDetailServer">
+        <div>
+            <div class="mcp-tools-header">
+                <div>
+                    <h3 class="mcp-tools-title" x-text="$store.mcpServersStore.currentDetailServer.name"></h3>
+                    <p class="mcp-tools-desc" x-text="$store.mcpServersStore.currentDetailServer.description"></p>
                 </div>
+                <div x-show="$store.mcpServersStore.loading" class="mcp-tools-saving">Saving...</div>
             </div>
-        </template>
-    </div>
+
+            <div class="mcp-tools-list">
+                <template x-for="tool in $store.mcpServersStore.currentDetailServer.tools" :key="tool.name">
+                    <div class="mcp-tool-item">
+                        <div class="mcp-tool-info">
+                            <span class="mcp-tool-name" x-text="tool.name"></span>
+                            <span class="mcp-tool-desc" x-text="tool.description || '-'"></span>
+                        </div>
+                        <label class="mcp-tool-toggle">
+                            <input type="checkbox"
+                                   :checked="!$store.mcpServersStore.isToolDisabled(tool.name)"
+                                   @change="$store.mcpServersStore.toggleTool(tool.name)">
+                            <span class="mcp-tool-toggle-slider"></span>
+                        </label>
+                    </div>
+                </template>
+                <template x-if="!$store.mcpServersStore.currentDetailServer.tools || $store.mcpServersStore.currentDetailServer.tools.length === 0">
+                    <div class="mcp-tools-empty">No tools available.</div>
+                </template>
+            </div>
+        </div>
+    </template>
+</div>
 
     <style>
+        .mcp-tools-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1em;
+        }
+
+        .mcp-tools-title {
+            margin: 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .mcp-tools-desc {
+            margin: 0.25em 0 0 0;
+            font-size: 0.9em;
+            color: var(--c-fg2);
+        }
+
+        .mcp-tools-saving {
+            font-size: 0.85em;
+            color: var(--c-accent);
+        }
+
+        .mcp-tools-list {
+            max-height: 60vh;
+            overflow-y: auto;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+        }
+
+        .mcp-tool-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75em 1em;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .mcp-tool-item:last-child {
+            border-bottom: none;
+        }
+
+        .mcp-tool-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25em;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mcp-tool-name {
+            font-family: monospace;
+            font-size: 0.9em;
+            color: var(--c-accent);
+        }
+
+        .mcp-tool-desc {
+            font-size: 0.85em;
+            color: var(--c-fg2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mcp-tool-toggle {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+            flex-shrink: 0;
+            margin-left: 1em;
+        }
+
+        .mcp-tool-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .mcp-tool-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--color-border);
+            transition: 0.3s;
+            border-radius: 22px;
+        }
+
+        .mcp-tool-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .mcp-tool-toggle input:checked + .mcp-tool-toggle-slider {
+            background-color: var(--c-accent);
+        }
+
+        .mcp-tool-toggle input:checked + .mcp-tool-toggle-slider:before {
+            transform: translateX(18px);
+        }
+
+        .mcp-tools-empty {
+            padding: 2em;
+            text-align: center;
+            color: var(--c-fg2);
+        }
         .tools-container {
             margin-top: 1.5em;
             display: flex;
