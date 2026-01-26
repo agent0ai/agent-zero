@@ -9,7 +9,7 @@ class GithubOauth(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict:
         client_id = os.getenv("GITHUB_CLIENT_ID", "")
-        redirect_uri = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:5001/github_callback")
+        redirect_uri = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:55080/github_callback")
 
         if not client_id:
             return {"success": False, "error": "GitHub client ID not configured. Set GITHUB_CLIENT_ID in .env"}

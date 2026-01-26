@@ -10,6 +10,44 @@
     <template x-if="$store.github">
       <div class="github-settings" x-init="$store.github.init()">
 
+        <!-- OAuth App Configuration -->
+        <template x-if="$store.settingsStore?.settings">
+          <div class="section">
+            <div class="section-title">OAuth App Configuration</div>
+            <div class="section-description">
+              Configure your GitHub OAuth App credentials. Create an OAuth App at
+              <a href="https://github.com/settings/developers" target="_blank" rel="noopener noreferrer">GitHub Developer Settings</a>.
+            </div>
+
+            <div class="github-config-fields">
+              <div class="github-config-field">
+                <label for="github-client-id">Client ID</label>
+                <input
+                  type="text"
+                  id="github-client-id"
+                  x-model="$store.settingsStore.settings.github_client_id"
+                  placeholder="Enter your GitHub OAuth Client ID"
+                />
+              </div>
+
+              <div class="github-config-field">
+                <label for="github-client-secret">Client Secret</label>
+                <input
+                  type="password"
+                  id="github-client-secret"
+                  x-model="$store.settingsStore.settings.github_client_secret"
+                  placeholder="Enter your GitHub OAuth Client Secret"
+                />
+              </div>
+            </div>
+
+            <div class="github-config-note">
+              <span class="material-symbols-outlined">info</span>
+              <span>Set the callback URL in your OAuth App to: <code>http://localhost:<span x-text="$store.settingsStore.settings.rfc_port_http"></span>/github_callback</code></span>
+            </div>
+          </div>
+        </template>
+
         <!-- Not Connected State -->
         <template x-if="!$store.github.isConnected">
           <div class="section">
@@ -290,6 +328,7 @@
       background: var(--color-panel);
       border-radius: 8px;
       margin-top: 1rem;
+      margin-bottom: 1rem;
     }
     .github-logo {
       color: var(--color-text);
@@ -307,6 +346,7 @@
     /* Error */
     .github-error {
       margin-top: 1rem;
+      margin-bottom: 1rem;
       padding: 0.75rem 1rem;
       background: rgba(248, 81, 73, 0.15);
       border: 1px solid var(--color-accent);
@@ -324,6 +364,7 @@
       background: var(--color-panel);
       border-radius: 8px;
       margin-top: 0.5rem;
+      margin-bottom: 1rem;
     }
     .github-avatar {
       width: 48px;
@@ -814,6 +855,69 @@
       font-size: 1rem;
       color: #3b82f6;
       flex-shrink: 0;
+    }
+
+    /* OAuth Configuration Fields */
+    .github-config-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .github-config-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .github-config-field label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--color-text);
+      opacity: 0.8;
+    }
+    .github-config-field input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font-size: 0.875rem;
+      font-family: inherit;
+    }
+    .github-config-field input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+    .github-config-field input::placeholder {
+      color: var(--color-text);
+      opacity: 0.4;
+    }
+    .github-config-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: var(--color-text);
+      opacity: 0.7;
+    }
+    .github-config-note .material-symbols-outlined {
+      font-size: 0.9rem;
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+    .github-config-note code {
+      background: var(--color-input);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.7rem;
     }
   </style>
 </body>
