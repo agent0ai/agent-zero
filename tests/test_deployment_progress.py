@@ -29,7 +29,9 @@ async def test_logging_progress_reporter(caplog):
     logger = logging.getLogger("test")
     reporter = LoggingProgressReporter(logger)
 
-    await reporter.report("Starting deployment", 10)
+    # Consume the generator (it yields once to match Protocol)
+    async for _ in reporter.report("Starting deployment", 10):
+        pass
 
     assert "Starting deployment" in caplog.text
     assert "[10%]" in caplog.text
@@ -60,7 +62,9 @@ async def test_logging_reporter_without_percent(caplog):
     logger = logging.getLogger("test")
     reporter = LoggingProgressReporter(logger)
 
-    await reporter.report("Configuration loaded")
+    # Consume the generator (it yields once to match Protocol)
+    async for _ in reporter.report("Configuration loaded"):
+        pass
 
     assert "Configuration loaded" in caplog.text
     assert "[" not in caplog.text  # No percentage bracket

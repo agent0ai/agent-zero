@@ -52,3 +52,4 @@ class LoggingProgressReporter:
             self.logger.info(f"[{percent}%] {message}")
         else:
             self.logger.info(message)
+        yield  # Make it a generator to match Protocol

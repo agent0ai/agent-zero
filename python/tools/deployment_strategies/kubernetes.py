@@ -35,6 +35,11 @@ class KubernetesStrategy(DeploymentStrategy):
         self.apps_v1_api: Optional[client.AppsV1Api] = None
         self.core_v1_api: Optional[client.CoreV1Api] = None
 
+    def __del__(self):
+        """Clean up API client resources"""
+        if hasattr(self, "api_client") and self.api_client:
+            self.api_client.close()
+
     def _load_kube_config(self, context: str):
         """
         Load kubeconfig and initialize API clients.
@@ -385,7 +390,11 @@ class KubernetesStrategy(DeploymentStrategy):
 
     async def rollback(self) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Rollback Kubernetes deployment to previous revision.
+        Rollback Kubernetes deployment by triggering pod restart.
+
+        NOTE: This is a simplified rollback that triggers pod restart via annotation.
+        It does NOT restore previous image/config. For full rollback functionality,
+        use kubectl rollout undo or implement revision history tracking.
 
         Uses last_deployment_metadata to determine what to rollback.
 
