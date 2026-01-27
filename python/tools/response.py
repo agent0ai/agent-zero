@@ -17,3 +17,7 @@ class ResponseTool(Tool):
         if self.loop_data and "log_item_response" in self.loop_data.params_temporary:
             log = self.loop_data.params_temporary["log_item_response"]
             log.update(finished=True) # mark the message as finished
+        
+        # Seal current topic after response to create logical conversation boundaries
+        # This enables proper history compression and prevents unbounded current topic growth
+        self.agent.history.new_topic()

@@ -2087,13 +2087,20 @@ function addStepCollapseInteractionHandlers(stepElement) {
  */
 function findParentDelegationStep(group, agentno) {
   if (!group || !agentno || agentno <= 0) return null;
+  
+  // IMPORTANT: Don't nest subordinate steps after main agent has responded
+  // This prevents "writing above" the response which breaks UI rendering
+  if (group.querySelector(".process-group-response")) {
+    return null;
+  }
+  
   const steps = group.querySelectorAll(".process-step");
   for (let i = steps.length - 1; i >= 0; i -= 1) {
     const step = steps[i];
     const stepAgent = Number(step.getAttribute("data-agent-number"));
     if (
       stepAgent === agentno - 1 &&
-      step.getAttribute("data-log-type") === "tool" // map to the last tool call of superior agent
+      step.getAttribute("data-log-type") === "subagent" // map to the subordinate call of parent agent
     ) {
       return step;
     }
