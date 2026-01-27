@@ -3,7 +3,7 @@ from python.helpers.extension import Extension
 from python.helpers.mcp_handler import MCPConfig
 from agent import Agent, LoopData
 from python.helpers.settings import get_settings
-from python.helpers import projects
+from python.helpers import projects, frameworks
 
 
 class SystemPrompt(Extension):
@@ -20,6 +20,7 @@ class SystemPrompt(Extension):
         mcp_tools = get_mcp_tools_prompt(self.agent)
         secrets_prompt = get_secrets_prompt(self.agent)
         project_prompt = get_project_prompt(self.agent)
+        framework_prompt = get_framework_prompt(self.agent)
 
         system_prompt.append(main)
         system_prompt.append(tools)
@@ -29,6 +30,8 @@ class SystemPrompt(Extension):
             system_prompt.append(secrets_prompt)
         if project_prompt:
             system_prompt.append(project_prompt)
+        if framework_prompt:
+            system_prompt.append(framework_prompt)
 
 
 def get_main_prompt(agent: Agent):
@@ -80,3 +83,28 @@ def get_project_prompt(agent: Agent):
     else:
         result += "\n\n" + agent.read_prompt("agent.system.projects.inactive.md")
     return result
+
+
+def get_framework_prompt(agent: Agent):
+    """
+    Get the active development framework prompt if one is selected.
+
+    Returns empty string if no framework is active (framework_id == "none").
+    """
+    framework = frameworks.get_active_framework(agent.context)
+    if not framework:
+        return ""
+
+    # Build workflow steps description
+    workflow_steps = "\n".join([
+        f"{w.sequence}. **{w.name}** (`{w.skill_name}`): {w.description}"
+        for w in framework.workflows
+    ])
+
+    return agent.read_prompt(
+        "agent.system.framework.md",
+        framework_name=framework.name,
+        framework_description=framework.description,
+        framework_prefix=framework.skill_prefix,
+        workflow_steps=workflow_steps,
+    )

@@ -1,0 +1,49 @@
+<html>
+  <head>
+    <title>Development Framework</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore.settings">
+        <div>
+          <div class="section-title">Development Framework</div>
+          <div class="section-description">
+            Choose a structured development workflow methodology to guide the agent.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Active Framework</div>
+              <div class="field-description">
+                Select a development methodology. When active, framework-specific skills are prioritized
+                and workflow guidance is injected into the system prompt.
+              </div>
+            </div>
+            <div class="field-control">
+              <select x-model="$store.settingsStore.settings.dev_framework">
+                <template x-for="option in $store.settingsStore.additional?.framework_options" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.dev_framework" x-text="option.label"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Framework Details</div>
+              <div class="field-description">
+                View detailed information about the selected framework and its workflow steps.
+              </div>
+            </div>
+            <div class="field-control">
+              <button class="btn btn-field" @click="$store.settingsStore.handleFieldButton({id: 'framework_info'})">
+                View Details
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

@@ -2,11 +2,11 @@
 Agent Zero is built on a flexible and modular architecture designed for extensibility and customization. This section outlines the key components and the interactions between them.
 
 ## System Architecture
-This simplified diagram illustrates the hierarchical relationship between agents and their interaction with tools, extensions, instruments, prompts, memory and knowledge base.
+This simplified diagram illustrates the hierarchical relationship between agents and their interaction with tools, extensions, skills, prompts, memory and knowledge base.
 
 ![Agent Zero Architecture](res/arch-01.svg)
 
-The user or Agent 0 is at the top of the hierarchy, delegating tasks to subordinate agents, which can further delegate to other agents. Each agent can utilize tools and access the shared assets (prompts, memory, knowledge, extensions and instruments) to perform its tasks.
+The user or Agent 0 is at the top of the hierarchy, delegating tasks to subordinate agents, which can further delegate to other agents. Each agent can utilize tools and access the shared assets (prompts, memory, knowledge, extensions and skills) to perform its tasks.
 
 ## Runtime Architecture
 Agent Zero's runtime architecture is built around Docker containers:
@@ -42,7 +42,7 @@ This architecture ensures:
 | --- | --- |
 | `/docker` | Docker-related files for runtime container |
 | `/docs` | Documentation files and guides |
-| `/instruments` | Custom scripts and tools for runtime environment |
+| `/skills` | Skills using the open SKILL.md standard (contextual expertise) |
 | `/knowledge` | Knowledge base storage |
 | `/logs` | HTML CLI-style chat logs |
 | `/memory` | Persistent agent memory storage |
@@ -148,9 +148,9 @@ Users can create custom tools to extend Agent Zero's capabilities. Custom tools 
 4. Follow existing patterns for consistency
 
 > [!NOTE]
-> Tools are always present in system prompt, so you should keep them to minimum. 
-> To save yourself some tokens, use the [Instruments module](#adding-instruments) 
-> to call custom scripts or functions.
+> Tools are always present in system prompt, so you should keep them to minimum.
+> To save yourself some tokens, use the [Skills module](#6-skills)
+> to add contextual expertise that is only loaded when relevant.
 
 ### 3. Memory System
 The memory system is a critical component of Agent Zero, enabling the agent to learn and adapt from past interactions. It operates on a hybrid model where part of the memory is managed automatically by the framework while users can also manually input and extract information.
@@ -266,20 +266,54 @@ Knowledge refers to the user-provided information and data that agents can lever
   - Used for answering questions and decision-making
   - Supports RAG-augmented tasks
 
-### 6. Instruments
-Instruments provide a way to add custom functionalities to Agent Zero without adding to the token count of the system prompt:
-- Stored in long-term memory of Agent Zero
-- Unlimited number of instruments available
-- Recalled when needed by the agent
-- Can modify agent behavior by introducing new procedures
-- Function calls or scripts to integrate with other systems
-- Scripts are run inside the Docker Container
+### 6. Skills
+Skills provide contextual expertise using the **open SKILL.md standard** (originally developed by Anthropic). Skills are cross-platform and compatible with Claude Code, Cursor, Goose, OpenAI Codex CLI, GitHub Copilot, and more.
 
-#### Adding Instruments
-1. Create folder in `instruments/custom` (no spaces in name)
-2. Add `.md` description file for the interface
-3. Add `.sh` script (or other executable) for implementation
-4. The agent will automatically detect and use the instrument
+#### Key Features
+- **YAML Frontmatter**: Structured metadata (name, description, tags, author)
+- **Cross-Platform**: Works with any AI agent that supports the SKILL.md standard
+- **Semantic Recall**: Skills are indexed in vector memory and loaded when contextually relevant
+- **Token Efficient**: Not in system prompt; loaded dynamically when needed
+- **Scripts Support**: Can reference `.sh`, `.py`, `.js`, `.ts` scripts
+
+#### SKILL.md Format
+```yaml
+---
+name: "my-skill"
+description: "What this skill does and when to use it"
+version: "1.0.0"
+author: "Your Name"
+tags: ["category", "purpose"]
+---
+
+# Skill Instructions
+
+Your detailed instructions here...
+
+## Examples
+- Example usage 1
+- Example usage 2
+```
+
+#### Directory Structure
+| Directory | Description |
+|-----------|-------------|
+| `/skills/builtin` | Built-in skills included with Agent Zero |
+| `/skills/custom` | Your custom skills (create folders here) |
+| `/skills/shared` | Skills shared across agents |
+
+#### Adding Skills
+1. Create folder in `skills/custom` (e.g., `skills/custom/my-skill`)
+2. Add `SKILL.md` file with YAML frontmatter (required)
+3. Optionally add supporting scripts (`.sh`, `.py`, etc.)
+4. Optionally add `docs/` subfolder for additional documentation
+5. The agent will automatically discover and index the skill
+
+#### Using Skills
+Skills are automatically recalled from memory when relevant to a task. You can also use the `skills_tool` to:
+- List all available skills
+- Load a specific skill by name
+- Read files from within a skill directory
 
 ### 7. Extensions
 Extensions are a powerful feature of Agent Zero, designed to keep the main codebase clean and organized while allowing for greater flexibility and modularity.

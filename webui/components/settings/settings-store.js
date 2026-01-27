@@ -13,6 +13,7 @@ const FIELD_BUTTON_MODAL_BY_ID = Object.freeze({
   backup_restore: "settings/backup/restore.html",
   show_a2a_connection: "settings/a2a/a2a-connection.html",
   external_api_examples: "settings/external/api-examples.html",
+  framework_info: "settings/frameworks/framework-details.html",
 });
 
 // Helper for toasts

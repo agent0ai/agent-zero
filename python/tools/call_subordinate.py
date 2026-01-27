@@ -27,11 +27,15 @@ class Delegation(Tool):
             self.agent.set_data(Agent.DATA_NAME_SUBORDINATE, sub)
 
         # add user message to subordinate agent
-        subordinate: Agent = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE)  # type: ignore
+        subordinate: Agent = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) # type: ignore
         subordinate.hist_add_user_message(UserMessage(message=message, attachments=[]))
 
         # run subordinate monologue
         result = await subordinate.monologue()
+
+        # Seal subordinate's current topic after monologue completes
+        # This creates logical boundaries and enables proper history compression
+        subordinate.history.new_topic()
 
         # hint to use includes for long responses
         additional = None
