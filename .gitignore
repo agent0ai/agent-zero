@@ -1,31 +1,45 @@
-# Ignore common unwanted files globally
-**/.DS_Store
+# ============================================================
+# AGENT ZERO FORK - .gitignore
+# Enhanced for security and clean repository management
+# ============================================================
+
+# === SECURITY: Never commit these ===
+# Environment files (may contain API keys, passwords)
 **/.env
-**/__pycache__/
-*.py[cod]
-**/.conda/
+.env
+.env.*
+!.env.example
 
-#Ignore IDE files
-.cursor/
-.windsurf/
+# Private keys and certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
 
-# ignore test files in root dir
-/*.test.py
+# Secrets directory
+secrets/
 
-# Ignore all contents of the virtual environment directory
-.venv/
-
-# Handle memory directory
+# === AGENT DATA: Personal/local data ===
+# Memory directory (contains personal agent memories)
 memory/**
 !memory/**/
+!**/.gitkeep
 
-# Handle logs directory
+# Logs directory
 logs/*
+!logs/.gitkeep
 
-# Handle tmp and usr directory
+# Temporary files and working directories
 tmp/*
 usr/*
+!tmp/.gitkeep
+!usr/.gitkeep
 
+# Work directories
+work_dir/
+
+# === KNOWLEDGE & INSTRUMENTS ===
 # Handle knowledge directory
 knowledge/**
 !knowledge/**/
@@ -40,9 +54,79 @@ instruments/**
 !instruments/default/
 !instruments/default/**
 
-# Global rule to include .gitkeep files anywhere
-!**/.gitkeep
+# === PYTHON: Standard excludes ===
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# for browser-use
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+**/.conda/
+
+# === OS FILES: System junk ===
+**/.DS_Store
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.Spotlight-V100
+.Trashes
+
+# === IDE: Editor configs ===
+.cursor/
+.windsurf/
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.spyderproject
+.spyproject
+
+# === TESTING ===
+# Test files in root dir
+/*.test.py
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# === BACKUPS: Local backups ===
+*.bak
+*.backup
+backup/
+*.orig
+
+# === MISC ===
+# Browser-use artifacts
 agent_history.gif
 
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Global rule to include .gitkeep files anywhere
+!**/.gitkeep
