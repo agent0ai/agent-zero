@@ -1,4 +1,5 @@
 import asyncio
+import os
 from python.helpers import runtime, whisper, settings
 from python.helpers.print_style import PrintStyle
 from python.helpers import kokoro_tts
@@ -38,11 +39,14 @@ async def preload():
                     PrintStyle().error(f"Error in preload_kokoro: {e}")
 
         # async tasks to preload
-        tasks = [
-            preload_embedding(),
-            # preload_whisper(),
-            # preload_kokoro()
-        ]
+        tasks = []
+
+        # Enable embedding warmup only when explicitly requested
+        if os.getenv("AZ_PRELOAD_EMBEDDING", "0") == "1":
+            tasks.append(preload_embedding())
+
+        # tasks.append(preload_whisper())
+        # tasks.append(preload_kokoro())
 
         await asyncio.gather(*tasks, return_exceptions=True)
         PrintStyle().print("Preload completed")
