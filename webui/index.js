@@ -580,27 +580,6 @@ globalThis.toast = toast;
 
 // OLD: hideToast function removed - now using new notification system
 
-function scrollChanged(isAtBottom) {
-  // Reflect scroll state into preferences store; UI is bound via x-model
-  preferencesStore.autoScroll = isAtBottom;
-}
-
-export function updateAfterScroll() {
-  // const toleranceEm = 1; // Tolerance in em units
-  // const tolerancePx = toleranceEm * parseFloat(getComputedStyle(document.documentElement).fontSize); // Convert em to pixels
-  // Larger trigger zone near bottom for autoscroll
-  const tolerancePx = 80;
-  const chatHistory = document.getElementById("chat-history");
-  if (!chatHistory) return;
-
-  const isAtBottom =
-    chatHistory.scrollHeight - chatHistory.scrollTop <=
-    chatHistory.clientHeight + tolerancePx;
-
-  scrollChanged(isAtBottom);
-}
-globalThis.updateAfterScroll = updateAfterScroll;
-
 import { store as _chatNavigationStore } from "/components/chat/navigation/chat-navigation-store.js";
 
 
@@ -653,7 +632,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Sidebar and input event listeners are now handled by their respective stores
 
   if (chatHistory) {
-    chatHistory.addEventListener("scroll", updateAfterScroll);
+    chatHistory.addEventListener("scroll", msgs.updateAfterScroll);
   }
 
   // Start polling for updates

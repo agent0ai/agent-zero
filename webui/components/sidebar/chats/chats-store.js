@@ -4,12 +4,12 @@ import {
   getContext,
   setContext,
   poll as triggerPoll,
-  updateAfterScroll,
   toastFetchError,
   toast,
   justToast,
   getConnectionStatus,
 } from "/index.js";
+import { updateAfterScroll } from "/js/messages.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 

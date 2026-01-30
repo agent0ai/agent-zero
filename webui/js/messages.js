@@ -1647,6 +1647,16 @@ export class Scroller {
   }
 }
 
+export function updateAfterScroll() {
+  const history = document.getElementById("chat-history");
+  if (!history) return;
+
+  const isAtBottom =
+    history.scrollHeight - history.scrollTop <= history.clientHeight + 80;
+
+  preferencesStore.autoScroll = isAtBottom;
+}
+
 /**
  * Create a new collapsible process group
  */
@@ -2129,6 +2139,10 @@ function smoothRender(element, newContent, delay = 350) {
 
     // Keep container height stable while layers are absolute
     element.style.height = `${nextLayer.scrollHeight}px`;
+    
+    // Maintain scroll position if autoscroll enabled
+    const history = document.getElementById("chat-history");
+    preferencesStore.autoScroll && history && (history.scrollTop = history.scrollHeight);
   }, delay);
 
   element.dataset.smoothTimeoutId = String(timeoutId);
