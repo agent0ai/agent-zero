@@ -43,6 +43,7 @@ webapp.config.update(
 )
 
 lock = threading.Lock()
+_start_time = time.time()
 
 # Set up basic authentication for UI and API but not MCP
 # basic_auth = BasicAuth(webapp)
@@ -166,6 +167,20 @@ async def login_handler():
 async def logout_handler():
     session.pop('authentication', None)
     return redirect(url_for('login_handler'))
+
+@webapp.route("/health", methods=["GET"])
+def health_check():
+    import json
+    return Response(
+        json.dumps({
+            "status": "ok",
+            "rfc": "disabled" if os.getenv("DISABLE_RFC", "0") == "1" else "enabled",
+            "embedding_preload": os.getenv("AZ_PRELOAD_EMBEDDING", "0") == "1",
+            "port": runtime.get_web_ui_port(),
+            "uptime_sec": int(time.time() - _start_time)
+        }),
+        mimetype="application/json"
+    )
 
 # handle default address, load index
 @webapp.route("/", methods=["GET"])
