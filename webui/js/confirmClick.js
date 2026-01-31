@@ -22,7 +22,13 @@ export function confirmClick(event, action) {
     action();
   } else {
     const iconEl = button.querySelector('.material-symbols-outlined, .material-icons-outlined');
-    const isIconButton = iconEl && button.textContent.trim() === iconEl.textContent.trim();
+    // Check if only icon is visible (no visible text children)
+    const textSpans = button.querySelectorAll('span:not(.material-symbols-outlined):not(.material-icons-outlined)');
+    const hasVisibleText = Array.from(textSpans).some(span => {
+      const style = window.getComputedStyle(span);
+      return style.display !== 'none' && span.textContent.trim() !== '';
+    });
+    const isIconButton = iconEl && !hasVisibleText;
     
     const newState = {
       confirming: true,
