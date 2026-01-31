@@ -154,3 +154,53 @@ You're now ready to contribute to Agent Zero, create custom extensions, or modif
 - Navigate to your project root in the terminal and run `docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .`
 - The `CACHE_DATE` argument is optional, it is used to cache most of the build process and only rebuild the last steps when the files or dependencies change.
 - See `docker/run/build.txt` for more build command examples.
+
+## Local Development Quick Start (No Docker)
+
+For quick local development without Docker containers:
+
+```bash
+# Activate your virtual environment
+source .venv/bin/activate  # or conda activate agent-zero
+
+# Run with recommended dev settings (port 5050 avoids macOS AirPlay conflict)
+WEB_UI_PORT=5050 DISABLE_RFC=1 AZ_PRELOAD_EMBEDDING=0 python run_ui.py
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WEB_UI_PORT` | 5000 | HTTP port for the web UI (use 5050+ on macOS to avoid AirPlay) |
+| `DISABLE_RFC=1` | 0 | Skip RFC calls to Docker container (silences warnings in local-only mode) |
+| `AZ_PRELOAD_EMBEDDING=1` | 0 | Opt-in to preload HuggingFace embedding model at startup |
+
+### Health Check Endpoint
+
+A `/health` endpoint is available for monitoring:
+
+```bash
+curl http://localhost:5050/health
+```
+
+Returns:
+```json
+{
+  "status": "ok",
+  "rfc": "disabled",
+  "embedding_preload": false,
+  "port": 5050,
+  "uptime_sec": 123
+}
+```
+
+### MCP Server Endpoint
+
+The MCP (Model Context Protocol) server is mounted at `/mcp`. It requires a token-based URL:
+
+- SSE transport: `/mcp/t-<token>/sse`
+- Streamable HTTP: `/mcp/t-<token>/http`
+
+The token is configured in settings. Requests to `/mcp/` without the correct token path will return 403 Forbidden. This is expected security behavior.
+
+To enable the MCP server, set `mcp_server_enabled: true` in your settings.

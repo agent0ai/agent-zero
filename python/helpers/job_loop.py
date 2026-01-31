@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+import os
 import time
 from python.helpers.task_scheduler import TaskScheduler
 from python.helpers.print_style import PrintStyle
@@ -11,19 +12,25 @@ SLEEP_TIME = 60
 
 keep_running = True
 pause_time = 0
+_rfc_warned = False
 
 
 async def run_loop():
-    global pause_time, keep_running
+    global pause_time, keep_running, _rfc_warned
 
     while True:
         if runtime.is_development():
             # Signal to container that the job loop should be paused
             # if we are runing a development instance to avoid duble-running the jobs
-            try:
-                await runtime.call_development_function(pause_loop)
-            except Exception as e:
-                PrintStyle().error("Failed to pause job loop by development instance: " + errors.error_text(e))
+            if os.getenv("DISABLE_RFC", "0") == "1":
+                pass  # skip RFC call entirely
+            else:
+                try:
+                    await runtime.call_development_function(pause_loop)
+                except Exception as e:
+                    if not _rfc_warned:
+                        PrintStyle().warning("RFC not available; skipping dev pause (set DISABLE_RFC=1 to silence)")
+                        _rfc_warned = True
         if not keep_running and (time.time() - pause_time) > (SLEEP_TIME * 2):
             resume_loop()
         if keep_running:
