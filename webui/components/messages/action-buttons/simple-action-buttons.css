@@ -12,6 +12,7 @@
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
   pointer-events: none;
+  user-select: none;
 }
 
 .step-action-buttons .expand-btn {
