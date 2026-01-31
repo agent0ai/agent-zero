@@ -1,4 +1,4 @@
-import asyncio, random, string
+import asyncio, random, string, time
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -82,7 +82,10 @@ class AgentContext:
         self.log.context = self
         self.paused = paused
         self.streaming_agent = streaming_agent
+        self.last_active_agent: "Agent | None" = None  # persists for nudge recovery
+        self.last_stream_time: float = 0.0  # timestamp of last LLM stream chunk
         self.task: DeferredTask | None = None
+        self._watchdog_task: asyncio.Task | None = None  # auto-nudge watchdog
         self.created_at = created_at or datetime.now(timezone.utc)
         self.type = type
         AgentContext._counter += 1
@@ -223,13 +226,44 @@ class AgentContext:
         self.paused = False
 
     def nudge(self):
+        self._stop_watchdog()  # stop current watchdog before restarting
         self.kill_process()
         self.paused = False
         self.task = self.communicate(UserMessage(self.agent0.read_prompt("fw.msg_nudge.md")))
         return self.task
 
     def get_agent(self):
-        return self.streaming_agent or self.agent0
+        return self.streaming_agent or self.last_active_agent or self.agent0
+
+    async def _auto_nudge_watchdog(self):
+        """Background task that monitors for stuck LLM streaming and triggers auto-nudge."""
+        try:
+            while self.task and self.task.is_alive():
+                await asyncio.sleep(5)  # check every 5 seconds
+                if not self.config.auto_nudge_enabled:
+                    continue
+                if self.last_stream_time == 0:
+                    continue  # no streaming started yet
+                elapsed = time.time() - self.last_stream_time
+                if elapsed > self.config.auto_nudge_timeout:
+                    agent = self.get_agent()
+                    msg = f"Auto-nudge triggered: no LLM response for {elapsed:.0f}s (Agent {agent.number})"
+                    self.log.log(type="warning", content=msg)
+                    self.nudge()
+                    break
+        except asyncio.CancelledError:
+            pass  # normal shutdown
+
+    def _start_watchdog(self):
+        """Start the auto-nudge watchdog if enabled."""
+        if self.config.auto_nudge_enabled and self._watchdog_task is None:
+            self._watchdog_task = asyncio.create_task(self._auto_nudge_watchdog())
+
+    def _stop_watchdog(self):
+        """Stop the auto-nudge watchdog."""
+        if self._watchdog_task:
+            self._watchdog_task.cancel()
+            self._watchdog_task = None
 
     def is_running(self):
         return self.task and self.task.is_alive()
@@ -260,7 +294,9 @@ class AgentContext:
             self.task = DeferredTask(
                 thread_name=self.__class__.__name__,
             )
+        self.last_stream_time = 0.0  # reset for new task
         self.task.start_task(func, *args, **kwargs)
+        self._start_watchdog()  # start auto-nudge monitoring
         return self.task
 
     # this wrapper ensures that superior agents are called back if the chat was loaded from file and original callstack is gone
@@ -304,6 +340,8 @@ class AgentConfig:
     code_exec_ssh_port: int = 55022
     code_exec_ssh_user: str = "root"
     code_exec_ssh_pass: str = ""
+    auto_nudge_enabled: bool = False
+    auto_nudge_timeout: int = 60  # seconds without LLM streaming before auto-nudge
     additional: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -386,6 +424,7 @@ class Agent:
                 while True:
 
                     self.context.streaming_agent = self  # mark self as current streamer
+                    self.context.last_active_agent = self  # persist for nudge recovery
                     self.loop_data.iteration += 1
                     self.loop_data.params_temporary = {}  # clear temporary params
 
@@ -405,6 +444,7 @@ class Agent:
 
                         async def reasoning_callback(chunk: str, full: str):
                             await self.handle_intervention()
+                            self.context.last_stream_time = time.time()  # update for auto-nudge
                             if chunk == full:
                                 printer.print("Reasoning: ")  # start of reasoning
                             # Pass chunk and full data to extensions for processing
@@ -422,6 +462,7 @@ class Agent:
 
                         async def stream_callback(chunk: str, full: str):
                             await self.handle_intervention()
+                            self.context.last_stream_time = time.time()  # update for auto-nudge
                             # output the agent response stream
                             if chunk == full:
                                 printer.print("Response: ")  # start of response
