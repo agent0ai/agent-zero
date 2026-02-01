@@ -9,6 +9,28 @@
 
 Agent Zero DevOps provides production-grade deployment automation across Kubernetes, SSH, AWS, GCP, and GitHub Actions with intelligent error handling, automatic rollback, and real-time progress monitoring.
 
+## Agent Jumbo - Web UI & Deployment
+
+> Agent Jumbo is a modern web interface for Agent Zero DevOps with a Next.js 14 dashboard, comprehensive documentation, and production-ready Vercel deployment.
+
+### Quick Access
+
+- **[Agent Jumbo Web README](web/README.md)** - Web application overview
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Complete deployment instructions for Vercel
+- **[Setup Guide](docs/SETUP-GUIDE.md)** - Team setup and development guide
+- **[Vercel Configuration](web/README-VERCEL.md)** - Vercel-specific setup details
+
+### Get Started with Agent Jumbo
+
+```bash
+cd web
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000)
+
 ## Features
 
 - 🚀 **Multi-Platform**: Deploy to Kubernetes, SSH, AWS, GCP, GitHub Actions
