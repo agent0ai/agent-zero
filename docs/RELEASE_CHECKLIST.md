@@ -1,32 +1,124 @@
 # Release Checklist
 
-## Automated Validation
+Follow this checklist when preparing a release.
 
-- [ ] `scripts/validate_app_spec.sh`
-- [ ] `pytest tests/test_app_spec_consistency.py tests/test_eval_cases_schema.py tests/test_eval_cases_extended_schema.py`
-- [ ] `scripts/run_eval_cases.py --results path/to/results.json`
-- [ ] `scripts/run_eval_cases.py --results path/to/results.json --cases app_spec/eval_cases_extended.json`
+## Pre-Release (48 hours before)
 
-## Manual UI Smoke Tests
+- [ ] All tests passing: `pytest tests/ -v`
+- [ ] All code quality checks passing:
+  - [ ] `black --check python/`
+  - [ ] `ruff check python/`
+  - [ ] `mypy python/`
+  - [ ] `bandit -r python/`
+- [ ] Documentation is up-to-date
+  - [ ] README.md reflects current features
+  - [ ] INSTALL.md has latest instructions
+  - [ ] API documentation matches code
+  - [ ] Quick reference has working examples
+- [ ] No security issues in dependencies: `pip-audit`
+- [ ] Coverage remains above 90%: `pytest --cov`
 
-- [ ] Cowork: approval required for out-of-scope action
-- [ ] Cowork: approve & retry resumes the action
-- [ ] Cowork: approval inheritance for subagents
-- [ ] Observability: telemetry events and stats populate
-- [ ] Observability: clear telemetry resets view
-- [ ] Observability: LangSmith/Langfuse provider selection works
-- [ ] Observability: workflow runs render and can be saved
-- [ ] Gmail: OAuth flow, account listed, test send succeeds
-- [ ] MCP: config applied and tools available
+## Release Day (Day of Release)
 
-## Docs & Packaging
+### Code Preparation
 
-- [ ] `docs/COWORK_MODE.md` matches UI behavior
-- [ ] `docs/OBSERVABILITY.md` matches UI behavior
-- [ ] Update release notes/changelog
+- [ ] Create release branch: `git checkout -b release/v1.x.x`
+- [ ] Update version in:
+  - [ ] `setup.py` or `pyproject.toml`
+  - [ ] `python/__init__.py`
+  - [ ] `docs/conf.py` (if using Sphinx)
+- [ ] Update CHANGELOG.md
+  - [ ] Move [Unreleased] changes to version header
+  - [ ] Add release date
+  - [ ] Review all changes are documented
+- [ ] Commit: `git commit -m "chore: release v1.x.x"`
+- [ ] Tag: `git tag -a v1.x.x -m "Release v1.x.x"`
+- [ ] Push: `git push origin release/v1.x.x && git push origin v1.x.x`
 
-## Environment Prep
+### GitHub Release
 
-- [ ] Dependencies installed for full test suite
-- [ ] Docker build/redeploy (if applicable)
-- [ ] UI launch smoke test
+- [ ] Go to <https://github.com/agent-zero-deploy/agent-zero-devops/releases>
+- [ ] Click "Draft a new release"
+- [ ] Select tag: `v1.x.x`
+- [ ] Title: `Release v1.x.x`
+- [ ] Description: Copy from CHANGELOG.md
+- [ ] If beta: Check "Pre-release"
+- [ ] Click "Publish release"
+
+### PyPI Publishing
+
+- [ ] Build distribution: `python setup.py sdist bdist_wheel`
+- [ ] Verify build: `twine check dist/*`
+- [ ] Upload to PyPI: `twine upload dist/*`
+- [ ] Verify on PyPI: <https://pypi.org/project/agent-zero-devops/>
+
+### Documentation
+
+- [ ] Update docs to reference new version
+- [ ] Update installation guide with new version
+- [ ] Verify all links work
+- [ ] Deploy documentation if using Read the Docs
+
+### Communication
+
+- [ ] Write blog post announcing release
+- [ ] Post to dev.to
+- [ ] Update GitHub discussions
+- [ ] Announce on community channels
+- [ ] Thank contributors in announcement
+
+## Post-Release (24 hours after)
+
+- [ ] Monitor GitHub issues for problems
+- [ ] Check PyPI stats
+- [ ] Monitor discussions for feedback
+- [ ] Create hotfix branch if critical issues found
+- [ ] Merge release branch to main (if not already)
+- [ ] Delete release branch: `git branch -d release/v1.x.x`
+- [ ] Create new development branch: `git checkout -b develop`
+
+## Rollback Plan
+
+If critical issue found:
+
+1. Create hotfix branch: `git checkout -b hotfix/v1.x.x`
+2. Fix the issue
+3. Run full test suite
+4. Create new release with patch version
+5. Follow release checklist for hotfix
+6. Announce hotfix release
+
+## Release Schedule
+
+- **Regular releases**: Monthly (first Friday of month)
+- **Hotfixes**: As needed (same day)
+- **Major releases**: Quarterly (with planning period)
+- **LTS releases**: Annually (12 months support)
+
+## Communication Template
+
+```text
+# Release: Agent Zero DevOps v1.x.x
+
+We're excited to announce v1.x.x!
+
+## What's New
+
+- Feature 1
+- Feature 2
+- Bug fix 1
+
+## Upgrade Guide
+
+pip install --upgrade agent-zero-devops
+
+## Breaking Changes
+
+(If any)
+
+## Contributors
+
+Thank you to: @contributor1, @contributor2
+
+[Full Changelog](https://github.com/agent-zero-deploy/agent-zero-devops/blob/main/CHANGELOG.md)
+```
