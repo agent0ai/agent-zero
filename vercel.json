@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "name": "agent-zero",
+  "public": true,
+  "installCommand": "cd web && npm install",
+  "buildCommand": "cd web && npm run build",
+  "devCommand": "cd web && npm run dev",
+  "outputDirectory": "web/.next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": {
+      "required": true
+    },
+    "NEXT_PUBLIC_GITHUB_REPO": {
+      "required": true
+    },
+    "NEXT_PUBLIC_GA_ID": {
+      "required": false
+    },
+    "NEXT_PUBLIC_URL": {
+      "required": true
+    },
+    "NEXT_PUBLIC_ENABLE_BETA_FEATURES": {
+      "required": false
+    }
+  },
+  "github": {
+    "enabled": true,
+    "silent": false,
+    "autoAlias": true,
+    "autoJobCancelOnPush": true
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/docs",
+      "destination": "/documentation",
+      "permanent": true
+    }
+  ]
+}
