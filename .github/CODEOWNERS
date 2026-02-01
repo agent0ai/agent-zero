@@ -1,0 +1,13 @@
+# Root maintainer
+* @webemo-aaron
+
+# Deployment strategies
+python/tools/devops_deploy.py @webemo-aaron
+python/tools/deployment/ @webemo-aaron
+
+# Testing
+tests/test_devops_deploy*.py @webemo-aaron
+
+# Documentation
+docs/DEVOPS_*.md @webemo-aaron
+CONTRIBUTING.md @webemo-aaron
