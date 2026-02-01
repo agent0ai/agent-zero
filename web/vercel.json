@@ -6,9 +6,18 @@
   "devCommand": "npm run dev",
   "env": {
     "NEXT_PUBLIC_API_URL": {
-      "required": false
+      "required": true
     },
     "NEXT_PUBLIC_GITHUB_REPO": {
+      "required": true
+    },
+    "NEXT_PUBLIC_GA_ID": {
+      "required": false
+    },
+    "NEXT_PUBLIC_URL": {
+      "required": true
+    },
+    "NEXT_PUBLIC_ENABLE_BETA_FEATURES": {
       "required": false
     }
   },

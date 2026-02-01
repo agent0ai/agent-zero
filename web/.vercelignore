@@ -1,0 +1,103 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Environment files
+.env.local
+.env.*.local
+.env.test
+.env.development.local
+.env.production.local
+
+# Node modules (Vercel handles this)
+node_modules
+
+# Build artifacts
+.next
+out
+dist
+build
+
+# Development tools
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Configuration files (not needed in build)
+.eslintrc.js
+.eslintrc.json
+.prettierrc
+.prettierrc.js
+jest.config.js
+jest.config.ts
+playwright.config.ts
+tsconfig.tsbuildinfo
+
+# Test files and coverage
+__tests__
+tests
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.jsx
+*.spec.ts
+*.spec.tsx
+*.spec.js
+*.spec.jsx
+coverage
+.coverage
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+.travis.yml
+
+# Other development files
+.turbo
+turbo.json
+.turborc
+lerna.json
+pnpm-workspace.yaml
+
+# IDEs and editors
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+.eclipse
+.project
+.classpath
+.c9
+
+# System files
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Dependencies lock files (not needed, npm ci will use package.json)
+package-lock.json.backup
+yarn.lock.backup
+pnpm-lock.yaml.backup
