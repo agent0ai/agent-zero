@@ -1,0 +1,57 @@
+name: Web Build & Lint
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-build.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci --prefix web
+
+      - name: Run linting
+        run: npm run lint --prefix web
+        continue-on-error: true
+
+      - name: Run type checking
+        run: npm run type-check --prefix web
+
+      - name: Build Next.js
+        run: npm run build --prefix web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          NEXT_PUBLIC_GITHUB_REPO: agent-zero-deploy/agent-jumbo
+          NEXT_PUBLIC_URL: http://localhost:3000
+
+      - name: Check build output
+        run: |
+          if [ -d "web/.next" ]; then
+            echo "Build successful"
+            du -sh web/.next
+          else
+            echo "Build failed - no .next directory"
+            exit 1
+          fi

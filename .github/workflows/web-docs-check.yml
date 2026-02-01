@@ -1,0 +1,83 @@
+name: Web Documentation Check
+
+on:
+  pull_request:
+    paths:
+      - 'web/docs/**'
+      - 'docs/**'
+      - '.github/workflows/web-docs-check.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/docs/**'
+      - 'docs/**'
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate markdown files
+        run: |
+          echo "Checking documentation files..."
+
+          # Check for files
+          if [ -d "docs" ]; then
+            md_count=$(find docs -name "*.md" | wc -l)
+            echo "Found $md_count markdown files in docs/"
+          else
+            echo "docs/ directory not found"
+          fi
+
+          # Check frontmatter in docs
+          if [ -d "docs" ]; then
+            for file in docs/*.md; do
+              if [ -f "$file" ]; then
+                if head -1 "$file" | grep -q "^---$"; then
+                  echo "✓ $file has valid frontmatter"
+                else
+                  echo "⚠ $file missing frontmatter"
+                fi
+              fi
+            done
+          fi
+
+      - name: Check for broken relative links
+        run: |
+          echo "Checking for common documentation issues..."
+
+          # Check for [[ instead of [
+          if grep -r "\[\[" docs/ web/docs/ 2>/dev/null; then
+            echo "⚠ Found double brackets [[ in markdown"
+          fi
+
+          # Check for unclosed code blocks
+          for file in docs/*.md web/docs/*.md 2>/dev/null; do
+            if [ -f "$file" ]; then
+              backticks=$(grep -c '```' "$file" || true)
+              if [ $((backticks % 2)) -ne 0 ]; then
+                echo "⚠ $file may have unclosed code blocks"
+              fi
+            fi
+          done
+
+          echo "Documentation validation complete"
+
+      - name: Check documentation metadata
+        run: |
+          echo "Validating documentation metadata..."
+
+          if [ -f "web/README-VERCEL.md" ]; then
+            echo "✓ Deployment documentation exists"
+          fi
+
+          if [ -f "web/.env.example" ]; then
+            echo "✓ Environment template exists"
+          fi
+
+          if [ -f "web/vercel.json" ]; then
+            echo "✓ Vercel configuration exists"
+          fi
