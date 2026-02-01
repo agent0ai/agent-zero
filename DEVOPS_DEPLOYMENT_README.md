@@ -5,7 +5,7 @@ A production-ready, multi-platform deployment infrastructure for Agent Zero
 ![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-66%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 ---
 
@@ -84,7 +84,7 @@ The DevOps Deployment System provides a unified interface for deploying applicat
 pip install kubernetes>=34.1.0 pyyaml>=6.0 tenacity>=8.0.0
 
 # Clone/navigate to repository
-cd agent-zero
+cd agent-zero-devops
 ```
 
 ### 2. Basic Kubernetes Deployment
@@ -742,8 +742,8 @@ tests/
 
 ```bash
 # Clone repository
-git clone https://github.com/webemo-aaron/agent-jumbo.git
-cd agent-zero
+git clone https://github.com/agent-zero-deploy/agent-zero-devops.git
+cd agent-zero-devops
 
 # Create virtual environment
 python -m venv venv
@@ -909,7 +909,7 @@ Found a bug? Please:
 
 ## 📄 License
 
-This project is licensed under the MIT License. See LICENSE file for details.
+This project is licensed under the Apache License 2.0. See LICENSE file for details.
 
 ---
 
@@ -923,7 +923,7 @@ This project is licensed under the MIT License. See LICENSE file for details.
 
 ## 📞 Contact & Resources
 
-- **Repository**: <https://github.com/webemo-aaron/agent-jumbo>
+- **Repository**: <https://github.com/agent-zero-deploy/agent-zero-devops>
 - **Documentation**: See docs/ directory
 - **Issues**: GitHub Issues in repository
 - **Quick Start**: [DEVOPS_DEPLOYMENT_QUICK_REFERENCE.md](DEVOPS_DEPLOYMENT_QUICK_REFERENCE.md)

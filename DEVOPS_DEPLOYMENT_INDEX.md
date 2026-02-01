@@ -335,7 +335,7 @@ Each document includes:
 
 ### Repository
 
-- **URL**: <https://github.com/webemo-aaron/agent-jumbo>
+- **URL**: <https://github.com/agent-zero-deploy/agent-zero-devops>
 - **Branch**: main
 - **Status**: ✅ Production Ready
 
@@ -378,4 +378,4 @@ For questions or issues, see the Support section in the README.
 **Created**: 2026-02-01
 **Status**: ✅ Complete
 **Maintainer**: Claude Haiku 4.5
-**Repository**: <https://github.com/webemo-aaron/agent-jumbo>
+**Repository**: <https://github.com/agent-zero-deploy/agent-zero-devops>

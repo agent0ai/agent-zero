@@ -482,4 +482,4 @@ The infrastructure is committed to version control, fully documented, and ready 
 
 **Date Completed**: 2026-02-01
 **Maintainer**: Claude Haiku 4.5
-**Repository**: <https://github.com/webemo-aaron/agent-jumbo>
+**Repository**: <https://github.com/agent-zero-deploy/agent-zero-devops>
