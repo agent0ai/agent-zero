@@ -6,24 +6,24 @@ export const VERSION = '1.0.0-beta'
 
 export const FEATURES = [
   {
-    icon: '🎯',
-    title: 'Multi-Platform Support',
-    description: 'Deploy to Kubernetes, SSH, AWS, GCP, and GitHub Actions from one interface',
-  },
-  {
-    icon: '🧠',
-    title: 'Intelligent Error Handling',
-    description: 'Automatic error classification with 10+ pattern detection for better recovery',
+    icon: '🔄',
+    title: 'Workflow Orchestration',
+    description: 'Coordinate complex AI workflows with human-in-the-loop steps, approval gates, and conditional logic.',
   },
   {
     icon: '📊',
-    title: 'Real-Time Visibility',
-    description: 'Stream deployment progress with detailed logging and health checks',
+    title: 'Production Observability',
+    description: 'Monitor AI system behavior, costs, and performance in real-time with detailed logging and analytics.',
   },
   {
-    icon: '⚡',
-    title: 'Python-Native',
-    description: 'Built for Python developers with async/await and streaming APIs',
+    icon: '🔐',
+    title: 'Enterprise Security & Governance',
+    description: 'Built for compliance with audit logging, cost allocation, usage policies, and data governance.',
+  },
+  {
+    icon: '🚀',
+    title: 'Multi-System Integration',
+    description: 'Connect AI workflows to databases, APIs, business systems, and cloud platforms seamlessly.',
   },
 ]
 

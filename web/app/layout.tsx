@@ -5,22 +5,22 @@ import Footer from '@/components/Footer'
 import AnalyticsClient from '@/components/AnalyticsClient'
 
 export const metadata: Metadata = {
-  title: 'Agent Jumbo - Multi-Platform Deployment Orchestration',
-  description: 'Intelligent deployment orchestration for AI agents and modern applications',
+  title: 'Agent Zero - Intelligent Application Operating System',
+  description: 'Build, test, and deploy AI-powered workflows that integrate with your business systems. Enterprise-grade orchestration, observability, and governance.',
   icons: {
     icon: '/favicon.svg',
   },
   openGraph: {
-    title: 'Agent Jumbo',
-    description: 'Multi-platform deployment orchestration with intelligent error handling',
+    title: 'Agent Zero',
+    description: 'The Operating System for Intelligent Business Applications',
     type: 'website',
-    url: 'https://agent-jumbo.com',
-    siteName: 'Agent Jumbo',
+    url: 'https://agent-zero.com',
+    siteName: 'Agent Zero',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Agent Jumbo',
-    description: 'Intelligent deployment orchestration',
+    title: 'Agent Zero',
+    description: 'Operating System for Intelligent Business Applications',
   },
   robots: {
     index: true,
