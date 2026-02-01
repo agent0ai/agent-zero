@@ -110,21 +110,21 @@ button {
   margin: 1rem 0;
 }
 
-dark .prose {
+.dark .prose {
   color: rgb(226, 232, 240);
 }
 
-dark .prose h1,
-dark .prose h2,
-dark .prose h3 {
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3 {
   color: rgb(241, 245, 249);
 }
 
-dark .prose code {
+.dark .prose code {
   background-color: rgb(30, 41, 59);
   color: rgb(241, 245, 249);
 }
 
-dark .prose a {
+.dark .prose a {
   color: rgb(96, 165, 250);
 }

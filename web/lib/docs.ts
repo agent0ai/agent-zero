@@ -32,7 +32,7 @@ export function getDoc(slug: string): DocFile {
   const filePath = path.join(DOCS_DIR, `${slug}.md`)
   const fileContent = fs.readFileSync(filePath, 'utf-8')
   const { data, content } = matter(fileContent)
-  const html = marked(content)
+  const html = marked.parse(content, { async: false }) as string
 
   return {
     slug,

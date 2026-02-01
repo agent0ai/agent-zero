@@ -1,3 +1,7 @@
+'use client'
+
+import Link from 'next/link'
+
 export default function Footer() {
   const currentYear = new Date().getFullYear()
 
@@ -8,9 +12,9 @@ export default function Footer() {
           <div>
             <h3 className="font-bold text-slate-900 dark:text-white mb-4">Product</h3>
             <ul className="space-y-2">
-              <li><a href="/documentation" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Documentation</a></li>
-              <li><a href="/dashboard" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Dashboard</a></li>
-              <li><a href="#" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">GitHub</a></li>
+              <li><Link href="/documentation" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Documentation</Link></li>
+              <li><Link href="/dashboard" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Dashboard</Link></li>
+              <li><a href="https://github.com/agent-zero-deploy/agent-jumbo" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">GitHub</a></li>
             </ul>
           </div>
           <div>
