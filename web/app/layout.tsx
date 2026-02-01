@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import AnalyticsClient from '@/components/AnalyticsClient'
 
 export const metadata: Metadata = {
   title: 'Agent Jumbo - Multi-Platform Deployment Orchestration',
@@ -21,6 +22,17 @@ export const metadata: Metadata = {
     title: 'Agent Jumbo',
     description: 'Intelligent deployment orchestration',
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 }
 
 export default function RootLayout({
@@ -29,8 +41,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
       <body className="bg-white dark:bg-slate-950">
+        <AnalyticsClient />
         <Header />
         <main className="min-h-screen">{children}</main>
         <Footer />
