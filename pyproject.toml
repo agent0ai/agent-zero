@@ -1,6 +1,119 @@
-# Ruff Configuration for Agent Zero
-# https://docs.astral.sh/ruff/
+# ============================================
+# Project Metadata for PyPI Publication
+# ============================================
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
+[project]
+name = "agent-zero-devops"
+version = "1.0.0-beta"
+description = "Intelligent multi-platform deployment orchestration for AI agents"
+authors = [
+    {name = "Mahoosuc Solutions", email = "aaron@mahoosuc.solutions"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache Software License 2.0"}
+keywords = [
+    "deployment",
+    "orchestration",
+    "devops",
+    "kubernetes",
+    "aws",
+    "gcp",
+    "ssh",
+    "ci/cd",
+    "ai-agents",
+    "automation"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Installation/Setup",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Networking",
+]
+
+dependencies = [
+    "aiosmtplib>=5.0.0",
+    "ansio>=0.0.1",
+    "browser-use>=0.5.11",
+    "google-auth-oauthlib>=1.2.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-api-python-client>=2.110.0",
+    "google-cloud-pubsub>=2.18.0",
+    "docker>=7.1.0",
+    "duckduckgo-search>=6.1.12",
+    "fastmcp>=2.3.4",
+    "flask[async]>=3.0.3",
+    "flask-basicauth>=0.2.0",
+    "GitPython>=3.1.43",
+    "inputimeout>=1.0.4",
+    "langchain-core>=0.3.49",
+    "langchain-community>=0.3.19",
+    "markdown>=3.7",
+    "mcp>=1.13.1",
+    "paramiko>=3.5.0",
+    "playwright>=1.52.0",
+    "pypdf>=6.0.0",
+    "python-dotenv>=1.1.0",
+    "pytz>=2024.2",
+    "sentence-transformers>=3.0.1",
+    "tiktoken>=0.8.0",
+    "nest-asyncio>=1.6.0",
+    "crontab>=1.0.1",
+    "markdownify>=1.1.0",
+    "pydantic>=2.11.7",
+    "psutil>=7.0.0",
+    "pathspec>=0.12.1",
+    "html2text>=2024.2.26",
+    "beautifulsoup4>=4.12.3",
+    "exchangelib>=5.4.3",
+    "webauthn>=2.2.0",
+    "anthropic>=0.76.0",
+    "openai>=1.0.0",
+    "litellm>=1.50.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-mock>=3.15.1",
+    "pytest-cov>=5.0.0",
+    "pytest-timeout>=2.3.0",
+    "pytest-xdist>=3.5.0",
+    "jsonschema>=4.22.0",
+    "ruff>=0.4.0",
+    "pre-commit>=3.7.0",
+    "pyright>=1.1.350",
+    "bandit>=1.7.8",
+    "safety>=3.0.0",
+    "ipdb>=0.13.0",
+    "rich>=13.0.0",
+    "black>=23.0",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/agent-zero-deploy/agent-zero-devops"
+"Bug Tracker" = "https://github.com/agent-zero-deploy/agent-zero-devops/issues"
+Documentation = "https://github.com/agent-zero-deploy/agent-zero-devops/tree/main/docs"
+"Source Code" = "https://github.com/agent-zero-deploy/agent-zero-devops"
+Discussions = "https://github.com/agent-zero-deploy/agent-zero-devops/discussions"
+
+# ============================================
+# Ruff Configuration for Agent Zero
+# ============================================
 [tool.ruff]
 target-version = "py312"
 line-length = 120
