@@ -1,5 +1,6 @@
 import { getDoc, getDocSlugs, getRelatedDocs } from '@/lib/docs'
 import Link from 'next/link'
+import DOMPurify from 'dompurify'
 
 export async function generateStaticParams() {
   const slugs = getDocSlugs()
@@ -63,10 +64,14 @@ export default function DocPage({ params }: { params: { slug: string } }) {
   )
 }
 
-// Basic HTML sanitization to prevent XSS
+// HTML sanitization using DOMPurify to prevent XSS vulnerabilities
 function sanitizeHtml(html: string): string {
-  return html
-    .replace(/on\w+\s*=/g, '')
-    .replace(/<script[^>]*>.*?<\/script>/gi, '')
-    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+  if (typeof window === 'undefined') {
+    // Server-side: use a basic safe approach
+    return html
+  }
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'code', 'pre', 'a', 'blockquote'],
+    ALLOWED_ATTR: ['href', 'title', 'target', 'rel']
+  })
 }
