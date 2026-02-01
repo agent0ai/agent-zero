@@ -67,3 +67,52 @@ ollama_models/blobs/
 !ollama_models/model_manifest.json
 !ollama_models/README.md
 !ollama_models/.gitkeep
+
+# Sensitive files - never commit
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets/
+credentials/
+
+# Additional IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Python packaging and distribution
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Test coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+*.cover
+
+# Node/npm (if WebUI development)
+npm-debug.log
+yarn-error.log
+
+# OS-specific files
+Thumbs.db
+*.log
+
+# Local development database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Firebase debug logs
+firebase-debug.log
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
