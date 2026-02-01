@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/agent-zero-deploy/agent-zero-devops/tree/main/docs
+    about: View comprehensive documentation
+  - name: Discussions
+    url: https://github.com/agent-zero-deploy/agent-zero-devops/discussions
+    about: Ask questions and discuss features
