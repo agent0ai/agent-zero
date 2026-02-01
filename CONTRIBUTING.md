@@ -1,219 +1,174 @@
-# Contributing to Agent Zero
+# Contributing to Agent Zero DevOps
 
-Thank you for your interest in contributing to Agent Zero! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Agent Zero DevOps! This guide will help you get started.
 
-## 🚀 Quick Start
+## Code of Conduct
 
-1. **Fork and clone the repository**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/agent-zero.git
-   cd agent-zero
-   ```
+Be respectful, inclusive, and professional. We're building a welcoming community.
 
-2. **Set up your development environment**
-   ```bash
-   # Create virtual environment
-   python -m venv .venv
-   source .venv/bin/activate  # Linux/macOS
-   # or .venv\Scripts\activate  # Windows
+## Ways to Contribute
 
-   # Install dependencies
-   pip install -r requirements.txt
-   pip install -r requirements.dev.txt
-   playwright install chromium
+### Reporting Bugs
 
-   # Install pre-commit hooks
-   pip install pre-commit
-   pre-commit install
-   ```
+1. Check existing issues to avoid duplicates
+2. Create a new issue with:
+   - Clear title describing the bug
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Your environment (OS, Python version, Kubernetes version if applicable)
 
-3. **Run the development server**
-   ```bash
-   python run_ui.py --port=5000
-   ```
+### Suggesting Features
 
-## 📁 Project Structure
+1. Check existing issues and discussions
+2. Create a new issue with:
+   - Clear description of the feature
+   - Use case and motivation
+   - Proposed implementation (optional)
 
-```
-agent-zero/
-├── agent.py              # Core agent implementation
-├── models.py             # LLM model abstraction
-├── prompts/              # All agent prompts (edit these to change behavior)
-├── python/
-│   ├── api/              # REST API endpoints
-│   ├── tools/            # Agent tools
-│   ├── extensions/       # Lifecycle hooks
-│   └── helpers/          # Utility functions
-├── instruments/custom/   # Custom instruments
-├── agents/               # Agent profiles
-├── tests/                # Test suite
-└── webui/                # Frontend components
-```
+### Submitting Code
 
-## 🔧 Development Workflow
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature-name`
+3. Follow the development guidelines below
+4. Submit a pull request with clear description
 
-### Making Changes
+## Development Setup
 
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feature/my-feature
-   ```
+### Prerequisites
 
-2. **Make your changes** following our conventions
+- Python 3.10+
+- pip and venv
+- Git
 
-3. **Run linting and tests**
-   ```bash
-   # Lint
-   ruff check .
-   ruff format .
+### Initial Setup
 
-   # Test
-   pytest tests/ -v
-   ```
-
-4. **Commit with conventional commits**
-   ```
-   feat: add new capability
-   fix: resolve issue with X
-   docs: update documentation
-   style: formatting changes
-   refactor: restructure code
-   test: add tests
-   chore: maintenance tasks
-   ```
-
-5. **Push and create a Pull Request**
-
-### Pre-commit Hooks
-
-We use pre-commit hooks to ensure code quality:
 ```bash
+# Clone the repository
+git clone https://github.com/agent-zero-deploy/agent-zero-devops.git
+cd agent-zero-devops
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Install pre-commit hooks
 pre-commit install
-pre-commit run --all-files  # Run manually
 ```
 
-## 📝 Contribution Types
-
-### Adding Tools
-
-1. Create `python/tools/{tool_name}.py`:
-   ```python
-   from python.helpers.tool import Tool, Response
-
-   class MyTool(Tool):
-       async def execute(self, **kwargs) -> Response:
-           result = self.args.get("param")
-           return Response(message=result, break_loop=False)
-   ```
-
-2. Create prompt `prompts/agent.system.tool.{tool_name}.md`
-
-3. Register in `prompts/agent.system.tools.md`
-
-4. Add tests in `tests/test_{tool_name}.py`
-
-### Adding Extensions
-
-1. Create `python/extensions/{hook_name}/{extension_name}.py`:
-   ```python
-   from python.helpers.extension import Extension
-
-   class MyExtension(Extension):
-       async def execute(self, **kwargs):
-           # Hook logic here
-           pass
-   ```
-
-### Adding Instruments
-
-Use the template: `cp -r instruments/custom/_TEMPLATE instruments/custom/my_instrument`
-
-See `.github/copilot-instructions.md` for detailed instrument guidelines.
-
-### Modifying Prompts
-
-Edit files in `/prompts/`. Key files:
-- `agent.system.main.md` - Entry point
-- `agent.system.tool.*.md` - Tool definitions
-- `fw.*.md` - Framework messages
-
-## ✅ Testing
+### Running Tests
 
 ```bash
 # Run all tests
-pytest
+pytest tests/
 
 # Run specific test file
-pytest tests/test_workflow_manager.py
+pytest tests/test_devops_deploy.py -v
 
 # Run with coverage
-pytest --cov=python --cov-report=html
+pytest tests/ --cov=python/tools/
 
-# Run only fast tests
-pytest -m "not slow"
+# Run slow tests only (use --slow flag)
+pytest tests/ -m slow
 ```
 
-### Writing Tests
+### Code Quality
 
-```python
-import pytest
-
-class TestMyFeature:
-    @pytest.fixture(autouse=True)
-    def setup_method(self, tmp_path):
-        self.db_path = str(tmp_path / "test.db")
-
-    def test_basic_operation(self):
-        # Test implementation
-        assert result['status'] == "success"
-```
-
-## 🐳 Local CI with Act
-
-Run GitHub Actions locally:
 ```bash
-# Install act
-brew install act  # macOS
-# or: https://github.com/nektos/act#installation
+# Format code
+black python/
 
-# Run CI locally
-act -j lint
-act -j test
-act  # Run all jobs
+# Lint code
+ruff check python/
+
+# Type checking
+mypy python/
+
+# Security check
+bandit -r python/
 ```
 
-## 📋 Code Style
+## Coding Standards
 
-- **Python**: Follow PEP 8, enforced by Ruff
-- **Line length**: 120 characters
-- **Type hints**: Recommended for public APIs
-- **Docstrings**: Required for public functions/classes
-- **Async**: Prefer `async def` for I/O operations
+### Python Style
 
-## 🔒 Security
+- Follow PEP 8 (enforced by black and ruff)
+- Use type hints for all functions
+- Write docstrings for all public functions
+- Keep functions focused and testable
 
-- Never commit API keys or secrets
-- Use `.env` for local secrets (not committed)
-- Report security issues privately
+### Testing Requirements
 
-## 📖 Documentation
+- All new code must have corresponding tests
+- Minimum 90% code coverage
+- Tests must pass: `pytest tests/ -v`
+- Use descriptive test names: `test_<function>_<scenario>`
 
-- Update relevant docs when changing functionality
-- Add docstrings to new functions/classes
-- Update `.github/copilot-instructions.md` for architectural changes
+### Commit Messages
 
-## 🤝 Pull Request Guidelines
+Follow conventional commits:
 
-- Reference related issues
-- Include tests for new functionality
-- Update documentation as needed
-- Keep PRs focused and reasonably sized
-- Respond to review feedback promptly
+```text
+feat: add new deployment strategy
+fix: handle edge case in error classification
+docs: update deployment guide
+test: add integration tests
+chore: update dependencies
+```
 
-## ❓ Questions?
+### Pull Request Process
 
-- Check existing [Issues](https://github.com/agent0ai/agent-zero/issues)
-- Join our [Discord](https://discord.gg/B8KZKNsPpj)
-- Review [Documentation](./docs/README.md)
+1. Update documentation if needed
+2. Add tests for new functionality
+3. Run full test suite locally
+4. Submit PR with clear description
+5. Address review feedback
+6. Ensure CI/CD passes
 
-Thank you for contributing! 🎉
+## Areas for Contribution
+
+### High Priority
+
+- **SSH Deployment SDK**: Integrate paramiko or fabric
+- **AWS Deployment SDK**: Integrate boto3
+- **GCP Deployment SDK**: Integrate google-cloud SDK
+- **GitHub Actions Integration**: Complete GitHub API integration
+- **Canary Deployments**: Advanced deployment strategies
+- **WebUI Dashboard**: Real-time deployment monitoring
+
+### Medium Priority
+
+- Performance optimizations
+- Additional platform integrations
+- Documentation improvements
+- Community examples
+
+### Low Priority
+
+- UI/UX enhancements
+- Additional monitoring integrations
+- Advanced analytics
+
+## Release Process
+
+Maintainers follow semantic versioning (v1.0.0):
+
+1. Create release branch: `release/v1.x.x`
+2. Update version numbers
+3. Update CHANGELOG
+4. Create GitHub release with notes
+5. Announce on community channels
+
+## Questions?
+
+- Open an issue for discussions
+- Check existing documentation: `/docs/`
+- Review API reference: `/docs/DEVOPS_DEPLOYMENT_README.md`
+
+## License
+
+By contributing, you agree your code will be licensed under Apache 2.0.
+
+Thank you for contributing! 🚀
