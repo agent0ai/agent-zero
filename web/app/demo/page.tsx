@@ -13,6 +13,10 @@ export default function DemoPage() {
     industry: '',
     teamSize: '',
     painPoints: [] as string[],
+    cloudPlatforms: [] as string[],
+    governanceSteps: '',
+    integrations: [] as string[],
+    useCase: '',
     complexity: '',
     budget: '',
     timeline: '',
@@ -25,13 +29,20 @@ export default function DemoPage() {
     }))
   }
 
+  const handleMultiSelectChange = (field: string, value: string) => {
+    setFormData(prev => {
+      const currentArray = prev[field as keyof typeof prev] as string[]
+      return {
+        ...prev,
+        [field]: currentArray.includes(value)
+          ? currentArray.filter(item => item !== value)
+          : [...currentArray, value],
+      }
+    })
+  }
+
   const handlePainPointChange = (point: string) => {
-    setFormData(prev => ({
-      ...prev,
-      painPoints: prev.painPoints.includes(point)
-        ? prev.painPoints.filter(p => p !== point)
-        : [...prev.painPoints, point],
-    }))
+    handleMultiSelectChange('painPoints', point)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -179,6 +190,116 @@ export default function DemoPage() {
                 <option value="500-5000">500-5,000 employees</option>
                 <option value="5000+">5,000+ employees</option>
               </select>
+            </div>
+          </div>
+
+          {/* Cloud Platforms */}
+          <div>
+            <label className="block text-white font-semibold mb-3">
+              Which cloud platforms do you use? (Select all that apply)
+            </label>
+            <div className="space-y-2 bg-slate-700 rounded p-4">
+              {[
+                { value: 'kubernetes', label: 'Kubernetes' },
+                { value: 'aws', label: 'AWS' },
+                { value: 'gcp', label: 'Google Cloud Platform' },
+                { value: 'azure', label: 'Azure' },
+                { value: 'multiple', label: 'Multiple clouds' },
+                { value: 'onprem', label: 'On-premises only' },
+              ].map(({ value, label }) => (
+                <label key={value} className="flex items-center text-slate-200 cursor-pointer hover:text-white">
+                  <input
+                    type="checkbox"
+                    checked={formData.cloudPlatforms.includes(value)}
+                    onChange={() => handleMultiSelectChange('cloudPlatforms', value)}
+                    className="mr-3 w-4 h-4 accent-blue-600"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Governance Steps */}
+          <div>
+            <label className="block text-white font-semibold mb-3">
+              How many approval steps for production changes? *
+            </label>
+            <div className="space-y-2 bg-slate-700 rounded p-4">
+              {[
+                { value: 'none', label: 'None (move fast)' },
+                { value: '1-2', label: '1-2 steps' },
+                { value: '3+', label: '3+ steps (strict compliance)' },
+              ].map(({ value, label }) => (
+                <label key={value} className="flex items-center text-slate-200 cursor-pointer hover:text-white">
+                  <input
+                    type="radio"
+                    name="governanceSteps"
+                    value={value}
+                    checked={formData.governanceSteps === value}
+                    onChange={(e) => handleInputChange('governanceSteps', e.target.value)}
+                    className="mr-3 w-4 h-4 accent-blue-600"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Integrations */}
+          <div>
+            <label className="block text-white font-semibold mb-3">
+              What systems do you integrate with? (Select all that apply)
+            </label>
+            <div className="space-y-2 bg-slate-700 rounded p-4">
+              {[
+                { value: 'github', label: 'Jira / GitHub / GitLab' },
+                { value: 'kubernetes-docker', label: 'Kubernetes / Docker' },
+                { value: 'cloud-services', label: 'AWS / GCP / Azure' },
+                { value: 'communication', label: 'Slack / Teams / Email' },
+                { value: 'crm', label: 'Salesforce / CRM' },
+                { value: 'pms', label: 'PMS (Hostaway, Lodgify, etc.)' },
+                { value: 'finance', label: 'Finance systems' },
+              ].map(({ value, label }) => (
+                <label key={value} className="flex items-center text-slate-200 cursor-pointer hover:text-white">
+                  <input
+                    type="checkbox"
+                    checked={formData.integrations.includes(value)}
+                    onChange={() => handleMultiSelectChange('integrations', value)}
+                    className="mr-3 w-4 h-4 accent-blue-600"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Primary Use Case */}
+          <div>
+            <label className="block text-white font-semibold mb-3">
+              What\'s your primary need? *
+            </label>
+            <div className="space-y-2 bg-slate-700 rounded p-4">
+              {[
+                { value: 'multi-cloud', label: 'Deploy to multiple clouds' },
+                { value: 'approvals', label: 'Enterprise approval workflows' },
+                { value: 'costs', label: 'Track AI costs and usage' },
+                { value: 'integration', label: 'Integrate with business systems' },
+                { value: 'workflows', label: 'Build intelligent workflows' },
+                { value: 'governance', label: 'Ensure compliance/governance' },
+              ].map(({ value, label }) => (
+                <label key={value} className="flex items-center text-slate-200 cursor-pointer hover:text-white">
+                  <input
+                    type="radio"
+                    name="useCase"
+                    value={value}
+                    checked={formData.useCase === value}
+                    onChange={(e) => handleInputChange('useCase', e.target.value)}
+                    className="mr-3 w-4 h-4 accent-blue-600"
+                  />
+                  {label}
+                </label>
+              ))}
             </div>
           </div>
 

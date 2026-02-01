@@ -8,12 +8,11 @@ export default function HeroSection() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         <div>
           <h1 className="text-5xl sm:text-6xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
-            The Operating System for Intelligent Business Applications
+            Deploy Intelligent Agents Across Any Cloud
           </h1>
           <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-            Build, test, and deploy AI-powered workflows that integrate with your existing systems.
-            Agent Zero handles orchestration, observability, cost management, and governance so your
-            teams can focus on business logic.
+            One agent definition. Deploy to Kubernetes, AWS, GCP, and more. Real-time approval workflows,
+            complete audit trails, and automatic cost optimization. Enterprise governance from day one.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <Link

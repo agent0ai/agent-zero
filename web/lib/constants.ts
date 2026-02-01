@@ -6,24 +6,24 @@ export const VERSION = '1.0.0-beta'
 
 export const FEATURES = [
   {
-    icon: '🔄',
-    title: 'Workflow Orchestration',
-    description: 'Coordinate complex AI workflows with human-in-the-loop steps, approval gates, and conditional logic.',
-  },
-  {
-    icon: '📊',
-    title: 'Production Observability',
-    description: 'Monitor AI system behavior, costs, and performance in real-time with detailed logging and analytics.',
+    icon: '🚀',
+    title: 'Deploy Anywhere',
+    description: 'Kubernetes, AWS, GCP, SSH, GitHub Actions. One agent definition deploys everywhere with approval gates and automatic rollback.',
   },
   {
     icon: '🔐',
-    title: 'Enterprise Security & Governance',
-    description: 'Built for compliance with audit logging, cost allocation, usage policies, and data governance.',
+    title: 'Enterprise Governance',
+    description: 'Approval workflows, HMAC audit logs, passkey authentication, and rate limiting. Compliance-ready from day one.',
   },
   {
-    icon: '🚀',
-    title: 'Multi-System Integration',
-    description: 'Connect AI workflows to databases, APIs, business systems, and cloud platforms seamlessly.',
+    icon: '📊',
+    title: 'Real-Time Visibility',
+    description: 'Monitor costs, execution metrics, and agent behavior in real-time. Know exactly what\'s happening in production.',
+  },
+  {
+    icon: '🔧',
+    title: 'Integrate Everything',
+    description: '100+ REST APIs, webhook support, OAuth2. Connect to Gmail, Slack, PMS platforms, and more seamlessly.',
   },
 ]
 
