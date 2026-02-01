@@ -21,12 +21,14 @@ export default function HeroSection() {
             >
               Get Started
             </Link>
-            <Link
+            <a
               href="https://github.com/agent-zero-deploy/agent-jumbo"
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-8 py-3 border-2 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg font-semibold hover:bg-slate-50 dark:hover:bg-slate-900 transition text-center"
             >
               View on GitHub
-            </Link>
+            </a>
           </div>
         </div>
         <div className="bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 rounded-xl p-8 h-96 flex items-center justify-center">

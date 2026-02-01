@@ -19,12 +19,14 @@ export default function CTASection() {
           >
             Start Free
           </Link>
-          <Link
+          <a
             href="https://github.com/agent-zero-deploy/agent-jumbo"
+            target="_blank"
+            rel="noopener noreferrer"
             className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:bg-opacity-10 transition"
           >
             Star on GitHub
-          </Link>
+          </a>
         </div>
       </div>
     </section>
