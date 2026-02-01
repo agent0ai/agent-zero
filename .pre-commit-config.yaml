@@ -36,7 +36,7 @@ repos:
     rev: v0.40.0
     hooks:
       - id: markdownlint
-        args: ["--fix", "--disable", "MD013", "MD033", "MD041", "--"]
+        args: ["--fix", "--disable", "MD013", "MD024", "MD033", "MD041", "--"]
         exclude: "^(logs/|docs/res/)"
 
   # Check for secrets
