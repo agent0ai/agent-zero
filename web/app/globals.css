@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font: inherit;
+}
+
+/* Markdown styles */
+.prose {
+  max-width: none;
+}
+
+.prose h1 {
+  font-size: 2.25rem;
+  font-weight: bold;
+  margin: 1.5rem 0;
+  color: rgb(15, 23, 42);
+}
+
+.prose h2 {
+  font-size: 1.875rem;
+  font-weight: bold;
+  margin: 1rem 0;
+  color: rgb(15, 23, 42);
+}
+
+.prose h3 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0.75rem 0;
+  color: rgb(15, 23, 42);
+}
+
+.prose p {
+  margin: 1rem 0;
+  color: rgb(55, 65, 81);
+  line-height: 1.625;
+}
+
+.prose code {
+  background-color: rgb(241, 245, 249);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  color: rgb(15, 23, 42);
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.prose pre {
+  background-color: rgb(15, 23, 42);
+  color: rgb(241, 245, 249);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.prose ul,
+.prose ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+  color: rgb(55, 65, 81);
+}
+
+.prose li {
+  margin: 0.5rem 0;
+}
+
+.prose a {
+  color: rgb(37, 99, 235);
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  color: rgb(29, 78, 216);
+}
+
+.prose blockquote {
+  border-left: 4px solid rgb(59, 130, 246);
+  padding-left: 1rem;
+  font-style: italic;
+  color: rgb(75, 85, 99);
+  margin: 1rem 0;
+}
+
+dark .prose {
+  color: rgb(226, 232, 240);
+}
+
+dark .prose h1,
+dark .prose h2,
+dark .prose h3 {
+  color: rgb(241, 245, 249);
+}
+
+dark .prose code {
+  background-color: rgb(30, 41, 59);
+  color: rgb(241, 245, 249);
+}
+
+dark .prose a {
+  color: rgb(96, 165, 250);
+}
