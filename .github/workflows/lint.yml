@@ -1,0 +1,33 @@
+name: Lint & Format
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff black mypy bandit
+
+    - name: Run ruff
+      run: ruff check python/ --output-format=github
+
+    - name: Run black
+      run: black --check python/ --diff
+
+    - name: Run mypy
+      run: mypy python/ --ignore-missing-imports --no-error-summary 2>/dev/null || true
