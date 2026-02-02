@@ -125,6 +125,14 @@ const model = {
 
         const response = await resp.json();
 
+        if (response?.agent_idle) {
+          const otherPending = Object.keys(this._pendingAddOps).filter((id) => id !== tempId);
+          if (otherPending.length === 0) {
+            navStore.scrollToBottom();
+            api.callJsonApi("/message_queue_send", { context }).catch(() => {});
+          }
+        }
+
         return response?.ok || false;
       } catch (e) {
         if (e?.name !== "AbortError") {

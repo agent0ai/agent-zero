@@ -21,4 +21,9 @@ class MessageQueueAdd(ApiHandler):
 
         item = mq.add(context, text, attachments, item_id)
         mark_dirty_for_context(context.id, reason="message_queue_add")
-        return {"ok": True, "item_id": item["id"], "queue_length": len(mq.get_queue(context))}
+        return {
+            "ok": True,
+            "item_id": item["id"],
+            "queue_length": len(mq.get_queue(context)),
+            "agent_idle": not context.is_running(),
+        }
