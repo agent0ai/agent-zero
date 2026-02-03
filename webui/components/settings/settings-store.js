@@ -20,6 +20,9 @@ function toast(text, type = "info", timeout = 5000) {
   notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000);
 }
 
+// API key placeholder used in backend
+const API_KEY_PLACEHOLDER = "************";
+
 // Settings Store
 const model = {
   // State
@@ -27,6 +30,20 @@ const model = {
   error: null,
   settings: null,
   additional: null,
+  
+  // Dynamic model options fetched from provider APIs
+  chatModels: [{ value: "__custom__", label: "Custom (enter manually)" }],
+  utilModels: [{ value: "__custom__", label: "Custom (enter manually)" }],
+  embedModels: [{ value: "__custom__", label: "Custom (enter manually)" }],
+  browserModels: [{ value: "__custom__", label: "Custom (enter manually)" }],
+  
+  // Loading state for model refresh
+  isRefreshingModels: {
+    chat: false,
+    util: false,
+    embed: false,
+    browser: false,
+  },
   
   // Tab state
   _activeTab: DEFAULT_TAB,
@@ -70,6 +87,9 @@ const model = {
 
     // Trigger tab activation for current tab
     this.applyActiveTab(null, this._activeTab);
+    
+    // Fetch dynamic model options in background
+    this.refreshAllModels();
   },
 
   cleanup() {
@@ -165,6 +185,110 @@ const model = {
       this._activeTab = initialTab;
     }
     await window.openModal("settings/settings.html");
+  },
+
+  // Collect API keys from settings for model refresh calls
+  _collectApiKeys() {
+    const apiKeys = {};
+    if (this.settings?.api_keys) {
+      for (const [provider, key] of Object.entries(this.settings.api_keys)) {
+        if (key && key.length > 0) {
+          apiKeys[provider] = key;
+        }
+      }
+    }
+    return apiKeys;
+  },
+
+  // Refresh model options for a specific model type and provider
+  async refreshModels(modelPrefix, forceRefresh = false) {
+    if (!this.settings) return;
+
+    const modelType = modelPrefix === "embed" ? "embedding" : "chat";
+    const providerKey = `${modelPrefix}_model_provider`;
+    const nameKey = `${modelPrefix}_model_name`;
+    const apiBaseKey = `${modelPrefix}_model_api_base`;
+    
+    const provider = this.settings[providerKey];
+    const currentValue = this.settings[nameKey];
+    const apiBase = this.settings[apiBaseKey] || "";
+    
+    if (!provider) return;
+
+    const modelsKey = `${modelPrefix}Models`;
+    this.isRefreshingModels[modelPrefix] = true;
+
+    try {
+      const response = await API.callJsonApi("settings_refresh_models", {
+        model_type: modelType,
+        provider: provider,
+        api_keys: this._collectApiKeys(),
+        api_base: apiBase,
+        force_refresh: forceRefresh,
+      });
+
+      if (response && response.models && response.models.length > 0) {
+        let newOptions = [...response.models];
+        
+        // Ensure current value is in options if not already there
+        if (currentValue && currentValue !== "__custom__") {
+          const hasCurrentValue = newOptions.some(m => m.value === currentValue);
+          if (!hasCurrentValue) {
+            newOptions.unshift({
+              value: currentValue,
+              label: `${currentValue} (current)`,
+            });
+          }
+        }
+        
+        this[modelsKey] = newOptions;
+      }
+    } catch (e) {
+      console.error(`Error refreshing ${modelPrefix} models:`, e);
+    } finally {
+      this.isRefreshingModels[modelPrefix] = false;
+    }
+  },
+
+  // Refresh all model options in parallel
+  async refreshAllModels() {
+    await Promise.all([
+      this.refreshModels("chat"),
+      this.refreshModels("util"),
+      this.refreshModels("embed"),
+      this.refreshModels("browser"),
+    ]);
+  },
+
+  // Handler for when a provider dropdown changes
+  async handleProviderChange(modelPrefix) {
+    await this.refreshModels(modelPrefix, true);
+  },
+
+  // Apply custom model value when user enters it manually
+  applyCustomModel(modelPrefix, customValue) {
+    if (!customValue || !customValue.trim()) return;
+    
+    const nameKey = `${modelPrefix}_model_name`;
+    const modelsKey = `${modelPrefix}Models`;
+    const trimmedValue = customValue.trim();
+    
+    // Add custom value as an option
+    const customOption = {
+      value: trimmedValue,
+      label: trimmedValue,
+    };
+    
+    // Insert before __custom__ option
+    const customIndex = this[modelsKey].findIndex(o => o.value === "__custom__");
+    if (customIndex > -1) {
+      this[modelsKey].splice(customIndex, 0, customOption);
+    } else {
+      this[modelsKey].push(customOption);
+    }
+    
+    // Select the custom value
+    this.settings[nameKey] = trimmedValue;
   },
 };
 

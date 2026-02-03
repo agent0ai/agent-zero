@@ -18,7 +18,8 @@
               <div class="field-description">Select provider for main chat model used by Agent Zero</div>
             </div>
             <div class="field-control">
-              <select x-model="$store.settingsStore.settings.chat_model_provider">
+              <select x-model="$store.settingsStore.settings.chat_model_provider"
+                      @change="$store.settingsStore.handleProviderChange('chat')">
                 <template x-for="option in $store.settingsStore.additional?.chat_providers" :key="option.value">
                   <option :value="option.value" :selected="option.value === $store.settingsStore.settings.chat_model_provider" x-text="option.label"></option>
                 </template>
@@ -29,10 +30,23 @@
           <div class="field">
             <div class="field-label">
               <div class="field-title">Chat model name</div>
-              <div class="field-description">Exact name of model from selected provider</div>
+              <div class="field-description">Select model from provider, or choose 'Custom' to enter manually</div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.chat_model_name" />
+              <div class="select-with-custom">
+                <select x-model="$store.settingsStore.settings.chat_model_name">
+                  <template x-for="option in $store.settingsStore.chatModels" :key="option.value">
+                    <option :value="option.value" x-text="option.label"></option>
+                  </template>
+                </select>
+                <template x-if="$store.settingsStore.settings.chat_model_name === '__custom__'">
+                  <input type="text"
+                         class="custom-model-input"
+                         placeholder="Enter model name (e.g., gpt-4o)"
+                         @blur="$store.settingsStore.applyCustomModel('chat', $event.target.value); $event.target.value = ''"
+                         @keydown.enter="$store.settingsStore.applyCustomModel('chat', $event.target.value); $event.target.value = ''">
+                </template>
+              </div>
             </div>
           </div>
 
