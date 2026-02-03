@@ -940,10 +940,43 @@ export function drawMessageTool({
   agentno = 0,
   ...additional
 }) {
+
+  const tool_name = kvps?._tool_name || "";
+
+  if(!tool_name){
+   return drawMessageToolSimple({ ...arguments[0] }); 
+  } else if (kvps._tool_name === "skills_tool") {
+    return drawMessageToolSimple({ ...arguments[0], code: "SKL" });
+  } else if (kvps._tool_name === "vision_load") {
+    return drawMessageToolSimple({ ...arguments[0], code: "EYE" });
+  } else if (kvps._tool_name === "search_engine") {
+    return drawMessageToolSimple({ ...arguments[0], code: "WEB" });
+  } else if (kvps._tool_name === "browser_agent") {
+    return drawMessageToolSimple({ ...arguments[0], code: "WWW" });
+  } else if (kvps._tool_name.startsWith("memory_")) {
+    return drawMessageToolSimple({ ...arguments[0], code: "MEM" });
+  } else {
+    return drawMessageToolSimple({ ...arguments[0] });
+  }
+
+}
+
+export function drawMessageToolSimple({
+  id,
+  type,
+  heading,
+  content,
+  kvps = null,
+  timestamp = null,
+  agentno = 0,
+  code,
+  displayKvps,
+  ...additional
+}) {
   const title = cleanStepTitle(heading);
-  let displayKvps = { ...kvps };
+  displayKvps = displayKvps || { ...kvps };
   const headerLabels = [
-    kvps?.tool_name && { label: kvps.tool_name, class: "tool-name-badge" },
+    kvps?._tool_name && { label: kvps._tool_name, class: "tool-name-badge" },
   ].filter(Boolean);
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
@@ -961,7 +994,7 @@ export function drawMessageTool({
   return drawProcessStep({
     id,
     title,
-    code: "USE",
+    code: code || "USE",
     classes: null,
     kvps: displayKvps,
     content,

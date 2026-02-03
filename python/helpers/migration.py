@@ -19,7 +19,6 @@ def migrate_user_data() -> None:
     _move_dir("tmp/downloads", "usr/downloads")
     _move_dir("tmp/email", "usr/email")
     _move_dir("knowledge/custom", "usr/knowledge", overwrite=True)
-    _move_dir("instruments/custom", "usr/instruments", overwrite=True)
 
     # --- Migrate Files -------------------------------------------------------------
     # Move specific configuration files to usr/
@@ -37,7 +36,6 @@ def migrate_user_data() -> None:
     # We use _merge_dir_contents because we want to move the *contents* of default/ 
     # into the parent directory, not move the default directory itself.
     _merge_dir_contents("knowledge/default", "knowledge")
-    _merge_dir_contents("instruments/default", "instruments")
 
     # --- Cleanup -------------------------------------------------------------------
     
@@ -82,20 +80,21 @@ def _migrate_memory(base_path: str = "memory") -> None:
 
 def _merge_dir_contents(src_parent: str, dst_parent: str) -> None:
     """
-    Moves all subdirectories from src_parent to dst_parent.
+    Moves all items from src_parent to dst_parent.
     Useful for flattening structures like 'knowledge/default/*' -> 'knowledge/*'.
     """
     if not files.exists(src_parent):
         return
 
-    # Iterate over subdirectories in the source parent
-    subdirs = files.get_subdirectories(src_parent)
-    for subdir in subdirs:
-        src = f"{src_parent}/{subdir}"
-        dst = f"{dst_parent}/{subdir}"
-        
-        # Move the subdirectory if it doesn't exist in destination
-        _move_dir(src, dst)
+    entries = files.list_files(src_parent)
+    for entry in entries:
+        src = f"{src_parent}/{entry}"
+        dst = f"{dst_parent}/{entry}"
+        abs_src = files.get_abs_path(src)
+        if os.path.isdir(abs_src):
+            _move_dir(src, dst)
+        elif os.path.isfile(abs_src):
+            _move_file(src, dst)
 
 def _cleanup_obsolete() -> None:
     """
@@ -103,7 +102,6 @@ def _cleanup_obsolete() -> None:
     """
     to_remove = [
         "knowledge/default",
-        "instruments/default",
         "memory"
     ]
     for path in to_remove:

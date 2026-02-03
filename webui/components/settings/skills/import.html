@@ -1,0 +1,220 @@
+<html>
+<head>
+    <title>Import Skills</title>
+    <script type="module">
+        import { store } from "/components/settings/skills/skills-import-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.skillsImportStore">
+            <div x-init="$store.skillsImportStore.init()" x-destroy="$store.skillsImportStore.onClose()">
+
+                <h3>Import Skills (SKILL.md)</h3>
+
+                <div class="upload-section">
+                    <label for="skills-file" class="upload-label">
+                        Select Skills Pack (.zip)
+                    </label>
+                    <input type="file" id="skills-file" accept=".zip"
+                        @change="$store.skillsImportStore.handleFileUpload($event)">
+                    <div class="upload-hint">
+                        Upload a repository/archive that contains SKILL.md skill folders (see agentskills.io).
+                    </div>
+                </div>
+
+                <div class="options" x-show="$store.skillsImportStore.skillsFile">
+                    <label class="policy-label">
+                        <span class="policy-label-text">Destination:</span>
+                        <select x-model="$store.skillsImportStore.dest" class="policy-dropdown"
+                            @change="$store.skillsImportStore.previewImport()">
+                            <option value="custom">Custom</option>
+                            <option value="project">Project</option>
+                        </select>
+                    </label>
+
+                    <label class="policy-label" x-show="$store.skillsImportStore.dest === 'project'">
+                        <span class="policy-label-text">Project:</span>
+                        <select x-model="$store.skillsImportStore.projectName" class="policy-dropdown"
+                            @change="$store.skillsImportStore.previewImport()">
+                            <option value="">Select a project...</option>
+                            <template x-for="project in $store.skillsImportStore.projects" :key="project.name">
+                                <option :value="project.name" x-text="project.title || project.name"></option>
+                            </template>
+                        </select>
+                    </label>
+
+                    <label class="policy-label">
+                        <span class="policy-label-text">Namespace:</span>
+                        <input class="text-input" type="text" placeholder="e.g. my-pack"
+                            x-model="$store.skillsImportStore.namespace"
+                            @change="$store.skillsImportStore.previewImport()">
+                    </label>
+
+                    <label class="policy-label">
+                        <span class="policy-label-text">Conflict policy:</span>
+                        <select x-model="$store.skillsImportStore.conflict" class="policy-dropdown"
+                            @change="$store.skillsImportStore.previewImport()">
+                            <option value="skip">Skip existing</option>
+                            <option value="rename">Rename (add _2, _3...)</option>
+                            <option value="overwrite">Overwrite existing</option>
+                        </select>
+                    </label>
+
+                    <div class="buttons">
+                        <button class="btn slim" @click="$store.skillsImportStore.previewImport()"
+                            :disabled="$store.skillsImportStore.loading">Preview</button>
+                        <button class="btn slim primary" @click="$store.skillsImportStore.performImport()"
+                            :disabled="$store.skillsImportStore.loading">Import</button>
+                    </div>
+                </div>
+
+                <div x-show="$store.skillsImportStore.loading" class="loading">
+                    <span x-text="$store.skillsImportStore.loadingMessage || 'Processing...'"></span>
+                </div>
+
+                <div x-show="$store.skillsImportStore.error" class="error">
+                    <span x-text="$store.skillsImportStore.error"></span>
+                </div>
+
+                <div x-show="$store.skillsImportStore.preview" class="preview">
+                    <h4>Preview</h4>
+                    <div class="preview-meta">
+                        <div>Destination: <code x-text="$store.skillsImportStore.preview?.destination"></code></div>
+                        <div>Namespace: <code x-text="$store.skillsImportStore.preview?.namespace"></code></div>
+                        <div>Would import: <span x-text="$store.skillsImportStore.preview?.imported_count || 0"></span></div>
+                        <div>Would skip: <span x-text="$store.skillsImportStore.preview?.skipped_count || 0"></span></div>
+                    </div>
+
+                    <textarea class="preview-list" readonly
+                        x-text="($store.skillsImportStore.preview?.imported || []).join('\n')"></textarea>
+                </div>
+
+                <div x-show="$store.skillsImportStore.result" class="result">
+                    <h4>Import Complete</h4>
+                    <div class="preview-meta">
+                        <div>Imported: <span x-text="$store.skillsImportStore.result?.imported_count || 0"></span></div>
+                        <div>Skipped: <span x-text="$store.skillsImportStore.result?.skipped_count || 0"></span></div>
+                    </div>
+                    <div class="note">
+                        Skills are indexed automatically. If you don’t see them immediately, use the Restart button in the left pane.
+                    </div>
+                </div>
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .upload-section {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 2px dashed var(--color-border);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .upload-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .upload-hint {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--color-secondary);
+        }
+
+        .options {
+            margin: 1rem 0;
+            padding: 0.75rem;
+            background: var(--color-input);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+        }
+
+        .policy-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .policy-label-text {
+            font-weight: 600;
+            white-space: nowrap;
+            width: 9rem;
+        }
+
+        .policy-dropdown, .text-input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-size: 0.9rem;
+        }
+
+        .buttons {
+            margin-top: 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .loading {
+            width: 100%;
+            text-align: center;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            color: var(--color-secondary);
+        }
+
+        .error {
+            color: var(--color-error);
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: var(--color-error-bg);
+            border-radius: 4px;
+        }
+
+        .preview, .result {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+        }
+
+        .preview-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.25rem 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .preview-list {
+            width: 100%;
+            height: 12em;
+            font-family: monospace;
+            font-size: 0.85em;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            padding: 0.5em;
+            resize: vertical;
+        }
+
+        .note {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</body>
+</html>
+

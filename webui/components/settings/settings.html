@@ -30,13 +30,17 @@
         <!-- Tab Navigation -->
         <div class="settings-tabs-container">
           <div class="settings-tabs no-scrollbar">
-            <div class="settings-tab" 
+            <div class="settings-tab"
                  :class="{'active': $store.settingsStore.activeTab === 'agent'}"
-                 @click="$store.settingsStore.switchTab('agent')" 
+                 @click="$store.settingsStore.switchTab('agent')"
                  title="Agent Settings">Agent Settings</div>
-            <div class="settings-tab" 
+            <div class="settings-tab"
+                 :class="{'active': $store.settingsStore.activeTab === 'skills'}"
+                 @click="$store.settingsStore.switchTab('skills')"
+                 title="Skills">Skills</div>
+            <div class="settings-tab"
                  :class="{'active': $store.settingsStore.activeTab === 'external'}"
-                 @click="$store.settingsStore.switchTab('external')" 
+                 @click="$store.settingsStore.switchTab('external')"
                  title="External Services">External Services</div>
             <div class="settings-tab" 
                  :class="{'active': $store.settingsStore.activeTab === 'mcp'}"
@@ -46,9 +50,9 @@
                  :class="{'active': $store.settingsStore.activeTab === 'developer'}"
                  @click="$store.settingsStore.switchTab('developer')" 
                  title="Developer">Developer</div>
-            <div class="settings-tab" 
+            <div class="settings-tab"
                  :class="{'active': $store.settingsStore.activeTab === 'backup'}"
-                 @click="$store.settingsStore.switchTab('backup')" 
+                 @click="$store.settingsStore.switchTab('backup')"
                  title="Backup & Restore">Backup & Restore</div>
           </div>
         </div>
@@ -69,6 +73,9 @@
           </div>
           <div x-show="$store.settingsStore.activeTab === 'backup'">
             <x-component path="settings/backup/backup-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settingsStore.activeTab === 'skills'">
+            <x-component path="settings/skills/skills-settings.html"></x-component>
           </div>
         </div>
       </div>

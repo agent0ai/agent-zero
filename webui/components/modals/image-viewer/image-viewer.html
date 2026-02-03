@@ -16,6 +16,7 @@
                 <div class="image-canvas"
                     @pointerdown="$store.imageViewer.startDrag($event)"
                     @pointermove="$store.imageViewer.onDrag($event)"
+                    @wheel="$store.imageViewer.onWheel($event)"
                     @pointerup="$store.imageViewer.endDrag()"
                     @pointercancel="$store.imageViewer.endDrag()">
                     <img 

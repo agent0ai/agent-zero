@@ -463,9 +463,11 @@
   margin-top: 0;
   transition: grid-template-rows 0.2s ease-out, opacity 0.15s ease-out, margin-top 0.2s ease-out;
   overflow: hidden;
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  overscroll-behavior: contain; /* avoid scroll chaining */
   max-width: 100%;
+}
+
+.process-step-detail-content{
+  white-space: pre-wrap;
 }
 
 .process-step-detail,
@@ -534,7 +536,7 @@
   font-size: var(--font-size-xs);
   line-height: 1.5;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  overscroll-behavior-x: contain; /* avoid scroll chaining */
+  overscroll-behavior-x: contain; 
 }
 
 /* .process-step-detail-scroll pre {

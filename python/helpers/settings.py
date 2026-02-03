@@ -151,6 +151,7 @@ class Settings(TypedDict):
 
     update_check_enabled: bool
 
+
 class PartialSettings(Settings, total=False):
     pass
 
@@ -319,7 +320,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
         if (key.endswith("_kwargs") or key=="browser_http_headers") and isinstance(value, dict):
             out["settings"][key] = _dict_to_env(value)
     return out
-
 
 def _get_api_key_field(settings: Settings, provider: str, title: str) -> SettingsField:
     key = settings["api_keys"].get(provider, models.get_api_key(provider))

@@ -23,11 +23,12 @@ source "/usr/local/searxng/searx-pyenv/bin/activate"
 echo "====================SEARXNG2 INST===================="
 
 # update pip's boilerplate
-pip install --no-cache-dir -U pip setuptools wheel pyyaml lxml
+pip install --no-cache-dir -U pip setuptools wheel pyyaml lxml msgspec typing_extensions
 
 # jump to SearXNG's working tree and install SearXNG into virtualenv
 cd "/usr/local/searxng/searxng-src"
-pip install --no-cache-dir --use-pep517 --no-build-isolation -e .
+# pip install --no-cache-dir --use-pep517 --no-build-isolation -e .
+pip install --no-cache-dir --use-pep517 --no-build-isolation .
 
 # cleanup cache
 pip cache purge

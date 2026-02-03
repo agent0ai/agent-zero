@@ -57,7 +57,7 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
     - [Messages History and Summarization](archicture.md#messages-history-and-summarization)
     - [Prompts](architecture.md#4-prompts)
     - [Knowledge](architecture.md#5-knowledge)
-    - [Instruments](architecture.md#6-instruments)
+    - [Skills](architecture.md#6-skills)
     - [Extensions](architecture.md#7-extensions)
 - [WebSocket Infrastructure](websocket-infrastructure.md)
 - [Development](development.md)

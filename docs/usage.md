@@ -262,7 +262,7 @@ By default, Agent Zero backs up your most important data:
 * **Memory System**: Agent memories and learned information
 * **Chat History**: All your conversations and interactions
 * **Configuration Files**: Settings, API keys, and system preferences
-* **Custom Instruments**: Any tools you've added or modified
+* **Custom Skills**: Any skills you've added or modified (SKILL.md format)
 * **Uploaded Files**: Documents and files you've worked with
 
 #### Customizing Backup Content

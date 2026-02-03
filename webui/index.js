@@ -317,7 +317,6 @@ export async function applySnapshot(snapshot, options = {}) {
     if (lastLogGuid) {
       const chatHistoryEl = document.getElementById("chat-history");
       if (chatHistoryEl) chatHistoryEl.innerHTML = "";
-      msgs.resetProcessGroups(); // Reset process groups on chat reset
       lastLogVersion = 0;
       lastLogGuid = snapshot.log_guid;
       if (typeof onLogGuidReset === "function") {

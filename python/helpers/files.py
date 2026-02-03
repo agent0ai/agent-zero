@@ -8,7 +8,7 @@ import re
 import base64
 import shutil
 import tempfile
-from typing import Any
+from typing import Any, Literal
 import zipfile
 import importlib
 import importlib.util
@@ -352,7 +352,7 @@ def find_file_in_dirs(_filename: str, _directories: list[str]):
     )
 
 
-def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*"):
+def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*", type: Literal["file", "dir", "any"] = "file"):
     # returns absolute paths for unique filenames, priority by order in dir_paths
     seen = set()
     result = []
@@ -360,12 +360,22 @@ def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*"):
         full_dir = get_abs_path(dir_path)
         for file_path in glob.glob(os.path.join(full_dir, pattern)):
             fname = os.path.basename(file_path)
-            if fname not in seen and os.path.isfile(file_path):
+            if fname not in seen and (type == "any" or (type == "file" and os.path.isfile(file_path)) or (type == "dir" and os.path.isdir(file_path))):
                 seen.add(fname)
                 result.append(get_abs_path(file_path))
     # sort by filename (basename), not the full path
     result.sort(key=lambda path: os.path.basename(path))
     return result
+
+
+def find_existing_paths_by_pattern(pattern: str):
+    if not pattern:
+        return []
+
+    search_pattern = get_abs_path(pattern)
+    matches = glob.glob(search_pattern, recursive=True)
+    matches.sort()
+    return matches
 
 
 def remove_code_fences(text):

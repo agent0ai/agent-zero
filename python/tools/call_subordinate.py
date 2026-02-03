@@ -33,6 +33,9 @@ class Delegation(Tool):
         # run subordinate monologue
         result = await subordinate.monologue()
 
+        # seal the subordinate's current topic so messages move to `topics` for compression
+        subordinate.history.new_topic()
+
         # hint to use includes for long responses
         additional = None
         if len(result) >= save_tool_call_file.LEN_MIN:
