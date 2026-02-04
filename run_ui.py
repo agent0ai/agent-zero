@@ -13,6 +13,7 @@ from werkzeug.wrappers.response import Response as BaseResponse
 
 import initialize
 from python.helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper
+from python.api.agui_endpoint import create_agui_app
 from python.helpers.files import get_abs_path
 from python.helpers import runtime, dotenv, process
 from python.helpers.websocket import WebSocketHandler, validate_ws_origin
@@ -460,6 +461,7 @@ def run():
         routes=[
             Mount("/mcp", app=mcp_server.DynamicMcpProxy.get_instance()),
             Mount("/a2a", app=fasta2a_server.DynamicA2AProxy.get_instance()),
+            Mount("/agui", app=create_agui_app(lock)),
             Mount("/", app=wsgi_app),
         ]
     )
