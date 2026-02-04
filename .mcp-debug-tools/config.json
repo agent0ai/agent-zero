@@ -1,7 +1,7 @@
 {
-  "vscodeInstanceId": "vscode-89312-1770198136158",
+  "vscodeInstanceId": "vscode-17823-1770239197390",
   "port": 8891,
-  "pid": 89312,
-  "workspacePath": "/home/dizzleton/agent-zero",
-  "workspaceName": "agent-zero"
+  "pid": 17823,
+  "workspacePath": "/home/dizzleton/agent-zero.worktrees/main",
+  "workspaceName": "main"
 }
