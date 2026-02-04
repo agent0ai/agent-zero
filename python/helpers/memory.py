@@ -308,7 +308,7 @@ class Memory:
                 log_item,
                 abs_knowledge_dir(kn_dir),
                 index,
-                {"area": Memory.Area.MAIN},
+                {"area": Memory.Area.MAIN.value},
                 filename_pattern="*",
                 recursive=False,
             )
