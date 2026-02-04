@@ -61,8 +61,16 @@
         display: inline-flex;
         align-items: center;
         gap: 0.3em;
-        padding-left: 0.5em;
-        padding-right: 0.5em;
+        padding: 0 0.5em;
+        height: 36px;
+        min-height: 36px;
+    }
+
+    @media (max-width: 768px) {
+        .project-dropdown-button {
+            height: 40px;
+            min-height: 40px;
+        }
     }
 </style>
 </html>
