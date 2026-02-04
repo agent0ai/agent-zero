@@ -1,5 +1,5 @@
-from agent import AgentConfig
-import models
+from agent.agent import AgentConfig
+from models import ModelType, ModelConfig
 from python.helpers import runtime, settings, defer
 from python.helpers.print_style import PrintStyle
 
@@ -28,8 +28,8 @@ def initialize_agent(override_settings: dict | None = None):
         return result
 
     # chat model from user settings
-    chat_llm = models.ModelConfig(
-        type=models.ModelType.CHAT,
+    chat_llm = ModelConfig(
+        type=ModelType.CHAT,
         provider=current_settings["chat_model_provider"],
         name=current_settings["chat_model_name"],
         api_base=current_settings["chat_model_api_base"],
@@ -42,8 +42,8 @@ def initialize_agent(override_settings: dict | None = None):
     )
 
     # utility model from user settings
-    utility_llm = models.ModelConfig(
-        type=models.ModelType.CHAT,
+    utility_llm = ModelConfig(
+        type=ModelType.CHAT,
         provider=current_settings["util_model_provider"],
         name=current_settings["util_model_name"],
         api_base=current_settings["util_model_api_base"],
@@ -54,8 +54,8 @@ def initialize_agent(override_settings: dict | None = None):
         kwargs=_normalize_model_kwargs(current_settings["util_model_kwargs"]),
     )
     # embedding model from user settings
-    embedding_llm = models.ModelConfig(
-        type=models.ModelType.EMBEDDING,
+    embedding_llm = ModelConfig(
+        type=ModelType.EMBEDDING,
         provider=current_settings["embed_model_provider"],
         name=current_settings["embed_model_name"],
         api_base=current_settings["embed_model_api_base"],
@@ -63,8 +63,8 @@ def initialize_agent(override_settings: dict | None = None):
         kwargs=_normalize_model_kwargs(current_settings["embed_model_kwargs"]),
     )
     # browser model from user settings
-    browser_llm = models.ModelConfig(
-        type=models.ModelType.CHAT,
+    browser_llm = ModelConfig(
+        type=ModelType.CHAT,
         provider=current_settings["browser_model_provider"],
         name=current_settings["browser_model_name"],
         api_base=current_settings["browser_model_api_base"],
