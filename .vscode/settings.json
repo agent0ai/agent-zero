@@ -21,5 +21,9 @@
     "python.testing.pytestEnabled": true,
     "python-envs.defaultEnvManager": "ms-python.python:venv",
     "python-envs.pythonProjects": [],
-    "python.analysis.autoImportCompletions": true
+    "python.analysis.autoImportCompletions": true,
+    "DockerRun.DisableDockerrc": true,
+    "DockerRun.Containers": [
+        "caa019b0d5d2"
+    ]
 }
