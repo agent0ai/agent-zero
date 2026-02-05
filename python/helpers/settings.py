@@ -592,6 +592,11 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 _get_api_key_field(settings, pid_lower, provider["label"])
             )
 
+    # Add Olostep API key for web scraping and search
+    api_keys_fields.append(
+        _get_api_key_field(settings, "olostep", "Olostep (Web Scraping & Search)")
+    )
+
     api_keys_section: SettingsSection = {
         "id": "api_keys",
         "title": "API Keys",
