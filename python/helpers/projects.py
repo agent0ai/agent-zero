@@ -479,7 +479,8 @@ def create_project_meta_folders(name: str):
 
     # create knowledge folders
     files.create_dir(get_project_meta_folder(name, PROJECT_KNOWLEDGE_DIR))
-    from python.helpers import memory
+    from python.helpers.plugins import import_plugin_module
+    memory = import_plugin_module("memory", "helpers/memory.py")
 
     for memory_type in memory.Memory.Area:
         files.create_dir(

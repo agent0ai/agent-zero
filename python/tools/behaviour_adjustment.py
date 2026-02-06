@@ -1,4 +1,6 @@
-from python.helpers import files, memory
+from python.helpers import files
+from python.helpers.plugins import import_plugin_module
+memory = import_plugin_module("memory", "helpers/memory.py")
 from python.helpers.tool import Tool, Response
 from agent import Agent
 from python.helpers.log import LogItem

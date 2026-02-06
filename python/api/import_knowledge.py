@@ -1,5 +1,7 @@
 from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files, memory
+from python.helpers import files
+from python.helpers.plugins import import_plugin_module
+memory = import_plugin_module("memory", "helpers/memory.py")
 import os
 from python.helpers.security import safe_filename
 

@@ -18,7 +18,8 @@ from python.helpers import (
     tokens,
     context as context_helper,
     dirty_json,
-    subagents
+    subagents,
+    plugins
 )
 from python.helpers.print_style import PrintStyle
 
@@ -645,6 +646,10 @@ class Agent:
 
     def parse_prompt(self, _prompt_file: str, **kwargs):
         dirs = subagents.get_paths(self, "prompts")
+
+        # Plugin prompt paths
+        dirs.extend(plugins.get_plugin_paths("prompt"))
+        
         prompt = files.parse_file(
             _prompt_file, _directories=dirs, _agent=self, **kwargs
         )
@@ -652,6 +657,10 @@ class Agent:
 
     def read_prompt(self, file: str, **kwargs) -> str:
         dirs = subagents.get_paths(self, "prompts")
+        
+        # Plugin prompt paths
+        dirs.extend(plugins.get_plugin_paths("prompt"))
+
         prompt = files.read_prompt_file(file, _directories=dirs, _agent=self, **kwargs)
         if files.is_full_json_template(prompt):
             prompt = files.remove_code_fences(prompt)
@@ -987,6 +996,11 @@ class Agent:
 
         # search for tools in agent's folder hierarchy
         paths = subagents.get_paths(self, "tools", name + ".py", default_root="python")
+        
+        # Add plugin tool paths
+        plugin_paths = plugins.get_plugin_paths("tool", name + ".py")
+        paths.extend(plugin_paths)
+        
         for path in paths:
             try:
                 classes = extract_tools.load_classes_from_file(path, Tool)  # type: ignore[arg-type]

@@ -1,5 +1,7 @@
 from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files, memory, notification, projects, notification
+from python.helpers import files, notification, projects, notification
+from python.helpers.plugins import import_plugin_module
+memory = import_plugin_module("memory", "helpers/memory.py")
 import os
 from werkzeug.utils import secure_filename
 

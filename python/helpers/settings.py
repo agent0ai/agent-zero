@@ -629,7 +629,9 @@ def _apply_settings(previous: Settings | None):
             or _settings["embed_model_provider"] != previous["embed_model_provider"]
             or _settings["embed_model_kwargs"] != previous["embed_model_kwargs"]
         ):
-            from python.helpers.memory import reload as memory_reload
+            from python.helpers.plugins import import_plugin_module
+            memory = import_plugin_module("memory", "helpers/memory.py")
+            memory_reload = memory.reload
 
             memory_reload()
 

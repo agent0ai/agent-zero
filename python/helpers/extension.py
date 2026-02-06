@@ -27,10 +27,15 @@ class Extension:
 async def call_extensions(
     extension_point: str, agent: "Agent|None" = None, **kwargs
 ) -> Any:
-    from python.helpers import projects, subagents
+    from python.helpers import projects, subagents, plugins
 
     # search for extension folders in all agent's paths
     paths = subagents.get_paths(agent, "extensions", extension_point, default_root="python")
+    
+    # Add plugin extension paths
+    plugin_paths = plugins.get_plugin_paths("extension", extension_point)
+    paths.extend(plugin_paths)
+    
     all_exts = [cls for path in paths for cls in _get_extensions(path)]
 
     # merge: first ocurrence of file name is the override

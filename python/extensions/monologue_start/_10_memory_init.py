@@ -1,13 +1,8 @@
-from python.helpers.extension import Extension
-from agent import LoopData
-from python.helpers import memory
-import asyncio
+"""Memory initialization extension - implementation provided by the memory plugin."""
+from python.helpers.plugins import import_plugin_module
 
+# Import the actual implementation from the plugin
+_mod = import_plugin_module("memory", "extensions/monologue_start/_10_memory_init.py")
 
-class MemoryInit(Extension):
-
-    async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-        db = await memory.Memory.get(self.agent)
-        
-
-   
+# Re-export all public names
+globals().update({k: v for k, v in vars(_mod).items() if not k.startswith('_')})
