@@ -35,7 +35,7 @@
                                         title="Edit Memory">
                                     <span class="material-symbols-outlined">edit_document</span>
                                 </button>
-                                <button class="btn btn-action-header delete danger" @click="$store.memoryDashboardStore.deleteMemory($store.memoryDashboardStore.detailMemory)"
+                                <button class="btn btn-action-header delete danger" @click="$confirmClick($event, () => $store.memoryDashboardStore.deleteMemory($store.memoryDashboardStore.detailMemory))"
                                         title="Delete Memory">
                                     <span class="material-symbols-outlined">delete</span>
                                 </button>
@@ -172,6 +172,8 @@
                 gap: 0.25rem;
                 background: var(--color-message-bg);
                 color: var(--color-text);
+                border: 1px solid var(--color-border);
+                cursor: pointer;
             }
         
             .btn-action-header .material-symbols-outlined {
@@ -305,6 +307,41 @@
                 padding: 1.5rem;
                 overflow-y: auto;
                 max-height: 50em;
+            }
+
+            /* Unified scrollbar styling for modal content */
+            .memory-content-display p::-webkit-scrollbar,
+            textarea.memory-content-display::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+
+            .memory-content-display p::-webkit-scrollbar-track,
+            textarea.memory-content-display::-webkit-scrollbar-track {
+                background: transparent;
+                margin: 4px 0;
+                border-radius: 6px;
+            }
+
+            .memory-content-display p::-webkit-scrollbar-thumb,
+            textarea.memory-content-display::-webkit-scrollbar-thumb {
+                background-color: rgba(155, 155, 155, 0.5);
+                border-radius: 6px;
+                transition: background-color 0.2s ease;
+            }
+
+            .memory-content-display p::-webkit-scrollbar-thumb:hover,
+            textarea.memory-content-display::-webkit-scrollbar-thumb:hover {
+                background-color: rgba(155, 155, 155, 0.7);
+            }
+
+            /* Transparent scrollbar for metadata sidebar */
+            .metadata-sidebar {
+                scrollbar-width: none; /* Firefox */
+            }
+
+            .metadata-sidebar::-webkit-scrollbar {
+                display: none; /* Chrome/Safari/Webkit */
             }
         
             .metadata-sidebar h4 {

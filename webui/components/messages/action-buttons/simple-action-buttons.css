@@ -1,116 +1,75 @@
-/* Simplified Action Buttons - Keeping the Great Look & Feel */
+/* ===========================================
+   Action Buttons - Icon-only copy/speak/view details
+   Show on hover for pointer devices, always visible on touch
+   =========================================== */
 
-/* Main action buttons container - precise positioning */
-.action-buttons {
-  position: sticky;
-  height:0;
-  width:fit-content;
-  overflow: visible;
-  top: 0.3em;
-  margin-right:0.1em;
-  margin-left: auto;
-  display: none;
+.step-action-buttons {
+  display: flex;
   flex-direction: row;
-  gap: 0;
-  border-radius: 6px;
-  transition: opacity var(--transition-speed) ease-in-out;
-  z-index: 10;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  pointer-events: none;
 }
 
-/* Individual action button - precise hit area */
-.action-buttons .action-button {
+.step-action-buttons .action-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  background: transparent;
+  border: none;
+  padding: 2px;
   cursor: pointer;
-  background-color: var(--color-background);
-  /* border: 1px solid var(--color-border); */
-  /* transition: background-color var(--transition-speed) ease-in-out; */
-  color: var(--color-text);
-  padding: 0;
-  font-size: 14px;
-  /* opacity: 0.7; */
-  margin: 0;
 }
 
-.action-buttons .action-button:first-child {
-  border-radius: 5px 0 0 5px;
-}
-
-.action-buttons .action-button:last-child {
-  border-radius: 0 5px 5px 0;
-}
-
-.action-buttons .action-button:hover {
-  opacity: 1;
-  background: var(--color-panel);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-}
-
-.action-buttons .action-button:active {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* Material icons - same as original */
-.action-buttons .action-button .material-symbols-outlined {
-  font-size: 16px;
+.step-action-buttons .action-button .material-symbols-outlined {
+  font-size: 0.85rem;
   line-height: 1;
+  color: var(--color-message-text);
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  transition: color 0.15s ease;
 }
 
-/* Success state - same as original */
-.action-buttons .action-button.success {
-  background: #4CAF50;
-  border-color: #4CAF50;
-  color: white;
+.step-action-buttons .action-button:hover .material-symbols-outlined {
+  color: var(--color-text);
 }
 
-.action-buttons .action-button.success .material-symbols-outlined {
+/* Success state */
+.step-action-buttons .action-button.success .material-symbols-outlined {
+  color: #4CAF50;
   font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
 }
 
-/* Error state - same as original */
-.action-buttons .action-button.error {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: white;
-}
-
-.action-buttons .action-button.error .material-symbols-outlined {
+/* Error state */
+.step-action-buttons .action-button.error .material-symbols-outlined {
+  color: var(--color-accent);
   font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
 }
 
-/* Speaking state - same as original */
-.action-buttons .action-button.speaking {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
-  animation: pulse 2s infinite;
+/* User messages: right-aligned */
+.message-user .step-action-buttons {
+  justify-content: flex-end;
+  width: 100%;
 }
 
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
+/* ===========================================
+   Hover behavior - Pointer devices
+   =========================================== */
+
+.device-pointer .message-user:hover .step-action-buttons,
+.device-pointer .message-agent-response:hover .step-action-buttons,
+.device-pointer .process-step:hover > .process-step-detail .step-action-buttons {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-/* Show action buttons on hover - simplified, no device detection needed */
-.msg-content:hover .action-buttons,
-/* .kvps-row:hover .action-buttons, */
-.message-text:hover .action-buttons,
-.kvps-val:hover .action-buttons,
-.message-body:hover > .action-buttons {
-  display: flex;
-  animation: fadeInAfterDelay 0.3s ease-in-out;
-  animation-delay: 0.3s;
-  animation-fill-mode: forwards;
-  opacity: 0;
-}
+/* ===========================================
+   Touch devices - Always visible
+   =========================================== */
 
-/* Animation to fade in action buttons after delay */
-@keyframes fadeInAfterDelay {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+.device-touch .step-action-buttons {
+  opacity: 1;
+  pointer-events: auto;
 }

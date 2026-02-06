@@ -1,0 +1,69 @@
+<!--
+  Reusable Dropdown Component
+  
+  Usage:
+  <x-component data-component="ui/dropdown" data-props='{"id": "my-dropdown"}'>
+    <template x-slot:trigger>
+      <button>Click me</button>
+    </template>
+    <template x-slot:menu>
+      <button class="dropdown-item" @click="...">Item 1</button>
+      <div class="dropdown-separator"></div>
+      <button class="dropdown-item" @click="...">Item 2</button>
+    </template>
+  </x-component>
+  
+  Or use the simpler inline approach with x-data:
+  <div class="dropdown" x-data="{ open: false }" @click.outside="open = false">
+    <button class="dropdown-trigger" @click="open = !open">...</button>
+    <div class="dropdown-menu" x-show="open" x-transition>...</div>
+  </div>
+-->
+<html>
+<head>
+  <!-- Dropdown uses global styles from index.css -->
+</head>
+<body>
+  <div 
+    class="dropdown" 
+    x-data="{ 
+      open: false,
+      toggle() { this.open = !this.open; },
+      close() { this.open = false; }
+    }"
+    @click.outside="close()"
+    @keydown.escape.window="close()"
+  >
+    <!-- Trigger slot -->
+    <div class="dropdown-trigger-wrapper" @click="toggle()">
+      <slot name="trigger">
+        <button class="dropdown-trigger" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+      </slot>
+    </div>
+
+    <!-- Menu slot -->
+    <div 
+      class="dropdown-menu"
+      x-show="open"
+      @click="close()"
+    >
+      <slot name="menu">
+        <!-- Default empty menu -->
+      </slot>
+    </div>
+  </div>
+
+  <style>
+    /* Component-specific styles (layout helpers) */
+    .dropdown-trigger-wrapper {
+      display: contents;
+    }
+    
+  </style>
+</body>
+</html>
+

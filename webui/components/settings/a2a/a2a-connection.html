@@ -10,39 +10,94 @@
         <p>Other agents can connect using the URL below (replace host if needed):</p>
 
         <!-- API Token Information -->
-        <div
-            style="background-color: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; margin: 16px 0;">
-            <h4 style="margin: 0 0 8px 0; color: var(--color-text-primary);">API Token Information</h4>
-            <p style="margin: 0; color: var(--color-text-secondary); font-size: 14px;">
-                The token used in the URL is automatically generated from your username and password.
-                This same token is also used for external API endpoints. The token changes when you update your
-                credentials.
-            </p>
+        <div x-data>
+            <template x-if="$store.settingsStore.settings">
+                <div style="background-color: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; margin: 16px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: var(--color-text-primary);">API Token Information</h4>
+                    <p style="margin: 0 0 8px 0; color: var(--color-text-secondary); font-size: 14px;">
+                        The token used in the URL is automatically generated from your username and password.
+                        This same token is also used for external API endpoints. The token changes when you update your
+                        credentials.
+                    </p>
+                    <div style="margin-top: 8px;">
+                        <label style="display: block; margin-bottom: 4px; color: var(--color-text-secondary); font-size: 12px; font-weight: 600;">Token:</label>
+                        <input type="text" readonly x-model="$store.settingsStore.settings.mcp_server_token" style="width: 100%; padding: 6px 8px; background-color: var(--color-bg-primary); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: 4px; font-family: monospace; font-size: 13px;" />
+                    </div>
+                </div>
+            </template>
         </div>
 
         <h3>A2A Connection URL</h3>
+
+        <!-- Project selector -->
+        <div style="margin: 16px 0;">
+            <label for="a2a-project-select" style="display: block; margin-bottom: 8px; color: var(--color-text-primary);">
+                Select Project (optional):
+            </label>
+            <select id="a2a-project-select" style="width: 100%; padding: 8px; background-color: var(--color-bg-secondary); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: 4px;">
+                <option value="">No project</option>
+            </select>
+        </div>
+
         <div id="a2a-connection-example"></div>
 
         <script>
-            setTimeout(() => {
+            (async () => {
+                const API = await import("/js/api.js");
                 const url = window.location.origin;
-                // Try to get a2a_token first, fallback to mcp_server_token
-                let tokenField = null;
+                
+                // Fetch token from settings API - try a2a_token first, fallback to mcp_server_token
+                let token = "";
                 try {
-                    const allFields = settingsModalProxy.settings.sections.flatMap(s => s.fields);
-                    tokenField = allFields.find(f => f.id === 'a2a_token') || allFields.find(f => f.id === 'mcp_server_token');
-                } catch (e) { }
-                const token = tokenField ? tokenField.value : '';
-                const connectionUrl = `${url}/a2a/t-${token}`;
+                    const response = await API.callJsonApi("settings_get", null);
+                    token = response?.settings?.mcp_server_token || "";
+                } catch (e) {
+                    console.error("Failed to fetch token:", e);
+                }
 
+                // Fetch and populate projects
+                const projectSelect = document.getElementById('a2a-project-select');
+                try {
+                    const response = await fetch('/projects', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'list' })
+                    });
+                    const data = await response.json();
+                    if (data.ok && data.data) {
+                        data.data.forEach(project => {
+                            const option = document.createElement('option');
+                            option.value = project.name;
+                            option.textContent = project.title || project.name;
+                            projectSelect.appendChild(option);
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to load projects:', e);
+                }
+
+                // Function to update URL based on selected project
+                function updateConnectionUrl() {
+                    const selectedProject = projectSelect.value;
+                    let connectionUrl = `${url}/a2a/t-${token}`;
+                    if (selectedProject) {
+                        connectionUrl += `/p-${selectedProject}`;
+                    }
+                    editor.setValue(connectionUrl);
+                    editor.clearSelection();
+                }
+
+                // Initialize editor
                 const editor = ace.edit("a2a-connection-example");
                 const dark = localStorage.getItem("darkMode");
                 editor.setTheme(dark !== "false" ? "ace/theme/github_dark" : "ace/theme/tomorrow");
                 editor.session.setMode("ace/mode/text");
-                editor.setValue(connectionUrl);
-                editor.clearSelection();
+                updateConnectionUrl();
                 editor.setReadOnly(true);
-            }, 0);
+
+                // Update URL when project selection changes
+                projectSelect.addEventListener('change', updateConnectionUrl);
+            })();
         </script>
     </div>
 

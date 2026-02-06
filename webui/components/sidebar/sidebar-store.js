@@ -86,6 +86,19 @@ const model = {
   isMobile() {
     return window.innerWidth <= 768;
   },
+
+  // Dropdown positioning for quick-actions (fixed position to escape overflow:hidden)
+  dropdownStyle: {},
+  
+  updateDropdownPosition(triggerElement) {
+    if (!triggerElement) return;
+    const rect = triggerElement.getBoundingClientRect();
+    this.dropdownStyle = {
+      top: `${rect.bottom + 8}px`,
+      left: `${rect.left}px`,
+      width: `${rect.width}px`
+    };
+  },
 };
 
 export const store = createStore("sidebar", model);

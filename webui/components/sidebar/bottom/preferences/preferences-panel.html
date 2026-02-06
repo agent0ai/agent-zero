@@ -21,37 +21,47 @@
           <ul class="config-list collapse" id="preferences-collapse"
               x-effect="(() => { const c = bootstrap.Collapse.getOrCreateInstance($el, { toggle: false }); $store.sidebar.isSectionOpen('preferences') ? c.show() : c.hide(); })()">
             <li x-data>
-              <span>Autoscroll</span>
-              <label class="switch">
-                <input id="auto-scroll-switch" type="checkbox" x-model="$store.preferences.autoScroll">
-                <span class="slider"></span>
-              </label>
-            </li>
-            <li x-data>
               <span class="switch-label">Dark mode</span>
               <label class="switch">
                 <input type="checkbox" x-model="$store.preferences.darkMode">
                 <span class="slider"></span>
               </label>
             </li>
+            <li x-data class="chat-width-setting">
+              <span class="width-label">Width</span>
+              <div class="width-buttons">
+                <template x-for="(opt, idx) in $store.preferences.chatWidthOptions" :key="opt.value">
+                  <span class="width-btn-wrapper">
+                    <button type="button" 
+                            class="width-btn"
+                            :class="{ 'active': $store.preferences.chatWidth === opt.value }"
+                            @click="$store.preferences.chatWidth = opt.value"
+                            x-text="opt.label"></button>
+                    <span class="width-sep" x-show="idx < $store.preferences.chatWidthOptions.length - 1">·</span>
+                  </span>
+                </template>
+              </div>
+            </li>
+            <li x-data class="detail-mode-setting">
+              <span class="detail-label">Detail</span>
+              <div class="detail-buttons">
+                <template x-for="(opt, idx) in $store.preferences.detailModeOptions" :key="opt.value">
+                  <span class="detail-btn-wrapper">
+                    <button type="button" 
+                            class="detail-btn"
+                            :class="{ 'active': $store.preferences.detailMode === opt.value }"
+                            @click="$store.preferences.detailMode = opt.value"
+                            :title="opt.title"
+                            x-text="opt.label"></button>
+                    <span class="detail-sep" x-show="idx < $store.preferences.detailModeOptions.length - 1">·</span>
+                  </span>
+                </template>
+              </div>
+            </li>
             <li x-data>
               <span class="switch-label">Speech</span>
               <label class="switch">
                 <input type="checkbox" x-model="$store.preferences.speech">
-                <span class="slider"></span>
-              </label>
-            </li>
-            <li x-data>
-              <span>Show thoughts</span>
-              <label class="switch">
-                <input type="checkbox" x-model="$store.preferences.showThoughts">
-                <span class="slider"></span>
-              </label>
-            </li>
-            <li x-data>
-              <span>Show JSON</span>
-              <label class="switch">
-                <input type="checkbox" x-model="$store.preferences.showJson">
                 <span class="slider"></span>
               </label>
             </li>
@@ -108,6 +118,93 @@
       margin-left: auto;
     }
     .pref-section li { display: flex; align-items: center; }
+
+    /* Chat width button bar */
+    .chat-width-setting {
+      gap: 0.25rem;
+    }
+    .chat-width-setting .width-label {
+      flex: 1;
+    }
+    .width-buttons {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .width-btn-wrapper {
+      display: flex;
+      align-items: center;
+    }
+    .width-btn {
+      background: none;
+      border: none;
+      color: var(--color-primary);
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      padding: 0.15rem 0.25rem;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+    .width-btn:hover {
+      opacity: 0.85;
+    }
+    .width-btn.active {
+      opacity: 1;
+      color: var(--color-text);
+    }
+    .width-sep {
+      color: var(--color-text-secondary, #666);
+      font-size: 0.6rem;
+      margin: 0 0.1rem;
+      opacity: 0.5;
+    }
+
+    /* Detail mode button bar */
+    .detail-mode-setting {
+      gap: 0.25rem;
+    }
+    .detail-mode-setting .detail-label {
+      flex: 1;
+    }
+    .detail-buttons {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .detail-btn-wrapper {
+      display: flex;
+      align-items: center;
+    }
+    .detail-btn {
+      background: none;
+      border: none;
+      color: var(--color-primary);
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      padding: 0.15rem 0.25rem;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.15s ease;
+    }
+    .detail-btn .material-symbols-outlined {
+      font-size: 1rem;
+    }
+    .detail-btn:hover {
+      opacity: 0.85;
+    }
+    .detail-btn.active {
+      opacity: 1;
+      color: var(--color-text);
+    }
+    .detail-sep {
+      color: var(--color-text-secondary, #666);
+      font-size: 0.6rem;
+      margin: 0 0.1rem;
+      opacity: 0.5;
+    }
   </style>
 </body>
 </html>

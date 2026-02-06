@@ -1,7 +1,8 @@
 import yaml
 from python.helpers import files
-from typing import List, Dict, Optional, TypedDict
+from typing import List, Dict, Optional, TypedDict, Literal
 
+ModelType = Literal["chat", "embedding"]
 
 # Type alias for UI option items
 class FieldOption(TypedDict):
@@ -68,16 +69,15 @@ class ProviderManager:
                     opts.append({"value": pid, "label": name})
             self._options[p_type] = opts
 
-    def get_providers(self, provider_type: str) -> List[FieldOption]:
+    def get_providers(self, provider_type: ModelType) -> List[FieldOption]:
         """Returns a list of providers for a given type (e.g., 'chat', 'embedding')."""
         return self._options.get(provider_type, []) if self._options else []
 
-
-    def get_raw_providers(self, provider_type: str) -> List[Dict[str, str]]:
+    def get_raw_providers(self, provider_type: ModelType) -> List[Dict[str, str]]:
         """Return raw provider dictionaries for advanced use-cases."""
         return self._raw.get(provider_type, []) if self._raw else []
 
-    def get_provider_config(self, provider_type: str, provider_id: str) -> Optional[Dict[str, str]]:
+    def get_provider_config(self, provider_type: ModelType, provider_id: str) -> Optional[Dict[str, str]]:
         """Return the metadata dict for a single provider id (case-insensitive)."""
         provider_id_low = provider_id.lower()
         for p in self.get_raw_providers(provider_type):
@@ -86,16 +86,16 @@ class ProviderManager:
         return None
 
 
-def get_providers(provider_type: str) -> List[FieldOption]:
+def get_providers(provider_type: ModelType) -> List[FieldOption]:
     """Convenience function to get providers of a specific type."""
     return ProviderManager.get_instance().get_providers(provider_type)
 
 
-def get_raw_providers(provider_type: str) -> List[Dict[str, str]]:
+def get_raw_providers(provider_type: ModelType) -> List[Dict[str, str]]:
     """Return full metadata for providers of a given type."""
     return ProviderManager.get_instance().get_raw_providers(provider_type)
 
 
-def get_provider_config(provider_type: str, provider_id: str) -> Optional[Dict[str, str]]:
+def get_provider_config(provider_type: ModelType, provider_id: str) -> Optional[Dict[str, str]]:
     """Return metadata for a single provider (None if not found)."""
-    return ProviderManager.get_instance().get_provider_config(provider_type, provider_id) 
+    return ProviderManager.get_instance().get_provider_config(provider_type, provider_id)

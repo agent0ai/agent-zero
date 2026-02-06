@@ -5,8 +5,8 @@ from python.helpers import files
 from python.helpers.print_style import PrintStyle
 
 
-class CallSubordinate(VariablesPlugin):
-    def get_variables(self, file: str, backup_dirs: list[str] | None = None) -> dict[str, Any]:
+class BuidToolsPrompt(VariablesPlugin):
+    def get_variables(self, file: str, backup_dirs: list[str] | None = None, **kwargs) -> dict[str, Any]:
 
         # collect all prompt folders in order of their priority
         folder = files.get_abs_path(os.path.dirname(file))
@@ -22,7 +22,7 @@ class CallSubordinate(VariablesPlugin):
         tools = []
         for prompt_file in prompt_files:
             try:
-                tool = files.read_prompt_file(prompt_file)
+                tool = files.read_prompt_file(prompt_file, **kwargs)
                 tools.append(tool)
             except Exception as e:
                 PrintStyle().error(f"Error loading tool '{prompt_file}': {e}")

@@ -4,6 +4,7 @@
     import { store } from "/components/chat/input/input-store.js";
     import { store as historyStore } from "/components/modals/history/history-store.js";
     import { store as contextStore } from "/components/modals/context/context-store.js";
+    import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
   </script>
 </head>
 <body>
@@ -22,6 +23,16 @@
                 </svg>
             </template>
             <span x-text="$store.chatInput.paused ? 'Resume Agent' : 'Pause Agent'"></span>
+        </button>
+
+        <button class="text-button" @click="$confirmClick($event, () => $store.chats.resetChat())" :disabled="!$store.chats.selected">
+            <span class="material-symbols-outlined">delete_sweep</span>
+            <p>Clear Chat</p>
+        </button>
+
+        <button class="text-button" @click="$store.chats.saveChat()" :disabled="!$store.chats.selected">
+            <span class="material-symbols-outlined">save</span>
+            <p>Save Chat</p>
         </button>
 
         <button class="text-button" @click="$store.chatInput.loadKnowledge()">
@@ -69,12 +80,14 @@
   <style>
         .text-buttons-row { width: 100%; display: flex; padding-top: var(--spacing-xs); margin-left: var(--spacing-xs); }
         .text-button { background-color: transparent; border: none; border-radius: 5px; color: var(--color-text); font-family: "Rubik", Arial, Helvetica, sans-serif; font-size: 0.6rem; padding: 6px var(--spacing-sm); cursor: pointer; opacity: 0.8; -webkit-transition: all 0.3s; transition: all 0.3s; display: flex; align-items: center; gap: var(--spacing-xs); }
-        .text-button:hover { opacity: 1; background-color: var(--color-secondary); border-radius: 4px; }
-        .text-button:active { opacity: 0.5; }
+        .text-button:hover:not(:disabled) { opacity: 1; background-color: var(--color-background-hover); border-radius: 4px; }
+        .text-button:active:not(:disabled) { opacity: 0.5; }
+        .text-button:disabled { opacity: 0.4; cursor: not-allowed; }
         .text-button svg { width: 14px; height: 14px; flex-shrink: 0; }
+        .text-button .material-symbols-outlined { font-size: 14px; flex-shrink: 0; }
         .text-button p { margin-block: 0; }
 
-        @media (max-width: 768px) { .text-buttons-row { width: 90%; display: flex; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { font-size: 0.6rem; } .text-button svg { width: 18px; height: 18px; flex-shrink: 0; } }
+        @media (max-width: 768px) { .text-buttons-row { width: 90%; display: flex; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { font-size: 0.6rem; } .text-button svg { width: 18px; height: 18px; flex-shrink: 0; } .text-button .material-symbols-outlined { font-size: 18px; } }
         @media (max-width: 640px) { .text-buttons-row { display: flex; width: 90%; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { max-height: 25px; } .text-button p { display: none; } }
     </style>
 </body>

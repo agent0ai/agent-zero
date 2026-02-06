@@ -12,15 +12,21 @@
     <div x-data>
         <template x-if="$store.imageViewer">
             <div id="image-viewer-wrapper" class="image-modal-container">
-                <!-- Image display area -->
-                <div class="image-display-wrapper">
+                <!-- Image canvas for panning -->
+                <div class="image-canvas"
+                    @pointerdown="$store.imageViewer.startDrag($event)"
+                    @pointermove="$store.imageViewer.onDrag($event)"
+                    @pointerup="$store.imageViewer.endDrag()"
+                    @pointercancel="$store.imageViewer.endDrag()">
                     <img 
                         x-show="$store.imageViewer.currentImageUrl" 
                         :src="$store.imageViewer.currentImageUrl" 
                         :alt="$store.imageViewer.currentImageName || 'Image'"
                         class="modal-image"
-                        @load="$store.imageViewer.imageLoaded = true"
+                        :class="{ 'dragging': $store.imageViewer.isDragging }"
+                        @load="$store.imageViewer.onImageLoad($event)"
                         @error="$store.imageViewer.imageError = true"
+                        draggable="false"
                     />
                     
                     <!-- Loading indicator -->
@@ -35,11 +41,17 @@
                     </div>
                 </div>
 
-                <!-- Simple zoom controls -->
+                <!-- Fixed zoom controls - OUTSIDE the canvas -->
                 <div class="zoom-controls">
-                    <button @click="$store.imageViewer.zoomOut()" class="zoom-btn" title="Zoom Out">−</button>
-                    <button @click="$store.imageViewer.resetZoom()" class="zoom-btn" title="Reset">⌂</button>
-                    <button @click="$store.imageViewer.zoomIn()" class="zoom-btn" title="Zoom In">+</button>
+                    <button type="button" @click="$store.imageViewer.zoomOut()" class="button zoom-btn">
+                        <span class="icon material-symbols-outlined">zoom_out</span>
+                    </button>
+                    <button type="button" @click="$store.imageViewer.resetZoom()" class="button zoom-btn">
+                        <span class="icon material-symbols-outlined">home</span>
+                    </button>
+                    <button type="button" @click="$store.imageViewer.zoomIn()" class="button zoom-btn">
+                        <span class="icon material-symbols-outlined">zoom_in</span>
+                    </button>
                 </div>
             </div>
         </template>
@@ -48,39 +60,46 @@
     <style>
         .image-modal-container {
             width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            height: 70vh;
             position: relative;
             background: var(--color-bg-secondary);
-        }
-
-        .image-display-wrapper {
-            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: auto;
+        }
+
+        .image-canvas {
             width: 100%;
             height: 100%;
-            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            overflow: hidden;
+            touch-action: none;
+            background: repeating-linear-gradient(45deg, var(--color-panel) 0 10px, var(--color-chat-background) 10px 20px);
+        }
+
+        .image-canvas:active {
+            cursor: grabbing;
         }
 
         .modal-image {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            transition: transform 0.2s ease;
-            cursor: grab;
+            user-select: none;
+            -webkit-user-drag: none;
+            pointer-events: none;
         }
 
-        .modal-image:active {
-            cursor: grabbing;
+        .modal-image.zoomed {
+            max-width: none;
+            max-height: none;
         }
 
         .loading-indicator, .error-indicator {
+            position: absolute;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -114,6 +133,7 @@
             padding: 6px;
             border-radius: 12px;
             backdrop-filter: blur(5px);
+            z-index: 100;
         }
 
         .zoom-btn {
@@ -135,11 +155,6 @@
 
         .zoom-btn:hover {
             background: rgba(255, 255, 255, 0.15);
-        }
-
-        /* Dark mode adjustments */
-        .dark-mode .image-modal-container {
-            background: var(--color-bg-secondary);
         }
     </style>
 

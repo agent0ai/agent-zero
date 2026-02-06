@@ -8,7 +8,7 @@ fastmcp==2.3.4
 fasta2a==0.5.0
 flask[async]==3.0.3
 flask-basicauth==0.2.0
-flaredantic==0.1.4
+flaredantic==0.1.5
 GitPython==3.1.43
 inputimeout==1.0.4
 kokoro>=0.9.2
@@ -45,5 +45,6 @@ soundfile==0.13.1
 imapclient>=3.0.1
 html2text>=2024.2.26
 beautifulsoup4>=4.12.3
+boto3>=1.35.0
 exchangelib>=5.4.3
 pywinpty==3.0.2; sys_platform == "win32"

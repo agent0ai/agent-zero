@@ -35,7 +35,6 @@ class InitialMessage(Extension):
         # Add to log (green bubble) for immediate UI display
         self.agent.context.log.log(
             type="response",
-            heading=f"{self.agent.agent_name}: Welcome",
             content=initial_message_text,
             finished=True,
             update_progress="none",

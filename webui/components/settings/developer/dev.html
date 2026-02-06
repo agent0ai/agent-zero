@@ -1,0 +1,86 @@
+<html>
+  <head>
+    <title>Development</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore.settings">
+        <div>
+          <div class="section-title">Development</div>
+          <div class="section-description">
+            Parameters for A0 framework development. RFCs (remote function calls) are used to call functions on another A0 instance. You can develop and debug A0 natively on your local system while redirecting some functions to A0 instance in docker. This is crucial for development as A0 needs to run in standardized environment to support all features.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Shell Interface</div>
+              <div class="field-description">
+                Terminal interface used for Code Execution Tool. Local Python TTY works locally in both dockerized and development environments. SSH always connects to dockerized environment (automatically at localhost or RFC host address).
+              </div>
+            </div>
+            <div class="field-control">
+              <select x-model="$store.settingsStore.settings.shell_interface">
+                <template x-for="option in $store.settingsStore.additional?.shell_interfaces" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.shell_interface" x-text="option.label"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <template x-if="!$store.settingsStore.additional?.is_dockerized">
+            <div>
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">RFC Destination URL</div>
+                  <div class="field-description">
+                    URL of dockerized A0 instance for remote function calls. Do not specify port here.
+                  </div>
+                </div>
+                <div class="field-control">
+                  <input type="text" x-model="$store.settingsStore.settings.rfc_url" />
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">RFC Password</div>
+              <div class="field-description">
+                Password for remote function calls. Passwords must match on both instances. RFCs can not be used with empty password.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="password" autocomplete="off" x-model="$store.settingsStore.settings.rfc_password" />
+            </div>
+          </div>
+
+          <template x-if="!$store.settingsStore.additional?.is_dockerized">
+            <div>
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">RFC HTTP port</div>
+                  <div class="field-description">HTTP port for dockerized instance of A0.</div>
+                </div>
+                <div class="field-control">
+                  <input type="number" x-model.number="$store.settingsStore.settings.rfc_port_http" />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">RFC SSH port</div>
+                  <div class="field-description">SSH port for dockerized instance of A0.</div>
+                </div>
+                <div class="field-control">
+                  <input type="number" x-model.number="$store.settingsStore.settings.rfc_port_ssh" />
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

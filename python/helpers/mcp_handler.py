@@ -90,7 +90,6 @@ def initialize_mcp(mcp_servers_config: str):
             AgentContext.log_to_all(
                 type="warning",
                 content=f"Failed to update MCP settings: {e}",
-                temp=False,
             )
 
             PrintStyle(

@@ -1,0 +1,50 @@
+<html>
+  <head>
+    <title>Agent Config</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore.settings">
+        <div>
+          <div class="section-title">Agent Config</div>
+          <div class="section-description">
+            Agent parameters.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Default agent profile</div>
+              <div class="field-description">
+                Subdirectory of /agents folder to be used by default agent no. 0. Subordinate agents can be spawned with other profiles, that is on their superior agent to decide. This setting affects the behaviour of the top level agent you communicate with.
+              </div>
+            </div>
+            <div class="field-control">
+              <select x-model="$store.settingsStore.settings.agent_profile">
+                <template x-for="option in $store.settingsStore.additional?.agent_subdirs" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.agent_profile" x-text="option.label"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Knowledge subdirectory</div>
+              <div class="field-description">
+                Subdirectory of /knowledge folder to use for agent knowledge import. 'default' subfolder is always imported and contains framework knowledge.
+              </div>
+            </div>
+            <div class="field-control">
+              <select x-model="$store.settingsStore.settings.agent_knowledge_subdir">
+                <template x-for="option in $store.settingsStore.additional?.knowledge_subdirs" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.agent_knowledge_subdir" x-text="option.label"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

@@ -82,7 +82,6 @@ class SSHInteractiveSession:
                     self.logger.log(
                         type="info",
                         content=f"SSH Connection attempt {errors}...",
-                        temp=True,
                     )
                     time.sleep(5)
                 else:

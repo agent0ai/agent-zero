@@ -262,17 +262,17 @@ def _deserialize_log(data: dict[str, Any]) -> "Log":
     # Deserialize the list of LogItem objects
     i = 0
     for item_data in data.get("logs", []):
-        log.logs.append(
-            LogItem(
-                log=log,  # restore the log reference
-                no=i,  # item_data["no"],
-                type=item_data["type"],
-                heading=item_data.get("heading", ""),
-                content=item_data.get("content", ""),
-                kvps=OrderedDict(item_data["kvps"]) if item_data["kvps"] else None,
-                temp=item_data.get("temp", False),
-            )
-        )
+        log.logs.append(LogItem(
+            log=log,  # restore the log reference
+            no=i,  # item_data["no"],
+            type=item_data["type"],
+            heading=item_data.get("heading", ""),
+            content=item_data.get("content", ""),
+            kvps=OrderedDict(item_data["kvps"]) if item_data["kvps"] else None,
+            timestamp=item_data.get("timestamp", 0.0),
+            agentno=item_data.get("agentno", 0),
+            id=item_data.get("id"),
+        ))
         log.updates.append(i)
         i += 1
 

@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+import { store as schedulerStore } from "/components/modals/scheduler/scheduler-store.js";
 
 // Tasks sidebar store: tasks list and selected task id
 const model = {
@@ -50,8 +51,9 @@ const model = {
   },
 
   openDetail(taskId) {
-    if (globalThis.openTaskDetail) {
-      globalThis.openTaskDetail(taskId);
+    // Open lightweight task detail popup directly
+    if (schedulerStore?.showTaskDetail) {
+      schedulerStore.showTaskDetail(taskId);
     }
   },
 
@@ -60,8 +62,8 @@ const model = {
   },
 
   deleteTask(taskId) {
-    if (globalThis.deleteTaskGlobal) {
-      globalThis.deleteTaskGlobal(taskId);
+    if (schedulerStore?.deleteTaskFromSidebar) {
+      schedulerStore.deleteTaskFromSidebar(taskId);
     }
   },
 };

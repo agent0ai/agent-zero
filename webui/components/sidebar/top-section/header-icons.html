@@ -2,18 +2,14 @@
 <head>
   <script type="module">
     import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
+    import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
   </script>
 </head>
 <body>
   <div class="icons-section" id="hide-button" x-data>
     <!-- Sidebar Toggle Button -->
     <button id="toggle-sidebar" class="toggle-sidebar-button" @click="$store.sidebar.toggle()" aria-label="Toggle Sidebar" aria-expanded="false">
-      <span aria-hidden="true">
-        <!-- Hamburger Icon -->
-        <svg id="sidebar-hamburger-svg" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="CurrentColor">
-          <path d="M3 13h18v-2H3v2zm0 4h18v-2H3v2zm0-8h18V7H3v2z"></path>
-        </svg>
-      </span>
+      <span class="material-symbols-outlined" aria-hidden="true">menu</span>
     </button>
 
     <div id="logo-container">
@@ -43,10 +39,14 @@
       -webkit-transition: all var(--transition-speed) ease-in-out;
       transition: all var(--transition-speed) ease-in-out;
     }
-    .toggle-sidebar-button:hover { background-color: var(--color-secondary); opacity: 1; }
+    .toggle-sidebar-button:hover { background-color: var(--color-background-hover); opacity: 1; }
     .toggle-sidebar-button:active { opacity: 0.5; }
-    #sidebar-hamburger-svg { -webkit-transition: all var(--transition-speed) ease; transition: all var(--transition-speed) ease; }
-    .toggle-sidebar-button:active #sidebar-hamburger-svg { -webkit-transform: scaleY(0.8); transform: scaleY(0.8); }
+    .toggle-sidebar-button .material-symbols-outlined { 
+      font-size: 22px;
+      -webkit-transition: all var(--transition-speed) ease; 
+      transition: all var(--transition-speed) ease; 
+    }
+    .toggle-sidebar-button:active .material-symbols-outlined { -webkit-transform: scaleY(0.8); transform: scaleY(0.8); }
 
     #logo-container {
       display: -webkit-flex;

@@ -1,0 +1,34 @@
+<html>
+  <head>
+    <title>API Keys</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settingsStore.settings">
+        <div>
+          <div class="section-title">API Keys</div>
+          <div class="section-description">
+            API keys for model providers and services used by Agent Zero. You can set multiple API keys separated by a comma (,). They will be used in round-robin fashion.<br>
+            For more information about Agent Zero Venice provider, see <a href="http://agent-zero.ai/?community/api-dashboard/about" target="_blank">Agent Zero Venice</a>.
+          </div>
+
+          <template x-for="provider in $store.settingsStore.apiKeyProviders" :key="provider.value">
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title" x-text="provider.label"></div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="text"
+                  x-model="$store.settingsStore.settings.api_keys[provider.value]"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

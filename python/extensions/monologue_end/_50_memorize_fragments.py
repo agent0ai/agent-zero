@@ -114,7 +114,6 @@ class MemorizeMemories(Extension):
                     # memory_log = self.agent.context.log.log(
                     #     type="util",
                     #     heading=f"Processing memory fragment: {txt[:50]}...",
-                    #     temp=False,
                     #     update_progress="none"  # Don't affect status bar
                     # )
 
@@ -133,7 +132,6 @@ class MemorizeMemories(Extension):
                             memory_log.update(
                                 result="Fragment processed successfully",
                                 heading=f"Memory fragment completed: {txt[:50]}...",
-                                temp=False,  # Show completion message
                                 update_progress="none"  # Show briefly then disappear
                             )
                     else:
@@ -141,7 +139,6 @@ class MemorizeMemories(Extension):
                             memory_log.update(
                                 result="Fragment processing failed",
                                 heading=f"Memory fragment failed: {txt[:50]}...",
-                                temp=False,  # Show completion message
                                 update_progress="none"  # Show briefly then disappear
                             )
                     total_processed += 1

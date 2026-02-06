@@ -109,7 +109,7 @@ def initialize_agent(override_settings: dict | None = None):
     #         if first_context:
     #             (
     #                 first_context.log
-    #                 .log(type="warning", content=f"Failed to update MCP settings: {e}", temp=False)
+    #                 .log(type="warning", content=f"Failed to update MCP settings: {e}")
     #             )
     #         (
     #             print_style_helper.PrintStyle(background_color="black", font_color="red", padding=True)

@@ -45,3 +45,79 @@ export function createStore(name, initialState) {
 export function getStore(name) {
   return /** @type {T | undefined} */ (stores.get(name));
 }
+
+/**
+ * Save current state of a store into a plain object, with optional include/exclude filters.
+ * If exclude (blacklist) is provided and non-empty, everything except excluded keys is saved.
+ * Otherwise, if include (whitelist) is provided and non-empty, only included keys are saved.
+ * If both are empty, all own enumerable properties are saved.
+ * @param {object} store
+ * @param {string[]} [include]
+ * @param {string[]} [exclude]
+ * @returns {object}
+ */
+export function saveState(store, include = [], exclude = []) {
+  const hasExclude = Array.isArray(exclude) && exclude.length > 0;
+  const hasInclude = !hasExclude && Array.isArray(include) && include.length > 0;
+
+  /** @type {Record<string, any>} */
+  const snapshot = {};
+
+  for (const key of Object.keys(store)) {
+    if (hasExclude) {
+      if (exclude.includes(key)) continue;
+    } else if (hasInclude) {
+      if (!include.includes(key)) continue;
+    }
+
+    const value = store[key];
+    if (typeof value === "function") continue;
+
+    if (Array.isArray(value)) {
+      snapshot[key] = value.map((item) =>
+        typeof item === "object" && item !== null ? { ...item } : item
+      );
+    } else if (typeof value === "object" && value !== null) {
+      snapshot[key] = { ...value };
+    } else {
+      snapshot[key] = value;
+    }
+  }
+
+  return snapshot;
+}
+
+/**
+ * Load a previously saved state object back into a store, honoring include/exclude filters.
+ * Filtering rules are the same as in saveState.
+ * @param {object} store
+ * @param {object} state
+ * @param {string[]} [include]
+ * @param {string[]} [exclude]
+ */
+export function loadState(store, state, include = [], exclude = []) {
+  if (!state) return;
+
+  const hasExclude = Array.isArray(exclude) && exclude.length > 0;
+  const hasInclude = !hasExclude && Array.isArray(include) && include.length > 0;
+
+  for (const key of Object.keys(state)) {
+    if (hasExclude) {
+      if (exclude.includes(key)) continue;
+    } else if (hasInclude) {
+      if (!include.includes(key)) continue;
+    }
+
+    const value = state[key];
+
+    if (Array.isArray(value)) {
+      store[key] = value.map((item) =>
+        typeof item === "object" && item !== null ? { ...item } : item
+      );
+    } else if (typeof value === "object" && value !== null) {
+      store[key] = { ...value };
+    } else {
+      store[key] = value;
+    }
+  }
+}

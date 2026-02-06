@@ -3,7 +3,7 @@
 <head>
     <title>Memory Dashboard</title>
     <script type="module">
-        import { store } from "/components/settings/memory/memory-dashboard-store.js";
+        import { store } from "/components/modals/memory/memory-dashboard-store.js";
     </script>
 </head>
 
@@ -14,7 +14,7 @@
                 class="memory-dashboard">
 
                 <!-- Search and Filters Section -->
-                <div class="memory-filters-header">
+                <div class="filters-header memory-filters-header">
                     <div class="filter-group-inline filter-memory-dir">
                         <label for="memory-subdir-select">Memory Directory</label>
                         <select id="memory-subdir-select" x-model="$store.memoryDashboardStore.selectedMemorySubdir"
@@ -81,10 +81,10 @@
 
                 <!-- Memory table -->
                 <div x-show="!$store.memoryDashboardStore.loading && !$store.memoryDashboardStore.error"
-                    class="memory-table-container">
+                    class="data-table-container data-table-container-standalone memory-table-container">
 
                     <!-- Status Bar -->
-                    <div class="memory-status-bar" x-show="!$store.memoryDashboardStore.loading">
+                    <div class="data-status-bar" x-show="!$store.memoryDashboardStore.loading">
                         <div class="status-info">
                             <span class="status-item">
                                 <span class="material-symbols-outlined">database</span>
@@ -149,7 +149,7 @@
                             </button>
 
                             <button class="btn btn-mass delete"
-                                @click="$store.memoryDashboardStore.bulkDeleteMemories()"
+                                @click="$confirmClick($event, () => $store.memoryDashboardStore.bulkDeleteMemories())"
                                 title="Delete Selected Memories">
                                 <span class="material-symbols-outlined">delete</span>
                                 Delete
@@ -164,7 +164,7 @@
                     </div>
 
                     <div class="table-wrapper">
-                        <table class="memory-table">
+                        <table class="data-table memory-table">
                             <thead>
                                 <tr>
                                     <th class="col-select">
@@ -236,7 +236,7 @@
                                                 </button>
 
                                                 <button class="btn btn-action delete"
-                                                    @click="$store.memoryDashboardStore.deleteMemory(memory)"
+                                                    @click="$confirmClick($event, () => $store.memoryDashboardStore.deleteMemory(memory))"
                                                     title="Delete Memory">
                                                     <span class="material-symbols-outlined">delete</span>
                                                 </button>
@@ -272,7 +272,7 @@
                             </button>
 
                             <button class="btn btn-mass delete"
-                                @click="$store.memoryDashboardStore.bulkDeleteMemories()"
+                                @click="$confirmClick($event, () => $store.memoryDashboardStore.bulkDeleteMemories())"
                                 title="Delete Selected Memories">
                                 <span class="material-symbols-outlined">delete</span>
                                 Delete
@@ -288,7 +288,7 @@
 
 
                     <!-- Status Bar -->
-                    <div class="memory-status-bar" x-show="!$store.memoryDashboardStore.loading">
+                    <div class="data-status-bar data-status-bar-bottom" x-show="!$store.memoryDashboardStore.loading">
                         <div class="status-info">
                             <span class="status-item">
                                 <span class="material-symbols-outlined">database</span>
@@ -335,7 +335,7 @@
 
                     <!-- No memories message -->
                     <div x-show="$store.memoryDashboardStore.memories.length === 0 && !$store.memoryDashboardStore.message"
-                        class="no-memories">
+                        class="data-empty-state">
                         No memories found matching the current filters.
                     </div>
 
@@ -355,6 +355,7 @@
     </div>
 
     <style>
+        /* Modal footer layout */
         .modal-inner.modal-with-footer {
             display: flex;
             flex-direction: column;
@@ -366,17 +367,13 @@
         .modal-inner.modal-with-footer .modal-footer {
             flex-shrink: 0;
         }
+
+        /* Memory-specific: Grid-based filter header layout */
         .memory-filters-header {
             display: grid;
             grid-template-columns: 35% 25% 10% auto;
             grid-template-rows: auto auto;
-            gap: 0.75rem;
-            align-items: center;
             margin: 1rem 0;
-            padding: 1rem;
-            background: var(--color-panel);
-            border: 1px solid var(--color-border);
-            border-radius: 8px;
         }
 
         /* Grid positioning for desktop - 2 rows */
@@ -399,6 +396,15 @@
         #search-input {
             grid-column: 1 / 3;
             grid-row: 2;
+            flex: 1;
+            border: 1px solid var(--color-border);
+            font-size: 0.9rem;
+            height: 38px;
+        }
+        #search-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: var(--color-input-focus);
         }
         .btn-search {
             grid-column: 3;
@@ -411,223 +417,45 @@
             justify-self: end;
         }
 
-        .filter-group-inline {
-            display: flex;
+        /* Memory-specific filter overrides */
+        .memory-filters-header .filter-group-inline {
             flex: 1;
-            align-items: center;
-            gap: 0.5rem;
         }
-        .filter-group-inline label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--color-text);
-            opacity: 0.8;
-            white-space: nowrap;
-        }
-        .filter-group-inline select,
-        .filter-group-inline input {
-            border: 1px solid var(--color-border);
+        .memory-filters-header .filter-group-inline select,
+        .memory-filters-header .filter-group-inline input {
             flex: 0 auto;
-            min-width: 0;
         }
-        .filter-group-inline select:focus,
-        .filter-group-inline input:focus {
-            outline: none;
-            border-color: var(--color-primary);
-            background: var(--color-input-focus);
-        }
-        .filter-group-inline.filter-limit {
+        .memory-filters-header .filter-group-inline.filter-limit {
             flex: 0 0 auto;
         }
         .filter-limit input {
-            flex: 0 0 150%;
-        }
-        #search-input {
-            flex: 1;
-            border: 1px solid var(--color-border);
-            font-size: 0.9rem;
-            height: 38px;
-        }
-        #search-input:focus {
-            outline: none;
-            border-color: var(--color-primary);
-            background: var(--color-input-focus);
-        }
-        .filter-threshold label {
-            font-size: 0.85rem;
-            opacity: 0.8;
+            flex: 0 0 150% !important;
         }
 
-        .memory-status-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            background: var(--color-panel);
-            border-bottom: 1px solid var(--color-border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-        .status-info {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-        .status-item strong {
-            color: var(--color-primary);
-            font-weight: 600;
-        }
-        .status-item .material-symbols-outlined {
-            font-size: 18px;
-            opacity: 0.6;
-        }
-        .status-separator {
-            color: var(--color-border);
-            margin: 0 0.25rem;
-        }
-        .status-pagination {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-icon {
-            background: transparent;
-            border: 1px solid var(--color-border);
-            color: var(--color-text);
-            padding: 0.25rem;
-            display: flex;
-            align-items: center;
-            font-size: 0;
-        }
-        .btn-icon:hover:not(:disabled) {
-            background: var(--color-panel);
-            border-color: var(--color-primary);
-            color: var(--color-text);
-        }
-        .btn-icon:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-        .btn-icon .material-symbols-outlined {
-            font-size: 20px;
-        }
-
-        .page-input-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .page-input-group label {
-            opacity: 0.8;
-        }
-        .page-total {
-            color: var(--color-text);
-            opacity: 0.8;
-            font-size: 0.85rem;
-            white-space: nowrap;
-        }
-        .page-total strong {
-            color: var(--color-primary);
-            font-weight: 600;
-        }
-        .page-input {
-            width: 60px;
-            padding: 0.25rem 0.5rem;
-            text-align: center;
-            border: 1px solid var(--color-border);
-            background: var(--color-input);
-            color: var(--color-text);
-            border-radius: 4px;
-            font-size: 0.85rem;
-            height: 28px;
-        }
-        .page-input:focus {
-            outline: none;
-            border-color: var(--color-primary);
-            background: var(--color-input-focus);
-        }
-
-        /* Remove spinner arrows */
-        .page-input::-webkit-inner-spin-button,
-        .page-input::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        .page-input[type=number] {
-            -moz-appearance: textfield;
-            appearance: textfield;
-        }
-
-        .loading-state,
-        .error-state,
-        .no-memories,
-        .init-message {
-            text-align: center;
-            padding: 2rem;
-            color: var(--color-text);
-            opacity: 0.8;
-            background: var(--color-panel);
-            border: 1px solid var(--color-border);
-            border-radius: 8px;
-            margin: 1rem 0;
-        }
-        .loading-state {
-            display: grid;
-            align-items: center;
-        }
-        .init-message {
-            color: var(--color-primary);
-            border-color: var(--color-primary);
-        }
-        .error-state {
-            color: var(--color-accent);
-            border-color: var(--color-accent);
-        }
-
-        .loading-spinner {
-            width: 24px;
-            height: 24px;
-            min-width: 24px;
-            min-height: 24px;
-            max-width: 24px;
-            max-height: 24px;
-            border: 3px solid var(--color-border);
-            border-top-color: var(--color-primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 0.5rem;
-            flex-shrink: 0;
-            flex-grow: 0;
-            display: inline-block;
-            position: relative;
-            box-sizing: border-box;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .memory-table-container {
-            border: 1px solid var(--color-border);
-            border-radius: 8px;
-        }
+        /* Memory-specific: Table layout overrides */
         .memory-table {
-            width: 100%;
-            border-collapse: collapse;
             table-layout: fixed;
         }
-        
+        .memory-table th,
+        .memory-table td {
+            padding: 1rem 0.75rem;
+            vertical-align: top;
+        }
+        .memory-table th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--color-border);
+        }
+        .memory-table tbody tr.memory-row > td {
+            height: 5em;
+        }
+
+        /* Memory-specific column widths */
         .col-select {
             width: 5%;
+            text-align: center;
+            padding: 0.65rem 0.5rem !important;
         }
         .col-metadata {
             width: 10em;
@@ -635,25 +463,28 @@
         .col-actions {
             width: 4em;
         }
-
-        .memory-table th,
-        .memory-table td {
-            padding: 1rem 0.75rem;
-            text-align: left;
-            vertical-align: top;
-            border-bottom: 1px solid var(--color-border);
-            overflow: hidden;
+        .col-select input[type="checkbox"] {
+            cursor: pointer;
+            transform: scale(1.2);
         }
-        
+
+        /* Memory-specific: Metadata display */
         .metadata-cell {
             overflow: visible;
-            white-space: normal;
+            text-wrap: wrap;
+            word-wrap: break-word;
+        }
+        .preview-cell {
+            overflow: visible;
+            text-wrap: wrap;
             word-wrap: break-word;
         }
         .metadata-info {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            height: 5.5em;
+            overflow: hidden;
         }
         .metadata-row {
             display: flex;
@@ -666,6 +497,7 @@
             font-family: monospace;
         }
 
+        /* Memory-specific: Area badge */
         .area-badge {
             color: white;
             padding: 0.35rem 0.75rem;
@@ -674,95 +506,8 @@
             font-weight: bold;
             text-transform: uppercase;
         }
-        .select-cell,
-        .col-select {
-            text-align: center;
-            padding: 0.65rem 0.5rem !important;
-        }
-        .select-cell input[type="checkbox"],
-        .col-select input[type="checkbox"] {
-            cursor: pointer;
-            transform: scale(1.2);
-        }
-        .memory-row.selected {
-            background: var(--color-panel);
-            border-left: 3px solid var(--color-primary);
-        }
-        .mass-action-toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            background: var(--color-panel);
-            margin: 0;
-            animation: slideDown 0.3s ease;
-        }
-        .btn-mass {
-            align-items: center;
-            border: 1px solid var(--color-border);
-            gap: 0.25rem;
-            display: flex;
-            background: var(--color-background);
-            color: var(--color-text);
-        }
-        .btn-mass:hover {
-            border-color: var(--color-primary);
-            color: var(--color-primary);
-        }
-        .btn-mass.delete:hover {
-            border-color: var(--color-accent);
-            color: var(--color-accent);
-        }
-        .selection-info {
-            font-weight: 600;
-        }
-        .mass-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-        .btn-mass .material-symbols-outlined {
-            font-size: 18px;
-        }
-        .btn-mass:hover {
-            border-color: var(--color-primary);
-            background: var(--color-panel);
-        }
-        .btn-mass.delete:hover {
-            border-color: var(--color-accent);
-            color: var(--color-accent);
-        }
 
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .memory-table th {
-            background: var(--color-panel);
-            font-weight: 600;
-            color: var(--color-text);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            border-bottom: 2px solid var(--color-border);
-        }
-        .memory-table tbody tr {
-            border-bottom: 1px solid var(--color-border);
-        }
-        .memory-table tbody tr:last-child {
-            border-bottom: none;
-        }
-        .memory-table tbody tr.memory-row>td {
-            height: 5em;
-        }
-
+        /* Memory-specific: Source type badge */
         .source-type {
             padding: 0.25rem 0.5rem;
             border-radius: var(--border-radius);
@@ -773,13 +518,17 @@
             white-space: nowrap;
             flex-shrink: 0;
         }
-        .content-preview,
-        .metadata-info {
+
+        /* Memory-specific: Content preview */
+        .content-preview {
             height: 5.5em;
             overflow: hidden;
             word-wrap: break-word;
             overflow-wrap: break-word;
+            text-wrap: wrap;
         }
+
+        /* Memory-specific: Tags */
         .tags {
             display: flex;
             gap: 0.25rem;
@@ -795,70 +544,47 @@
             color: var(--color-text);
             opacity: 0.8;
         }
+
+        /* Memory-specific: Selection state */
+        .memory-row.selected {
+            background: var(--color-panel);
+            border-left: 3px solid var(--color-primary);
+        }
+        .select-cell {
+            text-align: center;
+            padding: 0.65rem 0.5rem !important;
+        }
+        .select-cell input[type="checkbox"] {
+            cursor: pointer;
+            transform: scale(1.2);
+        }
+
+        /* Memory-specific: Actions cell vertical layout */
         .actions-cell {
             padding: 0 !important;
             position: relative;
         }
-        .actions-wrapper {
+        .memory-table .actions-wrapper {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            display: flex;
             flex-direction: column;
-            align-items: center;
             justify-content: center;
         }
 
-        /* Table action buttons - extends .btn */
-        .btn-action {
-            background: none;
-            border: 1px solid var(--color-border);
-            padding: 0.25rem;
-            margin: 0 0.1rem;
-            color: var(--color-text);
-            opacity: 0.7;
-            display: inline-flex;
-        }
-        .btn-action .material-symbols-outlined {
-            font-size: 18px;
-        }
-        .btn-action:hover {
-            opacity: 1;
-            background: var(--color-panel);
-            border-color: var(--color-primary);
-            color: var(--color-primary);
-            transform: translateY(-1px);
-        }
-        .btn-action.view:hover {
-            background: var(--color-panel);
-            border-color: var(--color-primary);
-            color: var(--color-primary);
-        }
-        .btn-action.copy:hover {
-            background: var(--color-panel);
-            border-color: var(--color-primary);
-            color: var(--color-primary);
-        }
-        .btn-action.delete:hover {
-            background: var(--color-panel);
-            border-color: var(--color-accent);
-            color: var(--color-accent);
-        }
-
-        /* Responsive design */
+        /* Responsive design - Memory-specific */
         @media (max-width: 870px) {
             .memory-dashboard {
                 padding: 0.5rem;
             }
-            .memory-filters-header {
-                padding: 0.75rem;
-            }
+
+            /* Switch to flex layout on mobile */
             .memory-filters-header {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 0.75rem;
+                padding: 0.75rem;
             }
             .content-preview,
             .metadata-info {
@@ -876,29 +602,8 @@
                 grid-column: auto;
                 grid-row: auto;
             }
-            .filter-group-inline {
-                width: 100%;
-                flex-direction: row;
-                align-items: center;
-                gap: 0.5rem;
-            }
-            .filter-group-inline label {
-                font-size: 0.9rem;
-                margin-bottom: 0.25rem;
-            }
-            .filter-group-inline select,
-            .filter-group-inline input {
-                height: 42px;
-                font-size: 1rem;
-            }
-            .filter-group-inline.filter-limit {
-                flex: 33%;
-            }
-            .filter-limit input {
-                flex: 1;
-            }
 
-            /* Mobile order and layout - force items to specific widths */
+            /* Mobile order and layout */
             .filter-memory-dir {
                 order: 1;
                 flex: 1 1 100%;
@@ -910,29 +615,6 @@
             .filter-limit {
                 order: 3;
                 flex: 1 1 100%;
-            }
-            .btn-clear {
-                order: 6;
-                flex: 40%;
-                min-width: 80px;
-                padding: 0;
-                height: 42px;
-                justify-content: center;
-            }
-            #search-input {
-                order: 5;
-                flex: auto;
-                width: 100%;
-                height: 42px;
-            }
-
-            /* Search button and threshold on same row */
-            .btn-search {
-                order: 7;
-                flex: 40%;
-                height: 42px;
-                padding: 0 1rem;
-                min-width: 80px;
             }
             .filter-threshold {
                 order: 4;
@@ -951,7 +633,51 @@
             .filter-threshold input[type="range"] {
                 width: 100%;
             }
-            .memory-status-bar {
+            #search-input {
+                order: 5;
+                flex: auto;
+                width: 100%;
+                min-height: 42px;
+            }
+            .btn-clear {
+                order: 6;
+                flex: 40%;
+                min-width: 80px;
+                padding: 0;
+                min-height: 42px;
+                justify-content: center;
+            }
+            .btn-search {
+                order: 7;
+                flex: 40%;
+                min-height: 42px;
+                padding: 0 1rem;
+                min-width: 80px;
+            }
+
+            .memory-filters-header .filter-group-inline {
+                width: 100%;
+                flex-direction: row;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .memory-filters-header .filter-group-inline label {
+                font-size: 0.9rem;
+                margin-bottom: 0.25rem;
+            }
+            .memory-filters-header .filter-group-inline select,
+            .memory-filters-header .filter-group-inline input {
+                height: 42px;
+                font-size: 1rem;
+            }
+            .memory-filters-header .filter-group-inline.filter-limit {
+                flex: 33%;
+            }
+            .filter-limit input {
+                flex: 1;
+            }
+
+            .data-status-bar {
                 flex-direction: column;
                 gap: 0.75rem;
             }
