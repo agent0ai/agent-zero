@@ -115,8 +115,8 @@ class ChatGenerationResult:
             # if the model outputs thinking tags, we ned to parse them manually as reasoning
             processed_chunk = self._process_thinking_chunk(chunk)
 
-        self.reasoning += processed_chunk["reasoning_delta"]
-        self.response += processed_chunk["response_delta"]
+        self.reasoning += processed_chunk["reasoning_delta"] or ""
+        self.response += processed_chunk["response_delta"] or ""
 
         return processed_chunk
 
