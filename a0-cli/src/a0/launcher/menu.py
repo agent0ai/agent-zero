@@ -6,6 +6,7 @@ between different modes: TUI, REPL, Status, Docker, Settings.
 
 from __future__ import annotations
 
+import select
 import sys
 import tty
 import termios
@@ -33,7 +34,11 @@ MENU_ITEMS: list[MenuItem] = [
 
 
 def _get_key() -> str:
-    """Read a single keypress from stdin (raw mode)."""
+    """Read a single keypress from stdin (raw mode).
+
+    Handles escape sequences for arrow keys with a short timeout
+    to distinguish between plain Escape and arrow key sequences.
+    """
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
@@ -42,13 +47,18 @@ def _get_key() -> str:
 
         # Handle escape sequences (arrow keys)
         if ch == "\x1b":
-            ch2 = sys.stdin.read(1)
-            if ch2 == "[":
-                ch3 = sys.stdin.read(1)
-                if ch3 == "A":
-                    return "up"
-                elif ch3 == "B":
-                    return "down"
+            # Check if more input is available (with 50ms timeout)
+            # Arrow keys send sequences like \x1b[A, plain Escape is just \x1b
+            if select.select([sys.stdin], [], [], 0.05)[0]:
+                ch2 = sys.stdin.read(1)
+                if ch2 == "[" and select.select([sys.stdin], [], [], 0.05)[0]:
+                    ch3 = sys.stdin.read(1)
+                    if ch3 == "A":
+                        return "up"
+                    elif ch3 == "B":
+                        return "down"
+            # Plain Escape key
+            return "escape"
 
         return ch
     finally:
@@ -105,7 +115,7 @@ def run_menu() -> str | None:
         key = _get_key()
 
         # Handle Escape
-        if key == "\x1b" or key == "q":
+        if key == "escape" or key == "q":
             _clear_menu(console, menu_lines)
             return None
 
