@@ -321,7 +321,8 @@ class UserMessage:
     message: str
     attachments: list[str] = field(default_factory=list[str])
     system_message: list[str] = field(default_factory=list[str])
-    repo_mentions: list[dict] = field(default_factory=list)
+    mentions: list[dict] = field(default_factory=list)
+    repo_mentions: list[dict] = field(default_factory=list)  # legacy fallback
 
 
 class LoopData:
@@ -698,11 +699,14 @@ class Agent:
         if isinstance(content, dict):
             content = {k: v for k, v in content.items() if v}
 
-        # Store repo_mentions for extensions to access
-        if hasattr(message, 'repo_mentions') and message.repo_mentions:
-            self.data['repo_mentions'] = message.repo_mentions
+        # Store mentions for extensions to access
+        if hasattr(message, 'mentions') and message.mentions:
+            self.data['mentions'] = message.mentions
+        elif hasattr(message, 'repo_mentions') and message.repo_mentions:
+            # Legacy fallback: wrap repo_mentions as typed mentions
+            self.data['mentions'] = [{"type": "repo", **m} for m in message.repo_mentions]
         else:
-            self.data['repo_mentions'] = []
+            self.data['mentions'] = []
 
         # add to history
         msg = self.hist_add_message(False, content=content)  # type: ignore

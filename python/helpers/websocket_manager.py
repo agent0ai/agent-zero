@@ -11,10 +11,17 @@ from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Set
 import socketio
 import uuid
 
+import os
+
 from python.helpers.defer import DeferredTask
 from python.helpers.print_style import PrintStyle
 from python.helpers import runtime
 from python.helpers.websocket import ConnectionNotFoundError, WebSocketHandler, WebSocketResult
+
+
+def _ws_debug_enabled() -> bool:
+    value = os.getenv("A0_WS_DEBUG", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 BUFFER_MAX_SIZE = 100
 BUFFER_TTL = timedelta(hours=1)
@@ -77,9 +84,9 @@ class WebSocketManager:
         self._dispatcher_loop: asyncio.AbstractEventLoop | None = None
         self._handler_worker: DeferredTask | None = None
 
-    # Internal: development-only debug logging to avoid noise in production
+    # Internal: opt-in debug logging via A0_WS_DEBUG env var
     def _debug(self, message: str) -> None:
-        if runtime.is_development():
+        if _ws_debug_enabled():
             PrintStyle.debug(message)
 
     def _ensure_dispatcher_loop(self) -> None:

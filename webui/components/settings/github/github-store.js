@@ -8,6 +8,10 @@ const model = {
     user: null,
     error: null,
 
+    // Device flow state
+    deviceFlow: null, // { flow_id, user_code, verification_uri, interval }
+    _pollTimer: null,
+
     // Repository list state
     repos: [],
     filters: {
@@ -43,15 +47,6 @@ const model = {
     },
 
     init() {
-        // Check URL params for OAuth result
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("github_connected")) {
-            window.history.replaceState({}, "", window.location.pathname);
-        }
-        if (params.get("github_error")) {
-            this.error = `GitHub connection failed: ${params.get("github_error")}`;
-            window.history.replaceState({}, "", window.location.pathname);
-        }
         this.checkConnection();
     },
 
@@ -78,16 +73,90 @@ const model = {
         this.isLoading = true;
         try {
             const data = await callJsonApi("/github_oauth", {});
-            if (data.success && data.auth_url) {
-                window.location.href = data.auth_url;
+            if (data.success) {
+                this.deviceFlow = {
+                    flow_id: data.flow_id,
+                    user_code: data.user_code,
+                    verification_uri: data.verification_uri,
+                    interval: data.interval || 5,
+                };
+                this.startPolling();
             } else {
                 this.error = data.error || "Failed to start GitHub connection";
-                this.isLoading = false;
             }
         } catch (e) {
             this.error = "Failed to connect to GitHub";
+        } finally {
             this.isLoading = false;
         }
+    },
+
+    startPolling() {
+        if (!this.deviceFlow) return;
+        this.stopPolling();
+        const interval = (this.deviceFlow.interval || 5) * 1000;
+        this._pollTimer = setInterval(() => this.pollDeviceFlow(), interval);
+    },
+
+    stopPolling() {
+        if (this._pollTimer) {
+            clearInterval(this._pollTimer);
+            this._pollTimer = null;
+        }
+    },
+
+    async pollDeviceFlow() {
+        if (!this.deviceFlow) {
+            this.stopPolling();
+            return;
+        }
+
+        try {
+            const data = await callJsonApi("/github_callback", {
+                flow_id: this.deviceFlow.flow_id,
+            });
+
+            if (data.status === "complete") {
+                this.stopPolling();
+                this.deviceFlow = null;
+                this.isConnected = true;
+                this.error = null;
+                await this.checkConnection();
+            } else if (data.status === "error") {
+                this.stopPolling();
+                this.deviceFlow = null;
+                this.error = data.error || "GitHub authorization failed";
+            } else if (data.status === "pending") {
+                // If GitHub sent a new interval (slow_down), restart polling with it
+                if (data.interval && data.interval !== this.deviceFlow.interval) {
+                    this.deviceFlow.interval = data.interval;
+                    this.startPolling();
+                }
+            }
+        } catch (e) {
+            this.stopPolling();
+            this.deviceFlow = null;
+            this.error = "Failed to check authorization status";
+        }
+    },
+
+    cancelDeviceFlow() {
+        this.stopPolling();
+        this.deviceFlow = null;
+        this.error = null;
+    },
+
+    async copyCode() {
+        if (!this.deviceFlow?.user_code) return;
+        try {
+            await navigator.clipboard.writeText(this.deviceFlow.user_code);
+        } catch (e) {
+            // Fallback: select text in the code element for manual copy
+        }
+    },
+
+    cleanup() {
+        this.stopPolling();
     },
 
     async disconnect() {
@@ -131,14 +200,11 @@ const model = {
         }
     },
 
-    async searchRepos(query) {
+    searchRepos(query) {
         this.filters.search = query;
-        // For now, just filter client-side
-        // Could add server-side search later via /github_search
     },
 
     async selectRepo(owner, repoName) {
-        console.log("[GitHub] selectRepo called:", owner, repoName);
         this.isLoading = true;
         this.isRepoModalOpen = true;
         this.activeTab = "files";
@@ -147,13 +213,10 @@ const model = {
         this.error = null;
 
         try {
-            console.log("[GitHub] Fetching repo details...");
             const data = await callJsonApi("/github_repo_detail", {
                 owner: owner,
                 repo: repoName,
             });
-
-            console.log("[GitHub] Repo detail response:", data);
 
             if (data.error) {
                 this.error = data.error;
@@ -165,12 +228,8 @@ const model = {
             this.repoDetails.languages = data.languages;
             this.repoDetails.branches = data.branches;
 
-            console.log("[GitHub] repoDetails set, loading files...");
-            // Load root files
             await this.loadRepoFiles("");
-            console.log("[GitHub] Files loaded, repoFiles:", this.repoFiles?.length);
         } catch (e) {
-            console.error("[GitHub] selectRepo error:", e);
             this.error = "Failed to load repository details: " + e.message;
             this.isRepoModalOpen = false;
         } finally {
@@ -179,42 +238,31 @@ const model = {
     },
 
     async loadRepoFiles(path) {
-        if (!this.repoDetails) {
-            console.warn("[GitHub] loadRepoFiles called without repoDetails");
-            return;
-        }
+        if (!this.repoDetails) return;
 
         this.isLoading = true;
         this.currentPath = path;
         this.error = null;
 
         try {
-            console.log("[GitHub] Loading files for:", this.repoDetails.owner.login, this.repoDetails.name, "path:", path);
             const data = await callJsonApi("/github_contents", {
                 owner: this.repoDetails.owner.login,
                 repo: this.repoDetails.name,
                 path: path,
             });
 
-            console.log("[GitHub] Contents response:", data);
-
             if (data.error) {
                 this.error = data.error;
-                console.error("[GitHub] Error loading files:", data.error);
                 return;
             }
 
             if (data.type === "directory") {
                 this.repoFiles = data.contents || [];
-                console.log("[GitHub] Loaded", this.repoFiles.length, "files");
             } else {
-                // Single file - could display content
                 this.repoFiles = [];
-                console.log("[GitHub] Response was a file, not directory");
             }
         } catch (e) {
             this.error = "Failed to load files: " + e.message;
-            console.error("[GitHub] Exception loading files:", e);
         } finally {
             this.isLoading = false;
         }
@@ -237,7 +285,6 @@ const model = {
         this.currentPath = "";
     },
 
-    // Utility functions
     formatTime(dateString) {
         if (!dateString) return "";
         const date = new Date(dateString);

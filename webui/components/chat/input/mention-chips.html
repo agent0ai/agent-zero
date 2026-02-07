@@ -1,0 +1,173 @@
+<html>
+<head>
+    <script type="module">
+        import { store } from "/components/chat/input/mentionStore.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.mentions">
+            <div class="mention-chips-wrapper">
+                <div
+                    class="mention-chips"
+                    x-show="$store.mentions.mentions.length > 0"
+                    x-transition:enter="chips-enter"
+                    x-transition:enter-start="chips-enter-start"
+                    x-transition:enter-end="chips-enter-end"
+                    x-transition:leave="chips-leave"
+                    x-transition:leave-start="chips-leave-start"
+                    x-transition:leave-end="chips-leave-end"
+                >
+                    <template x-for="(mention, index) in $store.mentions.mentions" :key="index">
+                        <div
+                            class="mention-chip"
+                            :class="{
+                                'mention-chip-repo': mention.type === 'repo',
+                                'mention-chip-file': mention.type === 'file',
+                                'mention-chip-chat': mention.type === 'chat'
+                            }"
+                        >
+                            <!-- Type icon -->
+                            <span
+                                class="material-symbols-outlined mention-chip-icon"
+                                x-text="mention.type === 'repo' ? 'folder' : mention.type === 'file' ? 'description' : 'chat'"
+                            ></span>
+
+                            <!-- Label -->
+                            <span
+                                class="mention-chip-name"
+                                x-text="mention.type === 'repo' ? mention.full_name : mention.type === 'file' ? mention.name : mention.title"
+                            ></span>
+
+                            <!-- Source badge for files -->
+                            <span
+                                class="mention-chip-source"
+                                x-show="mention.type === 'file' && mention.source"
+                                x-text="mention.source"
+                            ></span>
+
+                            <!-- Remove button -->
+                            <button
+                                type="button"
+                                class="mention-chip-remove"
+                                @click="$store.mentions.removeMention(index)"
+                                title="Remove"
+                            >
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .mention-chips-wrapper {
+            width: 100%;
+        }
+
+        .mention-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-sm);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        /* Transitions */
+        .chips-enter { transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease; }
+        .chips-enter-start { opacity: 0; transform: translateY(-4px); }
+        .chips-enter-end { opacity: 1; transform: translateY(0); }
+        .chips-leave { transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease; }
+        .chips-leave-start { opacity: 1; transform: translateY(0); }
+        .chips-leave-end { opacity: 0; transform: translateY(-4px); }
+
+        .mention-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-size: var(--font-size-small);
+            color: var(--color-text);
+            transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+        }
+
+        /* Type-specific colors */
+        .mention-chip-repo {
+            background-color: color-mix(in srgb, var(--color-highlight) 15%, transparent);
+            border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
+        }
+        .mention-chip-repo:hover {
+            background-color: color-mix(in srgb, var(--color-highlight) 25%, transparent);
+            border-color: color-mix(in srgb, var(--color-highlight) 40%, transparent);
+        }
+
+        .mention-chip-file {
+            background-color: color-mix(in srgb, #4caf50 15%, transparent);
+            border: 1px solid color-mix(in srgb, #4caf50 30%, transparent);
+        }
+        .mention-chip-file:hover {
+            background-color: color-mix(in srgb, #4caf50 25%, transparent);
+            border-color: color-mix(in srgb, #4caf50 40%, transparent);
+        }
+
+        .mention-chip-chat {
+            background-color: color-mix(in srgb, #ff9800 15%, transparent);
+            border: 1px solid color-mix(in srgb, #ff9800 30%, transparent);
+        }
+        .mention-chip-chat:hover {
+            background-color: color-mix(in srgb, #ff9800 25%, transparent);
+            border-color: color-mix(in srgb, #ff9800 40%, transparent);
+        }
+
+        .mention-chip-icon {
+            font-size: 14px;
+        }
+
+        .mention-chip-repo .mention-chip-icon { color: var(--color-highlight); }
+        .mention-chip-file .mention-chip-icon { color: #4caf50; }
+        .mention-chip-chat .mention-chip-icon { color: #ff9800; }
+
+        .mention-chip-name {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mention-chip-source {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+            opacity: 0.7;
+        }
+
+        .mention-chip-remove {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            color: var(--color-text-muted);
+            transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+        }
+
+        .mention-chip-remove:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: var(--color-text);
+        }
+
+        .mention-chip-remove .material-symbols-outlined {
+            font-size: 14px;
+        }
+    </style>
+</body>
+</html>

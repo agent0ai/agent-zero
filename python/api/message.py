@@ -29,12 +29,19 @@ class Message(ApiHandler):
             attachments = request.files.getlist("attachments")
             attachment_paths = []
 
-            # Extract repo_mentions from form data
-            repo_mentions_raw = request.form.get("repo_mentions", "[]")
+            # Extract mentions from form data (with repo_mentions fallback)
+            mentions_raw = request.form.get("mentions", "")
+            repo_mentions_raw = request.form.get("repo_mentions", "")
             try:
-                repo_mentions = json.loads(repo_mentions_raw)
+                mentions = json.loads(mentions_raw) if mentions_raw else []
             except:
-                repo_mentions = []
+                mentions = []
+            if not mentions and repo_mentions_raw:
+                try:
+                    repo_mentions_legacy = json.loads(repo_mentions_raw)
+                    mentions = [{"type": "repo", **m} for m in repo_mentions_legacy]
+                except:
+                    mentions = []
 
             upload_folder_int = "/a0/usr/uploads"
             upload_folder_ext = files.get_abs_path("usr/uploads") # for development environment
@@ -57,7 +64,11 @@ class Message(ApiHandler):
             ctxid = input_data.get("context", "")
             message_id = input_data.get("message_id", None)
             attachment_paths = []
-            repo_mentions = input_data.get("repo_mentions", [])
+            mentions = input_data.get("mentions", [])
+            if not mentions:
+                repo_mentions_legacy = input_data.get("repo_mentions", [])
+                if repo_mentions_legacy:
+                    mentions = [{"type": "repo", **m} for m in repo_mentions_legacy]
 
         # Now process the message
         message = text
@@ -75,6 +86,6 @@ class Message(ApiHandler):
         # context.agent0.set_data("attachments", attachment_paths)
 
         # Log to console and UI using helper function
-        mq.log_user_message(context, message, attachment_paths, message_id)
+        mq.log_user_message(context, message, attachment_paths, message_id, mentions=mentions)
 
-        return context.communicate(UserMessage(message, attachment_paths, repo_mentions=repo_mentions)), context
+        return context.communicate(UserMessage(message, attachment_paths, mentions=mentions)), context

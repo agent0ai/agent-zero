@@ -11,7 +11,11 @@ class IncludeRepoMentions(Extension):
         from python.api.github_callback import get_github_auth
 
         # Get mentions from agent.data (set by hist_add_user_message)
-        mentions = self.agent.data.get("repo_mentions", [])
+        all_mentions = self.agent.data.get("mentions", [])
+        mentions = [m for m in all_mentions if m.get("type") == "repo"]
+        # Legacy fallback
+        if not mentions:
+            mentions = self.agent.data.get("repo_mentions", [])
         if not mentions:
             return
 
@@ -38,7 +42,7 @@ class IncludeRepoMentions(Extension):
     async def build_repo_context(
         self, token: str, owner: str, repo: str
     ) -> str | None:
-        """Fetch repo metadata and file tree from GitHub API."""
+        """Fetch repo metadata, file tree, and README from GitHub API."""
         headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
@@ -64,10 +68,16 @@ class IncludeRepoMentions(Extension):
                 )
 
                 file_tree = ""
+                tree_items = []
                 if tree_response.status_code == 200:
                     tree_data = tree_response.json()
-                    items = tree_data.get("tree", [])
-                    file_tree = self.format_tree(items)
+                    tree_items = tree_data.get("tree", [])
+                    file_tree = self.format_tree(tree_items)
+
+                # Find and fetch README
+                readme_content = await self.fetch_readme(
+                    client, headers, owner, repo, tree_items
+                )
 
                 # Build context using prompt template
                 context = self.agent.read_prompt(
@@ -80,12 +90,54 @@ class IncludeRepoMentions(Extension):
                     stars=repo_data.get("stargazers_count", 0),
                     default_branch=default_branch,
                     file_tree=file_tree,
+                    readme_content=readme_content,
                 )
 
                 return context
 
         except Exception:
             return None
+
+    async def fetch_readme(
+        self,
+        client: httpx.AsyncClient,
+        headers: dict,
+        owner: str,
+        repo: str,
+        tree_items: list,
+    ) -> str:
+        """Find a README file in the tree and fetch its raw content."""
+        readme_names = {"readme.md", "readme", "readme.rst", "readme.txt"}
+
+        readme_path = ""
+        for item in tree_items:
+            path = item.get("path", "")
+            if path.lower() in readme_names and item.get("type") == "blob":
+                readme_path = path
+                break
+
+        if not readme_path:
+            return ""
+
+        try:
+            raw_headers = {
+                **headers,
+                "Accept": "application/vnd.github.raw+json",
+            }
+            resp = await client.get(
+                f"https://api.github.com/repos/{owner}/{repo}/contents/{readme_path}",
+                headers=raw_headers,
+            )
+            if resp.status_code != 200:
+                return ""
+
+            content = resp.text
+            max_len = 4000
+            if len(content) > max_len:
+                content = content[:max_len] + "\n\n... (truncated)"
+            return content
+        except Exception:
+            return ""
 
     def format_tree(self, items: list, max_items: int = 100) -> str:
         """Format tree items into readable directory structure."""

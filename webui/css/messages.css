@@ -51,13 +51,18 @@
   color: var(--color-text-muted);
 }
 
+/* Wrapper groups text bubble + mention indicator so they align together */
+.user-msg-group {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+
 .message-user .message-text {
   display: inline-block;
   padding: var(--spacing-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
-  max-width: 80%;
-  width: auto;
 }
 
 .message-user > div {
@@ -85,35 +90,32 @@
   color: #2e2e2e;
 } */
 
-/* Repo mentions indicator - below user message */
-.repo-mention-indicator {
+/* Mention indicators - left edge of user message bubble */
+.mention-indicator {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 8px 8px 4px;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 2px 4px;
   cursor: pointer;
   position: relative;
+  margin-top: 2px;
 }
 
-.repo-mention-indicator::before {
-  content: "";
-  width: 70%;
-  height: 1px;
-  margin-bottom: 6px;
-  background: linear-gradient(to right, var(--color-border), transparent);
-}
-
-.repo-mention-indicator .material-symbols-outlined {
+.mention-type-icon {
   font-size: 16px;
-  color: var(--color-highlight);
   transition: transform var(--transition-speed) ease;
 }
 
-.repo-mention-indicator:hover .material-symbols-outlined {
+.mention-icon-repo { color: var(--color-highlight); }
+.mention-icon-file { color: #4caf50; }
+.mention-icon-chat { color: #ff9800; }
+
+.mention-indicator:hover .mention-type-icon {
   transform: scale(1.15);
 }
 
-.repo-mention-tooltip {
+.mention-tooltip {
   display: none;
   position: fixed;
   padding: 8px 12px;
@@ -126,20 +128,23 @@
   pointer-events: none;
 }
 
-.repo-tooltip-item {
+.mention-tooltip-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-family-code);
   font-size: 0.8rem;
   color: var(--color-text);
   padding: 3px 0;
 }
 
-.repo-tooltip-item:not(:last-child) {
+.mention-tooltip-item:not(:last-child) {
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 5px;
   margin-bottom: 5px;
 }
 
-.light-mode .repo-mention-tooltip {
+.light-mode .mention-tooltip {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 

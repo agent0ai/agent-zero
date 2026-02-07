@@ -8,48 +8,12 @@
 <body>
   <div x-data>
     <template x-if="$store.github">
-      <div class="github-settings" x-init="$store.github.init()">
-
-        <!-- OAuth App Configuration -->
-        <template x-if="$store.settingsStore?.settings">
-          <div class="section">
-            <div class="section-title">OAuth App Configuration</div>
-            <div class="section-description">
-              Configure your GitHub OAuth App credentials. Create an OAuth App at
-              <a href="https://github.com/settings/developers" target="_blank" rel="noopener noreferrer">GitHub Developer Settings</a>.
-            </div>
-
-            <div class="github-config-fields">
-              <div class="github-config-field">
-                <label for="github-client-id">Client ID</label>
-                <input
-                  type="text"
-                  id="github-client-id"
-                  x-model="$store.settingsStore.settings.github_client_id"
-                  placeholder="Enter your GitHub OAuth Client ID"
-                />
-              </div>
-
-              <div class="github-config-field">
-                <label for="github-client-secret">Client Secret</label>
-                <input
-                  type="password"
-                  id="github-client-secret"
-                  x-model="$store.settingsStore.settings.github_client_secret"
-                  placeholder="Enter your GitHub OAuth Client Secret"
-                />
-              </div>
-            </div>
-
-            <div class="github-config-note">
-              <span class="material-symbols-outlined">info</span>
-              <span>Set the callback URL in your OAuth App to: <code>http://localhost:<span x-text="$store.settingsStore.settings.rfc_port_http"></span>/github_callback</code></span>
-            </div>
-          </div>
-        </template>
+      <div class="github-settings"
+           x-init="$store.github.init()"
+           x-destroy="$store.github.cleanup()">
 
         <!-- Not Connected State -->
-        <template x-if="!$store.github.isConnected">
+        <template x-if="!$store.github.isConnected && !$store.github.deviceFlow">
           <div class="section">
             <div class="section-title">Connect to GitHub</div>
             <div class="section-description">
@@ -70,6 +34,46 @@
                   <span x-text="$store.github.isLoading ? 'Connecting...' : 'Connect with GitHub'"></span>
                 </button>
               </div>
+            </div>
+
+            <!-- Error Display -->
+            <div x-show="$store.github.error" class="github-error" x-text="$store.github.error"></div>
+          </div>
+        </template>
+
+        <!-- Device Flow: Enter Code State -->
+        <template x-if="!$store.github.isConnected && $store.github.deviceFlow">
+          <div class="section">
+            <div class="section-title">Enter Code on GitHub</div>
+            <div class="section-description">
+              Copy the code below and enter it on GitHub to authorize Agent Zero.
+            </div>
+
+            <div class="github-device-flow">
+              <div class="github-device-code-box">
+                <span class="github-device-code" x-text="$store.github.deviceFlow.user_code"></span>
+                <button class="github-copy-btn" @click="$store.github.copyCode()" title="Copy code">
+                  <span class="material-symbols-outlined">content_copy</span>
+                </button>
+              </div>
+
+              <a class="btn btn-ok github-open-github-btn"
+                 :href="$store.github.deviceFlow.verification_uri"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 @click="$store.github.copyCode()">
+                Open GitHub
+                <span class="material-symbols-outlined">open_in_new</span>
+              </a>
+
+              <div class="github-device-status">
+                <div class="loading"></div>
+                <span>Waiting for authorization...</span>
+              </div>
+
+              <button class="btn btn-cancel" @click="$store.github.cancelDeviceFlow()">
+                Cancel
+              </button>
             </div>
 
             <!-- Error Display -->
@@ -318,6 +322,10 @@
     .github-settings {
       padding: 0;
     }
+    .github-settings .section {
+      min-width: 0;
+      overflow: hidden;
+    }
 
     /* Connect Box */
     .github-connect-box {
@@ -390,14 +398,13 @@
     /* Toolbar */
     .github-toolbar {
       display: flex;
-      gap: 0.75rem;
+      gap: 0.5rem;
       margin-top: 1rem;
-      flex-wrap: wrap;
       align-items: center;
     }
     .github-search-field {
-      flex: 1;
-      min-width: 200px;
+      flex: 1 1 0;
+      min-width: 80px;
     }
     .github-search-field input {
       width: 100%;
@@ -413,6 +420,8 @@
       border-color: var(--color-primary);
     }
     .github-select {
+      flex: 0 1 auto;
+      width: auto;
       padding: 0.5rem 0.75rem;
       border: 1px solid var(--color-border);
       border-radius: 4px;
@@ -426,6 +435,7 @@
       border-color: var(--color-primary);
     }
     .github-icon-btn {
+      flex: 0 0 34px;
       width: 34px;
       height: 34px;
       display: flex;
@@ -857,67 +867,70 @@
       flex-shrink: 0;
     }
 
-    /* OAuth Configuration Fields */
-    .github-config-fields {
+    /* Device Flow */
+    .github-device-flow {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    .github-config-field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-    }
-    .github-config-field label {
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--color-text);
-      opacity: 0.8;
-    }
-    .github-config-field input {
-      width: 100%;
-      padding: 0.6rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: 4px;
-      background: var(--color-input);
-      color: var(--color-text);
-      font-size: 0.875rem;
-      font-family: inherit;
-    }
-    .github-config-field input:focus {
-      outline: none;
-      border-color: var(--color-primary);
-    }
-    .github-config-field input::placeholder {
-      color: var(--color-text);
-      opacity: 0.4;
-    }
-    .github-config-note {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-      margin-top: 1rem;
-      margin-bottom: 1rem;
-      padding: 0.6rem 0.75rem;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 1.5rem;
       background: var(--color-panel);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+    .github-device-code-box {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .github-device-code {
+      font-family: monospace;
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--color-primary);
+      padding: 0.5rem 1rem;
+      background: var(--color-input);
+      border: 2px solid var(--color-border);
+      border-radius: 8px;
+      user-select: all;
+    }
+    .github-copy-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
       border: 1px solid var(--color-border);
-      border-radius: 4px;
-      font-size: 0.75rem;
+      border-radius: 6px;
+      background: transparent;
       color: var(--color-text);
+      cursor: pointer;
       opacity: 0.7;
     }
-    .github-config-note .material-symbols-outlined {
-      font-size: 0.9rem;
-      opacity: 0.6;
-      flex-shrink: 0;
+    .github-copy-btn:hover {
+      opacity: 1;
+      border-color: var(--color-primary);
     }
-    .github-config-note code {
-      background: var(--color-input);
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
-      font-family: monospace;
-      font-size: 0.7rem;
+    .github-copy-btn .material-symbols-outlined {
+      font-size: 1.1rem;
+    }
+    .github-open-github-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+    .github-open-github-btn .material-symbols-outlined {
+      font-size: 1rem;
+    }
+    .github-device-status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--color-text);
+      opacity: 0.7;
     }
   </style>
 </body>

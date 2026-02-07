@@ -117,6 +117,7 @@ def log_user_message(
     attachment_paths: list[str],
     message_id: str | None = None,
     source: str = "",
+    mentions: list[dict] | None = None,
 ):
     """Log user message to console and UI. Used by message API and queue processing."""
     # Prepare attachment filenames for logging
@@ -125,7 +126,7 @@ def log_user_message(
         if attachment_paths
         else []
     )
-    
+
     # Print to console
     label = f"User message{source}:"
     PrintStyle(
@@ -136,13 +137,18 @@ def log_user_message(
         PrintStyle(font_color="white", padding=False).print("Attachments:")
         for filename in attachment_filenames:
             PrintStyle(font_color="white", padding=False).print(f"- {filename}")
-    
+
+    # Build KVPs
+    kvps = {"attachments": attachment_filenames}
+    if mentions:
+        kvps["mentions"] = mentions
+
     # Log to UI
     context.log.log(
         type="user",
         heading="",
         content=message,
-        kvps={"attachments": attachment_filenames},
+        kvps=kvps,
         id=message_id,
     )
 

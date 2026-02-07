@@ -146,10 +146,6 @@ class Settings(TypedDict):
     variables: str
     secrets: str
 
-    # GitHub OAuth configuration
-    github_client_id: str
-    github_client_secret: str
-
     # LiteLLM global kwargs applied to all model calls
     litellm_global_kwargs: dict[str, Any]
 
@@ -305,12 +301,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
         PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_ROOT_PASSWORD) else ""
     )
 
-    # load GitHub OAuth config from dotenv
-    out["settings"]["github_client_id"] = dotenv.get_dotenv_value(dotenv.KEY_GITHUB_CLIENT_ID) or ""
-    out["settings"]["github_client_secret"] = (
-        PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_GITHUB_CLIENT_SECRET) else ""
-    )
-
     #secrets
     secrets_manager = get_default_secrets_manager()
     try:
@@ -464,8 +454,6 @@ def _remove_sensitive_settings(settings: Settings):
     settings["root_password"] = ""
     settings["mcp_server_token"] = ""
     settings["secrets"] = ""
-    settings["github_client_id"] = ""
-    settings["github_client_secret"] = ""
 
 
 def _write_sensitive_settings(settings: Settings):
@@ -482,11 +470,6 @@ def _write_sensitive_settings(settings: Settings):
         if runtime.is_dockerized():
             dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, settings["root_password"])
             set_root_password(settings["root_password"])
-
-    # GitHub OAuth settings
-    dotenv.save_dotenv_value(dotenv.KEY_GITHUB_CLIENT_ID, settings["github_client_id"])
-    if settings["github_client_secret"] != PASSWORD_PLACEHOLDER:
-        dotenv.save_dotenv_value(dotenv.KEY_GITHUB_CLIENT_SECRET, settings["github_client_secret"])
 
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
     secrets_manager = get_default_secrets_manager()
@@ -575,8 +558,6 @@ def get_default_settings() -> Settings:
         a2a_server_enabled=get_default_value("a2a_server_enabled", False),
         variables="",
         secrets="",
-        github_client_id="",
-        github_client_secret="",
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
     )

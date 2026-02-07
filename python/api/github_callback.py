@@ -1,94 +1,75 @@
 from python.helpers.api import ApiHandler
 from python.helpers.print_style import PrintStyle
-from python.helpers import files
-from flask import Request, Response, session, redirect
-import os
-import json
+from python.helpers.github_auth import (
+    GITHUB_CLIENT_ID,
+    get_github_auth,
+    save_github_auth,
+    clear_github_auth,
+    get_flow,
+    remove_flow,
+)
+from flask import Request
 import httpx
-import urllib.parse
-
-GITHUB_AUTH_FILE = files.get_abs_path("tmp/github_auth.json")
-
-
-def save_github_auth(data: dict):
-    """Save GitHub auth data to file"""
-    content = json.dumps(data, indent=2)
-    files.write_file(GITHUB_AUTH_FILE, content)
-
-
-def get_github_auth() -> dict | None:
-    """Load GitHub auth data from file"""
-    if os.path.exists(GITHUB_AUTH_FILE):
-        content = files.read_file(GITHUB_AUTH_FILE)
-        return json.loads(content)
-    return None
-
-
-def clear_github_auth():
-    """Remove GitHub auth file"""
-    if os.path.exists(GITHUB_AUTH_FILE):
-        os.remove(GITHUB_AUTH_FILE)
 
 
 class GithubCallback(ApiHandler):
-    """Handle GitHub OAuth callback"""
+    """Poll GitHub device flow for token exchange.
 
-    @staticmethod
-    def requires_csrf() -> bool:
-        return False  # OAuth callback comes from GitHub, not our frontend
+    Frontend calls this with {flow_id} repeatedly until the user
+    authorizes, the flow expires, or the user cancels.
+    """
 
-    @staticmethod
-    def get_methods() -> list[str]:
-        return ["GET"]
+    async def process(self, input: dict, request: Request) -> dict:
+        flow_id = input.get("flow_id", "")
+        if not flow_id:
+            return {"status": "error", "error": "Missing flow_id"}
 
-    async def process(self, input: dict, request: Request) -> Response:
-        code = request.args.get("code")
-        state = request.args.get("state")
-        error = request.args.get("error")
-
-        # Handle user denial
-        if error:
-            return redirect(f"/?github_error={error}")
-
-        if not code:
-            return redirect("/?github_error=no_code")
-
-        # Validate state for CSRF protection
-        stored_state = session.pop("github_oauth_state", None)
-        if not state or state != stored_state:
-            return redirect("/?github_error=invalid_state")
-
-        client_id = os.getenv("GITHUB_CLIENT_ID")
-        client_secret = os.getenv("GITHUB_CLIENT_SECRET")
-
-        if not client_id or not client_secret:
-            return redirect("/?github_error=not_configured")
+        flow = get_flow(flow_id)
+        if not flow:
+            return {"status": "error", "error": "Flow expired or not found"}
 
         try:
             async with httpx.AsyncClient() as client:
-                # Exchange code for access token
                 token_response = await client.post(
                     "https://github.com/login/oauth/access_token",
                     data={
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                        "code": code,
+                        "client_id": GITHUB_CLIENT_ID,
+                        "device_code": flow["device_code"],
+                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                     },
                     headers={"Accept": "application/json"},
                 )
 
                 if token_response.status_code != 200:
-                    return redirect("/?github_error=token_exchange_failed")
+                    return {"status": "error", "error": "GitHub token endpoint returned an error"}
 
-                token_data = token_response.json()
+                data = token_response.json()
+                error = data.get("error")
 
-                if "error" in token_data:
-                    error_desc = token_data.get("error_description", token_data["error"])
-                    return redirect(f"/?github_error={error_desc}")
+                if error == "authorization_pending":
+                    return {"status": "pending"}
 
-                access_token = token_data.get("access_token")
+                if error == "slow_down":
+                    # GitHub wants us to increase the polling interval
+                    flow["interval"] = data.get("interval", flow["interval"] + 5)
+                    return {"status": "pending", "interval": flow["interval"]}
+
+                if error == "expired_token":
+                    remove_flow(flow_id)
+                    return {"status": "error", "error": "Device code expired. Please try again."}
+
+                if error == "access_denied":
+                    remove_flow(flow_id)
+                    return {"status": "error", "error": "Authorization was denied."}
+
+                if error:
+                    remove_flow(flow_id)
+                    return {"status": "error", "error": data.get("error_description", error)}
+
+                access_token = data.get("access_token")
                 if not access_token:
-                    return redirect("/?github_error=no_access_token")
+                    remove_flow(flow_id)
+                    return {"status": "error", "error": "No access token received"}
 
                 # Fetch user info
                 user_response = await client.get(
@@ -100,11 +81,11 @@ class GithubCallback(ApiHandler):
                 )
 
                 if user_response.status_code != 200:
-                    return redirect("/?github_error=user_fetch_failed")
+                    remove_flow(flow_id)
+                    return {"status": "error", "error": "Failed to fetch GitHub user info"}
 
                 user_data = user_response.json()
 
-                # Store in separate auth file (not main settings)
                 save_github_auth({
                     "access_token": access_token,
                     "user": {
@@ -115,9 +96,9 @@ class GithubCallback(ApiHandler):
                     },
                 })
 
-                return redirect("/?github_connected=true")
+                remove_flow(flow_id)
+                return {"status": "complete"}
 
         except Exception as e:
-            PrintStyle.error(f"GitHub OAuth callback error: {e}")
-            error_msg = urllib.parse.quote(str(e)[:100])
-            return redirect(f"/?github_error={error_msg}")
+            PrintStyle.error(f"GitHub device flow poll error: {e}")
+            return {"status": "error", "error": str(e)[:200]}

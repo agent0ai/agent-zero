@@ -8,3 +8,8 @@
 
 ## File Structure
 {{file_tree}}
+
+{{if readme_content}}
+## README
+{{readme_content}}
+{{/if}}

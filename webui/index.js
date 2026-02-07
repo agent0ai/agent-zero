@@ -7,7 +7,7 @@ import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { store as inputStore } from "/components/chat/input/input-store.js";
-import { store as repoMentionStore } from "/components/chat/input/repoMentionStore.js";
+import { store as mentionStore } from "/components/chat/input/mentionStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
@@ -42,7 +42,7 @@ export async function sendMessage() {
     const message = inputStore.message.trim();
     const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
-    const repoMentions = repoMentionStore.mentions.slice(); // Copy to avoid mutation issues
+    const mentions = mentionStore.mentions.slice(); // Copy to avoid mutation issues
 
     // If empty input but has queued messages, send all queued
     if (!message && !hasAttachments && messageQueueStore.hasQueue) {
@@ -67,9 +67,8 @@ export async function sendMessage() {
       let response;
       const messageId = generateGUID();
 
-      // Clear input, attachments, and repo mentions
+      // Clear input and attachments (repo mentions persist across messages)
       inputStore.reset();
-      repoMentionStore.clearMentions();
 
       // Include attachments in the user message
       if (hasAttachments) {
@@ -95,7 +94,7 @@ export async function sendMessage() {
           formData.append("attachments", attachmentsWithUrls[i].file);
         }
 
-        formData.append("repo_mentions", JSON.stringify(repoMentions));
+        formData.append("mentions", JSON.stringify(mentions));
 
         response = await api.fetchApi("/message_async", {
           method: "POST",
@@ -107,7 +106,7 @@ export async function sendMessage() {
           text: message,
           context,
           message_id: messageId,
-          repo_mentions: repoMentions,
+          mentions: mentions,
         };
         response = await api.fetchApi("/message_async", {
           method: "POST",
