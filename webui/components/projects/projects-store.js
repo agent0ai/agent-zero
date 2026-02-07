@@ -4,7 +4,9 @@ import * as modals from "/js/modals.js";
 import * as notifications from "/components/notifications/notification-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as browserStore } from "/components/modals/file-browser/file-browser-store.js";
+import { store as skillsImportStore } from "/components/settings/skills/skills-import-store.js";
 import * as shortcuts from "/js/shortcuts.js";
+import { showConfirmDialog } from "/js/confirmDialog.js";
 
 const listModal = "projects/project-list.html";
 const createModal = "projects/project-create.html";
@@ -64,6 +66,27 @@ const model = {
     return s;
   },
 
+  getSelectedProjectSkillsPath() {
+    const projectName = this.selectedProject?.name;
+    if (!projectName) return "";
+    return `usr/projects/${projectName}/.a0proj/skills/`;
+  },
+
+  async openSelectedProjectSkillsImport() {
+    const projectName = this.selectedProject?.name;
+    if (!projectName) return;
+
+    skillsImportStore.projectKey = projectName;
+    skillsImportStore.agentProfileKey = "";
+    await modals.openModal("settings/skills/import.html");
+  },
+
+  async openSelectedProjectSkillsFolder() {
+    const path = this.getSelectedProjectSkillsPath();
+    if (!path) return;
+    await browserStore.open(path);
+  },
+
   async openProjectsModal() {
     await this.loadProjectsList();
     await modals.openModal(listModal);
@@ -90,12 +113,88 @@ const model = {
   },
 
   async confirmCreate() {
+    // If git_url is provided, use clone flow
+    if (this.selectedProject.git_url && this.selectedProject.git_url.trim()) {
+      await this.cloneProject();
+      return;
+    }
     // create folder name based on title
     this.selectedProject.name = this._toFolderName(this.selectedProject.title);
     const project = await this.saveSelectedProject(true);
     await this.loadProjectsList();
     await modals.closeModal(createModal);
     await this.openEditModal(project.name);
+  },
+
+  async cloneProject() {
+    // Security warning with custom dialog
+    const confirmed = await showConfirmDialog({
+      title: "Security Warning",
+      message: `
+        <p><strong>Cloning repositories from untrusted sources may pose security risks:</strong></p>
+        <ul style="margin: 0.75em 0; padding-left: 1.5em;">
+          <li>Malicious code execution</li>
+          <li>Exposure of sensitive data</li>
+          <li>System compromise</li>
+        </ul>
+        <p style="margin-top: 0.75em;">Only clone from sources you trust.</p>
+      `,
+      type: "warning",
+      confirmText: "Clone Anyway",
+      cancelText: "Cancel"
+    });
+    if (!confirmed) return;
+
+    // Save reference before async operations
+    const project = this.selectedProject;
+    if (!project) return;
+
+    // Disable button state handled by UI
+    project._cloning = true;
+    project.name = this._toFolderName(project.title);
+
+    try {
+      const response = await api.callJsonApi("projects", {
+        action: "clone",
+        project: {
+          name: project.name,
+          title: project.title,
+          color: project.color,
+          git_url: project.git_url,
+          git_token: project.git_token || "",
+        },
+      });
+
+      if (response?.ok) {
+        await this.loadProjectsList();
+        await modals.closeModal(createModal);
+        await this.openEditModal(response.data.name);
+      } else {
+        notifications.toastFrontendError(
+          response?.error || "Clone failed",
+          "Git Clone",
+          5,
+          "git_clone",
+          notifications.NotificationPriority.NORMAL,
+          true
+        );
+      }
+    } catch (error) {
+      console.error("Error cloning project:", error);
+      notifications.toastFrontendError(
+        "Error cloning project: " + error,
+        "Git Clone",
+        5,
+        "git_clone",
+        notifications.NotificationPriority.NORMAL,
+        true
+      );
+    } finally {
+      // Use the saved reference instead of this.selectedProject
+      if (project) {
+        project._cloning = false;
+      }
+    }
   },
 
   async confirmEdit() {
@@ -304,10 +403,13 @@ const model = {
         creating: true,
       },
       _ownMemory: true,
+      _cloning: false,
       name: ``,
       title: `Project #${this.projectList.length + 1}`,
       description: "",
       color: "",
+      git_url: "",
+      git_token: "",
     };
   },
 

@@ -1,12 +1,11 @@
 from agent import AgentContext, UserMessage
 from python.helpers.api import ApiHandler, Request, Response
 
-from python.helpers import files, extension
+from python.helpers import files, extension, message_queue as mq
 import json
 import os
-from werkzeug.utils import secure_filename
+from python.helpers.security import safe_filename
 from python.helpers.defer import DeferredTask
-from python.helpers.print_style import PrintStyle
 
 
 class Message(ApiHandler):
@@ -37,15 +36,17 @@ class Message(ApiHandler):
             except:
                 repo_mentions = []
 
-            upload_folder_int = "/a0/tmp/uploads"
-            upload_folder_ext = files.get_abs_path("tmp/uploads") # for development environment
+            upload_folder_int = "/a0/usr/uploads"
+            upload_folder_ext = files.get_abs_path("usr/uploads") # for development environment
 
             if attachments:
                 os.makedirs(upload_folder_ext, exist_ok=True)
                 for attachment in attachments:
                     if attachment.filename is None:
                         continue
-                    filename = secure_filename(attachment.filename)
+                    filename = safe_filename(attachment.filename)
+                    if not filename:
+                        continue
                     save_path = files.get_abs_path(upload_folder_ext, filename)
                     attachment.save(save_path)
                     attachment_paths.append(os.path.join(upload_folder_int, filename))
@@ -73,33 +74,7 @@ class Message(ApiHandler):
         # Store attachments in agent data
         # context.agent0.set_data("attachments", attachment_paths)
 
-        # Prepare attachment filenames for logging
-        attachment_filenames = (
-            [os.path.basename(path) for path in attachment_paths]
-            if attachment_paths
-            else []
-        )
-
-        # Print to console and log
-        PrintStyle(
-            background_color="#6C3483", font_color="white", bold=True, padding=True
-        ).print(f"User message:")
-        PrintStyle(font_color="white", padding=False).print(f"> {message}")
-        if attachment_filenames:
-            PrintStyle(font_color="white", padding=False).print("Attachments:")
-            for filename in attachment_filenames:
-                PrintStyle(font_color="white", padding=False).print(f"- {filename}")
-
-        # Log the message with message_id, attachments, and repo mentions
-        context.log.log(
-            type="user",
-            heading="",
-            content=message,
-            kvps={
-                "attachments": attachment_filenames,
-                "repo_mentions": repo_mentions if repo_mentions else [],
-            },
-            id=message_id,
-        )
+        # Log to console and UI using helper function
+        mq.log_user_message(context, message, attachment_paths, message_id)
 
         return context.communicate(UserMessage(message, attachment_paths, repo_mentions=repo_mentions)), context

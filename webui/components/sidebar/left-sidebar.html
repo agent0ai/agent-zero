@@ -12,7 +12,7 @@
     <template x-if="$store.sidebar">
       <div id="left-panel" class="panel" x-data :class="{'hidden': !$store.sidebar.isOpen}">
         <!--Sidebar upper elements-->
-        <div class="left-panel-top">
+        <div class="left-panel-top no-scrollbar">
           <!-- Top Section: Header Icons + Quick Actions -->
           <x-component path="sidebar/top-section/sidebar-top.html"></x-component>
           <!-- Chats List -->
@@ -85,12 +85,6 @@
       justify-content: space-between;
       margin-top: 3.5rem;
       padding: var(--spacing-md) var(--spacing-md) 0 var(--spacing-md);
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-
-    .left-panel-top::-webkit-scrollbar {
-      width: 0px;
     }
 
     .left-panel-bottom {

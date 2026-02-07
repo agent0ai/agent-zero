@@ -3,6 +3,7 @@ from typing import TypedDict, TYPE_CHECKING
 from pydantic import BaseModel, model_validator
 import json
 from typing import Literal
+import os
 
 GLOBAL_DIR = "."
 USER_DIR = "usr"
@@ -20,6 +21,7 @@ class SubAgentListItem(BaseModel):
     title: str = ""
     description: str = ""
     context: str = ""
+    path: str = ""
     origin: list[Origin] = []
     enabled: bool = True
 
@@ -81,6 +83,7 @@ def _get_agents_list_from_dir(dir: str, origin: Origin) -> dict[str, SubAgentLis
             agent_data = SubAgentListItem.model_validate_json(agent_json)
             name = agent_data.name or subdir
             agent_data.name = name
+            agent_data.path = files.get_abs_path(dir, subdir)
             agent_data.origin = [origin]
             result[name] = agent_data
         except Exception:
@@ -213,8 +216,56 @@ def _merge_agent_list_items(
         title=override.title or base.title,
         description=override.description or base.description,
         context=override.context or base.context,
+        path=override.path or base.path,
         origin=_merge_origins(base.origin, override.origin),
     )
+
+
+def get_agents_roots() -> list[str]:
+    project_agents = files.find_existing_paths_by_pattern("usr/projects/*/.a0proj/agents")
+    paths = [
+        files.get_abs_path(DEFAULT_AGENTS_DIR),
+        files.get_abs_path(USER_AGENTS_DIR),
+        *project_agents,
+    ]
+    unique: list[str] = []
+    seen = set()
+    for p in paths:
+        if not p:
+            continue
+        key = str(p)
+        if key in seen:
+            continue
+        seen.add(key)
+        if os.path.exists(p):
+            unique.append(p)
+    return unique
+
+
+def get_all_agents_list() -> list[dict[str, str]]:
+    def _origin_from_root(root: str) -> Origin:
+        rel = files.deabsolute_path(root).replace("\\", "/")
+        if rel.startswith("usr/projects/"):
+            return "project"
+        if rel.startswith("usr/agents"):
+            return "user"
+        return "default"
+
+    merged: dict[str, SubAgentListItem] = {}
+    for root in get_agents_roots():
+        origin = _origin_from_root(root)
+        items = _get_agents_list_from_dir(root, origin=origin)
+        for name, item in items.items():
+            if name in merged:
+                merged[name] = _merge_agent_list_items(merged[name], item)
+            else:
+                merged[name] = item
+
+    result: list[dict[str, str]] = []
+    for key in sorted(merged.keys()):
+        item = merged[key]
+        result.append({"key": key, "label": item.title or key})
+    return result
 
 
 def _merge_origins(base: list[Origin], override: list[Origin]) -> list[Origin]:

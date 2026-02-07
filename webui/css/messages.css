@@ -10,44 +10,12 @@
   overflow-y: scroll;
   overflow-x: hidden;
   scroll-behavior: auto !important; /* avoid infinite scrolling! */
-  /* padding: var(--spacing-md) 10em 0 !important; */
+  padding-left: var(--spacing-sm) !important;
+  padding-right: var(--spacing-md) !important;
+  padding-top: 4rem !important;
+  padding-bottom: 4rem !important;
   -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
-  scrollbar-width: thin;
-  scrollbar-color: #555 transparent;
-  padding-left: var(--spacing-sm);
-  padding-right: var(--spacing-sm);
-  padding-bottom: 5em;
-}
-
-#chat-history > *:first-child {
-  margin-top: 4.4em;
-}
-
-/* Scrollbar styling for Firefox */
-#chat-history::-webkit-scrollbar {
-  width: 5px;
-}
-
-#chat-history::-webkit-scrollbar-track {
-  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
-  border-radius: 3px;
-}
-
-#chat-history::-webkit-scrollbar-thumb {
-  border-radius: 3px;
-  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
-  background-color: #555;
-  -webkit-transition: background-color var(--transition-speed) ease-in-out;
-  transition: background-color var(--transition-speed) ease-in-out;
-}
-
-#chat-history::-webkit-scrollbar-thumb:hover {
-  background-color: #666;
-}
-
-#chat-history::-webkit-scrollbar-thumb:active {
-  background-color: #888;
 }
 
 /* Message Styles */
@@ -112,7 +80,6 @@
   /* color: azure; */
   color: var(--color-text);
 }
-
 
 /* .light-mode .message-user .message-text pre {
   color: #2e2e2e;
@@ -311,17 +278,33 @@
   color: #24292f;
 }
 
+.message-body .markdown-block-wrap {
+  margin: 1em 0;
+}
+
 .message-body .message-markdown-table-wrap {
   display: block;
   width: 100%;
   overflow-x: auto;
-  padding-bottom: 1em;
+  /* padding-bottom: 1em; */
 }
 
 .message-body .message-markdown-table-wrap table {
   width: auto;
   table-layout: auto;
   white-space: nowrap;
+}
+
+.message-body .code-block-wrapper{
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 0.5em;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+}
+
+.message-body .code-block-wrapper pre{
+  max-width: 100%;
 }
 
 /* .message-body code {
@@ -347,136 +330,40 @@
   background-color: transparent;
 }
 
-/* Collapsible Error Group */
-
-.message-error-group {
-  background: transparent;
-  border: none !important;
-  padding: 0 !important;
-}
-
-.error-group {
-  display: inline-flex;
-  flex-direction: column;
-  position: relative;
-  z-index: 1;
-  margin: var(--spacing-xs) 0;
-  padding: var(--spacing-xs) 0;
-  min-width: 200px;
-  max-width: 100%;
-  box-sizing: border-box;
-  flex-shrink: 0;
-}
-
-/* Error Group Header */
-.error-group-header {
+/* Error messages styled like process groups */
+.message-error .msg-heading {
   display: flex;
   align-items: center;
-  padding: 0;
-  cursor: pointer;
-  user-select: none;
-  transition: opacity 0.15s ease;
-  min-height: 22px;
   gap: 6px;
-  white-space: nowrap;
+  margin-bottom: var(--spacing-xs);
 }
 
-.error-group-header:hover {
-  opacity: 0.85;
-}
-
-/* Expand/collapse triangle */
-.error-group-header .expand-icon {
-  display: inline-block;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 4px 0 4px 6px;
-  border-color: transparent transparent transparent #ef4444;
-  opacity: 0.7;
-  transition:
-    transform 0.2s ease,
-    opacity 0.15s ease;
-  flex-shrink: 0;
-  font-size: 0;
-  margin-right: 2px;
-}
-
-.error-group-header:hover .expand-icon {
-  opacity: 1;
-}
-
-.error-group.expanded .error-group-header .expand-icon {
-  transform: rotate(90deg);
-}
-
-/* Error title */
-.error-group-header .error-title {
-  flex: 0 0 auto;
+.message-error .msg-heading h4 {
+  display: flex;
+  align-items: center;
   font-size: var(--font-size-medium);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-error-text);
+  opacity: 0.9;
+  margin-bottom: var(--spacing-sm);
 }
 
-/* Error subtitle (short description) */
-.error-group-header .error-subtitle {
-  flex: 1 1 auto;
-  font-size: 0.75rem;
-  color: var(--color-text);
-  opacity: 0.7;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-left: var(--spacing-xs);
-  font-family: var(--font-family-code);
+/* Warning messages styled like process groups */
+.message-warning .msg-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--spacing-xs);
 }
 
-/* Error Group Content - Animated expand/collapse */
-.error-group-content {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  margin-top: 0;
-  padding-top: 0;
-  transition:
-    grid-template-rows 0.25s ease-out,
-    opacity 0.2s ease-out,
-    margin-top 0.25s ease-out,
-    padding-top 0.25s ease-out;
-  overflow: hidden;
-}
-
-.error-group-content > .error-content-inner {
-  min-height: 0;
-}
-
-.error-group.expanded .error-group-content {
-  grid-template-rows: 1fr;
-  opacity: 1;
-  margin-top: var(--spacing-xs);
-  padding-top: var(--spacing-xs);
-}
-
-.error-content-inner {
-  padding: var(--spacing-md);
-  border-radius: 8px;
-  /* border: 1px solid var(--color-error-text); */
-  margin-left: var(--spacing-md);
-}
-
-/* Callstack styling */
-.error-callstack {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: var(--font-family-code);
-  font-size: 0.72rem;
-  line-height: 1.5;
-  color: var(--color-error-text);
-  max-height: 30vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-error-text) transparent;
+.message-warning .msg-heading h4 {
+  display: flex;
+  align-items: center;
+  font-size: var(--font-size-medium);
+  font-weight: 500;
+  color: var(--color-warning-text);
+  opacity: 0.9;
+  margin-bottom: var(--spacing-sm);
 }
 
 /* Terminal styling moved to new terminal block above */
@@ -496,8 +383,12 @@
   width: 100%;
 }
 
-.kvps-val{
+.kvps-val {
   font-size: 0.75rem;
+}
+
+.kvps-val p {
+  margin: 0;
 }
 
 .kvps-val pre {
@@ -581,7 +472,7 @@
   text-align: right;
 }
 
-.kvps-key .material-symbols-outlined{
+.kvps-key .material-symbols-outlined {
   font-size: var(--font-size-smaller);
 }
 
@@ -604,13 +495,12 @@
   width: 100%;
 }
 
-
 .msg-content {
+  width: 100%;
   margin-bottom: 0;
   padding: 0;
   overflow: hidden;
 }
-
 
 /* Math (KaTeX) */
 .katex {
@@ -635,7 +525,10 @@
 
 @media (max-width: 1024px) {
   #chat-history {
-    padding: var(--spacing-md) var(--spacing-sm) 0 !important;
+    padding-left: var(--spacing-sm) !important;
+    padding-right: var(--spacing-md) !important;
+    padding-top: 4rem !important;
+    padding-bottom: 3rem !important;
   }
 }
 
@@ -703,8 +596,8 @@
 
 .message-agent-response .msg-content img {
   margin: var(--spacing-xs);
-  max-width: 25em;
-  max-height: 25em;
+  max-width: 30rem;
+  max-height: 15rem;
   border-radius: var(--border-radius);
   background: repeating-linear-gradient(
     45deg,
@@ -756,28 +649,27 @@
 .msg-content table {
   width: 100%;
   border-collapse: collapse;
-  margin: 1em 0;
   font-size: 0.98em;
   background: transparent;
-  border-radius: 8px;
+  border-radius: var(--border-radius-sm);
   overflow: hidden;
 }
 
 .msg-content th,
 .msg-content td {
   padding: 0.55em 1em;
-  border: 1px solid rgba(142, 142, 142, 0.1);
+  border: 1px solid var(--color-border);
   text-align: left;
   background: transparent;
 }
 
 .msg-content th {
   font-weight: 600;
-  background: rgba(142, 142, 142, 0.1);
+  background: var(--color-table-row);
 }
 
 .msg-content tr:nth-child(even) {
-  background: rgba(142, 142, 142, 0.1);
+  background: var(--color-table-row);
 }
 
 .msg-content tr:nth-child(odd) {
@@ -788,11 +680,11 @@
   box-shadow: none;
 }
 
-.msg-content pre:has(code) {
+/* .msg-content pre:has(code) {
   padding: 0.5em;
-  border: 1px solid rgba(142, 142, 142, 0.1);
-  border-radius: 0.3em;
-}
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+} */
 
 .msg-content hr {
   border: 0;
@@ -864,4 +756,81 @@
 /* shades */
 .dark-mode .message {
   box-shadow: none;
+}
+
+/* ===========================================
+   Collapsible Standalone Messages
+   Shows ~10 lines with fade-out, expand button reveals full content
+   =========================================== */
+
+.message.message-collapsible .message-body {
+  position: relative;
+  max-height: 15em !important;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.message.message-collapsible .message-body::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3em;
+  background: linear-gradient(transparent, var(--color-chat-background));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease-out;
+}
+
+/* Expanded state */
+.message.message-collapsible.expanded .message-body {
+  max-height: none !important;
+}
+
+.message.message-collapsible.expanded .message-body::after {
+  opacity: 0;
+}
+
+/* No fade when content fits */
+.message.message-collapsible:not(.has-overflow) .message-body::after {
+  opacity: 0;
+}
+
+/* Smooth Render */
+.smooth-render-visible,
+.smooth-render-invisible {
+  position: absolute;
+  width:100%;
+  inset: 0;
+  opacity: 0;
+}
+
+.smooth-render-visible {
+  z-index: 2;
+  animation: smoothFadeIn 200ms ease-out forwards;
+}
+
+.smooth-render-invisible {
+  z-index: 1;
+  opacity: 1;
+  animation: smoothFadeOut 70ms ease-out forwards;
+  animation-delay: 100ms;
+}
+
+@keyframes smoothFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes smoothFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }

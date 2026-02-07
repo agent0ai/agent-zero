@@ -16,12 +16,44 @@
                     <x-component path="projects/project-edit-basic-data.html">
                     </x-component>
 
-                        <div class="buttons-right">
-                            <button type="button" class="button cancel"
-                                @click="$store.projects.cancelCreate()">Cancel</button>
-                            <button type="button" class="button confirm" @click="$store.projects.confirmCreate()">Create and
-                                continue</button>
+                    <div class="projects-form-group">
+                        <label class="projects-form-label">Git Repository (optional)</label>
+                        <span class="projects-form-description">Clone from an existing git repository. Leave empty to create an empty project.</span>
+                        <input class="projects-form-input" type="text" 
+                            x-model="$store.projects.selectedProject.git_url"
+                            :disabled="$store.projects.selectedProject._cloning"
+                            placeholder="https://github.com/user/repo.git">
+                    </div>
+
+                    <template x-if="$store.projects.selectedProject.git_url && $store.projects.selectedProject.git_url.trim()">
+                        <div class="projects-form-group">
+                            <label class="projects-form-label">Access Token (optional)</label>
+                            <span class="projects-form-description">For private repositories. Token is used only for cloning and will not be stored.</span>
+                            <input class="projects-form-input" type="password" 
+                                x-model="$store.projects.selectedProject.git_token"
+                                :disabled="$store.projects.selectedProject._cloning"
+                                placeholder="ghp_xxxx or glpat-xxxx">
                         </div>
+                    </template>
+
+                    <div class="buttons-right">
+                        <button type="button" class="button cancel"
+                            @click="$store.projects.cancelCreate()"
+                            :disabled="$store.projects.selectedProject._cloning">Cancel</button>
+                        <button type="button" class="button confirm" 
+                            @click="$store.projects.confirmCreate()"
+                            :disabled="$store.projects.selectedProject._cloning">
+                            <template x-if="$store.projects.selectedProject._cloning">
+                                <span class="button-loading">
+                                    <span class="spinner"></span>
+                                    <span>Cloning...</span>
+                                </span>
+                            </template>
+                            <template x-if="!$store.projects.selectedProject._cloning">
+                                <span x-text="$store.projects.selectedProject.git_url ? 'Clone and continue' : 'Create and continue'"></span>
+                            </template>
+                        </button>
+                    </div>
                 </div>
 
 
@@ -40,6 +72,31 @@
 
     .project-detail-header {
         margin-bottom: 1em;
+    }
+
+    .button-loading {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5em;
+    }
+
+    .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
     }
 </style>
 

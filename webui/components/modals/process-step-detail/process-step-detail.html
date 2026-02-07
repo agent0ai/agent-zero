@@ -1,4 +1,4 @@
-<html>
+<html class="step-detail-modal">
 
 <head>
     <title>Step Details</title>
@@ -15,28 +15,21 @@
                 <!-- Compact Modal Header -->
                 <div class="modal-header modal-header-compact">
                     <div class="header-info">
-                        <span class="status-badge"
-                              :class="$store.stepDetail.selectedStepForDetail?.statusClass || ''"
-                              x-text="$store.stepDetail.selectedStepForDetail?.statusCode || ''"></span>
                         <span class="step-type-label" x-text="$store.stepDetail.formatStepType($store.stepDetail.selectedStepForDetail?.type)"></span>
-                        <template x-if="$store.stepDetail.selectedStepForDetail?.toolName || $store.stepDetail.selectedStepForDetail?.kvps?.tool_name">
-                            <span class="tool-name-badge" x-text="$store.stepDetail.selectedStepForDetail?.toolName || $store.stepDetail.selectedStepForDetail?.kvps?.tool_name"></span>
-                        </template>
-                        <template x-if="$store.stepDetail.selectedStepForDetail?.timestamp">
-                            <span class="timestamp-text" x-text="$store.stepDetail.formatTimestamp($store.stepDetail.selectedStepForDetail?.timestamp)"></span>
-                        </template>
-                        <template x-if="$store.stepDetail.selectedStepForDetail?.durationMs">
-                            <span class="duration-badge" x-text="$store.stepDetail.formatDuration($store.stepDetail.selectedStepForDetail?.durationMs)"></span>
+                        <template x-if="$store.stepDetail.selectedStepForDetail?.headerLabels">
+                            <template x-for="(label, index) in $store.stepDetail.selectedStepForDetail?.headerLabels || []" :key="index">
+                                <span :class="label.class || 'header-label'" x-text="label.label"></span>
+                            </template>
                         </template>
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-action-header copy-all" 
-                                @click.stop="$store.stepDetail.copyToClipboard($store.stepDetail.formatStepForCopy($store.stepDetail.selectedStepForDetail)).then(() => { $el.classList.add('copied'); setTimeout(() => $el.classList.remove('copied'), 1500) })"
+                                @click.stop="$store.stepDetail.copyToClipboard($store.stepDetail.formatStepForCopy($store.stepDetail.selectedStepForDetail))"
                                 title="Copy Complete Step with Metadata">
                             <span class="material-symbols-outlined">copy_all</span> All
                         </button>
                         <button class="btn btn-action-header copy-content" 
-                                @click.stop="$store.stepDetail.copyToClipboard($store.stepDetail.getStepPrimaryContent($store.stepDetail.selectedStepForDetail)).then(() => { $el.classList.add('copied'); setTimeout(() => $el.classList.remove('copied'), 1500) })"
+                                @click.stop="$store.stepDetail.copyToClipboard($store.stepDetail.getStepPrimaryContent($store.stepDetail.selectedStepForDetail))"
                                 title="Copy Raw LLM Response">
                             <span class="material-symbols-outlined">content_copy</span> Content
                         </button>
@@ -57,156 +50,35 @@
                     </div>
 
                     <!-- Formatted View -->
-                    <div class="formatted-content" x-show="!showRaw">
+                    <div class="formatted-content" x-show="!showRaw" x-init="$nextTick(() => $store.stepDetail.renderSegmentButtons())">
                         <!-- Heading/Title Section -->
                         <template x-if="$store.stepDetail.selectedStepForDetail?.heading">
                             <div class="content-block">
                                 <h4>Heading</h4>
                                 <div class="content-text" x-text="$store.stepDetail.cleanHeading($store.stepDetail.selectedStepForDetail?.heading)"></div>
+                                <div class="step-action-buttons" data-segment="heading"></div>
                             </div>
                         </template>
 
-                        <!-- GEN (agent) Type: Thoughts and Reasoning -->
-                        <template x-if="$store.stepDetail.selectedStepForDetail?.type === 'agent'">
-                            <div class="type-specific-content">
-                                <!-- Reasoning (native model thinking) -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.reasoning">
-                                    <div class="content-block reasoning-block">
-                                        <h4><span class="material-symbols-outlined">psychology</span> Reasoning</h4>
-                                        <div class="content-text reasoning-content" x-text="$store.stepDetail.cleanTextValue($store.stepDetail.selectedStepForDetail?.kvps?.reasoning)"></div>
-                                    </div>
-                                </template>
-                                <!-- Thoughts -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.thoughts">
-                                    <div class="content-block thoughts-block">
-                                        <h4><span class="material-symbols-outlined">lightbulb</span> Thoughts</h4>
-                                        <div class="content-text thoughts-content" x-text="$store.stepDetail.cleanTextValue($store.stepDetail.selectedStepForDetail?.kvps?.thoughts)"></div>
-                                    </div>
-                                </template>
-                                <!-- Tool Call Preview -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.tool_name || $store.stepDetail.selectedStepForDetail?.kvps?.tool_args">
-                                    <div class="content-block tool-call-block">
-                                        <h4>
-                                            <span class="material-symbols-outlined">build</span> 
-                                            <span>Tool Call</span>
-                                            <template x-if="$store.stepDetail.selectedStepForDetail?.toolName || $store.stepDetail.selectedStepForDetail?.kvps?.tool_name">
-                                                <span class="tool-name-badge" x-text="$store.stepDetail.selectedStepForDetail?.toolName || $store.stepDetail.selectedStepForDetail?.kvps?.tool_name"></span>
-                                            </template>
-                                        </h4>
-                                        <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.tool_args">
-                                            <div class="tool-args-container">
-                                                <template x-for="[key, value] in Object.entries($store.stepDetail.selectedStepForDetail?.kvps?.tool_args || {})" :key="key">
-                                                    <div class="tool-arg-row">
-                                                        <span class="arg-key" x-text="key"></span>
-                                                        <span class="arg-value" x-text="$store.stepDetail.formatValue(value)"></span>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </template>
-                                <!-- Raw LLM Response (content field) -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.content">
-                                    <div class="content-block raw-response-block">
-                                        <h4><span class="material-symbols-outlined">smart_toy</span> Raw Response</h4>
-                                        <pre class="raw-response-content" x-text="$store.stepDetail.selectedStepForDetail?.content"></pre>
+                        <!-- Flattened KVPs -->
+                        <template x-if="$store.stepDetail.selectedStepForDetail?.kvps">
+                            <div class="kvp-boxes">
+                                <template x-for="[key, value] in Object.entries($store.stepDetail.flattenKvps($store.stepDetail.selectedStepForDetail?.kvps) || {})" :key="key">
+                                    <div class="content-block kvp-box">
+                                        <h4 x-text="key"></h4>
+                                        <pre class="kvp-value-content" x-text="$store.stepDetail.formatFlatValue(value)"></pre>
+                                        <div class="step-action-buttons kvp-box-actions" x-init="$store.stepDetail.renderKvpCopyButton($el, key, value)"></div>
                                     </div>
                                 </template>
                             </div>
                         </template>
 
-                        <!-- EXE (code_exe) Type: Terminal Output -->
-                        <template x-if="$store.stepDetail.selectedStepForDetail?.type === 'code_exe'">
-                            <div class="type-specific-content">
-                                <!-- Command Info -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.code">
-                                    <div class="content-block command-block">
-                                        <h4><span class="material-symbols-outlined">terminal</span> Command</h4>
-                                        <div class="command-info">
-                                            <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.runtime">
-                                                <span class="runtime-badge" x-text="$store.stepDetail.selectedStepForDetail?.kvps?.runtime"></span>
-                                            </template>
-                                            <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.session != null">
-                                                <span class="session-badge" x-text="'Session ' + $store.stepDetail.selectedStepForDetail?.kvps?.session"></span>
-                                            </template>
-                                        </div>
-                                        <pre class="command-text" x-text="$store.stepDetail.selectedStepForDetail?.kvps?.code"></pre>
-                                    </div>
-                                </template>
-                                <!-- Terminal Output -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.content">
-                                    <div class="content-block terminal-block">
-                                        <h4><span class="material-symbols-outlined">output</span> Output</h4>
-                                        <pre class="terminal-output terminal-output-full" x-text="$store.stepDetail.selectedStepForDetail?.content"></pre>
-                                    </div>
-                                </template>
-                            </div>
-                        </template>
-
-                        <!-- Tool/MCP Type: Arguments and Result -->
-                        <template x-if="$store.stepDetail.selectedStepForDetail?.type === 'tool' || $store.stepDetail.selectedStepForDetail?.type === 'mcp'">
-                            <div class="type-specific-content">
-                                <!-- Tool Arguments -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.tool_args">
-                                    <div class="content-block">
-                                        <h4><span class="material-symbols-outlined">build</span> Arguments</h4>
-                                        <div class="tool-args-grid">
-                                            <template x-for="[key, value] in Object.entries($store.stepDetail.selectedStepForDetail?.kvps?.tool_args || {})" :key="key">
-                                                <div class="tool-arg-item result-content">
-                                                    <span class="arg-key" x-text="key"></span>
-                                                    <span class="arg-value" x-text="$store.stepDetail.formatValue(value)"></span>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                                <!-- Result -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.result || $store.stepDetail.selectedStepForDetail?.content">
-                                    <div class="content-block">
-                                        <h4><span class="material-symbols-outlined">output</span> Result</h4>
-                                        <pre class="result-content" x-text="$store.stepDetail.selectedStepForDetail?.kvps?.result || $store.stepDetail.selectedStepForDetail?.content"></pre>
-                                    </div>
-                                </template>
-                            </div>
-                        </template>
-
-                        <!-- Browser Type: Screenshot -->
-                        <template x-if="$store.stepDetail.selectedStepForDetail?.type === 'browser'">
-                            <div class="type-specific-content">
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps?.screenshot">
-                                    <div class="content-block">
-                                        <h4><span class="material-symbols-outlined">screenshot_monitor</span> Screenshot</h4>
-                                        <img class="screenshot-full" 
-                                             :src="$store.stepDetail.selectedStepForDetail?.kvps?.screenshot?.replace('img://', '/image_get?path=')" 
-                                             alt="Browser Screenshot" />
-                                    </div>
-                                </template>
-                            </div>
-                        </template>
-
-                        <!-- Generic KVPs for other types -->
-                        <template x-if="!['agent', 'code_exe', 'tool', 'mcp', 'browser'].includes($store.stepDetail.selectedStepForDetail?.type)">
-                            <div class="type-specific-content">
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.kvps">
-                                    <div class="content-block">
-                                        <h4>Details</h4>
-                                        <div class="kvps-display">
-                                            <template x-for="[key, value] in Object.entries($store.stepDetail.selectedStepForDetail?.kvps || {}).filter(([k]) => k !== 'reasoning')" :key="key">
-                                                <div class="kvp-item">
-                                                    <span class="kvp-key" x-text="$store.stepDetail.formatKey(key)"></span>
-                                                    <span class="kvp-value" x-text="$store.stepDetail.formatValue(value)"></span>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                                <!-- Content -->
-                                <template x-if="$store.stepDetail.selectedStepForDetail?.content">
-                                    <div class="content-block">
-                                        <h4>Content</h4>
-                                        <pre class="tool-arg-item" x-text="$store.stepDetail.selectedStepForDetail?.content"></pre>
-                                    </div>
-                                </template>
+                        <!-- Content -->
+                        <template x-if="$store.stepDetail.selectedStepForDetail?.content">
+                            <div class="content-block">
+                                <h4>Content</h4>
+                                <pre class="result-content" x-text="$store.stepDetail.selectedStepForDetail?.content"></pre>
+                                <div class="step-action-buttons" data-segment="content"></div>
                             </div>
                         </template>
                     </div>
@@ -224,10 +96,8 @@
         }
 
         .modal-header-compact {
-            background: linear-gradient(135deg, var(--color-panel) 0%, var(--color-background) 100%);
             position: sticky;
             padding: 0.75rem 1rem;
-            border-radius: 6px 6px 0 0;
             top: 0;
             z-index: 100;
             display: flex;
@@ -245,19 +115,12 @@
             flex-wrap: wrap;
         }
 
-        .step-badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            font-family: var(--font-mono);
-        }
-
         .step-type-label {
             font-weight: 500;
             color: var(--color-text);
         }
 
+        .header-label,
         .tool-name-badge {
             background: var(--color-message-bg);
             color: var(--color-text);
@@ -265,16 +128,6 @@
             border-radius: 8px;
             font-size: 0.75rem;
             font-family: var(--font-mono);
-            border: 1px solid var(--color-border);
-        }
-
-        .timestamp-text,
-        .duration-badge {
-            color: var(--color-text);
-            opacity: 0.7;
-            padding: 0.2rem 0.5rem;
-            border-radius: var(--border-radius);
-            font-size: 0.75rem;
             border: 1px solid var(--color-border);
         }
 
@@ -312,20 +165,20 @@
             border-color: var(--color-primary);
         }
 
-        .btn-action-header.copied {
-            background: var(--color-success, #22c55e);
-            border-color: var(--color-success, #22c55e);
-            color: white;
-        }
-
-        .btn-action-header.copied .material-symbols-outlined::before {
-            content: 'check';
-        }
 
         .modal-body {
             flex: 1;
             overflow-y: auto;
             padding: 1rem;
+        }
+
+        .modal-inner.step-detail-modal .modal-scroll {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .modal-inner.step-detail-modal .modal-scroll::-webkit-scrollbar {
+            display: none;
         }
 
         .raw-json-section {
@@ -357,10 +210,7 @@
         }
 
         .content-block {
-            background: var(--color-panel);
-            border: 1px solid var(--color-border);
-            border-radius: 6px;
-            padding: 1rem;
+            padding: var(--spacing-xs) 0;
         }
 
         .content-block h4 {
@@ -368,19 +218,7 @@
             color: var(--color-text);
             font-size: 0.9rem;
             font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
             opacity: 0.8;
-        }
-
-        .content-block h4 .material-symbols-outlined {
-            font-size: 18px;
-            opacity: 0.7;
-        }
-
-        .content-block:last-child {
-            margin-top: 1rem;   
         }
 
         .content-text {
@@ -390,159 +228,8 @@
             word-break: break-word;
         }
 
-        .thoughts-block {
-            margin-bottom: 1rem;
-        }
-
-        .thoughts-content {
-            opacity: 0.8;
-        }
-
-        .reasoning-block {
-            margin-bottom: 1rem;
-        }
-
-        .reasoning-content {
-            opacity: 0.75;
-            font-style: italic;
-        }
-
-        .raw-response-block {
-            margin-top: 1rem;
-        }
-
-        .raw-response-content {
-            background: var(--color-background);
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            margin: 0;
-            max-height: 50vh;
-            overflow: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-            color: var(--color-text);
-        }
-
-        .tool-call-block {
-            margin-bottom: 1rem;
-        }
-
-        .tool-name-inline {
-            background: var(--color-primary);
-            color: white;
-            padding: 0.15rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-family: var(--font-mono);
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-
-        .command-block {
-            margin-bottom: 1rem;
-        }
-
-        .command-info {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .runtime-badge,
-        .session-badge {
-            background: var(--color-message-bg);
-            padding: 0.2rem 0.5rem;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-family: var(--font-mono);
-            border: 1px solid var(--color-border);
-        }
-
-        .command-text {
-            background: var(--color-background);
-            padding: 0.75rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin: 0;
-            overflow-x: auto;
-        }
-
-        .terminal-output-full {
-            background: rgba(0, 0, 0, 0.8);
-            color: var(--color-text);
-            padding: 1rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin: 0;
-            max-height: 40vh;
-            overflow: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .light-mode .terminal-output-full {
-            background: rgba(0, 0, 0, 0.05);
-            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-        }
-
-        .tool-args-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .tool-arg-item {
-            display: flex;
-            gap: 0.75rem;
-            padding: 0.5rem;
-            background: var(--color-background);
-            border-radius: 8px;
-            border: 1px solid var(--color-border);
-        }
-
-        /* GEN step tool call - single container with KV rows */
-        .tool-args-container {
-            background: var(--color-background);
-            border-radius: 8px;
-            border: 1px solid var(--color-border);
-            padding: 0.5rem;
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 0;
-        }
-
-        .tool-arg-row {
-            display: contents;
-        }
-
-        .tool-arg-row .arg-key,
-        .tool-arg-row .arg-value {
-            padding: 0.5rem;
-        }
-
-        .arg-key {
-            font-weight: 600;
-            color: var(--color-primary);
-            font-size: 0.85rem;
-            flex-shrink: 0;
-        }
-
-        .arg-value {
-            color: var(--color-text);
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            white-space: pre-wrap;
-            word-break: break-word;
-            flex: 1;
-        }
-
         .result-content {
-            background: var(--color-background);
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: var(--font-mono);
+            font-family: monospace !important;
             font-size: 0.85rem;
             margin: 0;
             max-height: 40vh;
@@ -551,45 +238,35 @@
             word-break: break-word;
         }
 
-        .screenshot-full {
-            max-width: 100%;
-            border-radius: 8px;
-            border: 1px solid var(--color-border);
-            cursor: pointer;
-        }
-
-        .kvps-display {
+        .kvp-boxes {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 1rem;
         }
 
-        .kvp-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            padding: 0.5rem;
-            background: var(--color-background);
-            border-radius: 8px;
-            border: 1px solid var(--color-border);
-        }
-
-        .kvp-key {
-            font-weight: 600;
+        .kvp-value-content {
             color: var(--color-text);
-            opacity: 0.7;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-        }
-
-        .kvp-value {
-            color: var(--color-text);
-            font-size: 0.9rem;
             white-space: pre-wrap;
             word-break: break-word;
+            margin: 0;
+            font-size: 0.85rem;
         }
 
-        /* Scrollbar styling */
+        .kvp-box-actions {
+            margin-top: 0.5rem;
+        }
+
+        .step-action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-start;
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--color-border);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
         .modal-body::-webkit-scrollbar,
         .result-content::-webkit-scrollbar {
             width: 6px;
@@ -607,12 +284,6 @@
             border-radius: 6px;
         }
 
-        .modal-body::-webkit-scrollbar-thumb:hover,
-        .result-content::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(155, 155, 155, 0.7);
-        }
-
-        /* Responsive */
         @media (max-width: 600px) {
             .modal-header-compact {
                 flex-direction: column;
@@ -622,14 +293,6 @@
             .header-actions {
                 width: 100%;
                 justify-content: flex-end;
-            }
-
-            .tool-arg-item {
-                flex-direction: column;
-            }
-
-            .arg-key {
-                min-width: unset;
             }
         }
     </style>

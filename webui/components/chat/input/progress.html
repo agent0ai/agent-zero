@@ -11,6 +11,11 @@
             <span id="progress-bar-i">|></span><span id="progress-bar"></span>
         </h4>
         <div id="progress-bar-right">
+          <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
+              <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer" title="Stop Speech" aria-label="Stop Speech">
+                  <span class="icon material-symbols-outlined">volume_off</span>
+              </span>
+          </h4>
           <div id="chat-nav-buttons" aria-label="Chat navigation">
             <button class="btn-icon-action" title="Scroll to top" x-on:click="$store.chatNavigation.scrollToTop()">
               <span class="material-symbols-outlined">vertical_align_top</span>
@@ -25,9 +30,6 @@
               <span class="material-symbols-outlined">vertical_align_bottom</span>
             </button>
           </div>
-          <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
-              <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer">Stop Speech</span>
-          </h4>
         </div>
     </div>
 

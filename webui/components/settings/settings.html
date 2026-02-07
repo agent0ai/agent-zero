@@ -9,84 +9,93 @@
 </script>
 
 <div x-data>
-  <template x-if="$store.settingsStore">
-    <div x-init="$store.settingsStore.onOpen()" x-destroy="$store.settingsStore.cleanup()">
+  <template x-if="$store.settings">
+    <div x-init="$store.settings.onOpen()" x-destroy="$store.settings.cleanup()">
 
       <!-- Loading state -->
-      <div x-show="$store.settingsStore.isLoading && !$store.settingsStore.settings" class="settings-loading">
+      <div x-show="$store.settings.isLoading && !$store.settings.settings" class="settings-loading">
         <span class="material-symbols-outlined spinning">progress_activity</span>
         <span>Loading settings...</span>
       </div>
 
       <!-- Error state -->
-      <div x-show="$store.settingsStore.error && !$store.settingsStore.settings" class="settings-error">
+      <div x-show="$store.settings.error && !$store.settings.settings" class="settings-error">
         <span class="material-symbols-outlined">error</span>
-        <span x-text="$store.settingsStore.error"></span>
-        <button class="btn btn-retry" @click="$store.settingsStore.onOpen()">Retry</button>
+        <span x-text="$store.settings.error"></span>
+        <button class="btn btn-retry" @click="$store.settings.onOpen()">Retry</button>
       </div>
 
       <!-- Settings content -->
-    <!-- Tab Navigation -->
-    <div class="settings-tabs-container">
-      <div class="settings-tabs">
-        <div class="settings-tab" 
-            :class="{'active': $store.settingsStore.activeTab === 'agent'}"
-            @click="$store.settingsStore.switchTab('agent')" 
-            title="Agent Settings">Agent Settings</div>
-        <div class="settings-tab" 
-            :class="{'active': $store.settingsStore.activeTab === 'external'}"
-            @click="$store.settingsStore.switchTab('external')" 
-            title="External Services">External Services</div>
-        <div class="settings-tab" 
-            :class="{'active': $store.settingsStore.activeTab === 'mcp'}"
-            @click="$store.settingsStore.switchTab('mcp')" 
-            title="MCP">MCP/A2A</div>
-        <div class="settings-tab" 
-            :class="{'active': $store.settingsStore.activeTab === 'developer'}"
-            @click="$store.settingsStore.switchTab('developer')" 
-            title="Developer">Developer</div>
-        <div class="settings-tab" 
-            :class="{'active': $store.settingsStore.activeTab === 'backup'}"
-            @click="$store.settingsStore.switchTab('backup')" 
-            title="Backup & Restore">Backup & Restore</div>
-        <div class="settings-tab" 
-            :class="{'active': $store.settingsStore.activeTab === 'github'}"
-            @click="$store.settingsStore.switchTab('github')" 
-            title="GitHub">GitHub</div>
-      </div>
-    </div>
+      <div x-show="$store.settings.settings" class="settings-content">
+        <!-- Tab Navigation -->
+        <div class="settings-tabs-container">
+          <div class="settings-tabs no-scrollbar">
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'agent'}"
+                 @click="$store.settings.switchTab('agent')"
+                 title="Agent Settings">Agent Settings</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'skills'}"
+                 @click="$store.settings.switchTab('skills')"
+                 title="Skills">Skills</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'external'}"
+                 @click="$store.settings.switchTab('external')"
+                 title="External Services">External Services</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'mcp'}"
+                 @click="$store.settings.switchTab('mcp')"
+                 title="MCP">MCP/A2A</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'developer'}"
+                 @click="$store.settings.switchTab('developer')"
+                 title="Developer">Developer</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'backup'}"
+                 @click="$store.settings.switchTab('backup')"
+                 title="Backup & Restore">Backup & Restore</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'github'}"
+                 @click="$store.settings.switchTab('github')"
+                 title="GitHub">GitHub</div>
+          </div>
+        </div>
 
-    <!-- Settings sections -->
-    <div id="settings-sections">
-      <div x-show="$store.settingsStore.activeTab === 'agent'">
-        <x-component path="settings/agent/agent-settings.html"></x-component>
+        <!-- Settings sections -->
+        <div id="settings-sections">
+          <div x-show="$store.settings.activeTab === 'agent'">
+            <x-component path="settings/agent/agent-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settings.activeTab === 'external'">
+            <x-component path="settings/external/external-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settings.activeTab === 'mcp'">
+            <x-component path="settings/mcp/mcp-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settings.activeTab === 'developer'">
+            <x-component path="settings/developer/developer-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settings.activeTab === 'backup'">
+            <x-component path="settings/backup/backup-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settings.activeTab === 'skills'">
+            <x-component path="settings/skills/skills-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settings.activeTab === 'github'">
+            <x-component path="settings/github/github.html"></x-component>
+          </div>
+        </div>
       </div>
-      <div x-show="$store.settingsStore.activeTab === 'external'">
-        <x-component path="settings/external/external-settings.html"></x-component>
-      </div>
-      <div x-show="$store.settingsStore.activeTab === 'mcp'">
-        <x-component path="settings/mcp/mcp-settings.html"></x-component>
-      </div>
-      <div x-show="$store.settingsStore.activeTab === 'developer'">
-        <x-component path="settings/developer/developer-settings.html"></x-component>
-      </div>
-      <div x-show="$store.settingsStore.activeTab === 'backup'">
-        <x-component path="settings/backup/backup-settings.html"></x-component>
-      </div>
-      <div x-show="$store.settingsStore.activeTab === 'github'">
-        <x-component path="settings/github/github.html"></x-component>
-      </div>
-    </div>
 
       <!-- Footer -->
-      <div class="modal-footer" data-modal-footer x-show="$store.settingsStore.settings">
+      <div class="modal-footer" data-modal-footer x-show="$store.settings.settings">
         <button class="btn btn-ok" 
-            @click="$store.settingsStore.saveAndClose()"
-            :disabled="$store.settingsStore?.isLoading">
+            @click="$store.settings.saveAndClose()"
+            :disabled="$store.settings?.isLoading">
         Save
         </button>
         <button class="btn btn-cancel" 
-                @click="$store.settingsStore.closeSettings()">
+                @click="$store.settings.closeSettings()">
           Cancel
         </button>
       </div>

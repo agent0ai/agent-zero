@@ -47,6 +47,7 @@ class ApiResetChat(ApiHandler):
             context.reset()
             # Save the reset context to persist the changes
             persist_chat.save_tmp_chat(context)
+            persist_chat.remove_msg_files(context_id)
 
             # Log the reset
             PrintStyle(

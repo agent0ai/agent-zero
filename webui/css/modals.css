@@ -200,7 +200,7 @@ some classes like modal-header are shared between the old and the new system */
 .section {
   margin-bottom: 2rem;
   padding: 1rem;
-  padding-bottom: 0;
+  /* padding-bottom: 0; */
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
 }
@@ -444,7 +444,7 @@ input[type="range"]::-moz-range-thumb {
   .section {
     margin-bottom: 1.5rem;
     padding: 1rem;
-    padding-bottom: 0;
+    /* padding-bottom: 0; */
     border: 1px solid var(--color-border);
     border-radius: 0.5rem;
   }
@@ -524,4 +524,81 @@ input[type="range"]::-moz-range-thumb {
   100% {
     background-position: -200% 0;
   }
+}
+
+/* Confirm Dialog */
+.confirm-dialog-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.confirm-dialog-backdrop.visible {
+  opacity: 1;
+}
+
+.confirm-dialog {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transform: scale(0.95);
+  transition: transform 0.2s ease;
+}
+
+.confirm-dialog-backdrop.visible .confirm-dialog {
+  transform: scale(1);
+}
+
+.confirm-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  padding: 1em 1.25em;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.confirm-dialog-icon {
+  font-size: 1.5em;
+}
+
+.confirm-dialog-title {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.confirm-dialog-body {
+  padding: 1.25em;
+  color: var(--color-text);
+  line-height: 1.6;
+  font-size: 0.95em;
+}
+
+.confirm-dialog-body ul {
+  margin: 0.75em 0;
+  padding-left: 1.5em;
+}
+
+.confirm-dialog-body p {
+  margin: 0;
+}
+
+.confirm-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75em;
+  padding: 1em 1.25em;
+  border-top: 1px solid var(--color-border);
 }

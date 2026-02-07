@@ -17,7 +17,7 @@ def load_dotenv():
 
 
 def get_dotenv_file_path():
-    return get_abs_path(".env")
+    return get_abs_path("usr/.env")
 
 def get_dotenv_value(key: str, default: Any = None):
     # load_dotenv()       

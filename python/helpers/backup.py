@@ -43,7 +43,7 @@ class BackupService:
 
         return {
             "backup_name": f"agent-zero-backup-{timestamp[:10]}",
-            "include_hidden": False,
+            "include_hidden": True,
             "include_patterns": include_patterns,
             "exclude_patterns": exclude_patterns,
             "backup_config": {
@@ -60,28 +60,12 @@ class BackupService:
         # Ensure paths don't have double slashes
         agent_root = self.agent_zero_root.rstrip('/')
 
-        return f"""# Agent Zero Knowledge (excluding defaults)
-{agent_root}/knowledge/**
-!{agent_root}/knowledge/default/**
-
-# Agent Zero Instruments (excluding defaults)
-{agent_root}/instruments/**
-!{agent_root}/instruments/default/**
-
-# Memory (excluding embeddings cache)
-{agent_root}/memory/**
-!{agent_root}/memory/**/embeddings/**
-
-# Configuration and Settings (CRITICAL)
-{agent_root}/.env
-{agent_root}/tmp/settings.json
-{agent_root}/tmp/secrets.env
-{agent_root}/tmp/chats/**
-{agent_root}/tmp/scheduler/**
-{agent_root}/tmp/uploads/**
-
-# User data
+        return f"""# User data
+# All persistent user data is now centralized in /usr for easier backup and restore
 {agent_root}/usr/**
+
+# Root folder
+/root/**
 """
 
     def _get_agent_zero_version(self) -> str:
@@ -263,7 +247,7 @@ class BackupService:
         """Test backup patterns and return list of matched files"""
         include_patterns = metadata.get("include_patterns", [])
         exclude_patterns = metadata.get("exclude_patterns", [])
-        include_hidden = metadata.get("include_hidden", False)
+        include_hidden = metadata.get("include_hidden", True)
 
         # Convert to patterns string for pathspec
         patterns_string = self._patterns_to_string(include_patterns, exclude_patterns)
@@ -348,7 +332,7 @@ class BackupService:
         self,
         include_patterns: List[str],
         exclude_patterns: List[str],
-        include_hidden: bool = False,
+        include_hidden: bool = True,
         backup_name: str = "agent-zero-backup"
     ) -> str:
         """Create backup archive and return path to created file"""
@@ -823,7 +807,7 @@ class BackupService:
         # Use user-edited patterns for what to clean
         user_include_patterns = user_metadata.get("include_patterns", [])
         user_exclude_patterns = user_metadata.get("exclude_patterns", [])
-        include_hidden = user_metadata.get("include_hidden", False)
+        include_hidden = user_metadata.get("include_hidden", True)
 
         if not user_include_patterns:
             return []

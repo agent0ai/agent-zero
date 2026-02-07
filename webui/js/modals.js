@@ -99,15 +99,17 @@ function createModalElement(path) {
     inner: newModal.querySelector(".modal-inner"),
     styles: [],
     scripts: [],
+    beforeClose: null,
   };
 }
 
 // Function to open modal with content from URL
-export function openModal(modalPath) {
+export function openModal(modalPath, beforeClose = null) {
   return new Promise((resolve) => {
     try {
       // Create new modal instance
       const modal = createModalElement(modalPath);
+      modal.beforeClose = beforeClose;
 
       new MutationObserver(
         (_, o) =>
@@ -184,23 +186,42 @@ export function closeModal(modalPath = null) {
 
     // Get the modal from stack at the found index
     modal = modalStack[modalIndex];
-    // Remove the modal from stack
-    modalStack.splice(modalIndex, 1);
   } else {
-    // Just remove the last modal
-    modal = modalStack.pop();
+    // Just get the last modal (removal happens after beforeClose)
+    modal = modalStack[modalStack.length - 1];
   }
 
-  // Remove modal-specific styles and scripts immediately
-  modal.styles.forEach((styleId) => {
-    document.querySelector(`[data-modal-style="${styleId}"]`)?.remove();
-  });
-  modal.scripts.forEach((scriptId) => {
-    document.querySelector(`[data-modal-script="${scriptId}"]`)?.remove();
-  });
+  const canClose = async () => {
+    if (!modal.beforeClose) return true;
+    try {
+      const result = await Promise.resolve(modal.beforeClose());
+      return result !== false;
+    } catch (error) {
+      console.error("Error in beforeClose handler:", error);
+      return true;
+    }
+  };
 
-  // First remove the show class to trigger the transition
-  modal.element.classList.remove("show");
+  return Promise.resolve(canClose()).then((shouldClose) => {
+    if (!shouldClose) return false;
+
+    if (modalPath) {
+      // Remove the modal from stack after beforeClose check
+      modalStack.splice(modalIndex, 1);
+    } else {
+      modalStack.pop();
+    }
+
+    // Remove modal-specific styles and scripts immediately
+    modal.styles.forEach((styleId) => {
+      document.querySelector(`[data-modal-style="${styleId}"]`)?.remove();
+    });
+    modal.scripts.forEach((scriptId) => {
+      document.querySelector(`[data-modal-script="${scriptId}"]`)?.remove();
+    });
+
+    // First remove the show class to trigger the transition
+    modal.element.classList.remove("show");
 
   // commented out to prevent race conditions
 
@@ -223,21 +244,24 @@ export function closeModal(modalPath = null) {
   //   }
   // }, 500); // 500ms should be enough for the transition to complete
 
-  // remove immediately
-  if (modal.element.parentNode) {
-    modal.element.parentNode.removeChild(modal.element);
-  }
+    // remove immediately
+    if (modal.element.parentNode) {
+      modal.element.parentNode.removeChild(modal.element);
+    }
 
 
-  // Handle backdrop visibility and body overflow
-  if (modalStack.length === 0) {
-    // Hide backdrop when no modals are left
-    backdrop.style.display = "none";
-    document.body.style.overflow = "";
-  } else {
-    // Update modal z-indexes
-    updateModalZIndexes();
-  }
+    // Handle backdrop visibility and body overflow
+    if (modalStack.length === 0) {
+      // Hide backdrop when no modals are left
+      backdrop.style.display = "none";
+      document.body.style.overflow = "";
+    } else {
+      // Update modal z-indexes
+      updateModalZIndexes();
+    }
+
+    return true;
+  });
 }
 
 // Function to scroll to element by ID within the last modal

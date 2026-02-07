@@ -114,7 +114,7 @@ const model = {
 
         return {
           backup_name: `agent-zero-backup-${timestamp.slice(0, 10)}`,
-          include_hidden: false,
+          include_hidden: true,
           include_patterns: include_patterns,
           exclude_patterns: exclude_patterns,
           backup_config: {
@@ -130,7 +130,7 @@ const model = {
     // Fallback patterns (will be overridden by backend on first use)
     return {
       backup_name: `agent-zero-backup-${timestamp.slice(0, 10)}`,
-      include_hidden: false,
+      include_hidden: true,
       include_patterns: [
         // These will be replaced with resolved absolute paths by backend
         "# Loading default patterns from backend..."
@@ -245,7 +245,7 @@ const model = {
       // Get grouped preview for better UX
       const response = await sendJsonData("backup_preview_grouped", {
         patterns: patternsString,
-        include_hidden: metadata.include_hidden || false,
+        include_hidden: metadata.include_hidden ?? true,
         max_depth: 3,
         search_filter: this.fileSearchFilter
       });
@@ -391,6 +391,7 @@ const model = {
 
     try {
       this.loading = true;
+      this.loadingMessage = 'Creating backup...';
       this.error = '';
       this.clearFileOperations();
       this.addFileOperation('Starting backup creation...');
@@ -404,7 +405,7 @@ const model = {
         body: JSON.stringify({
           include_patterns: metadata.include_patterns,
           exclude_patterns: metadata.exclude_patterns,
-          include_hidden: metadata.include_hidden || false,
+          include_hidden: metadata.include_hidden ?? true,
           backup_name: metadata.backup_name
         })
       });
@@ -500,6 +501,7 @@ const model = {
     try {
       this.loading = true;
       this.loadingMessage = 'Performing dry run...';
+      this.error = '';
       this.clearFileOperations();
       this.addFileOperation('Starting backup dry run...');
 
@@ -508,7 +510,7 @@ const model = {
 
       const response = await sendJsonData("backup_test", {
         patterns: patternsString,
-        include_hidden: metadata.include_hidden || false,
+        include_hidden: metadata.include_hidden ?? true,
         max_files: 10000
       });
 
@@ -540,6 +542,8 @@ const model = {
     try {
       this.loading = true;
       this.loadingMessage = 'Performing restore dry run...';
+      this.error = '';
+      this.restoreResult = null;
       this.clearFileOperations();
       this.addFileOperation('Starting restore dry run...');
 
@@ -657,7 +661,7 @@ const model = {
     // Check Agent Zero version compatibility
     // Note: Both backup and current versions are obtained via git.get_git_info()
     const backupVersion = this.backupMetadata.agent_zero_version;
-    const currentVersion = "current"; // Retrieved from git.get_git_info() on backend
+    const currentVersion = globalThis.gitinfo.version; // Retrieved from git.get_git_info() on backend
 
     if (backupVersion !== currentVersion && backupVersion !== "development") {
       warnings.push(`Backup created with Agent Zero ${backupVersion}, current version is ${currentVersion}`);
@@ -692,6 +696,7 @@ const model = {
       this.loading = true;
       this.loadingMessage = 'Restoring files...';
       this.error = '';
+      this.restoreResult = null;
       this.clearFileOperations();
       this.addFileOperation('Starting file restoration...');
 

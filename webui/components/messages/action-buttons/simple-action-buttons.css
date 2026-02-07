@@ -14,7 +14,26 @@
   pointer-events: none;
 }
 
-.step-action-buttons .action-button {
+.step-action-buttons .expand-btn {
+  display: none;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-family: "Rubik", Arial, Helvetica, sans-serif;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: var(--spacing-xs) 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.step-action-buttons .expand-btn:hover {
+  opacity: 1;
+}
+
+.step-action-buttons .action-button,
+.action-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,7 +43,8 @@
   cursor: pointer;
 }
 
-.step-action-buttons .action-button .material-symbols-outlined {
+.step-action-buttons .action-button .material-symbols-outlined,
+.action-button .material-symbols-outlined {
   font-size: 0.85rem;
   line-height: 1;
   color: var(--color-message-text);
@@ -32,20 +52,72 @@
   transition: color 0.15s ease;
 }
 
-.step-action-buttons .action-button:hover .material-symbols-outlined {
+.step-action-buttons .action-button:hover .material-symbols-outlined,
+.action-button:hover .material-symbols-outlined {
   color: var(--color-text);
 }
 
 /* Success state */
-.step-action-buttons .action-button.success .material-symbols-outlined {
+.step-action-buttons .action-button.success .material-symbols-outlined,
+.action-button.success .material-symbols-outlined {
   color: #4CAF50;
   font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
 }
 
 /* Error state */
-.step-action-buttons .action-button.error .material-symbols-outlined {
+.step-action-buttons .action-button.error .material-symbols-outlined,
+.action-button.error .material-symbols-outlined {
   color: var(--color-accent);
   font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+}
+
+.show-more-btn,
+.show-less-btn {
+  display: none;
+}
+
+.message.message-collapsible.has-overflow:not(.expanded) > .step-action-buttons {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message.message-collapsible.has-overflow:not(.expanded)
+  > .step-action-buttons
+  .show-more-btn {
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+.device-pointer
+  .message.message-collapsible.has-overflow:not(.expanded)
+  > .step-action-buttons
+  .action-button {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.device-pointer
+  .message.message-collapsible.has-overflow:not(.expanded):hover
+  > .step-action-buttons
+  .action-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.device-pointer
+  .message.message-collapsible.has-overflow.expanded:hover
+  > .step-action-buttons
+  .show-less-btn {
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+.device-touch
+  .message.message-collapsible.has-overflow.expanded
+  > .step-action-buttons
+  .show-less-btn {
+  display: inline-flex;
+  pointer-events: auto;
 }
 
 /* User messages: right-aligned */
@@ -54,13 +126,14 @@
   width: 100%;
 }
 
+
+
 /* ===========================================
    Hover behavior - Pointer devices
    =========================================== */
 
-.device-pointer .message-user:hover .step-action-buttons,
-.device-pointer .message-agent-response:hover .step-action-buttons,
-.device-pointer .process-step:hover > .process-step-detail .step-action-buttons {
+.device-pointer .step-action-buttons:hover,
+.device-pointer :hover > .step-action-buttons {
   opacity: 1;
   pointer-events: auto;
 }

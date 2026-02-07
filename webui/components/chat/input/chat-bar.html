@@ -2,12 +2,16 @@
 <head>
     <script type="module">
         import { store } from "/components/chat/input/input-store.js";
+        import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
     </script>
 </head>
 <body>
     <div id="input-section" x-data>
         <template x-if="$store.chatInput">
             <div style="width: 100%; display: contents;">
+                <!-- Message Queue section -->
+                <x-component path="chat/message-queue/message-queue.html"></x-component>
+
                 <!-- Attachment Preview section -->
                 <div>
                     <x-component path="/chat/attachments/inputPreview.html" />

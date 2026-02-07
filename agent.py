@@ -1,4 +1,4 @@
-import asyncio, random, string
+import asyncio, random, string, threading
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -45,6 +45,7 @@ class AgentContextType(Enum):
 class AgentContext:
 
     _contexts: dict[str, "AgentContext"] = {}
+    _contexts_lock = threading.RLock()
     _counter: int = 0
     _notification_manager = None
 
@@ -66,10 +67,14 @@ class AgentContext:
     ):
         # initialize context
         self.id = id or AgentContext.generate_id()
-        existing = self._contexts.get(self.id, None)
-        if existing:
-            AgentContext.remove(self.id)
-        self._contexts[self.id] = self
+        existing = None
+        with AgentContext._contexts_lock:
+            existing = AgentContext._contexts.get(self.id, None)
+            if existing:
+                AgentContext._contexts.pop(self.id, None)
+            AgentContext._contexts[self.id] = self
+        if existing and existing.task:
+            existing.task.kill()
         if set_current:
             AgentContext.set_current(self.id)
 
@@ -94,7 +99,8 @@ class AgentContext:
 
     @staticmethod
     def get(id: str):
-        return AgentContext._contexts.get(id, None)
+        with AgentContext._contexts_lock:
+            return AgentContext._contexts.get(id, None)
 
     @staticmethod
     def use(id: str):
@@ -118,13 +124,15 @@ class AgentContext:
 
     @staticmethod
     def first():
-        if not AgentContext._contexts:
-            return None
-        return list(AgentContext._contexts.values())[0]
+        with AgentContext._contexts_lock:
+            if not AgentContext._contexts:
+                return None
+            return list(AgentContext._contexts.values())[0]
 
     @staticmethod
     def all():
-        return list(AgentContext._contexts.values())
+        with AgentContext._contexts_lock:
+            return list(AgentContext._contexts.values())
 
     @staticmethod
     def generate_id():
@@ -133,8 +141,9 @@ class AgentContext:
 
         while True:
             short_id = generate_short_id()
-            if short_id not in AgentContext._contexts:
-                return short_id
+            with AgentContext._contexts_lock:
+                if short_id not in AgentContext._contexts:
+                    return short_id
 
     @classmethod
     def get_notification_manager(cls):
@@ -146,7 +155,8 @@ class AgentContext:
 
     @staticmethod
     def remove(id: str):
-        context = AgentContext._contexts.pop(id, None)
+        with AgentContext._contexts_lock:
+            context = AgentContext._contexts.pop(id, None)
         if context and context.task:
             context.task.kill()
         return context
@@ -187,6 +197,7 @@ class AgentContext:
                 else Localization.get().serialize_datetime(datetime.fromtimestamp(0))
             ),
             "type": self.type.value,
+            "running": self.is_running(),
             **self.output_data,
         }
 
@@ -196,7 +207,6 @@ class AgentContext:
         heading: str | None = None,
         content: str | None = None,
         kvps: dict | None = None,
-        temp: bool | None = None,
         update_progress: Log.ProgressUpdate | None = None,
         id: str | None = None,  # Add id parameter
         **kwargs,
@@ -205,7 +215,7 @@ class AgentContext:
         for context in AgentContext.all():
             items.append(
                 context.log.log(
-                    type, heading, content, kvps, temp, update_progress, id, **kwargs
+                    type, heading, content, kvps, update_progress, id, **kwargs
                 )
             )
         return items
@@ -224,11 +234,14 @@ class AgentContext:
     def nudge(self):
         self.kill_process()
         self.paused = False
-        self.task = self.run_task(self.get_agent().monologue)
+        self.task = self.communicate(UserMessage(self.agent0.read_prompt("fw.msg_nudge.md")))
         return self.task
 
     def get_agent(self):
         return self.streaming_agent or self.agent0
+
+    def is_running(self) -> bool:
+        return (self.task and self.task.is_alive()) or False
 
     def communicate(self, msg: "UserMessage", broadcast_level: int = 1):
         self.paused = False  # unpause if paused
@@ -273,6 +286,10 @@ class AgentContext:
             superior = agent.data.get(Agent.DATA_NAME_SUPERIOR, None)
             if superior:
                 response = await self._process_chain(superior, response, False)  # type: ignore
+
+            # call end of process extensions
+            await self.get_agent().call_extensions("process_chain_end", data={})
+
             return response
         except Exception as e:
             agent.handle_critical_exception(e)
@@ -386,6 +403,7 @@ class Agent:
                     await self.call_extensions(
                         "message_loop_start", loop_data=self.loop_data
                     )
+                    await self.handle_intervention()
 
                     try:
                         # prepare LLM chain (model, system, history)
@@ -395,6 +413,8 @@ class Agent:
                         await self.call_extensions(
                             "before_main_llm_call", loop_data=self.loop_data
                         )
+                        await self.handle_intervention()
+
 
                         async def reasoning_callback(chunk: str, full: str):
                             await self.handle_intervention()
@@ -437,11 +457,14 @@ class Agent:
                             response_callback=stream_callback,
                             reasoning_callback=reasoning_callback,
                         )
+                        await self.handle_intervention(agent_response)
 
                         # Notify extensions to finalize their stream filters
                         await self.call_extensions(
                             "reasoning_stream_end", loop_data=self.loop_data
                         )
+                        await self.handle_intervention(agent_response)
+
                         await self.call_extensions(
                             "response_stream_end", loop_data=self.loop_data
                         )
@@ -568,12 +591,13 @@ class Agent:
         error_message = errors.format_error(e)
         
         self.context.log.log(
-            type="warning", content="Critical error occurred, retrying..."
+            type="warning", heading="Critical error occurred, retrying...", content=error_message
         )
         PrintStyle(font_color="orange", padding=True).print(
             "Critical error occurred, retrying..."
         )
         await asyncio.sleep(delay)
+        await self.handle_intervention()
         agent_facing_error = self.read_prompt(
             "fw.msg_critical_error.md", error_message=error_message
         )
@@ -603,9 +627,7 @@ class Agent:
             PrintStyle(font_color="red", padding=True).print(error_message)
             self.context.log.log(
                 type="error",
-                heading="Error",
                 content=error_message,
-                kvps={"text": error_text},
             )
             PrintStyle(font_color="red", padding=True).print(
                 f"{self.agent_name}: {error_text}"

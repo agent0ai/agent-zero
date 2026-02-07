@@ -5,7 +5,7 @@
 
   <body>
     <div x-data>
-      <template x-if="$store.settingsStore.settings">
+      <template x-if="$store.settings.settings">
         <div>
           <div class="section-title">Speech</div>
           <div class="section-description">
@@ -28,9 +28,9 @@
               <div class="field-description">Select the speech-to-text model size</div>
             </div>
             <div class="field-control">
-              <select x-model="$store.settingsStore.settings.stt_model_size">
-                <template x-for="option in $store.settingsStore.additional?.stt_models" :key="option.value">
-                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.stt_model_size" x-text="option.label"></option>
+              <select x-model="$store.settings.settings.stt_model_size">
+                <template x-for="option in $store.settings.additional?.stt_models" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settings.settings.stt_model_size" x-text="option.label"></option>
                 </template>
               </select>
             </div>
@@ -42,7 +42,7 @@
               <div class="field-description">Language code (e.g. en, fr, it)</div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.stt_language" />
+              <input type="text" x-model="$store.settings.settings.stt_language" />
             </div>
           </div>
 
@@ -52,8 +52,8 @@
               <div class="field-description">Silence detection threshold. Lower values are more sensitive to noise.</div>
             </div>
             <div class="field-control">
-              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settingsStore.settings.stt_silence_threshold" />
-              <span class="range-value" x-text="$store.settingsStore.settings.stt_silence_threshold"></span>
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.stt_silence_threshold" />
+              <span class="range-value" x-text="$store.settings.settings.stt_silence_threshold"></span>
             </div>
           </div>
 
@@ -63,7 +63,7 @@
               <div class="field-description">Duration of silence before the system considers speaking to have ended.</div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.stt_silence_duration" />
+              <input type="number" x-model.number="$store.settings.settings.stt_silence_duration" />
             </div>
           </div>
 
@@ -73,7 +73,7 @@
               <div class="field-description">Duration of silence before the system closes the microphone.</div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.stt_waiting_timeout" />
+              <input type="number" x-model.number="$store.settings.settings.stt_waiting_timeout" />
             </div>
           </div>
 
@@ -86,7 +86,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.tts_kokoro" />
+                <input type="checkbox" x-model="$store.settings.settings.tts_kokoro" />
                 <span class="toggler"></span>
               </label>
             </div>

@@ -6,17 +6,19 @@ from typing import Any, Callable, Optional, Coroutine, TypeVar, Awaitable
 
 T = TypeVar("T")
 
+THREAD_BACKGROUND = "Background"
+
 
 class EventLoopThread:
     _instances: dict[str, "EventLoopThread"] = {}
     _lock = threading.Lock()
 
-    def __init__(self, thread_name: str = "Background") -> None:
+    def __init__(self, thread_name: str = THREAD_BACKGROUND) -> None:
         """Initialize the event loop thread."""
         self.thread_name = thread_name
         self._start()
 
-    def __new__(cls, thread_name: str = "Background"):
+    def __new__(cls, thread_name: str = THREAD_BACKGROUND):
         with cls._lock:
             if thread_name not in cls._instances:
                 instance = super(EventLoopThread, cls).__new__(cls)
@@ -81,7 +83,7 @@ class ChildTask:
 class DeferredTask:
     def __init__(
         self,
-        thread_name: str = "Background",
+        thread_name: str = THREAD_BACKGROUND,
     ):
         self.event_loop_thread = EventLoopThread(thread_name)
         self._future: Optional[Future] = None

@@ -9,7 +9,7 @@ from initialize import initialize_agent
 
 from python.helpers.log import Log, LogItem
 
-CHATS_FOLDER = "tmp/chats"
+CHATS_FOLDER = "usr/chats"
 LOG_SIZE = 1000
 CHAT_FILE_NAME = "chat.json"
 
@@ -44,7 +44,7 @@ def save_tmp_chat(context: AgentContext):
 
 def save_tmp_chats():
     """Save all contexts to the chats folder"""
-    for _, context in AgentContext._contexts.items():
+    for context in AgentContext.all():
         # Skip BACKGROUND contexts as they should be ephemeral
         if context.type == AgentContextType.BACKGROUND:
             continue
@@ -164,13 +164,17 @@ def _serialize_agent(agent: Agent):
 
 
 def _serialize_log(log: Log):
+    # Guard against concurrent log mutations while serializing.
+    with log._lock:
+        logs = [item.output() for item in log.logs[-LOG_SIZE:]]  # serialize LogItem objects
+        guid = log.guid
+        progress = log.progress
+        progress_no = log.progress_no
     return {
-        "guid": log.guid,
-        "logs": [
-            item.output() for item in log.logs[-LOG_SIZE:]
-        ],  # serialize LogItem objects
-        "progress": log.progress,
-        "progress_no": log.progress_no,
+        "guid": guid,
+        "logs": logs,
+        "progress": progress,
+        "progress_no": progress_no,
     }
 
 
@@ -262,17 +266,22 @@ def _deserialize_log(data: dict[str, Any]) -> "Log":
     # Deserialize the list of LogItem objects
     i = 0
     for item_data in data.get("logs", []):
-        log.logs.append(LogItem(
-            log=log,  # restore the log reference
-            no=i,  # item_data["no"],
-            type=item_data["type"],
-            heading=item_data.get("heading", ""),
-            content=item_data.get("content", ""),
-            kvps=OrderedDict(item_data["kvps"]) if item_data["kvps"] else None,
-            timestamp=item_data.get("timestamp", 0.0),
-            agentno=item_data.get("agentno", 0),
-            id=item_data.get("id"),
-        ))
+        agentno = item_data.get("agentno")
+        if agentno is None:
+            agentno = item_data.get("agent_number", 0)
+        log.logs.append(
+            LogItem(
+                log=log,  # restore the log reference
+                no=i,  # item_data["no"],
+                type=item_data["type"],
+                heading=item_data.get("heading", ""),
+                content=item_data.get("content", ""),
+                kvps=OrderedDict(item_data["kvps"]) if item_data["kvps"] else None,
+                timestamp=item_data.get("timestamp", 0.0),
+                agentno=agentno,
+                id=item_data.get("id"),
+            )
+        )
         log.updates.append(i)
         i += 1
 

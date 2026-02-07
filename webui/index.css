@@ -24,6 +24,8 @@
   --color-input-focus-dark: #101010;
   --color-chat-background-dark: #212121;
   --color-error-text-dark:#e72323;
+  --color-warning-text-dark:#e79c23;
+  --color-table-row-dark: #272727;
 
   /* Light mode */
   --color-background-light: #fafafa;
@@ -39,8 +41,10 @@
   --color-border-light: #bdbdbdcf;
   --color-input-light: #e4e4e4;
   --color-input-focus-light: #dadada;
-  --color-chat-background-light: #fafafaf3;
+  --color-chat-background-light: #fafafa;
   --color-error-text-light:#920000;
+  --color-warning-text-light:#936214;
+  --color-table-row-light: #edededf3;
 
 
   /* Default to dark mode */
@@ -60,6 +64,8 @@
   --color-background-hover: color-mix(in srgb, var(--color-border) 50%, transparent);
   --color-chat-background: var(--color-chat-background-dark);
   --color-error-text:var(--color-error-text-dark);
+  --color-warning-text:var(--color-warning-text-dark);
+  --color-table-row: var(--color-table-row-dark);
 
   /* Spacing variables */
   --spacing-xxs: 0.15rem;
@@ -81,6 +87,7 @@
 
   /* Other variables */
   --border-radius: 1.125rem;
+  --border-radius-sm: 0.5rem;
   --transition-speed: 0.3s;
   --svg-filter: brightness(0) saturate(100%) var(--color-primary-filter);
   --color-primary-filter: invert(73%) sepia(17%) saturate(360%)
@@ -104,7 +111,9 @@
   --color-background-hover: color-mix(in srgb, var(--color-border) 50%, transparent);
   --color-chat-background: var(--color-chat-background-light);
   --color-error-text:var(--color-error-text-light);
-  } 
+  --color-warning-text:var(--color-warning-text-light);
+  --color-table-row: var(--color-table-row-light);
+} 
 
 
 /* Reset and Base Styles */
@@ -739,30 +748,6 @@ h4 {
   padding: 0 !important;
 }
 
-/* #chat-history .attachment-item {
-  padding: 0 !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  transform: none !important;
-}
-
-#chat-history .attachment-item:hover {
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  transform: none !important;
-}
-
-#chat-history .attachment-preview,
-#chat-history .attachment-item.image-type .attachment-preview {
-  background: transparent;
-}
-
-.attachment-image .attachment-preview {
-  margin-right: 0;
-} */
-
 .attachment-info,
 .file-info {
   display: flex;
@@ -1010,6 +995,10 @@ input:checked + .slider:before {
 
 .disconnected {
   color: #e40138;
+}
+
+.heartbeat {
+  animation: heartbeat 1.5s ease-in-out infinite;
 }
 
 .font-bold {
@@ -1573,3 +1562,67 @@ nav ul li a img {
 }
 
 .light-mode .dropdown-item:hover { background-color: var(--color-background-hover); }
+
+.display-none{
+  display: none !important;
+}
+
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Webkit */
+}
+
+body * {
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+
+body *::-webkit-scrollbar {
+  width: 5px;
+}
+
+body *::-webkit-scrollbar-track {
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+
+body *::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
+  background-color: #555;
+  -webkit-transition: background-color var(--transition-speed) ease-in-out;
+  transition: background-color var(--transition-speed) ease-in-out;
+}
+
+body *::-webkit-scrollbar-thumb:hover {
+  background-color: #666;
+}
+
+body *::-webkit-scrollbar-thumb:active {
+  background-color: #888;
+}
+
+.light-mode * {
+  scrollbar-color: #b7b7b7 transparent;
+}
+
+.light-mode *::-webkit-scrollbar-track {
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.12);
+}
+
+.light-mode *::-webkit-scrollbar-thumb {
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.12);
+  background-color: #b7b7b7;
+}
+
+.light-mode *::-webkit-scrollbar-thumb:hover {
+  background-color: #9f9f9f;
+}
+
+.light-mode *::-webkit-scrollbar-thumb:active {
+  background-color: #8a8a8a;
+}

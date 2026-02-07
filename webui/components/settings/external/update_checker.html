@@ -4,7 +4,7 @@
   </head>
 
   <body>
-    <div x-data="{ get settings() { return $store.settingsStore.settings } }">
+    <div x-data="{ get settings() { return $store.settings.settings } }">
       <template x-if="settings">
         <div>
           <div class="section-title">Update Checker</div>

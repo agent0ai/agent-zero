@@ -5,7 +5,7 @@
 
   <body>
     <div x-data>
-      <template x-if="$store.settingsStore.settings">
+      <template x-if="$store.settings.settings">
         <div>
           <div class="section-title">Web Browser Model</div>
           <div class="section-description">
@@ -18,9 +18,9 @@
               <div class="field-description">Select provider for web browser model used by Agent Zero</div>
             </div>
             <div class="field-control">
-              <select x-model="$store.settingsStore.settings.browser_model_provider">
-                <template x-for="option in $store.settingsStore.additional?.chat_providers" :key="option.value">
-                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.browser_model_provider" x-text="option.label"></option>
+              <select x-model="$store.settings.settings.browser_model_provider">
+                <template x-for="option in $store.settings.additional?.chat_providers" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settings.settings.browser_model_provider" x-text="option.label"></option>
                 </template>
               </select>
             </div>
@@ -32,7 +32,21 @@
               <div class="field-description">Exact name of model from selected provider</div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.browser_model_name" />
+              <input type="text" x-model="$store.settings.settings.browser_model_name" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">API key</div>
+              <div class="field-description">API key for the selected web browser model provider</div>
+            </div>
+            <div class="field-control">
+              <input
+                type="text"
+                x-model="$store.settings.settings.api_keys[$store.settings.settings.browser_model_provider]"
+                autocomplete="off"
+              />
             </div>
           </div>
 
@@ -44,7 +58,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.browser_model_api_base" />
+              <input type="text" x-model="$store.settings.settings.browser_model_api_base" />
             </div>
           </div>
 
@@ -57,7 +71,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.browser_model_vision" />
+                <input type="checkbox" x-model="$store.settings.settings.browser_model_vision" />
                 <span class="toggler"></span>
               </label>
             </div>
@@ -71,7 +85,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.browser_model_rl_requests" />
+              <input type="number" x-model.number="$store.settings.settings.browser_model_rl_requests" />
             </div>
           </div>
 
@@ -83,7 +97,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.browser_model_rl_input" />
+              <input type="number" x-model.number="$store.settings.settings.browser_model_rl_input" />
             </div>
           </div>
 
@@ -95,7 +109,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.browser_model_rl_output" />
+              <input type="number" x-model.number="$store.settings.settings.browser_model_rl_output" />
             </div>
           </div>
 
@@ -107,7 +121,7 @@
               </div>
             </div>
             <div class="field-control">
-              <textarea x-model="$store.settingsStore.settings.browser_model_kwargs"></textarea>
+              <textarea x-model="$store.settings.settings.browser_model_kwargs"></textarea>
             </div>
           </div>
 
@@ -119,7 +133,7 @@
               </div>
             </div>
             <div class="field-control">
-              <textarea x-model="$store.settingsStore.settings.browser_http_headers"></textarea>
+              <textarea x-model="$store.settings.settings.browser_http_headers"></textarea>
             </div>
           </div>
         </div>

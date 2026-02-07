@@ -303,9 +303,6 @@
     padding: 2rem;
     color: var(--color-text);
     opacity: 0.8;
-    background: var(--color-panel);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
     margin: 1rem 0;
     display: grid;
     align-items: center;

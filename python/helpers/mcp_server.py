@@ -1,9 +1,11 @@
 import os
+import asyncio
 from typing import Annotated, Literal, Union
 from urllib.parse import urlparse
 from openai import BaseModel
 from pydantic import Field
-from fastmcp import FastMCP  # type: ignore
+import fastmcp
+from fastmcp import FastMCP
 import contextvars
 
 from agent import AgentContext, AgentContextType, UserMessage
@@ -15,7 +17,8 @@ from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Receive, Scope, Send
-from fastmcp.server.http import create_sse_app  # type: ignore
+from fastmcp.server.http import create_sse_app, create_base_app, build_resource_metadata_url # type: ignore
+from starlette.routing import Mount  # type: ignore
 from starlette.requests import Request
 import threading
 
@@ -319,37 +322,39 @@ class DynamicMcpProxy:
         message_path = f"/t-{self.token}/messages/"
 
         # Update settings in the MCP server instance if provided
-        mcp_server.settings.message_path = message_path
-        mcp_server.settings.sse_path = sse_path
+        # Keep FastMCP settings synchronized so downstream helpers that read these
+        # values (including deprecated accessors) resolve the runtime paths.
+        fastmcp.settings.message_path = message_path
+        fastmcp.settings.sse_path = sse_path
+        fastmcp.settings.streamable_http_path = http_path
 
         # Create new MCP apps with updated settings
         with self._lock:
+            middleware = [Middleware(BaseHTTPMiddleware, dispatch=mcp_middleware)]
+
             self.sse_app = create_sse_app(
                 server=mcp_server,
-                message_path=mcp_server.settings.message_path,
-                sse_path=mcp_server.settings.sse_path,
-                auth_server_provider=mcp_server._auth_server_provider,
-                auth_settings=mcp_server.settings.auth,
-                debug=mcp_server.settings.debug,
-                routes=mcp_server._additional_http_routes,
-                middleware=[Middleware(BaseHTTPMiddleware, dispatch=mcp_middleware)],
+                message_path=message_path,
+                sse_path=sse_path,
+                auth=mcp_server.auth,
+                debug=fastmcp.settings.debug,
+                middleware=list(middleware),
             )
 
-            # For HTTP, we need to create a custom app since the lifespan manager
-            # doesn't work properly in our Flask/Werkzeug environment
             self.http_app = self._create_custom_http_app(
                 http_path,
-                mcp_server._auth_server_provider,
-                mcp_server.settings.auth,
-                mcp_server.settings.debug,
-                mcp_server._additional_http_routes,
+                middleware=list(middleware),
             )
 
-    def _create_custom_http_app(self, streamable_http_path, auth_server_provider, auth_settings, debug, routes):
-        """Create a custom HTTP app that manages the session manager manually."""
-        from fastmcp.server.http import setup_auth_middleware_and_routes, create_base_app  # type: ignore
+    def _create_custom_http_app(
+        self,
+        streamable_http_path: str,
+        *,
+        middleware: list[Middleware],
+    ) -> ASGIApp:
+        """Create a Streamable HTTP app with manual session manager lifecycle."""
+
         from mcp.server.streamable_http_manager import StreamableHTTPSessionManager  # type: ignore
-        from starlette.routing import Mount
         from mcp.server.auth.middleware.bearer_auth import RequireAuthMiddleware  # type: ignore
         import anyio
 
@@ -357,9 +362,6 @@ class DynamicMcpProxy:
         server_middleware = []
 
         self.http_session_task_group = None
-
-
-        # Create session manager
         self.http_session_manager = StreamableHTTPSessionManager(
             app=mcp_server._mcp_server,
             event_store=None,
@@ -367,10 +369,7 @@ class DynamicMcpProxy:
             stateless=False,
         )
 
-
-        # Custom ASGI handler that ensures task group is initialized
         async def handle_streamable_http(scope, receive, send):
-            # Lazy initialization of task group
             if self.http_session_task_group is None:
                 self.http_session_task_group = anyio.create_task_group()
                 await self.http_session_task_group.__aenter__()
@@ -380,20 +379,25 @@ class DynamicMcpProxy:
             if self.http_session_manager:
                 await self.http_session_manager.handle_request(scope, receive, send)
 
-        # Get auth middleware and routes
-        auth_middleware, auth_routes, required_scopes = setup_auth_middleware_and_routes(
-            auth_server_provider, auth_settings
-        )
+        auth_provider = mcp_server.auth
 
-        server_routes.extend(auth_routes)
-        server_middleware.extend(auth_middleware)
+        if auth_provider:
+            server_routes.extend(auth_provider.get_routes(mcp_path=streamable_http_path))
+            server_middleware.extend(auth_provider.get_middleware())
 
-        # Add StreamableHTTP routes with or without auth
-        if auth_server_provider:
+            resource_url = auth_provider._get_resource_url(streamable_http_path)
+            resource_metadata_url = (
+                build_resource_metadata_url(resource_url) if resource_url else None
+            )
+
             server_routes.append(
                 Mount(
                     streamable_http_path,
-                    app=RequireAuthMiddleware(handle_streamable_http, required_scopes),
+                    app=RequireAuthMiddleware(
+                        handle_streamable_http,
+                        auth_provider.required_scopes,
+                        resource_metadata_url,
+                    ),
                 )
             )
         else:
@@ -404,18 +408,16 @@ class DynamicMcpProxy:
                 )
             )
 
-        # Add custom routes with lowest precedence
-        if routes:
-            server_routes.extend(routes)
+        additional_routes = mcp_server._get_additional_http_routes()
+        if additional_routes:
+            server_routes.extend(additional_routes)
 
-        # Add middleware
-        server_middleware.append(Middleware(BaseHTTPMiddleware, dispatch=mcp_middleware))
+        server_middleware.extend(middleware)
 
-        # Create and return the app
         return create_base_app(
             routes=server_routes,
             middleware=server_middleware,
-            debug=debug,
+            debug=fastmcp.settings.debug,
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

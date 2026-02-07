@@ -40,13 +40,13 @@ const model = {
 
         if (currentIndex > 0) {
             // Go to previous message
-            positions[currentIndex - 1].el.scrollIntoView({ block: "start" });
+            positions[currentIndex - 1].el.scrollIntoView({ block: "start", behavior: "smooth" });
         } else if (currentIndex === 0) {
             // At the first message, scroll to top
             scroller.scrollTo({ top: 0, behavior: "instant" });
         } else if (currentIndex === -1 && positions.length > 0) {
             // All messages are above the threshold (scrolled past), scroll to bottom
-            positions[positions.length - 1].el.scrollIntoView({ block: "start" });
+            positions[positions.length - 1].el.scrollIntoView({ block: "start", behavior: "smooth" });
         }
     },
 
@@ -67,7 +67,7 @@ const model = {
 
         if (targetIndex !== -1) {
             // Go to that message
-            positions[targetIndex].el.scrollIntoView({ block: "start" });
+            positions[targetIndex].el.scrollIntoView({ block: "start", behavior: "smooth" });
         } else {
             // No message found below threshold => scroll to bottom
             this.scrollToBottom();

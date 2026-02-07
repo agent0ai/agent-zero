@@ -168,7 +168,7 @@ const model = {
   },
 };
 
-const store = createStore("settingsStore", model);
+const store = createStore("settings", model);
 
 export { store };
 

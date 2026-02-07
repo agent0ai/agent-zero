@@ -17,7 +17,7 @@ class BackupPreviewGrouped(ApiHandler):
             # Get input parameters
             include_patterns = input.get("include_patterns", [])
             exclude_patterns = input.get("exclude_patterns", [])
-            include_hidden = input.get("include_hidden", False)
+            include_hidden = input.get("include_hidden", True)
             max_depth = input.get("max_depth", 3)
             search_filter = input.get("search_filter", "")
 

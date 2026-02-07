@@ -1,0 +1,10 @@
+# Python environments & cache
+venv/
+**/__pycache__/
+
+# Node.js dependencies
+**/node_modules/
+**/.npm/
+
+# Version control metadata
+**/.git/

@@ -5,7 +5,7 @@
 
   <body>
     <div x-data>
-      <template x-if="$store.settingsStore.settings">
+      <template x-if="$store.settings.settings">
         <div>
           <div class="section-title">Memory</div>
           <div class="section-description">
@@ -20,7 +20,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.agent_memory_subdir" />
+              <input type="text" x-model="$store.settings.settings.agent_memory_subdir" />
             </div>
           </div>
 
@@ -48,7 +48,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_enabled" />
+                <input type="checkbox" x-model="$store.settings.settings.memory_recall_enabled" />
                 <span class="toggler"></span>
               </label>
             </div>
@@ -63,7 +63,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_delayed" />
+                <input type="checkbox" x-model="$store.settings.settings.memory_recall_delayed" />
                 <span class="toggler"></span>
               </label>
             </div>
@@ -78,7 +78,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_query_prep" />
+                <input type="checkbox" x-model="$store.settings.settings.memory_recall_query_prep" />
                 <span class="toggler"></span>
               </label>
             </div>
@@ -93,7 +93,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.memory_recall_post_filter" />
+                <input type="checkbox" x-model="$store.settings.settings.memory_recall_post_filter" />
                 <span class="toggler"></span>
               </label>
             </div>
@@ -107,8 +107,8 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="range" min="1" max="10" step="1" x-model.number="$store.settingsStore.settings.memory_recall_interval" />
-              <span class="range-value" x-text="$store.settingsStore.settings.memory_recall_interval"></span>
+              <input type="range" min="1" max="10" step="1" x-model.number="$store.settings.settings.memory_recall_interval" />
+              <span class="range-value" x-text="$store.settings.settings.memory_recall_interval"></span>
             </div>
           </div>
 
@@ -120,7 +120,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_history_len" />
+              <input type="number" x-model.number="$store.settings.settings.memory_recall_history_len" />
             </div>
           </div>
 
@@ -132,8 +132,8 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settingsStore.settings.memory_recall_similarity_threshold" />
-              <span class="range-value" x-text="$store.settingsStore.settings.memory_recall_similarity_threshold"></span>
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.memory_recall_similarity_threshold" />
+              <span class="range-value" x-text="$store.settings.settings.memory_recall_similarity_threshold"></span>
             </div>
           </div>
 
@@ -145,7 +145,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_memories_max_search" />
+              <input type="number" x-model.number="$store.settings.settings.memory_recall_memories_max_search" />
             </div>
           </div>
 
@@ -157,7 +157,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_memories_max_result" />
+              <input type="number" x-model.number="$store.settings.settings.memory_recall_memories_max_result" />
             </div>
           </div>
 
@@ -169,7 +169,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_solutions_max_search" />
+              <input type="number" x-model.number="$store.settings.settings.memory_recall_solutions_max_search" />
             </div>
           </div>
 
@@ -181,7 +181,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.memory_recall_solutions_max_result" />
+              <input type="number" x-model.number="$store.settings.settings.memory_recall_solutions_max_result" />
             </div>
           </div>
 
@@ -194,7 +194,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.memory_memorize_enabled" />
+                <input type="checkbox" x-model="$store.settings.settings.memory_memorize_enabled" />
                 <span class="toggler"></span>
               </label>
             </div>
@@ -209,7 +209,7 @@
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settingsStore.settings.memory_memorize_consolidation" />
+                <input type="checkbox" x-model="$store.settings.settings.memory_memorize_consolidation" />
                 <span class="toggler"></span>
               </label>
             </div>
@@ -223,8 +223,8 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settingsStore.settings.memory_memorize_replace_threshold" />
-              <span class="range-value" x-text="$store.settingsStore.settings.memory_memorize_replace_threshold"></span>
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.memory_memorize_replace_threshold" />
+              <span class="range-value" x-text="$store.settings.settings.memory_memorize_replace_threshold"></span>
             </div>
           </div>
         </div>

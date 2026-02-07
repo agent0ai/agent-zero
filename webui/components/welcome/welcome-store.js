@@ -3,6 +3,7 @@ import { getContext } from "/index.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as memoryStore } from "/components/modals/memory/memory-dashboard-store.js";
 import { store as projectsStore } from "/components/projects/projects-store.js";
+import { store as chatInputStore } from "/components/chat/input/input-store.js";
 import * as API from "/js/api.js";
 
 const model = {
@@ -11,6 +12,7 @@ const model = {
   banners: [],
   bannersLoading: false,
   lastBannerRefresh: 0,
+  hasDismissedBanners: false,
 
   init() {
     // Initialize visibility based on current context
@@ -92,12 +94,12 @@ const model = {
     const bannerMap = new Map();
     
     for (const banner of frontendBanners) {
-      if (banner.id && !dismissed.has(banner.id)) {
+      if (banner.id && (banner.dismissible === false || !dismissed.has(banner.id))) {
         bannerMap.set(banner.id, banner);
       }
     }
     for (const banner of backendBanners) {
-      if (banner.id && !dismissed.has(banner.id)) {
+      if (banner.id && (banner.dismissible === false || !dismissed.has(banner.id))) {
         bannerMap.set(banner.id, banner);
       }
     }
@@ -106,9 +108,9 @@ const model = {
   },
 
   // Refresh banners: frontend checks → backend checks → merge
-  async refreshBanners() {
+  async refreshBanners(force = false) {
     const now = Date.now();
-    if (now - this.lastBannerRefresh < 1000) return;
+    if (!force && now - this.lastBannerRefresh < 1000) return;
     this.lastBannerRefresh = now;
     this.bannersLoading = true;
     
@@ -116,10 +118,20 @@ const model = {
       const frontendContext = this.buildFrontendContext();
       const frontendBanners = this.runFrontendBannerChecks();
       const backendBanners = await this.runBackendBannerChecks(frontendBanners, frontendContext);
+
+      const dismissed = this.getDismissedBannerIds();
+      const loadIds = new Set(
+        [...frontendBanners, ...backendBanners]
+          .filter(b => b?.id && b.dismissible !== false)
+          .map(b => b.id)
+      );
+      this.hasDismissedBanners = Array.from(loadIds).some(id => dismissed.has(id));
+
       this.banners = this.mergeBanners(frontendBanners, backendBanners);
     } catch (error) {
       console.error("Failed to refresh banners:", error);
       this.banners = this.runFrontendBannerChecks();
+      this.hasDismissedBanners = false;
     } finally {
       this.bannersLoading = false;
     }
@@ -150,6 +162,15 @@ const model = {
       dismissed.push(bannerId);
       storage.setItem('dismissed_banners', JSON.stringify(dismissed));
     }
+
+    this.hasDismissedBanners = this.getDismissedBannerIds().size > 0;
+  },
+
+  undismissBanners() {
+    localStorage.removeItem("dismissed_banners");
+    sessionStorage.removeItem("dismissed_banners");
+    this.hasDismissedBanners = false;
+    this.refreshBanners(true);
   },
 
   getBannerClass(type) {
@@ -176,6 +197,9 @@ const model = {
       case "new-chat":
         chatsStore.newChat();
         break;
+      case "scheduler":
+        window.openModal("modals/scheduler/scheduler-modal.html");
+        break;
       case "settings":
         // Open settings modal
         const settingsButton = document.getElementById("settings");
@@ -188,6 +212,9 @@ const model = {
         break;
       case "memory":
         memoryStore.openModal();
+        break;
+      case "files":
+        chatInputStore.browseFiles();
         break;
       case "website":
         window.open("https://agent-zero.ai", "_blank");

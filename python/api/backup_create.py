@@ -17,7 +17,7 @@ class BackupCreate(ApiHandler):
             # Get input parameters
             include_patterns = input.get("include_patterns", [])
             exclude_patterns = input.get("exclude_patterns", [])
-            include_hidden = input.get("include_hidden", False)
+            include_hidden = input.get("include_hidden", True)
             backup_name = input.get("backup_name", "agent-zero-backup")
 
             # Support legacy string patterns format for backward compatibility

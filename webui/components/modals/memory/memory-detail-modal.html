@@ -86,7 +86,7 @@
                     </div>
 
                     <!-- Metadata Sidebar -->
-                    <div class="metadata-sidebar">
+                    <div class="metadata-sidebar no-scrollbar">
                         <h4>Metadata</h4>
 
                         <!-- Basic Info -->
@@ -139,10 +139,8 @@
         </template>
         <style>
             .modal-header-compact {
-                background: linear-gradient(135deg, var(--color-panel) 0%, var(--color-background) 100%);
                 position: sticky;
                 padding-left: 0.8rem;
-                border-radius: 6px;
                 top: 0;
                 z-index: 100;
             }
@@ -335,15 +333,6 @@
                 background-color: rgba(155, 155, 155, 0.7);
             }
 
-            /* Transparent scrollbar for metadata sidebar */
-            .metadata-sidebar {
-                scrollbar-width: none; /* Firefox */
-            }
-
-            .metadata-sidebar::-webkit-scrollbar {
-                display: none; /* Chrome/Safari/Webkit */
-            }
-        
             .metadata-sidebar h4 {
                 margin: 0 0 1rem 0;
                 color: var(--color-text);

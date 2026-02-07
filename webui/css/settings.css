@@ -262,14 +262,8 @@ nav ul li a img {
   padding-top: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
-}
-
-.settings-tabs::-webkit-scrollbar {
-  display: none;
 }
 
 .settings-tabs::before,

@@ -1,7 +1,6 @@
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers import files, memory, notification, projects, notification, runtime
 import os
-from werkzeug.utils import secure_filename
 
 
 class GetChatFilesPath(ApiHandler):

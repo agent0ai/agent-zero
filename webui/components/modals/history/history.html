@@ -27,7 +27,7 @@
         
         <!-- Content (ACE Editor) -->
         <template x-if="!$store.history.isLoading && !$store.history.error">
-          <div id="history-viewer-container"></div>
+          <div id="history-viewer-container" class="no-scrollbar"></div>
         </template>
         
       </div>
@@ -85,10 +85,6 @@
       height: 71vh;
       border-radius: 0.4rem;
       overflow: auto;
-    }
-
-    #history-viewer-container::-webkit-scrollbar {
-      width: 0;
     }
 
     /* ACE Editor Scrollbar */

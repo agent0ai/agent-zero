@@ -6,7 +6,7 @@
 <div x-data>
     <template x-if="$store.chatAttachments">
 
-        <div x-show="$store.chatAttachments.hasAttachments" class="preview-section">
+        <div x-show="$store.chatAttachments.hasAttachments" class="preview-section scrollbar">
             <template x-for="(attachment, index) in $store.chatAttachments.attachments" :key="index">
                 <div class="attachment-item"
                     :class="{'image-type': attachment.type === 'image', 'file-type': attachment.type === 'file'}">

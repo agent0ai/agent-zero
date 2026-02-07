@@ -5,7 +5,7 @@
 
   <body>
     <div x-data>
-      <template x-if="$store.settingsStore.settings">
+      <template x-if="$store.settings.settings">
         <div>
           <div class="section-title">API Keys</div>
           <div class="section-description">
@@ -13,7 +13,7 @@
             For more information about Agent Zero Venice provider, see <a href="http://agent-zero.ai/?community/api-dashboard/about" target="_blank">Agent Zero Venice</a>.
           </div>
 
-          <template x-for="provider in $store.settingsStore.apiKeyProviders" :key="provider.value">
+          <template x-for="provider in $store.settings.apiKeyProviders" :key="provider.value">
             <div class="field">
               <div class="field-label">
                 <div class="field-title" x-text="provider.label"></div>
@@ -21,7 +21,7 @@
               <div class="field-control">
                 <input
                   type="text"
-                  x-model="$store.settingsStore.settings.api_keys[provider.value]"
+                  x-model="$store.settings.settings.api_keys[provider.value]"
                   autocomplete="off"
                 />
               </div>

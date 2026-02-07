@@ -1,4 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
+import { createActionButton, copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
+import { store as notificationStore } from "/components/notifications/notification-store.js";
 
 // Step Detail Store - manages the step detail modal
 
@@ -16,22 +18,39 @@ const model = {
     window.openModal("modals/process-step-detail/process-step-detail.html");
   },
 
+  // render copy buttons for each segment (called via x-init)
+  renderSegmentButtons() {
+    const step = this.selectedStepForDetail;
+
+    [
+      { segment: "heading", value: this.cleanHeading(step?.heading) },
+      { segment: "content", value: step?.content ?? "" }
+    ].forEach(({ segment, value }) => {
+      document.querySelector(`[data-segment="${segment}"]`)?.replaceChildren(
+        createActionButton("copy", "", () => copyToClipboard(value))
+      );
+    });
+  },
+
+  // render copy buttons for individual kvp boxes
+  renderKvpCopyButton(container, key, value) {
+    const copyText = this.formatFlatValue(value);
+    container?.replaceChildren(
+      createActionButton("copy", "", () => copyToClipboard(copyText))
+    );
+  },
+
   // Close step detail modal
   closeStepDetail() {
     this.selectedStepForDetail = null;
     window.closeModal();
   },
 
-  // Copy text to clipboard
-  async copyToClipboard(text) {
-    if (!text) return false;
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (err) {
-      console.error("Failed to copy to clipboard:", err);
-      return false;
-    }
+  // Copy text to clipboard with toast feedback
+  copyToClipboard(text) {
+    navigator.clipboard.writeText(text)
+      .then(() => notificationStore.addFrontendToastOnly("success", "Copied to clipboard!", "", 3))
+      .catch((err) => console.error("Clipboard copy failed:", err));
   },
 
   // Format step data for full copy (all metadata + content)
@@ -39,7 +58,8 @@ const model = {
     if (!step) return "";
     const lines = [];
     lines.push(`Type: ${step.type || "unknown"}`);
-    if (step.heading) lines.push(`Heading: ${step.heading}`);
+    const heading = this.cleanHeading(step.heading);
+    if (heading) lines.push(`Heading: ${heading}`);
     if (step.timestamp) {
       const date = new Date(parseFloat(step.timestamp) * 1000);
       lines.push(`Timestamp: ${date.toISOString()}`);
@@ -48,10 +68,9 @@ const model = {
     if (step.kvps) {
       lines.push("");
       lines.push("--- Data ---");
-      for (const [key, value] of Object.entries(step.kvps)) {
-        if (key === "reasoning") continue;
-        const formattedValue = typeof value === "object" ? JSON.stringify(value, null, 2) : String(value);
-        lines.push(`${key}: ${formattedValue}`);
+      const flattenedKvps = this.flattenKvps(step.kvps);
+      for (const [key, value] of Object.entries(flattenedKvps)) {
+        lines.push(this.buildKvpCopyText(key, value));
       }
     }
     if (step.content) {
@@ -164,9 +183,9 @@ const model = {
 
   // Format value for display (handles objects)
   formatValue(value) {
-    if (value === null || value === undefined) return '';
-    if (typeof value === 'object') return JSON.stringify(value, null, 2);
-    return String(value);
+    return value == null
+      ? ''
+      : (typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value));
   },
 
   // Format key for display (title case)
@@ -174,17 +193,33 @@ const model = {
     return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   },
 
-  // Clean text value (handle arrays, remove brackets)
-  cleanTextValue(value) {
-    if (Array.isArray(value)) {
-      return value
-        .filter(item => item && String(item).trim() && !/^[\[\]]$/.test(String(item).trim()))
-        .join('\n');
-    }
-    if (typeof value === 'object' && value !== null) {
-      return JSON.stringify(value, null, 2);
-    }
-    return String(value).replace(/^\s*[\[\]]\s*$/gm, '').trim();
+  // flatten nested kvps into top-level entries
+  flattenKvps(kvps, parentKey = "") {
+    const isPlainObject = value => value && typeof value === "object" && !Array.isArray(value);
+    return Object.entries(kvps || {}).reduce((acc, [key, value]) => {
+      const fullKey = [parentKey, this.formatKey(key)].filter(Boolean).join(" / ");
+      return {
+        ...acc,
+        ...(isPlainObject(value) ? this.flattenKvps(value, fullKey) : { [fullKey]: value })
+      };
+    }, {});
+  },
+
+  // format values
+  formatFlatValue(value) {
+    return Array.isArray(value)
+      ? value
+        .map(item => this.formatValue(item))
+        .filter(item => item.trim())
+        .join('\n')
+      : this.formatValue(value);
+  },
+
+  // build copy text
+  buildKvpCopyText(key, value) {
+    const formattedValue = this.formatFlatValue(value);
+    const separator = formattedValue.includes("\n") ? ":\n" : ": ";
+    return `${key}${separator}${formattedValue}`;
   },
 
   // Clean heading by removing icon:// prefixes

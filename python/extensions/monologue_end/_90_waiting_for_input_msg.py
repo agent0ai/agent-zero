@@ -7,4 +7,3 @@ class WaitingForInputMsg(Extension):
         # show temp info message
         if self.agent.number == 0:
             self.agent.context.log.set_initial_progress()
-

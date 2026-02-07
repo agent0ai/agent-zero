@@ -139,7 +139,7 @@ class Memory:
             log_item.stream(progress="\nInitializing VectorDB")
 
         em_dir = files.get_abs_path(
-            "memory/embeddings"
+            "tmp/memory/embeddings"
         )  # just caching, no need to parameterize
         db_dir = abs_db_dir(memory_subdir)
 
@@ -308,7 +308,7 @@ class Memory:
                 log_item,
                 abs_knowledge_dir(kn_dir),
                 index,
-                {"area": Memory.Area.MAIN},
+                {"area": Memory.Area.MAIN.value},
                 filename_pattern="*",
                 recursive=False,
             )
@@ -323,10 +323,49 @@ class Memory:
                     recursive=True,
                 )
 
+        # NOTE: Skills indexing into Memory is intentionally disabled for now.
+        # If we decide to replace instruments with skills in memory, re-enable this block:
+        # skills_dirs = ["custom", "default"]
+        # for skills_subdir in skills_dirs:
+        #     skills_path = files.get_abs_path("usr", "skills", skills_subdir)
+        #     index = knowledge_import.load_knowledge(
+        #         log_item,
+        #         skills_path,
+        #         index,
+        #         {"area": Memory.Area.SKILLS.value},
+        #         filename_pattern="**/SKILL.md",
+        #     )
+        #
+        # try:
+        #     from python.helpers.skills_import import get_project_skills_folder
+        #     from python.helpers import projects as projects_helper
+        #     for proj in projects_helper.get_active_projects_list():
+        #         proj_skills_path = str(get_project_skills_folder(proj["name"]))
+        #         if os.path.isdir(proj_skills_path):
+        #             index = knowledge_import.load_knowledge(
+        #                 log_item,
+        #                 proj_skills_path,
+        #                 index,
+        #                 {"area": Memory.Area.SKILLS.value},
+        #                 filename_pattern="**/SKILL.md",
+        #             )
+        # except Exception:
+        #     pass
+
         # load instruments descriptions
         index = knowledge_import.load_knowledge(
             log_item,
             files.get_abs_path("instruments"),
+            index,
+            {"area": Memory.Area.INSTRUMENTS.value},
+            filename_pattern="**/*.md",
+            recursive=True,
+        )
+
+        # load custom instruments descriptions
+        index = knowledge_import.load_knowledge(
+            log_item,
+            files.get_abs_path("usr/instruments"),
             index,
             {"area": Memory.Area.INSTRUMENTS.value},
             filename_pattern="**/*.md",
@@ -483,7 +522,9 @@ class Memory:
 def get_custom_knowledge_subdir_abs(agent: Agent) -> str:
     for dir in agent.config.knowledge_subdirs:
         if dir != "default":
-            return files.get_abs_path("knowledge", dir)
+            if dir == "custom":
+                return files.get_abs_path("usr/knowledge")
+            return files.get_abs_path("usr/knowledge", dir)
     raise Exception("No custom knowledge subdir set")
 
 
@@ -499,7 +540,7 @@ def abs_db_dir(memory_subdir: str) -> str:
 
         return files.get_abs_path(get_project_meta_folder(memory_subdir[9:]), "memory")
     # standard subdirs
-    return files.get_abs_path("memory", memory_subdir)
+    return files.get_abs_path("usr/memory", memory_subdir)
 
 
 def abs_knowledge_dir(knowledge_subdir: str, *sub_dirs: str) -> str:
@@ -511,7 +552,11 @@ def abs_knowledge_dir(knowledge_subdir: str, *sub_dirs: str) -> str:
             get_project_meta_folder(knowledge_subdir[9:]), "knowledge", *sub_dirs
         )
     # standard subdirs
-    return files.get_abs_path("knowledge", knowledge_subdir, *sub_dirs)
+    if knowledge_subdir == "default":
+        return files.get_abs_path("knowledge", *sub_dirs)
+    if knowledge_subdir == "custom":
+        return files.get_abs_path("usr/knowledge", *sub_dirs)
+    return files.get_abs_path("usr/knowledge", knowledge_subdir, *sub_dirs)
 
 
 def get_memory_subdir_abs(agent: Agent) -> str:
@@ -546,7 +591,7 @@ def get_existing_memory_subdirs() -> list[str]:
         )
 
         # Get subdirectories from memory folder
-        subdirs = files.get_subdirectories("memory", exclude="embeddings")
+        subdirs = files.get_subdirectories("usr/memory")
 
         project_subdirs = files.get_subdirectories(get_projects_parent_folder())
         for project_subdir in project_subdirs:

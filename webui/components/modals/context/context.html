@@ -27,7 +27,7 @@
         
         <!-- Content (ACE Editor) -->
         <template x-if="!$store.context.isLoading && !$store.context.error">
-          <div id="context-viewer-container"></div>
+          <div id="context-viewer-container" class="no-scrollbar"></div>
         </template>
         
       </div>
@@ -85,10 +85,6 @@
       height: 71vh;
       border-radius: 0.4rem;
       overflow: auto;
-    }
-
-    #context-viewer-container::-webkit-scrollbar {
-      width: 0;
     }
 
     /* ACE Editor Scrollbar */

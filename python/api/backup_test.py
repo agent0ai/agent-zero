@@ -16,7 +16,7 @@ class BackupTest(ApiHandler):
             # Get input parameters
             include_patterns = input.get("include_patterns", [])
             exclude_patterns = input.get("exclude_patterns", [])
-            include_hidden = input.get("include_hidden", False)
+            include_hidden = input.get("include_hidden", True)
             max_files = input.get("max_files", 1000)
 
             # Support legacy string patterns format for backward compatibility

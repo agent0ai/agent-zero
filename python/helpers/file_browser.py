@@ -4,7 +4,7 @@ import shutil
 import base64
 import subprocess
 from typing import Dict, List, Tuple, Any
-from werkzeug.utils import secure_filename
+from python.helpers.security import safe_filename
 from datetime import datetime
 
 from python.helpers import files
@@ -19,6 +19,7 @@ class FileBrowser:
     }
 
     MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+    MAX_TEXT_FILE_SIZE = 1 * 1024 * 1024  # 1MB
 
     def __init__(self):
         # if runtime.is_development():
@@ -69,7 +70,9 @@ class FileBrowser:
             for file in files:
                 try:
                     if file and self._is_allowed_file(file.filename, file):
-                        filename = secure_filename(file.filename)
+                        filename = safe_filename(file.filename)
+                        if not filename:
+                            raise ValueError("Invalid filename")
                         file_path = target_dir / filename
 
                         file.save(str(file_path))
@@ -106,6 +109,78 @@ class FileBrowser:
         except Exception as e:
             PrintStyle.error(f"Error deleting {file_path}: {e}")
             return False
+
+    def rename_item(self, file_path: str, new_name: str) -> bool:
+        try:
+            if not new_name or new_name in {".", ".."}:
+                raise ValueError("Invalid new name")
+            if "/" in new_name or "\\" in new_name:
+                raise ValueError("New name cannot include path separators")
+
+            full_path = (self.base_dir / file_path).resolve()
+            if not str(full_path).startswith(str(self.base_dir)):
+                raise ValueError("Invalid path")
+            if not full_path.exists():
+                raise FileNotFoundError("File or folder not found")
+
+            new_path = full_path.with_name(new_name)
+            if not str(new_path).startswith(str(self.base_dir)):
+                raise ValueError("Invalid target path")
+            if full_path == new_path:
+                return True
+            if new_path.exists():
+                raise FileExistsError("Target already exists")
+
+            os.rename(full_path, new_path)
+            return True
+        except Exception as e:
+            PrintStyle.error(f"Error renaming {file_path}: {e}")
+            raise
+
+    def create_folder(self, parent_path: str, folder_name: str) -> bool:
+        try:
+            if not folder_name or folder_name in {".", ".."}:
+                raise ValueError("Invalid folder name")
+            if "/" in folder_name or "\\" in folder_name:
+                raise ValueError("Folder name cannot include path separators")
+
+            parent_full = (self.base_dir / parent_path).resolve()
+            if not str(parent_full).startswith(str(self.base_dir)):
+                raise ValueError("Invalid parent path")
+
+            target_dir = (parent_full / folder_name).resolve()
+            if not str(target_dir).startswith(str(self.base_dir)):
+                raise ValueError("Invalid target path")
+            if target_dir.exists():
+                raise FileExistsError("Folder already exists")
+
+            os.makedirs(target_dir, exist_ok=False)
+            return True
+        except Exception as e:
+            PrintStyle.error(f"Error creating folder {folder_name}: {e}")
+            raise
+
+    def save_text_file(self, file_path: str, content: str) -> bool:
+        try:
+            if not isinstance(content, str):
+                raise ValueError("Content must be a string")
+            content_size = len(content.encode("utf-8"))
+            if content_size > self.MAX_TEXT_FILE_SIZE:
+                raise ValueError("File exceeds 1 MB and cannot be edited")
+
+            full_path = (self.base_dir / file_path).resolve()
+            if not str(full_path).startswith(str(self.base_dir)):
+                raise ValueError("Invalid path")
+            if full_path.exists() and full_path.is_dir():
+                raise ValueError("Target is a directory")
+
+            os.makedirs(full_path.parent, exist_ok=True)
+            with open(full_path, "w", encoding="utf-8") as file:
+                file.write(content)
+            return True
+        except Exception as e:
+            PrintStyle.error(f"Error saving file {file_path}: {e}")
+            raise
 
     def _is_allowed_file(self, filename: str, file) -> bool:
         # allow any file to be uploaded in file browser

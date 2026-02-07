@@ -1,6 +1,6 @@
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers import files
-from werkzeug.utils import secure_filename
+from python.helpers.security import safe_filename
 
 
 class UploadFile(ApiHandler):
@@ -13,8 +13,12 @@ class UploadFile(ApiHandler):
 
         for file in file_list:
             if file and self.allowed_file(file.filename):  # Check file type
-                filename = secure_filename(file.filename) # type: ignore
-                file.save(files.get_abs_path("tmp/upload", filename))
+                if not file.filename:
+                    continue
+                filename = safe_filename(file.filename)
+                if not filename:
+                    continue
+                file.save(files.get_abs_path("usr/uploads", filename))
                 saved_filenames.append(filename)
 
         return {"filenames": saved_filenames}  # Return saved filenames

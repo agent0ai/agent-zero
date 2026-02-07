@@ -207,6 +207,7 @@ const model = {
     if (this.ttsStream.chunks.length == 0) return;
 
     // if stream was already running, just updating chunks is enough
+    // The running loop will pick up the new chunks automatically
     if (this.ttsStream.running) return;
     else this.ttsStream.running = true; // proceed to running phase
 
@@ -216,22 +217,40 @@ const model = {
 
     const spoken = [];
 
-    // loop chunks from last spoken chunk index
-    for (
-      let i = this.ttsStream.lastChunkIndex + 1;
-      i < this.ttsStream.chunks.length;
-      i++
-    ) {
+    // continuously loop until all chunks are spoken and stream is finished
+    while (true) {
+      // check if we should stop
+      if (terminator()) break;
+
+      // get the next chunk index to speak
+      const nextIndex = this.ttsStream.lastChunkIndex + 1;
+
+      // if no more chunks available, check if we should wait or exit
+      if (nextIndex >= this.ttsStream.chunks.length) {
+        // if stream is finished, we're done
+        if (this.ttsStream.finished) break;
+        // otherwise wait a bit for more chunks to arrive
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        continue;
+      }
+
       // do not speak the last chunk until finished (it is being generated)
-      if (i == this.ttsStream.chunks.length - 1 && !this.ttsStream.finished)
-        break;
+      if (
+        nextIndex == this.ttsStream.chunks.length - 1 &&
+        !this.ttsStream.finished
+      ) {
+        // wait a bit for more content or finish signal
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        continue;
+      }
 
       // set the index of last spoken chunk
-      this.ttsStream.lastChunkIndex = i;
+      this.ttsStream.lastChunkIndex = nextIndex;
 
       // speak the chunk
-      spoken.push(this.ttsStream.chunks[i]);
-      await this._speak(this.ttsStream.chunks[i], i > 0, () => terminator());
+      const chunk = this.ttsStream.chunks[nextIndex];
+      spoken.push(chunk);
+      await this._speak(chunk, nextIndex > 0, () => terminator());
     }
 
     // at the end, finish stream data
@@ -388,8 +407,8 @@ const model = {
     while (waitForPrevious && this.isSpeaking) await sleep(25);
     if (terminator && terminator()) return;
 
-    // stop previous if any
-    this.stopAudio();
+    // stop previous only if not waiting for it
+    if (!waitForPrevious) this.stopAudio();
 
     this.browserUtterance = new SpeechSynthesisUtterance(text);
     this.browserUtterance.onstart = () => {
@@ -412,8 +431,8 @@ const model = {
       while (waitForPrevious && this.isSpeaking) await sleep(25);
       if (terminator && terminator()) return;
 
-      // stop previous if any
-      this.stopAudio();
+      // stop previous only if not waiting for it
+      if (!waitForPrevious) this.stopAudio();
 
       if (response.success) {
         if (response.audio_parts) {
@@ -501,59 +520,33 @@ const model = {
     const codePlaceholder = SUB + "code" + SUB;
     const tablePlaceholder = SUB + "table" + SUB;
 
-    // Helper function to handle both closed and unclosed patterns
-    // replacement can be a string or null (to remove)
-    function handlePatterns(
-      inputText,
-      closedPattern,
-      unclosedPattern,
-      replacement
-    ) {
-      // Process closed patterns first
-      let processed = inputText.replace(closedPattern, replacement || "");
-
-      // If the text changed, it means we found and replaced closed patterns
-      if (processed !== inputText) {
-        return processed;
-      } else {
-        // No closed patterns found, check for unclosed ones
-        const unclosedMatch = inputText.match(unclosedPattern);
-        if (unclosedMatch) {
-          // Replace the unclosed pattern
-          return inputText.replace(unclosedPattern, replacement || "");
-        }
-      }
-
-      // No patterns found, return original
-      return inputText;
-    }
-
-    // Handle code blocks
-    text = handlePatterns(
-      text,
-      /```(?:[a-zA-Z0-9]*\n)?[\s\S]*?```/g, // closed code blocks
-      /```(?:[a-zA-Z0-9]*\n)?[\s\S]*$/g, // unclosed code blocks
-      codePlaceholder
-    );
+    // Handle code blocks BEFORE HTML parsing (markdown code blocks)
+    text = text.replace(/```(?:[a-zA-Z0-9]*\n)?[\s\S]*?```/g, codePlaceholder); // closed code blocks
+    text = text.replace(/```(?:[a-zA-Z0-9]*\n)?[\s\S]*$/g, codePlaceholder); // unclosed code blocks
 
     // Replace inline code ticks with content preserved
     text = text.replace(/`([^`]*)`/g, "$1"); // remove backticks but keep content
 
-    // Handle HTML tags
-    text = handlePatterns(
-      text,
-      /<[a-zA-Z][a-zA-Z0-9]*>.*?<\/[a-zA-Z][a-zA-Z0-9]*>/gs, // closed HTML tags
-      /<[a-zA-Z][a-zA-Z0-9]*>[\s\S]*$/g, // unclosed HTML tags
-      "" // remove HTML tags completely
-    );
+    // Parse HTML using browser's DOMParser to properly extract text content
+    try {
+      const parser = new DOMParser();
+      // Wrap in a div to handle fragments
+      const doc = parser.parseFromString(`<div>${text}</div>`, 'text/html');
 
-    // Handle self-closing HTML tags
-    text = handlePatterns(
-      text,
-      /<[a-zA-Z][a-zA-Z0-9]*(\/| [^>]*\/>)/g, // complete self-closing tags
-      /<[a-zA-Z][a-zA-Z0-9]* [^>]*$/g, // incomplete self-closing tags
-      ""
-    );
+      // Replace <pre> and <code> tags with placeholder before extracting text
+      doc.querySelectorAll('pre, code').forEach(el => {
+        el.textContent = codePlaceholder;
+      });
+
+      // Extract text content (this strips all HTML tags properly)
+      text = doc.body.textContent || "";
+    } catch (e) {
+      // Fallback: simple tag stripping if DOMParser fails
+      console.warn("[Speech Store] DOMParser failed, using fallback:", e);
+      text = text.replace(/<pre[^>]*>[\s\S]*?<\/pre>/gi, codePlaceholder);
+      text = text.replace(/<code[^>]*>[\s\S]*?<\/code>/gi, codePlaceholder);
+      text = text.replace(/<[^>]+>/g, ''); // strip remaining tags
+    }
 
     // Remove markdown links: [label](url) → label
     text = text.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");

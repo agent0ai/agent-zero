@@ -25,4 +25,4 @@ def build_heading(agent, text: str, icon: str = "network_intelligence"):
     return f"{agent_prefix}{text}"
 
 def build_default_heading(agent):
-    return build_heading(agent, "Generating...") 
+    return build_heading(agent, "Calling LLM...") 

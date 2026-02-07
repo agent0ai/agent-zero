@@ -21,14 +21,14 @@
              x-effect="(() => { const c = bootstrap.Collapse.getOrCreateInstance($el, { toggle: false }); $store.sidebar.isSectionOpen('tasks') ? c.show() : c.hide(); })()">
           <div class="tasks-list-body">
           <div class="tasks-list-container" x-data>
-            <ul class="config-list tasks-config-list" x-show="$store.tasks.tasks.length > 0">
+            <ul class="config-list tasks-config-list no-scrollbar" x-show="$store.tasks.tasks.length > 0">
               <template x-for="task in $store.tasks.tasks" :key="task.id">
                 <li>
                   <div class="task-container" :class="{'task-selected': task.id === $store.tasks.selected}">
                     <div class="chat-list-button" @click="$store.tasks.selectTask(task.id)">
                       <div class="task-container-vertical">
                         <div class="task-title-line">
-                          <span class="project-color-ball" :style="task.project?.color ? { backgroundColor: task.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                          <span :class="{'project-color-ball': true, 'heartbeat': task.running}" :style="task.project?.color ? { backgroundColor: task.project.color } : { border: '1px solid var(--color-border)' }"></span>
                           <span class="task-name"
                             x-text="(task.task_name || `Task #${task.no}`)"
                             :data-task-id="task.id"></span>
@@ -107,15 +107,7 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
       scroll-behavior: smooth;
-      scrollbar-width: none; /* Firefox */
-      -ms-overflow-style: none; /* IE/Edge */
       overscroll-behavior: contain; /* avoid scroll chaining */
-    }
-    /* Hide scrollbar for Chrome/Safari/Webkit */
-    .tasks-config-list::-webkit-scrollbar {
-      display: none;
-      width: 0;
-      height: 0;
     }
   
     .task-title-line {

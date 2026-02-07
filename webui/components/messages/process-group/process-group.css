@@ -174,11 +174,17 @@
   --step-accent: #b45309;
 }
 
-/* SUB - subagent type (teal) */
+/* SUB and RES - subagent type and response (teal) */
 .process-group .SUB {
   --step-accent: #14b8a6;
 }
 .light-mode .process-group .SUB {
+  --step-accent: #0f766e;
+}
+.process-group .RES {
+  --step-accent: #14b8a6;
+}
+.light-mode .process-group .RES {
   --step-accent: #0f766e;
 }
 
@@ -346,6 +352,7 @@
               border-color 0.2s ease-out;
   overflow: hidden;
   color: var(--color-text-muted);
+  max-width: 100%;
 }
 
 .process-group-content > .process-steps {
@@ -366,6 +373,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Individual Process Step */
@@ -374,6 +383,8 @@
   flex-direction: column;
   padding: 0.1em;
   transition: background-color 0.15s ease;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Utility/Info/Hint steps have subtle background tint */
@@ -404,6 +415,8 @@
   user-select: none;
   gap: 4px;
   min-height: 18px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Step title */
@@ -415,6 +428,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: var(--spacing-xs);
+  min-width: 0;
 }
 
 /* Step expand icon - CSS triangle (no Material Icons) */
@@ -437,7 +451,7 @@
 }
 
 /* Use direct child selector to prevent affecting nested steps */
-.process-step.step-expanded > .process-step-header > .step-expand-icon {
+.process-step.expanded > .process-step-header > .step-expand-icon {
   transform: rotate(90deg);
 }
 
@@ -449,33 +463,35 @@
   margin-top: 0;
   transition: grid-template-rows 0.2s ease-out, opacity 0.15s ease-out, margin-top 0.2s ease-out;
   overflow: hidden;
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-  overscroll-behavior: contain; /* avoid scroll chaining */
+  max-width: 100%;
 }
 
-.process-step:not(.step-expanded) > .process-step-detail {
+.process-step-detail-content{
+  white-space: pre-wrap;
+}
+
+.process-step-detail,
+.process-step-detail-scroll {
+  scrollbar-width: thin; /* Firefox */
+  -ms-overflow-style: thin; /* IE/Edge */
+}
+
+/* Hide scrollbar for Chrome/Safari/Webkit */
+.process-step-detail::-webkit-scrollbar,
+.process-step-detail-scroll::-webkit-scrollbar {
+  width: thin;
+  height: thin;
+}
+
+.process-step:not(.expanded) > .process-step-detail {
   margin-top: 0;
 }
 
-.process-step:not(.step-expanded) > .process-step-detail > .process-step-detail-scroll {
+.process-step:not(.expanded) > .process-step-detail > .process-step-detail-scroll {
   padding: 0;
   margin-top: 0;
   max-height: 0;
   overflow: hidden;
-}
-  /* Hide scrollbar for Chrome/Safari/Webkit */
-.process-step-detail::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-.process-step-detail-scroll::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
 }
 
 .process-step-detail > .process-step-detail-scroll {
@@ -483,19 +499,32 @@
 }
 
 /* Use direct child selector (>) to prevent cascading to nested steps */
-.process-step.step-expanded > .process-step-detail {
+.process-step.expanded > .process-step-detail {
   /* grid-template-rows: 1fr; */
   opacity: 1;
-  overflow: visible;
+  overflow: hidden;
   margin-top: var(--spacing-xs);
+  max-width: 100%;
 }
 
-.process-step.step-expanded > .process-step-detail > .process-step-detail-scroll {
+.process-step.expanded > .process-step-detail > .process-step-detail-scroll {
   max-height: 40em;
-  overflow-y: auto;
+  overflow: auto;
+  max-width: 100%;
+  width: fit-content;
+  box-sizing: content-box;
+  border-radius: var(--border-radius-sm);
+  -webkit-overflow-scrolling: touch; 
+  scrollbar-width: thin;
+  -ms-overflow-style: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  /* overscroll-behavior: contain; */
 }
 
-.process-step.step-expanded > .process-step-detail > .process-step-detail-scroll > .process-step-detail-scroll {
+.process-step.expanded > .process-step-detail > .process-step-detail-scroll > .process-step-detail-scroll {
+  scrollbar-width: thin;
+  -ms-overflow-style: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
 .process-step-detail-scroll {
@@ -506,11 +535,8 @@
   background-color: transparent;
   font-size: var(--font-size-xs);
   line-height: 1.5;
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-  overscroll-behavior-x: contain; /* avoid scroll chaining */
+  overscroll-behavior-x: contain; 
 }
 
 /* .process-step-detail-scroll pre {
@@ -526,7 +552,7 @@
 /* KVPs in step detail - CSS Grid for aligned columns */
 .process-step-detail-scroll .step-kvps {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--spacing-xs) var(--spacing-sm);
   align-items: start;
 }
@@ -542,6 +568,7 @@
   display: flex;
   align-items: center;
   justify-content: end;
+  white-space: nowrap;
 }
 
 .process-step-detail-scroll .step-kvp-key .material-symbols-outlined {
@@ -553,9 +580,17 @@
   /* color: var(--color-text); */
   opacity: 0.85;
   word-break: break-word;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
   font-size: 0.75rem;
   line-height: 1.5;
+  min-width: 0;
+}
+
+.process-step-detail-scroll .step-kvp-value p {
+  margin: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 
@@ -621,21 +656,24 @@
 } */
 
 
+/* Terminal output - self-contained scrollable block */
 .process-step-detail .terminal-output {
   margin: var(--spacing-xs) 0 0 0;
   padding: var(--spacing-xs);
   background: rgba(0, 0, 0, 0.8);
-  border-radius: 8px;
+  min-height: 5em;
+  min-width: 20em;
+  width: max-content;
+  border-radius: var(--border-radius-sm);
   color: #c9d1d9;
   white-space: pre;
   font-family: monospace;
-  max-width: fit-content;
-  /* max-height: 300px; */
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.2) transparent;
-  overscroll-behavior-x: contain;
+  /* max-width: fit-content; */
+  /* overflow: auto; */
+  /* -webkit-overflow-scrolling: touch; */
+  /* scrollbar-width: thin; */
+  /* scrollbar-color: rgba(255,255,255,0.2) transparent; */
+  /* overscroll-behavior: contain; */
 }
 
 .process-step-detail .terminal-output::-webkit-scrollbar {
@@ -738,10 +776,11 @@
   overflow: hidden;
   transition: grid-template-rows 0.25s ease-out, opacity 0.2s ease-out;
   gap: 2px;
+  max-width: 100%;
 }
 
 /* Only show nested container when parent step is expanded */
-.process-step.step-expanded > .process-nested-container {
+.process-step.expanded > .process-nested-container {
   grid-template-rows: 1fr;
   opacity: 1;
   margin-top: 2px;
@@ -754,6 +793,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* All nested containers have same indentation (no cascading) */
@@ -768,6 +809,8 @@
   color: var(--color-text);
   opacity: 0.9;
   margin: var(--spacing-xs) 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .process-step-detail-scroll .step-response-content p {
@@ -826,7 +869,7 @@
 }
 
 /* Hide View Details button when step is collapsed */
-.process-step:not(.step-expanded) > .process-step-detail > .step-detail-actions {
+.process-step:not(.expanded) > .process-step-detail > .step-detail-actions {
   display: none;
 }
 

@@ -57,7 +57,7 @@ const model = {
     { label: "MIN", value: "40" },
     { label: "WIDE", value: "55" },
     { label: "2X", value: "80" },
-    { label: "<>", value: "full" },
+    { label: "FULL", value: "full" },
   ],
 
   // Detail mode for process groups/steps expansion
@@ -72,7 +72,8 @@ const model = {
 
   // Detail mode options for UI sidebar
   detailModeOptions: [
-    { label: "NONE", value: "collapsed", title: "All collapsed" },
+    { label: "NO", value: "collapsed", title: "All collapsed" },
+    { label: "LIST", value: "list", title: "Steps collapsed" },
     { label: "STEP", value: "current", title: "Current step only" },
     { label: "ALL", value: "expanded", title: "All expanded" },
   ],

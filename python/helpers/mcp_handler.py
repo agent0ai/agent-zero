@@ -23,6 +23,7 @@ from datetime import timedelta
 import json
 from python.helpers import errors
 from python.helpers import settings
+from python.helpers.log import LogItem
 
 import httpx
 
@@ -99,6 +100,14 @@ def initialize_mcp(mcp_servers_config: str):
 
 class MCPTool(Tool):
     """MCP Tool wrapper"""
+
+    def get_log_object(self) -> LogItem:
+        return self.agent.context.log.log(
+            type="mcp",
+            heading=f"icon://extension {self.agent.agent_name}: Using MCP tool '{self.name}'",
+            content="",
+            kvps={"tool_name": self.name, **self.args},
+        )
 
     async def execute(self, **kwargs: Any):
         error = ""
@@ -1070,9 +1079,9 @@ class MCPClientRemote(MCPClientBase):
         server: MCPServerRemote = cast(MCPServerRemote, self.server)
         set = settings.get_settings()
 
-        # Use lower timeouts for faster failure detection
-        init_timeout = min(server.init_timeout or set["mcp_client_init_timeout"], 5)
-        tool_timeout = min(server.tool_timeout or set["mcp_client_tool_timeout"], 10)
+        # Resolve timeout: check server config first, then settings, defaulting to 5s/10s
+        init_timeout = server.init_timeout or set["mcp_client_init_timeout"] or 5
+        tool_timeout = server.tool_timeout or set["mcp_client_tool_timeout"] or 10
 
         client_factory = CustomHTTPClientFactory(verify=server.verify)
         # Check if this is a streaming HTTP type

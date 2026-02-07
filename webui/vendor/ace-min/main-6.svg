@@ -1,0 +1,9 @@
+<svg viewBox="0 0 20 16" xmlns="http://www.w3.org/2000/svg">
+    <g stroke-width="2" stroke="darkorange" fill="none" shape-rendering="geometricPrecision">
+        <path class="stroke-linejoin-round" d="M8 14.8307C8 14.8307 2 12.9047 2 8.08992V3.26548C5.31 3.26548 7.98999 1.34918 7.98999 1.34918C7.98999 1.34918 10.69 3.26548 14 3.26548V8.08992C14 12.9047 8 14.8307 8 14.8307Z"/>
+        <path d="M2 8.08992V3.26548C5.31 3.26548 7.98999 1.34918 7.98999 1.34918"/>
+        <path d="M13.99 8.08992V3.26548C10.68 3.26548 8 1.34918 8 1.34918"/>
+        <path class="stroke-linejoin-round" d="M8 4V9"/>
+        <path class="stroke-linejoin-round" d="M8 10V12"/>
+    </g>
+</svg>

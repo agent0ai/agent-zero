@@ -8,22 +8,25 @@ from python.api import get_work_dir_files
 
 class DeleteWorkDirFile(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
-        file_path = input.get("path", "")
-        if not file_path.startswith("/"):
-            file_path = f"/{file_path}"
+        try:
+            file_path = input.get("path", "")
+            if not file_path.startswith("/"):
+                file_path = f"/{file_path}"
 
-        current_path = input.get("currentPath", "")
+            current_path = input.get("currentPath", "")
 
-        # browser = FileBrowser()
-        res = await runtime.call_development_function(delete_file, file_path)
+            # browser = FileBrowser()
+            res = await runtime.call_development_function(delete_file, file_path)
 
-        if res:
-            # Get updated file list
-            # result = browser.get_files(current_path)
-            result = await runtime.call_development_function(get_work_dir_files.get_files, current_path)
-            return {"data": result}
-        else:
-            raise Exception("File not found or could not be deleted")
+            if res:
+                # Get updated file list
+                # result = browser.get_files(current_path)
+                result = await runtime.call_development_function(get_work_dir_files.get_files, current_path)
+                return {"data": result}
+            else:
+                return {"error": "File not found or could not be deleted"}
+        except Exception as e:
+            return {"error": str(e)}
 
 
 async def delete_file(file_path: str):

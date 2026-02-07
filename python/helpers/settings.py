@@ -124,6 +124,8 @@ class Settings(TypedDict):
     rfc_port_ssh: int
 
     shell_interface: Literal['local','ssh']
+    websocket_server_restart_enabled: bool
+    uvicorn_access_logs_enabled: bool
 
     stt_model_size: str
     stt_language: str
@@ -152,6 +154,7 @@ class Settings(TypedDict):
     litellm_global_kwargs: dict[str, Any]
 
     update_check_enabled: bool
+
 
 class PartialSettings(Settings, total=False):
     pass
@@ -203,6 +206,8 @@ class SettingsOutputAdditional(TypedDict):
     knowledge_subdirs: list[FieldOption]
     stt_models: list[FieldOption]
     is_dockerized: bool
+    runtime_settings: dict[str, Any]
+
 
 class SettingsOutput(TypedDict):
     settings: Settings
@@ -212,8 +217,9 @@ class SettingsOutput(TypedDict):
 PASSWORD_PLACEHOLDER = "****PSWD****"
 API_KEY_PLACEHOLDER = "************"
 
-SETTINGS_FILE = files.get_abs_path("tmp/settings.json")
+SETTINGS_FILE = files.get_abs_path("usr/settings.json")
 _settings: Settings | None = None
+_runtime_settings_snapshot: Settings | None = None
 
 OptionT = TypeVar("OptionT", bound=FieldOption)
 
@@ -251,14 +257,25 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 {"value": "medium", "label": "Medium (769M, English)"},
                 {"value": "large", "label": "Large (1.5B, Multilingual)"},
                 {"value": "turbo", "label": "Turbo (Multilingual)"},
-            ]
-
-        )
+            ],
+            runtime_settings={},
+        ),
     )
 
     # ensure dropdown options include currently selected values
     additional = out["additional"]
     current = out["settings"]
+
+    default_settings = get_default_settings()
+    runtime_settings = _runtime_settings_snapshot or settings
+    additional["runtime_settings"] = {
+        "uvicorn_access_logs_enabled": bool(
+            runtime_settings.get(
+                "uvicorn_access_logs_enabled",
+                default_settings["uvicorn_access_logs_enabled"],
+            )
+        ),
+    }
 
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("chat_model_provider"))
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("util_model_provider"))
@@ -314,7 +331,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
             out["settings"][key] = _dict_to_env(value)
     return out
 
-
 def _get_api_key_field(settings: Settings, provider: str, title: str) -> SettingsField:
     key = settings["api_keys"].get(provider, models.get_api_key(provider))
     # For API keys, use simple asterisk placeholder for existing keys
@@ -347,6 +363,17 @@ def get_settings() -> Settings:
         _settings = get_default_settings()
     norm = normalize_settings(_settings)
     return norm
+
+
+def reload_settings() -> Settings:
+    global _settings
+    _settings = None
+    return get_settings()
+
+
+def set_runtime_settings_snapshot(settings: Settings) -> None:
+    global _runtime_settings_snapshot
+    _runtime_settings_snapshot = settings.copy()
 
 
 def set_settings(settings: Settings, apply: bool = True):
@@ -411,6 +438,7 @@ def _adjust_to_version(settings: Settings, default: Settings):
             settings["agent_profile"] = "agent0"
 
 
+
 def _read_settings_file() -> Settings | None:
     if os.path.exists(SETTINGS_FILE):
         content = files.read_file(SETTINGS_FILE)
@@ -471,7 +499,7 @@ def get_default_settings() -> Settings:
     return Settings(
         version=_get_version(),
         chat_model_provider=get_default_value("chat_model_provider", "openrouter"),
-        chat_model_name=get_default_value("chat_model_name", "openai/gpt-4.1"),
+        chat_model_name=get_default_value("chat_model_name", "openai/gpt-5.2-chat"),
         chat_model_api_base=get_default_value("chat_model_api_base", ""),
         chat_model_kwargs=get_default_value("chat_model_kwargs", {"temperature": "0"}),
         chat_model_ctx_length=get_default_value("chat_model_ctx_length", 100000),
@@ -481,7 +509,7 @@ def get_default_settings() -> Settings:
         chat_model_rl_input=get_default_value("chat_model_rl_input", 0),
         chat_model_rl_output=get_default_value("chat_model_rl_output", 0),
         util_model_provider=get_default_value("util_model_provider", "openrouter"),
-        util_model_name=get_default_value("util_model_name", "openai/gpt-4.1-mini"),
+        util_model_name=get_default_value("util_model_name", "google/gemini-3-flash-preview"),
         util_model_api_base=get_default_value("util_model_api_base", ""),
         util_model_ctx_length=get_default_value("util_model_ctx_length", 100000),
         util_model_ctx_input=get_default_value("util_model_ctx_input", 0.7),
@@ -531,6 +559,8 @@ def get_default_settings() -> Settings:
         rfc_port_http=get_default_value("rfc_port_http", 55080),
         rfc_port_ssh=get_default_value("rfc_port_ssh", 55022),
         shell_interface=get_default_value("shell_interface", "local" if runtime.is_dockerized() else "ssh"),
+        websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
+        uvicorn_access_logs_enabled=get_default_value("uvicorn_access_logs_enabled", False),
         stt_model_size=get_default_value("stt_model_size", "base"),
         stt_language=get_default_value("stt_language", "en"),
         stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
@@ -559,7 +589,7 @@ def _apply_settings(previous: Settings | None):
         from initialize import initialize_agent
 
         config = initialize_agent()
-        for ctx in AgentContext._contexts.values():
+        for ctx in AgentContext.all():
             ctx.config = config  # reinitialize context config with new settings
             # apply config to agents
             agent = ctx.agent0
@@ -763,3 +793,4 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
+

@@ -18,6 +18,10 @@ class Reset(ApiHandler):
         persist_chat.save_tmp_chat(context)
         persist_chat.remove_msg_files(ctxid)
 
+        # Reset updates context metadata (log guid/version) and must refresh other tabs' lists.
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="api.chat_reset.Reset")
+
         return {
             "message": "Agent restarted.",
         }

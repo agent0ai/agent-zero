@@ -209,6 +209,40 @@ const model = {
     this.updateImageTransform();
   },
 
+  onWheel(event) {
+    // Trackpad scrolling on macOS reports both deltaX and deltaY.
+    // Prevent the modal/page from scrolling and instead pan the image.
+    if (!event) return;
+
+    // Avoid fighting with an active drag.
+    if (this.isDragging) {
+      event.preventDefault();
+      return;
+    }
+
+    // If image isn't ready, ignore.
+    if (!this.currentImageUrl || !this.naturalWidth || !this.naturalHeight) return;
+
+    event.preventDefault();
+
+    // deltaMode: 0=pixels, 1=lines, 2=pages
+    // Convert non-pixel deltas to an approximate pixel value.
+    let dx = event.deltaX || 0;
+    let dy = event.deltaY || 0;
+    if (event.deltaMode === 1) {
+      dx *= 16;
+      dy *= 16;
+    } else if (event.deltaMode === 2) {
+      dx *= 800;
+      dy *= 800;
+    }
+
+    // Pan in the direction of scrolling.
+    this.panX -= dx;
+    this.panY -= dy;
+    this.updateImageTransform();
+  },
+
   endDrag() {
     if (!this.isDragging) return;
     this.isDragging = false;

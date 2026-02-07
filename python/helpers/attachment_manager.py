@@ -3,7 +3,8 @@ import io
 import base64
 from PIL import Image
 from typing import Dict, List, Optional, Tuple
-from werkzeug.utils import secure_filename
+from python.helpers.security import safe_filename
+from werkzeug.datastructures import FileStorage
 
 from python.helpers.print_style import PrintStyle
 
@@ -41,10 +42,10 @@ class AttachmentManager:
       except AttributeError:
           return False
 
-  def save_file(self, file, filename: str) -> Tuple[str, Dict]:
+  def save_file(self, file: FileStorage, name: str) -> Tuple[str, Dict]:
       """Save file and return path and metadata"""
       try:
-          filename = secure_filename(filename)
+          filename = safe_filename(name)
           if not filename:
               raise ValueError("Invalid filename")
               
@@ -68,7 +69,7 @@ class AttachmentManager:
           return file_path, metadata
         
       except Exception as e:
-          PrintStyle.error(f"Error saving file {filename}: {e}")
+          PrintStyle.error(f"Error saving file {name}: {e}")
           return None, {} # type: ignore
 
   def generate_image_preview(self, image_path: str, max_size: int = 800) -> Optional[str]:

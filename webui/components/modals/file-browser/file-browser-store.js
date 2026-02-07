@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { fetchApi } from "/js/api.js";
+import { store as fileEditorStore } from "/components/modals/file-editor/file-editor-store.js";
 
 // Model migrated from legacy file_browser.js (lift-and-shift)
 const model = {
@@ -17,6 +18,12 @@ const model = {
   initialPath: "", // Store path for open() call
   closePromise: null,
   error: null,
+  renameTarget: null,
+  renameName: "",
+  renameMode: "rename",
+  isRenaming: false,
+  renameError: null,
+  openDropdownPath: null, // Track which dropdown is currently open
 
   // --- Lifecycle -----------------------------------------------------------
   init() {
@@ -35,13 +42,6 @@ const model = {
       this.closePromise = window.openModal(
         "modals/file-browser/file-browser.html"
       );
-
-      // // Setup cleanup on modal close
-      // if (this.closePromise && typeof this.closePromise.then === "function") {
-      //   this.closePromise.then(() => {
-      //     this.destroy();
-      //   });
-      // }
 
       // Use stored initial path or default
       path = path || this.initialPath || this.browser.currentPath || "$WORK_DIR";
@@ -72,6 +72,8 @@ const model = {
     this.history = [];
     this.initialPath = "";
     this.browser.entries = [];
+    this.openDropdownPath = null;
+    this.resetRenameState();
   },
 
   // --- Helpers -------------------------------------------------------------
@@ -79,6 +81,39 @@ const model = {
     const archiveExts = ["zip", "tar", "gz", "rar", "7z"];
     const ext = filename.split(".").pop().toLowerCase();
     return archiveExts.includes(ext);
+  },
+
+  saveScrollPosition() {
+    // Find the file browser modal's scrollable container
+    // We look for the modal containing .file-browser-root to target the correct modal
+    const fileBrowserRoot = document.querySelector('.file-browser-root');
+    if (fileBrowserRoot) {
+      const modalScroll = fileBrowserRoot.closest('.modal-scroll');
+      if (modalScroll) {
+        return {
+          scrollTop: modalScroll.scrollTop,
+          scrollLeft: modalScroll.scrollLeft
+        };
+      }
+    }
+    return null;
+  },
+
+  restoreScrollPosition(scrollPos) {
+    if (!scrollPos) return;
+
+    const restore = () => {
+      const fileBrowserRoot = document.querySelector('.file-browser-root');
+      if (fileBrowserRoot) {
+        const modalScroll = fileBrowserRoot.closest('.modal-scroll');
+        if (modalScroll) {
+          modalScroll.scrollTop = scrollPos.scrollTop;
+          modalScroll.scrollLeft = scrollPos.scrollLeft;
+        }
+      }
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(restore));
   },
 
   formatFileSize(size) {
@@ -98,6 +133,27 @@ const model = {
       minute: "2-digit",
     };
     return new Date(dateString).toLocaleDateString(undefined, options);
+  },
+
+  // --- Modal helpers -------------------------------------------------------
+  normalizePath(path) {
+    if (!path) return "";
+    return path.startsWith("/") ? path : `/${path}`;
+  },
+
+  buildChildPath(name) {
+    const base = this.normalizePath(this.browser.currentPath || "");
+    const trimmedBase = base.replace(/\/$/, "");
+    if (!trimmedBase) return `/${name}`;
+    return `${trimmedBase}/${name}`;
+  },
+
+  resetRenameState() {
+    this.renameTarget = null;
+    this.renameName = "";
+    this.renameMode = "rename";
+    this.isRenaming = false;
+    this.renameError = null;
   },
 
   // --- Sorting -------------------------------------------------------------
@@ -129,21 +185,53 @@ const model = {
     });
   },
 
+  // --- Dropdown Management -------------------------------------------------
+  toggleDropdown(filePath) {
+    // Toggle: if already open, close it; otherwise open this one (closing any other)
+    this.openDropdownPath = this.openDropdownPath === filePath ? null : filePath;
+  },
+
+  isDropdownOpen(filePath) {
+    return this.openDropdownPath === filePath;
+  },
+
+  closeDropdown() {
+    this.openDropdownPath = null;
+  },
+
   // --- Navigation ----------------------------------------------------------
   async fetchFiles(path = "") {
     this.isLoading = true;
+    
+    // Preserve scroll position if refreshing the same path
+    const isSamePath = this.browser.currentPath === path || 
+                       (!path && !this.browser.currentPath);
+    const scrollPos = isSamePath ? this.saveScrollPosition() : null;
+    
     try {
       const response = await fetchApi(
         `/get_work_dir_files?path=${encodeURIComponent(path)}`
       );
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && !data.error) {
         this.browser.entries = data.data.entries;
         this.browser.currentPath = data.data.current_path;
         this.browser.parentPath = data.data.parent_path;
+        
+        // Set isLoading to false BEFORE restoring scroll to avoid reactivity issues
+        this.isLoading = false;
+        
+        // Restore scroll position if on same path
+        if (scrollPos) {
+          this.restoreScrollPosition(scrollPos);
+        }
       } else {
-        console.error("Error fetching files:", await response.text());
+        const msg = data.error || "Error fetching files";
+        console.error("Error fetching files:", msg);
         this.browser.entries = [];
+        this.isLoading = false;
+        window.toastFrontendError(msg, "File Browser Error");
       }
     } catch (e) {
       window.toastFrontendError(
@@ -151,7 +239,6 @@ const model = {
         "File Browser Error"
       );
       this.browser.entries = [];
-    } finally {
       this.isLoading = false;
     }
   },
@@ -170,6 +257,123 @@ const model = {
     }
   },
 
+  // --- Rename / Create -----------------------------------------------------
+  async openRenameModal(file) {
+    this.resetRenameState();
+    this.renameTarget = file;
+    this.renameName = file?.name || "";
+    this.renameMode = "rename";
+    this.renameError = null;
+    window.openModal("modals/file-browser/rename-modal.html");
+  },
+
+  async openNewFolderModal() {
+    this.resetRenameState();
+    this.renameMode = "create-folder";
+    this.renameName = "";
+    this.renameError = null;
+    window.openModal("modals/file-browser/rename-modal.html");
+  },
+
+  closeRenameModal() {
+    window.closeModal("modals/file-browser/rename-modal.html");
+  },
+
+  async confirmRename() {
+    if (this.isRenaming) return;
+
+    const newName = this.renameName.trim();
+    if (!newName) {
+      this.renameError = "Name is required.";
+      return;
+    }
+    if (newName === "." || newName === "..") {
+      this.renameError = "Name cannot be '.' or '..'.";
+      return;
+    }
+    if (newName.includes("/") || newName.includes("\\")) {
+      this.renameError = "Name cannot include path separators.";
+      return;
+    }
+    if (this.renameMode !== "create-folder" && !this.renameTarget?.path) {
+      this.renameError = "No item selected for rename.";
+      return;
+    }
+
+    // UX: pre-validate duplicates so we can show a clean inline error (no toast spam)
+    const duplicate = (this.browser.entries || []).some((entry) => {
+      if (!entry?.name) return false;
+      if (entry.name !== newName) return false;
+      // When renaming, allow keeping the same entry name
+      if (this.renameTarget?.path && entry.path === this.renameTarget.path) return false;
+      return true;
+    });
+    if (duplicate) {
+      this.renameError = `An item named "${newName}" already exists.`;
+      return;
+    }
+
+    this.isRenaming = true;
+    this.renameError = null;
+
+    try {
+      const payload =
+        this.renameMode === "create-folder"
+          ? {
+              action: "create-folder",
+              parentPath: this.browser.currentPath,
+              currentPath: this.browser.currentPath,
+              newName: newName,
+            }
+          : {
+              action: "rename",
+              path: this.renameTarget?.path,
+              currentPath: this.browser.currentPath,
+              newName: newName,
+            };
+
+      const resp = await fetchApi("/rename_work_dir_file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.error) {
+        throw new Error(data.error || "Rename failed");
+      }
+
+      await this.fetchFiles(this.browser.currentPath);
+      this.closeRenameModal();
+    } catch (error) {
+      const message = error?.message || "Rename failed";
+      this.renameError = message;
+      const title =
+        this.renameMode === "create-folder" ? "Folder Error" : "Rename Error";
+      window.toastFrontendError(message, title);
+    } finally {
+      this.isRenaming = false;
+    }
+  },
+
+  // --- File Editor (Delegated to FileEditorStore) --------------------------
+  async openFileEditor(file) {
+    await fileEditorStore.openFile(file, async () => {
+      // Callback on successful save to refresh file list
+      await this.fetchFiles(this.browser.currentPath);
+    });
+  },
+
+  async openNewFile() {
+    const existingNames = (this.browser.entries || [])
+      .map((e) => e?.name)
+      .filter(Boolean);
+    await fileEditorStore.openNewFile(this.browser.currentPath, existingNames, async () => {
+      // Callback on successful save to refresh file list
+      await this.fetchFiles(this.browser.currentPath);
+    });
+  },
+
   // --- File actions --------------------------------------------------------
   async deleteFile(file) {
     try {
@@ -181,13 +385,14 @@ const model = {
           currentPath: this.browser.currentPath,
         }),
       });
-      if (resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && !data.error) {
         this.browser.entries = this.browser.entries.filter(
           (e) => e.path !== file.path
         );
         window.toastFrontendSuccess("File deleted successfully", "File Deleted");
       } else {
-        window.toastFrontendError(`Error deleting file: ${await resp.text()}`, "Delete Error");
+        window.toastFrontendError(data.error || "Error deleting file", "Delete Error");
       }
     } catch (e) {
       window.toastFrontendError(
@@ -222,8 +427,8 @@ const model = {
         method: "POST",
         body: formData,
       });
-      if (resp.ok) {
-        const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && !data.error) {
         this.browser.entries = data.data.entries;
         this.browser.currentPath = data.data.current_path;
         this.browser.parentPath = data.data.parent_path;
@@ -234,7 +439,7 @@ const model = {
           alert(`Some files failed to upload:\n${msg}`);
         }
       } else {
-        alert(await resp.text());
+        alert(data.error || "Error uploading files");
       }
     } catch (e) {
       window.toastFrontendError(

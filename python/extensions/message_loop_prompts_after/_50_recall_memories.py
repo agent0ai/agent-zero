@@ -63,9 +63,9 @@ class RecallMemories(Extension):
         # get system message and chat history for util llm
         system = self.agent.read_prompt("memory.memories_query.sys.md")
 
-        # log query streamed by LLM
-        async def log_callback(content):
-            log_item.stream(query=content)
+        # # log query streamed by LLM
+        # async def log_callback(content):
+        #     log_item.stream(query=content)
 
         # call util llm to summarize conversation
         user_instruction = (
@@ -83,9 +83,10 @@ class RecallMemories(Extension):
                 query = await self.agent.call_utility_model(
                     system=system,
                     message=message,
-                    callback=log_callback,
+                    # callback=log_callback,
                 )
                 query = query.strip()
+                log_item.update(query=query) # no need for streaming here
             except Exception as e:
                 err = errors.format_error(e)
                 self.agent.context.log.log(

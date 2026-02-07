@@ -5,7 +5,7 @@
 
   <body>
     <div x-data>
-      <template x-if="$store.settingsStore.settings">
+      <template x-if="$store.settings.settings">
         <div>
           <div class="section-title">Utility model</div>
           <div class="section-description">
@@ -18,9 +18,9 @@
               <div class="field-description">Select provider for utility model used by the framework</div>
             </div>
             <div class="field-control">
-              <select x-model="$store.settingsStore.settings.util_model_provider">
-                <template x-for="option in $store.settingsStore.additional?.chat_providers" :key="option.value">
-                  <option :value="option.value" :selected="option.value === $store.settingsStore.settings.util_model_provider" x-text="option.label"></option>
+              <select x-model="$store.settings.settings.util_model_provider">
+                <template x-for="option in $store.settings.additional?.chat_providers" :key="option.value">
+                  <option :value="option.value" :selected="option.value === $store.settings.settings.util_model_provider" x-text="option.label"></option>
                 </template>
               </select>
             </div>
@@ -32,7 +32,21 @@
               <div class="field-description">Exact name of model from selected provider</div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.util_model_name" />
+              <input type="text" x-model="$store.settings.settings.util_model_name" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">API key</div>
+              <div class="field-description">API key for the selected utility model provider</div>
+            </div>
+            <div class="field-control">
+              <input
+                type="text"
+                x-model="$store.settings.settings.api_keys[$store.settings.settings.util_model_provider]"
+                autocomplete="off"
+              />
             </div>
           </div>
 
@@ -44,7 +58,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settingsStore.settings.util_model_api_base" />
+              <input type="text" x-model="$store.settings.settings.util_model_api_base" />
             </div>
           </div>
 
@@ -56,7 +70,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.util_model_rl_requests" />
+              <input type="number" x-model.number="$store.settings.settings.util_model_rl_requests" />
             </div>
           </div>
 
@@ -68,7 +82,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.util_model_rl_input" />
+              <input type="number" x-model.number="$store.settings.settings.util_model_rl_input" />
             </div>
           </div>
 
@@ -80,7 +94,7 @@
               </div>
             </div>
             <div class="field-control">
-              <input type="number" x-model.number="$store.settingsStore.settings.util_model_rl_output" />
+              <input type="number" x-model.number="$store.settings.settings.util_model_rl_output" />
             </div>
           </div>
 
@@ -92,7 +106,7 @@
               </div>
             </div>
             <div class="field-control">
-              <textarea x-model="$store.settingsStore.settings.util_model_kwargs"></textarea>
+              <textarea x-model="$store.settings.settings.util_model_kwargs"></textarea>
             </div>
           </div>
         </div>

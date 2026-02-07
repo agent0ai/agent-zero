@@ -8,7 +8,7 @@ import re
 import base64
 import shutil
 import tempfile
-from typing import Any
+from typing import Any, Literal
 import zipfile
 import importlib
 import importlib.util
@@ -230,6 +230,42 @@ def read_file_base64(relative_path):
         return base64.b64encode(f.read()).decode("utf-8")
 
 
+def is_probably_binary_bytes(data: bytes, threshold: float = 0.3) -> bool:
+    """
+    Binary detection.
+
+    - Fast path: NUL bytes => binary
+    - Otherwise: treat high ratio of suspicious ASCII control bytes as binary.
+      (We intentionally do NOT treat bytes >= 0x80 as binary to avoid false
+      positives for UTF-8 text.)
+    """
+    if not data:
+        return False
+    if b"\x00" in data:
+        return True
+
+    # Count suspicious control bytes
+    allowed = {8, 9, 10, 12, 13}  # \b \t \n \f \r
+    suspicious = sum(
+        1
+        for b in data
+        if ((b < 32 and b not in allowed) or b == 127)
+    )
+    return (suspicious / len(data)) > threshold
+
+
+def is_probably_binary_file(
+    file_path: str, sample_size: int = 10 * 1024, threshold: float = 0.3
+) -> bool:
+    """Binary detection by reading only the first ~sample_size bytes of a file."""
+    try:
+        with open(file_path, "rb") as f:
+            sample = f.read(sample_size)
+    except (FileNotFoundError, PermissionError, OSError):
+        raise OSError(f"Unable to read file for binary detection: {file_path}")
+    return is_probably_binary_bytes(sample, threshold=threshold)
+
+
 def replace_placeholders_text(_content: str, **kwargs):
     # Replace placeholders with values from kwargs
     for key, value in kwargs.items():
@@ -316,7 +352,7 @@ def find_file_in_dirs(_filename: str, _directories: list[str]):
     )
 
 
-def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*"):
+def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*", type: Literal["file", "dir", "any"] = "file"):
     # returns absolute paths for unique filenames, priority by order in dir_paths
     seen = set()
     result = []
@@ -324,12 +360,22 @@ def get_unique_filenames_in_dirs(dir_paths: list[str], pattern: str = "*"):
         full_dir = get_abs_path(dir_path)
         for file_path in glob.glob(os.path.join(full_dir, pattern)):
             fname = os.path.basename(file_path)
-            if fname not in seen and os.path.isfile(file_path):
+            if fname not in seen and (type == "any" or (type == "file" and os.path.isfile(file_path)) or (type == "dir" and os.path.isdir(file_path))):
                 seen.add(fname)
                 result.append(get_abs_path(file_path))
     # sort by filename (basename), not the full path
     result.sort(key=lambda path: os.path.basename(path))
     return result
+
+
+def find_existing_paths_by_pattern(pattern: str):
+    if not pattern:
+        return []
+
+    search_pattern = get_abs_path(pattern)
+    matches = glob.glob(search_pattern, recursive=True)
+    matches.sort()
+    return matches
 
 
 def remove_code_fences(text):
@@ -410,6 +456,10 @@ def move_dir(old_path: str, new_path: str):
     abs_new = get_abs_path(new_path)
     if not os.path.isdir(abs_old):
         return  # nothing to rename
+    
+    # ensure parent directory exists
+    os.makedirs(os.path.dirname(abs_new), exist_ok=True)
+    
     try:
         os.rename(abs_old, abs_new)
     except Exception:

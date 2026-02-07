@@ -1,9 +1,53 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as shortcuts from "/js/shortcuts.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
+import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
+import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
+import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 
 const model = {
   paused: false,
+  message: "",
+
+  _getSendState() {
+    const hasInput = this.message.trim() || attachmentsStore?.attachments?.length > 0;
+    const hasQueue = !!messageQueueStore?.hasQueue;
+    const running = !!chatsStore.selectedContext?.running;
+
+    if (hasQueue && !hasInput) return "all";
+    if ((running || hasQueue) && hasInput) return "queue";
+    return "normal";
+  },
+
+  get inputPlaceholder() {
+    const state = this._getSendState();
+    if (state === "all") return "Press Enter to send queued messages";
+    return "Type your message here...";
+  },
+
+  // Computed: send button icon type
+  get sendButtonIcon() {
+    const state = this._getSendState();
+    if (state === "all") return "send_and_archive";
+    if (state === "queue") return "schedule_send";
+    return "send";
+  },
+
+  // Computed: send button CSS class
+  get sendButtonClass() {
+    const state = this._getSendState();
+    if (state === "all") return "send-queue send-all";
+    if (state === "queue") return "send-queue queue";
+    return "";
+  },
+
+  // Computed: send button title
+  get sendButtonTitle() {
+    const state = this._getSendState();
+    if (state === "all") return "Send all queued messages";
+    if (state === "queue") return "Add to queue";
+    return "Send message";
+  },
 
   init() {
     console.log("Input store initialized");
@@ -156,6 +200,12 @@ const model = {
     }
     await fileBrowserStore.open(path);
   },
+
+  reset() {
+    this.message = "";
+    attachmentsStore.clearAttachments();
+    this.adjustTextareaHeight();
+  }
 };
 
 const store = createStore("chatInput", model);

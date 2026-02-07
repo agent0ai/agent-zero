@@ -6,6 +6,7 @@ Contributions to improve Agent Zero are very welcome!  This guide outlines how t
 
 - See [development](development.md) for instructions on how to set up a development environment.
 - See [extensibility](extensibility.md) for instructions on how to create custom extensions.
+- See [websocket infrastructure](websocket-infrastructure.md) for guidance on building real-time handlers and client integrations.
 
 1. **Fork the Repository:** Fork the Agent Zero repository on GitHub.
 2. **Clone Your Fork:** Clone your forked repository to your local machine.

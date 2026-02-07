@@ -6,8 +6,8 @@
   <body>
     <div
       x-data="{
-        get settings() { return $store.settingsStore.settings },
-        get additional() { return $store.settingsStore.additional || {} }
+        get settings() { return $store.settings.settings },
+        get additional() { return $store.settings.additional || {} }
       }"
     >
       <template x-if="settings">

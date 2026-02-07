@@ -64,18 +64,19 @@ class CodeExecution(Tool):
         runtime = self.args.get("runtime", "").lower().strip()
         session = int(self.args.get("session", 0))
         self.allow_running = bool(self.args.get("allow_running", False))
+        reset = bool(self.args.get("reset", False) or runtime == "reset")
 
         if runtime == "python":
             response = await self.execute_python_code(
-                code=self.args["code"], session=session
+                code=self.args["code"], session=session, reset=reset
             )
         elif runtime == "nodejs":
             response = await self.execute_nodejs_code(
-                code=self.args["code"], session=session
+                code=self.args["code"], session=session, reset=reset
             )
         elif runtime == "terminal":
             response = await self.execute_terminal_command(
-                command=self.args["code"], session=session
+                command=self.args["code"], session=session, reset=reset
             )
         elif runtime == "output":
             response = await self.get_terminal_output(

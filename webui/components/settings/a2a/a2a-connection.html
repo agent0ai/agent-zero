@@ -11,7 +11,7 @@
 
         <!-- API Token Information -->
         <div x-data>
-            <template x-if="$store.settingsStore.settings">
+            <template x-if="$store.settings.settings">
                 <div style="background-color: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; margin: 16px 0;">
                     <h4 style="margin: 0 0 8px 0; color: var(--color-text-primary);">API Token Information</h4>
                     <p style="margin: 0 0 8px 0; color: var(--color-text-secondary); font-size: 14px;">
@@ -21,7 +21,7 @@
                     </p>
                     <div style="margin-top: 8px;">
                         <label style="display: block; margin-bottom: 4px; color: var(--color-text-secondary); font-size: 12px; font-weight: 600;">Token:</label>
-                        <input type="text" readonly x-model="$store.settingsStore.settings.mcp_server_token" style="width: 100%; padding: 6px 8px; background-color: var(--color-bg-primary); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: 4px; font-family: monospace; font-size: 13px;" />
+                        <input type="text" readonly x-model="$store.settings.settings.mcp_server_token" style="width: 100%; padding: 6px 8px; background-color: var(--color-bg-primary); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: 4px; font-family: monospace; font-size: 13px;" />
                     </div>
                 </div>
             </template>

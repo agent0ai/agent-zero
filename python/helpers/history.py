@@ -15,7 +15,7 @@ CURRENT_TOPIC_RATIO = 0.5
 HISTORY_TOPIC_RATIO = 0.3
 HISTORY_BULK_RATIO = 0.2
 TOPIC_COMPRESS_RATIO = 0.65
-LARGE_MESSAGE_TO_TOPIC_RATIO = 0.25
+LARGE_MESSAGE_TO_TOPIC_RATIO = 0.5
 RAW_MESSAGE_OUTPUT_TEXT_TRIM = 100
 
 
@@ -519,12 +519,13 @@ def group_messages_abab(messages: list[BaseMessage]) -> list[BaseMessage]:
 def output_langchain(messages: list[OutputMessage]):
     result = []
     for m in messages:
+        content = _output_content_langchain(content=m["content"])
+        if not content or (isinstance(content, str) and not content.strip()):
+            continue # skip empty messages, models 
         if m["ai"]:
-            # result.append(AIMessage(content=serialize_content(m["content"])))
-            result.append(AIMessage(_output_content_langchain(content=m["content"])))  # type: ignore
+            result.append(AIMessage(content))  # type: ignore
         else:
-            # result.append(HumanMessage(content=serialize_content(m["content"])))
-            result.append(HumanMessage(_output_content_langchain(content=m["content"])))  # type: ignore
+            result.append(HumanMessage(content))  # type: ignore
     # ensure message type alternation
     result = group_messages_abab(result)
     return result

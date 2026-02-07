@@ -54,9 +54,9 @@ class MissingApiKeyCheck(Extension):
             "id": "missing-api-key",
             "type": "error",
             "priority": 100,
-            "title": "Missing API Key",
-            "html": f"""No API key configured for: {model_list}. 
-                     Agent Zero will not be able to function properly. 
+            "title": "Missing LLM API Key for current settings",
+            "html": f"""No API key configured for: {model_list}.<br>
+                     Agent Zero will not be able to function properly unless you provide an API key or change your settings.<br>
                      <a href="#" onclick="document.getElementById('settings').click(); return false;">
                      Add your API key</a> in Settings → External Services → API Keys.""",
             "dismissible": False,

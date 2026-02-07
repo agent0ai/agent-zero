@@ -1,0 +1,88 @@
+<html>
+<head>
+    <title>Project Skills</title>
+    <script type="module">
+        import { store } from "/components/projects/projects-store.js";
+        import { store as skillsStore } from "/components/settings/skills/skills-import-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject">
+            <div class="project-skills-section">
+                <p class="skills-description">
+                    Import skills specific to this project. Project skills are stored in the project's
+                    <code>.a0proj/skills/</code> folder and are only available when this project is active.
+                </p>
+
+                <div class="skills-actions">
+                    <button type="button" class="button" @click="$store.projects.openSelectedProjectSkillsImport()">
+                        <span class="icon material-symbols-outlined">upload</span>
+                        Import Skills
+                    </button>
+                    <button type="button" class="button" @click="$store.projects.openSelectedProjectSkillsFolder()">
+                        <span class="icon material-symbols-outlined">folder_open</span>
+                        Open Folder
+                    </button>
+                </div>
+
+                <div class="skills-info">
+                    <p>
+                        <strong>Project Skills Location:</strong><br>
+                        <code x-text="$store.projects.getSelectedProjectSkillsPath()"></code>
+                    </p>
+                    <p class="skills-note">
+                        Use the global Settings &gt; Skills tab for custom skills available to all projects.
+                    </p>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .project-skills-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .skills-description {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .skills-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .skills-info {
+            background: var(--color-bg-secondary);
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .skills-info p {
+            margin: 0 0 0.5rem 0;
+        }
+
+        .skills-info p:last-child {
+            margin-bottom: 0;
+        }
+
+        .skills-note {
+            color: var(--color-text-secondary);
+            font-style: italic;
+        }
+
+        .skills-info code {
+            background: var(--color-bg-tertiary);
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+    </style>
+</body>
+</html>

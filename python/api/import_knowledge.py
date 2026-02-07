@@ -1,7 +1,7 @@
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers import files, memory
 import os
-from werkzeug.utils import secure_filename
+from python.helpers.security import safe_filename
 
 
 class ImportKnowledge(ApiHandler):
@@ -32,7 +32,9 @@ class ImportKnowledge(ApiHandler):
 
         for file in file_list:
             if file and file.filename:
-                filename = secure_filename(file.filename)  # type: ignore
+                filename = safe_filename(file.filename)
+                if not filename:
+                    continue
                 file.save(os.path.join(KNOWLEDGE_FOLDER, filename))
                 saved_filenames.append(filename)
 

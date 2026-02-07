@@ -18,10 +18,10 @@
 
 chat:
   a0_venice:
-    name: Agent Zero Venice.ai
+    name: Agent Zero API
     litellm_provider: openai
     kwargs:
-      api_base: https://api.agent-zero.ai/venice/v1
+      api_base: https://llm.agent-zero.ai/v1
       venice_parameters:
         include_venice_system_prompt: false
   anthropic:

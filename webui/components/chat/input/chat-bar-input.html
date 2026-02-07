@@ -5,6 +5,8 @@
         import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
         import { store as fullScreenStore } from "/components/modals/full-screen-input/full-screen-store.js";
         import { store as repoMentionStore } from "/components/chat/input/repoMentionStore.js";
+        import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
+        import { store as chatInputStore } from "/components/chat/input/input-store.js";
     </script>
 </head>
 <body>
@@ -23,9 +25,10 @@
         <div id="chat-input-container" style="position: relative;">
             <x-component path="chat/input/repo-mention-dropdown.html"></x-component>
             <x-component path="chat/input/repo-mention-chips.html"></x-component>
-            <textarea id="chat-input" placeholder="Type your message here..." rows="1"
-+                     @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
-                      @input="$store.chatInput.adjustTextareaHeight(); $store.repoMention.handleInput($event)"></textarea>
+            <textarea id="chat-input" :placeholder="$store.chatInput.inputPlaceholder" rows="1"
+                      @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
+                      @input="$store.chatInput.adjustTextareaHeight(); $store.repoMention.handleInput($event)"
+                      x-model="$store.chatInput.message"></textarea>
             <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
@@ -36,10 +39,10 @@
         <div id="chat-buttons-wrapper">
             <!-- Send button -->
             <button class="chat-button" id="send-button" aria-label="Send message"
-                    @click="$store.chatInput.sendMessage()">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-                    <path d="M25 20 L75 50 L25 80" fill="none" stroke="currentColor" stroke-width="15"></path>
-                </svg>
+                    @click="$store.chatInput.sendMessage()"
+                    :class="$store.chatInput.sendButtonClass"
+                    :title="$store.chatInput.sendButtonTitle">
+                    <span class="material-symbols-outlined" x-text="$store.chatInput.sendButtonIcon"></span>
             </button>
 
             <!-- Microphone button -->
@@ -111,9 +114,13 @@
     #chat-buttons-wrapper { gap: var(--spacing-xs); padding-left: var(--spacing-xs); line-height: 0.5rem; display: -webkit-flex; display: flex; }
     .chat-button { border: none; border-radius: 50%; color: var(--color-background); cursor: pointer; font-size: var(--font-size-normal); height: 2.525rem; width: 2.525rem; margin: 0 0.18rem 0 0 var(--spacing-xs); display: -webkit-flex; display: flex; align-items: center; justify-content: center; flex-shrink: 0; flex-grow: 0; min-width: 2.525rem; -webkit-transition: all var(--transition-speed), transform 0.1s ease-in-out; transition: all var(--transition-speed), transform 0.1s ease-in-out; }
     #send-button { background-color: #4248f1; }
+    #send-button.send-queue { background-color: #e67e22; }
     #send-button:hover { -webkit-transform: scale(1.05); transform: scale(1.05); transform-origin: center; background-color: #353bc5; }
+    #send-button.send-queue:hover { background-color: #d35400; }
     #send-button:active { -webkit-transform: scale(1); transform: scale(1); transform-origin: center; background-color: #2b309c; }
     .chat-button svg { width: 1.5rem; height: 1.5rem; }
+    #send-button .material-symbols-outlined { font-size: 1.5rem; }
+    
     /* Microphone button */
     .chat-button.mic-inactive svg { /* Add specific styles if needed */ }
     /* Responsive tweaks */

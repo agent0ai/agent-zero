@@ -1,0 +1,86 @@
+<html>
+<head>
+  <title>Rename</title>
+  <script type="module">
+    import { store } from "/components/modals/file-browser/file-browser-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.fileBrowser">
+      <div class="rename-modal-root" x-init="$nextTick(() => $refs.renameInput?.focus())">
+        <div class="rename-form">
+          <label class="rename-label" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'New folder name' : 'New name'"></label>
+          <input
+            class="rename-input"
+            type="text"
+            x-ref="renameInput"
+            x-model="$store.fileBrowser.renameName"
+            @keydown.enter.prevent="$store.fileBrowser.confirmRename()"
+            :disabled="$store.fileBrowser.isRenaming"
+          />
+          <template x-if="$store.fileBrowser.renameError">
+            <p class="rename-error" x-text="$store.fileBrowser.renameError"></p>
+          </template>
+          <p class="rename-hint" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'Folder will be created in the current directory.' : 'Renaming will keep the item in the same directory.'"></p>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <template x-if="$store.fileBrowser">
+    <div class="modal-footer" data-modal-footer>
+      <button class="btn btn-cancel" @click="$store.fileBrowser.closeRenameModal()" :disabled="$store.fileBrowser.isRenaming">Cancel</button>
+      <button class="btn btn-ok" @click="$store.fileBrowser.confirmRename()" :disabled="$store.fileBrowser.isRenaming || !$store.fileBrowser.renameName.trim()" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'Create Folder' : 'Rename'"></button>
+    </div>
+  </template>
+
+  <style>
+    .rename-modal-root {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      width: 100%;
+    }
+
+    .rename-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      margin: 1rem;
+    }
+
+    .rename-label {
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .rename-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--color-border);
+      background: var(--color-background);
+      color: var(--color-text);
+    }
+
+    .rename-input:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .rename-hint {
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .rename-error {
+      margin: 0;
+      color: var(--color-accent);
+      font-weight: 500;
+      font-size: 0.85rem;
+    }
+  </style>
+</body>
+</html>

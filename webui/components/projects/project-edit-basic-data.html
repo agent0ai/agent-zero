@@ -58,6 +58,82 @@
                         </template>
                     </div>
                 </div>
+
+                <!-- Git Status Section -->
+                <template x-if="!$store.projects.selectedProject._meta.creating && $store.projects.selectedProject.git_status?.is_git_repo">
+                    <div class="projects-form-group git-status-section">
+                        <label class="projects-form-label">
+                            <span class="material-symbols-outlined git-icon">commit</span>
+                            Git Status
+                        </label>
+                        <div class="git-status-card">
+                            <!-- Repository URL -->
+                            <template x-if="$store.projects.selectedProject.git_status.remote_url">
+                                <div class="git-status-row">
+                                    <span class="git-status-label">
+                                        <span class="material-symbols-outlined">link</span>
+                                        Repository
+                                    </span>
+                                    <div class="git-status-value-with-action">
+                                        <span class="git-status-value git-url" x-text="$store.projects.selectedProject.git_status.remote_url"></span>
+                                        <a class="git-action-link" :href="$store.projects.selectedProject.git_status.remote_url" target="_blank" rel="noopener noreferrer" title="Open in browser">
+                                            <span class="material-symbols-outlined">open_in_new</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <!-- Branch -->
+                            <div class="git-status-row">
+                                <span class="git-status-label">
+                                    <span class="material-symbols-outlined">fork_right</span>
+                                    Branch
+                                </span>
+                                <span class="git-status-value git-branch" x-text="$store.projects.selectedProject.git_status.current_branch"></span>
+                            </div>
+                            
+                            <!-- Status -->
+                            <div class="git-status-row">
+                                <span class="git-status-label">
+                                    <span class="material-symbols-outlined">info</span>
+                                    Status
+                                </span>
+                                <span class="git-status-value" 
+                                    :class="$store.projects.selectedProject.git_status.is_dirty ? 'git-dirty' : 'git-clean'">
+                                    <template x-if="!$store.projects.selectedProject.git_status.is_dirty">
+                                        <span>✓ Clean</span>
+                                    </template>
+                                    <template x-if="$store.projects.selectedProject.git_status.is_dirty">
+                                        <span>
+                                            ● Has uncommitted changes
+                                            <template x-if="$store.projects.selectedProject.git_status.untracked_count > 0">
+                                                <span x-text="'(' + $store.projects.selectedProject.git_status.untracked_count + ' untracked)'"></span>
+                                            </template>
+                                        </span>
+                                    </template>
+                                </span>
+                            </div>
+                            
+                            <!-- Last Commit -->
+                            <template x-if="$store.projects.selectedProject.git_status.last_commit">
+                                <div class="git-status-row">
+                                    <span class="git-status-label">
+                                        <span class="material-symbols-outlined">history</span>
+                                        Last Commit
+                                    </span>
+                                    <div class="git-commit-info">
+                                        <span class="git-commit-hash" x-text="$store.projects.selectedProject.git_status.last_commit.hash"></span>
+                                        <span class="git-commit-message" x-text="$store.projects.selectedProject.git_status.last_commit.message"></span>
+                                        <span class="git-commit-meta">
+                                            by <span x-text="$store.projects.selectedProject.git_status.last_commit.author"></span>
+                                            on <span x-text="$store.projects.selectedProject.git_status.last_commit.date"></span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
             </div>
 
 
@@ -92,7 +168,8 @@
     }
 
     .projects-form-input,
-    .projects-form-textarea {
+    .projects-form-textarea,
+    .projects-form-select {
         background: var(--color-input);
         color: var(--color-text);
         border: 1px solid var(--color-border);
@@ -102,9 +179,14 @@
     }
 
     .projects-form-input:focus,
-    .projects-form-textarea:focus {
+    .projects-form-textarea:focus,
+    .projects-form-select:focus {
         border-color: var(--color-primary);
         background: var(--color-input-focus);
+    }
+
+    .projects-form-select {
+        cursor: pointer;
     }
 
     .projects-color-row {
@@ -112,6 +194,10 @@
         gap: 0.5em;
         align-items: center;
         flex-wrap: wrap;
+        background: var(--color-input);
+        border: 1px solid var(--color-border);
+        border-radius: 0.5em;
+        padding: 0.75em 1em;
     }
 
     .projects-color-ball {
@@ -167,6 +253,118 @@
             flex-direction: column;
             align-items: stretch;
         }
+    }
+
+    /* Git Status Styles */
+    .git-status-section .projects-form-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+    }
+
+    .git-status-section .git-icon {
+        font-size: 1.2em;
+        color: var(--color-primary);
+    }
+
+    .git-status-card {
+        background: var(--color-input);
+        border: 1px solid var(--color-border);
+        border-radius: 0.5em;
+        padding: 0.75em 1em;
+    }
+
+    .git-status-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 1em;
+        padding: 0.5em 0;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .git-status-row:last-child {
+        border-bottom: none;
+    }
+
+    .git-status-label {
+        display: flex;
+        align-items: center;
+        gap: 0.4em;
+        min-width: 100px;
+        font-size: 0.85em;
+        color: var(--color-text-secondary, #888);
+    }
+
+    .git-status-label .material-symbols-outlined {
+        font-size: 1.1em;
+    }
+
+    .git-status-value {
+        flex: 1;
+        font-size: 0.9em;
+        word-break: break-all;
+    }
+
+    .git-status-value-with-action {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+    }
+
+    .git-action-link {
+        color: var(--color-primary);
+        opacity: 0.7;
+        transition: opacity 0.15s;
+    }
+
+    .git-action-link:hover {
+        opacity: 1;
+    }
+
+    .git-action-link .material-symbols-outlined {
+        font-size: 1.1em;
+    }
+
+    .git-url {
+        font-family: monospace;
+        font-size: 0.85em;
+        opacity: 0.9;
+    }
+
+    .git-branch {
+        font-family: monospace;
+        color: var(--color-primary);
+        font-weight: 500;
+    }
+
+    .git-clean {
+        color: #22c55e;
+    }
+
+    .git-dirty {
+        color: #f59e0b;
+    }
+
+    .git-commit-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2em;
+    }
+
+    .git-commit-hash {
+        font-family: monospace;
+        color: var(--color-primary);
+        font-size: 0.9em;
+    }
+
+    .git-commit-message {
+        font-size: 0.9em;
+    }
+
+    .git-commit-meta {
+        font-size: 0.8em;
+        opacity: 0.7;
     }
 
 </style>

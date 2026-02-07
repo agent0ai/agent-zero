@@ -26,7 +26,7 @@ from python.helpers import projects, guids
 import pytz
 from typing import Annotated
 
-SCHEDULER_FOLDER = "tmp/scheduler"
+SCHEDULER_FOLDER = "usr/scheduler"
 
 # ----------------------
 # Task Models
@@ -677,14 +677,20 @@ class TaskScheduler:
     async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> "TaskScheduler":
         await self._tasks.add_task(task)
         ctx = await self._get_chat_context(task)  # invoke context creation
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="task_scheduler.TaskScheduler.add_task")
         return self
 
     async def remove_task_by_uuid(self, task_uuid: str) -> "TaskScheduler":
         await self._tasks.remove_task_by_uuid(task_uuid)
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="task_scheduler.TaskScheduler.remove_task_by_uuid")
         return self
 
     async def remove_task_by_name(self, name: str) -> "TaskScheduler":
         await self._tasks.remove_task_by_name(name)
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="task_scheduler.TaskScheduler.remove_task_by_name")
         return self
 
     def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
@@ -754,7 +760,11 @@ class TaskScheduler:
         def _update_task(task):
             task.update(**update_params)
 
-        return await self._tasks.update_task_by_uuid(task_uuid, _update_task, verify_func)
+        updated = await self._tasks.update_task_by_uuid(task_uuid, _update_task, verify_func)
+        if updated is not None:
+            from python.helpers.state_monitor_integration import mark_dirty_all
+            mark_dirty_all(reason="task_scheduler.TaskScheduler.update_task_checked")
+        return updated
 
     async def update_task(self, task_uuid: str, **update_params) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         return await self.update_task_checked(task_uuid, lambda task: True, **update_params)

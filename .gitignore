@@ -15,9 +15,10 @@
 # Ignore all contents of the virtual environment directory
 .venv/
 
-# Handle memory directory
-memory/**
-!memory/**/
+# obsolete folders
+memory/
+knowledge/custom/
+instruments/
 
 # Handle logs directory
 logs/*
@@ -27,18 +28,6 @@ tmp/*
 usr/*
 
 # Handle knowledge directory
-knowledge/**
-!knowledge/**/
-# Explicitly allow the default folder in knowledge
-!knowledge/default/
-!knowledge/default/**
-
-# Handle instruments directory
-instruments/**
-!instruments/**/
-# Explicitly allow the default folder in instruments
-!instruments/default/
-!instruments/default/**
 
 # Global rule to include .gitkeep files anywhere
 !**/.gitkeep
