@@ -42,22 +42,26 @@
                  :class="{'active': $store.settings.activeTab === 'external'}"
                  @click="$store.settings.switchTab('external')"
                  title="External Services">External Services</div>
-            <div class="settings-tab" 
+            <div class="settings-tab"
                  :class="{'active': $store.settings.activeTab === 'mcp'}"
-                 @click="$store.settings.switchTab('mcp')" 
+                 @click="$store.settings.switchTab('mcp')"
                  title="MCP">MCP/A2A</div>
-            <div class="settings-tab" 
+            <div class="settings-tab"
                  :class="{'active': $store.settings.activeTab === 'developer'}"
-                 @click="$store.settings.switchTab('developer')" 
+                 @click="$store.settings.switchTab('developer')"
                  title="Developer">Developer</div>
             <div class="settings-tab"
                  :class="{'active': $store.settings.activeTab === 'backup'}"
                  @click="$store.settings.switchTab('backup')"
                  title="Backup & Restore">Backup & Restore</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'github'}"
+                 @click="$store.settings.switchTab('github')"
+                 title="GitHub">GitHub</div>
           </div>
         </div>
 
-        <!-- Settings sections for agent, external, developer, mcp, backup tabs -->
+        <!-- Settings sections -->
         <div id="settings-sections">
           <div x-show="$store.settings.activeTab === 'agent'">
             <x-component path="settings/agent/agent-settings.html"></x-component>
@@ -76,6 +80,9 @@
           </div>
           <div x-show="$store.settings.activeTab === 'skills'">
             <x-component path="settings/skills/skills-settings.html"></x-component>
+          </div>
+          <div x-show="$store.settings.activeTab === 'github'">
+            <x-component path="settings/github/github.html"></x-component>
           </div>
         </div>
       </div>

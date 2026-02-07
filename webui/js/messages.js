@@ -874,13 +874,21 @@ export function drawMessageUser({
     messageDiv.className = "message message-user";
   }
 
+  // Ensure wrapper group exists for text + mention indicator
+  let msgGroup = messageDiv.querySelector(".user-msg-group");
+  if (!msgGroup) {
+    msgGroup = document.createElement("div");
+    msgGroup.classList.add("user-msg-group");
+    messageDiv.appendChild(msgGroup);
+  }
+
   // Handle content
-  let textDiv = messageDiv.querySelector(".message-text");
+  let textDiv = msgGroup.querySelector(".message-text");
   if (content && content.trim().length > 0) {
     if (!textDiv) {
       textDiv = document.createElement("div");
       textDiv.classList.add("message-text");
-      messageDiv.appendChild(textDiv);
+      msgGroup.appendChild(textDiv);
     }
     let spanElement = textDiv.querySelector("pre");
     if (!spanElement) {
@@ -949,6 +957,62 @@ export function drawMessageUser({
     });
   } else {
     if (attachmentsContainer) attachmentsContainer.remove();
+  }
+
+  // Handle mentions - show icons with tooltip on left side
+  // Support both new "mentions" array and legacy "repo_mentions"
+  let allMentions = (kvps && kvps.mentions) || [];
+  if (allMentions.length === 0 && kvps && kvps.repo_mentions && kvps.repo_mentions.length > 0) {
+    allMentions = kvps.repo_mentions.map(m => ({ type: "repo", ...m }));
+  }
+
+  let mentionIndicator = msgGroup.querySelector(".mention-indicator");
+  if (allMentions.length > 0) {
+    if (!mentionIndicator) {
+      mentionIndicator = document.createElement("div");
+      mentionIndicator.classList.add("mention-indicator");
+
+      const tooltip = document.createElement("div");
+      tooltip.classList.add("mention-tooltip");
+      mentionIndicator.appendChild(tooltip);
+
+      mentionIndicator.addEventListener("mouseenter", () => {
+        const rect = mentionIndicator.getBoundingClientRect();
+        tooltip.style.left = `${rect.left}px`;
+        tooltip.style.top = `${rect.bottom + 8}px`;
+        tooltip.style.display = "block";
+      });
+      mentionIndicator.addEventListener("mouseleave", () => {
+        tooltip.style.display = "none";
+      });
+
+      msgGroup.appendChild(mentionIndicator);
+    }
+
+    // Build icons for each mention type present
+    const existingIcons = mentionIndicator.querySelectorAll(".mention-type-icon");
+    existingIcons.forEach(el => el.remove());
+
+    const types = new Set(allMentions.map(m => m.type || "repo"));
+    const iconMap = { repo: "fork_right", file: "description", chat: "chat" };
+    types.forEach(type => {
+      const icon = document.createElement("span");
+      icon.classList.add("material-symbols-outlined", "mention-type-icon", `mention-icon-${type}`);
+      icon.textContent = iconMap[type] || "link";
+      mentionIndicator.insertBefore(icon, mentionIndicator.querySelector(".mention-tooltip"));
+    });
+
+    // Update tooltip content
+    const tooltip = mentionIndicator.querySelector(".mention-tooltip");
+    const items = allMentions.map(m => {
+      if (m.type === "repo") return `<div class="mention-tooltip-item"><span class="material-symbols-outlined" style="font-size:14px">folder</span> ${m.full_name || m.owner + "/" + m.repo}</div>`;
+      if (m.type === "file") return `<div class="mention-tooltip-item"><span class="material-symbols-outlined" style="font-size:14px">description</span> ${m.name || m.path}</div>`;
+      if (m.type === "chat") return `<div class="mention-tooltip-item"><span class="material-symbols-outlined" style="font-size:14px">chat</span> ${m.title || m.context_id}</div>`;
+      return `<div class="mention-tooltip-item">${JSON.stringify(m)}</div>`;
+    });
+    tooltip.innerHTML = items.join("");
+  } else {
+    if (mentionIndicator) mentionIndicator.remove();
   }
 
   // Render heading below message, if provided

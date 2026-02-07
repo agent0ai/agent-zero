@@ -1,0 +1,937 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/settings/github/github-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.github">
+      <div class="github-settings"
+           x-init="$store.github.init()"
+           x-destroy="$store.github.cleanup()">
+
+        <!-- Not Connected State -->
+        <template x-if="!$store.github.isConnected && !$store.github.deviceFlow">
+          <div class="section">
+            <div class="section-title">Connect to GitHub</div>
+            <div class="section-description">
+              Link your GitHub account to browse repositories, access files, and enable Agent Zero to interact with your projects.
+            </div>
+
+            <div class="github-connect-box">
+              <div class="github-logo">
+                <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+              </div>
+              <div class="github-connect-info">
+                <p>Access your repositories, issues, and pull requests directly from Agent Zero.</p>
+                <button class="btn btn-ok"
+                        @click="$store.github.connect()"
+                        :disabled="$store.github.isLoading">
+                  <span x-text="$store.github.isLoading ? 'Connecting...' : 'Connect with GitHub'"></span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Error Display -->
+            <div x-show="$store.github.error" class="github-error" x-text="$store.github.error"></div>
+          </div>
+        </template>
+
+        <!-- Device Flow: Enter Code State -->
+        <template x-if="!$store.github.isConnected && $store.github.deviceFlow">
+          <div class="section">
+            <div class="section-title">Enter Code on GitHub</div>
+            <div class="section-description">
+              Copy the code below and enter it on GitHub to authorize Agent Zero.
+            </div>
+
+            <div class="github-device-flow">
+              <div class="github-device-code-box">
+                <span class="github-device-code" x-text="$store.github.deviceFlow.user_code"></span>
+                <button class="github-copy-btn" @click="$store.github.copyCode()" title="Copy code">
+                  <span class="material-symbols-outlined">content_copy</span>
+                </button>
+              </div>
+
+              <a class="btn btn-ok github-open-github-btn"
+                 :href="$store.github.deviceFlow.verification_uri"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 @click="$store.github.copyCode()">
+                Open GitHub
+                <span class="material-symbols-outlined">open_in_new</span>
+              </a>
+
+              <div class="github-device-status">
+                <div class="loading"></div>
+                <span>Waiting for authorization...</span>
+              </div>
+
+              <button class="btn btn-cancel" @click="$store.github.cancelDeviceFlow()">
+                Cancel
+              </button>
+            </div>
+
+            <!-- Error Display -->
+            <div x-show="$store.github.error" class="github-error" x-text="$store.github.error"></div>
+          </div>
+        </template>
+
+        <!-- Connected State -->
+        <template x-if="$store.github.isConnected">
+          <div>
+            <!-- User Info Section -->
+            <div class="section">
+              <div class="section-title">Connected Account</div>
+              <div class="github-user-card">
+                <img :src="$store.github.user?.avatar_url" alt="avatar" class="github-avatar">
+                <div class="github-user-info">
+                  <span class="github-username" x-text="$store.github.user?.login"></span>
+                  <span class="github-name" x-show="$store.github.user?.name" x-text="$store.github.user?.name"></span>
+                </div>
+                <button class="btn btn-cancel" @click="$store.github.disconnect()">Disconnect</button>
+              </div>
+            </div>
+
+            <!-- Loading State for Repo Detail -->
+            <template x-if="$store.github.isRepoModalOpen && !$store.github.repoDetails">
+              <div class="section">
+                <div class="github-loading">
+                  <div class="loading"></div>
+                  <span>Loading repository...</span>
+                </div>
+              </div>
+            </template>
+
+            <!-- Repository Detail View -->
+            <template x-if="$store.github.isRepoModalOpen && $store.github.repoDetails">
+              <div class="section">
+                <button class="github-back-btn" @click="$store.github.closeRepoModal()">
+                  <span class="material-symbols-outlined">arrow_back</span>
+                  Back to repositories
+                </button>
+
+                <!-- Repo Header Card -->
+                <div class="github-repo-card">
+                  <div class="github-repo-card-header">
+                    <span class="github-repo-card-name" x-text="$store.github.repoDetails.full_name"></span>
+                    <span class="github-repo-badge"
+                          :class="$store.github.repoDetails.private ? 'private' : 'public'"
+                          x-text="$store.github.repoDetails.private ? 'Private' : 'Public'"></span>
+                  </div>
+                  <p class="github-repo-card-desc" x-text="$store.github.repoDetails.description || 'No description'"></p>
+                  <div class="github-repo-card-stats">
+                    <span><span class="material-symbols-outlined">star</span> <span x-text="$store.github.repoDetails.stargazers_count"></span></span>
+                    <span><span class="material-symbols-outlined">fork_right</span> <span x-text="$store.github.repoDetails.forks_count"></span></span>
+                    <span><span class="material-symbols-outlined">visibility</span> <span x-text="$store.github.repoDetails.watchers_count"></span></span>
+                    <span x-show="$store.github.repoDetails.language">
+                      <span class="github-lang-dot" :data-lang="$store.github.repoDetails.language"></span>
+                      <span x-text="$store.github.repoDetails.language"></span>
+                    </span>
+                  </div>
+                  <div class="github-repo-card-actions">
+                    <a :href="$store.github.repoDetails.html_url" target="_blank" class="github-link-btn">
+                      <span class="material-symbols-outlined">open_in_new</span> View on GitHub
+                    </a>
+                  </div>
+                </div>
+
+                <!-- File Browser Section -->
+                <div class="github-section-header">
+                  <span class="material-symbols-outlined">folder</span>
+                  Browse Files
+                </div>
+                <div class="github-file-browser">
+                  <div class="github-breadcrumb">
+                    <button @click="$store.github.loadRepoFiles('')" title="Root">
+                      <span class="material-symbols-outlined">home</span>
+                    </button>
+                    <template x-for="(part, index) in $store.github.currentPath.split('/').filter(p => p)" :key="index">
+                      <span class="github-breadcrumb-item">
+                        <span class="github-breadcrumb-sep">/</span>
+                        <button @click="$store.github.navigateToPath($store.github.currentPath.split('/').slice(0, index + 1).join('/'))"
+                                x-text="part"></button>
+                      </span>
+                    </template>
+                  </div>
+
+                  <div class="github-file-list">
+                    <!-- Loading state -->
+                    <div x-show="$store.github.isLoading" class="github-file-loading">
+                      <div class="loading"></div>
+                      <span>Loading files...</span>
+                    </div>
+
+                    <!-- Parent directory link -->
+                    <div x-show="!$store.github.isLoading && $store.github.currentPath"
+                         class="github-file-item"
+                         @click="$store.github.navigateUp()">
+                      <span class="material-symbols-outlined">drive_file_move_rtl</span>
+                      <span class="github-file-name">..</span>
+                    </div>
+
+                    <!-- File/folder list -->
+                    <template x-for="file in $store.github.repoFiles" :key="file.path">
+                      <div x-show="!$store.github.isLoading"
+                           class="github-file-item"
+                           :class="{ 'is-dir': file.type === 'dir' }"
+                           @click="file.type === 'dir' ? $store.github.navigateToPath(file.path) : null">
+                        <span class="material-symbols-outlined" x-text="file.type === 'dir' ? 'folder' : 'description'"></span>
+                        <span class="github-file-name" x-text="file.name"></span>
+                        <span class="github-file-size" x-show="file.type !== 'dir' && file.size" x-text="$store.github.formatSize(file.size)"></span>
+                      </div>
+                    </template>
+
+                    <!-- Empty state -->
+                    <div x-show="!$store.github.isLoading && (!$store.github.repoFiles || $store.github.repoFiles.length === 0)" class="github-file-empty">
+                      <span class="material-symbols-outlined">folder_off</span>
+                      <span>No files loaded</span>
+                      <button class="github-retry-btn" @click="$store.github.loadRepoFiles($store.github.currentPath)">
+                        <span class="material-symbols-outlined">refresh</span> Retry
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Info note -->
+                <div class="github-info-note">
+                  <span class="material-symbols-outlined">info</span>
+                  <span>Agent Zero can access files from this repository during conversations when you reference it.</span>
+                </div>
+              </div>
+            </template>
+
+            <!-- Repositories Section (hidden when viewing repo detail) -->
+            <template x-if="!$store.github.isRepoModalOpen">
+              <div class="section">
+                <div class="section-title">Repositories</div>
+                <div class="section-description">Browse and access your GitHub repositories.</div>
+
+                <!-- Toolbar -->
+                <div class="github-toolbar">
+                  <div class="github-search-field">
+                    <input type="text"
+                           placeholder="Search repositories..."
+                           x-model="$store.github.filters.search"
+                           @input.debounce.300ms="$store.github.searchRepos($store.github.filters.search)">
+                  </div>
+
+                  <select class="github-select"
+                          x-model="$store.github.filters.type"
+                          @change="$store.github.loadRepos()">
+                    <option value="all">All repos</option>
+                    <option value="owner">Owned</option>
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
+                  </select>
+
+                  <select class="github-select"
+                          x-model="$store.github.filters.sort"
+                          @change="$store.github.loadRepos()">
+                    <option value="updated">Recently Updated</option>
+                    <option value="pushed">Recently Pushed</option>
+                    <option value="created">Newest</option>
+                    <option value="full_name">Name</option>
+                  </select>
+
+                  <button class="github-icon-btn"
+                          @click="$store.github.loadRepos()"
+                          title="Refresh"
+                          :disabled="$store.github.isLoading">
+                    <span class="material-symbols-outlined" :class="{ 'spinning': $store.github.isLoading }">refresh</span>
+                  </button>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="$store.github.isLoading && !$store.github.repos.length" class="github-loading">
+                  <div class="loading"></div>
+                  <span>Loading repositories...</span>
+                </div>
+
+                <!-- Repository List -->
+                <div class="github-repo-list" x-show="!$store.github.isLoading || $store.github.repos.length">
+                  <template x-for="repo in $store.github.filteredRepos" :key="repo.id">
+                    <div class="github-repo-item" @click="$store.github.selectRepo(repo.owner.login, repo.name)">
+                      <div class="github-repo-header">
+                        <span class="github-repo-name" x-text="repo.name"></span>
+                        <span class="github-repo-badge"
+                              :class="repo.private ? 'private' : 'public'"
+                              x-text="repo.private ? 'Private' : 'Public'"></span>
+                      </div>
+                      <p class="github-repo-desc" x-text="repo.description || 'No description'"></p>
+                      <div class="github-repo-meta">
+                        <span x-show="repo.language" class="github-repo-lang">
+                          <span class="github-lang-dot" :data-lang="repo.language"></span>
+                          <span x-text="repo.language"></span>
+                        </span>
+                        <span x-show="repo.stargazers_count" class="github-repo-stat">
+                          <span class="material-symbols-outlined">star</span>
+                          <span x-text="repo.stargazers_count"></span>
+                        </span>
+                        <span x-show="repo.forks_count" class="github-repo-stat">
+                          <span class="material-symbols-outlined">fork_right</span>
+                          <span x-text="repo.forks_count"></span>
+                        </span>
+                        <span class="github-repo-updated">
+                          Updated <span x-text="$store.github.formatTime(repo.updated_at)"></span>
+                        </span>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Empty State -->
+                  <div x-show="!$store.github.isLoading && !$store.github.filteredRepos.length" class="github-empty">
+                    <span class="material-symbols-outlined">inbox</span>
+                    <p>No repositories found</p>
+                  </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="github-pagination" x-show="$store.github.repos.length">
+                  <button class="github-page-btn"
+                          @click="$store.github.loadRepos($store.github.pagination.page - 1)"
+                          :disabled="!$store.github.pagination.hasPrev">
+                    <span class="material-symbols-outlined">chevron_left</span>
+                    <span>Previous</span>
+                  </button>
+                  <span class="github-page-info">Page <span x-text="$store.github.pagination.page"></span></span>
+                  <button class="github-page-btn"
+                          @click="$store.github.loadRepos($store.github.pagination.page + 1)"
+                          :disabled="!$store.github.pagination.hasNext">
+                    <span>Next</span>
+                    <span class="material-symbols-outlined">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- Error Display -->
+            <div x-show="$store.github.error" class="github-error" x-text="$store.github.error"></div>
+          </div>
+        </template>
+
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .github-settings {
+      padding: 0;
+    }
+    .github-settings .section {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* Connect Box */
+    .github-connect-box {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      background: var(--color-panel);
+      border-radius: 8px;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+    .github-logo {
+      color: var(--color-text);
+      opacity: 0.8;
+    }
+    .github-connect-info {
+      flex: 1;
+    }
+    .github-connect-info p {
+      margin: 0 0 1rem 0;
+      color: var(--color-text);
+      opacity: 0.7;
+    }
+
+    /* Error */
+    .github-error {
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--color-accent);
+      border-radius: 6px;
+      color: var(--color-accent);
+      font-size: 0.875rem;
+    }
+
+    /* User Card */
+    .github-user-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--color-panel);
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .github-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid var(--color-border);
+    }
+    .github-user-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .github-username {
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+    .github-name {
+      font-size: 0.875rem;
+      color: var(--color-text);
+      opacity: 0.7;
+    }
+
+    /* Toolbar */
+    .github-toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      align-items: center;
+    }
+    .github-search-field {
+      flex: 1 1 0;
+      min-width: 80px;
+    }
+    .github-search-field input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font-size: 0.875rem;
+    }
+    .github-search-field input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+    .github-select {
+      flex: 0 1 auto;
+      width: auto;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .github-select:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+    .github-icon-btn {
+      flex: 0 0 34px;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: var(--color-input);
+      color: var(--color-text);
+      cursor: pointer;
+    }
+    .github-icon-btn:hover:not(:disabled) {
+      border-color: var(--color-primary);
+    }
+    .github-icon-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .github-icon-btn .material-symbols-outlined {
+      font-size: 1.25rem;
+    }
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Loading */
+    .github-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 3rem;
+      color: var(--color-text);
+      opacity: 0.7;
+    }
+
+    /* Repository List */
+    .github-repo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .github-repo-item {
+      padding: 1rem;
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .github-repo-item:hover {
+      border-color: var(--color-primary);
+      background: var(--color-input);
+    }
+    .github-repo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .github-repo-name {
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+    .github-repo-badge {
+      font-size: 0.65rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: 12px;
+      border: 1px solid var(--color-border);
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+    .github-repo-badge.private {
+      background: rgba(255, 166, 87, 0.15);
+      color: #ffa657;
+      border-color: rgba(255, 166, 87, 0.4);
+    }
+    .github-repo-badge.public {
+      background: rgba(35, 134, 54, 0.15);
+      color: #3fb950;
+      border-color: rgba(35, 134, 54, 0.4);
+    }
+    .github-repo-desc {
+      margin: 0.5rem 0;
+      font-size: 0.875rem;
+      color: var(--color-text);
+      opacity: 0.7;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .github-repo-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--color-text);
+      opacity: 0.6;
+    }
+    .github-repo-meta > span {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .github-repo-meta .material-symbols-outlined {
+      font-size: 0.875rem;
+    }
+    .github-lang-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--color-text);
+    }
+    .github-lang-dot[data-lang="JavaScript"] { background: #f1e05a; }
+    .github-lang-dot[data-lang="TypeScript"] { background: #3178c6; }
+    .github-lang-dot[data-lang="Python"] { background: #3572A5; }
+    .github-lang-dot[data-lang="Java"] { background: #b07219; }
+    .github-lang-dot[data-lang="Go"] { background: #00ADD8; }
+    .github-lang-dot[data-lang="Rust"] { background: #dea584; }
+    .github-lang-dot[data-lang="Ruby"] { background: #701516; }
+    .github-lang-dot[data-lang="PHP"] { background: #4F5D95; }
+    .github-lang-dot[data-lang="C++"] { background: #f34b7d; }
+    .github-lang-dot[data-lang="C"] { background: #555555; }
+    .github-lang-dot[data-lang="C#"] { background: #178600; }
+    .github-lang-dot[data-lang="Swift"] { background: #F05138; }
+    .github-lang-dot[data-lang="Kotlin"] { background: #A97BFF; }
+    .github-lang-dot[data-lang="HTML"] { background: #e34c26; }
+    .github-lang-dot[data-lang="CSS"] { background: #563d7c; }
+    .github-lang-dot[data-lang="Shell"] { background: #89e051; }
+    .github-lang-dot[data-lang="Vue"] { background: #41b883; }
+
+    /* Empty State */
+    .github-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 3rem;
+      color: var(--color-text);
+      opacity: 0.5;
+    }
+    .github-empty .material-symbols-outlined {
+      font-size: 2rem;
+    }
+
+    /* Pagination */
+    .github-pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--color-border);
+    }
+    .github-page-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-text);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease, opacity 0.15s ease;
+    }
+    .github-page-btn .material-symbols-outlined {
+      font-size: 1rem;
+    }
+    .github-page-btn:hover:not(:disabled) {
+      border-color: var(--color-primary);
+    }
+    .github-page-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .github-page-info {
+      color: var(--color-text);
+      opacity: 0.6;
+      font-size: 0.8rem;
+    }
+
+    /* Back Button */
+    .github-back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-text);
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-bottom: 1rem;
+    }
+    .github-back-btn:hover {
+      border-color: var(--color-primary);
+    }
+    .github-back-btn .material-symbols-outlined {
+      font-size: 1rem;
+    }
+
+    /* Repo Card */
+    .github-repo-card {
+      padding: 1rem;
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      margin-bottom: 1.5rem;
+    }
+    .github-repo-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .github-repo-card-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+    .github-repo-card-desc {
+      margin: 0 0 0.75rem 0;
+      color: var(--color-text);
+      opacity: 0.7;
+      font-size: 0.875rem;
+    }
+    .github-repo-card-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      color: var(--color-text);
+      opacity: 0.6;
+      margin-bottom: 0.75rem;
+    }
+    .github-repo-card-stats > span {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .github-repo-card-stats .material-symbols-outlined {
+      font-size: 0.9rem;
+    }
+    .github-repo-card-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .github-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-text);
+      font-size: 0.8rem;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .github-link-btn:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+    .github-link-btn .material-symbols-outlined {
+      font-size: 0.9rem;
+    }
+
+    /* Section Header */
+    .github-section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--color-text);
+      margin-bottom: 0.75rem;
+    }
+    .github-section-header .material-symbols-outlined {
+      font-size: 1.1rem;
+      opacity: 0.7;
+    }
+
+    /* File Browser */
+    .github-file-browser {
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .github-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--color-panel);
+      border-bottom: 1px solid var(--color-border);
+      font-size: 0.8rem;
+    }
+    .github-breadcrumb button {
+      background: none;
+      border: none;
+      color: var(--color-primary);
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+    }
+    .github-breadcrumb button:hover {
+      background: var(--color-input);
+    }
+    .github-breadcrumb .material-symbols-outlined {
+      font-size: 1rem;
+      vertical-align: middle;
+    }
+    .github-breadcrumb-sep {
+      color: var(--color-text);
+      opacity: 0.4;
+    }
+    .github-file-list {
+      max-height: 250px;
+      overflow-y: auto;
+      min-height: 100px;
+    }
+    .github-file-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: var(--color-text);
+    }
+    .github-file-item:last-child {
+      border-bottom: none;
+    }
+    .github-file-item:hover {
+      background: var(--color-panel);
+    }
+    .github-file-item .material-symbols-outlined {
+      font-size: 1rem;
+      color: var(--color-text);
+      opacity: 0.6;
+    }
+    .github-file-item.is-dir .material-symbols-outlined {
+      color: #54aeff;
+      opacity: 1;
+    }
+    .github-file-name {
+      flex: 1;
+    }
+    .github-file-item.is-dir .github-file-name {
+      color: var(--color-primary);
+    }
+    .github-file-size {
+      color: var(--color-text);
+      opacity: 0.5;
+      font-size: 0.7rem;
+    }
+    .github-file-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 2rem;
+      color: var(--color-text);
+      opacity: 0.6;
+      font-size: 0.8rem;
+    }
+    .github-file-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 2rem;
+      color: var(--color-text);
+      opacity: 0.5;
+      font-size: 0.8rem;
+    }
+    .github-file-empty .material-symbols-outlined {
+      font-size: 1.5rem;
+    }
+    .github-retry-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      margin-top: 0.5rem;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-text);
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .github-retry-btn:hover {
+      border-color: var(--color-primary);
+    }
+    .github-retry-btn .material-symbols-outlined {
+      font-size: 0.9rem;
+    }
+
+    /* Info Note */
+    .github-info-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.75rem;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: var(--color-text);
+      opacity: 0.8;
+    }
+    .github-info-note .material-symbols-outlined {
+      font-size: 1rem;
+      color: #3b82f6;
+      flex-shrink: 0;
+    }
+
+    /* Device Flow */
+    .github-device-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 1.5rem;
+      background: var(--color-panel);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+    .github-device-code-box {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .github-device-code {
+      font-family: monospace;
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--color-primary);
+      padding: 0.5rem 1rem;
+      background: var(--color-input);
+      border: 2px solid var(--color-border);
+      border-radius: 8px;
+      user-select: all;
+    }
+    .github-copy-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+      opacity: 0.7;
+    }
+    .github-copy-btn:hover {
+      opacity: 1;
+      border-color: var(--color-primary);
+    }
+    .github-copy-btn .material-symbols-outlined {
+      font-size: 1.1rem;
+    }
+    .github-open-github-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+    .github-open-github-btn .material-symbols-outlined {
+      font-size: 1rem;
+    }
+    .github-device-status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--color-text);
+      opacity: 0.7;
+    }
+  </style>
+</body>
+</html>

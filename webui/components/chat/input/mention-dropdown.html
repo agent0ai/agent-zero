@@ -1,0 +1,381 @@
+<html>
+<head>
+    <script type="module">
+        import { store } from "/components/chat/input/mentionStore.js";
+    </script>
+</head>
+<body>
+    <div x-data="{ _searchDebounce: null }">
+        <template x-if="$store.mentions">
+            <div class="mention-dropdown-wrapper">
+                <div
+                    class="mention-dropdown"
+                    x-show="$store.mentions.isOpen"
+                    x-transition:enter="dropdown-enter"
+                    x-transition:enter-start="dropdown-enter-start"
+                    x-transition:enter-end="dropdown-enter-end"
+                    x-transition:leave="dropdown-leave"
+                    x-transition:leave-start="dropdown-leave-start"
+                    x-transition:leave-end="dropdown-leave-end"
+                    @click.outside="$store.mentions.closeDropdown()"
+                    @keydown.escape.window="$store.mentions.closeDropdown()"
+                    @keydown.arrow-down.prevent="$store.mentions.moveSelection(1)"
+                    @keydown.arrow-up.prevent="$store.mentions.moveSelection(-1)"
+                    @keydown.enter.prevent="$store.mentions.selectCurrent()"
+                >
+                    <!-- Tab bar -->
+                    <div class="mention-tabs">
+                        <button
+                            class="mention-tab"
+                            :class="{ 'mention-tab-active': $store.mentions.activeTab === 'repos' }"
+                            @click="$store.mentions.setTab('repos')"
+                        >
+                            <span class="material-symbols-outlined mention-tab-icon">folder</span>
+                            Repos
+                        </button>
+                        <button
+                            class="mention-tab"
+                            :class="{ 'mention-tab-active': $store.mentions.activeTab === 'files' }"
+                            @click="$store.mentions.setTab('files')"
+                        >
+                            <span class="material-symbols-outlined mention-tab-icon">description</span>
+                            Files
+                        </button>
+                        <button
+                            class="mention-tab"
+                            :class="{ 'mention-tab-active': $store.mentions.activeTab === 'chats' }"
+                            @click="$store.mentions.setTab('chats')"
+                        >
+                            <span class="material-symbols-outlined mention-tab-icon">chat</span>
+                            Chats
+                        </button>
+                    </div>
+
+                    <!-- Search input -->
+                    <div class="mention-search-container">
+                        <input
+                            type="text"
+                            class="mention-search-input"
+                            :placeholder="$store.mentions.activeTab === 'files' ? 'Search files...' : $store.mentions.activeTab === 'chats' ? 'Search chats...' : 'Search repositories...'"
+                            x-model="$store.mentions.searchQuery"
+                            x-ref="mentionSearchInput"
+                            x-effect="if ($store.mentions.isOpen) { $nextTick(() => $refs.mentionSearchInput?.focus()) }"
+                            @input="if ($store.mentions.activeTab === 'files') {
+                                clearTimeout(_searchDebounce);
+                                _searchDebounce = setTimeout(() => $store.mentions.searchFiles($store.mentions.searchQuery), 300);
+                            }"
+                            @keydown.arrow-down.prevent="$store.mentions.moveSelection(1)"
+                            @keydown.arrow-up.prevent="$store.mentions.moveSelection(-1)"
+                            @keydown.enter.prevent="$store.mentions.selectCurrent()"
+                            @keydown.escape="$store.mentions.closeDropdown()"
+                        />
+                    </div>
+
+                    <!-- Loading state -->
+                    <div
+                        class="mention-dropdown-message"
+                        x-show="$store.mentions.isLoading"
+                    >
+                        <span class="loading-spinner"></span>
+                        Loading...
+                    </div>
+
+                    <!-- Empty state -->
+                    <div
+                        class="mention-dropdown-message"
+                        x-show="!$store.mentions.isLoading && $store.mentions.emptyMessage"
+                        x-text="$store.mentions.emptyMessage"
+                    ></div>
+
+                    <!-- Results list -->
+                    <ul
+                        class="mention-list"
+                        x-show="!$store.mentions.isLoading && $store.mentions.filteredResults.length > 0"
+                    >
+                        <template x-for="(item, index) in $store.mentions.filteredResults" :key="index">
+                            <li
+                                class="mention-item"
+                                :class="{
+                                    'mention-item-selected': index === $store.mentions.selectedIndex,
+                                    'mention-item-disabled': $store.mentions.isFull
+                                }"
+                                @click="$store.mentions.addMention(item)"
+                                @mouseenter="$store.mentions.selectedIndex = index"
+                            >
+                                <!-- Repo item -->
+                                <template x-if="$store.mentions.activeTab === 'repos'">
+                                    <div class="mention-item-content">
+                                        <span class="mention-item-name" x-text="item.full_name"></span>
+                                        <span
+                                            class="mention-item-description"
+                                            x-text="item.description"
+                                            x-show="item.description"
+                                        ></span>
+                                    </div>
+                                </template>
+
+                                <!-- File item -->
+                                <template x-if="$store.mentions.activeTab === 'files'">
+                                    <div class="mention-item-content">
+                                        <span class="mention-item-name" x-text="item.name"></span>
+                                        <span class="mention-item-description" x-text="item.path"></span>
+                                    </div>
+                                </template>
+
+                                <!-- Chat item -->
+                                <template x-if="$store.mentions.activeTab === 'chats'">
+                                    <div class="mention-item-content">
+                                        <span class="mention-item-name" x-text="item.title"></span>
+                                    </div>
+                                </template>
+                            </li>
+                        </template>
+                    </ul>
+
+                    <!-- Upload button (files tab only) -->
+                    <div
+                        class="mention-upload-row"
+                        x-show="$store.mentions.activeTab === 'files' && !$store.mentions.isFull"
+                    >
+                        <label class="mention-upload-button">
+                            <span class="material-symbols-outlined">upload_file</span>
+                            Upload file
+                            <input
+                                type="file"
+                                style="display: none"
+                                @change="if ($event.target.files[0]) { $store.mentions.addUploadedFile($event.target.files[0]); $event.target.value = ''; }"
+                            />
+                        </label>
+                    </div>
+
+                    <!-- Mention counter -->
+                    <div
+                        class="mention-counter"
+                        x-show="$store.mentions.mentions.length > 0"
+                        x-text="`${$store.mentions.mentions.length}/${$store.mentions.maxMentions} mentions`"
+                    ></div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .mention-dropdown-wrapper {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            z-index: 1010;
+            padding-bottom: var(--spacing-xs);
+        }
+
+        .mention-dropdown {
+            background-color: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-height: 380px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Transitions */
+        .dropdown-enter { transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease; }
+        .dropdown-enter-start { opacity: 0; transform: translateY(8px); }
+        .dropdown-enter-end { opacity: 1; transform: translateY(0); }
+        .dropdown-leave { transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease; }
+        .dropdown-leave-start { opacity: 1; transform: translateY(0); }
+        .dropdown-leave-end { opacity: 0; transform: translateY(8px); }
+
+        /* Tab bar — compact pill style */
+        .mention-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--color-border);
+            flex-shrink: 0;
+        }
+
+        .mention-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 3px 10px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            color: var(--color-text-muted);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            white-space: nowrap;
+        }
+
+        .mention-tab:hover {
+            color: var(--color-text);
+            background: color-mix(in srgb, var(--color-text) 8%, transparent);
+        }
+
+        .mention-tab-active {
+            color: var(--color-highlight);
+            background: color-mix(in srgb, var(--color-highlight) 15%, transparent);
+            border-color: color-mix(in srgb, var(--color-highlight) 30%, transparent);
+        }
+
+        .mention-tab-icon {
+            font-size: 13px;
+        }
+
+        /* Search */
+        .mention-search-container {
+            padding: var(--spacing-sm);
+            border-bottom: 1px solid var(--color-border);
+            flex-shrink: 0;
+        }
+
+        .mention-search-input {
+            width: 100%;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background-color: var(--color-input);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            color: var(--color-text);
+            font-size: var(--font-size-smaller);
+            outline: none;
+            transition: border-color var(--transition-speed) ease, background-color var(--transition-speed) ease;
+        }
+
+        .mention-search-input:focus {
+            border-color: var(--color-highlight);
+            background-color: var(--color-input-focus);
+        }
+
+        .mention-search-input::placeholder {
+            color: var(--color-text-muted);
+            opacity: 0.7;
+        }
+
+        /* Messages */
+        .mention-dropdown-message {
+            padding: var(--spacing-md);
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: var(--font-size-smaller);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+        }
+
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-highlight);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Results list */
+        .mention-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .mention-list::-webkit-scrollbar { width: 6px; }
+        .mention-list::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+        .mention-list::-webkit-scrollbar-thumb { background-color: rgba(155, 155, 155, 0.5); border-radius: 6px; }
+        .mention-list::-webkit-scrollbar-thumb:hover { background-color: rgba(155, 155, 155, 0.7); }
+
+        .mention-item {
+            padding: var(--spacing-sm) var(--spacing-md);
+            cursor: pointer;
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .mention-item:hover,
+        .mention-item-selected {
+            background-color: var(--color-background-hover);
+        }
+
+        .mention-item-selected {
+            background-color: color-mix(in srgb, var(--color-highlight) 20%, transparent);
+        }
+
+        .mention-item-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .mention-item-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .mention-item-name {
+            color: var(--color-text);
+            font-size: var(--font-size-smaller);
+            font-weight: 500;
+        }
+
+        .mention-item-description {
+            color: var(--color-text-muted);
+            font-size: var(--font-size-small);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        /* Upload button */
+        .mention-upload-row {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-top: 1px solid var(--color-border);
+            flex-shrink: 0;
+        }
+
+        .mention-upload-button {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: transparent;
+            border: 1px dashed var(--color-border);
+            border-radius: 6px;
+            color: var(--color-text-muted);
+            font-size: var(--font-size-small);
+            cursor: pointer;
+            width: 100%;
+            justify-content: center;
+            transition: color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+        }
+
+        .mention-upload-button:hover {
+            color: var(--color-highlight);
+            border-color: var(--color-highlight);
+        }
+
+        .mention-upload-button .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        /* Counter */
+        .mention-counter {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: var(--font-size-small);
+            border-top: 1px solid var(--color-border);
+            flex-shrink: 0;
+        }
+    </style>
+</body>
+</html>
