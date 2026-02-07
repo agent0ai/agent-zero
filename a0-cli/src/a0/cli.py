@@ -66,22 +66,13 @@ def main(
     if ctx.invoked_subcommand is None:
         # Check if we're in a TTY - menu requires interactive input
         if not sys.stdin.isatty():
-            # Fall back to TUI when not in TTY (e.g., piped input)
-            from a0.tui.app import AgentZeroTUI
-            resolved_url, resolved_key = _resolve_config(url, api_key)
-            tui = AgentZeroTUI(
-                agent_url=resolved_url,
-                api_key=resolved_key,
-                project=project,
-                cwd=str(Path.cwd()),
-            )
-            tui.run()
-            return
+            print("Error: a0 requires an interactive terminal.")
+            print("Use 'a0 chat \"message\"' for non-interactive use.")
+            raise typer.Exit(1)
 
         from a0.banner import show_banner
         from a0.launcher import (
             run_menu,
-            launch_tui,
             launch_repl,
             show_status,
             toggle_docker,
@@ -89,7 +80,6 @@ def main(
         )
 
         resolved_url, resolved_key = _resolve_config(url, api_key)
-        cwd = str(Path.cwd())
 
         # Show animated banner
         show_banner()
@@ -101,16 +91,6 @@ def main(
             if action is None:
                 # User pressed Escape - quit
                 break
-
-            elif action == "tui":
-                show_menu_again = launch_tui(
-                    url=resolved_url,
-                    api_key=resolved_key,
-                    project=project,
-                    cwd=cwd,
-                )
-                if not show_menu_again:
-                    break
 
             elif action == "repl":
                 launch_repl(

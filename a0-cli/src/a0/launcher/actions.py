@@ -1,6 +1,6 @@
 """Action handlers for the launcher menu.
 
-Each action corresponds to a menu option: TUI, REPL, Status, Docker, Settings.
+Each action corresponds to a menu option: Chat, Status, Docker, Settings.
 """
 
 from __future__ import annotations
@@ -94,59 +94,13 @@ def _wait_for_ready(
     return False
 
 
-def launch_tui(
-    url: str,
-    api_key: str | None,
-    project: str | None,
-    cwd: str,
-    compose_file: Path | None = None,
-) -> bool:
-    """Launch the TUI interface.
-
-    Args:
-        url: Agent Zero URL
-        api_key: Optional API key
-        project: Optional project name
-        cwd: Current working directory
-        compose_file: Optional Docker compose file path
-
-    Returns:
-        True if user wants to return to menu, False to quit entirely.
-    """
-    console = Console()
-
-    # Check if Agent Zero is running
-    if not check_health(url, api_key):
-        if _prompt_auto_start(console):
-            if not _start_docker_with_progress(console, compose_file):
-                return True  # Return to menu
-            if not _wait_for_ready(console, url, api_key):
-                return True  # Return to menu
-        else:
-            return True  # Return to menu
-
-    # Launch TUI
-    from a0.tui.app import AgentZeroTUI
-
-    tui = AgentZeroTUI(
-        agent_url=url,
-        api_key=api_key,
-        project=project,
-        cwd=cwd,
-    )
-    result = tui.run()
-
-    # Return True if user wants to go back to menu
-    return result == "menu"
-
-
 def launch_repl(
     url: str,
     api_key: str | None,
     project: str | None,
     compose_file: Path | None = None,
 ) -> None:
-    """Launch the REPL interface.
+    """Launch the REPL interface with real-time progress.
 
     Args:
         url: Agent Zero URL
@@ -166,20 +120,29 @@ def launch_repl(
         else:
             return
 
-    # Launch REPL (reuse existing implementation from cli.py)
-    from rich.markdown import Markdown as RichMarkdown
+    from rich.live import Live
+    from rich.spinner import Spinner
+    from rich.markdown import Markdown
+    from rich.text import Text
     from a0.client.api import AgentZeroClient
-    from a0.client.poller import Poller
+
+    # Custom markdown with left-aligned headers
+    class LeftAlignedMarkdown(Markdown):
+        """Markdown with left-aligned headers."""
+        def __init__(self, markup: str, **kwargs) -> None:
+            super().__init__(markup, justify="left", **kwargs)
 
     async def _repl() -> None:
         client = AgentZeroClient(url, api_key)
         ctx_id = ""
 
         console.print("[dim]Type /exit or Ctrl-D to quit[/dim]")
+        console.print()
+
         try:
             while True:
                 try:
-                    user_input = console.input("[bold]> [/bold]")
+                    user_input = console.input("[bold cyan]>[/bold cyan] ")
                 except (EOFError, KeyboardInterrupt):
                     console.print()
                     break
@@ -190,23 +153,70 @@ def launch_repl(
                 if stripped in ("/exit", "/quit", "/menu"):
                     break
 
-                # Send message
-                response = await client.send_message(
-                    message=user_input,
-                    context_id=ctx_id,
-                    project_name=project,
-                )
-                console.print(RichMarkdown(response.response))
-                ctx_id = response.context_id
+                # Send message with real-time progress display
+                try:
+                    response_task = asyncio.create_task(
+                        client.send_message(
+                            message=user_input,
+                            context_id=ctx_id,
+                            project_name=project,
+                        )
+                    )
 
-                # Follow activity
-                poller = Poller(client, interval=0.5)
-                async for event in poller.stream(
-                    ctx_id,
-                    stop_when=lambda e: not e.progress_active and not e.logs,
-                ):
-                    for log in event.logs:
-                        _print_log(console, log)
+                    # Poll for real-time progress while waiting
+                    status_text = "Thinking..."
+                    last_log_count = 0
+
+                    with Live(
+                        Spinner("dots", text=Text(status_text, style="cyan")),
+                        console=console,
+                        refresh_per_second=10,
+                        transient=True,
+                    ) as live:
+                        while not response_task.done():
+                            # Try to get current logs if we have a context
+                            if ctx_id:
+                                try:
+                                    logs = await client.get_logs(ctx_id, length=50)
+                                    if logs.log.items:
+                                        new_items = logs.log.items[last_log_count:]
+                                        for item in new_items:
+                                            log_type = item.get("type", "")
+                                            heading = item.get("heading", "")
+                                            if log_type == "agent":
+                                                status_text = f"Thinking: {heading[:40]}..." if heading else "Thinking..."
+                                            elif log_type == "tool":
+                                                tool = item.get("kvps", {}).get("tool_name", "tool")
+                                                status_text = f"Using {tool}..."
+                                            elif log_type == "code_exe":
+                                                status_text = "Running code..."
+                                            elif log_type == "browser":
+                                                status_text = "Browsing web..."
+                                            elif log_type == "progress":
+                                                status_text = heading or "Working..."
+                                        last_log_count = len(logs.log.items)
+                                        live.update(Spinner("dots", text=Text(status_text, style="cyan")))
+                                except Exception:
+                                    pass  # Ignore polling errors
+
+                            await asyncio.sleep(0.3)
+
+                    response = await response_task
+                    ctx_id = response.context_id
+
+                    # Print response
+                    console.print()
+                    console.print(LeftAlignedMarkdown(response.response))
+                    console.print()
+
+                except Exception as e:
+                    err_msg = str(e)
+                    if "401" in err_msg or "Unauthorized" in err_msg:
+                        console.print("[red]Authentication required.[/red]")
+                        console.print("[dim]Set API key: a0 config --set api_key=YOUR_KEY[/dim]")
+                    else:
+                        console.print(f"[red]Error: {err_msg}[/red]")
+                    console.print()
 
         finally:
             await client.close()

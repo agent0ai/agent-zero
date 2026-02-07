@@ -28,6 +28,7 @@ python-dotenv==1.1.0
 pytz==2024.2
 sentence-transformers==3.0.1
 tiktoken==0.8.0
+textual==7.5.0
 unstructured[all-docs]==0.16.23
 unstructured-client==0.31.0
 webcolors==24.6.0

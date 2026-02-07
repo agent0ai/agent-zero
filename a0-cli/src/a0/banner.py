@@ -1,7 +1,7 @@
 """Animated ANSI banner for the a0 CLI.
 
-Renders the Agent Zero "A" logo with horizontal slats that slide in
-from the right, creating a venetian blinds / kinetic motion effect.
+Renders the Agent Zero logo with "AGENT ZERO" text below,
+aligned to the left side with cyan-to-blue gradient.
 """
 
 from __future__ import annotations
@@ -10,164 +10,76 @@ import shutil
 import sys
 import time
 
-# Each row defines: (left_margin, solid_width, gap_start, gap_width, trail_length)
-# - left_margin: spaces from center to start of solid "A" shape
-# - solid_width: width of the solid part of the A
-# - gap_start: where the internal triangle hole starts (0 = no hole)
-# - gap_width: width of the hole
-# - trail_length: extra slat length extending right (the "blinds" effect)
-#
-# The A shape: starts narrow at top, widens, has a triangular hole, then legs
-
-_ROWS = [
-    # Top point of A (narrow)
-    (19, 2, 0, 0, 35),
-    (18, 4, 0, 0, 32),
-    (17, 6, 0, 0, 29),
-    (16, 8, 0, 0, 26),
-    (15, 10, 0, 0, 23),
-    (14, 12, 0, 0, 20),
-    (13, 14, 0, 0, 17),
-    (12, 16, 0, 0, 14),
-    (11, 18, 0, 0, 11),
-    # Start of inner triangle hole
-    (10, 20, 6, 8, 8),
-    (9, 22, 7, 8, 6),
-    (8, 24, 8, 8, 5),
-    # Crossbar (solid)
-    (7, 26, 0, 0, 4),
-    # Legs (with larger hole)
-    (6, 28, 10, 8, 3),
-    (5, 30, 11, 8, 2),
-    (4, 32, 12, 8, 1),
-    (3, 34, 13, 8, 0),
-]
-
 _BLOCK = "\u2588"  # Full block
-_HALF_BLOCK = "\u2592"  # Medium shade for trail fade
 
 # Animation tuning
-_FRAME_DELAY = 0.008
-_STAGGER_DELAY = 0.02
-_FINAL_PAUSE = 0.25
-_MIN_WIDTH = 60
+_FRAME_DELAY = 0.004
+_STAGGER_DELAY = 0.010
+_FINAL_PAUSE = 0.08
+_MIN_WIDTH = 50
+_LEFT_MARGIN = 4  # Distance from left edge
+
+# Logo shape
+_LOGO_ROWS = [
+    (2, 0, 2),
+    (2, 2, 2),
+    (3, 2, 3),
+    (3, 4, 3),
+    (4, 4, 4),
+    (4, 6, 4),
+    (5, 6, 5),
+    (5, 8, 5),
+    (6, 8, 6),
+    (6, 10, 6),
+    (7, 10, 7),
+    (7, 12, 7),
+    (8, 12, 8),
+    (8, 4, 4, 4, 8),
+]
+
+# Clean pixel-art text "AGENT ZERO" using standard 5-high blocky font
+_TEXT_ART = [
+    "  ███   ████  ████  █   █  █████    █████  ████  ████    ███  ",
+    " █   █  █     █     ██  █    █         █   █     █   █  █   █ ",
+    " █████  █  █  ████  █ █ █    █        █    ████  ████   █   █ ",
+    " █   █  █   █ █     █  ██    █       █     █     █  █   █   █ ",
+    " █   █   ███  ████  █   █    █      █████  ████  █   █   ███  ",
+]
 
 
 def _ease_out_cubic(t: float) -> float:
-    """Easing function for smooth deceleration."""
     return 1.0 - (1.0 - t) ** 3
 
 
 def _rgb(r: int, g: int, b: int) -> str:
-    """Generate ANSI true color escape sequence."""
     return f"\033[38;2;{r};{g};{b}m"
 
 
-def _gradient_color(progress: float, row: int, total_rows: int) -> str:
-    """Generate color based on position.
-
-    Brighter at the left/center of the A, fading toward edges and trails.
-    Vertical gradient: brightest in middle rows.
-    """
-    # Vertical brightness (center rows brightest)
-    center = total_rows / 2
-    vert_factor = 1.0 - abs(row - center) / center * 0.4
-
-    # Horizontal brightness (left = bright, right = dim for trail)
-    horiz_factor = 1.0 - progress * 0.6
-
-    brightness = vert_factor * horiz_factor
-
-    # Blue-white color scheme
-    r = int(180 + 75 * brightness)
-    g = int(190 + 65 * brightness)
-    b = int(220 + 35 * brightness)
-
-    return _rgb(min(r, 255), min(g, 255), min(b, 255))
+def _get_color(row: int, total_rows: int) -> str:
+    """Cyan-to-blue gradient."""
+    progress = row / max(1, total_rows - 1)
+    r = int(0 + 30 * progress)
+    g = int(255 - 155 * progress)
+    b = int(255 - 55 * progress)
+    return _rgb(r, g, b)
 
 
-def _build_row(
-    solid_width: int,
-    gap_start: int,
-    gap_width: int,
-    trail_length: int,
-    row_idx: int,
-    total_rows: int,
-) -> list[tuple[str, str]]:
-    """Build a row as list of (character, color) tuples."""
-    result = []
-
-    # The solid A part
-    if gap_start > 0 and gap_width > 0:
-        # Row with hole: left side, gap, right side
-        left_side = gap_start
-        right_side = solid_width - gap_start - gap_width
-
-        # Left part of A
-        for i in range(left_side):
-            progress = i / solid_width
-            color = _gradient_color(progress, row_idx, total_rows)
-            result.append((_BLOCK, color))
-
-        # Gap (internal triangle)
-        for _ in range(gap_width):
-            result.append((" ", ""))
-
-        # Right part of A
-        for i in range(right_side):
-            progress = (gap_start + gap_width + i) / solid_width
-            color = _gradient_color(progress, row_idx, total_rows)
-            result.append((_BLOCK, color))
+def _build_logo_row(row_def: tuple) -> str:
+    """Build logo row as string."""
+    if len(row_def) == 3:
+        left, gap, right = row_def
+        return _BLOCK * left + " " * gap + _BLOCK * right
     else:
-        # Solid row (no hole)
-        for i in range(solid_width):
-            progress = i / solid_width
-            color = _gradient_color(progress, row_idx, total_rows)
-            result.append((_BLOCK, color))
-
-    # Trail extending right (the slat/blinds effect)
-    for i in range(trail_length):
-        progress = (solid_width + i) / (solid_width + trail_length)
-        # Fade out the trail
-        fade = 1.0 - (i / trail_length) ** 0.5
-        color = _gradient_color(progress * 1.5, row_idx, total_rows)
-
-        # Use lighter blocks for trail fade
-        if fade > 0.7:
-            result.append((_BLOCK, color))
-        elif fade > 0.4:
-            result.append(("\u2593", color))  # Dark shade
-        elif fade > 0.2:
-            result.append(("\u2592", color))  # Medium shade
-        else:
-            result.append(("\u2591", color))  # Light shade
-
-    return result
+        left, gap1, center, gap2, right = row_def
+        return _BLOCK * left + " " * gap1 + _BLOCK * center + " " * gap2 + _BLOCK * right
 
 
-def _render_row(chars: list[tuple[str, str]], x_offset: int) -> str:
-    """Render a row at the given x offset."""
-    reset = "\033[0m"
-    padding = " " * max(0, x_offset)
-
-    parts = [padding]
-    for char, color in chars:
-        if color:
-            parts.append(f"{color}{char}")
-        else:
-            parts.append(char)
-    parts.append(reset)
-
-    return "".join(parts)
+def _logo_width(row_def: tuple) -> int:
+    return sum(row_def)
 
 
 def show_banner() -> None:
-    """Display the animated A-logo banner.
-
-    Guards:
-    - Only runs when stdout is a TTY
-    - Only runs when terminal is wide enough
-    """
+    """Display the banner with logo on top, text below, left-aligned."""
     if not sys.stdout.isatty():
         return
 
@@ -178,43 +90,75 @@ def show_banner() -> None:
     clear_line = "\033[2K"
     hide_cursor = "\033[?25l"
     show_cursor = "\033[?25h"
+    reset = "\033[0m"
 
     sys.stdout.write(hide_cursor)
     sys.stdout.write("\n")
     sys.stdout.flush()
 
-    center = term_width // 2
-    total_rows = len(_ROWS)
+    max_logo_width = max(_logo_width(r) for r in _LOGO_ROWS)
+    total_rows = len(_LOGO_ROWS) + 1 + len(_TEXT_ART)  # logo + gap + text
 
     try:
-        for row_idx, (left_margin, solid_width, gap_start, gap_width, trail_length) in enumerate(_ROWS):
-            # Build the row content
-            chars = _build_row(
-                solid_width, gap_start, gap_width, trail_length,
-                row_idx, total_rows
-            )
+        row_counter = 0
 
-            # Calculate final position (centered, offset by left_margin)
-            final_x = center - left_margin - (solid_width // 2)
-            start_x = term_width + 10  # Start off-screen right
+        # Render logo rows
+        for row_def in _LOGO_ROWS:
+            color = _get_color(row_counter, total_rows)
+            logo_str = _build_logo_row(row_def)
 
-            # Animate: slide in from right
-            frames = 6
-            for frame in range(frames):
-                t = (frame + 1) / frames
+            # Center logo within its max width, then left-align
+            logo_pad = max_logo_width - _logo_width(row_def)
+            centered_logo = " " * (logo_pad // 2) + logo_str
+
+            line = f"{color}{centered_logo}{reset}"
+
+            # Animate slide-in
+            start_x = term_width + 5
+            final_x = _LEFT_MARGIN
+
+            for frame in range(4):
+                t = (frame + 1) / 4
                 eased = _ease_out_cubic(t)
                 cur_x = int(start_x + (final_x - start_x) * eased)
-
-                line = _render_row(chars, cur_x)
-                sys.stdout.write(f"\r{clear_line}{line}")
+                padding = " " * max(0, cur_x)
+                sys.stdout.write(f"\r{clear_line}{padding}{line}")
                 sys.stdout.flush()
                 time.sleep(_FRAME_DELAY)
 
-            # Final position
-            line = _render_row(chars, final_x)
-            sys.stdout.write(f"\r{clear_line}{line}\n")
+            padding = " " * _LEFT_MARGIN
+            sys.stdout.write(f"\r{clear_line}{padding}{line}\n")
             sys.stdout.flush()
             time.sleep(_STAGGER_DELAY)
+            row_counter += 1
+
+        # Gap between logo and text
+        sys.stdout.write("\n")
+        row_counter += 1
+
+        # Render text rows
+        for text_row in _TEXT_ART:
+            color = _get_color(row_counter, total_rows)
+            line = f"{color}{text_row}{reset}"
+
+            # Animate slide-in
+            start_x = term_width + 5
+            final_x = _LEFT_MARGIN
+
+            for frame in range(4):
+                t = (frame + 1) / 4
+                eased = _ease_out_cubic(t)
+                cur_x = int(start_x + (final_x - start_x) * eased)
+                padding = " " * max(0, cur_x)
+                sys.stdout.write(f"\r{clear_line}{padding}{line}")
+                sys.stdout.flush()
+                time.sleep(_FRAME_DELAY)
+
+            padding = " " * _LEFT_MARGIN
+            sys.stdout.write(f"\r{clear_line}{padding}{line}\n")
+            sys.stdout.flush()
+            time.sleep(_STAGGER_DELAY)
+            row_counter += 1
 
         time.sleep(_FINAL_PAUSE)
 

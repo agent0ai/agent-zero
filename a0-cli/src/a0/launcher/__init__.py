@@ -5,7 +5,6 @@ Provides an interactive menu that appears after the banner animation.
 
 from .menu import run_menu
 from .actions import (
-    launch_tui,
     launch_repl,
     show_status,
     toggle_docker,
@@ -15,7 +14,6 @@ from .actions import (
 
 __all__ = [
     "run_menu",
-    "launch_tui",
     "launch_repl",
     "show_status",
     "toggle_docker",

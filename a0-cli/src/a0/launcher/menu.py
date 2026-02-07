@@ -1,7 +1,7 @@
 """Interactive launcher menu for a0 CLI.
 
 Displays a menu after the banner animation, allowing users to select
-between different modes: TUI, REPL, Status, Docker, Settings.
+between different modes: Chat, Status, Docker, Settings.
 """
 
 from __future__ import annotations
@@ -25,11 +25,10 @@ class MenuItem(NamedTuple):
 
 
 MENU_ITEMS: list[MenuItem] = [
-    MenuItem("1", "tui", "Chat (TUI)", "Full terminal interface"),
-    MenuItem("2", "repl", "Chat (REPL)", "Simple text chat"),
-    MenuItem("3", "status", "Status", "Check Agent Zero"),
-    MenuItem("4", "docker", "Start/Stop", "Docker container"),
-    MenuItem("5", "settings", "Settings", "Configure a0"),
+    MenuItem("1", "repl", "Chat", "Start chatting"),
+    MenuItem("2", "status", "Status", "Check Agent Zero"),
+    MenuItem("3", "docker", "Start/Stop", "Docker container"),
+    MenuItem("4", "settings", "Settings", "Configure a0"),
 ]
 
 
@@ -94,15 +93,17 @@ def _render_menu(console: Console, selected: int) -> None:
 
 def _clear_menu(console: Console, line_count: int) -> None:
     """Move cursor up and clear the menu lines."""
+    import sys
     for _ in range(line_count):
-        console.print("\033[A\033[2K", end="")
+        sys.stdout.write("\033[A\033[2K")
+    sys.stdout.flush()
 
 
 def run_menu() -> str | None:
     """Display interactive menu and return the selected action.
 
     Returns:
-        The action string (e.g., "tui", "repl") or None if user pressed Escape.
+        The action string (e.g., "repl", "status") or None if user pressed Escape.
     """
     console = Console()
     selected = 0
@@ -136,7 +137,7 @@ def run_menu() -> str | None:
             return MENU_ITEMS[selected].action
 
         # Handle number keys
-        elif key in "12345":
+        elif key in "1234":
             idx = int(key) - 1
             if 0 <= idx < len(MENU_ITEMS):
                 _clear_menu(console, menu_lines)
