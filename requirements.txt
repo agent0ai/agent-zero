@@ -51,3 +51,4 @@ pywinpty==3.0.2; sys_platform == "win32"
 python-socketio>=5.14.2
 uvicorn>=0.38.0
 wsproto>=1.2.0
+pillow>=10.3.0 # not directly required, pinned by Snyk to avoid a vulnerability
