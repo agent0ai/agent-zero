@@ -1,15 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 # Agent Zero Install Script v1
 # Simplified Docker-based installation
 # https://github.com/agent0ai/agent-zero
 
 set -e
-
-# Ensure we're running in bash, not sh/dash
-if [ -z "$BASH_VERSION" ]; then
-    exec bash "$0" "$@"
-fi
 
 echo "=========================================="
 echo "  Agent Zero - Installation Script v1"
@@ -37,7 +32,7 @@ else
     print_warn "Docker not found. Installing via https://get.docker.com ..."
     curl -fsSL https://get.docker.com | sh
 
-    if [[ "$OSTYPE" == "linux-gnu"* ]] && [ "$EUID" -ne 0 ]; then
+    if [ "$(uname -s 2>/dev/null)" = "Linux" ] && [ "$(id -u 2>/dev/null)" -ne 0 ]; then
         print_info "Adding current user to the docker group..."
         sudo usermod -aG docker "$USER"
         print_warn "You may need to log out and back in for group changes to take effect."
@@ -61,26 +56,35 @@ DEFAULT_DATA_DIR="$INSTALL_DIR/usr"
 DEFAULT_PORT="5080"
 
 # Data directory
-read -rp "Where to store Agent Zero user data? [${DEFAULT_DATA_DIR}]: " DATA_DIR
+printf "Where to store Agent Zero user data? [%s]: " "$DEFAULT_DATA_DIR"
+IFS= read -r DATA_DIR
 DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
-DATA_DIR="${DATA_DIR/#\~/$HOME}"          # expand leading ~
+case "$DATA_DIR" in
+    ~/*) DATA_DIR="$HOME/${DATA_DIR#~/}" ;;
+    ~) DATA_DIR="$HOME" ;;
+esac
 mkdir -p "$DATA_DIR"
 print_info "Data directory: $DATA_DIR"
 
 # Port
-read -rp "Web UI port? [${DEFAULT_PORT}]: " PORT
+printf "Web UI port? [%s]: " "$DEFAULT_PORT"
+IFS= read -r PORT
 PORT="${PORT:-$DEFAULT_PORT}"
-if ! [[ "$PORT" =~ ^[0-9]+$ ]]; then
+case "$PORT" in
+    ''|*[!0-9]*)
     print_error "Invalid port. Falling back to ${DEFAULT_PORT}."
     PORT="$DEFAULT_PORT"
-fi
+    ;;
+esac
 print_info "Web UI port: $PORT"
 
 # Authentication
-read -rp "Web UI login username (leave empty for no auth): " AUTH_LOGIN
+printf "Web UI login username (leave empty for no auth): "
+IFS= read -r AUTH_LOGIN
 AUTH_PASSWORD=""
 if [ -n "$AUTH_LOGIN" ]; then
-    read -rp "Web UI password [12345678]: " AUTH_PASSWORD
+    printf "Web UI password [12345678]: "
+    IFS= read -r AUTH_PASSWORD
     AUTH_PASSWORD="${AUTH_PASSWORD:-12345678}"
     print_info "Auth configured for user: $AUTH_LOGIN"
 else
