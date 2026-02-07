@@ -14,6 +14,7 @@ Commands:
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -63,6 +64,20 @@ def main(
 ) -> None:
     """Launch Agent Zero interactive menu."""
     if ctx.invoked_subcommand is None:
+        # Check if we're in a TTY - menu requires interactive input
+        if not sys.stdin.isatty():
+            # Fall back to TUI when not in TTY (e.g., piped input)
+            from a0.tui.app import AgentZeroTUI
+            resolved_url, resolved_key = _resolve_config(url, api_key)
+            tui = AgentZeroTUI(
+                agent_url=resolved_url,
+                api_key=resolved_key,
+                project=project,
+                cwd=str(Path.cwd()),
+            )
+            tui.run()
+            return
+
         from a0.banner import show_banner
         from a0.launcher import (
             run_menu,
