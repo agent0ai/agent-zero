@@ -5,6 +5,7 @@ from agent import AgentContext, AgentContextType
 from python.helpers.task_scheduler import TaskScheduler
 from python.helpers.localization import Localization
 from python.helpers.dotenv import get_dotenv_value
+from datetime import datetime
 
 
 class Poll(ApiHandler):
@@ -47,6 +48,7 @@ class Poll(ApiHandler):
         ctxs = []
         tasks = []
         processed_contexts = set()  # Track processed context IDs
+        processed_task_uuids = set()  # Track processed task UUIDs
 
         all_ctxs = list(AgentContext._contexts.values())
         # First, identify all tasks
@@ -99,9 +101,50 @@ class Poll(ApiHandler):
                         context_data["token"] = task_details.get("token")
 
                 tasks.append(context_data)
+                processed_task_uuids.add(task_details.get("uuid"))
 
             # Mark as processed
             processed_contexts.add(ctx.id)
+
+        # Also include tasks from the scheduler that don't have active AgentContexts
+        # This ensures tasks persist in the UI after container restarts
+        all_scheduler_tasks = scheduler.serialize_all_tasks()
+        for task_details in all_scheduler_tasks:
+            task_uuid = task_details.get("uuid")
+            if task_uuid and task_uuid not in processed_task_uuids:
+                # Create a minimal context-like data structure for the task
+                # This allows the UI to display the task even without an active context
+                task_data = {
+                    "id": task_details.get("context_id", task_uuid),
+                    "name": task_details.get("name", ""),
+                    "created_at": task_details.get("created_at", datetime.now().isoformat()),
+                    "type": "task",  # Mark as task type for UI
+                    "last_message": task_details.get("updated_at", task_details.get("created_at", datetime.now().isoformat())),
+                    "task_name": task_details.get("name"),
+                    "uuid": task_uuid,
+                    "state": task_details.get("state"),
+                    "system_prompt": task_details.get("system_prompt"),
+                    "prompt": task_details.get("prompt"),
+                    "last_run": task_details.get("last_run"),
+                    "last_result": task_details.get("last_result"),
+                    "attachments": task_details.get("attachments", []),
+                    "context_id": task_details.get("context_id"),
+                    "project": task_details.get("project"),
+                }
+
+                # Add type-specific fields
+                task_type = task_details.get("type")
+                if task_type:
+                    task_data["type"] = task_type
+                if task_type == "scheduled":
+                    task_data["schedule"] = task_details.get("schedule")
+                elif task_type == "planned":
+                    task_data["plan"] = task_details.get("plan")
+                else:
+                    task_data["token"] = task_details.get("token")
+
+                tasks.append(task_data)
+                processed_task_uuids.add(task_uuid)
 
         # Sort tasks and chats by their creation date, descending
         ctxs.sort(key=lambda x: x["created_at"], reverse=True)
