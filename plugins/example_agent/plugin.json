@@ -1,0 +1,15 @@
+{
+  "id": "example_agent",
+  "name": "Example Agent Plugin",
+  "version": "0.1.0",
+  "description": "An example plugin demonstrating the agent profile capability.",
+  "author": "Agent Zero",
+  "provides": {
+    "agent": [
+      {
+        "dir": "agents",
+        "description": "Example agent profile"
+      }
+    ]
+  }
+}

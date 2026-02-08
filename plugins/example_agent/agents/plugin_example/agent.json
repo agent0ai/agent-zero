@@ -1,0 +1,5 @@
+{
+  "title": "Plugin Example Agent",
+  "description": "This is an example agent profile loaded from the 'example_agent' plugin.",
+  "context": "You are an example agent provided by the 'example_agent' plugin. Your purpose is to demonstrate how plugins can distribute agent profiles."
+}

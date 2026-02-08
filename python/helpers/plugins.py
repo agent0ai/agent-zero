@@ -144,9 +144,10 @@ def _extract_module_dir(module_path: str) -> str:
 def get_plugin_paths(cap_type: str, *subpaths: str) -> List[str]:
     """
     Get all paths from loaded plugins for a given capability type.
+    Supports both 'module' (parent dir used) and 'dir' (direct path used) in config.
     
     Args:
-        cap_type: Capability type (e.g., "tool", "extension", "api")
+        cap_type: Capability type (e.g., "tool", "extension", "api", "agent")
         subpaths: Additional path components to append
     
     Returns:
@@ -160,18 +161,27 @@ def get_plugin_paths(cap_type: str, *subpaths: str) -> List[str]:
             continue
         
         # Normalize to list for uniform processing
-        modules = []
+        items = []
         if isinstance(cap_config, list):
-            modules = [cap.get("module") for cap in cap_config if isinstance(cap, dict) and cap.get("module")]
-        elif isinstance(cap_config, dict) and cap_config.get("module"):
-            modules = [cap_config["module"]]
+            items = [c for c in cap_config if isinstance(c, dict)]
+        elif isinstance(cap_config, dict):
+            items = [cap_config]
         
-        # Build paths from modules
-        for module_path in modules:
-            module_dir = _extract_module_dir(module_path)
-            full_path = files.get_abs_path(str(plugin.path), module_dir, *subpaths)
-            if files.exists(full_path) and full_path not in paths:
-                paths.append(full_path)
+        # Build paths from items
+        for item in items:
+            path_to_add = ""
+            
+            # Priority 1: Explicit directory
+            if item.get("dir"):
+                path_to_add = item["dir"]
+            # Priority 2: Module parent directory
+            elif item.get("module"):
+                path_to_add = _extract_module_dir(item["module"])
+            
+            if path_to_add:
+                full_path = files.get_abs_path(str(plugin.path), path_to_add, *subpaths)
+                if files.exists(full_path) and full_path not in paths:
+                    paths.append(full_path)
     
     return paths
 

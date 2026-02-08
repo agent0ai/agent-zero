@@ -7,7 +7,7 @@ import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
-from python.helpers import runtime, whisper, defer, git
+from python.helpers import runtime, whisper, defer, git, subagents
 from . import files, dotenv
 from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -248,9 +248,9 @@ def convert_out(settings: Settings) -> SettingsOutput:
             embedding_providers=get_providers("embedding"),
             shell_interfaces=[{"value": "local", "label": "Local Python TTY"}, {"value": "ssh", "label": "SSH"}],
             is_dockerized=runtime.is_dockerized(),
-            agent_subdirs=[{"value": subdir, "label": subdir}
-                for subdir in files.get_subdirectories("agents")
-                if subdir != "_example"],
+            agent_subdirs=[{"value": item["key"], "label": item["label"]}
+                for item in subagents.get_all_agents_list()
+                if item["key"] != "_example"],
             knowledge_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")],
             stt_models=[
@@ -815,4 +815,3 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
-
