@@ -16,7 +16,7 @@ from werkzeug.wrappers.response import Response as BaseResponse
 from werkzeug.wrappers.request import Request as WerkzeugRequest
 
 import initialize
-from python.helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper
+from python.helpers import files, git, mcp_server, fasta2a_server, telegram_bot, settings as settings_helper
 from python.helpers.files import get_abs_path
 from python.helpers import runtime, dotenv, process
 from python.helpers.websocket import WebSocketHandler, validate_ws_origin
@@ -550,6 +550,9 @@ def init_a0():
     initialize.initialize_job_loop()
     # preload
     initialize.initialize_preload()
+
+    # start telegram bot
+    telegram_bot.initialize_telegram_bot()
 
 
 # run the internal server

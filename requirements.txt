@@ -50,4 +50,5 @@ exchangelib>=5.4.3
 pywinpty==3.0.2; sys_platform == "win32"
 python-socketio>=5.14.2
 uvicorn>=0.38.0
+python-telegram-bot>=21.11.1
 wsproto>=1.2.0
