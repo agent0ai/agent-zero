@@ -1,0 +1,28 @@
+name: "🔍 Dependency Review"
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Verify requirements.txt is current
+        run: |
+          uv export --no-hashes --no-dev --no-emit-project -o /tmp/requirements-check.txt
+          diff requirements.txt /tmp/requirements-check.txt || \
+            (echo "::error::requirements.txt is out of sync with uv.lock — run 'uv export'" && exit 1)
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: always

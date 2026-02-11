@@ -1,8 +1,12 @@
-name: Hooks Check
+name: "🪝 Hooks Check"
 
 on:
   pull_request:
     branches: [main]
+
+concurrency:
+  group: hooks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -11,6 +15,7 @@ jobs:
   hooks:
     name: Hook Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3

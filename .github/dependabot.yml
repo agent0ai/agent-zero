@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Python dependencies via uv (reads pyproject.toml + uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  # GitHub Actions versions (scans .github/workflows/*.yml uses: clauses)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
