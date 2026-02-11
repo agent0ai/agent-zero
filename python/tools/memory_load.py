@@ -1,7 +1,8 @@
 from python.helpers.memory import Memory
+from python.helpers.settings import get_default_value
 from python.helpers.tool import Response, Tool
 
-DEFAULT_THRESHOLD = 0.7
+DEFAULT_THRESHOLD = get_default_value("memory_load_threshold", 0.55)
 DEFAULT_LIMIT = 10
 
 

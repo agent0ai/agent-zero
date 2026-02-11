@@ -139,6 +139,9 @@ embedding:
       extra_headers:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
+  litellm_proxy:
+    name: LiteLLM Proxy
+    litellm_provider: openai
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
