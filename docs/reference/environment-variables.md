@@ -15,10 +15,23 @@ Variables in `usr/.env` override system environment. The file is gitignored and 
 |----------|-------------|--------|---------|----------|
 | `AUTH_LOGIN` | Web UI login username | Any string | *(empty)* | No |
 | `AUTH_PASSWORD` | Web UI login password | Any string | *(empty)* | No |
-| `ROOT_PASSWORD` | Root password for code execution container | Any string | *(empty)* | No |
+| `ROOT_PASSWORD` | Root password for code execution container. Auto-generated (32-char alphanumeric) inside Docker if unset. | Any string | *(auto-generated in Docker)* | No |
 | `RFC_PASSWORD` | Remote Function Call password for SSH/HTTP to execution sandbox | Any string | *(empty)* | No |
-| `FLASK_SECRET_KEY` | Flask session signing key; auto-generated if unset | Hex string | Random `secrets.token_hex(32)` | No |
+| `FLASK_SECRET_KEY` | Flask session signing key; auto-generated if unset | Hex string (64 chars) | Random `secrets.token_hex(32)` | No |
 | `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins for CSRF validation | URL list | *(empty — auto-populated on first visit)* | No |
+
+**Generating secure values:**
+
+```bash
+# ROOT_PASSWORD — 32-char alphanumeric (matches Docker auto-generation format)
+python3 -c "import secrets, string; print(''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32)))"
+
+# RFC_PASSWORD — URL-safe token
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# FLASK_SECRET_KEY — 64-char hex string (matches app's secrets.token_hex(32) format)
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
 
 ## Server & Networking
 
@@ -77,11 +90,18 @@ Custom base URLs follow the pattern `{PROVIDER}_API_BASE` (uppercased). These ov
 
 | Variable | Description | Values | Default | Required |
 |----------|-------------|--------|---------|----------|
-| `A0_PERSISTENT_RUNTIME_ID` | Persistent runtime identifier; auto-generated on first run and saved to `usr/.env` for reuse across restarts | UUID hex string | Auto-generated | No |
+| `A0_PERSISTENT_RUNTIME_ID` | Persistent runtime identifier; auto-generated on first run and saved to `usr/.env` for reuse across restarts | Hex string (32 chars) | Auto-generated via `secrets.token_hex(16)` | No |
 | `A0_WS_DEBUG` | Enable verbose WebSocket debug logging | `1`, `true`, `yes`, `on` | *(disabled)* | No |
-| `A2A_TOKEN` | Bearer token for Agent-to-Agent (A2A) protocol authentication; read via `os.getenv()`, not dotenv | Any string | *(empty)* | When using A2A |
+| `A2A_TOKEN` | Bearer token for Agent-to-Agent (A2A) protocol authentication; sent as `Authorization: Bearer <token>` and `X-API-KEY` header. Read via `os.getenv()`, not dotenv | Any string | *(empty)* | When using A2A |
 | `DEFAULT_USER_TIMEZONE` | Default timezone; auto-written from browser on first visit | IANA tz name | `UTC` | No |
 | `DEFAULT_USER_UTC_OFFSET_MINUTES` | UTC offset in minutes; auto-written from browser on first visit | Integer | `0` | No |
+
+**Generating secure values:**
+
+```bash
+# A2A_TOKEN — URL-safe bearer token for A2A protocol authentication
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
 ## LiteLLM & Model Runtime
 
@@ -278,7 +298,14 @@ Used when running Agent Zero in Docker. See `Dockerfile`, `DockerfileLocal`, and
 | `BRANCH` | Git branch to build from; `local` uses local files instead of cloning | Branch name or `local` | `local` (DockerfileLocal) / *(none)* (production) | Build-time |
 | `DEBUG` | Enable verbose logging in supervisord event listener | Any value | *(disabled)* | No |
 | `SEARXNG_SETTINGS_PATH` | Path to SearXNG configuration file | File path | `/etc/searxng/settings.yml` | No |
-| `SEARXNG_SECRET` | Secret key for SearXNG instance security | Any string | *(none)* | When using SearXNG |
+| `SEARXNG_SECRET` | Secret key for SearXNG instance security. Overrides the `secret_key` in SearXNG's `settings.yml`. | Any string | *(none)* | When using SearXNG |
+
+**Generating secure values:**
+
+```bash
+# SEARXNG_SECRET — random secret for SearXNG Flask app
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
 
 ## Email Test Variables
 

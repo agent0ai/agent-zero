@@ -15,37 +15,47 @@ if str(PROJECT_ROOT) not in sys.path:
 class TestBrandingDefaults:
     """Test default branding values when no env vars are set."""
 
+    # Clear any BRAND_* env vars (e.g. from usr/.env loaded by python-dotenv)
+    # so we test the hardcoded defaults in branding.py.
+    _clear_env = {k: v for k, v in os.environ.items() if not k.startswith("BRAND_")}
+
     def test_default_brand_name(self):
         import importlib
 
-        from python.helpers import branding
+        with patch.dict(os.environ, self._clear_env, clear=True):
+            from python.helpers import branding
 
-        importlib.reload(branding)
-        assert branding.BRAND_NAME == "Apollos AI"
+            importlib.reload(branding)
+            assert branding.BRAND_NAME == "Apollos AI"
 
     def test_default_brand_slug(self):
         import importlib
 
-        from python.helpers import branding
+        with patch.dict(os.environ, self._clear_env, clear=True):
+            from python.helpers import branding
 
-        importlib.reload(branding)
-        assert branding.BRAND_SLUG == "apollos-ai"
+            importlib.reload(branding)
+            assert branding.BRAND_SLUG == "apollos-ai"
 
     def test_default_brand_url(self):
         import importlib
 
-        from python.helpers import branding
+        with patch.dict(os.environ, self._clear_env, clear=True):
+            from python.helpers import branding
 
-        importlib.reload(branding)
-        assert branding.BRAND_URL == "https://apollos.ai"
+            importlib.reload(branding)
+            assert branding.BRAND_URL == "https://apollos.ai"
 
     def test_default_github_url(self):
         import importlib
 
-        from python.helpers import branding
+        with patch.dict(os.environ, self._clear_env, clear=True):
+            from python.helpers import branding
 
-        importlib.reload(branding)
-        assert branding.BRAND_GITHUB_URL == "https://github.com/jrmatherly/agent-zero"
+            importlib.reload(branding)
+            assert (
+                branding.BRAND_GITHUB_URL == "https://github.com/jrmatherly/agent-zero"
+            )
 
 
 class TestBrandingEnvOverride:
