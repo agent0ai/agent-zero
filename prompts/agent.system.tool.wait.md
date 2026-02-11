@@ -5,6 +5,7 @@ use "until" with ISO timestamp for a specific time
 usage:
 
 1 wait duration
+
 ~~~json
 {
     "thoughts": [
@@ -20,6 +21,7 @@ usage:
 ~~~
 
 2 wait timestamp
+
 ~~~json
 {
     "thoughts": [

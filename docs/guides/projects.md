@@ -94,6 +94,7 @@ Once created, you can configure your project through the Edit Project interface:
 The **Description** field helps both you and the agent understand the project's purpose. This is purely informational and helps provide context when switching between projects.
 
 **Example:**
+
 ```
 An intelligent Excel automation system that processes financial spreadsheets 
 from multiple sources, performs data validation and cleaning, consolidates 
@@ -104,6 +105,7 @@ information, generates executive reports, and flags anomalies or compliance issu
 The **Instructions** field is critical - these are automatically injected into the agent's system prompt when the project is active. Write clear, specific instructions that guide the agent's behavior for this project.
 
 **Example:**
+
 ```markdown
 ## Your Role
 You are an expert Financial Data Analyst and Excel Automation Specialist. 
@@ -192,7 +194,7 @@ Projects support two memory modes:
 > - Client projects with confidential information
 > - Different programming languages/frameworks
 > - Distinct domains (e.g., finance vs. marketing)
-> 
+>
 > Use **global memory** for:
 > - Related sub-projects in the same domain
 > - When you want the agent to remember across all work
@@ -204,6 +206,7 @@ Projects support scoped configuration values:
 
 #### Variables (Non-sensitive)
 Stored in `.a0proj/variables.env`:
+
 ```bash
 API_BASE_URL=https://api.example.com
 DEFAULT_TIMEOUT=30
@@ -213,6 +216,7 @@ LOG_LEVEL=info
 
 #### Secrets (Sensitive)
 Stored in `.a0proj/secrets.env`:
+
 ```bash
 API_KEY=sk-abc123xyz...
 DATABASE_PASSWORD=super_secret_pwd
@@ -250,6 +254,7 @@ Projects can automatically inject their directory structure into the agent's con
 - **Gitignore patterns**: Filter out unwanted files
 
 The default gitignore for projects excludes:
+
 ```
 .a0proj/
 venv/
@@ -294,6 +299,7 @@ The agent now:
 - Operates within the project's working directory
 
 **Example prompt after activation:**
+
 ```
 Hi A0. Start first development phase:
 - recon

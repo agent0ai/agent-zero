@@ -1,6 +1,6 @@
-from agent import AgentConfig
 import models
-from python.helpers import runtime, settings, defer
+from agent import AgentConfig
+from python.helpers import defer, runtime, settings
 from python.helpers.print_style import PrintStyle
 
 
@@ -119,35 +119,49 @@ def initialize_agent(override_settings: dict | None = None):
     # return config object
     return config
 
+
 def initialize_chats():
     from python.helpers import persist_chat
+
     async def initialize_chats_async():
         persist_chat.load_tmp_chats()
+
     return defer.DeferredTask().start_task(initialize_chats_async)
+
 
 def initialize_mcp():
     set = settings.get_settings()
+
     async def initialize_mcp_async():
         from python.helpers.mcp_handler import initialize_mcp as _initialize_mcp
+
         return _initialize_mcp(set["mcp_servers"])
+
     return defer.DeferredTask().start_task(initialize_mcp_async)
+
 
 def initialize_job_loop():
     from python.helpers.job_loop import run_loop
+
     return defer.DeferredTask("JobLoop").start_task(run_loop)
+
 
 def initialize_preload():
     import preload
+
     return defer.DeferredTask().start_task(preload.preload)
 
+
 def initialize_migration():
-    from python.helpers import migration, dotenv
+    from python.helpers import dotenv, migration
+
     # run migration
     migration.migrate_user_data()
     # reload .env as it might have been moved
     dotenv.load_dotenv()
     # reload settings to ensure new paths are picked up
     settings.reload_settings()
+
 
 def _args_override(config):
     # update config with runtime args

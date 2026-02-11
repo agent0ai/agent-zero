@@ -1,13 +1,12 @@
-from python.helpers import dotenv, runtime, settings
-import string
 import random
-from python.helpers.print_style import PrintStyle
+import string
 
+from python.helpers import dotenv, runtime, settings
+from python.helpers.print_style import PrintStyle
 
 PrintStyle.standard("Preparing environment...")
 
 try:
-
     runtime.initialize()
 
     # generate random root password if not set (for SSH)

@@ -15,7 +15,7 @@ kokoro>=0.9.2
 simpleeval==1.0.3
 langchain-core==0.3.49
 langchain-community==0.3.19
-langchain-unstructured[all-docs]==0.1.6
+langchain-unstructured==0.1.6
 openai-whisper==20250625
 lxml_html_clean==0.3.1
 markdown==3.7

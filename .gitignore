@@ -38,5 +38,13 @@ usr/**
 # for browser-use
 agent_history.gif
 
+# AI Agents
 .agent/**
 .claude/**
+
+# Local Docs
+.local_docs/
+.scratchpad/
+
+# Agent Zero Data
+my-data/

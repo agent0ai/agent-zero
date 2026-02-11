@@ -1,7 +1,9 @@
-from python.helpers.api import ApiHandler, Request, Response
-from werkzeug.datastructures import FileStorage
-from python.helpers.backup import BackupService
 import json
+
+from werkzeug.datastructures import FileStorage
+
+from python.helpers.api import ApiHandler, Request, Response
+from python.helpers.backup import BackupService
 
 
 class BackupRestorePreview(ApiHandler):
@@ -15,17 +17,19 @@ class BackupRestorePreview(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         # Handle file upload
-        if 'backup_file' not in request.files:
+        if "backup_file" not in request.files:
             return {"success": False, "error": "No backup file provided"}
 
-        backup_file: FileStorage = request.files['backup_file']
-        if backup_file.filename == '':
+        backup_file: FileStorage = request.files["backup_file"]
+        if backup_file.filename == "":
             return {"success": False, "error": "No file selected"}
 
         # Get restore patterns and options from form data
-        metadata_json = request.form.get('metadata', '{}')
-        overwrite_policy = request.form.get('overwrite_policy', 'overwrite')
-        clean_before_restore = request.form.get('clean_before_restore', 'false').lower() == 'true'
+        metadata_json = request.form.get("metadata", "{}")
+        overwrite_policy = request.form.get("overwrite_policy", "overwrite")
+        clean_before_restore = (
+            request.form.get("clean_before_restore", "false").lower() == "true"
+        )
 
         try:
             metadata = json.loads(metadata_json)
@@ -42,7 +46,7 @@ class BackupRestorePreview(ApiHandler):
                 restore_exclude_patterns=restore_exclude_patterns,
                 overwrite_policy=overwrite_policy,
                 clean_before_restore=clean_before_restore,
-                user_edited_metadata=metadata
+                user_edited_metadata=metadata,
             )
 
             return {
@@ -57,11 +61,8 @@ class BackupRestorePreview(ApiHandler):
                 "skipped_count": result["skipped_count"],
                 "backup_metadata": result["backup_metadata"],
                 "overwrite_policy": result.get("overwrite_policy", "overwrite"),
-                "clean_before_restore": result.get("clean_before_restore", False)
+                "clean_before_restore": result.get("clean_before_restore", False),
             }
 
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}

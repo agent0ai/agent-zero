@@ -9,6 +9,7 @@ supports various formats HTML PDF Office Text etc
 usage:
 
 1 get content
+
 ~~~json
 {
     "thoughts": [
@@ -23,6 +24,7 @@ usage:
 ~~~
 
 2 query document
+
 ~~~json
 {
     "thoughts": [
@@ -41,6 +43,7 @@ usage:
 ~~~
 
 3 query multiple documents
+
 ~~~json
 {
     "thoughts": [

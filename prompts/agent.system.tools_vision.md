@@ -7,6 +7,7 @@ multiple images if needed
 only bitmaps supported convert first if needed
 
 **Example usage**:
+
 ```json
 {
     "thoughts": [

@@ -9,6 +9,7 @@
 - If the history does not contain any helpful technical solutions, the response will be an empty JSON array.
 
 # Example when solution found (do not output this example):
+
 ~~~json
 [
   {
@@ -19,10 +20,10 @@
 ~~~
 
 # Example when no solutions:
+
 ~~~json
 []
 ~~~
-
 
 # Rules
 - !! Only consider solutions that have been successfully executed in the conversation history, never speculate or create own scenarios
@@ -32,7 +33,6 @@
 - Focus on important details like libraries used, code, encountered issues, error fixing etc.
 - Do not add your own details that are not specifically mentioned in the history
 - Ignore AI thoughts, focus on facts
-
 
 # Wrong examples - never output similar (with explanation):
 > Problem: No specific technical problem was described in the conversation. (then the output should be [])

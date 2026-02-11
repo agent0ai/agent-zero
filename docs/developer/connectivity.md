@@ -21,15 +21,15 @@ Send messages to Agent Zero and receive responses. Supports text messages, file 
 ### API Reference
 
 **Parameters:**
-*   `context_id` (string, optional): Existing chat context ID
-*   `message` (string, required): The message to send
-*   `attachments` (array, optional): Array of `{filename, base64}` objects
-*   `lifetime_hours` (number, optional): Chat lifetime in hours (default: 24)
-*   `project` (string, optional): Project name to activate (only on first message)
+- `context_id` (string, optional): Existing chat context ID
+- `message` (string, required): The message to send
+- `attachments` (array, optional): Array of `{filename, base64}` objects
+- `lifetime_hours` (number, optional): Chat lifetime in hours (default: 24)
+- `project` (string, optional): Project name to activate (only on first message)
 
 **Headers:**
-*   `X-API-KEY` (required)
-*   `Content-Type: application/json`
+- `X-API-KEY` (required)
+- `Content-Type: application/json`
 
 ### JavaScript Examples
 
@@ -236,12 +236,12 @@ Retrieve log data by context ID, limited to a specified number of entries from t
 ### API Reference
 
 **Parameters:**
-*   `context_id` (string, required): Context ID to get logs from
-*   `length` (integer, optional): Number of log items to return from newest (default: 100)
+- `context_id` (string, required): Context ID to get logs from
+- `length` (integer, optional): Number of log items to return from newest (default: 100)
 
 **Headers:**
-*   `X-API-KEY` (required)
-*   `Content-Type: application/json` (for POST)
+- `X-API-KEY` (required)
+- `Content-Type: application/json` (for POST)
 
 ### JavaScript Examples
 
@@ -338,11 +338,11 @@ Terminate and remove a chat context to free up resources. Similar to the MCP `fi
 ### API Reference
 
 **Parameters:**
-*   `context_id` (string, required): Context ID of the chat to terminate
+- `context_id` (string, required): Context ID of the chat to terminate
 
 **Headers:**
-*   `X-API-KEY` (required)
-*   `Content-Type: application/json`
+- `X-API-KEY` (required)
+- `Content-Type: application/json`
 
 ### JavaScript Examples
 
@@ -412,11 +412,11 @@ Reset a chat context to clear conversation history while keeping the `context_id
 ### API Reference
 
 **Parameters:**
-*   `context_id` (string, required): Context ID of the chat to reset
+- `context_id` (string, required): Context ID of the chat to reset
 
 **Headers:**
-*   `X-API-KEY` (required)
-*   `Content-Type: application/json`
+- `X-API-KEY` (required)
+- `Content-Type: application/json`
 
 ### JavaScript Examples
 
@@ -499,11 +499,11 @@ Retrieve file contents by paths, returning files as base64 encoded data. Useful 
 ### API Reference
 
 **Parameters:**
-*   `paths` (array, required): Array of file paths to retrieve (e.g., `["/a0/usr/uploads/file.txt"]`)
+- `paths` (array, required): Array of file paths to retrieve (e.g., `["/a0/usr/uploads/file.txt"]`)
 
 **Headers:**
-*   `X-API-KEY` (required)
-*   `Content-Type: application/json`
+- `X-API-KEY` (required)
+- `Content-Type: application/json`
 
 ### JavaScript Examples
 
@@ -609,7 +609,7 @@ It provides two endpoint types:
 
 ### Example MCP Server Configuration
 
-Below is an example of a `mcp.json` configuration file that a client could use to connect to the Agent Zero MCP server. 
+Below is an example of a `mcp.json` configuration file that a client could use to connect to the Agent Zero MCP server.
 
 **Note:** You can find your personalized connection URLs under `Settings > MCP Server > MCP Server`.
 
@@ -661,7 +661,7 @@ Agent Zero's A2A Server enables communication with other agents using the FastA2
 
 ### A2A Connection URL
 
-To connect another agent to your Agent Zero instance, use the following URL format. 
+To connect another agent to your Agent Zero instance, use the following URL format.
 
 **Note:** You can find your specific A2A connection URL under `Settings > External Services > A2A Connection`.
 

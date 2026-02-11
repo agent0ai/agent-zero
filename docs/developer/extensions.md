@@ -130,6 +130,7 @@ Agent Zero's prompt system supports several powerful features:
 Prompts can include variables using the `{{var}}` syntax. These variables are replaced with actual values when the prompt is processed.
 
 **Example:**
+
 ```markdown
 # Current system date and time of user
 - current datetime: {{date_time}}
@@ -167,6 +168,7 @@ class Tools(VariablesPlugin):
 ```
 
 Then in your `agent.system.tools.md` prompt file, you can use:
+
 ```markdown
 # Available Tools
 {{tools}}
@@ -178,6 +180,7 @@ This approach allows for highly dynamic prompts that can adapt based on availabl
 Prompts can include content from other prompt files using the `{{ include "path/to/file.md" }}` syntax. This allows for modular prompt design and reuse.
 
 **Example:**
+
 ```markdown
 # Agent Zero System Manual
 

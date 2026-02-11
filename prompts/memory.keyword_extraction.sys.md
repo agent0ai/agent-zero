@@ -34,6 +34,7 @@ Return ONLY a JSON array of strings containing the extracted keywords/phrases:
 **Memory Content**: "Successfully implemented OAuth authentication using JWT tokens for the user login system. The solution handles token refresh and validation properly."
 
 **Output**:
+
 ```json
 ["OAuth authentication", "JWT tokens", "user login", "token refresh", "authentication implementation"]
 ```
@@ -41,6 +42,7 @@ Return ONLY a JSON array of strings containing the extracted keywords/phrases:
 **Memory Content**: "Fixed the database connection timeout issue by increasing the connection pool size and optimizing slow queries with proper indexing."
 
 **Output**:
+
 ```json
 ["database connection", "timeout issue", "connection pool", "query optimization", "indexing"]
 ```
@@ -48,6 +50,7 @@ Return ONLY a JSON array of strings containing the extracted keywords/phrases:
 **Memory Content**: "Learned that Alpine.js x-data components should use camelCase for method names and snake_case for data properties to follow best practices."
 
 **Output**:
+
 ```json
 ["Alpine.js", "x-data components", "camelCase methods", "naming conventions"]
 ```

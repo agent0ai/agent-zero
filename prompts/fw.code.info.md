@@ -1,1 +1,1 @@
-[SYSTEM: {{info}}] 
+[SYSTEM: {{info}}]

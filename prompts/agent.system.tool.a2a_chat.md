@@ -4,24 +4,25 @@ It automatically keeps conversation **context** (so each subsequent call
 continues the same dialogue) and supports optional file attachments.
 
 #### What the tool can do
-* Start a brand-new conversation with a remote agent.
-* Continue an existing conversation transparently (context handled for you).
-* Send text plus optional file URIs (images, docs, etc.).
-* Receive the assistant’s reply as plain text.
+- Start a brand-new conversation with a remote agent.
+- Continue an existing conversation transparently (context handled for you).
+- Send text plus optional file URIs (images, docs, etc.).
+- Receive the assistant’s reply as plain text.
 
 #### Arguments
-* `agent_url` (string, required) – Base URL of the *remote* agent.
+- `agent_url` (string, required) – Base URL of the _remote_ agent.
   • Accepts `host:port`, `http://host:port`, or full path ending in `/a2a`.
-* `message` (string, required) – The text you want to send.
-* `attachments` (list[string], optional) – URIs pointing to files you want
+- `message` (string, required) – The text you want to send.
+- `attachments` (list[string], optional) – URIs pointing to files you want
   to send along with the message (can be http(s):// or file path).
-* `reset` (boolean, optional) – Set to `true` to start a **new** conversation
+- `reset` (boolean, optional) – Set to `true` to start a **new** conversation
   with the same `agent_url` (clears stored context). Default `false`.
 
 > Leave **context_id** out – the tool handles it internally.
 
 #### Usage – first message
 ##### Request
+
 ```json
 {
   "thoughts": [
@@ -37,13 +38,16 @@ continues the same dialogue) and supports optional file attachments.
   }
 }
 ```
+
 ##### Response (assistant-side)
+
 ```plaintext
 ☀️ It will be sunny with a high of 22 °C.
 ```
 
 #### Usage – follow-up (context automatically preserved)
 ##### Request
+
 ```json
 {
   "thoughts": [
@@ -59,13 +63,15 @@ continues the same dialogue) and supports optional file attachments.
   }
 }
 ```
+
 ##### Response
+
 ```plaintext
 🌦️ Partly cloudy with showers, high 18 °C.
 ```
 
 #### Notes
-1. **New conversation** – omit previous `agent_url` or use a *different* URL.
+1. **New conversation** – omit previous `agent_url` or use a _different_ URL.
 2. **Attachments** – supply absolute URIs ("http://…", "file:/…").
 3. The tool stores session IDs per `agent_url` inside the current
    `AgentContext` – no manual handling required.

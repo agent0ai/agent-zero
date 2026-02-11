@@ -1,10 +1,7 @@
 # Development manual for Agent Zero
 This guide will show you how to setup a local development environment for Agent Zero in a VS Code compatible IDE, including proper debugger.
 
-
 [![Tutorial video](./res/devguide_vid.png)](https://www.youtube.com/watch?v=KE39P4qBjDk)
-
-
 
 > [!WARNING]
 > This guide is for developers and contributors. It assumes you have a basic understanding of how to use Git/GitHub, Docker, IDEs and Python.
@@ -12,7 +9,6 @@ This guide will show you how to setup a local development environment for Agent 
 > [!NOTE]
 > - Agent Zero runs in a Docker container, this simplifies installation and ensures unified environment and behavior across systems.
 > - Developing and debugging in a container would be complicated though, therefore we use a hybrid approach where the python framework runs on your machine (in VS Code for example) and only connects to a Dockerized instance when it needs to execute code or use other pre-installed functionality like the built-in search engine.
-
 
 ## To follow this guide you will need:
 1. VS Code compatible IDE (VS Code, Cursor, Windsurf...)
@@ -22,7 +18,6 @@ This guide will show you how to setup a local development environment for Agent 
 
 > [!NOTE]
 > I will be using clean VS Code, Conda and Docker Desktop in this example on MacOS.
-
 
 ## Step 0: Install required software
 - See the list above and install the software required if you don't already have it.
@@ -47,7 +42,8 @@ This guide will show you how to setup a local development environment for Agent 
 
 # Step 3: Prepare your IDE:
 1. Notice the prompt in lower right corner of the screenshot above to install recommended extensions, this comes from the `.vscode/extensions.json` file. It contains Python language support, debugger and error helper, install them by confirming the popup or manually in Extensions tab of your IDE. These are the extensions mentioned:
-```
+
+```text
 usernamehw.errorlens
 ms-python.debugpy
 ms-python.python
@@ -65,13 +61,14 @@ Now when you select one of the python files in the project, you should see prope
 ![VS Code env terminal](res/dev/devinst-5.png)
 
 3. Install dependencies. Run these two commands in the terminal:
+
 ```bash
 pip install -r requirements.txt
 playwright install chromium
 ```
+
 These will install all the python packages and browser binaries for playwright (browser agent).
 Errors in the code editor caused by missing packages should now be gone. If not, try reloading the window.
-
 
 ## Step 4: Run Agent Zero in the IDE
 Great work! Now you should be able to run Agent Zero from your IDE including real-time debugging.
@@ -88,12 +85,10 @@ You can also set the bind host via `"--host=0.0.0.0"` (or `WEB_UI_HOST=0.0.0.0`)
 It may take a while the first time. You should see output like the screenshot below. The RFC error is ok for now as we did not yet connect our local development to another instance in docker.
 ![First run](res/dev/devinst-7.png)
 
-
 After inserting my API key in settings, my Agent Zero instance works. I can send a simple message and get a response.
 ⚠️ Some tools like code execution will not work yet as they need to be connected to a Dockerized instance.
 
 ![First message](res/dev/devinst-8.png)
-
 
 ## Debugging
 - You can try out the debugger already by placing a breakpoint somewhere in the python code.
@@ -105,7 +100,6 @@ After inserting my API key in settings, my Agent Zero instance works. I can send
 
 ![Debugging](res/dev/devinst-10.png)
 
-
 ## Step 5: Run another instance of Agent Zero in Docker
 - Some parts of A0 require standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
 - To make development easier, we can use existing A0 instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
@@ -116,7 +110,6 @@ This is how it looks in my example: port `80` is mapped to `8880` on the host an
 
 ![docker run](res/dev/devinst-11.png)
 ![docker run](res/dev/devinst-12.png)
-
 
 ## Step 6: Configure SSH and RFC connection
 - The last step is to configure the local development (VS Code) instance and the dockerized instance to communicate with each other. This is very simple and can be done in the settings in the Web UI of both instances.
@@ -137,7 +130,6 @@ My VS Code instance:
 ## RFC Notes (Host IDE + Docker Execution)
 Agent Zero runs code inside the container by default. If you are running the framework locally in your IDE but want tools (like code execution) to run in Docker, configure RFC in **Settings -> Development** and point it to a running Agent Zero container. This routes execution through SSH/RFC to the container while keeping the UI and agent loop on your host.
 
-
 # Congratulations!
 
 You have successfully set up a complete Agent Zero development environment! You now have:
@@ -148,7 +140,6 @@ You have successfully set up a complete Agent Zero development environment! You 
 - The ability to develop, debug, and test Agent Zero features seamlessly
 
 You're now ready to contribute to Agent Zero, create custom extensions, or modify the framework to suit your needs. Happy coding!
-
 
 ## Next steps
 - See [extensions](../developer/extensions.md) for instructions on how to create custom extensions.

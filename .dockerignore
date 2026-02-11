@@ -48,3 +48,14 @@ usr/*
 
 # Environment files anywhere
 *.env
+
+# AI Agents
+.agent/**
+.claude/**
+
+# Local Docs
+.local_docs/
+.scratchpad/
+
+# Agent Zero Data
+my-data/

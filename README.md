@@ -8,8 +8,7 @@
 
 [![Agent Zero Website](https://img.shields.io/badge/Website-agent--zero.ai-0A192F?style=for-the-badge&logo=vercel&logoColor=white)](https://agent-zero.ai) [![Thanks to Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-Thanks%20to%20Sponsors-FF69B4?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/agent0ai) [![Follow on X](https://img.shields.io/badge/X-Follow-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Agent0ai) [![Join our Discord](https://img.shields.io/badge/Discord-Join%20our%20server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/B8KZKNsPpj) [![Subscribe on YouTube](https://img.shields.io/badge/YouTube-Subscribe-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@AgentZeroFW) [![Connect on LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jan-tomasek/) [![Follow on Warpcast](https://img.shields.io/badge/Warpcast-Follow-5A32F3?style=for-the-badge)](https://warpcast.com/agent-zero)
 
-
-## Documentation:
+## Documentation
 
 [Introduction](#a-personal-organic-agentic-framework-that-grows-and-learns-with-you) •
 [Installation](./docs/setup/installation.md) •
@@ -23,25 +22,19 @@ Or see DeepWiki generated documentation:
 
 </div>
 
-
 <div align="center">
 
 > ### 🚨 **AGENT ZERO SKILLS** 🚨
 > **Skills System** - portable, structured agent capabilities using the open `SKILL.md` standard (compatible with Claude Code, Codex and more).
-> 
+>
 > **Plus:** Git-based Projects with authentication for public/private repositories - clone codebases directly into isolated workspaces.
-> 
+>
 > See [Usage Guide](./docs/guides/usage.md) and [Projects Tutorial](./docs/guides/projects.md) to get started.
 </div>
 
-
-
 [![Showcase](/docs/res/showcase-thumb.png)](https://youtu.be/lazLNcEYsiQ)
 
-
 ## A personal, organic agentic framework that grows and learns with you
-
-
 
 - Agent Zero is not a predefined agentic framework. It is designed to be dynamic, organically growing, and learning as you use it.
 - Agent Zero is fully transparent, readable, comprehensible, customizable, and interactive.
@@ -66,7 +59,6 @@ docker run -p 50001:80 agent0ai/agent-zero
 # Visit http://localhost:50001 to start
 ```
 
-
 # 💡 Key Features
 
 1. **General-purpose Assistant**
@@ -76,7 +68,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 ![Agent 0 Working](/docs/res/ui_screen2.png)
 
-2. **Computer as a Tool**
+1. **Computer as a Tool**
 
 - Agent Zero uses the operating system as a tool to accomplish its tasks. It has no single-purpose tools pre-programmed. Instead, it can write its own code and use the terminal to create and use its own tools as needed.
 - The only default tools in its arsenal are online search, memory features, communication (with the user and other agents), and code/terminal execution. Everything else is created by the agent itself or can be extended by the user.
@@ -85,7 +77,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 - **Creating Custom Tools:** Extend Agent Zero's functionality by creating your own custom tools.
 - **Skills (SKILL.md Standard):** Skills are contextual expertise loaded dynamically when relevant. They use the open SKILL.md standard (developed by Anthropic), making them compatible with Claude Code, Cursor, Goose, OpenAI Codex CLI, and GitHub Copilot.
 
-3. **Multi-agent Cooperation**
+1. **Multi-agent Cooperation**
 
 - Every agent has a superior agent giving it tasks and instructions. Every agent then reports back to its superior.
 - In the case of the first agent in the chain (Agent 0), the superior is the human user; the agent sees no difference.
@@ -93,7 +85,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 ![Multi-agent](docs/res/usage/multi-agent.png)
 
-4. **Completely Customizable and Extensible**
+1. **Completely Customizable and Extensible**
 
 - Almost nothing in this framework is hard-coded. Nothing is hidden. Everything can be extended or changed by the user.
 - The whole behavior is defined by a system prompt in the **prompts/default/agent.system.md** file. Change this prompt and change the framework dramatically.
@@ -104,7 +96,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 ![Prompts](/docs/res/profiles.png)
 
-5. **Communication is Key**
+1. **Communication is Key**
 
 - Give your agent a proper system prompt and instructions, and it can do miracles.
 - Agents can communicate with their superiors and subordinates, asking questions, giving instructions, and providing guidance. Instruct your agents in the system prompt on how to communicate effectively.
@@ -144,10 +136,9 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 - With proper instruction, Agent Zero is capable of many things, even potentially dangerous actions concerning your computer, data, or accounts. Always run Agent Zero in an isolated environment (like Docker) and be careful what you wish for.
 
-2. **Agent Zero Is Prompt-based.**
+1. **Agent Zero Is Prompt-based.**
 
 - The whole framework is guided by the **prompts/** folder. Agent guidelines, tool instructions, messages, utility AI functions, it's all there.
-
 
 ## 📚 Read the Documentation
 
@@ -164,34 +155,33 @@ docker run -p 50001:80 agent0ai/agent-zero
 | [Contributing](./docs/guides/contribution.md) | How to contribute |
 | [Troubleshooting](./docs/guides/troubleshooting.md) | Common issues and their solutions |
 
-
 ## 🎯 Changelog
 
 ### v0.9.8 - Skills, UI Redesign & Git projects
 [Release video](https://youtu.be/NV7s78yn6DY)
 
 - Skills
-    - Skills System replacing the legacy Instruments with a new `SKILL.md` standard for structured, portable agent capabilities.
-    - Built-in skills, and UI support for importing and listing skills
+  - Skills System replacing the legacy Instruments with a new `SKILL.md` standard for structured, portable agent capabilities.
+  - Built-in skills, and UI support for importing and listing skills
 - Real-time WebSocket infrastructure replacing the polling-based approach for UI state synchronization
 - UI Redesign
-    - Process groups to visually group agent actions with expand/collapse support
-    - Timestamps, steps count and execution time with tool-specific badges
-    - Step detail modals with key-value and raw JSON display
-    - Collapsible responses with show more/less and copy buttons on code blocks and tables
-    - Message queue system allowing users to queue messages while the agent is still processing
-    - In-browser file editor for viewing and editing files without leaving the UI
-    - Welcome screen redesign with info and warning banners for connection security, missing API keys, and system resources
-    - Scheduler redesign with standalone modal, separate task list, detail and editor components, and project support
-    - Smooth response rendering and scroll stabilization across chat, terminals, and image viewer
-    - Chat width setting and reworked preferences panel
-    - Image viewer improvements with scroll support and expanded viewer
-    - Redesigned sidebar with reusable dropdown component and streamlined buttons
-    - Inline button confirmations for critical actions
-    - Improved login design and new logout button
-    - File browser enhanced with rename and file actions dropdown
+  - Process groups to visually group agent actions with expand/collapse support
+  - Timestamps, steps count and execution time with tool-specific badges
+  - Step detail modals with key-value and raw JSON display
+  - Collapsible responses with show more/less and copy buttons on code blocks and tables
+  - Message queue system allowing users to queue messages while the agent is still processing
+  - In-browser file editor for viewing and editing files without leaving the UI
+  - Welcome screen redesign with info and warning banners for connection security, missing API keys, and system resources
+  - Scheduler redesign with standalone modal, separate task list, detail and editor components, and project support
+  - Smooth response rendering and scroll stabilization across chat, terminals, and image viewer
+  - Chat width setting and reworked preferences panel
+  - Image viewer improvements with scroll support and expanded viewer
+  - Redesigned sidebar with reusable dropdown component and streamlined buttons
+  - Inline button confirmations for critical actions
+  - Improved login design and new logout button
+  - File browser enhanced with rename and file actions dropdown
 - Git projects
-    - Git-based projects with clone authentication for public and private repositories
+  - Git-based projects with clone authentication for public and private repositories
 - Four new LLM providers: CometAPI, Z.AI, Moonshot AI, and AWS Bedrock
 - Microsoft Dev Tunnels integration for secure remote access
 - User data migration to `/usr` directory for cleaner separation of user and system files
@@ -204,13 +194,12 @@ docker run -p 50001:80 agent0ai/agent-zero
 - Agent number tracking in backend and responses for multi-agent identification
 - Many bug fixes and stability improvements across the UI, MCP tools, scheduler, uploads, and WebSocket handling
 
-
 ### v0.9.7 - Projects
 [Release video](https://youtu.be/RrTDp_v9V1c)
 - Projects management
-    - Support for custom instructions
-    - Integration with memory, knowledge, files
-    - Project specific secrets 
+  - Support for custom instructions
+  - Integration with memory, knowledge, files
+  - Project specific secrets
 - New Welcome screen/Dashboard
 - New Wait tool
 - Subordinate agent configuration override support
@@ -286,16 +275,16 @@ docker run -p 50001:80 agent0ai/agent-zero
 ### v0.9.1 - LiteLLM, UI improvements
 [Release video](https://youtu.be/crwr0M4Spcg)
 - Langchain replaced with LiteLLM
-    - Support for reasoning models streaming
-    - Support for more providers
-    - Openrouter set as default instead of OpenAI
+  - Support for reasoning models streaming
+  - Support for more providers
+  - Openrouter set as default instead of OpenAI
 - UI improvements
-    - New message grouping system
-    - Communication smoother and more efficient
-    - Collapsible messages by type
-    - Code execution tool output improved
-    - Tables and code blocks scrollable
-    - More space efficient on mobile
+  - New message grouping system
+  - Communication smoother and more efficient
+  - Collapsible messages by type
+  - Code execution tool output improved
+  - Tables and code blocks scrollable
+  - More space efficient on mobile
 - Streamable HTTP MCP servers support
 - LLM API URL added to models config for Azure, local and custom providers
 
@@ -348,7 +337,7 @@ Default models set to gpt-4.1
 ### v0.8.3
 [Release video](https://youtu.be/bPIZo0poalY)
 
-- ***Planning and scheduling***
+- _**Planning and scheduling**_
 
 ### v0.8.2
 [Release video](https://youtu.be/xMUNynQ9x6Y)

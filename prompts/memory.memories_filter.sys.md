@@ -24,6 +24,7 @@
 - Memories that hold no information value
 
 # Example output
+
 ```json
 [0, 2]
 ```

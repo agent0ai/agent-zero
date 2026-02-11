@@ -13,6 +13,7 @@ respond to existing subordinates using call_subordinate tool with reset false
 profile arg usage: select from available profiles for specialized subordinates, leave empty for default
 
 example usage
+
 ~~~json
 {
     "thoughts": [

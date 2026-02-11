@@ -9,6 +9,7 @@ get memory content as metadata key-value pairs
 - limit: max results default=5
 - filter: python syntax using metadata keys
 usage:
+
 ~~~json
 {
     "thoughts": [
@@ -28,6 +29,7 @@ usage:
 ### memory_save:
 save text to memory returns ID
 usage:
+
 ~~~json
 {
     "thoughts": [
@@ -45,6 +47,7 @@ usage:
 delete memories by IDs comma separated
 IDs from load save ops
 usage:
+
 ~~~json
 {
     "thoughts": [
@@ -63,6 +66,7 @@ remove memories by query threshold filter like memory_load
 default threshold 0.75 prevent accidents
 verify with load after delete leftovers by IDs
 usage:
+
 ~~~json
 {
     "thoughts": [

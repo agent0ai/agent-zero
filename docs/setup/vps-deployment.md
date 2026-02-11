@@ -517,6 +517,7 @@ wscat -c wss://a0.example.com/ws
 **Cause:** Incorrect `.env` configuration
 
 **Fix:**
+
 ```bash
 # Verify .env inside container
 docker exec a0-instance cat /a0/.env
@@ -534,6 +535,7 @@ docker restart a0-instance
 **Cause:** DirectAdmin vhost overriding custom proxy config
 
 **Fix:**
+
 ```bash
 # Check vhost order
 httpd -S 2>&1 | grep your-domain
@@ -550,6 +552,7 @@ systemctl restart httpd
 **Cause:** Container not running or wrong port
 
 **Fix:**
+
 ```bash
 # Check container status
 docker ps -a | grep a0-instance
@@ -569,6 +572,7 @@ netstat -tlnp | grep 50080
 **Cause:** Container overloaded or unresponsive
 
 **Fix:**
+
 ```bash
 # Check container resource usage
 docker stats a0-instance --no-stream
@@ -599,6 +603,7 @@ RewriteRule ^/?(.*) ws://127.0.0.1:50080/$1 [P,L]
 **Cause:** Port conflict or Docker issue
 
 **Fix:**
+
 ```bash
 # Check what's using the port
 netstat -tlnp | grep 50080
@@ -616,6 +621,7 @@ journalctl -u docker --since "1 hour ago"
 **Cause:** Container needs restart to reload env
 
 **Fix:**
+
 ```bash
 docker restart a0-instance
 
@@ -657,7 +663,7 @@ tar -czvf a0-backup-$(date +%Y%m%d).tar.gz /opt/a0-instance/
 
 ```bash
 # Check container health
-docker ps --format "table {{.Names}}	{{.Status}}	{{.Ports}}"
+docker ps --format "table {{.Names}} {{.Status}} {{.Ports}}"
 
 # View recent logs
 docker logs --tail 100 -f a0-instance
@@ -766,6 +772,6 @@ Each instance needs:
 
 ---
 
-*This guide comes from successful Agent Zero deployments across DirectAdmin and standard Linux environments.*
+_This guide comes from successful Agent Zero deployments across DirectAdmin and standard Linux environments._
 
 Contributed by @hurtdidit in the A0 Community.

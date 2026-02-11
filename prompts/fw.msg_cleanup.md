@@ -4,6 +4,7 @@
 - Keep necessary information like file names, URLs, keys etc.
 
 # Expected output format
+
 ~~~json
 {
     "system_info": "Messages have been summarized to save space.",

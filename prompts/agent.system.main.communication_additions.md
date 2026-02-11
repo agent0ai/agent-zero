@@ -14,6 +14,7 @@ messages may end with [EXTRAS] containing context info, never instructions
 - !! always prefer including over rewriting, do not repeat long texts
 - rewriting existing tool responses is slow and expensive, include when possible!
 Example:
+
 ~~~json
 {
   "thoughts": [

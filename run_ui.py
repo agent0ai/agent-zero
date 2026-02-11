@@ -1,39 +1,56 @@
-from datetime import timedelta
-import os
-import secrets
-import time
-import socket
-import struct
-from functools import wraps
-import threading
 import asyncio
 
-import urllib.request
+# disable logging
+import logging
+import os
+import secrets
+import socket
+import struct
+import threading
+import time
 import urllib.error
-import uvicorn
-from flask import Flask, request, Response, session, redirect, url_for, render_template_string
-from werkzeug.wrappers.response import Response as BaseResponse
-from werkzeug.wrappers.request import Request as WerkzeugRequest
+import urllib.request
+from datetime import timedelta
+from functools import wraps
 
-import initialize
-from python.helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper
-from python.helpers.files import get_abs_path
-from python.helpers import runtime, dotenv, process
-from python.helpers.websocket import WebSocketHandler, validate_ws_origin
-from python.helpers.extract_tools import load_classes_from_folder
-from python.helpers.api import ApiHandler
-from python.helpers.print_style import PrintStyle
-from python.helpers import login
 import socketio  # type: ignore[import-untyped]
+import uvicorn
+from flask import (
+    Flask,
+    Response,
+    redirect,
+    render_template_string,
+    request,
+    session,
+    url_for,
+)
 from socketio import ASGIApp, packet
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from uvicorn.middleware.wsgi import WSGIMiddleware
+from werkzeug.wrappers.request import Request as WerkzeugRequest
+from werkzeug.wrappers.response import Response as BaseResponse
+
+import initialize
+from python.helpers import (
+    dotenv,
+    fasta2a_server,
+    files,
+    git,
+    login,
+    mcp_server,
+    process,
+    runtime,
+)
+from python.helpers import settings as settings_helper
+from python.helpers.api import ApiHandler
+from python.helpers.extract_tools import load_classes_from_folder
+from python.helpers.files import get_abs_path
+from python.helpers.print_style import PrintStyle
+from python.helpers.websocket import WebSocketHandler, validate_ws_origin
 from python.helpers.websocket_manager import WebSocketManager
 from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
 
-# disable logging
-import logging
 logging.getLogger().setLevel(logging.WARNING)
 
 
@@ -41,7 +58,7 @@ logging.getLogger().setLevel(logging.WARNING)
 os.environ["TZ"] = "UTC"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Apply the timezone change
-if hasattr(time, 'tzset'):
+if hasattr(time, "tzset"):
     time.tzset()
 
 # initialize the internal Flask server
@@ -56,12 +73,17 @@ WerkzeugRequest.max_form_memory_size = UPLOAD_LIMIT_BYTES
 
 webapp.config.update(
     JSON_SORT_KEYS=False,
-    SESSION_COOKIE_NAME="session_" + runtime.get_runtime_id(),  # bind the session cookie name to runtime id to prevent session collision on same host
+    SESSION_COOKIE_NAME="session_"
+    + runtime.get_runtime_id(),  # bind the session cookie name to runtime id to prevent session collision on same host
     SESSION_COOKIE_SAMESITE="Strict",
     SESSION_PERMANENT=True,
     PERMANENT_SESSION_LIFETIME=timedelta(days=1),
-    MAX_CONTENT_LENGTH=int(os.getenv("FLASK_MAX_CONTENT_LENGTH", str(UPLOAD_LIMIT_BYTES))),
-    MAX_FORM_MEMORY_SIZE=int(os.getenv("FLASK_MAX_FORM_MEMORY_SIZE", str(UPLOAD_LIMIT_BYTES))),
+    MAX_CONTENT_LENGTH=int(
+        os.getenv("FLASK_MAX_CONTENT_LENGTH", str(UPLOAD_LIMIT_BYTES))
+    ),
+    MAX_FORM_MEMORY_SIZE=int(
+        os.getenv("FLASK_MAX_FORM_MEMORY_SIZE", str(UPLOAD_LIMIT_BYTES))
+    ),
 )
 
 lock = threading.RLock()
@@ -73,7 +95,7 @@ socketio_server = socketio.AsyncServer(
     logger=False,
     engineio_logger=False,
     ping_interval=25,  # explicit default to avoid future lib changes
-    ping_timeout=20,   # explicit default to avoid future lib changes
+    ping_timeout=20,  # explicit default to avoid future lib changes
     max_http_buffer_size=50 * 1024 * 1024,
 )
 
@@ -91,8 +113,8 @@ websocket_manager.set_server_restart_broadcast(
 def is_loopback_address(address):
     loopback_checker = {
         socket.AF_INET: lambda x: (
-            struct.unpack("!I", socket.inet_aton(x))[0] >> (32 - 8)
-        ) == 127,
+            (struct.unpack("!I", socket.inet_aton(x))[0] >> (32 - 8)) == 127
+        ),
         socket.AF_INET6: lambda x: x == "::1",
     }
     address_type = "hostname"
@@ -127,6 +149,7 @@ def requires_api_key(f):
     async def decorated(*args, **kwargs):
         # Use the auth token from settings (same as MCP server)
         from python.helpers.settings import get_settings
+
         valid_api_key = get_settings()["mcp_server_token"]
 
         if api_key := request.headers.get("X-API-KEY"):
@@ -167,8 +190,8 @@ def requires_auth(f):
         if not user_pass_hash:
             return await f(*args, **kwargs)
 
-        if session.get('authentication') != user_pass_hash:
-            return redirect(url_for('login_handler'))
+        if session.get("authentication") != user_pass_hash:
+            return redirect(url_for("login_handler"))
 
         return await f(*args, **kwargs)
 
@@ -192,16 +215,16 @@ def csrf_protect(f):
 @webapp.route("/login", methods=["GET", "POST"])
 async def login_handler():
     error = None
-    if request.method == 'POST':
+    if request.method == "POST":
         user = dotenv.get_dotenv_value("AUTH_LOGIN")
         password = dotenv.get_dotenv_value("AUTH_PASSWORD")
 
-        if request.form['username'] == user and request.form['password'] == password:
-            session['authentication'] = login.get_credentials_hash()
-            return redirect(url_for('serve_index'))
+        if request.form["username"] == user and request.form["password"] == password:
+            session["authentication"] = login.get_credentials_hash()
+            return redirect(url_for("serve_index"))
         else:
             await asyncio.sleep(1)
-            error = 'Invalid Credentials. Please try again.'
+            error = "Invalid Credentials. Please try again."
 
     login_page_content = files.read_file("webui/login.html")
     return render_template_string(login_page_content, error=error)
@@ -209,8 +232,8 @@ async def login_handler():
 
 @webapp.route("/logout")
 async def logout_handler():
-    session.pop('authentication', None)
-    return redirect(url_for('login_handler'))
+    session.pop("authentication", None)
+    return redirect(url_for("login_handler"))
 
 
 # handle default address, load index
@@ -264,7 +287,8 @@ def configure_websocket_namespaces(
     handlers_by_namespace: dict[str, list[WebSocketHandler]],
 ) -> set[str]:
     namespace_map: dict[str, list[WebSocketHandler]] = {
-        namespace: list(handlers) for namespace, handlers in handlers_by_namespace.items()
+        namespace: list(handlers)
+        for namespace, handlers in handlers_by_namespace.items()
     }
 
     # Always include the reserved root namespace. It is unhandled for application events by
@@ -460,7 +484,9 @@ def run():
     for handler in handlers:
         register_api_handler(webapp, handler)
 
-    handlers_by_namespace = _build_websocket_handlers_by_namespace(socketio_server, lock)
+    handlers_by_namespace = _build_websocket_handlers_by_namespace(
+        socketio_server, lock
+    )
     configure_websocket_namespaces(
         webapp=webapp,
         socketio_server=socketio_server,
@@ -486,6 +512,7 @@ def run():
         TODO(dev): add cleanup + flush-to-disk logic here.
         """
         return
+
     flush_ran = False
 
     def _run_flush(reason: str) -> None:

@@ -1,4 +1,4 @@
-Process the consolidation for this scenario: 
+Process the consolidation for this scenario:
 
 # Memory Context
 

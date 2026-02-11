@@ -1,0 +1,210 @@
+# markdownlint-cli2 configuration
+# https://github.com/DavidAnson/markdownlint-cli2
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Automatically respect .gitignore for performance
+gitignore: true
+
+# Enable auto-fixing of supported linting errors
+fix: true
+
+# Files to lint
+globs:
+  - '**/*.md'
+
+# Files to ignore
+ignores:
+  - 'node_modules/**'
+  - '**/node_modules/**'
+  - 'vendor/**'
+  - '**/vendor/**'
+  - '.git/**'
+  - '**/build/**'
+  - '**/dist/**'
+  - '.venv/**'
+  # Serena memories (auto-generated, not actively maintained)
+  - '.serena/**'
+  # Drift Detect data
+  - '.drift/**'
+  # Claude Code config files (have YAML frontmatter)
+  - '.claude/**'
+  - '.agents/**'
+  # Gemini/Antigravity artifacts (AI-generated)
+  - '.gemini/**'
+  # Terraform provider docs
+  - '.terraform/**'
+  # Local docs
+  - '.docs/**'
+  - '.scratchpad/**'
+  - '.local_docs/**'
+  # LICENSE symlink (plain text, not markdown)
+  - 'docs/LICENSE.md'
+  - 'LICENSE'
+
+# Rule configuration
+config:
+  # Defaults to true for all rules
+  default: true
+
+  # MD003 - Heading style
+  # Use ATX-style headings (# Heading)
+  MD003:
+    style: 'atx'
+
+  # MD004 - Unordered list style
+  # Use dashes for consistency
+  MD004:
+    style: 'dash'
+
+  # MD007 - Unordered list indentation
+  # Use 2 spaces for list indentation
+  MD007:
+    indent: 2
+
+  # MD009 - Trailing spaces
+  # No trailing whitespace allowed
+  MD009: true
+
+  # MD010 - Hard tabs
+  # No hard tabs (use spaces)
+  MD010: true
+
+  # MD012 - Multiple consecutive blank lines
+  # Only single blank lines allowed
+  MD012: true
+
+  # MD013 - Line length
+  # Disable - documentation often has long URLs and tables
+  # Modern editors wrap automatically
+  MD013: false
+
+  # MD022 - Headings should be surrounded by blank lines
+  MD022: false
+
+  # MD024 - Multiple headings with the same content
+  # Allow sibling headings (different sections can have same sub-headings)
+  MD024:
+    siblings_only: true
+
+  # MD025 - Multiple top-level headings
+  # Disable - some files legitimately have multiple H1s
+  MD025: false
+
+  # MD026 - Trailing punctuation in headings
+  # Disable - some headings intentionally end with : or !
+  MD026: false
+
+  # MD028 - no-blanks-blockquote: Blank line inside blockquote
+  # Disable - numbered lists interrupted by code blocks cause false positives
+  MD028: false
+
+  # MD029 - Ordered list item prefix
+  # Disable - numbered lists interrupted by code blocks cause false positives
+  MD029: false
+
+  # MD031 - Fenced code blocks should be surrounded by blank lines
+  MD031: true
+
+  # MD032 - Lists should be surrounded by blank lines
+  MD032: false
+
+  # MD033 - Inline HTML
+  # Allow specific HTML elements commonly used in documentation
+  MD033:
+    allowed_elements:
+      - 'a'
+      - 'b'
+      - 'button'
+      - 'br'
+      - 'details'
+      - 'name-of-ai-model'
+      - 'summary'
+      - 'img'
+      - 'kbd'
+      - 'sup'
+      - 'sub'
+      - 'div'
+      - 'span'
+      - 'p'
+      - 'table'
+      - 'thead'
+      - 'tbody'
+      - 'tr'
+      - 'th'
+      - 'td'
+      - 'pre'
+      - 'code'
+      - 'strong'
+      - 'em'
+      # GitHub-specific elements
+      - 'picture'
+      - 'source'
+      - 'blockquote' # Used by GitHub [!NOTE], [!WARNING] alerts
+      # Media elements
+      - 'video'
+      - 'audio'
+      # Accessibility/semantic elements
+      - 'mark'
+      - 'abbr'
+      # Mermaid diagrams
+      - 'mermaid'
+
+  # MD034 - Bare URL
+  # Disable - URLs in documentation are often intentionally bare
+  MD034: false
+
+  # MD036 - Emphasis used instead of heading
+  # Disable - many files intentionally use bold text for emphasis, not as headings
+  MD036: false
+
+  # MD038 - Spaces inside code spans
+  MD038: true
+
+  # MD040 - Fenced code blocks should have a language specified
+  # Ensures all code blocks have syntax highlighting
+  MD040: true
+
+  # MD041 - First line in file should be a top-level heading
+  # Disable - CLAUDE.md and some files have frontmatter or badges first
+  MD041: false
+
+  # MD046 - Code block style
+  # Use fenced code blocks (```)
+  MD046:
+    style: 'fenced'
+
+  # MD047 - Files should end with single newline
+  MD047: true
+
+  # MD048 - Code fence style
+  # Disable - tildes needed for nested code block examples
+  MD048: false
+
+  # MD049 - Emphasis style
+  # Use underscores for emphasis (matches prettier's markdown output)
+  MD049:
+    style: 'underscore'
+
+  # MD050 - Strong style
+  # Use asterisks for strong
+  MD050:
+    style: 'asterisk'
+
+  # MD051 - Link fragments should be valid
+  # Disable - too many false positives with dynamic content
+  MD051: false
+
+  # MD056 - Table column count
+  # Disable - some tables intentionally have varying columns
+  MD056: false
+
+  # MD058 - Tables should be surrounded by blank lines
+  MD058: true
+
+  # MD059 - Link text should be descriptive
+  # Disable - "here" and similar text is sometimes appropriate
+  MD059: false
+
+  # MD060 - Table column style
+  # Disable - mixed table styles are acceptable
+  MD060: false

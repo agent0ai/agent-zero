@@ -1,16 +1,17 @@
 import asyncio
-from dataclasses import dataclass
+import re
 import shlex
 import time
-from python.helpers.tool import Tool, Response
-from python.helpers import files, rfc_exchange, projects, runtime, settings
+from dataclasses import dataclass
+
+from python.helpers import files, projects, rfc_exchange, runtime, settings
+from python.helpers.docker import DockerContainerManager
+from python.helpers.messages import truncate_text as truncate_text_agent
 from python.helpers.print_style import PrintStyle
 from python.helpers.shell_local import LocalInteractiveSession
 from python.helpers.shell_ssh import SSHInteractiveSession
-from python.helpers.docker import DockerContainerManager
 from python.helpers.strings import truncate_text as truncate_text_string
-from python.helpers.messages import truncate_text as truncate_text_agent
-import re
+from python.helpers.tool import Response, Tool
 
 # Timeouts for python, nodejs, and terminal runtimes.
 CODE_EXEC_TIMEOUTS: dict[str, int] = {
@@ -28,11 +29,13 @@ OUTPUT_TIMEOUTS: dict[str, int] = {
     "dialog_timeout": 5,
 }
 
+
 @dataclass
 class ShellWrap:
     id: int
     session: LocalInteractiveSession | SSHInteractiveSession
     running: bool
+
 
 @dataclass
 class State:
@@ -41,13 +44,14 @@ class State:
 
 
 class CodeExecution(Tool):
-
     # Common shell prompt regex patterns (add more as needed)
     prompt_patterns = [
         re.compile(r"\\(venv\\).+[$#] ?$"),  # (venv) ...$ or (venv) ...#
         re.compile(r"root@[^:]+:[^#]+# ?$"),  # root@container:~#
         re.compile(r"[a-zA-Z0-9_.-]+@[^:]+:[^$#]+[$#] ?$"),  # user@host:~$
-        re.compile(r"\(?.*\)?\s*PS\s+[^>]+> ?$"),  # PowerShell prompt like (base) PS C:\...>
+        re.compile(
+            r"\(?.*\)?\s*PS\s+[^>]+> ?$"
+        ),  # PowerShell prompt like (base) PS C:\...>
     ]
     # potential dialog detection
     dialog_patterns = [
@@ -59,7 +63,9 @@ class CodeExecution(Tool):
 
     async def execute(self, **kwargs) -> Response:
 
-        await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
+        await (
+            self.agent.handle_intervention()
+        )  # wait for intervention and handle it, if paused
 
         runtime = self.args.get("runtime", "").lower().strip()
         session = int(self.args.get("session", 0))
@@ -112,12 +118,17 @@ class CodeExecution(Tool):
         return f"icon://terminal {session_text}{text}"
 
     async def after_execution(self, response, **kwargs):
-        self.agent.hist_add_tool_result(self.name, response.message, **(response.additional or {}))
+        self.agent.hist_add_tool_result(
+            self.name, response.message, **(response.additional or {})
+        )
 
     async def prepare_state(self, reset=False, session: int | None = None):
         self.state: State | None = self.agent.get_data("_cet_state")
         # always reset state when ssh_enabled changes
-        if not self.state or self.state.ssh_enabled != self.agent.config.code_exec_ssh_enabled:
+        if (
+            not self.state
+            or self.state.ssh_enabled != self.agent.config.code_exec_ssh_enabled
+        ):
             # initialize shells dictionary if not exists
             shells: dict[int, ShellWrap] = {}
         else:
@@ -156,7 +167,9 @@ class CodeExecution(Tool):
             shells[session] = ShellWrap(id=session, session=shell, running=False)
             await shell.connect()
 
-        self.state = State(shells=shells, ssh_enabled=self.agent.config.code_exec_ssh_enabled)
+        self.state = State(
+            shells=shells, ssh_enabled=self.agent.config.code_exec_ssh_enabled
+        )
         self.agent.set_data("_cet_state", self.state)
         return self.state
 
@@ -175,35 +188,53 @@ class CodeExecution(Tool):
     async def execute_terminal_command(
         self, session: int, command: str, reset: bool = False
     ):
-        prefix = ("bash>" if not runtime.is_windows() or self.agent.config.code_exec_ssh_enabled else "PS>") + self.format_command_for_output(command) + "\n\n"
+        prefix = (
+            (
+                "bash>"
+                if not runtime.is_windows() or self.agent.config.code_exec_ssh_enabled
+                else "PS>"
+            )
+            + self.format_command_for_output(command)
+            + "\n\n"
+        )
         return await self.terminal_session(session, command, reset, prefix)
 
     async def terminal_session(
-        self, session: int, command: str, reset: bool = False, prefix: str = "", timeouts: dict | None = None
+        self,
+        session: int,
+        command: str,
+        reset: bool = False,
+        prefix: str = "",
+        timeouts: dict | None = None,
     ):
 
         self.state = await self.prepare_state(reset=reset, session=session)
 
-        await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
+        await (
+            self.agent.handle_intervention()
+        )  # wait for intervention and handle it, if paused
 
         # Check if session is running and handle it
         if not self.allow_running:
             if response := await self.handle_running_session(session):
                 return response
-        
+
         # try again on lost connection
         for i in range(2):
             try:
-
                 self.state.shells[session].running = True
                 await self.state.shells[session].session.send_command(command)
 
                 locl = (
                     " (local)"
-                    if isinstance(self.state.shells[session].session, LocalInteractiveSession)
+                    if isinstance(
+                        self.state.shells[session].session, LocalInteractiveSession
+                    )
                     else (
                         " (remote)"
-                        if isinstance(self.state.shells[session].session, SSHInteractiveSession)
+                        if isinstance(
+                            self.state.shells[session].session, SSHInteractiveSession
+                        )
                         else " (unknown)"
                     )
                 )
@@ -211,7 +242,11 @@ class CodeExecution(Tool):
                 PrintStyle(
                     background_color="white", font_color="#1B4F72", bold=True
                 ).print(f"{self.agent.agent_name} code execution output{locl}")
-                return await self.get_terminal_output(session=session, prefix=prefix, timeouts=(timeouts or CODE_EXEC_TIMEOUTS))
+                return await self.get_terminal_output(
+                    session=session,
+                    prefix=prefix,
+                    timeouts=(timeouts or CODE_EXEC_TIMEOUTS),
+                )
 
             except Exception as e:
                 if i == 1:
@@ -251,8 +286,12 @@ class CodeExecution(Tool):
 
         # Override timeouts if a dict is provided
         if timeouts:
-            first_output_timeout = timeouts.get("first_output_timeout", first_output_timeout)
-            between_output_timeout = timeouts.get("between_output_timeout", between_output_timeout)
+            first_output_timeout = timeouts.get(
+                "first_output_timeout", first_output_timeout
+            )
+            between_output_timeout = timeouts.get(
+                "between_output_timeout", between_output_timeout
+            )
             dialog_timeout = timeouts.get("dialog_timeout", dialog_timeout)
             max_exec_timeout = timeouts.get("max_exec_timeout", max_exec_timeout)
 
@@ -268,9 +307,9 @@ class CodeExecution(Tool):
 
         while True:
             await asyncio.sleep(sleep_time)
-            full_output, partial_output = await self.state.shells[session].session.read_output(
-                timeout=1, reset_full_output=reset_full_output
-            )
+            full_output, partial_output = await self.state.shells[
+                session
+            ].session.read_output(timeout=1, reset_full_output=reset_full_output)
             reset_full_output = False  # only reset once
 
             await self.agent.handle_intervention()
@@ -373,16 +412,13 @@ class CodeExecution(Tool):
                                 return response
 
     async def handle_running_session(
-        self,
-        session=0,
-        reset_full_output=True, 
-        prefix=""
+        self, session=0, reset_full_output=True, prefix=""
     ):
         if not self.state or session not in self.state.shells:
             return None
         if not self.state.shells[session].running:
             return None
-        
+
         full_output, _ = await self.state.shells[session].session.read_output(
             timeout=1, reset_full_output=reset_full_output
         )
@@ -390,20 +426,16 @@ class CodeExecution(Tool):
         self.set_progress(truncated_output)
         heading = self.get_heading_from_output(truncated_output, 0)
 
-        last_lines = (
-            truncated_output.splitlines()[-3:] if truncated_output else []
-        )
+        last_lines = truncated_output.splitlines()[-3:] if truncated_output else []
         last_lines.reverse()
         for idx, line in enumerate(last_lines):
             for pat in self.prompt_patterns:
                 if pat.search(line.strip()):
-                    PrintStyle.info(
-                        "Detected shell prompt, returning output early."
-                    )
+                    PrintStyle.info("Detected shell prompt, returning output early.")
                     self.mark_session_idle(session)
                     return None
 
-        has_dialog = False 
+        has_dialog = False
         for line in last_lines:
             for pat in self.dialog_patterns:
                 if pat.search(line.strip()):
@@ -413,7 +445,7 @@ class CodeExecution(Tool):
                 break
 
         if has_dialog:
-            sys_info = self.agent.read_prompt("fw.code.pause_dialog.md", timeout=1)       
+            sys_info = self.agent.read_prompt("fw.code.pause_dialog.md", timeout=1)
         else:
             sys_info = self.agent.read_prompt("fw.code.running.md", session=session)
 
@@ -423,7 +455,7 @@ class CodeExecution(Tool):
         PrintStyle(font_color="#FFA500", bold=True).print(response)
         self.log.update(content=prefix + response, heading=heading)
         return response
-    
+
     def mark_session_idle(self, session: int = 0):
         # Mark session as idle - command finished
         if self.state and session in self.state.shells:
@@ -470,7 +502,9 @@ class CodeExecution(Tool):
         output = re.sub(r"(?<!\\)\\x[0-9A-Fa-f]{2}", "", output)
         # Strip every line of output before truncation
         # output = "\n".join(line.strip() for line in output.splitlines())
-        output = truncate_text_agent(agent=self.agent, output=output, threshold=1000000) # ~1MB, larger outputs should be dumped to file, not read from terminal
+        output = truncate_text_agent(
+            agent=self.agent, output=output, threshold=1000000
+        )  # ~1MB, larger outputs should be dumped to file, not read from terminal
         return output
 
     async def ensure_cwd(self) -> str | None:
@@ -488,9 +522,8 @@ class CodeExecution(Tool):
         await runtime.call_development_function(make_dir, normalized)
         return normalized
 
+
 def make_dir(path: str):
     import os
-    os.makedirs(path, exist_ok=True)
-        
 
-        
+    os.makedirs(path, exist_ok=True)

@@ -1,47 +1,45 @@
-from dataclasses import dataclass, field
-from enum import Enum
 import logging
 import os
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import (
     Any,
+    AsyncIterator,
     Awaitable,
     Callable,
+    Iterator,
     List,
     Optional,
-    Iterator,
-    AsyncIterator,
     Tuple,
     TypedDict,
 )
 
-from litellm import completion, acompletion, embedding
 import litellm
 import openai
-from litellm.types.utils import ModelResponse
-
-from python.helpers import dotenv
-from python.helpers import settings, dirty_json
-from python.helpers.dotenv import load_dotenv
-from python.helpers.providers import ModelType as ProviderModelType, get_provider_config
-from python.helpers.rate_limiter import RateLimiter
-from python.helpers.tokens import approximate_tokens
-from python.helpers import dirty_json, browser_use_monkeypatch
-
-from langchain_core.language_models.chat_models import SimpleChatModel
-from langchain_core.outputs.chat_generation import ChatGenerationChunk
+from langchain.embeddings.base import Embeddings
 from langchain_core.callbacks.manager import (
-    CallbackManagerForLLMRun,
     AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
 )
+from langchain_core.language_models.chat_models import SimpleChatModel
 from langchain_core.messages import (
-    BaseMessage,
     AIMessageChunk,
+    BaseMessage,
     HumanMessage,
     SystemMessage,
 )
-from langchain.embeddings.base import Embeddings
-from sentence_transformers import SentenceTransformer
+from langchain_core.outputs.chat_generation import ChatGenerationChunk
+from litellm import acompletion, completion, embedding
+from litellm.types.utils import ModelResponse
 from pydantic import ConfigDict
+from sentence_transformers import SentenceTransformer
+
+from python.helpers import browser_use_monkeypatch, dirty_json, dotenv, settings
+from python.helpers.dotenv import load_dotenv
+from python.helpers.providers import ModelType as ProviderModelType
+from python.helpers.providers import get_provider_config
+from python.helpers.rate_limiter import RateLimiter
+from python.helpers.tokens import approximate_tokens
 
 
 # disable extra logging, must be done repeatedly, otherwise browser-use will turn it back on for some reason
@@ -59,7 +57,8 @@ load_dotenv()
 turn_off_logging()
 browser_use_monkeypatch.apply()
 
-litellm.modify_params = True # helps fix anthropic tool calls by browser-use
+litellm.modify_params = True  # helps fix anthropic tool calls by browser-use
+
 
 class ModelType(Enum):
     CHAT = "Chat"
@@ -88,12 +87,15 @@ class ModelConfig:
 
 class ChatChunk(TypedDict):
     """Simplified response chunk for chat models."""
+
     response_delta: str
     reasoning_delta: str
 
+
 class ChatGenerationResult:
     """Chat generation result object"""
-    def __init__(self, chunk: ChatChunk|None = None):
+
+    def __init__(self, chunk: ChatChunk | None = None):
         self.reasoning = ""
         self.response = ""
         self.thinking = False
@@ -110,7 +112,10 @@ class ChatGenerationResult:
 
         # if native reasoning detection works, there's no need to worry about thinking tags
         if self.native_reasoning:
-            processed_chunk = ChatChunk(response_delta=chunk["response_delta"], reasoning_delta=chunk["reasoning_delta"])
+            processed_chunk = ChatChunk(
+                response_delta=chunk["response_delta"],
+                reasoning_delta=chunk["reasoning_delta"],
+            )
         else:
             # if the model outputs thinking tags, we ned to parse them manually as reasoning
             processed_chunk = self._process_thinking_chunk(chunk)
@@ -130,7 +135,7 @@ class ChatGenerationResult:
             close_pos = response.find(self.thinking_tag)
             if close_pos != -1:
                 reasoning += response[:close_pos]
-                response = response[close_pos + len(self.thinking_tag):]
+                response = response[close_pos + len(self.thinking_tag) :]
                 self.thinking = False
                 self.thinking_tag = ""
             else:
@@ -143,14 +148,14 @@ class ChatGenerationResult:
         else:
             for opening_tag, closing_tag in self.thinking_pairs:
                 if response.startswith(opening_tag):
-                    response = response[len(opening_tag):]
+                    response = response[len(opening_tag) :]
                     self.thinking = True
                     self.thinking_tag = closing_tag
 
                     close_pos = response.find(closing_tag)
                     if close_pos != -1:
                         reasoning += response[:close_pos]
-                        response = response[close_pos + len(closing_tag):]
+                        response = response[close_pos + len(closing_tag) :]
                         self.thinking = False
                         self.thinking_tag = ""
                     else:
@@ -161,7 +166,9 @@ class ChatGenerationResult:
                             reasoning += response
                             response = ""
                     break
-                elif len(response) < len(opening_tag) and self._is_partial_opening_tag(response, opening_tag):
+                elif len(response) < len(opening_tag) and self._is_partial_opening_tag(
+                    response, opening_tag
+                ):
                     self.unprocessed = response
                     response = ""
                     break
@@ -281,7 +288,9 @@ def apply_rate_limiter_sync(
 ):
     if not model_config:
         return
-    import asyncio, nest_asyncio
+    import asyncio
+
+    import nest_asyncio
 
     nest_asyncio.apply()
     return asyncio.run(
@@ -412,8 +421,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
             **{**self.kwargs, **kwargs},
         ):
             # parse chunk
-            parsed = _parse_chunk(chunk) # chunk parsing
-            output = result.add_chunk(parsed) # chunk processing
+            parsed = _parse_chunk(chunk)  # chunk parsing
+            output = result.add_chunk(parsed)  # chunk processing
 
             # Only yield chunks with non-None content
             if output["response_delta"]:
@@ -444,8 +453,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
         )
         async for chunk in response:  # type: ignore
             # parse chunk
-            parsed = _parse_chunk(chunk) # chunk parsing
-            output = result.add_chunk(parsed) # chunk processing
+            parsed = _parse_chunk(chunk)  # chunk parsing
+            output = result.add_chunk(parsed)  # chunk processing
 
             # Only yield chunks with non-None content
             if output["response_delta"]:
@@ -489,7 +498,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
-        stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
+        stream = (
+            reasoning_callback is not None
+            or response_callback is not None
+            or tokens_callback is not None
+        )
 
         # results
         result = ChatGenerationResult()
@@ -517,7 +530,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
                         # collect reasoning delta and call callbacks
                         if output["reasoning_delta"]:
                             if reasoning_callback:
-                                await reasoning_callback(output["reasoning_delta"], result.reasoning)
+                                await reasoning_callback(
+                                    output["reasoning_delta"], result.reasoning
+                                )
                             if tokens_callback:
                                 await tokens_callback(
                                     output["reasoning_delta"],
@@ -525,11 +540,15 @@ class LiteLLMChatWrapper(SimpleChatModel):
                                 )
                             # Add output tokens to rate limiter if configured
                             if limiter:
-                                limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+                                limiter.add(
+                                    output=approximate_tokens(output["reasoning_delta"])
+                                )
                         # collect response delta and call callbacks
                         if output["response_delta"]:
                             if response_callback:
-                                await response_callback(output["response_delta"], result.response)
+                                await response_callback(
+                                    output["response_delta"], result.response
+                                )
                             if tokens_callback:
                                 await tokens_callback(
                                     output["response_delta"],
@@ -537,7 +556,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
                                 )
                             # Add output tokens to rate limiter if configured
                             if limiter:
-                                limiter.add(output=approximate_tokens(output["response_delta"]))
+                                limiter.add(
+                                    output=approximate_tokens(output["response_delta"])
+                                )
 
                 # non-stream response
                 else:
@@ -545,9 +566,13 @@ class LiteLLMChatWrapper(SimpleChatModel):
                     output = result.add_chunk(parsed)
                     if limiter:
                         if output["response_delta"]:
-                            limiter.add(output=approximate_tokens(output["response_delta"]))
+                            limiter.add(
+                                output=approximate_tokens(output["response_delta"])
+                            )
                         if output["reasoning_delta"]:
-                            limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+                            limiter.add(
+                                output=approximate_tokens(output["reasoning_delta"])
+                            )
 
                 # Successful completion of stream
                 return result.response, result.reasoning
@@ -556,7 +581,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 import asyncio
 
                 # Retry only if no chunks received and error is transient
-                if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
+                if (
+                    got_any_chunk
+                    or not _is_transient_litellm_error(e)
+                    or attempt >= max_retries
+                ):
                     raise
                 attempt += 1
                 await asyncio.sleep(retry_delay_s)
@@ -580,7 +609,15 @@ class AsyncAIChatReplacement:
         self.chat = AsyncAIChatReplacement._Chat(wrapper)
 
 
-from browser_use.llm import ChatOllama, ChatOpenRouter, ChatGoogle, ChatAnthropic, ChatGroq, ChatOpenAI
+from browser_use.llm import (
+    ChatAnthropic,
+    ChatGoogle,
+    ChatGroq,
+    ChatOllama,
+    ChatOpenAI,
+    ChatOpenRouter,
+)
+
 
 class BrowserCompatibleChatWrapper(ChatOpenRouter):
     """
@@ -623,8 +660,14 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
             kwrgs = {**self._wrapper.kwargs, **kwargs}
 
             # hack from browser-use to fix json schema for gemini (additionalProperties, $defs, $ref)
-            if "response_format" in kwrgs and "json_schema" in kwrgs["response_format"] and model.startswith("gemini/"):
-                kwrgs["response_format"]["json_schema"] = ChatGoogle("")._fix_gemini_schema(kwrgs["response_format"]["json_schema"])
+            if (
+                "response_format" in kwrgs
+                and "json_schema" in kwrgs["response_format"]
+                and model.startswith("gemini/")
+            ):
+                kwrgs["response_format"]["json_schema"] = ChatGoogle(
+                    ""
+                )._fix_gemini_schema(kwrgs["response_format"]["json_schema"])
 
             resp = await acompletion(
                 model=self._wrapper.model_name,
@@ -635,9 +678,13 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
 
             # Gemini: strip triple backticks and conform schema
             try:
-                msg = resp.choices[0].message # type: ignore
-                if self.provider == "gemini" and isinstance(getattr(msg, "content", None), str):
-                    cleaned = browser_use_monkeypatch.gemini_clean_and_conform(msg.content) # type: ignore
+                msg = resp.choices[0].message  # type: ignore
+                if self.provider == "gemini" and isinstance(
+                    getattr(msg, "content", None), str
+                ):
+                    cleaned = browser_use_monkeypatch.gemini_clean_and_conform(
+                        msg.content
+                    )  # type: ignore
                     if cleaned:
                         msg.content = cleaned
             except Exception:
@@ -648,14 +695,21 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
 
         # another hack for browser-use post process invalid jsons
         try:
-            if "response_format" in kwrgs and "json_schema" in kwrgs["response_format"] or "json_object" in kwrgs["response_format"]:
-                if resp.choices[0].message.content is not None and not resp.choices[0].message.content.startswith("{"): # type: ignore
-                    js = dirty_json.parse(resp.choices[0].message.content) # type: ignore
-                    resp.choices[0].message.content = dirty_json.stringify(js) # type: ignore
+            if (
+                "response_format" in kwrgs
+                and "json_schema" in kwrgs["response_format"]
+                or "json_object" in kwrgs["response_format"]
+            ):
+                if resp.choices[0].message.content is not None and not resp.choices[
+                    0
+                ].message.content.startswith("{"):  # type: ignore
+                    js = dirty_json.parse(resp.choices[0].message.content)  # type: ignore
+                    resp.choices[0].message.content = dirty_json.stringify(js)  # type: ignore
         except Exception as e:
             pass
 
         return resp
+
 
 class LiteLLMEmbeddingWrapper(Embeddings):
     model_name: str
@@ -806,26 +860,33 @@ def _parse_chunk(chunk: Any) -> ChatChunk:
         "model_extra", {}
     ).get("message", {})
     response_delta = (
-        delta.get("content", "")
-        if isinstance(delta, dict)
-        else getattr(delta, "content", "")
-    ) or (
-        message.get("content", "")
-        if isinstance(message, dict)
-        else getattr(message, "content", "")
-    ) or ""
+        (
+            delta.get("content", "")
+            if isinstance(delta, dict)
+            else getattr(delta, "content", "")
+        )
+        or (
+            message.get("content", "")
+            if isinstance(message, dict)
+            else getattr(message, "content", "")
+        )
+        or ""
+    )
     reasoning_delta = (
-        delta.get("reasoning_content", "")
-        if isinstance(delta, dict)
-        else getattr(delta, "reasoning_content", "")
-    ) or (
-        message.get("reasoning_content", "")
-        if isinstance(message, dict)
-        else getattr(message, "reasoning_content", "")
-    ) or ""
+        (
+            delta.get("reasoning_content", "")
+            if isinstance(delta, dict)
+            else getattr(delta, "reasoning_content", "")
+        )
+        or (
+            message.get("reasoning_content", "")
+            if isinstance(message, dict)
+            else getattr(message, "reasoning_content", "")
+        )
+        or ""
+    )
 
     return ChatChunk(reasoning_delta=reasoning_delta, response_delta=response_delta)
-
 
 
 def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):

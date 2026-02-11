@@ -8,15 +8,15 @@ if code runs long, use runtime "output" to wait
 use argument reset true on next call to kill previous process when stuck default false
 use "pip" "npm" "apt-get" in "terminal" to install package
 to output, use print() or console.log()
-if tool outputs error, adjust code before retrying; 
+if tool outputs error, adjust code before retrying;
 important: check code for placeholders or demo data; replace with real variables; don't reuse snippets
 don't use with other tools except thoughts; wait for response before using others
 check dependencies before running code
 output may end with [SYSTEM: ...] information comming from framework, not terminal
 usage:
 
-
 1 execute terminal command
+
 ~~~json
 {
     "thoughts": [
@@ -75,6 +75,7 @@ usage:
 ~~~
 
 4 wait for output with long-running scripts
+
 ~~~json
 {
     "thoughts": [

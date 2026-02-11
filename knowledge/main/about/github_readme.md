@@ -8,7 +8,6 @@
 
 [![Agent Zero Website](https://img.shields.io/badge/Website-agent--zero.ai-0A192F?style=for-the-badge&logo=vercel&logoColor=white)](https://agent-zero.ai) [![Thanks to Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-Thanks%20to%20Sponsors-FF69B4?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/agent0ai) [![Follow on X](https://img.shields.io/badge/X-Follow-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Agent0ai) [![Join our Discord](https://img.shields.io/badge/Discord-Join%20our%20server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/B8KZKNsPpj) [![Subscribe on YouTube](https://img.shields.io/badge/YouTube-Subscribe-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@AgentZeroFW) [![Connect on LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jan-tomasek/) [![Follow on Warpcast](https://img.shields.io/badge/Warpcast-Follow-5A32F3?style=for-the-badge)](https://warpcast.com/agent-zero)
 
-
 ## Documentation:
 
 [Introduction](#a-personal-organic-agentic-framework-that-grows-and-learns-with-you) •
@@ -23,25 +22,19 @@ Or see DeepWiki generated documentation:
 
 </div>
 
-
 <div align="center">
 
 > ### 🚨 **AGENT ZERO SKILLS** 🚨
 > **Skills System** - portable, structured agent capabilities using the open `SKILL.md` standard (compatible with Claude Code, Codex and more).
-> 
+>
 > **Plus:** Git-based Projects with authentication for public/private repositories - clone codebases directly into isolated workspaces.
-> 
+>
 > See [Usage Guide](./docs/guides/usage.md) and [Projects Tutorial](./docs/guides/projects.md) to get started.
 </div>
 
-
-
 [![Showcase](/docs/res/showcase-thumb.png)](https://youtu.be/lazLNcEYsiQ)
 
-
 ## A personal, organic agentic framework that grows and learns with you
-
-
 
 - Agent Zero is not a predefined agentic framework. It is designed to be dynamic, organically growing, and learning as you use it.
 - Agent Zero is fully transparent, readable, comprehensible, customizable, and interactive.
@@ -65,7 +58,6 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 # Visit http://localhost:50001 to start
 ```
-
 
 # 💡 Key Features
 
@@ -148,7 +140,6 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 - The whole framework is guided by the **prompts/** folder. Agent guidelines, tool instructions, messages, utility AI functions, it's all there.
 
-
 ## 📚 Read the Documentation
 
 | Page | Description |
@@ -164,34 +155,33 @@ docker run -p 50001:80 agent0ai/agent-zero
 | [Contributing](./docs/guides/contribution.md) | How to contribute |
 | [Troubleshooting](./docs/guides/troubleshooting.md) | Common issues and their solutions |
 
-
 ## 🎯 Changelog
 
 ### v0.9.8 - Skills, UI Redesign & Git projects
 [Release video](https://youtu.be/NV7s78yn6DY)
 
 - Skills
-    - Skills System replacing the legacy Instruments with a new `SKILL.md` standard for structured, portable agent capabilities.
-    - Built-in skills, and UI support for importing and listing skills
+  - Skills System replacing the legacy Instruments with a new `SKILL.md` standard for structured, portable agent capabilities.
+  - Built-in skills, and UI support for importing and listing skills
 - Real-time WebSocket infrastructure replacing the polling-based approach for UI state synchronization
 - UI Redesign
-    - Process groups to visually group agent actions with expand/collapse support
-    - Timestamps, steps count and execution time with tool-specific badges
-    - Step detail modals with key-value and raw JSON display
-    - Collapsible responses with show more/less and copy buttons on code blocks and tables
-    - Message queue system allowing users to queue messages while the agent is still processing
-    - In-browser file editor for viewing and editing files without leaving the UI
-    - Welcome screen redesign with info and warning banners for connection security, missing API keys, and system resources
-    - Scheduler redesign with standalone modal, separate task list, detail and editor components, and project support
-    - Smooth response rendering and scroll stabilization across chat, terminals, and image viewer
-    - Chat width setting and reworked preferences panel
-    - Image viewer improvements with scroll support and expanded viewer
-    - Redesigned sidebar with reusable dropdown component and streamlined buttons
-    - Inline button confirmations for critical actions
-    - Improved login design and new logout button
-    - File browser enhanced with rename and file actions dropdown
+  - Process groups to visually group agent actions with expand/collapse support
+  - Timestamps, steps count and execution time with tool-specific badges
+  - Step detail modals with key-value and raw JSON display
+  - Collapsible responses with show more/less and copy buttons on code blocks and tables
+  - Message queue system allowing users to queue messages while the agent is still processing
+  - In-browser file editor for viewing and editing files without leaving the UI
+  - Welcome screen redesign with info and warning banners for connection security, missing API keys, and system resources
+  - Scheduler redesign with standalone modal, separate task list, detail and editor components, and project support
+  - Smooth response rendering and scroll stabilization across chat, terminals, and image viewer
+  - Chat width setting and reworked preferences panel
+  - Image viewer improvements with scroll support and expanded viewer
+  - Redesigned sidebar with reusable dropdown component and streamlined buttons
+  - Inline button confirmations for critical actions
+  - Improved login design and new logout button
+  - File browser enhanced with rename and file actions dropdown
 - Git projects
-    - Git-based projects with clone authentication for public and private repositories
+  - Git-based projects with clone authentication for public and private repositories
 - Four new LLM providers: CometAPI, Z.AI, Moonshot AI, and AWS Bedrock
 - Microsoft Dev Tunnels integration for secure remote access
 - User data migration to `/usr` directory for cleaner separation of user and system files
@@ -204,13 +194,12 @@ docker run -p 50001:80 agent0ai/agent-zero
 - Agent number tracking in backend and responses for multi-agent identification
 - Many bug fixes and stability improvements across the UI, MCP tools, scheduler, uploads, and WebSocket handling
 
-
 ### v0.9.7 - Projects
 [Release video](https://youtu.be/RrTDp_v9V1c)
 - Projects management
-    - Support for custom instructions
-    - Integration with memory, knowledge, files
-    - Project specific secrets 
+  - Support for custom instructions
+  - Integration with memory, knowledge, files
+  - Project specific secrets
 - New Welcome screen/Dashboard
 - New Wait tool
 - Subordinate agent configuration override support
@@ -286,16 +275,16 @@ docker run -p 50001:80 agent0ai/agent-zero
 ### v0.9.1 - LiteLLM, UI improvements
 [Release video](https://youtu.be/crwr0M4Spcg)
 - Langchain replaced with LiteLLM
-    - Support for reasoning models streaming
-    - Support for more providers
-    - Openrouter set as default instead of OpenAI
+  - Support for reasoning models streaming
+  - Support for more providers
+  - Openrouter set as default instead of OpenAI
 - UI improvements
-    - New message grouping system
-    - Communication smoother and more efficient
-    - Collapsible messages by type
-    - Code execution tool output improved
-    - Tables and code blocks scrollable
-    - More space efficient on mobile
+  - New message grouping system
+  - Communication smoother and more efficient
+  - Collapsible messages by type
+  - Code execution tool output improved
+  - Tables and code blocks scrollable
+  - More space efficient on mobile
 - Streamable HTTP MCP servers support
 - LLM API URL added to models config for Azure, local and custom providers
 
@@ -348,7 +337,7 @@ Default models set to gpt-4.1
 ### v0.8.3
 [Release video](https://youtu.be/bPIZo0poalY)
 
-- ***Planning and scheduling***
+- _**Planning and scheduling**_
 
 ### v0.8.2
 [Release video](https://youtu.be/xMUNynQ9x6Y)

@@ -64,6 +64,7 @@ $store.notificationStore.frontendInfo("Cache cleared", "System")
 - **Automatic Fallback**: Seamless degradation when backend is unavailable
 
 ### Global Functions:
+
 ```javascript
 // These functions automatically try backend first, then fallback to frontend-only
 toastFrontendError("Server unreachable", "Connection Error")

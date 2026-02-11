@@ -11,7 +11,6 @@ Analyze a new memory alongside existing similar memories and determine whether t
 - **keep_separate** if memories serve different purposes
 - **skip** consolidation if no action is beneficial
 
-
 ## Consolidation Analysis Guidelines
 
 ### 0. Similarity Score Awareness

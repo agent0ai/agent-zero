@@ -378,6 +378,7 @@ Recommended patterns
 - Always surface hard errors (timeouts); gate debug details by dev flag.
 
 Example – request()
+
 ```javascript
 import { getNamespacedClient } from '/js/websocket.js'
 
@@ -406,6 +407,7 @@ for (const item of res.results) {
 ```
 
 Subscriptions – envelope handler
+
 ```javascript
 import { getNamespacedClient } from '/js/websocket.js'
 

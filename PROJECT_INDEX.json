@@ -1,0 +1,266 @@
+{
+	"project": {
+		"name": "Agent Zero",
+		"description": "Personal organic agentic AI framework that grows/learns with the user",
+		"language": "Python",
+		"frontend": "vanilla JS + Alpine.js",
+		"server": "Flask + uvicorn + python-socketio",
+		"llm": "LiteLLM multi-provider via LangChain",
+		"memory": "FAISS + sentence-transformers",
+		"license": "MIT",
+		"generated": "2026-02-10"
+	},
+	"entry_points": {
+		"ui_server": "run_ui.py",
+		"tunnel": "run_tunnel.py",
+		"agent_core": "agent.py",
+		"initialization": "initialize.py",
+		"models": "models.py",
+		"preload": "preload.py",
+		"prepare": "prepare.py"
+	},
+	"file_counts": {
+		"python_total": 265,
+		"api_handlers": 74,
+		"tools_active": 19,
+		"helpers": 83,
+		"extensions": 41,
+		"websocket_handlers": 4,
+		"prompt_templates": 102,
+		"frontend_js": 59,
+		"frontend_html": 94,
+		"frontend_css": 19,
+		"tests": 28,
+		"docs": 19,
+		"agent_profiles": 6
+	},
+	"directories": {
+		"python/api": "74 REST endpoint handlers (ApiHandler subclasses)",
+		"python/tools": "19 active tools (Tool subclasses)",
+		"python/helpers": "83 utility modules",
+		"python/extensions": "41 extensions across 26 lifecycle hooks",
+		"python/websocket_handlers": "4 namespace-based WebSocket handlers",
+		"prompts": "102 Markdown/Python prompt templates",
+		"webui": "Alpine.js frontend (components, stores, vendor libs)",
+		"webui/components": "Alpine.js component stores + HTML templates",
+		"webui/js": "Core JS utilities (API, websocket, speech, etc.)",
+		"webui/vendor": "Third-party libs (Ace editor, Alpine, Socket.IO, KaTeX)",
+		"agents": "6 agent profile configurations",
+		"skills": "Skill definitions and templates",
+		"knowledge": "Knowledge base (main + solutions)",
+		"tests": "28 pytest test files",
+		"docker": "Docker build configuration (base + run stages)",
+		"docs": "19 documentation markdown files"
+	},
+	"tools": [
+		{
+			"name": "code_execution_tool",
+			"purpose": "Execute code in Docker sandbox (Python/Node.js/terminal)"
+		},
+		{
+			"name": "call_subordinate",
+			"purpose": "Spawn sub-agents for delegated tasks"
+		},
+		{
+			"name": "response",
+			"purpose": "Return final response to user (ends monologue loop)"
+		},
+		{ "name": "memory_save", "purpose": "Save to FAISS vector memory" },
+		{ "name": "memory_load", "purpose": "Query FAISS vector memory" },
+		{ "name": "memory_delete", "purpose": "Delete specific memories" },
+		{ "name": "memory_forget", "purpose": "Bulk forget by criteria" },
+		{
+			"name": "search_engine",
+			"purpose": "Web search (SearXNG/DuckDuckGo/Perplexity)"
+		},
+		{
+			"name": "browser_agent",
+			"purpose": "Browser automation (Playwright/browser-use)"
+		},
+		{ "name": "document_query", "purpose": "Query uploaded documents" },
+		{ "name": "input", "purpose": "Request user input mid-task" },
+		{ "name": "notify_user", "purpose": "Send push/email notifications" },
+		{ "name": "scheduler", "purpose": "Cron-based task scheduling" },
+		{ "name": "skills_tool", "purpose": "Execute installed skills" },
+		{ "name": "a2a_chat", "purpose": "Agent-to-agent communication" },
+		{
+			"name": "behaviour_adjustment",
+			"purpose": "Modify agent behavior dynamically"
+		},
+		{ "name": "vision_load", "purpose": "Load images for vision analysis" },
+		{ "name": "wait", "purpose": "Pause execution" },
+		{ "name": "unknown", "purpose": "Fallback for unrecognized tool calls" }
+	],
+	"api_groups": {
+		"chat": [
+			"message",
+			"message_async",
+			"chat_create",
+			"chat_load",
+			"chat_reset",
+			"chat_remove",
+			"chat_export"
+		],
+		"settings": ["settings_get", "settings_set"],
+		"memory": ["memory_dashboard"],
+		"files": [
+			"get_work_dir_files",
+			"upload_work_dir_files",
+			"edit_work_dir_file",
+			"delete_work_dir_file",
+			"download_work_dir_file"
+		],
+		"mcp": [
+			"mcp_servers_status",
+			"mcp_servers_apply",
+			"mcp_server_get_detail",
+			"mcp_server_get_log"
+		],
+		"scheduler": [
+			"scheduler_tasks_list",
+			"scheduler_task_create",
+			"scheduler_task_update",
+			"scheduler_task_delete",
+			"scheduler_task_run",
+			"scheduler_tick"
+		],
+		"backup": [
+			"backup_create",
+			"backup_restore",
+			"backup_inspect",
+			"backup_test",
+			"backup_preview_grouped",
+			"backup_restore_preview",
+			"backup_get_defaults"
+		],
+		"knowledge": [
+			"knowledge_reindex",
+			"knowledge_path_get",
+			"import_knowledge"
+		],
+		"skills": ["skills", "skills_import", "skills_import_preview"],
+		"notifications": [
+			"notification_create",
+			"notifications_history",
+			"notifications_mark_read",
+			"notifications_clear"
+		],
+		"auth": ["csrf_token", "logout"],
+		"system": [
+			"health",
+			"poll",
+			"restart",
+			"nudge",
+			"pause",
+			"rfc",
+			"banners",
+			"agents",
+			"subagents"
+		]
+	},
+	"extension_hooks": [
+		"agent_init",
+		"message_loop_start",
+		"message_loop_prompts_before",
+		"message_loop_prompts_after",
+		"monologue_start",
+		"system_prompt",
+		"before_main_llm_call",
+		"reasoning_stream",
+		"reasoning_stream_chunk",
+		"reasoning_stream_end",
+		"response_stream",
+		"response_stream_chunk",
+		"response_stream_end",
+		"tool_execute_before",
+		"tool_execute_after",
+		"hist_add_before",
+		"hist_add_tool_result",
+		"monologue_end",
+		"message_loop_end",
+		"process_chain_end",
+		"user_message_ui",
+		"banners",
+		"error_format",
+		"util_model_call_before"
+	],
+	"key_helpers": {
+		"llm": ["call_llm", "rate_limiter", "tokens", "providers"],
+		"memory": ["memory", "vector_db", "memory_consolidation"],
+		"execution": ["process", "shell_local", "shell_ssh", "docker", "runtime"],
+		"web": [
+			"api",
+			"websocket",
+			"websocket_manager",
+			"websocket_namespace_discovery"
+		],
+		"browser": [
+			"browser",
+			"browser_use",
+			"playwright",
+			"browser_use_monkeypatch"
+		],
+		"files": ["files", "file_browser", "file_tree"],
+		"security": ["security", "secrets", "crypto", "login"],
+		"state": ["context", "history", "messages", "persist_chat", "settings"],
+		"mcp": ["mcp_handler", "mcp_server"],
+		"other": [
+			"notification",
+			"task_scheduler",
+			"skills",
+			"projects",
+			"backup",
+			"git"
+		]
+	},
+	"dependencies": {
+		"flask[async]": { "version": "3.0.3", "purpose": "Web framework" },
+		"uvicorn": { "version": ">=0.38.0", "purpose": "ASGI server" },
+		"python-socketio": {
+			"version": ">=5.14.2",
+			"purpose": "WebSocket support"
+		},
+		"langchain-core": { "version": "0.3.49", "purpose": "LLM abstractions" },
+		"faiss-cpu": { "version": "1.11.0", "purpose": "Vector similarity search" },
+		"sentence-transformers": {
+			"version": "3.0.1",
+			"purpose": "Text embeddings"
+		},
+		"fastmcp": { "version": "2.13.1", "purpose": "MCP server" },
+		"fasta2a": { "version": "0.5.0", "purpose": "Agent-to-Agent protocol" },
+		"browser-use": { "version": "0.5.11", "purpose": "Browser automation" },
+		"playwright": { "version": "1.52.0", "purpose": "Browser control" },
+		"docker": { "version": "7.1.0", "purpose": "Docker SDK" },
+		"pydantic": { "version": "2.11.7", "purpose": "Data validation" },
+		"duckduckgo-search": { "version": "6.1.12", "purpose": "Web search" },
+		"openai-whisper": { "version": "20250625", "purpose": "Speech-to-text" },
+		"kokoro": { "version": ">=0.9.2", "purpose": "Text-to-speech" }
+	},
+	"agent_profiles": [
+		{
+			"name": "default",
+			"description": "Base agent with standard capabilities"
+		},
+		{ "name": "agent0", "description": "Core Agent Zero personality" },
+		{ "name": "developer", "description": "Software development focused" },
+		{ "name": "hacker", "description": "Security/hacking oriented" },
+		{ "name": "researcher", "description": "Research and analysis focused" },
+		{ "name": "_example", "description": "Template for custom profiles" }
+	],
+	"conventions": {
+		"functions": "snake_case",
+		"classes": "PascalCase",
+		"unions": "str | None (not Optional)",
+		"tools": "extend Tool, implement async execute(**kwargs) -> Response",
+		"api": "extend ApiHandler, implement async process(input, request) -> dict",
+		"extensions": "extend Extension, implement async execute(**kwargs), prefix-sorted",
+		"disabled_files": "._py suffix",
+		"prompts": "{{ include }} and {{variable}} syntax"
+	},
+	"quick_start": [
+		"pip install -r requirements.txt",
+		"python run_ui.py",
+		"Configure API keys in UI settings",
+		"pytest tests/"
+	]
+}

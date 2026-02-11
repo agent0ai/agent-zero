@@ -2,6 +2,7 @@
 provide query arg get search results
 returns list urls titles descriptions
 **Example usage**:
+
 ~~~json
 {
     "thoughts": [

@@ -11,9 +11,9 @@ The Restart button allows you to quickly restart the Agent Zero container withou
 
 ![Restart Framework](../res/usage/restart.png)
 
-* Click the "Restart" button in the sidebar dropdown
-* A blue inline confirmation will appear indicating "Confirm"
-* Once confirmed, the framework will reinitialize and restart the container
+- Click the "Restart" button in the sidebar dropdown
+- A blue inline confirmation will appear indicating "Confirm"
+- Once confirmed, the framework will reinitialize and restart the container
 
 > [!TIP]
 > Use the Restart function when you want to:
@@ -25,13 +25,13 @@ Located beneath the chat input box, Agent Zero provides a set of action buttons 
 
 ![Action Buttons](../res/usage/action-btns.png)
 #### Chat Flow Control
-* **Pause/Resume Agent:** Toggle button to pause and resume chat flow
+- **Pause/Resume Agent:** Toggle button to pause and resume chat flow
   - Click to pause ongoing agent operations
   - Changes to "Resume Agent" when paused
   - Click again to resume chat flow and command execution
 
 #### Knowledge and File Management
-* **Import Knowledge:** Import external files into the agent's knowledge base
+- **Import Knowledge:** Import external files into the agent's knowledge base
   - Supports `.txt`, `.pdf`, `.csv`, `.html`, `.json`, and `.md` formats
   - Files are stored in `/a0/knowledge/custom/main`
   - Success message confirms successful import
@@ -41,15 +41,15 @@ Located beneath the chat input box, Agent Zero provides a set of action buttons 
 
 ![File Browser](../res/usage/file-browser.png)
 
-  - Upload new files and folders
-  - Download files (click filename) or folders (as zip archives)
-  - Rename and Delete files and folders
-  - Navigate directories using the "Up" button
-  - Edit files in the File Editor
-  - See [File Browser](#file-browser) section for detailed features
+- Upload new files and folders
+- Download files (click filename) or folders (as zip archives)
+- Rename and Delete files and folders
+- Navigate directories using the "Up" button
+- Edit files in the File Editor
+- See [File Browser](#file-browser) section for detailed features
 
 #### Debugging and Monitoring
-* **Context:** View the complete context window sent to the LLM
+- **Context:** View the complete context window sent to the LLM
   - Includes system prompts
   - Shows current conversation context
   - Displays active instructions and parameters
@@ -58,13 +58,13 @@ Located beneath the chat input box, Agent Zero provides a set of action buttons 
 
 ### History:
 Access the chat history in JSON format
-  - View the conversation as processed by the LLM
-  - Useful for debugging and understanding agent behavior
-  - Files are stored under `/a0/usr/chats/` inside the container
+- View the conversation as processed by the LLM
+- Useful for debugging and understanding agent behavior
+- Files are stored under `/a0/usr/chats/` inside the container
 
 ![History](../res/usage/ui-history1.png)
 
-* **Nudge:** Restart the agent's last process
+- **Nudge:** Restart the agent's last process
   - Useful when agents become unresponsive
   - Retries the last operation
   - Helps recover from stuck states
@@ -78,9 +78,9 @@ Access the chat history in JSON format
 Agent Zero supports direct file attachments in the chat interface for seamless file operations:
 
 #### Attaching Files
-* Click the attachment icon (📎) on the left side of the chat input box
-* Select one or multiple files to attach
-* Preview attached files before sending:
+- Click the attachment icon (📎) on the left side of the chat input box
+- Select one or multiple files to attach
+- Preview attached files before sending:
   - File names are displayed with their types (HTML, PDF, JPG, etc.)
   - Images show thumbnails when available
   - Files are listed in the chat input area waiting to be sent
@@ -88,8 +88,8 @@ Agent Zero supports direct file attachments in the chat interface for seamless f
 ![File Attachments](../res/usage/attachments-1.png)
 
 #### Working with Attached Files
-* Files can be referenced directly in your messages
-* Agent Zero can:
+- Files can be referenced directly in your messages
+- Agent Zero can:
   - Process attached files
   - Move files to specific directories
   - Perform operations on multiple files simultaneously
@@ -146,9 +146,9 @@ This example demonstrates how to combine multiple tools to achieve an analysis t
 ## Multi-Agent Cooperation
 One of Agent Zero's unique features is multi-agent cooperation.
 
-* **Creating Sub-Agents:** Agents can create sub-agents to delegate sub-tasks.  This helps manage complexity and distribute workload.
-* **Communication:** Agents can communicate with each other, sharing information and coordinating actions. The system prompt and message history play a key role in guiding this communication.
-* **Hierarchy:** Agent Zero uses a [hierarchical structure](../developer/architecture.md#agent-hierarchy-and-communication), with superior agents delegating tasks to subordinates.  This allows for structured problem-solving and efficient resource allocation.
+- **Creating Sub-Agents:** Agents can create sub-agents to delegate sub-tasks.  This helps manage complexity and distribute workload.
+- **Communication:** Agents can communicate with each other, sharing information and coordinating actions. The system prompt and message history play a key role in guiding this communication.
+- **Hierarchy:** Agent Zero uses a [hierarchical structure](../developer/architecture.md#agent-hierarchy-and-communication), with superior agents delegating tasks to subordinates.  This allows for structured problem-solving and efficient resource allocation.
 
 ![](../res/usage/multi-agent.png)
 
@@ -219,6 +219,7 @@ The system clones the `main` branch by default. You can ask the agent to checkou
 > - Output formats and requirements
 
 **Example instructions:**
+
 ```markdown
 ## Your Role
 You are an expert Financial Data Analyst working with Excel automation.
@@ -253,12 +254,14 @@ Choose how project memory is managed:
 Projects support scoped configuration:
 
 - **Variables** (non-sensitive): Stored in `.a0proj/variables.env`
+
   ```bash
   API_BASE_URL=https://api.example.com
   OUTPUT_FORMAT=json
   ```
 
 - **Secrets** (sensitive): Stored in `.a0proj/secrets.env`
+
   ```bash
   API_KEY=sk-abc123xyz...
   DATABASE_PASSWORD=super_secret_pwd
@@ -460,6 +463,7 @@ Toggle state to temporarily disable tasks without deleting them.
 For **Scheduled Tasks**, configure the cron schedule:
 
 **Common patterns:**
+
 ```
 # Every day at 9 AM
 0 9 * * *
@@ -540,6 +544,7 @@ When a task runs:
 ### Common Use Cases
 
 #### Daily Reports
+
 ```
 Task: "Morning Inbox Summary"
 Type: Scheduled (0 9 * * *)
@@ -549,6 +554,7 @@ Summarize important emails by category and highlight any urgent items."
 ```
 
 #### Recurring Monitoring
+
 ```
 Task: "Server Health Check"
 Type: Scheduled (*/30 * * * *)
@@ -558,6 +564,7 @@ Alert me if any metric exceeds threshold."
 ```
 
 #### Batch Processing
+
 ```
 Task: "Weekly Data Export"
 Type: Scheduled (0 2 * * 0)
@@ -567,6 +574,7 @@ Upload to cloud storage and send summary report."
 ```
 
 #### Campaign Automation
+
 ```
 Task: "Product Launch Sequence"
 Type: Planned
@@ -584,6 +592,7 @@ Tasks and Projects are designed to work together:
 **Pattern: Project-Scoped Automation**
 
 1. Create a project with domain-specific instructions
+
    ```
    Project: "Customer Support"
    Instructions: "You are a customer support analyst.
@@ -591,6 +600,7 @@ Tasks and Projects are designed to work together:
    ```
 
 2. Create a recurring task for that project
+
    ```
    Task: "Ticket Queue Monitor"
    Schedule: Every 2 hours
@@ -620,7 +630,6 @@ Tasks can trigger notifications on completion or failure:
 - Critical for unattended automation
 
 See [Notifications](../developer/notifications.md) for configuration details.
-
 
 ### Multi-Source Aggregation
 Tasks can pull from multiple sources:
@@ -729,17 +738,16 @@ Agent Zero provides both Text-to-Speech (TTS) and Speech-to-Text (STT) capabilit
 
 ### Text-to-Speech
 Enable voice responses from agents:
-* Toggle the "Speech" switch in the Preferences section of the sidebar
-* Agents will use your system's built-in voice synthesizer to speak their messages
-* Click the "Stop Speech" button above the input area to immediately stop any ongoing speech
-* You can also click the speech button when hovering over messages to speak individual messages or their parts
+- Toggle the "Speech" switch in the Preferences section of the sidebar
+- Agents will use your system's built-in voice synthesizer to speak their messages
+- Click the "Stop Speech" button above the input area to immediately stop any ongoing speech
+- You can also click the speech button when hovering over messages to speak individual messages or their parts
 
 ![TTS Stop Speech](../res/usage/ui-tts-stop-speech1.png)
 
 - The interface allows users to stop speech at any time if a response is too lengthy or if they wish to intervene during the conversation.
 
 The TTS uses a standard voice interface provided by modern browsers, which may sound robotic but is effective and does not require complex AI models. This ensures low latency and quick responses across various platforms, including mobile devices.
-
 
 > [!TIP]
 > The Text-to-Speech feature is great for:
@@ -761,10 +769,10 @@ Send voice messages to agents using OpenAI's Whisper model (does not require Ope
 Users can adjust settings such as silence threshold and message duration before sending to optimize their interaction experience.
 
 Configure STT settings in the Settings page:
-* **Model Size:** Choose between Base (74M, English) or other models
+- **Model Size:** Choose between Base (74M, English) or other models
   - Note: Only Large and Turbo models support multiple languages
-* **Language Code:** Set your preferred language (e.g., 'en', 'fr', 'it', 'cz')
-* **Silence Detection:**
+- **Language Code:** Set your preferred language (e.g., 'en', 'fr', 'it', 'cz')
+- **Silence Detection:**
   - Threshold: Adjust sensitivity (lower values are more sensitive)
   - Duration: Set how long silence should last before ending recording
   - Timeout: Set maximum waiting time before closing the microphone
@@ -777,7 +785,7 @@ Configure STT settings in the Settings page:
 > enhances user privacy while maintaining functionality.
 
 ## Mathematical Expressions
-* **Complex Mathematics:** Supports full KaTeX syntax for:
+- **Complex Mathematics:** Supports full KaTeX syntax for:
   - Fractions, exponents, and roots
   - Matrices and arrays
   - Greek letters and mathematical symbols
@@ -849,10 +857,10 @@ Open the Memory Dashboard from the sidebar to manage your agent's memory:
 #### Filtering and Organization
 The dashboard provides several ways to organize and filter memory entries:
 
-* **Memory Directory**: Select which memory directory to view (default or project-specific)
-* **Area Filter**: Filter memories by area to focus on specific contexts
-* **Limit Control**: Adjust the number of results displayed (default: 1000)
-* **Statistics Bar**: View counts at a glance:
+- **Memory Directory**: Select which memory directory to view (default or project-specific)
+- **Area Filter**: Filter memories by area to focus on specific contexts
+- **Limit Control**: Adjust the number of results displayed (default: 1000)
+- **Statistics Bar**: View counts at a glance:
   - Total: All memory entries in the directory
   - Filtered: Entries matching current filters
   - Knowledge: Entries from knowledge sources
@@ -861,12 +869,12 @@ The dashboard provides several ways to organize and filter memory entries:
 #### Search Functionality
 Find specific memories using the powerful search feature:
 
-* **Search Bar**: Enter keywords to search memory content
-* **Threshold Slider**: Adjust search sensitivity (0.00 - 1.00)
+- **Search Bar**: Enter keywords to search memory content
+- **Threshold Slider**: Adjust search sensitivity (0.00 - 1.00)
   - Lower values return more results with looser matching
   - Higher values return fewer, more precise matches
   - Default threshold: 0.60
-* **Real-time Search**: Results update as you type
+- **Real-time Search**: Results update as you type
 
 > [!TIP]
 > Use the threshold slider to balance between broad discovery (lower values) and precise matching (higher values). Start with 0.60 and adjust based on your results.
@@ -874,10 +882,10 @@ Find specific memories using the powerful search feature:
 #### Memory Entry Information
 Each memory entry displays key information:
 
-* **Tags**: Visual indicators showing the memory type (MAIN, Knowledge, etc.)
-* **Timestamp**: When the memory was created (format: MM/DD HH:MM)
-* **Preview**: First few lines of the memory content
-* **Action Icons**: Quick access to view details, edit, or delete
+- **Tags**: Visual indicators showing the memory type (MAIN, Knowledge, etc.)
+- **Timestamp**: When the memory was created (format: MM/DD HH:MM)
+- **Preview**: First few lines of the memory content
+- **Action Icons**: Quick access to view details, edit, or delete
 
 ### Viewing and Editing Memories
 Click any memory entry to open the detailed view with full editing capabilities:
@@ -887,10 +895,10 @@ Click any memory entry to open the detailed view with full editing capabilities:
 #### Memory Details View
 The details panel provides comprehensive information about each memory:
 
-* **Memory Content**: Full text of the stored memory
+- **Memory Content**: Full text of the stored memory
   - Syntax highlighting for structured content
   - Editable text area for modifications
-* **Metadata Panel**: Complete memory information
+- **Metadata Panel**: Complete memory information
   - Unique ID
   - Area classification
   - Source type (e.g., "Knowledge")
@@ -917,8 +925,8 @@ Remove unwanted or outdated memory entries:
 4. The memory is permanently removed from the vector database
 
 Alternatively, delete directly from the main dashboard:
-* Click the delete icon on any memory entry in the list
-* Confirm the deletion
+- Click the delete icon on any memory entry in the list
+- Confirm the deletion
 
 > [!WARNING]
 > Deleted memories cannot be recovered. Use caution when removing entries, especially those from knowledge sources or important conversations.
@@ -926,52 +934,52 @@ Alternatively, delete directly from the main dashboard:
 #### Clearing Memories
 For bulk cleanup operations:
 
-* Click the **Clear** button in the dashboard header to remove all filtered memories
-* This is useful when you need to reset a specific area or start fresh with a memory directory
-* Always review your filters before clearing to avoid unintended deletions
+- Click the **Clear** button in the dashboard header to remove all filtered memories
+- This is useful when you need to reset a specific area or start fresh with a memory directory
+- Always review your filters before clearing to avoid unintended deletions
 
 ### Memory Types and Sources
 
 #### Knowledge Memories
 Memories derived from uploaded knowledge files:
-* Marked with "Knowledge" tag
-* Include source file information
-* Created when importing documents via Import Knowledge button
-* Stored persistently unless manually deleted
+- Marked with "Knowledge" tag
+- Include source file information
+- Created when importing documents via Import Knowledge button
+- Stored persistently unless manually deleted
 
 #### Conversation Memories
 Memories from chat interactions:
-* Marked with conversation indicators
-* Created automatically as the agent learns from interactions
-* Include contextual information about when and why they were created
-* Help the agent maintain continuity across sessions
+- Marked with conversation indicators
+- Created automatically as the agent learns from interactions
+- Include contextual information about when and why they were created
+- Help the agent maintain continuity across sessions
 
 ### Best Practices with Memory
 
 #### Regular Maintenance
-* **Review Periodically**: Check your memory entries monthly to remove outdated information
-* **Organize by Area**: Use areas to categorize memories by project or topic
-* **Clean Up Test Data**: Remove experimental or test memories that aren't needed
-* **Monitor Growth**: Keep an eye on total memory count to maintain performance
+- **Review Periodically**: Check your memory entries monthly to remove outdated information
+- **Organize by Area**: Use areas to categorize memories by project or topic
+- **Clean Up Test Data**: Remove experimental or test memories that aren't needed
+- **Monitor Growth**: Keep an eye on total memory count to maintain performance
 
 #### Search Optimization
-* **Use Specific Keywords**: More specific terms yield better results
-* **Adjust Threshold**: Fine-tune the threshold based on your needs
-* **Filter First**: Use area and directory filters before searching for better results
-* **Iterate Searches**: Try different search terms if initial results aren't helpful
+- **Use Specific Keywords**: More specific terms yield better results
+- **Adjust Threshold**: Fine-tune the threshold based on your needs
+- **Filter First**: Use area and directory filters before searching for better results
+- **Iterate Searches**: Try different search terms if initial results aren't helpful
 
 #### Content Quality
-* **Keep Relevant**: Remove memories that are no longer useful or accurate
-* **Update Information**: Edit memories when information becomes outdated
-* **Add Context**: When editing, ensure memories remain clear and useful
-* **Avoid Duplicates**: Remove redundant memories that store the same information
+- **Keep Relevant**: Remove memories that are no longer useful or accurate
+- **Update Information**: Edit memories when information becomes outdated
+- **Add Context**: When editing, ensure memories remain clear and useful
+- **Avoid Duplicates**: Remove redundant memories that store the same information
 
 #### Project Integration
 When using Projects (see [Projects](#projects)):
-* Each project maintains its own memory directory
-* Memories are isolated between projects to prevent context bleed
-* Use project-specific memory directories for focused work
-* Clear project memories when archiving completed projects
+- Each project maintains its own memory directory
+- Memories are isolated between projects to prevent context bleed
+- Use project-specific memory directories for focused work
+- Clear project memories when archiving completed projects
 
 > [!TIP]
 > Combine memory management with the backup system to preserve important memory states. Before clearing or making bulk changes, create a backup so you can restore if needed.
@@ -992,12 +1000,12 @@ Access the backup functionality through the Settings interface:
 #### What Gets Backed Up
 By default, Agent Zero backs up your most important data:
 
-* **Knowledge Base**: Your custom knowledge files and documents
-* **Memory System**: Agent memories and learned information
-* **Chat History**: All your conversations and interactions
-* **Configuration Files**: Settings, API keys, and system preferences
-* **Custom Skills**: Any skills you've added or modified (SKILL.md format)
-* **Uploaded Files**: Documents and files you've worked with
+- **Knowledge Base**: Your custom knowledge files and documents
+- **Memory System**: Agent memories and learned information
+- **Chat History**: All your conversations and interactions
+- **Configuration Files**: Settings, API keys, and system preferences
+- **Custom Skills**: Any skills you've added or modified (SKILL.md format)
+- **Uploaded Files**: Documents and files you've worked with
 
 > [!NOTE]
 > Chat history is stored at `/a0/usr/chats/` inside the container.
@@ -1005,10 +1013,10 @@ By default, Agent Zero backs up your most important data:
 #### Customizing Backup Content
 Before creating a backup, you can customize what to include:
 
-* **Edit Patterns**: Use the built-in editor to specify exactly which files and folders to backup
-* **Include Hidden Files**: Choose whether to include system and configuration files
-* **Preview Files**: See exactly what will be included before creating the backup
-* **Organized View**: Files are grouped by directory for easy review
+- **Edit Patterns**: Use the built-in editor to specify exactly which files and folders to backup
+- **Include Hidden Files**: Choose whether to include system and configuration files
+- **Preview Files**: See exactly what will be included before creating the backup
+- **Organized View**: Files are grouped by directory for easy review
 
 > [!TIP]
 > The backup system uses pattern matching, so you can include or exclude specific file types. For example, you can backup all `.py` files but exclude temporary `.tmp` files.
@@ -1034,43 +1042,43 @@ The restore process allows you to recover your Agent Zero setup from a previous 
 #### Reviewing Before Restore
 After uploading, you can review and customize the restore:
 
-* **Inspect Metadata**: View information about when and where the backup was created
-* **Edit Restore Patterns**: Choose exactly which files to restore
-* **Preview Changes**: See which files will be restored, overwritten, or skipped
-* **Cross-System Compatibility**: Paths are automatically adjusted when restoring on different systems
+- **Inspect Metadata**: View information about when and where the backup was created
+- **Edit Restore Patterns**: Choose exactly which files to restore
+- **Preview Changes**: See which files will be restored, overwritten, or skipped
+- **Cross-System Compatibility**: Paths are automatically adjusted when restoring on different systems
 
 #### Restore Options
 Configure how the restore should handle existing files:
 
-* **Overwrite**: Replace existing files with backup versions
-* **Skip**: Keep existing files, only restore missing ones
-* **Backup Existing**: Create backup copies of existing files before overwriting
+- **Overwrite**: Replace existing files with backup versions
+- **Skip**: Keep existing files, only restore missing ones
+- **Backup Existing**: Create backup copies of existing files before overwriting
 
 #### Clean Before Restore
 Optionally clean up existing files before restoring:
 
-* **Smart Cleanup**: Remove files that match backup patterns before restoring
-* **Preview Cleanup**: See which files would be deleted before confirming
-* **Safe Operation**: Only affects files that match your specified patterns
+- **Smart Cleanup**: Remove files that match backup patterns before restoring
+- **Preview Cleanup**: See which files would be deleted before confirming
+- **Safe Operation**: Only affects files that match your specified patterns
 
 ### Best Practices
 
 #### When to Create Backups
-* **Before Major Changes**: Always backup before significant modifications
-* **Regular Schedule**: Create weekly or monthly backups of your work
-* **Before System Updates**: Backup before updating Agent Zero or system components
-* **Project Milestones**: Save backups when completing important work
+- **Before Major Changes**: Always backup before significant modifications
+- **Regular Schedule**: Create weekly or monthly backups of your work
+- **Before System Updates**: Backup before updating Agent Zero or system components
+- **Project Milestones**: Save backups when completing important work
 
 #### Backup Management
-* **Descriptive Names**: Use clear names like "project-completion-2024-01"
-* **External Storage**: Keep backup files in a safe location outside Agent Zero
-* **Multiple Versions**: Maintain several backup versions for different time periods
-* **Test Restores**: Occasionally test restoring backups to ensure they work
+- **Descriptive Names**: Use clear names like "project-completion-2024-01"
+- **External Storage**: Keep backup files in a safe location outside Agent Zero
+- **Multiple Versions**: Maintain several backup versions for different time periods
+- **Test Restores**: Occasionally test restoring backups to ensure they work
 
 #### Security Considerations
-* **Secrets**: Backups do **not** reliably include `/a0/usr/secrets.env`. Copy it manually when migrating.
-* **Secure Storage**: Store backup files securely and don't share them
-* **Clean Systems**: When restoring on new systems, verify all configurations
+- **Secrets**: Backups do **not** reliably include `/a0/usr/secrets.env`. Copy it manually when migrating.
+- **Secure Storage**: Store backup files securely and don't share them
+- **Clean Systems**: When restoring on new systems, verify all configurations
 
 ### Common Use Cases
 

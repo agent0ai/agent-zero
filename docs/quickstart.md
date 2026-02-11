@@ -85,11 +85,11 @@ Here's an example of what you might see in the Web UI at step 3:
 ## Next Steps
 Now that you've run a simple task, you can experiment with more complex requests. Try asking Agent Zero to:
 
-* Connect to your email
-* Execute shell commands
-* Develop skills
-* Explore web development tasks
-* Develop A0 itself
+- Connect to your email
+- Execute shell commands
+- Develop skills
+- Explore web development tasks
+- Develop A0 itself
 
 ### [Open A0 Usage Guide](guides/usage.md)
 

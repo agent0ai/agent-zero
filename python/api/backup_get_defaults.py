@@ -20,13 +20,10 @@ class BackupGetDefaults(ApiHandler):
                 "success": True,
                 "default_patterns": {
                     "include_patterns": default_metadata["include_patterns"],
-                    "exclude_patterns": default_metadata["exclude_patterns"]
+                    "exclude_patterns": default_metadata["exclude_patterns"],
                 },
-                "metadata": default_metadata
+                "metadata": default_metadata,
             }
 
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}

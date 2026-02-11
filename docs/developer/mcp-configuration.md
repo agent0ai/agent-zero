@@ -12,20 +12,20 @@ This guide provides comprehensive technical details for configuring and utilizin
 
 Agent Zero supports three main types of MCP servers:
 
-1.  **Local Stdio Servers**: Local executables that Agent Zero communicates with via standard input/output (stdio).
-2.  **Remote SSE Servers**: Network-accessible servers that use Server-Sent Events (SSE), usually over HTTP/S.
-3.  **Remote Streaming HTTP Servers**: Servers using the streamable HTTP transport protocol for MCP communication.
+1. **Local Stdio Servers**: Local executables that Agent Zero communicates with via standard input/output (stdio).
+2. **Remote SSE Servers**: Network-accessible servers that use Server-Sent Events (SSE), usually over HTTP/S.
+3. **Remote Streaming HTTP Servers**: Servers using the streamable HTTP transport protocol for MCP communication.
 
 ## How Agent Zero Consumes MCP Tools
 
 Agent Zero discovers and integrates MCP tools dynamically through the following process:
 
-1.  **Configuration**: MCP servers are defined in the Agent Zero configuration, primarily through the Settings UI.
-2.  **Saving Settings**: When saved via the UI, Agent Zero updates `usr/settings.json`, specifically the `"mcp_servers"` key.
-3.  **Server Startup**: Agent Zero initializes configured MCP servers (stdio) or connects to them (remote). For `npx`/`uvx` based servers, the first run downloads packages.
-4.  **Tool Discovery**: Upon initialization, Agent Zero connects to each enabled MCP server and queries for available tools, descriptions, and parameters.
-5.  **Dynamic Prompting**: Tool information is injected into the agent's system prompt. The `{{tools}}` placeholder in templates (e.g., `prompts/agent.system.mcp_tools.md`) is replaced with the formatted tool list.
-6.  **Tool Invocation**: When the LLM requests an MCP tool, Agent Zero's `process_tools` method (`mcp_handler.py`) routes the request to the appropriate MCP server.
+1. **Configuration**: MCP servers are defined in the Agent Zero configuration, primarily through the Settings UI.
+2. **Saving Settings**: When saved via the UI, Agent Zero updates `usr/settings.json`, specifically the `"mcp_servers"` key.
+3. **Server Startup**: Agent Zero initializes configured MCP servers (stdio) or connects to them (remote). For `npx`/`uvx` based servers, the first run downloads packages.
+4. **Tool Discovery**: Upon initialization, Agent Zero connects to each enabled MCP server and queries for available tools, descriptions, and parameters.
+5. **Dynamic Prompting**: Tool information is injected into the agent's system prompt. The `{{tools}}` placeholder in templates (e.g., `prompts/agent.system.mcp_tools.md`) is replaced with the formatted tool list.
+6. **Tool Invocation**: When the LLM requests an MCP tool, Agent Zero's `process_tools` method (`mcp_handler.py`) routes the request to the appropriate MCP server.
 
 ## Configuration File Structure
 
@@ -175,6 +175,7 @@ Type can be: `"http-stream"`, `"streaming-http"`, `"streamable-http"`, or `"http
 ### Agent Zero in Docker, MCP Server on Host
 
 **macOS/Windows:**
+
 ```json
 {
   "url": "http://host.docker.internal:PORT/endpoint"
@@ -188,6 +189,7 @@ Type can be: `"http-stream"`, `"streaming-http"`, `"streamable-http"`, or `"http
 ### Remote MCP Servers
 
 Use standard HTTPS URLs:
+
 ```json
 {
   "url": "https://api.example.com/mcp-endpoint"
@@ -249,6 +251,7 @@ This prioritization allows MCP tools to extend or override built-in functionalit
 ### Encoding Issues (Stdio Servers)
 
 Adjust encoding settings:
+
 ```json
 {
   "encoding": "utf-8",
@@ -287,6 +290,7 @@ Store sensitive data securely:
 ### Connection Timeouts
 
 Adjust for network conditions:
+
 ```json
 {
   "timeout": 10.0,           // Initial connection

@@ -11,6 +11,7 @@ respond valid json with fields
 no text allowed before or after json
 
 ### Response example
+
 ~~~json
 {
     "thoughts": [

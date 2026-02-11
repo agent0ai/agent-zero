@@ -27,13 +27,14 @@ This architecture ensures:
 - Flexible deployment options for advanced users
 
 > [!NOTE]
-> The legacy approach of running Agent Zero directly on the host system (using Python, Conda, etc.) 
-> is still possible but requires Remote Function Calling (RFC) configuration through the Settings 
+> The legacy approach of running Agent Zero directly on the host system (using Python, Conda, etc.)
+> is still possible but requires Remote Function Calling (RFC) configuration through the Settings
 > page. See the [development guide](development.md) for detailed instructions.
 
 ## Implementation Details
 
 ### Directory Structure
+
 | Directory | Description |
 | --- | --- |
 | `/docker` | Docker-related files for runtime container |
@@ -59,6 +60,7 @@ This architecture ensures:
 | `/webui/public` | Static assets |
 
 ### Key Files
+
 | File | Description |
 | --- | --- |
 | `usr/settings.json` | Main runtime settings (written by the Settings UI) |
@@ -131,8 +133,8 @@ The integration provides access to various types of content, including images, v
 In cases where SearXNG might not return satisfactory results, Agent Zero can be configured to fall back on other sources or methods, ensuring that users always have access to information.
 
 > [!NOTE]
-> The Knowledge Tool is designed to work seamlessly with both online searches through 
-> SearXNG and local knowledge base queries, providing a comprehensive information 
+> The Knowledge Tool is designed to work seamlessly with both online searches through
+> SearXNG and local knowledge base queries, providing a comprehensive information
 > retrieval system.
 
 #### Custom Tools
@@ -200,6 +202,7 @@ By dynamically adjusting context windows and summarizing past interactions, Agen
 The `prompts` directory contains various Markdown files that control agent behavior and communication. The most important file is `agent.system.main.md`, which acts as a central hub, referencing other prompt files.
 
 #### Core Prompt Files
+
 | Prompt File | Description |
 |---|---|
 | agent.system.main.role.md | Defines the agent's overall role and capabilities |
@@ -224,7 +227,7 @@ The `prompts` directory contains various Markdown files that control agent behav
 4. Select the **Agent Profile** in Settings to activate the overrides
 
 #### Dynamic Behavior System
-- **Behavior Adjustment**: 
+- **Behavior Adjustment**:
   - Agents can modify their behavior in real-time based on user instructions
   - Behavior changes are automatically integrated into the system prompt
   - Behavioral rules are merged intelligently, avoiding duplicates and conflicts
@@ -261,7 +264,7 @@ Knowledge refers to the user-provided information and data that agents can lever
   - Automatically imported and indexed
   - Expandable format support
 
-- **Knowledge Base**: 
+- **Knowledge Base**:
   - Can include PDFs, databases, books, documentation
   - `/docs` folder automatically added
   - Used for answering questions and decision-making
@@ -278,6 +281,7 @@ Skills provide contextual expertise using the **open SKILL.md standard** (origin
 - **Scripts Support**: Can reference `.sh`, `.py`, `.js`, `.ts` scripts
 
 #### SKILL.md Format
+
 ```yaml
 ---
 name: "my-skill"
@@ -297,6 +301,7 @@ Your detailed instructions here...
 ```
 
 #### Directory Structure
+
 | Directory | Description |
 |-----------|-------------|
 | `/skills` | Default skills included with Agent Zero |

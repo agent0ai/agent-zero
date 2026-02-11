@@ -1,11 +1,12 @@
 from agent import Agent, UserMessage
-from python.helpers.tool import Tool, Response
 from initialize import initialize_agent
-from python.extensions.hist_add_tool_result import _90_save_tool_call_file as save_tool_call_file
+from python.extensions.hist_add_tool_result import (
+    _90_save_tool_call_file as save_tool_call_file,
+)
+from python.helpers.tool import Response, Tool
 
 
 class Delegation(Tool):
-
     async def execute(self, message="", reset="", **kwargs):
         # create subordinate agent using the data object on this agent and set superior agent to his data object
         if (

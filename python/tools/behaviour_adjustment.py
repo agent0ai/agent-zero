@@ -1,11 +1,10 @@
-from python.helpers import files, memory
-from python.helpers.tool import Tool, Response
 from agent import Agent
+from python.helpers import files, memory
 from python.helpers.log import LogItem
+from python.helpers.tool import Response, Tool
 
 
 class UpdateBehaviour(Tool):
-
     async def execute(self, adjustments="", **kwargs):
 
         # stringify adjustments if needed

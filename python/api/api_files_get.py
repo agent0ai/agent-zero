@@ -1,9 +1,10 @@
 import base64
-import os
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
-from python.helpers.print_style import PrintStyle
 import json
+import os
+
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
+from python.helpers.print_style import PrintStyle
 
 
 class ApiFilesGet(ApiHandler):
@@ -32,14 +33,14 @@ class ApiFilesGet(ApiHandler):
                 return Response(
                     '{"error": "paths array is required"}',
                     status=400,
-                    mimetype="application/json"
+                    mimetype="application/json",
                 )
 
             if not isinstance(paths, list):
                 return Response(
                     '{"error": "paths must be an array"}',
                     status=400,
-                    mimetype="application/json"
+                    mimetype="application/json",
                 )
 
             result = {}
@@ -70,10 +71,12 @@ class ApiFilesGet(ApiHandler):
                     # Read and encode file
                     with open(external_path, "rb") as f:
                         file_content = f.read()
-                        base64_content = base64.b64encode(file_content).decode('utf-8')
+                        base64_content = base64.b64encode(file_content).decode("utf-8")
                         result[filename] = base64_content
 
-                    PrintStyle().print(f"Retrieved file: {filename} ({len(file_content)} bytes)")
+                    PrintStyle().print(
+                        f"Retrieved file: {filename} ({len(file_content)} bytes)"
+                    )
 
                 except Exception as e:
                     PrintStyle.error(f"Failed to read file {path}: {str(e)}")
@@ -91,5 +94,5 @@ class ApiFilesGet(ApiHandler):
             return Response(
                 json.dumps({"error": f"Internal server error: {str(e)}"}),
                 status=500,
-                mimetype="application/json"
+                mimetype="application/json",
             )

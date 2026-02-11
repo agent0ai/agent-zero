@@ -9,6 +9,7 @@
 - If the history does not contain any helpful technical solutions, the response will be an empty JSON array.
 
 # Example
+
 ```json
 [
   {

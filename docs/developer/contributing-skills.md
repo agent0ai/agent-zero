@@ -240,11 +240,13 @@ python -m python.helpers.skills_cli validate my-awesome-skill
 The `description` field is crucial for semantic matching. Make it:
 
 **Good:**
+
 ```yaml
 description: "Guides systematic debugging of Python applications using print statements, debugger, and logging to identify root causes"
 ```
 
 **Bad:**
+
 ```yaml
 description: "Helps with debugging"
 ```
@@ -280,6 +282,7 @@ One skill = one expertise area. If your skill is getting too long, split it:
 ### Local Testing
 
 1. **Validate Structure:**
+
    ```bash
    python -m python.helpers.skills_cli validate my-skill
    ```
@@ -297,18 +300,21 @@ One skill = one expertise area. If your skill is getting too long, split it:
 ### Contributing to Agent Zero
 
 1. **Fork the Repository:**
+
    ```bash
    git clone https://github.com/agent0ai/agent-zero.git
    cd agent-zero
    ```
 
 2. **Create Your Skill:**
+
    ```bash
    python -m python.helpers.skills_cli create my-skill
    # Edit usr/skills/my-skill/SKILL.md
    ```
 
 3. **Move to Default (for contribution):**
+
    ```bash
    mv usr/skills/my-skill skills/my-skill
    ```

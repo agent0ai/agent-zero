@@ -20,6 +20,7 @@ For the following topics, no query is needed and return a single dash (-):
 - Greeting
 
 # Example
+
 ```json
 USER: "Write a song about my dog"
 AI: "user's dog"

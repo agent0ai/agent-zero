@@ -1,4 +1,8 @@
-import asyncio, random, string, threading
+import asyncio
+import random
+import string
+import threading
+
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -6,34 +10,32 @@ nest_asyncio.apply()
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Coroutine, Dict, Literal
 from enum import Enum
-import models
+from typing import Any, Awaitable, Callable, Coroutine, Dict, Literal
 
-from python.helpers import (
-    extract_tools,
-    files,
-    errors,
-    history,
-    tokens,
-    context as context_helper,
-    dirty_json,
-    subagents
-)
-from python.helpers.print_style import PrintStyle
-
+from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.prompts import (
     ChatPromptTemplate,
 )
-from langchain_core.messages import SystemMessage, BaseMessage
 
+import models
 import python.helpers.log as Log
-from python.helpers.dirty_json import DirtyJson
+from python.helpers import context as context_helper
+from python.helpers import (
+    dirty_json,
+    errors,
+    extract_tools,
+    files,
+    history,
+    subagents,
+    tokens,
+)
 from python.helpers.defer import DeferredTask
-from typing import Callable
-from python.helpers.localization import Localization
-from python.helpers.extension import call_extensions
+from python.helpers.dirty_json import DirtyJson
 from python.helpers.errors import RepairableException
+from python.helpers.extension import call_extensions
+from python.helpers.localization import Localization
+from python.helpers.print_style import PrintStyle
 
 
 class AgentContextType(Enum):
@@ -43,7 +45,6 @@ class AgentContextType(Enum):
 
 
 class AgentContext:
-
     _contexts: dict[str, "AgentContext"] = {}
     _contexts_lock = threading.RLock()
     _counter: int = 0
@@ -234,7 +235,9 @@ class AgentContext:
     def nudge(self):
         self.kill_process()
         self.paused = False
-        self.task = self.communicate(UserMessage(self.agent0.read_prompt("fw.msg_nudge.md")))
+        self.task = self.communicate(
+            UserMessage(self.agent0.read_prompt("fw.msg_nudge.md"))
+        )
         return self.task
 
     def get_agent(self):
@@ -279,7 +282,8 @@ class AgentContext:
                 agent.hist_add_user_message(msg)  # type: ignore
                 if user
                 else agent.hist_add_tool_result(
-                    tool_name="call_subordinate", tool_result=msg  # type: ignore
+                    tool_name="call_subordinate",
+                    tool_result=msg,  # type: ignore
                 )
             )
             response = await agent.monologue()  # type: ignore
@@ -354,7 +358,6 @@ class HandledException(Exception):
 
 
 class Agent:
-
     DATA_NAME_SUPERIOR = "_superior"
     DATA_NAME_SUBORDINATE = "_subordinate"
     DATA_NAME_CTX_WINDOW = "ctx_window"
@@ -393,7 +396,6 @@ class Agent:
 
                 # let the agent run message loop until he stops it with a response tool
                 while True:
-
                     self.context.streaming_agent = self  # mark self as current streamer
                     self.loop_data.iteration += 1
                     self.loop_data.params_temporary = {}  # clear temporary params
@@ -413,7 +415,6 @@ class Agent:
                             "before_main_llm_call", loop_data=self.loop_data
                         )
                         await self.handle_intervention()
-
 
                         async def reasoning_callback(chunk: str, full: str):
                             await self.handle_intervention()
@@ -510,7 +511,9 @@ class Agent:
 
                     finally:
                         # call message_loop_end extensions
-                        if self.context.task and self.context.task.is_alive(): # don't call extensions post mortem
+                        if (
+                            self.context.task and self.context.task.is_alive()
+                        ):  # don't call extensions post mortem
                             await self.call_extensions(
                                 "message_loop_end", loop_data=self.loop_data
                             )
@@ -521,14 +524,16 @@ class Agent:
                 pass  # just start over
             except Exception as e:
                 # Retry critical exceptions before failing
-                error_retries = await self.retry_critical_exception(
-                    e, error_retries
-                )
+                error_retries = await self.retry_critical_exception(e, error_retries)
             finally:
                 self.context.streaming_agent = None  # unset current streamer
                 # call monologue_end extensions
-                if self.context.task and self.context.task.is_alive(): # don't call extensions post mortem
-                    await self.call_extensions("monologue_end", loop_data=self.loop_data)  # type: ignore
+                if (
+                    self.context.task and self.context.task.is_alive()
+                ):  # don't call extensions post mortem
+                    await self.call_extensions(
+                        "monologue_end", loop_data=self.loop_data
+                    )  # type: ignore
 
     async def prepare_prompt(self, loop_data: LoopData) -> list[BaseMessage]:
         self.context.log.set_progress("Building prompt")
@@ -588,9 +593,11 @@ class Agent:
             self.handle_critical_exception(e)
 
         error_message = errors.format_error(e)
-        
+
         self.context.log.log(
-            type="warning", heading="Critical error occurred, retrying...", content=error_message
+            type="warning",
+            heading="Critical error occurred, retrying...",
+            content=error_message,
         )
         PrintStyle(font_color="orange", padding=True).print(
             "Critical error occurred, retrying..."
@@ -601,9 +608,7 @@ class Agent:
             "fw.msg_critical_error.md", error_message=error_message
         )
         self.hist_add_warning(message=agent_facing_error)
-        PrintStyle(font_color="orange", padding=True).print(
-            agent_facing_error
-        )
+        PrintStyle(font_color="orange", padding=True).print(agent_facing_error)
         return error_retries + 1
 
     def handle_critical_exception(self, exception: Exception):
@@ -853,7 +858,9 @@ class Agent:
         tool_request = extract_tools.json_parse_dirty(msg)
 
         if tool_request is not None:
-            raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
+            raw_tool_name = tool_request.get(
+                "tool_name", tool_request.get("tool", "")
+            )  # Get the raw tool name
             tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
 
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
@@ -976,8 +983,8 @@ class Agent:
         loop_data: LoopData | None,
         **kwargs,
     ):
-        from python.tools.unknown import Unknown
         from python.helpers.tool import Tool
+        from python.tools.unknown import Unknown
 
         classes = []
 

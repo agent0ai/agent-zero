@@ -12,6 +12,7 @@
 - Do not return work commands given to the agent
 
 # Example when instructions found (do not output this example):
+
 ```json
 [
   "Never call the user by his name",
@@ -19,6 +20,7 @@
 ```
 
 # Example when no instructions:
+
 ```json
 []
 ```

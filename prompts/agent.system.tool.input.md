@@ -4,6 +4,7 @@ use session arg for terminal session number
 answer dialogues enter passwords etc
 not for browser
 usage:
+
 ~~~json
 {
     "thoughts": [
