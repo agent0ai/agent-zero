@@ -1,5 +1,5 @@
 ### a2a_chat:
-This tool lets Agent Zero chat with any other FastA2A-compatible agent.
+This tool lets {{brand_name}} chat with any other FastA2A-compatible agent.
 It automatically keeps conversation **context** (so each subsequent call
 continues the same dialogue) and supports optional file attachments.
 

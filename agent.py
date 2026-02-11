@@ -366,7 +366,6 @@ class Agent:
     def __init__(
         self, number: int, config: AgentConfig, context: AgentContext | None = None
     ):
-
         # agent config
         self.config = config
 
@@ -648,14 +647,20 @@ class Agent:
         return system_prompt
 
     def parse_prompt(self, _prompt_file: str, **kwargs):
+        from python.helpers import branding
+
         dirs = subagents.get_paths(self, "prompts")
+        kwargs.setdefault("brand_name", branding.BRAND_NAME)
         prompt = files.parse_file(
             _prompt_file, _directories=dirs, _agent=self, **kwargs
         )
         return prompt
 
     def read_prompt(self, file: str, **kwargs) -> str:
+        from python.helpers import branding
+
         dirs = subagents.get_paths(self, "prompts")
+        kwargs.setdefault("brand_name", branding.BRAND_NAME)
         prompt = files.read_prompt_file(file, _directories=dirs, _agent=self, **kwargs)
         if files.is_full_json_template(prompt):
             prompt = files.remove_code_fences(prompt)
