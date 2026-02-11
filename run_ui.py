@@ -228,7 +228,9 @@ async def login_handler():
             error = "Invalid Credentials. Please try again."
 
     login_page_content = files.read_file("webui/login.html")
-    return render_template_string(login_page_content, error=error)
+    return render_template_string(
+        login_page_content, error=error, brand_name=branding.BRAND_NAME
+    )
 
 
 @webapp.route("/logout")
@@ -259,6 +261,40 @@ async def serve_index():
         logged_in=("true" if login.get_credentials_hash() else "false"),
     )
     return index
+
+
+@webapp.route("/manifest.json")
+async def manifest_json():
+    from python.helpers import branding
+    import json
+
+    manifest = {
+        "name": branding.BRAND_NAME,
+        "short_name": branding.BRAND_NAME,
+        "description": "Autonomous AI agent",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#1a1a1a",
+        "theme_color": "#333333",
+        "icons": [
+            {
+                "src": "/public/icon-maskable.svg",
+                "sizes": "any",
+                "type": "image/svg+xml",
+                "purpose": "maskable",
+            },
+            {
+                "src": "/public/icon.svg",
+                "sizes": "any",
+                "type": "image/svg+xml",
+                "purpose": "any",
+            },
+        ],
+    }
+    return Response(
+        json.dumps(manifest, indent=2),
+        mimetype="application/manifest+json",
+    )
 
 
 def _build_websocket_handlers_by_namespace(
