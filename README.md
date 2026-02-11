@@ -34,11 +34,7 @@ Or see DeepWiki generated documentation:
 
 # ⚙️ Installation
 
-Click to open a video to learn how to install Apollos AI:
-
-[![Easy Installation guide](/docs/res/easy_ins_vid.png)](https://www.youtube.com/watch?v=w5v5Kjx51hs)
-
-A detailed setup guide for Windows, macOS, and Linux with a video can be found in the Apollos AI Documentation at [this page](./docs/setup/installation.md).
+A detailed setup guide for Windows, macOS, and Linux can be found in the Apollos AI Documentation at [this page](./docs/setup/installation.md).
 
 ### ⚡ Quick Start
 
@@ -369,3 +365,7 @@ Default models set to gpt-4.1
 ## 🤝 Community and Support
 
 - [Report Issues](https://github.com/jrmatherly/apollos-ai/issues) for bug fixes and features
+
+## ❤️ Forked From
+
+- [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero)
