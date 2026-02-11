@@ -58,6 +58,7 @@ logging.getLogger().setLevel(logging.WARNING)
 # Set the new timezone to 'UTC'
 os.environ["TZ"] = "UTC"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 # Apply the timezone change
 if hasattr(time, "tzset"):
     time.tzset()

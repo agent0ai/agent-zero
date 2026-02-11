@@ -104,7 +104,7 @@ chat:
       api_base: https://api.z.ai/api/coding/paas/v4
   litellm_proxy:
     name: LiteLLM Proxy
-    litellm_provider: openai
+    litellm_provider: litellm_proxy
     kwargs:
       api_base: http://localhost:4000/v1
       drop_params: true
@@ -150,7 +150,7 @@ embedding:
         "X-Title": "Apollos AI"
   litellm_proxy:
     name: LiteLLM Proxy
-    litellm_provider: openai
+    litellm_provider: litellm_proxy
     kwargs:
       api_base: http://localhost:4000/v1
       drop_params: true
