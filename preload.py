@@ -7,7 +7,7 @@ from python.helpers.print_style import PrintStyle
 
 async def preload():
     try:
-        set = settings.get_default_settings()
+        set = settings.get_settings()
 
         # preload whisper model
         async def preload_whisper():

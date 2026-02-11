@@ -931,17 +931,18 @@ def _merge_provider_defaults(
     if cfg:
         provider_name = cfg.get("litellm_provider", original_provider).lower()
 
-        # Extra arguments nested under `kwargs` for readability
-        extra_kwargs = cfg.get("kwargs") if isinstance(cfg, dict) else None  # type: ignore[arg-type]
-        if isinstance(extra_kwargs, dict):
-            for k, v in extra_kwargs.items():
-                kwargs.setdefault(k, v)
-
-    # Inject api_base from {PROVIDER}_API_BASE env var if still missing
+    # Inject api_base from {PROVIDER}_API_BASE env var (highest priority override)
     if "api_base" not in kwargs:
         env_base = os.environ.get(f"{original_provider.upper()}_API_BASE", "")
         if env_base:
             kwargs["api_base"] = env_base
+
+    # YAML kwargs fill remaining gaps (lower priority than env vars)
+    if cfg:
+        extra_kwargs = cfg.get("kwargs") if isinstance(cfg, dict) else None  # type: ignore[arg-type]
+        if isinstance(extra_kwargs, dict):
+            for k, v in extra_kwargs.items():
+                kwargs.setdefault(k, v)
 
     # Inject API key based on the *original* provider id if still missing
     if "api_key" not in kwargs:
