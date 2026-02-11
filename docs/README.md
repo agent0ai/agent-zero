@@ -19,6 +19,10 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 - **[A2A Setup](guides/a2a-setup.md):** Enable agent-to-agent communication.
 - **[Troubleshooting](guides/troubleshooting.md):** Solutions to common issues and FAQs.
 
+## Reference
+
+- **[Environment Variables](reference/environment-variables.md):** Complete catalog of all environment variables, API keys, and settings overrides.
+
 ## Developer Documentation
 
 - **[Architecture Overview](developer/architecture.md):** Understand Agent Zero's internal structure and components.
@@ -91,6 +95,9 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
   - [MCP Setup](guides/mcp-setup.md)
   - [A2A Setup](guides/a2a-setup.md)
   - [Troubleshooting](guides/troubleshooting.md)
+
+- [Reference](#reference)
+  - [Environment Variables](reference/environment-variables.md)
 
 - [Developer Documentation](#developer-documentation)
   - [Architecture Overview](developer/architecture.md)

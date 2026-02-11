@@ -38,7 +38,7 @@ chat:
     litellm_provider: github_copilot
     kwargs:
       extra_headers:
-        "Editor-Version": "vscode/1.85.1"
+        "Editor-Version": "vscode/1.109.2"
         "Copilot-Integration-Id": "vscode-chat"
         "Copilot-Vision-Request": "true"
   google:
@@ -76,7 +76,7 @@ chat:
     litellm_provider: openrouter
     kwargs:
       extra_headers:
-        "HTTP-Referer": "https://agent-zero.ai/"
+        "HTTP-Referer": "https://matherly.net/"
         "X-Title": "Agent Zero"
   sambanova:
     name: Sambanova
@@ -101,9 +101,17 @@ chat:
     litellm_provider: openai
     kwargs:
       api_base: https://api.z.ai/api/coding/paas/v4
+  litellm_proxy:
+    name: LiteLLM Proxy
+    litellm_provider: openai
+    kwargs:
+      api_base: http://localhost:4000/v1
+      drop_params: true
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
+    kwargs:
+      drop_params: true
 
 embedding:
   huggingface:
@@ -137,8 +145,16 @@ embedding:
     kwargs:
       api_base: https://openrouter.ai/api/v1
       extra_headers:
-        "HTTP-Referer": "https://agent-zero.ai/"
+        "HTTP-Referer": "https://matherly.net/"
         "X-Title": "Agent Zero"
+  litellm_proxy:
+    name: LiteLLM Proxy
+    litellm_provider: openai
+    kwargs:
+      api_base: http://localhost:4000/v1
+      drop_params: true
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
+    kwargs:
+      drop_params: true

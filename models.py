@@ -31,8 +31,6 @@ from langchain_core.messages import (
 from langchain_core.outputs.chat_generation import ChatGenerationChunk
 from litellm import acompletion, completion, embedding
 from pydantic import ConfigDict
-from sentence_transformers import SentenceTransformer
-
 from python.helpers import browser_use_monkeypatch, dirty_json, dotenv, settings
 from python.helpers.dotenv import load_dotenv
 from python.helpers.providers import ModelType as ProviderModelType
@@ -199,6 +197,8 @@ class ChatGenerationResult:
                 response += self.unprocessed
         return ChatChunk(response_delta=response, reasoning_delta=reasoning)
 
+
+EMBEDDING_BATCH_SIZE = 16  # Conservative for Azure OpenAI compatibility
 
 rate_limiters: dict[str, RateLimiter] = {}
 api_keys_round_robin: dict[str, int] = {}
@@ -470,7 +470,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
         ) = None,
         **kwargs: Any,
     ) -> Tuple[str, str]:
-
         turn_off_logging()
 
         if not messages:
@@ -722,11 +721,16 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
 
-        resp = embedding(model=self.model_name, input=texts, **self.kwargs)
-        return [
-            item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
-            for item in resp.data  # type: ignore
-        ]
+        all_embeddings: List[List[float]] = []
+        for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+            batch = texts[i : i + EMBEDDING_BATCH_SIZE]
+            resp = embedding(model=self.model_name, input=batch, **self.kwargs)
+            batch_embeddings = [
+                item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
+                for item in resp.data  # type: ignore
+            ]
+            all_embeddings.extend(batch_embeddings)
+        return all_embeddings
 
     def embed_query(self, text: str) -> List[float]:
         # Apply rate limiting if configured
@@ -747,6 +751,8 @@ class LocalSentenceTransformerWrapper(Embeddings):
         model_config: Optional[ModelConfig] = None,
         **kwargs: Any,
     ):
+        from sentence_transformers import SentenceTransformer  # lazy import
+
         # Clean common user-input mistakes
         model = model.strip().strip('"').strip("'")
 
@@ -924,6 +930,12 @@ def _merge_provider_defaults(
         if isinstance(extra_kwargs, dict):
             for k, v in extra_kwargs.items():
                 kwargs.setdefault(k, v)
+
+    # Inject api_base from {PROVIDER}_API_BASE env var if still missing
+    if "api_base" not in kwargs:
+        env_base = os.environ.get(f"{original_provider.upper()}_API_BASE", "")
+        if env_base:
+            kwargs["api_base"] = env_base
 
     # Inject API key based on the *original* provider id if still missing
     if "api_key" not in kwargs:

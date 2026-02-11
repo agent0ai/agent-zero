@@ -42,8 +42,9 @@ Agent Zero is a personal, organic agentic AI framework that grows and learns wit
 - `skills/` — SKILL.md standard skills (portable agent capabilities)
 - `tests/` — 28 pytest test files
 - `docker/` — Docker build scripts (base image + run scripts)
-- `docs/` — 20 documentation files
+- `docs/` — 21 documentation files (includes reference/environment-variables.md)
 - `conf/` — Runtime configuration (model_providers.yaml)
+- `docs/reference/` — Reference documentation (environment-variables.md)
 - `.drift/` — DriftDetect analysis artifacts (patterns, indexes, views, audit)
 - `.github/workflows/` — CI/CD workflows
 

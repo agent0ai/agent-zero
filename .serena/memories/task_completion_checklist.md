@@ -21,7 +21,7 @@ When completing a development task on Agent Zero:
 ## Structural Checks
 7. **Auto-discovery**: If adding new tools/API handlers/WS handlers, ensure they follow naming and class conventions for auto-discovery
 8. **Extension hooks**: If modifying agent loop behavior, verify extension hooks are not broken
-9. **Environment variables**: If adding new config, consider `A0_SET_` prefix convention and update settings.py
+9. **Environment variables**: If adding new config, consider `A0_SET_` prefix convention, update settings.py, and add to `docs/reference/environment-variables.md` and `usr/.env.example`
 
 ## Dependency Changes
 10. **Add deps via**: `mise run deps:add <pkg>` (updates pyproject.toml + regenerates requirements.txt)

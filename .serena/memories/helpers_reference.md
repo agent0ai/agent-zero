@@ -19,7 +19,7 @@
 | `rate_limiter.py` | Sliding window rate limiting per provider/model |
 | `providers.py` | Provider configuration registry |
 | `browser_use_monkeypatch.py` | Compatibility patches for browser-use |
-| `dotenv.py` | .env loading with validation |
+| `dotenv.py` | .env loading with validation (see `docs/reference/environment-variables.md`) |
 
 ### Shell & Execution (5)
 | Module | Purpose |

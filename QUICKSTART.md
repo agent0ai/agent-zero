@@ -19,15 +19,16 @@ This runs `uv sync --group dev`, installs Chromium for browser automation, and c
 
 ## 2. Configure
 
-Create a `.env` file in the project root with your API keys:
+Copy the example env file and add your API keys:
 
-```env
-A0_SET_chat_model_provider=anthropic
-A0_SET_chat_model_name=claude-sonnet-4-5
-A0_SET_chat_model_ctx_length=200000
+```bash
+cp usr/.env.example usr/.env
+# Edit usr/.env with your API keys and model preferences
 ```
 
 Or skip this and configure via the web UI after starting (Settings > API Keys).
+
+See `docs/reference/environment-variables.md` for the complete variable catalog.
 
 Supported providers: Anthropic, OpenAI, OpenRouter, Ollama (local), and [many more via LiteLLM](https://docs.litellm.ai/docs/providers).
 
@@ -139,7 +140,7 @@ This generates a changelog (git-cliff from conventional commits) and creates a G
 | `python/helpers/` | Utility modules |
 | `prompts/` | System prompt templates |
 | `webui/` | Frontend (Alpine.js) |
-| `.env` | Environment/API config (gitignored) |
+| `usr/.env` | Environment/API config (gitignored, see `usr/.env.example`) |
 | `pyproject.toml` | Python dependencies (source of truth) |
 | `mise.toml` | Task runner + tool definitions |
 

@@ -12,6 +12,7 @@ from python.helpers.dirty_json import DirtyJson
 from python.helpers.log import LogItem
 from python.helpers.memory import Memory
 from python.helpers.print_style import PrintStyle
+from python.helpers.settings import get_default_value
 from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
@@ -38,7 +39,9 @@ class ConsolidationConfig:
     keyword_extraction_msg_prompt: str = "memory.keyword_extraction.msg.md"
     processing_timeout_seconds: int = 60
     # Add safety threshold for REPLACE actions
-    replace_similarity_threshold: float = 0.9  # Higher threshold for replacement safety
+    replace_similarity_threshold: float = get_default_value(
+        "consolidation_replace_threshold", 0.75
+    )
 
 
 @dataclass

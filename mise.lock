@@ -1,0 +1,56 @@
+[[tools.biome]]
+version = "2.3.14"
+backend = "aqua:biomejs/biome"
+"platforms.linux-arm64" = { checksum = "sha256:df9d22d1b672650d9a5cac5dce39874df29ca9396a73d3871dcb657b02ac557e", url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.3.14/biome-linux-arm64"}
+"platforms.linux-x64" = { checksum = "sha256:8315b1d0221c3d7ffa8c43899928d0fe3fa910e8e4aa07381576f420ea02f2e6", url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.3.14/biome-linux-x64"}
+"platforms.macos-arm64" = { checksum = "sha256:b9b7870b0890e9a21f954aed6c85b062eb596dab669f5a6d6bc5752a1ffb03a5", url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.3.14/biome-darwin-arm64"}
+"platforms.macos-x64" = { checksum = "sha256:bd07b6499711e508473d9b6e167ff593fe197e46cf811002266a0e6217c95867", url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.3.14/biome-darwin-x64"}
+"platforms.windows-x64" = { checksum = "sha256:b53639d382f224ab341655b5864871f367ae735080585b15c44251037146459b", url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.3.14/biome-win32-x64.exe"}
+
+[[tools.git-cliff]]
+version = "2.12.0"
+backend = "aqua:orhun/git-cliff"
+"platforms.linux-arm64" = { checksum = "sha256:a2d262b389aed349e0564aaaa38a44015c98a951048923b086d6cf732f6dbbaf", url = "https://github.com/orhun/git-cliff/releases/download/v2.12.0/git-cliff-2.12.0-aarch64-unknown-linux-musl.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:c89a7bc55f3c51f391938aa3fa560125109695c1930d927879daea68dd786420", url = "https://github.com/orhun/git-cliff/releases/download/v2.12.0/git-cliff-2.12.0-x86_64-unknown-linux-musl.tar.gz"}
+"platforms.macos-arm64" = { checksum = "sha256:2ae72a0061bee98d0e375f2ea8e0f4b23b4915ac2e37fa45a705066de49b43a0", url = "https://github.com/orhun/git-cliff/releases/download/v2.12.0/git-cliff-2.12.0-aarch64-apple-darwin.tar.gz"}
+"platforms.macos-x64" = { checksum = "sha256:fd4bce35ea8a6f3af6ac4891073781ca24c654c36c83c865bc30bab332c05a14", url = "https://github.com/orhun/git-cliff/releases/download/v2.12.0/git-cliff-2.12.0-x86_64-apple-darwin.tar.gz"}
+"platforms.windows-x64" = { checksum = "sha256:f2b8c692d9488c3313d7786e2099976151c10fd8f76580b12d045bb9683a8379", url = "https://github.com/orhun/git-cliff/releases/download/v2.12.0/git-cliff-2.12.0-x86_64-pc-windows-msvc.zip"}
+
+[[tools.hk]]
+version = "1.35.0"
+backend = "aqua:jdx/hk"
+"platforms.linux-arm64" = { checksum = "sha256:e51d6404b59b2cebba411bf3900f93e81fb7ad807b7faaf8916c64c6fb327328", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-aarch64-unknown-linux-gnu.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:1e2b7642c099faa4df20b4591059826529d7dafaed9dac98cd2212317c7c071e", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-x86_64-unknown-linux-gnu.tar.gz"}
+"platforms.macos-arm64" = { checksum = "sha256:ace34e486adc4fe22419e55ff14bacfe9a49deab47d6fba87138160bc0a6ee47", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-aarch64-apple-darwin.tar.gz"}
+"platforms.windows-x64" = { checksum = "sha256:204789f5fa33600eecd8ac0c9ac13ebf4834d9512f9840d66cc0db8251e8d57d", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-x86_64-pc-windows-msvc.zip"}
+
+[[tools.pkl]]
+version = "0.30.2"
+backend = "aqua:apple/pkl"
+"platforms.linux-arm64" = { checksum = "sha256:8da3ae65104eb7058e35dc4a9fe46bd8ece2b6faf4b65d0b1054cadb2ede0246", url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-linux-aarch64"}
+"platforms.linux-x64" = { checksum = "sha256:474e5137d60a9e2320fde19a526f42c36d8e9d3b245139d59a9b8dff85283c76", url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-linux-amd64"}
+"platforms.macos-arm64" = { checksum = "sha256:f1db44c0f6f859aee88c9d7d272f2371ae40ac95ec9957ae78eff51665158e04", url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-macos-aarch64"}
+"platforms.macos-x64" = { checksum = "sha256:5f62ae7a7a34c15b3a83af17bda8e6b98516953f383a492340d4aa090caaa6d9", url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-macos-amd64"}
+"platforms.windows-x64" = { checksum = "sha256:19e92aa59bcf4e54963b6e3b419af7e1b939f5793b44f4a08d60bab1217106f4", url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-windows-amd64.exe"}
+
+[[tools.python]]
+version = "3.12.12"
+backend = "core:python"
+
+[[tools.ruff]]
+version = "0.14.14"
+backend = "aqua:astral-sh/ruff"
+"platforms.linux-arm64" = { checksum = "sha256:a4d7302aa201a6f8e71dfa217cd8273fddd4e434a93ee3b4b07047fd7a684ac1", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-aarch64-unknown-linux-musl.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:55a1ee65f5ac9416cc40f99c2df62f0d4525d40369fe371caff945c495174d57", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-x86_64-unknown-linux-musl.tar.gz"}
+"platforms.macos-arm64" = { checksum = "sha256:76a9b0ebe57d0eee56940dbe0b62462578d1369cca8314ed0d2a6f2102292d4f", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-aarch64-apple-darwin.tar.gz"}
+"platforms.macos-x64" = { checksum = "sha256:749396c675c6f07205be6c4ef89e2e95123d790062d681059a355030e9d7d119", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-x86_64-apple-darwin.tar.gz"}
+"platforms.windows-x64" = { checksum = "sha256:81bfeed34f15296e6c81ecea912b6fff4430b957de8a1181ce9365434e3d6744", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-x86_64-pc-windows-msvc.zip"}
+
+[[tools.uv]]
+version = "0.10.2"
+backend = "aqua:astral-sh/uv"
+"platforms.linux-arm64" = { checksum = "sha256:685e47f8f88b6845a9fc2ca27c3d246c0f53af8c017daf8e98ac0a97fe20365b", url = "https://github.com/astral-sh/uv/releases/download/0.10.2/uv-aarch64-unknown-linux-musl.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:c162182ba7dd692794362d76dd183990d6e51553217954106da19bdb6ced211b", url = "https://github.com/astral-sh/uv/releases/download/0.10.2/uv-x86_64-unknown-linux-musl.tar.gz"}
+"platforms.macos-arm64" = { checksum = "sha256:3828b2de196687f60e9d199aea8b504299629300831eea0935ff3fe339903d0a", url = "https://github.com/astral-sh/uv/releases/download/0.10.2/uv-aarch64-apple-darwin.tar.gz"}
+"platforms.macos-x64" = { checksum = "sha256:3cdbd038333cfe861ce04f3d91678547bf2e726224acf5f42d3f0affa6740e19", url = "https://github.com/astral-sh/uv/releases/download/0.10.2/uv-x86_64-apple-darwin.tar.gz"}
+"platforms.windows-x64" = { checksum = "sha256:493ebbe0e06128d6ee4905e1ed5e2a433fb0f7cfc08b0eaca9fab4ca76778ae1", url = "https://github.com/astral-sh/uv/releases/download/0.10.2/uv-x86_64-pc-windows-msvc.zip"}

@@ -521,11 +521,13 @@ For developers or users who need to run Agent Zero directly on their system, see
 
 ## Advanced: Automated Configuration via Environment Variables
 
-Agent Zero settings can be automatically configured using environment variables with the `A0_SET_` prefix in your `.env` file. This enables automated deployments without manual configuration.
+Agent Zero settings can be automatically configured using environment variables with the `A0_SET_` prefix in `usr/.env`. This enables automated deployments without manual configuration. An annotated example file is provided at `usr/.env.example`.
+
+For the complete catalog of all environment variables, see the [Environment Variables Reference](../reference/environment-variables.md).
 
 **Usage:**
 
-Add variables to your `.env` file in the format:
+Add variables to your `usr/.env` file in the format:
 
 ```env
 A0_SET_{setting_name}={value}

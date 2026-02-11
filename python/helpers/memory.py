@@ -20,6 +20,7 @@ from langchain_core.documents import Document
 from simpleeval import simple_eval
 
 import models
+from models import EMBEDDING_BATCH_SIZE
 from agent import Agent, AgentContext
 
 # faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
@@ -151,6 +152,7 @@ class Memory:
         embeddings_model = models.get_embedding_model(
             model_config.provider,
             model_config.name,
+            model_config=model_config,
             **model_config.build_kwargs(),
         )
         embeddings_model_id = files.safe_file_name(
@@ -185,8 +187,9 @@ class Memory:
             if files.exists(emb_set_file):
                 embedding_set = json.loads(files.read_file(emb_set_file))
                 if (
-                    embedding_set["model_provider"] == model_config.provider
-                    and embedding_set["model_name"] == model_config.name
+                    embedding_set.get("model_provider") == model_config.provider
+                    and embedding_set.get("model_name") == model_config.name
+                    and embedding_set.get("model_kwargs", {}) == model_config.kwargs
                 ):
                     # model matches
                     emb_ok = True
@@ -215,7 +218,16 @@ class Memory:
                 PrintStyle.standard("Indexing memories...")
                 if log_item:
                     log_item.stream(progress="\nIndexing memories")
-                db.add_documents(documents=list(docs.values()), ids=list(docs.keys()))
+                doc_list = list(docs.values())
+                id_list = list(docs.keys())
+                for i in range(0, len(doc_list), EMBEDDING_BATCH_SIZE):
+                    batch_docs = doc_list[i : i + EMBEDDING_BATCH_SIZE]
+                    batch_ids = id_list[i : i + EMBEDDING_BATCH_SIZE]
+                    db.add_documents(documents=batch_docs, ids=batch_ids)
+                    if log_item:
+                        log_item.stream(
+                            progress=f"\nIndexed {min(i + EMBEDDING_BATCH_SIZE, len(doc_list))}/{len(doc_list)} memories"
+                        )
 
             # save DB
             Memory._save_db_file(db, memory_subdir)
@@ -227,6 +239,7 @@ class Memory:
                     {
                         "model_provider": model_config.provider,
                         "model_name": model_config.name,
+                        "model_kwargs": model_config.kwargs,
                     }
                 ),
             )

@@ -80,6 +80,7 @@ docker run -p 50001:80 agent-zero-local
 ```
 
 ## Environment
-- Configuration via `.env` file and `A0_SET_` environment variables
+- Configuration via `usr/.env` file and `A0_SET_` environment variables (see `usr/.env.example` for template)
+- Full variable catalog: `docs/reference/environment-variables.md`
 - Settings managed through `python/helpers/settings.py`
 - Web UI available at http://localhost:50001 (Docker) or configured port

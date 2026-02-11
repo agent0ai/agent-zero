@@ -1,6 +1,7 @@
 # Ignore common unwanted files globally
 **/.DS_Store
 **/.env
+!**/.env.example
 **/__pycache__/
 *.py[cod]
 **/.conda/
@@ -11,10 +12,12 @@
 
 # ignore test files in root dir
 /*.test.py
+.coverage
 
 # ignore ruff and pytest cache
 .ruff_cache/
 .pytest_cache/
+.coverage
 
 # mise local overrides
 mise.local.toml
@@ -36,6 +39,7 @@ tmp/**
 !tmp/**/
 usr/**
 !usr/**/
+!usr/.env.example
 
 # Handle knowledge directory
 

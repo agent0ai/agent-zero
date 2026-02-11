@@ -23,13 +23,14 @@ from langchain_core.documents import Document
 from langchain.schema import SystemMessage, HumanMessage
 
 from python.helpers.print_style import PrintStyle
+from python.helpers.settings import get_default_value
 from python.helpers import files, errors
 from agent import Agent
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 
-DEFAULT_SEARCH_THRESHOLD = 0.5
+DEFAULT_SEARCH_THRESHOLD = get_default_value("document_search_threshold", 0.35)
 
 
 class DocumentQueryStore:
