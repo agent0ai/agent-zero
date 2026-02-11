@@ -47,8 +47,8 @@ A detailed setup guide for Windows, macOS, and Linux with a video can be found i
 ```bash
 # Pull and run with Docker
 
-docker pull jrmatherly/agent-zero
-docker run -p 50001:80 jrmatherly/agent-zero
+docker pull ghcr.io/jrmatherly/agent-zero
+docker run -p 50001:80 ghcr.io/jrmatherly/agent-zero
 
 # Visit http://localhost:50001 to start
 ```

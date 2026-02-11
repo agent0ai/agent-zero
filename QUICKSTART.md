@@ -42,8 +42,8 @@ Open `http://localhost:5000` (or the port shown in terminal output). Configure y
 **Code execution requires Docker.** The agent executes code inside a container. Start a Docker instance alongside your local dev server:
 
 ```bash
-docker pull jrmatherly/agent-zero
-docker run -p 8880:80 -p 8822:22 jrmatherly/agent-zero
+docker pull ghcr.io/jrmatherly/agent-zero
+docker run -p 8880:80 -p 8822:22 ghcr.io/jrmatherly/agent-zero
 ```
 
 Then in the web UI: Settings > Development > set RFC password (same on both instances), SSH port `8822`, HTTP port `8880`.
@@ -54,7 +54,7 @@ For a self-contained deployment without a local dev environment:
 
 ```bash
 # Pull and run
-docker run -p 50080:80 -v ./agent-zero-data:/a0/usr jrmatherly/agent-zero
+docker run -p 50080:80 -v ./agent-zero-data:/a0/usr ghcr.io/jrmatherly/agent-zero
 
 # Or use Docker Compose
 cd docker/run
@@ -105,11 +105,11 @@ Server requirements: 2+ GB RAM, 20+ GB storage, Docker Engine 24.0+.
 
 ```bash
 # On the server
-docker pull jrmatherly/agent-zero
+docker pull ghcr.io/jrmatherly/agent-zero
 docker run -d --restart unless-stopped \
   -p 50080:80 \
   -v /opt/agent-zero/usr:/a0/usr \
-  jrmatherly/agent-zero
+  ghcr.io/jrmatherly/agent-zero
 ```
 
 Set up a reverse proxy (Apache/Nginx) with SSL for production. Enable WebSocket proxying for Socket.IO. Set authentication in Settings > Authentication before exposing to the internet.

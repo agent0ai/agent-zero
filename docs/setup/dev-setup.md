@@ -109,7 +109,7 @@ After inserting my API key in settings, my Agent Zero instance works. I can send
 - Some parts of A0 require standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
 - To make development easier, we can use existing A0 instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
 
-1. Pull the docker image `jrmatherly/agent-zero` from Docker Hub and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
+1. Pull the docker image `ghcr.io/jrmatherly/agent-zero` from GHCR and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
 If you want, you can also map the `/a0` folder to our local project folder as well, this way we can update our local instance and the docker instance at the same time.
 This is how it looks in my example: port `80` is mapped to `8880` on the host and `22` to `8822`, `/a0` folder mapped to `/Users/frdel/Desktop/agent-zero`:
 
@@ -166,8 +166,48 @@ A0_SET_memory_recall_interval=5
 
 These environment variables automatically override the hardcoded defaults in `get_default_settings()` without modifying code. Useful for testing different configurations or multi-environment setups.
 
-## Want to build your docker image?
-- You can use the `DockerfileLocal` to build your docker image.
-- Navigate to your project root in the terminal and run `docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .`
-- The `CACHE_DATE` argument is optional, it is used to cache most of the build process and only rebuild the last steps when the files or dependencies change.
-- See `docker/run/build.txt` for more build command examples.
+## Building Docker Images
+
+### Local Build
+
+Build a local image from your working tree:
+
+```bash
+docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+```
+
+The `CACHE_DATE` argument is optional — it caches most of the build and only rebuilds the last steps when files change.
+
+### Pushing to GHCR (GitHub Container Registry)
+
+Images are hosted on GHCR at `ghcr.io/jrmatherly/agent-zero` and `ghcr.io/jrmatherly/agent-zero-base`.
+
+**1. Create a GitHub Personal Access Token (PAT)**
+
+Go to **GitHub > Settings > Developer settings > Personal access tokens > Tokens (classic)** and create a token with `write:packages` and `read:packages` scopes.
+
+**2. Authenticate to GHCR**
+
+```bash
+export GITHUB_TOKEN="ghp_YOUR_TOKEN_HERE"
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u jrmatherly --password-stdin
+```
+
+**3. Build and push the base image** (from `docker/base/`):
+
+```bash
+docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest \
+  --platform linux/amd64,linux/arm64 --push \
+  --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+```
+
+**4. Build and push the app image** (from `docker/run/`):
+
+```bash
+docker buildx build -t ghcr.io/jrmatherly/agent-zero:latest \
+  --platform linux/amd64,linux/arm64 --push \
+  --build-arg BRANCH=main \
+  --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+```
+
+See `docker/base/build.txt` and `docker/run/build.txt` for additional build variants (development, testing, no-cache).
