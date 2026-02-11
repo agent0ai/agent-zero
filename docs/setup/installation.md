@@ -1,9 +1,5 @@
 # Installation Guide
 
-Click to open a video to learn how to install Apollos AI:
-
-[![Easy Installation guide](../res/easy_ins_vid.png)](https://www.youtube.com/watch?v=w5v5Kjx51hs)
-
 ## **Goal:** Go from zero to a first working chat with minimal setup.
 
 ## Step 1: Install Docker Desktop
@@ -583,4 +579,4 @@ After following the instructions for your specific operating system, you should 
 - For development setup and extensions, see the [Development Setup Guide](dev-setup.md)
 - For remote access via tunnel, see [Remote Access via Tunneling](../guides/usage.md#remote-access-via-tunneling)
 
-If you encounter any issues during the installation process, please consult the [Troubleshooting section](../guides/troubleshooting.md) of this documentation or refer to the Apollos AI [Skool](https://www.skool.com/apollos-ai) or [Discord](https://discord.gg/B8KZKNsPpj) community for assistance.
+If you encounter any issues during the installation process, please consult the [Troubleshooting section](../guides/troubleshooting.md) of this documentation.
