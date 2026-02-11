@@ -121,7 +121,6 @@ def _truncate_value(val: T) -> T:
 
 
 def _truncate_content(text: str | None, type: Type) -> str:
-
     max_len = CONTENT_MAX_LEN if type != "response" else RESPONSE_CONTENT_MAX_LEN
 
     if text is None:

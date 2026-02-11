@@ -40,7 +40,6 @@ def format_remaining_time(total_seconds: float) -> str:
 
 
 async def managed_wait(agent, target_time, is_duration_wait, log, get_heading_callback):
-
     while datetime.now(timezone.utc) < target_time:
         before_intervention = datetime.now(timezone.utc)
         await agent.handle_intervention()

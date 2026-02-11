@@ -20,7 +20,6 @@ def calculate_valid_match_lengths(
     ignore_patterns: list[bytes | str] = [],
     debug: bool = False,
 ) -> tuple[int, int]:
-
     first_length = len(first)
     second_length = len(second)
 

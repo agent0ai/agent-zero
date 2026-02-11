@@ -8,7 +8,6 @@ class WorkdirPath(VariablesPlugin):
     def get_variables(
         self, file: str, backup_dirs: list[str] | None = None, **kwargs
     ) -> dict[str, Any]:
-
         # agent = kwargs.get("_agent")
         # if agent and getattr(agent, "context", None):
         #     project_name = projects.get_context_project_name(agent.context)

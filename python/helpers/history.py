@@ -201,7 +201,6 @@ class Topic(Record):
         return compress
 
     async def compress_attention(self) -> bool:
-
         if len(self.messages) > 2:
             cnt_to_sum = math.ceil((len(self.messages) - 2) * TOPIC_COMPRESS_RATIO)
             msg_to_sum = self.messages[1 : cnt_to_sum + 1]

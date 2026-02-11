@@ -9,7 +9,6 @@ from python.helpers.extension import Extension
 
 class LogFromStream(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), text: str = "", **kwargs):
-
         # thought length indicator
         length = f"({len(text)})" if text else ""
         pipes = "|" * math.ceil(math.sqrt(len(text)) / 2)

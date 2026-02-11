@@ -129,7 +129,6 @@ class Memory:
         memory_subdir: str,
         in_memory=False,
     ) -> tuple[MyFaiss, bool]:
-
         PrintStyle.standard("Initializing VectorDB...")
 
         if log_item:

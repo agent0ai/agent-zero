@@ -641,7 +641,6 @@ def safe_file_name(filename: str) -> str:
 def read_text_files_in_dir(
     dir_path: str, max_size: int = 1024 * 1024, pattern: str = "*"
 ) -> dict[str, str]:
-
     abs_path = get_abs_path(dir_path)
     if not os.path.exists(abs_path):
         return {}

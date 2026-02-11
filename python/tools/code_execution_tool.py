@@ -61,7 +61,6 @@ class CodeExecution(Tool):
     ]
 
     async def execute(self, **kwargs) -> Response:
-
         await (
             self.agent.handle_intervention()
         )  # wait for intervention and handle it, if paused
@@ -206,7 +205,6 @@ class CodeExecution(Tool):
         prefix: str = "",
         timeouts: dict | None = None,
     ):
-
         self.state = await self.prepare_state(reset=reset, session=session)
 
         await (
@@ -279,7 +277,6 @@ class CodeExecution(Tool):
         prefix="",
         timeouts: dict | None = None,
     ):
-
         # if not self.state:
         self.state = await self.prepare_state(session=session)
 

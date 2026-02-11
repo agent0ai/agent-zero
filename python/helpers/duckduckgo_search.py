@@ -16,7 +16,6 @@ from duckduckgo_search import DDGS
 
 
 def search(query: str, results=5, region="wt-wt", time="y") -> list[str]:
-
     ddgs = DDGS()
     src = ddgs.text(
         query,

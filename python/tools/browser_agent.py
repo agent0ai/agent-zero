@@ -382,7 +382,6 @@ class BrowserAgent(Tool):
             try:
 
                 async def _get_update():
-
                     # await agent.wait_if_paused() # no need here
 
                     # Build short activity log

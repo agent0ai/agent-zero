@@ -16,7 +16,6 @@ class LogFromStream(Extension):
         parsed: dict = {},
         **kwargs,
     ):
-
         heading = build_default_heading(self.agent)
         if "headline" in parsed:
             heading = build_heading(self.agent, parsed["headline"])

@@ -74,6 +74,10 @@ dev = [
 # Override browser-use's pin on openai==1.99.2; litellm needs >=1.99.5
 override-dependencies = ["openai==1.99.5"]
 
+[tool.ruff.lint.per-file-ignores]
+# Tests manipulate sys.path before importing project modules
+"tests/*" = ["E402"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

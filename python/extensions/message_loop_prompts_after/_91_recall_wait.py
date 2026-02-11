@@ -13,7 +13,6 @@ from python.helpers.extension import Extension
 
 class RecallWait(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-
         set = settings.get_settings()
 
         task = self.agent.get_data(DATA_NAME_TASK_MEMORIES)

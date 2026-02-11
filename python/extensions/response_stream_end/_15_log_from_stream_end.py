@@ -10,7 +10,6 @@ class LogFromStream(Extension):
         parsed: dict = {},
         **kwargs,
     ):
-
         # get log item from loop data temporary params
         log_item = loop_data.params_temporary["log_item_generating"]
         if log_item is None:

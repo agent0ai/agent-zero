@@ -4,7 +4,6 @@ from python.helpers.extension import Extension
 
 class IncludeAgentInfo(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-
         # read prompt
         agent_info_prompt = self.agent.read_prompt(
             "agent.extras.agent_info.md",

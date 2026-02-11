@@ -30,7 +30,6 @@ class MemorizeMemories(Extension):
         return task
 
     async def memorize(self, loop_data: LoopData, log_item: LogItem, **kwargs):
-
         try:
             set = settings.get_settings()
 

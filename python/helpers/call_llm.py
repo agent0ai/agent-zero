@@ -22,7 +22,6 @@ async def call_llm(
     examples: list[Example] = [],
     callback: Callable[[str], None] | None = None,
 ):
-
     example_prompt = ChatPromptTemplate.from_messages(
         [
             HumanMessage(content="{input}"),

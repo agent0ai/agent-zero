@@ -44,7 +44,6 @@ def get_skills_base_dir() -> Path:
 def get_skill_roots(
     agent: Agent | None = None,
 ) -> List[str]:
-
     if agent:
         # skill roots available to agent
         paths = subagents.get_paths(agent, "skills")

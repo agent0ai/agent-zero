@@ -10,7 +10,6 @@ class BuidToolsPrompt(VariablesPlugin):
     def get_variables(
         self, file: str, backup_dirs: list[str] | None = None, **kwargs
     ) -> dict[str, Any]:
-
         # collect all prompt folders in order of their priority
         folder = files.get_abs_path(os.path.dirname(file))
         folders = [folder]

@@ -5,7 +5,6 @@ from python.helpers.extension import Extension
 
 class IncludeWorkdirExtras(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-
         project_name = projects.get_context_project_name(self.agent.context)
 
         enabled = False

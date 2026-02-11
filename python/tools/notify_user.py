@@ -5,7 +5,6 @@ from python.helpers.tool import Response, Tool
 
 class NotifyUserTool(Tool):
     async def execute(self, **kwargs):
-
         message = self.args.get("message", "")
         title = self.args.get("title", "")
         detail = self.args.get("detail", "")

@@ -19,7 +19,6 @@ class RecallMemories(Extension):
     # THRESHOLD = DEFAULT_MEMORY_THRESHOLD
 
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-
         set = settings.get_settings()
 
         # turned off in settings?
@@ -47,7 +46,6 @@ class RecallMemories(Extension):
     async def search_memories(
         self, log_item: log.LogItem, loop_data: LoopData, **kwargs
     ):
-
         # cleanup
         extras = loop_data.extras_persistent
         if "memories" in extras:

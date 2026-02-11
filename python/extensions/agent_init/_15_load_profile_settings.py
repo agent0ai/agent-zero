@@ -5,7 +5,6 @@ from python.helpers.extension import Extension
 
 class LoadProfileSettings(Extension):
     async def execute(self, **kwargs) -> None:
-
         if not self.agent or not self.agent.config.profile:
             return
 

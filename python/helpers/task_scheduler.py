@@ -928,9 +928,7 @@ class TaskScheduler:
         task: Union[ScheduledTask, AdHocTask, PlannedTask],
         task_context: str | None = None,
     ):
-
         async def _run_task_wrapper(task_uuid: str, task_context: str | None = None):
-
             # preflight checks with a snapshot of the task
             task_snapshot: Union[ScheduledTask, AdHocTask, PlannedTask] | None = (
                 self.get_task_by_uuid(task_uuid)
