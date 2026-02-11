@@ -66,16 +66,17 @@ Tests use `pytest-asyncio` with `asyncio_mode = "auto"` — async test functions
 
 ## CI/CD
 
-Six GitHub Actions workflows in `.github/workflows/`:
+Seven GitHub Actions workflows in `.github/workflows/`:
 - **ci.yml**: Lint + format check + test (parallel jobs) on push/PR to main; paths-ignore skips docs-only changes; concurrency groups cancel stale runs; uv cache on test job
 - **drift.yml**: DriftDetect codebase analysis on source changes, manual dispatch, weekly
-- **release.yml**: git-cliff changelog + GitHub release on `v*` tag push
+- **release.yml**: git-cliff changelog + GitHub release on `v*` tag push; builds & pushes Docker app image (amd64) to GHCR
+- **docker-base.yml**: Builds & pushes Docker base image to GHCR on `docker/base/**` changes or manual dispatch
 - **hooks-check.yml**: hk validation on PRs to main
 - **codeql.yml**: CodeQL security analysis (Python) on push/PR to main + weekly schedule
 - **dependency-review.yml**: Dependency vulnerability review + requirements.txt sync check on PRs
 
 Additional GitHub configuration:
-- **dependabot.yml**: Weekly automated dependency updates for uv (Python) and GitHub Actions
+- **dependabot.yml**: Weekly automated dependency updates for uv (Python), GitHub Actions, and Docker base images
 - **ISSUE_TEMPLATE/**: Structured bug report and feature request forms (YAML)
 - **pull_request_template.md**: PR checklist template
 

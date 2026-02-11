@@ -19,7 +19,8 @@ jobs:
       - name: Verify requirements.txt is current
         run: |
           uv export --no-hashes --no-dev --no-emit-project -o /tmp/requirements-check.txt
-          diff requirements.txt /tmp/requirements-check.txt || \
+          diff <(grep -v '^#' requirements.txt | grep -v '^$') \
+               <(grep -v '^#' /tmp/requirements-check.txt | grep -v '^$') || \
             (echo "::error::requirements.txt is out of sync with uv.lock — run 'uv export'" && exit 1)
       - name: Dependency Review
         uses: actions/dependency-review-action@v4

@@ -31,3 +31,16 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+# Documentation snapshots and research
+.local_docs/
+.scratchpad/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.claude/
+
+# Configuration (not source)
+.serena/
+.github/

@@ -11,3 +11,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  # Docker base images
+  - package-ecosystem: "docker"
+    directory: "/docker/base"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/docker/run"
+    schedule:
+      interval: "weekly"

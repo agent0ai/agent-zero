@@ -26,6 +26,7 @@ local linters = new Mapping<String, Step> {
   // Biome: CSS linting
   ["biome"] = (Builtins.biome) {
     glob = List("webui/**/*.css")
+    exclude = List("webui/vendor/**")
     check_first = true
   }
 }

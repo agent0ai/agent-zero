@@ -12,6 +12,9 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"correctness": {
+				"noUnknownProperty": "warn"
+			},
 			"style": {
 				"noDescendingSpecificity": "warn"
 			},

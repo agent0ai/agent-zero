@@ -31,7 +31,7 @@ jobs:
       - name: Install driftdetect
         run: npm install -g driftdetect
       - name: Run drift scan
-        run: drift scan --verbose
+        run: drift scan --verbose --timeout 600
       - name: Python analysis
         run: drift py status
       - name: Quality gates

@@ -19,7 +19,14 @@
 		".venv/**",
 		"target/**",
 		"bin/**",
-		"obj/**"
+		"obj/**",
+		".local_docs/**",
+		".scratchpad/**",
+		".pytest_cache/**",
+		".ruff_cache/**",
+		".claude/**",
+		".serena/**",
+		".github/**"
 	],
 	"ci": {
 		"failOn": "error",
