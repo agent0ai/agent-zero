@@ -7,7 +7,7 @@ Agent Zero is a personal, organic agentic AI framework that grows and learns wit
 - **Language**: Python 3.12+ (backend), vanilla JS + Alpine.js (frontend)
 - **Web Framework**: Flask (sync routes) + uvicorn (ASGI) + python-socketio (WebSocket)
 - **LLM Integration**: LiteLLM (multi-provider), LangChain Core
-- **Embeddings**: sentence-transformers, FAISS (vector DB)
+- **Embeddings**: sentence-transformers (local default), FAISS (vector DB), LiteLLM (remote providers)
 - **Browser Automation**: Playwright, browser-use
 - **Search**: DuckDuckGo, SearXNG, Perplexity
 - **Document Processing**: unstructured, pypdf, pymupdf, newspaper3k
@@ -24,7 +24,7 @@ Agent Zero is a personal, organic agentic AI framework that grows and learns wit
 - **Git hooks**: hk (`hk.pkl`) — pre-commit (ruff, biome, security, hygiene), commit-msg (conventional commits)
 - **Changelog**: git-cliff (`cliff.toml`) — conventional commit parsing, Keep a Changelog format
 - **Codebase analysis**: DriftDetect (`driftdetect@0.9.48`) — pattern scanning, Python analysis, Cortex memory, quality gates
-- **CI/CD**: GitHub Actions (4 workflows: ci, drift, release, hooks-check)
+- **CI/CD**: GitHub Actions (6 workflows: ci, drift, release, hooks-check, codeql, dependency-review) + Dependabot (uv + github-actions)
 
 ## Architecture
 - `agent.py` — Core Agent and AgentContext classes
@@ -32,7 +32,7 @@ Agent Zero is a personal, organic agentic AI framework that grows and learns wit
 - `initialize.py` — Agent initialization and config management
 - `run_ui.py` — Flask/uvicorn web server entry point
 - `python/tools/` — 19 agent tools (code execution, memory, search, browser, etc.)
-- `python/helpers/` — 83 utility modules (files, docker, SSH, memory, MCP, etc.)
+- `python/helpers/` — 84 utility modules (files, docker, SSH, memory, MCP, branding, etc.)
 - `python/api/` — ~75 REST API endpoint handlers (auto-discovered from folder)
 - `python/websocket_handlers/` — 4 WebSocket event handlers (namespace-based discovery)
 - `python/extensions/` — 41 extensions across 24 lifecycle hook points
@@ -52,14 +52,19 @@ Agent Zero is a personal, organic agentic AI framework that grows and learns wit
 - **Extension system**: Lifecycle hooks in `python/extensions/` directories (e.g., `message_loop_start`, `tool_execute_before`)
 - **Auto-discovery**: Tools, API handlers, and WebSocket handlers are auto-loaded from their folders
 - **Multi-agent**: Agents can spawn subordinate agents; the first agent's superior is the human user
-- **Memory**: Persistent vector-DB-based memory with FAISS
+- **Memory**: Persistent vector-DB-based memory with FAISS (configurable embeddings: local or remote via LiteLLM)
+- **Branding**: Centralized `python/helpers/branding.py` with 4 env vars; frontend Alpine.js store; prompt `{{brand_name}}` injection
 - **Prompt-driven**: Behavior is defined by prompts in `prompts/` folder, fully customizable
 
 ## GitHub
 - **Remote**: `jrmatherly/agent-zero` (fork of `agent0ai/agent-zero`)
 - **Container Registry**: GHCR (`ghcr.io/jrmatherly/agent-zero`, `ghcr.io/jrmatherly/agent-zero-base`)
 - **CI/CD Workflows**:
-  - `ci.yml` — Lint (Ruff + Biome), format check, test (parallel jobs on push/PR to main)
+  - `ci.yml` — Lint + format + test (parallel jobs); paths-ignore, concurrency, uv cache
   - `drift.yml` — Codebase pattern analysis (push to main, manual dispatch, weekly)
   - `release.yml` — git-cliff changelog + GitHub release on `v*` tag push
   - `hooks-check.yml` — hk pre-commit validation on PRs
+  - `codeql.yml` — CodeQL security analysis (Python) on push/PR + weekly
+  - `dependency-review.yml` — Dependency review + requirements.txt sync on PRs
+  - `dependabot.yml` — Weekly uv + GitHub Actions dependency updates
+  - Issue templates (YAML forms), PR template

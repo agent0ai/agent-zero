@@ -22,6 +22,7 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 ## Reference
 
 - **[Environment Variables](reference/environment-variables.md):** Complete catalog of all environment variables, API keys, and settings overrides.
+- **[Dependency Management](setup/dependency-management.md):** Adding/removing packages, upstream merge strategy, and Docker compatibility.
 
 ## Developer Documentation
 

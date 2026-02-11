@@ -24,6 +24,11 @@ Each handler is mounted at `/{filename}` (e.g., `message.py` → `/message`).
 | `/nudge` | POST | Auth+CSRF | Nudge agent |
 | `/pause` | POST | Auth+CSRF | Pause agent execution |
 
+### Branding
+| Endpoint | Methods | Auth | Purpose |
+|----------|---------|------|---------|
+| `/branding_get` | POST | None | Get brand configuration (name, slug, URL, GitHub URL) |
+
 ### Settings & Configuration
 | Endpoint | Methods | Auth | Purpose |
 |----------|---------|------|---------|

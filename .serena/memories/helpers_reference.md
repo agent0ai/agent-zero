@@ -1,4 +1,4 @@
-# Agent Zero - Helpers Reference (83 modules)
+# Agent Zero - Helpers Reference (84 modules)
 
 ## Grouped by Functional Area
 
@@ -50,13 +50,14 @@
 | `mcp_handler.py` | MCP client (connect to external MCP servers) |
 | `mcp_server.py` | MCP server (expose Agent Zero as MCP, FastMCP + SSE) |
 
-### Configuration (4)
+### Configuration (5)
 | Module | Purpose |
 |--------|---------|
 | `settings.py` | Global settings (env override via A0_SET_* prefix) |
 | `projects.py` | Multi-project management |
 | `secrets.py` | Secrets manager with streaming filter |
 | `security.py` | Filename sanitization, security helpers |
+| `branding.py` | Centralized brand config (BRAND_NAME, BRAND_SLUG, BRAND_URL, BRAND_GITHUB_URL) |
 
 ### Skills (3)
 | Module | Purpose |

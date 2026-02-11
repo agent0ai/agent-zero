@@ -43,7 +43,9 @@ Tests use `pytest-asyncio` with `asyncio_mode = "auto"` — async test functions
 
 **Prompts** (`prompts/`): Markdown templates with `{{ include }}` for composition and `{{variable}}` for substitution.
 
-**Memory**: FAISS vector DB with sentence-transformers embeddings. Used by `memory_save`/`memory_load` tools and recall extensions.
+**Memory**: FAISS vector DB with configurable embeddings (default: sentence-transformers local; supports remote providers via LiteLLM). Used by `memory_save`/`memory_load` tools and recall extensions.
+
+**Branding**: Centralized in `python/helpers/branding.py` with 4 env vars (`BRAND_NAME`, `BRAND_SLUG`, `BRAND_URL`, `BRAND_GITHUB_URL`). Frontend gets values via `/branding_get` API → Alpine.js store (`webui/js/branding-store.js`). Prompt templates use `{{brand_name}}` variable injection.
 
 ## Conventions
 
@@ -64,13 +66,20 @@ Tests use `pytest-asyncio` with `asyncio_mode = "auto"` — async test functions
 
 ## CI/CD
 
-Four GitHub Actions workflows in `.github/workflows/`:
-- **ci.yml**: Lint + format check + test (parallel jobs) on push/PR to main
+Six GitHub Actions workflows in `.github/workflows/`:
+- **ci.yml**: Lint + format check + test (parallel jobs) on push/PR to main; paths-ignore skips docs-only changes; concurrency groups cancel stale runs; uv cache on test job
 - **drift.yml**: DriftDetect codebase analysis on source changes, manual dispatch, weekly
 - **release.yml**: git-cliff changelog + GitHub release on `v*` tag push
 - **hooks-check.yml**: hk validation on PRs to main
+- **codeql.yml**: CodeQL security analysis (Python) on push/PR to main + weekly schedule
+- **dependency-review.yml**: Dependency vulnerability review + requirements.txt sync check on PRs
 
-All CI workflows use `jdx/mise-action@v3` as the single tool installer.
+Additional GitHub configuration:
+- **dependabot.yml**: Weekly automated dependency updates for uv (Python) and GitHub Actions
+- **ISSUE_TEMPLATE/**: Structured bug report and feature request forms (YAML)
+- **pull_request_template.md**: PR checklist template
+
+All CI workflows use `jdx/mise-action@v3` for tool installation; security workflows use dedicated actions.
 
 ## Environment Variables
 

@@ -36,7 +36,7 @@
 └──────────────┘ └───────────┘ └────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                   python/helpers/ (83 modules)                │
+│                   python/helpers/ (84 modules)                │
 │  Memory (FAISS) | Shell (local/SSH/Docker) | MCP (client/srv)│
 │  Settings | Skills | History | Tokens | Search | Browser     │
 └──────────────────────────────────────────────────────────────┘

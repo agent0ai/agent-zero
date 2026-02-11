@@ -29,7 +29,7 @@ This architecture ensures:
 > [!NOTE]
 > The legacy approach of running Agent Zero directly on the host system (using Python, Conda, etc.)
 > is still possible but requires Remote Function Calling (RFC) configuration through the Settings
-> page. See the [development guide](development.md) for detailed instructions.
+> page. See the [development guide](../setup/dev-setup.md) for detailed instructions.
 
 ## Implementation Details
 
@@ -162,7 +162,7 @@ The memory is categorized into four distinct areas:
 - **Metadata**: Each memory entry includes metadata (IDs, timestamps), enabling efficient filtering and searching based on specific criteria
 
 #### Embeddings and Utility Model
-- Embeddings are generated locally using a small default model (tiny disk footprint).
+- Embeddings default to a local sentence-transformers model (tiny disk footprint). Remote embedding providers (Azure OpenAI, etc.) are also supported via LiteLLM — configure with `A0_SET_EMBED_MODEL_*` settings.
 - The **utility model** handles summarization and memory extraction; it must be capable enough to distinguish durable knowledge from noise.
 
 #### Memory Management Best Practices
