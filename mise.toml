@@ -147,13 +147,64 @@ run = "uv lock"
 # Docker
 # ============================================================================
 
-[tasks."docker:build"]
-description = "Build local Docker image"
+# --- Build tasks ---
+
+[tasks."docker:build:base"]
+description = "Build base Docker image locally (Kali + system packages)"
+run = '''
+docker build -t apollos-ai-base:local \
+  --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) \
+  docker/base
+'''
+sources = ["docker/base/**"]
+
+[tasks."docker:build:app"]
+description = "Build app Docker image from a git branch (default: main)"
+run = '''
+BRANCH="${1:-main}"
+docker build -t apollos-ai-${BRANCH} \
+  --build-arg BRANCH=${BRANCH} \
+  --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) \
+  docker/run
+'''
+sources = ["docker/run/**"]
+
+[tasks."docker:build:local"]
+description = "Build local Docker image from working tree"
 run = '''
 docker build -f DockerfileLocal -t apollos-ai-local \
   --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 '''
 sources = ["DockerfileLocal", "requirements.txt", "docker/**"]
+
+[tasks."docker:build"]
+description = "Build base + local Docker images in order"
+depends = ["docker:build:base", "docker:build:local"]
+
+# --- Push tasks ---
+
+[tasks."docker:push:base"]
+description = "Build and push base image to GHCR (amd64)"
+run = '''
+docker buildx build -t ghcr.io/jrmatherly/apollos-ai-base:latest \
+  --platform linux/amd64 --push \
+  --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) \
+  docker/base
+'''
+
+[tasks."docker:push:app"]
+description = "Build and push app image to GHCR (amd64, default branch: main)"
+run = '''
+BRANCH="${1:-main}"
+docker buildx build \
+  -t ghcr.io/jrmatherly/apollos-ai:${BRANCH} \
+  --platform linux/amd64 --push \
+  --build-arg BRANCH=${BRANCH} \
+  --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) \
+  docker/run
+'''
+
+# --- Run tasks ---
 
 [tasks."docker:run"]
 description = "Run local Docker container"
