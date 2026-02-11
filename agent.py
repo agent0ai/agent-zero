@@ -503,6 +503,18 @@ class Agent:
                         PrintStyle(font_color="red", padding=True).print(msg["message"])
                         self.context.log.log(type="warning", content=msg["message"])
                     except Exception as e:
+                        # Check if this is a provider rejection caused by raw image content
+                        if "BadRequestError" in type(e).__name__ or "400" in str(e):
+                            stripped = self._strip_raw_images_from_history()
+                            if stripped:
+                                self.context.log.log(
+                                    type="warning",
+                                    content=f"Stripped {stripped} raw image(s) from history after provider rejection (inner loop)",
+                                )
+                                PrintStyle(font_color="orange", padding=True).print(
+                                    f"Stripped {stripped} raw image(s) from history after provider rejection, retrying..."
+                                )
+                                continue
                         # Retry critical exceptions before failing
                         error_retries = await self.retry_critical_exception(
                             e, error_retries
@@ -520,6 +532,18 @@ class Agent:
                 error_retries = 0  # reset retry counter on user intervention
                 pass  # just start over
             except Exception as e:
+                # Check if this is a provider rejection caused by raw image content
+                if "BadRequestError" in type(e).__name__ or "400" in str(e):
+                    stripped = self._strip_raw_images_from_history()
+                    if stripped:
+                        self.context.log.log(
+                            type="warning",
+                            content=f"Stripped {stripped} raw image(s) from history after provider rejection (outer loop)",
+                        )
+                        PrintStyle(font_color="orange", padding=True).print(
+                            f"Stripped {stripped} raw image(s) from history after provider rejection, retrying..."
+                        )
+                        continue
                 # Retry critical exceptions before failing
                 error_retries = await self.retry_critical_exception(
                     e, error_retries
@@ -580,6 +604,40 @@ class Agent:
         )
 
         return full_prompt
+
+    def _strip_raw_images_from_history(self) -> int:
+        """Strip raw image messages from history after provider rejection.
+
+        When a provider returns 400 BadRequestError for image content,
+        this replaces raw image messages with text previews to prevent
+        permanent crash loops where every subsequent message triggers
+        the same 400 error.
+
+        Returns the count of stripped images.
+        """
+        stripped = 0
+        # Check current topic messages
+        for msg in self.history.current.messages:
+            if history._is_raw_message(msg.content):
+                preview = (
+                    msg.content.get("preview", "<image content removed after provider error>")
+                    if isinstance(msg.content, dict)
+                    else "<image content removed after provider error>"
+                )
+                msg.set_summary(preview)
+                stripped += 1
+        # Check past topics
+        for topic in self.history.topics:
+            for msg in topic.messages:
+                if history._is_raw_message(msg.content):
+                    preview = (
+                        msg.content.get("preview", "<image content removed after provider error>")
+                        if isinstance(msg.content, dict)
+                        else "<image content removed after provider error>"
+                    )
+                    msg.set_summary(preview)
+                    stripped += 1
+        return stripped
 
     async def retry_critical_exception(
         self, e: Exception, error_retries: int, delay: int = 3, max_retries: int = 1

@@ -215,8 +215,20 @@ class Topic(Record):
         return False
 
     async def summarize_messages(self, messages: list[Message]):
-        # FIXME: vision bytes are sent to utility LLM, send summary instead
-        msg_txt = [m.output_text() for m in messages]
+        # Explicitly replace raw message content (e.g., base64 images) with
+        # text previews to avoid sending binary data to the utility model
+        msg_txt = []
+        for m in messages:
+            if _is_raw_message(m.content):
+                preview = (
+                    m.content.get("preview", "<non-text content>")
+                    if isinstance(m.content, dict)
+                    else "<non-text content>"
+                )
+                label = "ai" if m.ai else "user"
+                msg_txt.append(f"{label}: {preview}")
+            else:
+                msg_txt.append(m.output_text())
         summary = await self.history.agent.call_utility_model(
             system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
             message=self.history.agent.read_prompt(
@@ -536,6 +548,13 @@ def output_text(messages: list[OutputMessage], ai_label="ai", human_label="human
 
 
 def _merge_outputs(a: MessageContent, b: MessageContent) -> MessageContent:
+    # Guard: convert raw messages to text previews before merging
+    # to prevent invalid mixed-format message structures
+    if _is_raw_message(a):
+        a = _stringify_content(a)
+    if _is_raw_message(b):
+        b = _stringify_content(b)
+
     if isinstance(a, str) and isinstance(b, str):
         return a + "\n" + b
 
