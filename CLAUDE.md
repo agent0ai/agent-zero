@@ -25,6 +25,19 @@ mise run hooks:check       # Run hk pre-commit checks manually
 mise run deps:add <pkg>    # Add dependency + regenerate requirements.txt
 ```
 
+Docker builds (3 images: base, app, local):
+
+```bash
+mise run docker:build:base          # Build base image (Kali + system packages)
+mise run docker:build:app           # Build app image from main branch
+mise run docker:build:app testing   # Build app image from a specific branch
+mise run docker:build:local         # Build local dev image from working tree
+mise run docker:build               # Build base + local in order
+mise run docker:push:base           # Build + push base image to GHCR
+mise run docker:push:app            # Build + push app image to GHCR
+mise run docker:run                 # Run local container (port 50080→80)
+```
+
 Single test: `uv run pytest tests/test_websocket_manager.py -v`
 
 Tests use `pytest-asyncio` with `asyncio_mode = "auto"` — async test functions are auto-detected.

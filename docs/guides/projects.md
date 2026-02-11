@@ -95,7 +95,7 @@ The **Description** field helps both you and the agent understand the project's 
 
 **Example:**
 
-```
+```text
 An intelligent Excel automation system that processes financial spreadsheets 
 from multiple sources, performs data validation and cleaning, consolidates 
 information, generates executive reports, and flags anomalies or compliance issues.
@@ -255,7 +255,7 @@ Projects can automatically inject their directory structure into the agent's con
 
 The default gitignore for projects excludes:
 
-```
+```text
 .a0proj/
 venv/
 __pycache__/
@@ -300,7 +300,7 @@ The agent now:
 
 **Example prompt after activation:**
 
-```
+```text
 Hi A0. Start first development phase:
 - recon
 - scope definition
@@ -313,7 +313,7 @@ The agent will understand the context based on the project's instructions and wo
 
 Understanding the project directory structure helps you work effectively:
 
-```
+```text
 /a0/usr/projects/<project_name>/
 ├── .a0proj/                    # Project metadata (hidden)
 │   ├── project.json            # Main configuration
@@ -343,7 +343,7 @@ Understanding the project directory structure helps you work effectively:
 
 Use projects to isolate each client:
 
-```
+```text
 /usr/projects/client-acme/
 /usr/projects/client-globex/
 /usr/projects/client-initech/
@@ -359,7 +359,7 @@ Each with:
 
 Create projects for different tech stacks:
 
-```
+```text
 /usr/projects/python-ml-research/
 /usr/projects/nodejs-webapp/
 /usr/projects/go-microservices/
@@ -374,7 +374,7 @@ Each with language-specific:
 
 Organize by business domain:
 
-```
+```text
 /usr/projects/finance-automation/
 /usr/projects/marketing-analytics/
 /usr/projects/hr-automation/

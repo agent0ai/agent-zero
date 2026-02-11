@@ -150,7 +150,7 @@ One of Apollos AI's unique features is multi-agent cooperation.
 - **Communication:** Agents can communicate with each other, sharing information and coordinating actions. The system prompt and message history play a key role in guiding this communication.
 - **Hierarchy:** Apollos AI uses a [hierarchical structure](../developer/architecture.md#agent-hierarchy-and-communication), with superior agents delegating tasks to subordinates.  This allows for structured problem-solving and efficient resource allocation.
 
-![](../res/usage/multi-agent.png)
+![Multi-Agent Cooperation](../res/usage/multi-agent.png)
 
 ## Projects
 Projects are isolated workspaces that provide dedicated context, instructions, memory, and secrets for specific tasks or clients. They are one of Apollos AI's most powerful organizational features, preventing context bleed and enabling focused, specialized agent behavior.
@@ -307,7 +307,7 @@ Once activated, the agent:
 
 ### Project Directory Structure
 
-```
+```text
 /a0/usr/projects/<project_name>/
 ├── .a0proj/                    # Project metadata (managed by the application)
 │   ├── project.json            # Main configuration
@@ -406,7 +406,7 @@ The scheduler shows:
 
 Ask the agent to create tasks programmatically:
 
-```
+```text
 Create a scheduled task that checks my email inbox every morning at 8 AM 
 and summarizes new messages from the last 24 hours.
 ```
@@ -464,7 +464,7 @@ For **Scheduled Tasks**, configure the cron schedule:
 
 **Common patterns:**
 
-```
+```cron
 # Every day at 9 AM
 0 9 * * *
 
@@ -545,7 +545,7 @@ When a task runs:
 
 #### Daily Reports
 
-```
+```text
 Task: "Morning Inbox Summary"
 Type: Scheduled (0 9 * * *)
 Project: "Email Automation"
@@ -555,7 +555,7 @@ Summarize important emails by category and highlight any urgent items."
 
 #### Recurring Monitoring
 
-```
+```text
 Task: "Server Health Check"
 Type: Scheduled (*/30 * * * *)
 Project: "DevOps Monitoring"
@@ -565,7 +565,7 @@ Alert me if any metric exceeds threshold."
 
 #### Batch Processing
 
-```
+```text
 Task: "Weekly Data Export"
 Type: Scheduled (0 2 * * 0)
 Project: "Analytics"
@@ -575,7 +575,7 @@ Upload to cloud storage and send summary report."
 
 #### Campaign Automation
 
-```
+```text
 Task: "Product Launch Sequence"
 Type: Planned
 Executions:
@@ -593,7 +593,7 @@ Tasks and Projects are designed to work together:
 
 1. Create a project with domain-specific instructions
 
-   ```
+   ```text
    Project: "Customer Support"
    Instructions: "You are a customer support analyst.
    Monitor ticket queue, categorize by urgency, draft responses."
@@ -601,7 +601,7 @@ Tasks and Projects are designed to work together:
 
 2. Create a recurring task for that project
 
-   ```
+   ```text
    Task: "Ticket Queue Monitor"
    Schedule: Every 2 hours
    Project: "Customer Support"
@@ -634,7 +634,7 @@ See [Notifications](../developer/notifications.md) for configuration details.
 ### Multi-Source Aggregation
 Tasks can pull from multiple sources:
 
-```
+```text
 "Aggregate data from:
 1. Sales CRM API
 2. Marketing analytics dashboard

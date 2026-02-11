@@ -75,7 +75,7 @@ Apollos AI can also push poll-shaped state snapshots over the WebSocket bus, rep
 
 ### Flow Overview (by Operation)
 
-```
+```text
 Client emit() ───▶ Manager route_event() ───▶ Handler.process_event()
    │                │                           └──(fire-and-forget, no ack)
    └── throws if    └── validates payload + routes by namespace/event type

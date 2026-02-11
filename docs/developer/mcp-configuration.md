@@ -210,7 +210,7 @@ MCP tools are prefixed with the normalized server name:
 
 Instruct the agent to use MCP tools directly:
 
-```
+```text
 "Agent, use the sequential_thinking.run_chain tool with the following input..."
 ```
 

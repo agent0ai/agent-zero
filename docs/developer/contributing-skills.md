@@ -202,7 +202,7 @@ Use this skill when you need to [specific task].
 
 If your skill needs scripts:
 
-```
+```text
 my-awesome-skill/
 ├── SKILL.md           # Required
 ├── helper.py          # Optional Python script
@@ -336,7 +336,7 @@ Share your skills on [skillsmp.com](https://skillsmp.com):
 
 For multiple related skills, create a repository:
 
-```
+```text
 my-skills-collection/
 ├── README.md
 ├── skills/

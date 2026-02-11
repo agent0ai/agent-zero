@@ -47,7 +47,7 @@ A2A enables direct communication between multiple Apollos AI instances. This all
 
 The basic A2A connection URL follows this format:
 
-```
+```url
 http://YOUR_HOST:PORT/a2a/t-YOUR_API_TOKEN
 ```
 
@@ -55,7 +55,7 @@ http://YOUR_HOST:PORT/a2a/t-YOUR_API_TOKEN
 
 To connect with a specific project active:
 
-```
+```url
 http://YOUR_HOST:PORT/a2a/t-YOUR_API_TOKEN/p-PROJECT_NAME
 ```
 
@@ -70,7 +70,7 @@ When a project is specified:
 
 Two Apollos AI instances on the same machine:
 
-```
+```url
 Instance 1: http://localhost:8080/a2a/t-abc123xyz
 Instance 2: http://localhost:8081/a2a/t-def456uvw
 ```
@@ -79,7 +79,7 @@ Instance 2: http://localhost:8081/a2a/t-def456uvw
 
 Connect to a remote Apollos AI instance:
 
-```
+```url
 http://agent.example.com:8080/a2a/t-remote-token
 ```
 
@@ -87,7 +87,7 @@ http://agent.example.com:8080/a2a/t-remote-token
 
 Main agent delegates frontend work to specialized agent:
 
-```
+```url
 http://localhost:8081/a2a/t-frontend-token/p-webapp-ui
 ```
 

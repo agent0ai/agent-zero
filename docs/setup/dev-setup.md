@@ -176,11 +176,26 @@ See [Environment Variables Reference](../reference/environment-variables.md) for
 
 ## Building Docker Images
 
+The project has three Docker images. All builds are available as mise tasks:
+
+```bash
+mise run docker:build:base          # Build base image (Kali + system packages)
+mise run docker:build:app           # Build app image from main branch
+mise run docker:build:app testing   # Build app image from a specific branch
+mise run docker:build:local         # Build local dev image from working tree
+mise run docker:build               # Build base + local in order
+mise run docker:push:base           # Build + push base image to GHCR
+mise run docker:push:app            # Build + push app image to GHCR
+mise run docker:run                 # Run local container (port 50080→80)
+```
+
 ### Local Build
 
 Build a local image from your working tree:
 
 ```bash
+mise run docker:build:local
+# Or directly:
 docker build -f DockerfileLocal -t apollos-ai-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 ```
 

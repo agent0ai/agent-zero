@@ -665,13 +665,13 @@ To connect another agent to your Apollos AI instance, use the following URL form
 
 **Note:** You can find your specific A2A connection URL under `Settings > External Services > A2A Connection`.
 
-```
+```text
 YOUR_AGENT_ZERO_URL/a2a/t-YOUR_API_TOKEN
 ```
 
 To connect with a specific project active:
 
-```
+```text
 YOUR_AGENT_ZERO_URL/a2a/t-YOUR_API_TOKEN/p-PROJECT_NAME
 ```
 
