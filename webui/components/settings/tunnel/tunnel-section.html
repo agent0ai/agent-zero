@@ -18,8 +18,7 @@
             <!-- Keep in mind that <template> can have only one root element inside -->
             <div id="tunnel-settings-section">
                 <div class="section-title">Flare Tunnel</div>
-                <div class="section-description">Create a secure public URL to access your Agent Zero instance anytime,
-                    anywhere.</div>
+                <div class="section-description" x-text="`Create a secure public URL to access your ${$store.branding.name} instance anytime, anywhere.`"></div>
                 <!-- Tunnel content UI -->
                 <div class="tunnel-container">
                     <div class="field">
@@ -98,9 +97,7 @@
                                 </div>
                                 <div class="tunnel-qr-label">Scan with mobile device</div>
                             </div>
-                            <div class="tunnel-link-info">
-                                Share this URL to allow others to access your Agent Zero instance.
-                            </div>
+                            <div class="tunnel-link-info" x-text="`Share this URL to allow others to access your ${$store.branding.name} instance.`"></div>
                             <div class="tunnel-link-persistence">
                                 This URL will persist until you stop the tunnel or restart the Docker container.
                             </div>

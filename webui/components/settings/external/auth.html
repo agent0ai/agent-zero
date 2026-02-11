@@ -13,9 +13,7 @@
       <template x-if="settings">
         <div>
           <div class="section-title">Authentication</div>
-          <div class="section-description">
-            Settings for authentication to use Agent Zero Web UI.
-          </div>
+          <div class="section-description" x-text="`Settings for authentication to use ${$store.branding.name} Web UI.`"></div>
 
           <div class="field">
             <div class="field-label">

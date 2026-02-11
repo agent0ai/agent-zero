@@ -9,13 +9,13 @@
         <div>
           <div class="section-title">Web Browser Model</div>
           <div class="section-description">
-            Settings for the web browser model. Agent Zero uses <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> agentic framework to handle web interactions.
+            <span x-text="`Settings for the web browser model. ${$store.branding.name} uses`"></span> <a href='https://github.com/browser-use/browser-use' target='_blank'>browser-use</a> agentic framework to handle web interactions.
           </div>
 
           <div class="field">
             <div class="field-label">
               <div class="field-title">Web browser model provider</div>
-              <div class="field-description">Select provider for web browser model used by Agent Zero</div>
+              <div class="field-description" x-text="`Select provider for web browser model used by ${$store.branding.name}`"></div>
             </div>
             <div class="field-control">
               <select x-model="$store.settings.settings.browser_model_provider">

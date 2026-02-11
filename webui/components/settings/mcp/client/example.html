@@ -7,7 +7,7 @@
 
 <body>
     <div x-data>
-        <p>Agent Zero uses standard JSON configuration known from other AI applications.<br>
+        <p><span x-text="`${$store.branding.name} uses standard JSON configuration known from other AI applications.`"></span><br>
             The configuration is a JSON object containing "mcpServers" object where each key is an individual MCP
             server.<br>
             Local servers are defined by a "command", "args", "env" variables.<br>

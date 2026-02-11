@@ -220,7 +220,7 @@ const model = {
 				window.open("https://matherly.net", "_blank");
 				break;
 			case "github":
-				window.open("https://github.com/jrmatherly/agent-zero", "_blank");
+				window.open(Alpine.store("branding").github_url, "_blank");
 				break;
 		}
 	},

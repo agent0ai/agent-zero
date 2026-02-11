@@ -9,15 +9,13 @@
         <div>
           <div class="section-title">A0 MCP Server</div>
           <div class="section-description">
-            Agent Zero can be exposed as an SSE MCP server. See <a href="javascript:openModal('settings/mcp/server/example.html')">connection example</a>.
+            <span x-text="`${$store.branding.name} can be exposed as an SSE MCP server.`"></span> See <a href="javascript:openModal('settings/mcp/server/example.html')">connection example</a>.
           </div>
 
           <div class="field">
             <div class="field-label">
               <div class="field-title">Enable A0 MCP Server</div>
-              <div class="field-description">
-                Expose Agent Zero as an SSE/HTTP MCP server. This will make this A0 instance available to MCP clients.
-              </div>
+              <div class="field-description" x-text="`Expose ${$store.branding.name} as an SSE/HTTP MCP server. This will make this A0 instance available to MCP clients.`"></div>
             </div>
             <div class="field-control">
               <label class="toggle">
