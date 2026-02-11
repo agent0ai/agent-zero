@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from pathspec import PathSpec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 
-from python.helpers import files, git, runtime
+from python.helpers import branding, files, git, runtime
 from python.helpers.print_style import PrintStyle
 
 
@@ -42,7 +42,7 @@ class BackupService:
         include_patterns, exclude_patterns = self._parse_patterns(default_patterns)
 
         return {
-            "backup_name": f"agent-zero-backup-{timestamp[:10]}",
+            "backup_name": f"{branding.BRAND_SLUG}-backup-{timestamp[:10]}",
             "include_hidden": True,
             "include_patterns": include_patterns,
             "exclude_patterns": exclude_patterns,
@@ -357,9 +357,12 @@ class BackupService:
         include_patterns: List[str],
         exclude_patterns: List[str],
         include_hidden: bool = True,
-        backup_name: str = "agent-zero-backup",
+        backup_name: str = "",
     ) -> str:
         """Create backup archive and return path to created file"""
+
+        if not backup_name:
+            backup_name = f"{branding.BRAND_SLUG}-backup"
 
         # Create metadata for test_patterns
         metadata = {

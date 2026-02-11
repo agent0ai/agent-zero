@@ -7,7 +7,7 @@
 
 <body>
     <div x-data>
-        <p>Agent Zero MCP Server is an SSE MCP running on the same URL and port as the Web UI + /mcp/sse or /mcp/http path.</p>
+        <p>The MCP Server is an SSE MCP running on the same URL and port as the Web UI + /mcp/sse or /mcp/http path.</p>
         <p>The same applies if you run A0 on a public URL using a tunnel.</p>
 
         <!-- API Token Information -->
@@ -81,14 +81,15 @@
                     const selectedProject = projectSelect.value;
                     const projectPath = selectedProject ? `/p-${selectedProject}` : '';
 
+                    const slug = Alpine.store("branding")?.slug || "apollos-ai";
                     const jsonExample = JSON.stringify({
                         "mcpServers":
                         {
-                            "agent-zero": {
+                            [slug]: {
                                 "type": "sse",
                                 "url": `${url}/mcp/t-${token}${projectPath}/sse`
                             },
-                            "agent-zero-http": {
+                            [`${slug}-http`]: {
                                 "type": "streamable-http",
                                 "url": `${url}/mcp/t-${token}${projectPath}/http`
                             }

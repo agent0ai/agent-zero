@@ -10,7 +10,7 @@ from starlette.requests import Request
 
 from agent import AgentContext, AgentContextType, UserMessage
 from initialize import initialize_agent
-from python.helpers import projects, settings
+from python.helpers import branding, projects, settings
 from python.helpers.persist_chat import remove_chat
 
 # Local imports
@@ -243,15 +243,15 @@ class DynamicA2AProxy:
             ]
 
             provider: AgentProvider = {  # type: ignore
-                "organization": "Agent Zero",
-                "url": "https://github.com/jrmatherly/agent-zero",
+                "organization": branding.BRAND_NAME,
+                "url": branding.BRAND_GITHUB_URL,
             }
 
             # Create new FastA2A app with proper thread safety
             new_app = FastA2A(  # type: ignore
                 storage=storage,
                 broker=broker,
-                name="Agent Zero",
+                name=branding.BRAND_NAME,
                 description=(
                     "A general AI assistant that can execute code, manage files, browse the web, and "
                     "solve complex problems in an isolated Linux environment."
