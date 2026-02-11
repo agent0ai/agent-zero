@@ -204,13 +204,17 @@ docker buildx create --name multiarch --driver docker-container \
 
 > To skip multi-platform and build only for your local architecture, omit the `--platform` flag from the build commands below.
 
-> **Troubleshooting:** If builds fail with network errors like `Could not connect to mirror...connection timed out`, the BuildKit container can't reach external package mirrors. Recreate the builder with host networking:
+> **Troubleshooting — "Multi-platform build is not supported":** The default `docker` driver doesn't support `--platform`. Create the `docker-container` builder shown above.
 >
-> ```bash
-> docker buildx rm multiarch
-> docker buildx create --name multiarch --driver docker-container \
->   --driver-opt network=host --use
-> ```
+> **Troubleshooting — "Could not connect to mirror...connection timed out":** Two possible causes:
+>
+> 1. **BuildKit networking:** The builder can't reach the internet. Recreate with host networking:
+>    ```bash
+>    docker buildx rm multiarch
+>    docker buildx create --name multiarch --driver docker-container \
+>      --driver-opt network=host --use
+>    ```
+> 2. **Flaky Kali mirror:** The default `http.kali.org` redirector sometimes routes to unreliable mirrors. The base Dockerfile pins the [Cloudflare-backed `kali.download` mirror](https://www.kali.org/docs/community/kali-linux-mirrors/) for reliability. If you still see mirror timeouts, retry the build — the specific mirror may be temporarily down.
 
 **4. Build and push the base image** (from `docker/base/`):
 
