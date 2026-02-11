@@ -122,7 +122,7 @@ Agent Zero instances can communicate with each other using the A2A protocol. Thi
 - **Distributed workflows** across multiple agents
 - **Project-specific collaboration** with isolated contexts
 
-To enable A2A connectivity, go to **Settings → MCP/A2A → A0 A2A Server** and toggle the server on. You'll receive a connection URL that other Agent Zero instances can use to communicate with your agent.
+To enable A2A connectivity, go to **Settings → MCP/A2A → A2A Server** and toggle the server on. You'll receive a connection URL that other Agent Zero instances can use to communicate with your agent.
 
 See [A2A Setup](a2a-setup.md) for detailed configuration and use cases.
 
@@ -309,7 +309,7 @@ Once activated, the agent:
 
 ```
 /a0/usr/projects/<project_name>/
-├── .a0proj/                    # Project metadata (managed by A0)
+├── .a0proj/                    # Project metadata (managed by the application)
 │   ├── project.json            # Main configuration
 │   ├── variables.env           # Non-sensitive config
 │   ├── secrets.env             # Sensitive credentials
@@ -650,7 +650,7 @@ Generate unified weekly report."
 Explore related features:
 
 - [Projects](#projects) - Create isolated contexts for tasks
-- [Notifications](../developer/notifications.md) - Understand A0's notification system
+- [Notifications](../developer/notifications.md) - Understand the notification system
 - [Memory Management](#memory-management) - Understand task memory isolation
 - [Secrets & Variables](#secrets--variables) - Secure credentials for tasks
 

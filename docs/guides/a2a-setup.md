@@ -20,7 +20,7 @@ A2A enables direct communication between multiple Agent Zero instances. This all
 
 1. Click **Settings** in the sidebar
 2. Navigate to the **MCP/A2A** tab
-3. Scroll to the **A0 A2A Server** section
+3. Scroll to the **A2A Server** section
 4. Toggle **Enable A2A server** to ON
 
 ![A2A Server Settings](../res/setup/a2a/a2a-conn.png)
