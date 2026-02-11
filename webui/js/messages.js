@@ -2046,9 +2046,10 @@ function updateProcessGroupHeader(group) {
   const startTimestamp = group.getAttribute("data-start-timestamp");
   if (timeMetricEl && startTimestamp) {
     const date = new Date(parseFloat(startTimestamp) * 1000);
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    timeMetricEl.textContent = `${hours}:${minutes}`;
+    timeMetricEl.textContent = date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
     if (timeMetricContainerEl) {
       const fullDateTime = date.toLocaleString(undefined, {
         dateStyle: "medium",
