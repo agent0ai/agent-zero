@@ -1,0 +1,635 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-02-11T05:00:49.155Z",
+  "projectRoot": "/Users/jason/dev/apollos-ai/agent-zero",
+  "variables": {
+    "LITELLM_LOG": {
+      "name": "LITELLM_LOG",
+      "sensitivity": "unknown",
+      "accessedBy": [
+        {
+          "id": "models.py:46:5:LITELLM_LOG",
+          "varName": "LITELLM_LOG",
+          "method": "os.environ",
+          "file": "models.py",
+          "line": 46,
+          "column": 5,
+          "context": "_off_logging():     os.environ[\"LITELLM_LOG\"] = \"ERROR\"  # only errors     litellm.suppress_debug_in",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": false,
+          "isRequired": true
+        }
+      ],
+      "files": [
+        "models.py"
+      ],
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "USER": {
+      "name": "USER",
+      "sensitivity": "unknown",
+      "accessedBy": [
+        {
+          "id": "python/helpers/backup.py:145:25:USER",
+          "varName": "USER",
+          "method": "os.environ",
+          "file": "python/helpers/backup.py",
+          "line": 145,
+          "column": 25,
+          "context": "\"user\": os.environ.get(\"USER\", \"unknown\"),                 \"home\": os.environ.get(\"HOME\"",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "unknown",
+          "isRequired": false
+        }
+      ],
+      "files": [
+        "python/helpers/backup.py"
+      ],
+      "hasDefault": true,
+      "isRequired": false
+    },
+    "HOME": {
+      "name": "HOME",
+      "sensitivity": "unknown",
+      "accessedBy": [
+        {
+          "id": "python/helpers/backup.py:146:25:HOME",
+          "varName": "HOME",
+          "method": "os.environ",
+          "file": "python/helpers/backup.py",
+          "line": 146,
+          "column": 25,
+          "context": "\"home\": os.environ.get(\"HOME\", \"unknown\"),                 \"shell\": os.environ.get(\"SHEL",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "unknown",
+          "isRequired": false
+        }
+      ],
+      "files": [
+        "python/helpers/backup.py"
+      ],
+      "hasDefault": true,
+      "isRequired": false
+    },
+    "SHELL": {
+      "name": "SHELL",
+      "sensitivity": "unknown",
+      "accessedBy": [
+        {
+          "id": "python/helpers/backup.py:147:26:SHELL",
+          "varName": "SHELL",
+          "method": "os.environ",
+          "file": "python/helpers/backup.py",
+          "line": 147,
+          "column": 26,
+          "context": "\"shell\": os.environ.get(\"SHELL\", \"unknown\"),                 \"path\": os.environ.get(\"PATH",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "unknown",
+          "isRequired": false
+        }
+      ],
+      "files": [
+        "python/helpers/backup.py"
+      ],
+      "hasDefault": true,
+      "isRequired": false
+    },
+    "PATH": {
+      "name": "PATH",
+      "sensitivity": "unknown",
+      "accessedBy": [
+        {
+          "id": "python/helpers/backup.py:148:25:PATH",
+          "varName": "PATH",
+          "method": "os.environ",
+          "file": "python/helpers/backup.py",
+          "line": 148,
+          "column": 25,
+          "context": "\"path\": os.environ.get(\"PATH\", \"\")[:200] + \"...\"                 if len(os.environ.get(\"",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "",
+          "isRequired": false
+        },
+        {
+          "id": "python/helpers/backup.py:149:24:PATH",
+          "varName": "PATH",
+          "method": "os.environ",
+          "file": "python/helpers/backup.py",
+          "line": 149,
+          "column": 24,
+          "context": "if len(os.environ.get(\"PATH\", \"\")) > 200                 else os.environ.get(\"PATH\", \"\"",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "",
+          "isRequired": false
+        },
+        {
+          "id": "python/helpers/backup.py:150:22:PATH",
+          "varName": "PATH",
+          "method": "os.environ",
+          "file": "python/helpers/backup.py",
+          "line": 150,
+          "column": 22,
+          "context": "else os.environ.get(\"PATH\", \"\"),                 \"timezone\": str(datetime.datetime.no",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "",
+          "isRequired": false
+        }
+      ],
+      "files": [
+        "python/helpers/backup.py"
+      ],
+      "hasDefault": true,
+      "isRequired": false
+    },
+    "USER_AGENT": {
+      "name": "USER_AGENT",
+      "sensitivity": "unknown",
+      "accessedBy": [
+        {
+          "id": "python/helpers/document_query.py:10:1:USER_AGENT",
+          "varName": "USER_AGENT",
+          "method": "os.environ",
+          "file": "python/helpers/document_query.py",
+          "line": 10,
+          "column": 1,
+          "context": "db import VectorDB  os.environ[\"USER_AGENT\"] = \"@mixedbread-ai/unstructured\"  # noqa E402 from langc",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": false,
+          "isRequired": true
+        }
+      ],
+      "files": [
+        "python/helpers/document_query.py"
+      ],
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "A2A_TOKEN": {
+      "name": "A2A_TOKEN",
+      "sensitivity": "secret",
+      "accessedBy": [
+        {
+          "id": "python/helpers/fasta2a_client.py:43:21:A2A_TOKEN",
+          "varName": "A2A_TOKEN",
+          "method": "os.getenv",
+          "file": "python/helpers/fasta2a_client.py",
+          "line": 43,
+          "column": 21,
+          "context": "token = os.getenv(\"A2A_TOKEN\")         headers = {}         if token:             header",
+          "language": "python",
+          "sensitivity": "secret",
+          "confidence": 0.9,
+          "hasDefault": false,
+          "isRequired": true
+        }
+      ],
+      "files": [
+        "python/helpers/fasta2a_client.py"
+      ],
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "A0_WS_DEBUG": {
+      "name": "A0_WS_DEBUG",
+      "sensitivity": "config",
+      "accessedBy": [
+        {
+          "id": "python/helpers/state_monitor.py:27:13:A0_WS_DEBUG",
+          "varName": "A0_WS_DEBUG",
+          "method": "os.getenv",
+          "file": "python/helpers/state_monitor.py",
+          "line": 27,
+          "column": 13,
+          "context": "> bool:     value = os.getenv(\"A0_WS_DEBUG\", \"\").strip().lower()     return value in {\"1\", \"true\", \"",
+          "language": "python",
+          "sensitivity": "config",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "",
+          "isRequired": false
+        },
+        {
+          "id": "python/helpers/websocket_manager.py:89:17:A0_WS_DEBUG",
+          "varName": "A0_WS_DEBUG",
+          "method": "os.getenv",
+          "file": "python/helpers/websocket_manager.py",
+          "line": 89,
+          "column": 17,
+          "context": "ne:         value = os.getenv(\"A0_WS_DEBUG\", \"\").strip().lower()         if value in {\"1\", \"true\", \"",
+          "language": "python",
+          "sensitivity": "config",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "",
+          "isRequired": false
+        }
+      ],
+      "files": [
+        "python/helpers/state_monitor.py",
+        "python/helpers/websocket_manager.py"
+      ],
+      "hasDefault": true,
+      "isRequired": false
+    },
+    "TZ": {
+      "name": "TZ",
+      "sensitivity": "unknown",
+      "accessedBy": [
+        {
+          "id": "run_ui.py:58:1:TZ",
+          "varName": "TZ",
+          "method": "os.environ",
+          "file": "run_ui.py",
+          "line": 58,
+          "column": 1,
+          "context": "w timezone to 'UTC' os.environ[\"TZ\"] = \"UTC\" os.environ[\"TOKENIZERS_PARALLELISM\"] = \"false\" # Apply",
+          "language": "python",
+          "sensitivity": "unknown",
+          "confidence": 0.9,
+          "hasDefault": false,
+          "isRequired": true
+        }
+      ],
+      "files": [
+        "run_ui.py"
+      ],
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "TOKENIZERS_PARALLELISM": {
+      "name": "TOKENIZERS_PARALLELISM",
+      "sensitivity": "secret",
+      "accessedBy": [
+        {
+          "id": "run_ui.py:59:1:TOKENIZERS_PARALLELISM",
+          "varName": "TOKENIZERS_PARALLELISM",
+          "method": "os.environ",
+          "file": "run_ui.py",
+          "line": 59,
+          "column": 1,
+          "context": "viron[\"TZ\"] = \"UTC\" os.environ[\"TOKENIZERS_PARALLELISM\"] = \"false\" # Apply the timezone change if ha",
+          "language": "python",
+          "sensitivity": "secret",
+          "confidence": 0.9,
+          "hasDefault": false,
+          "isRequired": true
+        }
+      ],
+      "files": [
+        "run_ui.py"
+      ],
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "FLASK_SECRET_KEY": {
+      "name": "FLASK_SECRET_KEY",
+      "sensitivity": "secret",
+      "accessedBy": [
+        {
+          "id": "run_ui.py:66:21:FLASK_SECRET_KEY",
+          "varName": "FLASK_SECRET_KEY",
+          "method": "os.getenv",
+          "file": "run_ui.py",
+          "line": 66,
+          "column": 21,
+          "context": "webapp.secret_key = os.getenv(\"FLASK_SECRET_KEY\") or secrets.token_hex(32)  UPLOAD_LIMIT_BYTES = 5 *",
+          "language": "python",
+          "sensitivity": "secret",
+          "confidence": 0.9,
+          "hasDefault": false,
+          "isRequired": true
+        }
+      ],
+      "files": [
+        "run_ui.py"
+      ],
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "FLASK_MAX_CONTENT_LENGTH": {
+      "name": "FLASK_MAX_CONTENT_LENGTH",
+      "sensitivity": "config",
+      "accessedBy": [
+        {
+          "id": "run_ui.py:82:9:FLASK_MAX_CONTENT_LENGTH",
+          "varName": "FLASK_MAX_CONTENT_LENGTH",
+          "method": "os.getenv",
+          "file": "run_ui.py",
+          "line": 82,
+          "column": 9,
+          "context": "LENGTH=int(         os.getenv(\"FLASK_MAX_CONTENT_LENGTH\", str(UPLOAD_LIMIT_BYTES))     ),     MAX_FO",
+          "language": "python",
+          "sensitivity": "config",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "str(UPLOAD_LIMIT_BYTES",
+          "isRequired": false
+        }
+      ],
+      "files": [
+        "run_ui.py"
+      ],
+      "hasDefault": true,
+      "isRequired": false
+    },
+    "FLASK_MAX_FORM_MEMORY_SIZE": {
+      "name": "FLASK_MAX_FORM_MEMORY_SIZE",
+      "sensitivity": "config",
+      "accessedBy": [
+        {
+          "id": "run_ui.py:85:9:FLASK_MAX_FORM_MEMORY_SIZE",
+          "varName": "FLASK_MAX_FORM_MEMORY_SIZE",
+          "method": "os.getenv",
+          "file": "run_ui.py",
+          "line": 85,
+          "column": 9,
+          "context": "Y_SIZE=int(         os.getenv(\"FLASK_MAX_FORM_MEMORY_SIZE\", str(UPLOAD_LIMIT_BYTES))     ), )  lock",
+          "language": "python",
+          "sensitivity": "config",
+          "confidence": 0.9,
+          "hasDefault": true,
+          "defaultValue": "str(UPLOAD_LIMIT_BYTES",
+          "isRequired": false
+        }
+      ],
+      "files": [
+        "run_ui.py"
+      ],
+      "hasDefault": true,
+      "isRequired": false
+    }
+  },
+  "accessPoints": {
+    "models.py:46:5:LITELLM_LOG": {
+      "id": "models.py:46:5:LITELLM_LOG",
+      "varName": "LITELLM_LOG",
+      "method": "os.environ",
+      "file": "models.py",
+      "line": 46,
+      "column": 5,
+      "context": "_off_logging():     os.environ[\"LITELLM_LOG\"] = \"ERROR\"  # only errors     litellm.suppress_debug_in",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "python/helpers/backup.py:145:25:USER": {
+      "id": "python/helpers/backup.py:145:25:USER",
+      "varName": "USER",
+      "method": "os.environ",
+      "file": "python/helpers/backup.py",
+      "line": 145,
+      "column": 25,
+      "context": "\"user\": os.environ.get(\"USER\", \"unknown\"),                 \"home\": os.environ.get(\"HOME\"",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "unknown",
+      "isRequired": false
+    },
+    "python/helpers/backup.py:146:25:HOME": {
+      "id": "python/helpers/backup.py:146:25:HOME",
+      "varName": "HOME",
+      "method": "os.environ",
+      "file": "python/helpers/backup.py",
+      "line": 146,
+      "column": 25,
+      "context": "\"home\": os.environ.get(\"HOME\", \"unknown\"),                 \"shell\": os.environ.get(\"SHEL",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "unknown",
+      "isRequired": false
+    },
+    "python/helpers/backup.py:147:26:SHELL": {
+      "id": "python/helpers/backup.py:147:26:SHELL",
+      "varName": "SHELL",
+      "method": "os.environ",
+      "file": "python/helpers/backup.py",
+      "line": 147,
+      "column": 26,
+      "context": "\"shell\": os.environ.get(\"SHELL\", \"unknown\"),                 \"path\": os.environ.get(\"PATH",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "unknown",
+      "isRequired": false
+    },
+    "python/helpers/backup.py:148:25:PATH": {
+      "id": "python/helpers/backup.py:148:25:PATH",
+      "varName": "PATH",
+      "method": "os.environ",
+      "file": "python/helpers/backup.py",
+      "line": 148,
+      "column": 25,
+      "context": "\"path\": os.environ.get(\"PATH\", \"\")[:200] + \"...\"                 if len(os.environ.get(\"",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "",
+      "isRequired": false
+    },
+    "python/helpers/backup.py:149:24:PATH": {
+      "id": "python/helpers/backup.py:149:24:PATH",
+      "varName": "PATH",
+      "method": "os.environ",
+      "file": "python/helpers/backup.py",
+      "line": 149,
+      "column": 24,
+      "context": "if len(os.environ.get(\"PATH\", \"\")) > 200                 else os.environ.get(\"PATH\", \"\"",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "",
+      "isRequired": false
+    },
+    "python/helpers/backup.py:150:22:PATH": {
+      "id": "python/helpers/backup.py:150:22:PATH",
+      "varName": "PATH",
+      "method": "os.environ",
+      "file": "python/helpers/backup.py",
+      "line": 150,
+      "column": 22,
+      "context": "else os.environ.get(\"PATH\", \"\"),                 \"timezone\": str(datetime.datetime.no",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "",
+      "isRequired": false
+    },
+    "python/helpers/document_query.py:10:1:USER_AGENT": {
+      "id": "python/helpers/document_query.py:10:1:USER_AGENT",
+      "varName": "USER_AGENT",
+      "method": "os.environ",
+      "file": "python/helpers/document_query.py",
+      "line": 10,
+      "column": 1,
+      "context": "db import VectorDB  os.environ[\"USER_AGENT\"] = \"@mixedbread-ai/unstructured\"  # noqa E402 from langc",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "python/helpers/fasta2a_client.py:43:21:A2A_TOKEN": {
+      "id": "python/helpers/fasta2a_client.py:43:21:A2A_TOKEN",
+      "varName": "A2A_TOKEN",
+      "method": "os.getenv",
+      "file": "python/helpers/fasta2a_client.py",
+      "line": 43,
+      "column": 21,
+      "context": "token = os.getenv(\"A2A_TOKEN\")         headers = {}         if token:             header",
+      "language": "python",
+      "sensitivity": "secret",
+      "confidence": 0.9,
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "python/helpers/state_monitor.py:27:13:A0_WS_DEBUG": {
+      "id": "python/helpers/state_monitor.py:27:13:A0_WS_DEBUG",
+      "varName": "A0_WS_DEBUG",
+      "method": "os.getenv",
+      "file": "python/helpers/state_monitor.py",
+      "line": 27,
+      "column": 13,
+      "context": "> bool:     value = os.getenv(\"A0_WS_DEBUG\", \"\").strip().lower()     return value in {\"1\", \"true\", \"",
+      "language": "python",
+      "sensitivity": "config",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "",
+      "isRequired": false
+    },
+    "python/helpers/websocket_manager.py:89:17:A0_WS_DEBUG": {
+      "id": "python/helpers/websocket_manager.py:89:17:A0_WS_DEBUG",
+      "varName": "A0_WS_DEBUG",
+      "method": "os.getenv",
+      "file": "python/helpers/websocket_manager.py",
+      "line": 89,
+      "column": 17,
+      "context": "ne:         value = os.getenv(\"A0_WS_DEBUG\", \"\").strip().lower()         if value in {\"1\", \"true\", \"",
+      "language": "python",
+      "sensitivity": "config",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "",
+      "isRequired": false
+    },
+    "run_ui.py:58:1:TZ": {
+      "id": "run_ui.py:58:1:TZ",
+      "varName": "TZ",
+      "method": "os.environ",
+      "file": "run_ui.py",
+      "line": 58,
+      "column": 1,
+      "context": "w timezone to 'UTC' os.environ[\"TZ\"] = \"UTC\" os.environ[\"TOKENIZERS_PARALLELISM\"] = \"false\" # Apply",
+      "language": "python",
+      "sensitivity": "unknown",
+      "confidence": 0.9,
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "run_ui.py:59:1:TOKENIZERS_PARALLELISM": {
+      "id": "run_ui.py:59:1:TOKENIZERS_PARALLELISM",
+      "varName": "TOKENIZERS_PARALLELISM",
+      "method": "os.environ",
+      "file": "run_ui.py",
+      "line": 59,
+      "column": 1,
+      "context": "viron[\"TZ\"] = \"UTC\" os.environ[\"TOKENIZERS_PARALLELISM\"] = \"false\" # Apply the timezone change if ha",
+      "language": "python",
+      "sensitivity": "secret",
+      "confidence": 0.9,
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "run_ui.py:66:21:FLASK_SECRET_KEY": {
+      "id": "run_ui.py:66:21:FLASK_SECRET_KEY",
+      "varName": "FLASK_SECRET_KEY",
+      "method": "os.getenv",
+      "file": "run_ui.py",
+      "line": 66,
+      "column": 21,
+      "context": "webapp.secret_key = os.getenv(\"FLASK_SECRET_KEY\") or secrets.token_hex(32)  UPLOAD_LIMIT_BYTES = 5 *",
+      "language": "python",
+      "sensitivity": "secret",
+      "confidence": 0.9,
+      "hasDefault": false,
+      "isRequired": true
+    },
+    "run_ui.py:82:9:FLASK_MAX_CONTENT_LENGTH": {
+      "id": "run_ui.py:82:9:FLASK_MAX_CONTENT_LENGTH",
+      "varName": "FLASK_MAX_CONTENT_LENGTH",
+      "method": "os.getenv",
+      "file": "run_ui.py",
+      "line": 82,
+      "column": 9,
+      "context": "LENGTH=int(         os.getenv(\"FLASK_MAX_CONTENT_LENGTH\", str(UPLOAD_LIMIT_BYTES))     ),     MAX_FO",
+      "language": "python",
+      "sensitivity": "config",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "str(UPLOAD_LIMIT_BYTES",
+      "isRequired": false
+    },
+    "run_ui.py:85:9:FLASK_MAX_FORM_MEMORY_SIZE": {
+      "id": "run_ui.py:85:9:FLASK_MAX_FORM_MEMORY_SIZE",
+      "varName": "FLASK_MAX_FORM_MEMORY_SIZE",
+      "method": "os.getenv",
+      "file": "run_ui.py",
+      "line": 85,
+      "column": 9,
+      "context": "Y_SIZE=int(         os.getenv(\"FLASK_MAX_FORM_MEMORY_SIZE\", str(UPLOAD_LIMIT_BYTES))     ), )  lock",
+      "language": "python",
+      "sensitivity": "config",
+      "confidence": 0.9,
+      "hasDefault": true,
+      "defaultValue": "str(UPLOAD_LIMIT_BYTES",
+      "isRequired": false
+    }
+  },
+  "stats": {
+    "totalVariables": 13,
+    "totalAccessPoints": 16,
+    "secretVariables": 3,
+    "credentialVariables": 0,
+    "configVariables": 3,
+    "byLanguage": {
+      "python": 16
+    },
+    "byMethod": {
+      "os.environ": 10,
+      "os.getenv": 6
+    }
+  }
+}

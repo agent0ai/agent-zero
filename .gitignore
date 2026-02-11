@@ -16,6 +16,9 @@
 .ruff_cache/
 .pytest_cache/
 
+# mise local overrides
+mise.local.toml
+
 # Ignore all contents of the virtual environment directory
 .venv/
 
@@ -52,3 +55,18 @@ agent_history.gif
 
 # Agent Zero Data
 my-data/
+
+# Drift: ignore caches and temporary data
+.drift/lake/
+.drift/cache/
+.drift/history/
+.drift/call-graph/
+.drift/patterns/discovered/
+.drift/patterns/ignored/
+.drift/patterns/variants/
+.drift/constraints/discovered/
+.drift/constraints/ignored/
+.drift/contracts/discovered/
+.drift/contracts/ignored/
+.drift/contracts/mismatch/
+.drift/**/.backups/

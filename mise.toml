@@ -1,0 +1,234 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+min_version = "2025.1.0"
+
+# ============================================================================
+# Environment
+# ============================================================================
+
+[env]
+PROJECT_NAME = "agent-zero"
+PYTHONUNBUFFERED = "1"
+PYTHONDONTWRITEBYTECODE = "1"
+
+# Auto-activate .venv when entering directory
+_.python.venv = { path = ".venv", create = true }
+
+# ============================================================================
+# Tools — managed by mise, installed automatically
+# ============================================================================
+
+[tools]
+python = "3.12"
+uv = "latest"
+ruff = "latest"
+biome = "latest"
+git-cliff = "latest"
+pkl = "latest"
+hk = "latest"
+
+# ============================================================================
+# Settings
+# ============================================================================
+
+[settings]
+experimental = true
+jobs = 4
+task_output = "prefix"
+
+# ============================================================================
+# Setup & Installation
+# ============================================================================
+
+[tasks.setup]
+description = "First-time project setup (install deps, playwright, git hooks)"
+run = '''
+uv sync --group dev
+uv run playwright install chromium
+hk install --mise
+echo "Setup complete."
+'''
+
+[tasks.install]
+description = "Install Python dependencies with uv"
+run = "uv sync --group dev"
+
+[tasks."install:prod"]
+description = "Install production dependencies only"
+run = "uv sync --no-dev"
+
+# ============================================================================
+# Running
+# ============================================================================
+
+[tasks.run]
+alias = "r"
+description = "Start the Agent Zero UI server"
+run = "uv run python run_ui.py"
+
+# ============================================================================
+# Code Quality — Ruff (Python) + Biome (CSS)
+# ============================================================================
+
+[tasks.lint]
+description = "Lint all code (Python + CSS)"
+depends = ["lint:python", "lint:css"]
+
+[tasks."lint:python"]
+description = "Lint Python code with Ruff"
+run = "uv run ruff check python/ tests/ prompts/"
+
+[tasks."lint:python:fix"]
+description = "Lint Python code with Ruff (auto-fix)"
+run = "uv run ruff check --fix python/ tests/ prompts/"
+
+[tasks."lint:css"]
+description = "Lint CSS files with Biome"
+run = "biome lint webui/css/"
+
+[tasks.format]
+description = "Format all code"
+depends = ["format:python"]
+
+[tasks."format:python"]
+description = "Format Python code with Ruff"
+run = "uv run ruff format python/ tests/ prompts/"
+
+[tasks."format:check"]
+description = "Check formatting (CI-friendly, no writes)"
+run = "uv run ruff format --check python/ tests/ prompts/"
+
+# ============================================================================
+# Testing
+# ============================================================================
+
+[tasks.test]
+alias = "t"
+description = "Run tests with pytest"
+run = "uv run pytest tests/ -v"
+
+[tasks."test:coverage"]
+description = "Run tests with coverage report"
+run = "uv run pytest tests/ -v --cov=python/ --cov-report=term-missing"
+
+# ============================================================================
+# Dependencies
+# ============================================================================
+
+[tasks."deps:add"]
+description = "Add a dependency (usage: mise run deps:add <package>)"
+usage = 'arg "<package>" help="Package to add"'
+run = '''
+uv add "${usage_package}"
+uv export --no-hashes --no-dev --no-emit-project -o requirements.txt
+echo "Added ${usage_package} — requirements.txt regenerated"
+'''
+
+[tasks."deps:add-dev"]
+description = "Add a dev dependency"
+usage = 'arg "<package>" help="Package to add"'
+run = '''
+uv add --group dev "${usage_package}"
+echo "Added ${usage_package} to dev group"
+'''
+
+[tasks."deps:export"]
+description = "Regenerate requirements.txt from pyproject.toml (for Docker)"
+run = '''
+uv export --no-hashes --no-dev --no-emit-project -o requirements.txt
+echo "requirements.txt regenerated from pyproject.toml"
+'''
+
+[tasks."deps:lock"]
+description = "Update uv.lock"
+run = "uv lock"
+
+# ============================================================================
+# Docker
+# ============================================================================
+
+[tasks."docker:build"]
+description = "Build local Docker image"
+run = '''
+docker build -f DockerfileLocal -t agent-zero-local \
+  --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+'''
+sources = ["DockerfileLocal", "requirements.txt", "docker/**"]
+
+[tasks."docker:run"]
+description = "Run local Docker container"
+run = "docker run -it -p 50080:80 agent-zero-local"
+
+# ============================================================================
+# Git Hooks (hk)
+# ============================================================================
+
+[tasks."hooks:install"]
+description = "Install git hooks via hk"
+run = "hk install --mise"
+
+[tasks."hooks:check"]
+description = "Run all hook checks manually"
+run = "hk check --all"
+
+[tasks."hooks:fix"]
+description = "Run all hook fixes"
+run = "hk fix --all"
+
+# ============================================================================
+# Changelog & Release (git-cliff)
+# ============================================================================
+
+[tasks.changelog]
+description = "Generate full changelog from git history"
+run = "git-cliff --output CHANGELOG.md"
+
+[tasks."changelog:latest"]
+description = "Show changelog for latest version"
+run = "git-cliff --latest"
+
+[tasks."changelog:unreleased"]
+description = "Show unreleased changes (preview next release)"
+run = "git-cliff --unreleased"
+
+[tasks."changelog:bump"]
+description = "Bump version based on conventional commits"
+run = "git-cliff --bump --output CHANGELOG.md"
+
+# ============================================================================
+# CI Pipeline
+# ============================================================================
+
+[tasks.ci]
+description = "Run all CI checks (lint, format, test)"
+depends = ["format:check", "lint", "test"]
+
+# ============================================================================
+# Utilities
+# ============================================================================
+
+[tasks.clean]
+description = "Remove build artifacts and caches"
+run = '''
+rm -rf .ruff_cache .pytest_cache __pycache__
+find . -path ./.venv -prune -o -type d -name __pycache__ -print -exec rm -rf {} + 2>/dev/null || true
+find . -path ./.venv -prune -o -type f -name '*.pyc' -print -delete 2>/dev/null || true
+echo "Cleaned."
+'''
+
+[tasks.info]
+description = "Show project info and tool versions"
+run = '''
+echo "=== Agent Zero - Environment Info ==="
+echo ""
+echo "Python: $(python --version)"
+echo "uv: $(uv --version)"
+echo "Ruff: $(ruff --version)"
+echo "Biome: $(biome --version)"
+echo "git-cliff: $(git-cliff --version)"
+echo "hk: $(hk --version)"
+echo "mise: $(mise --version)"
+echo ""
+echo "Working directory: $(pwd)"
+echo ""
+echo "=== Ready to develop! ==="
+'''

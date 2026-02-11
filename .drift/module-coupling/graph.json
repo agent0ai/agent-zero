@@ -1,0 +1,4979 @@
+{
+  "modules": {
+    "python/extensions/reasoning_stream/_10_log_from_stream.py": {
+      "path": "python/extensions/reasoning_stream/_10_log_from_stream.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/response_stream_end/_10_mask_end.py": {
+      "path": "python/extensions/response_stream_end/_10_mask_end.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_end/_10_organize_history.py": {
+      "path": "python/extensions/message_loop_end/_10_organize_history.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_end/_90_save_chat.py": {
+      "path": "python/extensions/message_loop_end/_90_save_chat.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/a2a_chat.py": {
+      "path": "python/tools/a2a_chat.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/skills_tool.py": {
+      "path": "python/tools/skills_tool.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/input.py": {
+      "path": "python/tools/input.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/document_query.py": {
+      "path": "python/tools/document_query.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/response_stream/_20_live_response.py": {
+      "path": "python/extensions/response_stream/_20_live_response.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/memory_forget.py": {
+      "path": "python/tools/memory_forget.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/memory_delete.py": {
+      "path": "python/tools/memory_delete.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/security.py": {
+      "path": "python/helpers/security.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/response_stream/_10_log_from_stream.py": {
+      "path": "python/extensions/response_stream/_10_log_from_stream.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/response_stream_end/_15_log_from_stream_end.py": {
+      "path": "python/extensions/response_stream_end/_15_log_from_stream_end.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/user_message_ui/_10_update_check.py": {
+      "path": "python/extensions/user_message_ui/_10_update_check.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/wait.py": {
+      "path": "python/helpers/wait.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/behaviour_adjustment.py": {
+      "path": "python/tools/behaviour_adjustment.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/scheduler.py": {
+      "path": "python/tools/scheduler.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/response.py": {
+      "path": "python/tools/response.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/memory_save.py": {
+      "path": "python/tools/memory_save.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/reasoning_stream_chunk/_10_mask_stream.py": {
+      "path": "python/extensions/reasoning_stream_chunk/_10_mask_stream.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/searxng.py": {
+      "path": "python/helpers/searxng.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/tool_execute_before/_10_replace_last_tool_output.py": {
+      "path": "python/extensions/tool_execute_before/_10_replace_last_tool_output.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/timed_input.py": {
+      "path": "python/helpers/timed_input.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/search_engine.py": {
+      "path": "python/tools/search_engine.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/tool_execute_before/_10_unmask_secrets.py": {
+      "path": "python/extensions/tool_execute_before/_10_unmask_secrets.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/vision_load.py": {
+      "path": "python/tools/vision_load.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/response_stream_chunk/_10_mask_stream.py": {
+      "path": "python/extensions/response_stream_chunk/_10_mask_stream.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/system_prompt/_20_behaviour_prompt.py": {
+      "path": "python/extensions/system_prompt/_20_behaviour_prompt.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/rate_limiter.py": {
+      "path": "python/helpers/rate_limiter.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/job_loop.py": {
+      "path": "python/helpers/job_loop.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/api_terminate_chat.py": {
+      "path": "python/api/api_terminate_chat.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/system_prompt/_10_system_prompt.py": {
+      "path": "python/extensions/system_prompt/_10_system_prompt.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/memory_load.py": {
+      "path": "python/tools/memory_load.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/error_format/_10_mask_errors.py": {
+      "path": "python/extensions/error_format/_10_mask_errors.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/hist_add_before/_10_mask_content.py": {
+      "path": "python/extensions/hist_add_before/_10_mask_content.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/websocket_handlers/hello_handler.py": {
+      "path": "python/websocket_handlers/hello_handler.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/kokoro_tts.py": {
+      "path": "python/helpers/kokoro_tts.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/chat_reset.py": {
+      "path": "python/api/chat_reset.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/scheduler_tasks_list.py": {
+      "path": "python/api/scheduler_tasks_list.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/agent_init/_15_load_profile_settings.py": {
+      "path": "python/extensions/agent_init/_15_load_profile_settings.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/tool_execute_after/_10_mask_secrets.py": {
+      "path": "python/extensions/tool_execute_after/_10_mask_secrets.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/skills_import.py": {
+      "path": "python/api/skills_import.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/websocket_handlers/state_sync_handler.py": {
+      "path": "python/websocket_handlers/state_sync_handler.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_prompts_before/_90_organize_history_wait.py": {
+      "path": "python/extensions/message_loop_prompts_before/_90_organize_history_wait.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/notifications_history.py": {
+      "path": "python/api/notifications_history.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/reasoning_stream_end/_10_mask_end.py": {
+      "path": "python/extensions/reasoning_stream_end/_10_mask_end.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/hist_add_tool_result/_90_save_tool_call_file.py": {
+      "path": "python/extensions/hist_add_tool_result/_90_save_tool_call_file.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/logout.py": {
+      "path": "python/api/logout.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/monologue_start/_60_rename_chat.py": {
+      "path": "python/extensions/monologue_start/_60_rename_chat.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/monologue_start/_10_memory_init.py": {
+      "path": "python/extensions/monologue_start/_10_memory_init.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/monologue_end/_90_waiting_for_input_msg.py": {
+      "path": "python/extensions/monologue_end/_90_waiting_for_input_msg.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/process_chain_end/_50_process_queue.py": {
+      "path": "python/extensions/process_chain_end/_50_process_queue.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/get_work_dir_files.py": {
+      "path": "python/api/get_work_dir_files.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_start/_10_iteration_no.py": {
+      "path": "python/extensions/message_loop_start/_10_iteration_no.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/knowledge_path_get.py": {
+      "path": "python/api/knowledge_path_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/state_snapshot.py": {
+      "path": "python/helpers/state_snapshot.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/chat_create.py": {
+      "path": "python/api/chat_create.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/tokens.py": {
+      "path": "python/helpers/tokens.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/websocket_handlers/dev_websocket_test_handler.py": {
+      "path": "python/websocket_handlers/dev_websocket_test_handler.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/monologue_end/_50_memorize_fragments.py": {
+      "path": "python/extensions/monologue_end/_50_memorize_fragments.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/websocket_handlers/_default.py": {
+      "path": "python/websocket_handlers/_default.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/util_model_call_before/_10_mask_secrets.py": {
+      "path": "python/extensions/util_model_call_before/_10_mask_secrets.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/subagents.py": {
+      "path": "python/api/subagents.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/api_log_get.py": {
+      "path": "python/api/api_log_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/backup_restore_preview.py": {
+      "path": "python/api/backup_restore_preview.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/unknown.py": {
+      "path": "python/tools/unknown.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/csrf_token.py": {
+      "path": "python/api/csrf_token.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/dirty_json.py": {
+      "path": "python/helpers/dirty_json.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_prompts_after/_70_include_agent_info.py": {
+      "path": "python/extensions/message_loop_prompts_after/_70_include_agent_info.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/monologue_end/_51_memorize_solutions.py": {
+      "path": "python/extensions/monologue_end/_51_memorize_solutions.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_snapshot_schema_v1.py": {
+      "path": "tests/test_snapshot_schema_v1.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/response_stream/_15_replace_include_alias.py": {
+      "path": "python/extensions/response_stream/_15_replace_include_alias.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/docker.py": {
+      "path": "python/helpers/docker.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/banners/_20_missing_api_key.py": {
+      "path": "python/extensions/banners/_20_missing_api_key.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/banners/_10_unsecured_connection.py": {
+      "path": "python/extensions/banners/_10_unsecured_connection.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_harness.py": {
+      "path": "tests/test_websocket_harness.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/agent_init/_10_initial_message.py": {
+      "path": "python/extensions/agent_init/_10_initial_message.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/banners/_30_system_resources.py": {
+      "path": "python/extensions/banners/_30_system_resources.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_socketio_unknown_namespace.py": {
+      "path": "tests/test_socketio_unknown_namespace.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_settings_developer_sections.py": {
+      "path": "tests/test_settings_developer_sections.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/runtime.py": {
+      "path": "python/helpers/runtime.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/chat/input/input-store.js": {
+      "path": "webui/components/chat/input/input-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_namespaces_integration.py": {
+      "path": "tests/test_websocket_namespaces_integration.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_run_ui_config.py": {
+      "path": "tests/test_run_ui_config.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_snapshot_parity.py": {
+      "path": "tests/test_snapshot_parity.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/chat/navigation/chat-navigation-store.js": {
+      "path": "webui/components/chat/navigation/chat-navigation-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/modals.js": {
+      "path": "webui/js/modals.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_socketio_library_semantics.py": {
+      "path": "tests/test_socketio_library_semantics.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_csrf.py": {
+      "path": "tests/test_websocket_csrf.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/tty_session.py": {
+      "path": "python/helpers/tty_session.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/code_execution_tool.py": {
+      "path": "python/tools/code_execution_tool.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_state_monitor.py": {
+      "path": "tests/test_state_monitor.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/rate_limiter_test.py": {
+      "path": "tests/rate_limiter_test.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "agents/_example/tools/response.py": {
+      "path": "agents/_example/tools/response.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "agents/_example/tools/example_tool.py": {
+      "path": "agents/_example/tools/example_tool.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "agents/_example/extensions/agent_init/_10_example_extension.py": {
+      "path": "agents/_example/extensions/agent_init/_10_example_extension.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/localization.py": {
+      "path": "python/helpers/localization.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/image-viewer/image-viewer-store.js": {
+      "path": "webui/components/modals/image-viewer/image-viewer-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/whisper.py": {
+      "path": "python/helpers/whisper.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/rfc_exchange.py": {
+      "path": "python/helpers/rfc_exchange.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/chat/attachments/attachmentsStore.js": {
+      "path": "webui/components/chat/attachments/attachmentsStore.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/api.py": {
+      "path": "python/helpers/api.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "docker/run/fs/exe/node_eval.js": {
+      "path": "docker/run/fs/exe/node_eval.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "docker/run/fs/exe/supervisor_event_listener.py": {
+      "path": "docker/run/fs/exe/supervisor_event_listener.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/projects/projects-store.js": {
+      "path": "webui/components/projects/projects-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/wait.py": {
+      "path": "python/tools/wait.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/full-screen-input/full-screen-store.js": {
+      "path": "webui/components/modals/full-screen-input/full-screen-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/context/context-store.js": {
+      "path": "webui/components/modals/context/context-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/file_browser.py": {
+      "path": "python/helpers/file_browser.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/index.js": {
+      "path": "webui/index.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/sidebar/tasks/tasks-store.js": {
+      "path": "webui/components/sidebar/tasks/tasks-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/process-step-detail/step-detail-store.js": {
+      "path": "webui/components/modals/process-step-detail/step-detail-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/chat/speech/speech-store.js": {
+      "path": "webui/components/chat/speech/speech-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/providers.py": {
+      "path": "python/helpers/providers.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/chat/message-queue/message-queue-store.js": {
+      "path": "webui/components/chat/message-queue/message-queue-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/sidebar/sidebar-store.js": {
+      "path": "webui/components/sidebar/sidebar-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/shortcuts.js": {
+      "path": "webui/js/shortcuts.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/history/history-store.js": {
+      "path": "webui/components/modals/history/history-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/sidebar/chats/chats-store.js": {
+      "path": "webui/components/sidebar/chats/chats-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "lib/browser/click.js": {
+      "path": "lib/browser/click.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/scheduler/scheduler-store.js": {
+      "path": "webui/components/modals/scheduler/scheduler-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/components.js": {
+      "path": "webui/js/components.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/notify_user.py": {
+      "path": "python/tools/notify_user.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "lib/browser/extract_dom.js": {
+      "path": "lib/browser/extract_dom.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/mcp/client/mcp-servers-store.js": {
+      "path": "webui/components/settings/mcp/client/mcp-servers-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/css.js": {
+      "path": "webui/js/css.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/speech/microphone-setting-store.js": {
+      "path": "webui/components/settings/speech/microphone-setting-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/sidebar/bottom/preferences/preferences-store.js": {
+      "path": "webui/components/sidebar/bottom/preferences/preferences-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/scheduler_task_run.py": {
+      "path": "python/api/scheduler_task_run.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/sidebar/bottom/sidebar-bottom-store.js": {
+      "path": "webui/components/sidebar/bottom/sidebar-bottom-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/api.js": {
+      "path": "webui/js/api.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_prompts_after/_75_include_workdir_extras.py": {
+      "path": "python/extensions/message_loop_prompts_after/_75_include_workdir_extras.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_prompts_after/_60_include_current_datetime.py": {
+      "path": "python/extensions/message_loop_prompts_after/_60_include_current_datetime.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/settings-store.js": {
+      "path": "webui/components/settings/settings-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/edit_work_dir_file.py": {
+      "path": "python/api/edit_work_dir_file.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_prompts_after/_50_recall_memories.py": {
+      "path": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/knowledge_reindex.py": {
+      "path": "python/api/knowledge_reindex.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_prompts_after/_65_include_loaded_skills.py": {
+      "path": "python/extensions/message_loop_prompts_after/_65_include_loaded_skills.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/chat_files_path_get.py": {
+      "path": "python/api/chat_files_path_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "prompts/agent.system.tool.call_sub.py": {
+      "path": "prompts/agent.system.tool.call_sub.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/file-editor/file-editor-store.js": {
+      "path": "webui/components/modals/file-editor/file-editor-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "prompts/agent.system.main.tips.py": {
+      "path": "prompts/agent.system.main.tips.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/nudge.py": {
+      "path": "python/api/nudge.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/message_loop_prompts_after/_91_recall_wait.py": {
+      "path": "python/extensions/message_loop_prompts_after/_91_recall_wait.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/poll.py": {
+      "path": "python/api/poll.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/extensions/before_main_llm_call/_10_log_for_stream.py": {
+      "path": "python/extensions/before_main_llm_call/_10_log_for_stream.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/device.js": {
+      "path": "webui/js/device.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "prompts/agent.system.tools.py": {
+      "path": "prompts/agent.system.tools.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/mcp_servers_apply.py": {
+      "path": "python/api/mcp_servers_apply.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/browser_agent.py": {
+      "path": "python/tools/browser_agent.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/initializer.js": {
+      "path": "webui/js/initializer.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/tools/call_subordinate.py": {
+      "path": "python/tools/call_subordinate.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/backup_inspect.py": {
+      "path": "python/api/backup_inspect.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/confirmDialog.js": {
+      "path": "webui/js/confirmDialog.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/AlpineStore.js": {
+      "path": "webui/js/AlpineStore.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/sleep.js": {
+      "path": "webui/js/sleep.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/backup_test.py": {
+      "path": "python/api/backup_test.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/email_client.py": {
+      "path": "python/helpers/email_client.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/crypto.py": {
+      "path": "python/helpers/crypto.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/projects.py": {
+      "path": "python/api/projects.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/skills/skills-list-store.js": {
+      "path": "webui/components/settings/skills/skills-list-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/notifications_clear.py": {
+      "path": "python/api/notifications_clear.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/attachment_manager.py": {
+      "path": "python/helpers/attachment_manager.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/dotenv.py": {
+      "path": "python/helpers/dotenv.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/skills.py": {
+      "path": "python/api/skills.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/modals/file-browser/file-browser-store.js": {
+      "path": "webui/components/modals/file-browser/file-browser-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/tunnel/tunnel-store.js": {
+      "path": "webui/components/settings/tunnel/tunnel-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/scheduler_task_create.py": {
+      "path": "python/api/scheduler_task_create.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/import_knowledge.py": {
+      "path": "python/api/import_knowledge.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/extract_tools.py": {
+      "path": "python/helpers/extract_tools.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/upload.py": {
+      "path": "python/api/upload.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/scheduler_tick.py": {
+      "path": "python/api/scheduler_tick.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/chat_load.py": {
+      "path": "python/api/chat_load.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/message_queue_add.py": {
+      "path": "python/api/message_queue_add.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/scheduler_task_delete.py": {
+      "path": "python/api/scheduler_task_delete.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/health.py": {
+      "path": "python/api/health.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/ctx_window_get.py": {
+      "path": "python/api/ctx_window_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/vector_db.py": {
+      "path": "python/helpers/vector_db.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/scheduler_task_update.py": {
+      "path": "python/api/scheduler_task_update.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/speech_browser.js": {
+      "path": "webui/js/speech_browser.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/skills/skills-import-store.js": {
+      "path": "webui/components/settings/skills/skills-import-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/backup_create.py": {
+      "path": "python/api/backup_create.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/download_work_dir_file.py": {
+      "path": "python/api/download_work_dir_file.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/message_queue_remove.py": {
+      "path": "python/api/message_queue_remove.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/websocket.js": {
+      "path": "webui/js/websocket.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/settings_get.py": {
+      "path": "python/api/settings_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/backup_get_defaults.py": {
+      "path": "python/api/backup_get_defaults.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/confirmClick.js": {
+      "path": "webui/js/confirmClick.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/developer/websocket-test-store.js": {
+      "path": "webui/components/settings/developer/websocket-test-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/shell_local.py": {
+      "path": "python/helpers/shell_local.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/api_files_get.py": {
+      "path": "python/api/api_files_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/message_async.py": {
+      "path": "python/api/message_async.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/time-utils.js": {
+      "path": "webui/js/time-utils.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/welcome/welcome-store.js": {
+      "path": "webui/components/welcome/welcome-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/upload_work_dir_files.py": {
+      "path": "python/api/upload_work_dir_files.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/chat_export.py": {
+      "path": "python/api/chat_export.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/notification_create.py": {
+      "path": "python/api/notification_create.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/history_get.py": {
+      "path": "python/api/history_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/file_info.py": {
+      "path": "python/api/file_info.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/skills_import.py": {
+      "path": "python/helpers/skills_import.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/api_message.py": {
+      "path": "python/api/api_message.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/scroller.js": {
+      "path": "webui/js/scroller.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/banners.py": {
+      "path": "python/api/banners.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/tunnel_proxy.py": {
+      "path": "python/api/tunnel_proxy.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/rfc.py": {
+      "path": "python/helpers/rfc.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/developer/websocket-event-console-store.js": {
+      "path": "webui/components/settings/developer/websocket-event-console-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/knowledge_import.py": {
+      "path": "python/helpers/knowledge_import.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/extension.py": {
+      "path": "python/helpers/extension.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/messages/process-group/process-group-dom.js": {
+      "path": "webui/components/messages/process-group/process-group-dom.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/memory_dashboard.py": {
+      "path": "python/api/memory_dashboard.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/skills_import_preview.py": {
+      "path": "python/api/skills_import_preview.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/settings_workdir_file_structure.py": {
+      "path": "python/api/settings_workdir_file_structure.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/messages/action-buttons/simple-action-buttons.js": {
+      "path": "webui/components/messages/action-buttons/simple-action-buttons.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/message_queue.py": {
+      "path": "python/helpers/message_queue.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/backup_preview_grouped.py": {
+      "path": "python/api/backup_preview_grouped.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/message.py": {
+      "path": "python/api/message.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/_examples/_example-store.js": {
+      "path": "webui/components/_examples/_example-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/settings/backup/backup-store.js": {
+      "path": "webui/components/settings/backup/backup-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/persist_chat.py": {
+      "path": "python/helpers/persist_chat.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/messages/resize/message-resize-store.js": {
+      "path": "webui/components/messages/resize/message-resize-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/message_queue_send.py": {
+      "path": "python/api/message_queue_send.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_root_namespace.py": {
+      "path": "tests/test_websocket_root_namespace.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/chat_remove.py": {
+      "path": "python/api/chat_remove.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/email_parser_test.py": {
+      "path": "tests/email_parser_test.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/history.py": {
+      "path": "python/helpers/history.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/websocket_namespace_discovery.py": {
+      "path": "python/helpers/websocket_namespace_discovery.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/files.py": {
+      "path": "python/helpers/files.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/rename_work_dir_file.py": {
+      "path": "python/api/rename_work_dir_file.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_fasta2a_client.py": {
+      "path": "tests/test_fasta2a_client.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/websocket_namespace_test_utils.py": {
+      "path": "tests/websocket_namespace_test_utils.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/git.py": {
+      "path": "python/helpers/git.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/tunnel.py": {
+      "path": "python/api/tunnel.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_state_sync_welcome_screen.py": {
+      "path": "tests/test_state_sync_welcome_screen.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/settings_set.py": {
+      "path": "python/api/settings_set.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_persist_chat_log_ids.py": {
+      "path": "tests/test_persist_chat_log_ids.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/mcp_server_get_log.py": {
+      "path": "python/api/mcp_server_get_log.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/agents.py": {
+      "path": "python/api/agents.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/context.py": {
+      "path": "python/helpers/context.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/rfc_files.py": {
+      "path": "python/helpers/rfc_files.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/delete_work_dir_file.py": {
+      "path": "python/api/delete_work_dir_file.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/sync/sync-store.js": {
+      "path": "webui/components/sync/sync-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/synthesize.py": {
+      "path": "python/api/synthesize.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/mcp_server_get_detail.py": {
+      "path": "python/api/mcp_server_get_detail.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/tooltips/tooltip-store.js": {
+      "path": "webui/components/tooltips/tooltip-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/api_reset_chat.py": {
+      "path": "python/api/api_reset_chat.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_namespace_security.py": {
+      "path": "tests/test_websocket_namespace_security.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_state_sync_handler.py": {
+      "path": "tests/test_state_sync_handler.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/restart.py": {
+      "path": "python/api/restart.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/mcp_servers_status.py": {
+      "path": "python/api/mcp_servers_status.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_http_auth_csrf.py": {
+      "path": "tests/test_http_auth_csrf.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/notifications_mark_read.py": {
+      "path": "python/api/notifications_mark_read.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/rfc.py": {
+      "path": "python/api/rfc.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/pause.py": {
+      "path": "python/api/pause.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/backup.py": {
+      "path": "python/helpers/backup.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/chunk_parser_test.py": {
+      "path": "tests/chunk_parser_test.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/print_catch.py": {
+      "path": "python/helpers/print_catch.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/websocket_manager.py": {
+      "path": "python/helpers/websocket_manager.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/backup_restore.py": {
+      "path": "python/api/backup_restore.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/playwright.py": {
+      "path": "python/helpers/playwright.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/defer.py": {
+      "path": "python/helpers/defer.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/image_get.py": {
+      "path": "python/api/image_get.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/api/transcribe.py": {
+      "path": "python/api/transcribe.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/secrets.py": {
+      "path": "python/helpers/secrets.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/shell_ssh.py": {
+      "path": "python/helpers/shell_ssh.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/images.py": {
+      "path": "python/helpers/images.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/messages.py": {
+      "path": "python/helpers/messages.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_handlers.py": {
+      "path": "tests/test_websocket_handlers.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/skills.py": {
+      "path": "python/helpers/skills.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_client_api_surface.py": {
+      "path": "tests/test_websocket_client_api_surface.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/call_llm.py": {
+      "path": "python/helpers/call_llm.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/components/notifications/notification-store.js": {
+      "path": "webui/components/notifications/notification-store.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/settings.py": {
+      "path": "python/helpers/settings.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_file_tree_visualize.py": {
+      "path": "tests/test_file_tree_visualize.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_namespace_discovery.py": {
+      "path": "tests/test_websocket_namespace_discovery.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/migration.py": {
+      "path": "python/helpers/migration.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/fasta2a_server.py": {
+      "path": "python/helpers/fasta2a_server.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/messages.js": {
+      "path": "webui/js/messages.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_namespaces.py": {
+      "path": "tests/test_websocket_namespaces.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/state_monitor_integration.py": {
+      "path": "python/helpers/state_monitor_integration.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/subagents.py": {
+      "path": "python/helpers/subagents.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_multi_tab_isolation.py": {
+      "path": "tests/test_multi_tab_isolation.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/process.py": {
+      "path": "python/helpers/process.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/document_query.py": {
+      "path": "python/helpers/document_query.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/print_style.py": {
+      "path": "python/helpers/print_style.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/login.py": {
+      "path": "python/helpers/login.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/skills_cli.py": {
+      "path": "python/helpers/skills_cli.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/errors.py": {
+      "path": "python/helpers/errors.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/strings.py": {
+      "path": "python/helpers/strings.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/browser_use_monkeypatch.py": {
+      "path": "python/helpers/browser_use_monkeypatch.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/fasta2a_client.py": {
+      "path": "python/helpers/fasta2a_client.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/duckduckgo_search.py": {
+      "path": "python/helpers/duckduckgo_search.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/mcp_handler.py": {
+      "path": "python/helpers/mcp_handler.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/memory_consolidation.py": {
+      "path": "python/helpers/memory_consolidation.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/tool.py": {
+      "path": "python/helpers/tool.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/projects.py": {
+      "path": "python/helpers/projects.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/update_check.py": {
+      "path": "python/helpers/update_check.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/perplexity_search.py": {
+      "path": "python/helpers/perplexity_search.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/guids.py": {
+      "path": "python/helpers/guids.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/state_monitor.py": {
+      "path": "python/helpers/state_monitor.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/memory.py": {
+      "path": "python/helpers/memory.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/websocket.py": {
+      "path": "python/helpers/websocket.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/mcp_server.py": {
+      "path": "python/helpers/mcp_server.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/tunnel_manager.py": {
+      "path": "python/helpers/tunnel_manager.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/notification.py": {
+      "path": "python/helpers/notification.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "tests/test_websocket_manager.py": {
+      "path": "tests/test_websocket_manager.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/log.py": {
+      "path": "python/helpers/log.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/file_tree.py": {
+      "path": "python/helpers/file_tree.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "python/helpers/task_scheduler.py": {
+      "path": "python/helpers/task_scheduler.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    },
+    "webui/js/transformers@3.0.2.js": {
+      "path": "webui/js/transformers@3.0.2.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": [],
+      "metrics": {
+        "Ca": 0,
+        "Ce": 0,
+        "instability": 0,
+        "abstractness": 0,
+        "distance": 1
+      },
+      "role": "balanced",
+      "isEntryPoint": false,
+      "isLeaf": true
+    }
+  },
+  "edges": [],
+  "cycles": [],
+  "metrics": {
+    "totalModules": 310,
+    "totalEdges": 0,
+    "cycleCount": 0,
+    "avgInstability": 0,
+    "avgDistance": 1,
+    "zoneOfPain": [],
+    "zoneOfUselessness": [],
+    "hotspots": [],
+    "isolatedModules": []
+  },
+  "generatedAt": "2026-02-11T05:00:21.617Z",
+  "projectRoot": "/Users/jason/dev/apollos-ai/agent-zero"
+}

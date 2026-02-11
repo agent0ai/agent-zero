@@ -1,0 +1,104 @@
+amends "package://github.com/jdx/hk/releases/download/v1.35.0/hk@1.35.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.35.0/hk@1.35.0#/Builtins.pkl"
+
+/// agent-zero: Python linting (Ruff) + CSS linting (Biome) + conventional commits
+
+// ---------------------------------------------------------------------------
+// Linters
+// ---------------------------------------------------------------------------
+
+local linters = new Mapping<String, Step> {
+  // Ruff: Python linting
+  ["ruff"] = (Builtins.ruff) {
+    glob = List("**/*.py")
+    exclude = List(".venv/**", "**/__pycache__/**", "**/*._py")
+    batch = true
+    check_first = true
+  }
+
+  // Ruff: Python formatting
+  ["ruff_format"] = (Builtins.ruff_format) {
+    glob = List("**/*.py")
+    exclude = List(".venv/**", "**/__pycache__/**", "**/*._py")
+    depends = "ruff"
+  }
+
+  // Biome: CSS linting
+  ["biome"] = (Builtins.biome) {
+    glob = List("webui/**/*.css")
+    check_first = true
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Security & Hygiene
+// ---------------------------------------------------------------------------
+
+local security = new Mapping<String, Step> {
+  ["detect-private-key"] {
+    check = "hk util detect-private-key {{files}}"
+    glob = List("**/*")
+    exclude = List(".venv/**", "node_modules/**", ".git/**")
+  }
+
+  ["check-large-files"] {
+    check = "hk util check-added-large-files --maxkb 500 {{files}}"
+  }
+
+  ["check-merge-conflict"] {
+    check = "hk util check-merge-conflict {{files}}"
+  }
+}
+
+local hygiene = new Mapping<String, Step> {
+  ["trailing-whitespace"] {
+    check = "hk util trailing-whitespace {{files}}"
+    fix = "hk util trailing-whitespace --fix {{files}}"
+    exclude = List("*.md", ".venv/**")
+  }
+
+  ["end-of-file-fixer"] {
+    check = "hk util end-of-file-fixer {{files}}"
+    fix = "hk util end-of-file-fixer --fix {{files}}"
+    exclude = List(".venv/**")
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hooks
+// ---------------------------------------------------------------------------
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps {
+      ...security
+      ...hygiene
+      ...linters
+    }
+  }
+
+  ["commit-msg"] {
+    steps {
+      ["conventional-commit"] {
+        check = "hk util check-conventional-commit --allowed-types feat,fix,refactor,docs,style,perf,test,chore,ci,security {{commit_msg_file}}"
+      }
+    }
+  }
+
+  ["check"] {
+    steps = linters
+  }
+
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Global settings
+// ---------------------------------------------------------------------------
+
+fail_fast = true
