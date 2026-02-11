@@ -3,8 +3,28 @@ name: "🔬 CI"
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".claude/**"
+      - ".drift/**"
+      - ".serena/**"
+      - ".scratchpad/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - "knowledge/**"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".claude/**"
+      - ".drift/**"
+      - ".serena/**"
+      - ".scratchpad/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - "knowledge/**"
 
 concurrency:
   group: ci-${{ github.ref }}
