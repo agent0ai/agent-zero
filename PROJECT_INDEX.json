@@ -8,7 +8,8 @@
 		"llm": "LiteLLM multi-provider via LangChain",
 		"memory": "FAISS + sentence-transformers",
 		"license": "MIT",
-		"generated": "2026-02-10"
+		"generated": "2026-02-11",
+		"github_remote": "jrmatherly/agent-zero"
 	},
 	"entry_points": {
 		"ui_server": "run_ui.py",
@@ -31,8 +32,11 @@
 		"frontend_html": 94,
 		"frontend_css": 19,
 		"tests": 28,
-		"docs": 19,
-		"agent_profiles": 6
+		"docs": 20,
+		"agent_profiles": 6,
+		"ci_workflows": 4,
+		"mise_tasks": 67,
+		"drift_patterns": 14
 	},
 	"directories": {
 		"python/api": "74 REST endpoint handlers (ApiHandler subclasses)",
@@ -50,7 +54,22 @@
 		"knowledge": "Knowledge base (main + solutions)",
 		"tests": "28 pytest test files",
 		"docker": "Docker build configuration (base + run stages)",
-		"docs": "19 documentation markdown files"
+		"docs": "20 documentation markdown files",
+		".drift": "DriftDetect codebase analysis (patterns, indexes, views, audit)",
+		".github/workflows": "4 GitHub Actions workflows (ci, drift, release, hooks-check)"
+	},
+	"dev_tooling": {
+		"task_runner": "mise.toml (67 tasks)",
+		"git_hooks": "hk.pkl (pre-commit: ruff+biome+security, commit-msg: conventional)",
+		"changelog": "cliff.toml (git-cliff, conventional commits)",
+		"linting": "ruff (Python) + biome (CSS/JS)",
+		"drift": "driftdetect@0.9.48 (pattern scanning, Python analysis, cortex memory)",
+		"ci_cd": {
+			"ci": ".github/workflows/ci.yml (lint + format + test, parallel)",
+			"drift": ".github/workflows/drift.yml (push/manual/weekly)",
+			"release": ".github/workflows/release.yml (git-cliff + gh-release on v* tags)",
+			"hooks_check": ".github/workflows/hooks-check.yml (hk validation on PRs)"
+		}
 	},
 	"tools": [
 		{
@@ -255,12 +274,14 @@
 		"api": "extend ApiHandler, implement async process(input, request) -> dict",
 		"extensions": "extend Extension, implement async execute(**kwargs), prefix-sorted",
 		"disabled_files": "._py suffix",
-		"prompts": "{{ include }} and {{variable}} syntax"
+		"prompts": "{{ include }} and {{variable}} syntax",
+		"commits": "Conventional Commits (enforced by hk hook)"
 	},
 	"quick_start": [
-		"pip install -r requirements.txt",
-		"python run_ui.py",
+		"mise install (install all tools)",
+		"mise run setup (first-time setup)",
+		"mise run r (start UI server)",
 		"Configure API keys in UI settings",
-		"pytest tests/"
+		"mise run t (run tests)"
 	]
 }
