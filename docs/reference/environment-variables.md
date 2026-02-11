@@ -109,7 +109,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 |----------|-------------|--------|---------|----------|
 | `ANONYMIZED_TELEMETRY` | Disable browser-use library telemetry; auto-written to `usr/.env` at startup | `true`, `false` | `false` (auto-set) | No |
 | `LITELLM_LOG` | LiteLLM logging verbosity (set by Agent Zero at startup) | `DEBUG`, `INFO`, `ERROR` | `ERROR` | No |
-| `KMP_DUPLICATE_LIB_OK` | Allow duplicate OpenMP libraries; prevents OMP Error #15 crash from faiss + torch + sklearn on macOS | `TRUE`, `FALSE` | `TRUE` (set at startup) | No |
+| `KMP_DUPLICATE_LIB_OK` | Set to `TRUE` to prevent OMP Error #15 crash caused by duplicate `libomp.dylib` libraries bundled in faiss, torch, and sklearn on macOS; automatically set at startup | `TRUE`, `FALSE` | `TRUE` (set at startup) | No |
 | `TOKENIZERS_PARALLELISM` | HuggingFace tokenizers parallelism (set at startup to avoid fork warnings) | `true`, `false` | `false` | No |
 | `TZ` | System timezone (set at startup) | IANA tz name | `UTC` | No |
 | `USER_AGENT` | HTTP User-Agent for unstructured document processing | Any string | `@mixedbread-ai/unstructured` | No |
