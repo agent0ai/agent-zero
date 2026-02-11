@@ -42,6 +42,7 @@ task_output = "prefix"
 [tasks.setup]
 description = "First-time project setup (install deps, playwright, git hooks)"
 run = '''
+uv venv --prompt apollos-ai --allow-existing .venv
 uv sync --group dev
 uv run playwright install chromium
 hk install --mise

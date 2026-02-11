@@ -44,7 +44,7 @@ class TestBrandingDefaults:
             from python.helpers import branding
 
             importlib.reload(branding)
-            assert branding.BRAND_URL == "https://matherly.net"
+            assert branding.BRAND_URL == "https://apollos.ai"
 
     def test_default_github_url(self):
         import importlib
