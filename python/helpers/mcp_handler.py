@@ -471,13 +471,7 @@ class MCPConfig(BaseModel):
 
             # Initialize/update the singleton instance with the (potentially empty) list of server data
             instance = cls.get_instance()
-            # Directly update the servers attribute of the existing instance or re-initialize carefully
-            # For simplicity and to ensure __init__ logic runs if needed for setup:
-            new_instance_data = {
-                "servers": servers_data
-            }  # Prepare data for re-initialization or update
-
-            # Option 1: Re-initialize the existing instance (if __init__ is idempotent for other fields)
+            # Re-initialize the existing instance (if __init__ is idempotent for other fields)
             instance.__init__(servers_list=servers_data)
 
             # Option 2: Or, if __init__ has side effects we don't want to repeat,
@@ -886,7 +880,7 @@ class MCPClientBase(ABC):
                         original_exception = e
                     # Create a dummy exception to break out of the async block
                     raise RuntimeError("Dummy exception to break out of async block")
-        except Exception as e:
+        except Exception as e:  # noqa: F841 — e is conditionally reassigned below
             # Check if this is our dummy exception
             if original_exception is not None:
                 e = original_exception

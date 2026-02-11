@@ -12,6 +12,10 @@
 # ignore test files in root dir
 /*.test.py
 
+# ignore ruff and pytest cache
+.ruff_cache/
+.pytest_cache/
+
 # Ignore all contents of the virtual environment directory
 .venv/
 

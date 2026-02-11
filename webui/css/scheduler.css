@@ -49,10 +49,12 @@
 
 /* Status badge selected state */
 .scheduler-status-selected {
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	opacity: 1 !important;
 	box-shadow:
 		0 0 0 2px var(--color-bg),
 		0 0 0 4px var(--color-border);
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	border: 1px solid var(--color-border) !important;
 	outline: none;
 }

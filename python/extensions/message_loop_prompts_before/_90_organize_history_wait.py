@@ -1,6 +1,6 @@
 from agent import LoopData
 from python.extensions.message_loop_end._10_organize_history import DATA_NAME_TASK
-from python.helpers.defer import THREAD_BACKGROUND, DeferredTask
+from python.helpers.defer import DeferredTask
 from python.helpers.extension import Extension
 
 

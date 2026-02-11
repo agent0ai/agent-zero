@@ -17,15 +17,14 @@ from langchain_community.vectorstores.utils import (
     DistanceStrategy,
 )
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
 from simpleeval import simple_eval
 
 import models
 from agent import Agent, AgentContext
 
 # faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
-from python.helpers import faiss_monkey_patch, guids, knowledge_import
-from python.helpers.log import Log, LogItem
+from python.helpers import faiss_monkey_patch, guids, knowledge_import  # noqa: F401 — faiss_monkey_patch is a side-effect import (patches numpy for faiss on 3.12/ARM)
+from python.helpers.log import LogItem
 from python.helpers.print_style import PrintStyle
 
 from . import files

@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timedelta, timezone
 
 from python.helpers.localization import Localization
@@ -87,5 +86,5 @@ class WaitTool(Tool):
     def get_heading(self, text: str = "", done: bool = False):
         done_icon = " icon://done_all" if done else ""
         if not text:
-            text = f"Waiting..."
+            text = "Waiting..."
         return f"icon://timer Wait: {text}{done_icon}"

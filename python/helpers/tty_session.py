@@ -6,8 +6,6 @@ import sys
 
 _IS_WIN = platform.system() == "Windows"
 if _IS_WIN:
-    import msvcrt
-
     import winpty  # pip install pywinpty # type: ignore
 
 

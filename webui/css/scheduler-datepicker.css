@@ -4,6 +4,7 @@
 .scheduler-flatpickr-wrapper {
 	position: relative;
 	width: 100%;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	overflow: visible !important; /* Ensure dropdown can escape container */
 }
 
@@ -29,9 +30,13 @@
 	font-size: 14px;
 	max-width: 320px;
 	padding: 0;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	z-index: 9999 !important; /* Ensure it's above other elements */
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	position: absolute !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	visibility: visible !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	opacity: 1 !important;
 }
 

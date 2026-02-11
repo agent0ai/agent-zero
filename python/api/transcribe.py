@@ -1,4 +1,4 @@
-from python.helpers import runtime, settings, whisper
+from python.helpers import settings, whisper
 from python.helpers.api import ApiHandler, Request, Response
 
 
@@ -8,7 +8,7 @@ class Transcribe(ApiHandler):
         ctxid = input.get("ctxid", "")
 
         if ctxid:
-            context = self.use_context(ctxid)
+            _context = self.use_context(ctxid)
 
         # if not await whisper.is_downloaded():
         #     context.log.log(type="info", content="Whisper STT model is currently being initialized, please wait...")

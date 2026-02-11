@@ -2,7 +2,7 @@ import os
 from typing import TypedDict
 
 from python.helpers import files, runtime
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
+from python.helpers.api import ApiHandler, Input, Output, Request
 
 
 class FileInfoApi(ApiHandler):

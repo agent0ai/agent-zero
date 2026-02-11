@@ -81,7 +81,7 @@ def delete_project(name: str):
 
 
 def create_project(name: str, data: BasicProjectData):
-    abs_path = files.create_dir_safe(
+    files.create_dir_safe(
         files.get_abs_path(PROJECTS_PARENT_DIR, name), rename_format="{name}_{number}"
     )
     create_project_meta_folders(name)

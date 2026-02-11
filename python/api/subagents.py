@@ -1,10 +1,5 @@
-from typing import TYPE_CHECKING
-
 from python.helpers import subagents
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
-
-if TYPE_CHECKING:
-    from python.helpers import projects
+from python.helpers.api import ApiHandler, Input, Output, Request
 
 
 class Subagents(ApiHandler):

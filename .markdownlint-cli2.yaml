@@ -119,6 +119,8 @@ config:
       - 'br'
       - 'details'
       - 'name-of-ai-model'
+      - 'Query'
+      - 'file'
       - 'summary'
       - 'img'
       - 'kbd'

@@ -1,6 +1,6 @@
 from agent import AgentContext
-from python.helpers import guids, projects
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
+from python.helpers import guids
+from python.helpers.api import ApiHandler, Input, Output, Request
 
 
 class CreateChat(ApiHandler):
@@ -9,7 +9,7 @@ class CreateChat(ApiHandler):
         new_ctxid = input.get("new_context", guids.generate_id())  # given or new guid
 
         # context instance - get or create
-        current_context = AgentContext.get(current_ctxid)
+        _current_context = AgentContext.get(current_ctxid)
 
         # get/create new context
         new_context = self.use_context(new_ctxid)

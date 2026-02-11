@@ -1,5 +1,5 @@
 from initialize import initialize_agent
-from python.helpers import dirty_json, files, projects, subagents
+from python.helpers import dirty_json, files, subagents
 from python.helpers.extension import Extension
 
 

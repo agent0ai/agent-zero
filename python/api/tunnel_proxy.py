@@ -2,7 +2,6 @@ import requests
 
 from python.helpers import dotenv, runtime
 from python.helpers.api import ApiHandler, Request, Response
-from python.helpers.tunnel_manager import TunnelManager
 
 
 class TunnelProxy(ApiHandler):
@@ -26,7 +25,7 @@ async def process(input: dict) -> dict | Response:
         )
         if response.status_code == 200:
             service_ok = True
-    except Exception as e:
+    except Exception:
         service_ok = False
 
     # forward this request to the tunnel service if OK

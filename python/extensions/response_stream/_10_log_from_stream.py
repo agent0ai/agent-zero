@@ -1,4 +1,3 @@
-import asyncio
 import math
 
 from agent import LoopData
@@ -6,13 +5,10 @@ from python.extensions.before_main_llm_call._10_log_for_stream import (
     build_default_heading,
     build_heading,
 )
-from python.helpers import log, persist_chat, tokens
 from python.helpers.extension import Extension
-from python.helpers.log import LogItem
 
 
 class LogFromStream(Extension):
-
     async def execute(
         self,
         loop_data: LoopData = LoopData(),
@@ -23,16 +19,18 @@ class LogFromStream(Extension):
 
         heading = build_default_heading(self.agent)
         if "headline" in parsed:
-            heading = build_heading(self.agent, parsed['headline'])
+            heading = build_heading(self.agent, parsed["headline"])
         elif "tool_name" in parsed:
-            heading = build_heading(self.agent, f"Using {parsed['tool_name']}") # if the llm skipped headline
+            heading = build_heading(
+                self.agent, f"Using {parsed['tool_name']}"
+            )  # if the llm skipped headline
         elif "thoughts" in parsed:
             # thought length indicator
-            length = "|" * math.ceil(math.sqrt(len(text))/2)
+            length = "|" * math.ceil(math.sqrt(len(text)) / 2)
             heading = build_heading(self.agent, f"Thinking... {length}")
         else:
             heading = build_heading(self.agent, "Receiving...")
-        
+
         # create log message and store it in loop data temporary params
         if "log_item_generating" not in loop_data.params_temporary:
             loop_data.params_temporary["log_item_generating"] = (
@@ -49,11 +47,11 @@ class LogFromStream(Extension):
         kvps = {}
         if log_item.kvps is not None and "reasoning" in log_item.kvps:
             kvps["reasoning"] = log_item.kvps["reasoning"]
-        
+
         # step description for UI - using tool XY, writing Python code, etc.
         if parsed is not None and "tool_name" in parsed and parsed["tool_name"]:
-            kvps["step"] = f"Using {parsed['tool_name']}..." # using tool XY
-            if parsed["tool_name"]=="code_execution_tool":
+            kvps["step"] = f"Using {parsed['tool_name']}..."  # using tool XY
+            if parsed["tool_name"] == "code_execution_tool":
                 if "tool_args" in parsed and "runtime" in parsed["tool_args"]:
                     length = ""
                     if "code" in parsed["tool_args"]:
@@ -66,8 +64,6 @@ class LogFromStream(Extension):
                     elif parsed["tool_args"]["runtime"] == "terminal":
                         kvps["step"] = f"Writing terminal command... {length}"
         kvps.update(parsed)
-
-
 
         # update the log item
         log_item.update(heading=heading, content=text, kvps=kvps)

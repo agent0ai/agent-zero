@@ -1,8 +1,8 @@
 #!/usr/bin/env node
+// @ts-nocheck — plain JS, not a TypeScript file
 
-const vm = require("vm");
-const path = require("path");
-const Module = require("module");
+const vm = require("node:vm");
+const path = require("node:path");
 
 // Enhance `require` to search CWD first, then globally
 function customRequire(moduleName) {
@@ -13,7 +13,7 @@ function customRequire(moduleName) {
 		});
 		// console.log("resolved path:", cwdPath);
 		return require(cwdPath);
-	} catch (cwdErr) {
+	} catch {
 		try {
 			// Try resolving as a global module
 			return require(moduleName);

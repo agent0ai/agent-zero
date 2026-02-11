@@ -10,7 +10,7 @@ from typing import Any, Type, TypeVar
 import regex
 
 from .dirty_json import DirtyJson
-from .files import deabsolute_path, get_abs_path
+from .files import get_abs_path
 
 
 def json_parse_dirty(json: str) -> dict[str, Any] | None:

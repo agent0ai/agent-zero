@@ -23,6 +23,6 @@ class MaskReasoningStreamEnd(Extension):
 
                 # Clean up the filter
                 agent.set_data(filter_key, None)
-        except Exception as e:
+        except Exception:
             # If masking fails, proceed without masking
             pass

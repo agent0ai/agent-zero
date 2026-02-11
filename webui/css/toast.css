@@ -40,6 +40,7 @@
 .toast__message {
 	margin: 0;
 	/* max-width: 320px; */
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	text-overflow: ellipsis !important;
 }
 

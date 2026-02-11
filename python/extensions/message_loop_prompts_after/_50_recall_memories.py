@@ -4,7 +4,6 @@ from agent import LoopData
 from python.helpers import dirty_json, errors, log, settings
 from python.helpers.extension import Extension
 from python.helpers.memory import Memory
-from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 DATA_NAME_TASK = "_recall_memories_task"
 DATA_NAME_ITER = "_recall_memories_iter"

@@ -1,6 +1,5 @@
 import asyncio
 import time
-import uuid
 from pathlib import Path
 from typing import Optional, cast
 
@@ -428,7 +427,7 @@ class BrowserAgent(Tool):
     def _mask(self, text: str) -> str:
         try:
             return get_secrets_manager(self.agent.context).mask_values(text or "")
-        except Exception as e:
+        except Exception:
             return text or ""
 
     # def __del__(self):

@@ -180,8 +180,11 @@
 
 /* Inline Confirmation State */
 .confirming {
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	border-color: var(--color-highlight) !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	background-color: var(--color-highlight) !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	color: #fff !important;
 }
 

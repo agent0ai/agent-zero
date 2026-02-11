@@ -1,19 +1,14 @@
 import base64
 import glob
-import importlib
-import importlib.util
-import inspect
 import json
 import mimetypes
 import os
 import re
 import shutil
-import sys
 import tempfile
 import zipfile
 from abc import ABC, abstractmethod
 from fnmatch import fnmatch
-from ntpath import isabs
 from typing import Any, Literal
 
 from simpleeval import simple_eval
@@ -80,7 +75,7 @@ def load_plugin_variables(
     return {}
 
 
-from python.helpers.strings import sanitize_string
+from python.helpers.strings import sanitize_string  # noqa: E402 — avoids circular import
 
 
 def parse_file(
@@ -451,7 +446,7 @@ def delete_dir(relative_path: str):
 
                 # try again after changing permissions
                 shutil.rmtree(abs_path, ignore_errors=True)
-            except:
+            except Exception:
                 # suppress all errors - we're ensuring no errors propagate
                 pass
 

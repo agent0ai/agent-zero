@@ -1,7 +1,6 @@
 {
   "version": "0.2.0",
   "configurations": [
-
     {
       "name": "Debug run_ui.py",
       "type": "debugpy",
@@ -9,7 +8,10 @@
       "program": "./run_ui.py",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["--development=true", "-Xfrozen_modules=off"]
+      "args": [
+        "--development=true",
+        "-Xfrozen_modules=off"
+      ]
     },
     {
       "name": "Debug current file",
@@ -18,7 +20,10 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "args": ["--development=true", "-Xfrozen_modules=off"]
+      "args": [
+        "--development=true",
+        "-Xfrozen_modules=off"
+      ]
     }
   ]
 }

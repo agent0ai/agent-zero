@@ -1,5 +1,3 @@
-import asyncio
-
 from agent import LoopData
 from python.helpers import memory
 from python.helpers.extension import Extension
@@ -7,4 +5,4 @@ from python.helpers.extension import Extension
 
 class MemoryInit(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-        db = await memory.Memory.get(self.agent)
+        await memory.Memory.get(self.agent)

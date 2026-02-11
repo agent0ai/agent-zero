@@ -1,4 +1,3 @@
-import asyncio
 import contextvars
 import os
 import threading

@@ -1,3 +1,4 @@
+# ruff: noqa: E402 — nest_asyncio.apply() must run before asyncio-using imports
 import asyncio
 import random
 import string
@@ -11,7 +12,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Awaitable, Callable, Coroutine, Dict, Literal
+from typing import Any, Awaitable, Callable, Coroutine, Dict
 
 from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.prompts import (
@@ -278,7 +279,7 @@ class AgentContext:
     # this wrapper ensures that superior agents are called back if the chat was loaded from file and original callstack is gone
     async def _process_chain(self, agent: "Agent", msg: "UserMessage|str", user=True):
         try:
-            msg_template = (
+            (
                 agent.hist_add_user_message(msg)  # type: ignore
                 if user
                 else agent.hist_add_tool_result(
@@ -493,7 +494,7 @@ class Agent:
                                 return tools_result  # break the execution if the task is done
 
                     # exceptions inside message loop:
-                    except InterventionException as e:
+                    except InterventionException:
                         error_retries = 0  # reset retry counter on user intervention
                         pass  # intervention message has been handled in handle_intervention(), proceed with conversation loop
                     except RepairableException as e:
@@ -519,7 +520,7 @@ class Agent:
                             )
 
             # exceptions outside message loop:
-            except InterventionException as e:
+            except InterventionException:
                 error_retries = 0  # reset retry counter on user intervention
                 pass  # just start over
             except Exception as e:
@@ -971,7 +972,7 @@ class Agent:
                     parsed=response,
                 )
 
-        except Exception as e:
+        except Exception:
             pass
 
     def get_tool(

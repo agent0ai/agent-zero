@@ -2,14 +2,12 @@ import asyncio
 import json
 import math
 from abc import abstractmethod
-from collections import OrderedDict
 from collections.abc import Mapping
-from enum import Enum
-from typing import Any, Coroutine, Dict, List, Literal, TypedDict, Union, cast
+from typing import Dict, List, TypedDict, Union, cast
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
-from python.helpers import call_llm, messages, settings, tokens
+from python.helpers import messages, settings, tokens
 
 BULK_MERGE_COUNT = 3
 TOPICS_KEEP_COUNT = 3
@@ -288,7 +286,7 @@ class Bulk(Record):
     def from_dict(data: dict, history: "History"):
         bulk = Bulk(history=history)
         bulk.summary = data["summary"]
-        cls = data["_cls"]
+        _cls = data["_cls"]  # noqa: F841 — consumed from serialized dict for forward compat
         bulk.records = [Record.from_dict(r, history=history) for r in data["records"]]
         return bulk
 

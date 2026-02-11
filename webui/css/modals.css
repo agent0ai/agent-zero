@@ -240,6 +240,7 @@ some classes like modal-header are shared between the old and the new system */
 }
 #buttons-container {
 	display: flex;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	gap: 0.875rem !important;
 }
 
@@ -445,6 +446,7 @@ input[type="range"]::-moz-range-thumb {
 		flex-grow: 1;
 	}
 	.modal-footer {
+		/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		padding: var(--spacing-sm) !important;
 	}
 	.section {

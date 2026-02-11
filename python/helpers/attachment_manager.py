@@ -1,7 +1,7 @@
 import base64
 import io
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from PIL import Image
 from werkzeug.datastructures import FileStorage

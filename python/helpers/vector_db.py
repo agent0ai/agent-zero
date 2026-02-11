@@ -14,7 +14,7 @@ from simpleeval import simple_eval
 from agent import Agent
 
 # faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
-from python.helpers import faiss_monkey_patch, guids
+from python.helpers import faiss_monkey_patch, guids  # noqa: F401 — faiss_monkey_patch is a side-effect import
 
 
 class MyFaiss(FAISS):
@@ -144,7 +144,7 @@ def get_comparator(condition: str):
         try:
             result = simple_eval(condition, names=data)
             return result
-        except Exception as e:
+        except Exception:
             # PrintStyle.error(f"Error evaluating condition: {e}")
             return False
 

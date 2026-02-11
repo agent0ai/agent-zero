@@ -122,7 +122,6 @@ class SSHInteractiveSession:
         if reset_full_output:
             self.full_output = b""
         partial_output = b""
-        leftover = b""
         start_time = time.time()
 
         while self.shell.recv_ready() and (

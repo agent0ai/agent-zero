@@ -254,6 +254,6 @@ class PrintStyle:
 
 
 # Ensure HTML file is closed properly when the program exits
-import atexit
+import atexit  # noqa: E402 — must follow PrintStyle class definition
 
 atexit.register(PrintStyle._close_html_log)

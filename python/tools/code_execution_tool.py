@@ -5,7 +5,6 @@ import time
 from dataclasses import dataclass
 
 from python.helpers import files, projects, rfc_exchange, runtime, settings
-from python.helpers.docker import DockerContainerManager
 from python.helpers.messages import truncate_text as truncate_text_agent
 from python.helpers.print_style import PrintStyle
 from python.helpers.shell_local import LocalInteractiveSession

@@ -22,7 +22,7 @@ Be careful not to create recursive prompt, do not send a message that would make
 There are 3 types of scheduler tasks:
 
 #### Scheduled - type="scheduled"
-This type of task is run by a recurring schedule defined in the crontab syntax with 5 fields (ex. */5* ** * means every 5 minutes).
+This type of task is run by a recurring schedule defined in the crontab syntax with 5 fields (ex. _/5_ ** * means every 5 minutes).
 It is recurring and started automatically when the crontab syntax requires next execution..
 
 #### Planned - type="planned"

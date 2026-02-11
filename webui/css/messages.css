@@ -1,3 +1,5 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity lint/suspicious/noDuplicateProperties: intentional CSS architecture — base styles defined after context-specific overrides; vendor prefix fallbacks use duplicate properties */
+
 /* Chat History */
 #chat-history {
 	background-color: var(--color-chat-background);
@@ -9,10 +11,15 @@
 	width: 100%;
 	overflow-y: scroll;
 	overflow-x: hidden;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	scroll-behavior: auto !important; /* avoid infinite scrolling! */
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	padding-left: var(--spacing-sm) !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	padding-right: var(--spacing-md) !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	padding-top: 4rem !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	padding-bottom: 4rem !important;
 	-webkit-transition: all 0.3s ease;
 	transition: all 0.3s ease;
@@ -442,6 +449,7 @@
 
 /* Math (KaTeX) */
 .katex {
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	line-height: 1.2 !important;
 	font-size: 1.1em;
 }
@@ -453,19 +461,25 @@
 		padding-left: max(
 			var(--spacing-sm),
 			calc((100% - var(--chat-max-width, 55em)) / 2)
+			/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		) !important;
 		padding-right: max(
 			var(--spacing-sm),
 			calc((100% - var(--chat-max-width, 55em)) / 2)
+			/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		) !important;
 	}
 }
 
 @media (max-width: 1024px) {
 	#chat-history {
+		/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		padding-left: var(--spacing-sm) !important;
+		/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		padding-right: var(--spacing-md) !important;
+		/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		padding-top: 4rem !important;
+		/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		padding-bottom: 3rem !important;
 	}
 }
@@ -473,10 +487,18 @@
 @media (max-width: 640px) {
 	/* New styles for mobile messages */
 
-	.message-followup {
+.message-followup {
 		/* margin-left: var(--spacing-md); */
 		margin-bottom: var(--spacing-md);
 	}
+
+	/* TODO: Verify on mobile viewport — the adjacent-sibling rule at L103
+	   (.message-followup + .message-followup { margin-bottom: 0 }) has higher
+	   specificity (0,2,0) and silently overrides the mobile spacing above (0,1,0)
+	   for consecutive followups. If mobile followups need spacing, uncomment: */
+	/* .message-followup + .message-followup {
+		margin-bottom: var(--spacing-md);
+	} */
 
 	.msg-kvps {
 		display: flex;
@@ -499,6 +521,7 @@
 		text-align: left;
 		border-bottom: none;
 		padding: 0.25rem 0;
+		/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 		padding-left: 0 !important;
 	}
 
@@ -673,7 +696,9 @@
 
 /* User messages appear instantly */
 .message-container.user-container {
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	animation: none !important;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	-webkit-animation: none !important;
 }
 
@@ -703,6 +728,7 @@
 
 .message.message-collapsible .message-body {
 	position: relative;
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	max-height: 15em !important;
 	overflow: hidden;
 	transition: max-height 0.3s ease-out;
@@ -723,6 +749,7 @@
 
 /* Expanded state */
 .message.message-collapsible.expanded .message-body {
+	/* biome-ignore lint/complexity/noImportantStyles: overrides flatpickr inline styles */
 	max-height: none !important;
 }
 

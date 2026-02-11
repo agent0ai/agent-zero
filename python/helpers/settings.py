@@ -2,12 +2,11 @@ import base64
 import hashlib
 import json
 import os
-import re
 import subprocess
 from typing import Any, Literal, TypedDict, TypeVar, cast
 
 import models
-from python.helpers import defer, dirty_json, git, runtime, whisper
+from python.helpers import defer, git, runtime, whisper
 from python.helpers.notification import (
     NotificationManager,
     NotificationPriority,
@@ -706,9 +705,9 @@ def _apply_settings(previous: Settings | None):
 
         # reload whisper model if necessary
         if not previous or _settings["stt_model_size"] != previous["stt_model_size"]:
-            task = defer.DeferredTask().start_task(
+            _task = defer.DeferredTask().start_task(
                 whisper.preload, _settings["stt_model_size"]
-            )  # TODO overkill, replace with background task
+            )  # GC guard: prevents DeferredTask.__del__ from cancelling in-flight work
 
         # force memory reload on embedding model change
         if not previous or (
@@ -772,9 +771,9 @@ def _apply_settings(previous: Settings | None):
                     group="settings-mcp",
                 )
 
-            task2 = defer.DeferredTask().start_task(
+            _task2 = defer.DeferredTask().start_task(
                 update_mcp_settings, config.mcp_servers
-            )  # TODO overkill, replace with background task
+            )  # GC guard: prevents DeferredTask.__del__ from cancelling in-flight work
 
         # update token in mcp server
         current_token = create_auth_token()  # TODO - ugly, token in settings is generated from dotenv and does not always correspond
@@ -785,9 +784,9 @@ def _apply_settings(previous: Settings | None):
 
                 DynamicMcpProxy.get_instance().reconfigure(token=token)
 
-            task3 = defer.DeferredTask().start_task(
+            _task3 = defer.DeferredTask().start_task(
                 update_mcp_token, current_token
-            )  # TODO overkill, replace with background task
+            )  # GC guard: prevents DeferredTask.__del__ from cancelling in-flight work
 
         # update token in a2a server
         if not previous or current_token != previous["mcp_server_token"]:
@@ -797,9 +796,9 @@ def _apply_settings(previous: Settings | None):
 
                 DynamicA2AProxy.get_instance().reconfigure(token=token)
 
-            task4 = defer.DeferredTask().start_task(
+            _task4 = defer.DeferredTask().start_task(
                 update_a2a_token, current_token
-            )  # TODO overkill, replace with background task
+            )  # GC guard: prevents DeferredTask.__del__ from cancelling in-flight work
 
 
 def _env_to_dict(data: str):

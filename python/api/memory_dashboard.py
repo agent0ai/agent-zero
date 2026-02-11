@@ -1,8 +1,6 @@
 from langchain_core.documents import Document
 
 from agent import AgentContext
-from models import ModelConfig, ModelType
-from python.helpers import files
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.memory import (
     Memory,
@@ -100,7 +98,7 @@ class MemoryDashboard(ApiHandler):
             else:
                 return {
                     "success": False,
-                    "error": f"Failed to delete any memories.",
+                    "error": "Failed to delete any memories.",
                 }
 
         except Exception as e:

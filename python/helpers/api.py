@@ -3,9 +3,7 @@ import threading
 from abc import abstractmethod
 from typing import Any, Dict, TypedDict, Union
 
-from attr import dataclass
-from flask import Flask, Request, Response, jsonify, request, send_file, session
-from werkzeug.serving import make_server
+from flask import Flask, Request, Response, send_file, session  # noqa: F401 — send_file, session re-exported for API handlers
 
 from agent import AgentContext
 from initialize import initialize_agent

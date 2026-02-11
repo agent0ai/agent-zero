@@ -30,7 +30,6 @@ from langchain_core.messages import (
 )
 from langchain_core.outputs.chat_generation import ChatGenerationChunk
 from litellm import acompletion, completion, embedding
-from litellm.types.utils import ModelResponse
 from pydantic import ConfigDict
 from sentence_transformers import SentenceTransformer
 
@@ -380,8 +379,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> str:
-        import asyncio
-
         msgs = self._convert_messages(messages)
 
         # Apply rate limiting if configured
@@ -404,8 +401,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
-        import asyncio
-
         msgs = self._convert_messages(messages)
 
         # Apply rate limiting if configured
@@ -609,12 +604,8 @@ class AsyncAIChatReplacement:
         self.chat = AsyncAIChatReplacement._Chat(wrapper)
 
 
-from browser_use.llm import (
-    ChatAnthropic,
+from browser_use.llm import (  # noqa: E402 — deferred import for heavy browser_use dependency
     ChatGoogle,
-    ChatGroq,
-    ChatOllama,
-    ChatOpenAI,
     ChatOpenRouter,
 )
 
@@ -705,7 +696,7 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
                 ].message.content.startswith("{"):  # type: ignore
                     js = dirty_json.parse(resp.choices[0].message.content)  # type: ignore
                     resp.choices[0].message.content = dirty_json.stringify(js)  # type: ignore
-        except Exception as e:
+        except Exception:
             pass
 
         return resp

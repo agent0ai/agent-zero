@@ -1,5 +1,3 @@
-import asyncio
-
 from agent import LoopData
 from python.helpers import errors, settings
 from python.helpers.defer import THREAD_BACKGROUND, DeferredTask

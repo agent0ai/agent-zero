@@ -26,7 +26,7 @@ class Extension:
 async def call_extensions(
     extension_point: str, agent: "Agent|None" = None, **kwargs
 ) -> Any:
-    from python.helpers import projects, subagents
+    from python.helpers import subagents
 
     # search for extension folders in all agent's paths
     paths = subagents.get_paths(

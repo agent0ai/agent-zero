@@ -36,8 +36,8 @@ sys.modules["numpy.distutils.cpuinfo"] = cpuinfo
 np.distutils = dist  # type: ignore
 # -------------------------------------------------------------------
 
-import warnings
+import warnings  # noqa: E402 — must follow monkey-patch setup above
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
-    import faiss
+    import faiss  # noqa: F401 — side-effect import: loads faiss C extension

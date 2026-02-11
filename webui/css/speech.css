@@ -1,6 +1,5 @@
 /* MIC BUTTON */
-#microphone-button {
-}
+/* #microphone-button — hover styles defined in @media below */
 
 /* Only apply hover effects on devices that support hover */
 @media (hover: hover) {

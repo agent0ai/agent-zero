@@ -11,13 +11,11 @@ Usage:
 """
 
 import argparse
-import os
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import yaml
 
@@ -148,11 +146,6 @@ def validate_skill(skill: Skill) -> List[str]:
     # Content
     if len(skill.content) < 100:
         issues.append("Skill content is too short (minimum 100 characters)")
-
-    # Check for associated files
-    skill_dir = skill.path
-    has_scripts = (skill_dir / "scripts").exists()
-    has_docs = (skill_dir / "docs").exists()
 
     return issues
 
@@ -311,7 +304,7 @@ Examples:
         try:
             skill_dir = create_skill(args.name, args.description, args.author)
             print(f"\n✅ Created skill at: {skill_dir}")
-            print(f"\nNext steps:")
+            print("\nNext steps:")
             print(f"  1. Edit {skill_dir / 'SKILL.md'} to add your instructions")
             print(f"  2. Add any helper scripts to {skill_dir / 'scripts'}/")
             print(f"  3. Run: python -m python.helpers.skills_cli validate {args.name}")
@@ -332,9 +325,9 @@ Examples:
             print(
                 f"Triggers:    {', '.join(skill.trigger_patterns) if skill.trigger_patterns else 'None'}"
             )
-            print(f"\nDescription:")
+            print("\nDescription:")
             print(f"  {skill.description}")
-            print(f"\nContent Preview (first 500 chars):")
+            print("\nContent Preview (first 500 chars):")
             print("-" * 60)
             print(skill.content[:500])
             if len(skill.content) > 500:

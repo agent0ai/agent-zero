@@ -45,6 +45,8 @@ usr/*
 **/*.py[cod]
 **/*.pyo
 **/*.pyd
+.ruff_cache/
+.pytest_cache/
 
 # Environment files anywhere
 *.env

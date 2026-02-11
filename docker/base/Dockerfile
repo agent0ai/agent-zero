@@ -1,9 +1,11 @@
 # Use the latest slim version of Kali Linux
+# hadolint ignore=DL3006
 FROM kalilinux/kali-rolling
 
 
 # Set locale to en_US.UTF-8 and timezone to UTC
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y locales tzdata
+# hadolint ignore=DL3009
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends locales tzdata
 RUN sed -i -e 's/# \(en_US\.UTF-8 .*\)/\1/' /etc/locale.gen && \
     dpkg-reconfigure --frontend=noninteractive locales && \
     update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8

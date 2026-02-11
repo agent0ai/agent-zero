@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import os
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa

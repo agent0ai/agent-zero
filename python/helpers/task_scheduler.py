@@ -24,20 +24,20 @@ import nest_asyncio
 
 nest_asyncio.apply()
 
-from typing import Annotated
+from typing import Annotated  # noqa: E402
 
-import pytz
-from crontab import CronTab
-from pydantic import BaseModel, Field, PrivateAttr
+import pytz  # noqa: E402
+from crontab import CronTab  # noqa: E402
+from pydantic import BaseModel, Field, PrivateAttr  # noqa: E402
 
-from agent import Agent, AgentContext, UserMessage
-from initialize import initialize_agent
-from python.helpers import guids, projects
-from python.helpers.defer import DeferredTask
-from python.helpers.files import get_abs_path, make_dirs, read_file, write_file
-from python.helpers.localization import Localization
-from python.helpers.persist_chat import save_tmp_chat
-from python.helpers.print_style import PrintStyle
+from agent import AgentContext, UserMessage  # noqa: E402
+from initialize import initialize_agent  # noqa: E402
+from python.helpers import guids, projects  # noqa: E402
+from python.helpers.defer import DeferredTask  # noqa: E402
+from python.helpers.files import get_abs_path, make_dirs, read_file, write_file  # noqa: E402
+from python.helpers.localization import Localization  # noqa: E402
+from python.helpers.persist_chat import save_tmp_chat  # noqa: E402
+from python.helpers.print_style import PrintStyle  # noqa: E402
 
 SCHEDULER_FOLDER = "usr/scheduler"
 
@@ -760,7 +760,7 @@ class TaskScheduler:
         self, task: Union[ScheduledTask, AdHocTask, PlannedTask]
     ) -> "TaskScheduler":
         await self._tasks.add_task(task)
-        ctx = await self._get_chat_context(task)  # invoke context creation
+        await self._get_chat_context(task)  # invoke context creation
         from python.helpers.state_monitor_integration import mark_dirty_all
 
         mark_dirty_all(reason="task_scheduler.TaskScheduler.add_task")

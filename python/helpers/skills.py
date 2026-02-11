@@ -4,9 +4,9 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-from python.helpers import file_tree, files, projects, runtime, subagents
+from python.helpers import file_tree, files, runtime, subagents
 
 if TYPE_CHECKING:
     from agent import Agent
