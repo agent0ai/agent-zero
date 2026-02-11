@@ -70,3 +70,4 @@ my-data/
 .drift/contracts/ignored/
 .drift/contracts/mismatch/
 .drift/**/.backups/
+.drift/memory/

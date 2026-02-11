@@ -1,0 +1,779 @@
+{
+  "version": "1.0.0",
+  "category": "api",
+  "patterns": [
+    {
+      "id": "b24897c875651aa0",
+      "subcategory": "route-structure",
+      "name": "Route Structure Detector",
+      "description": "Detects route URL structure patterns and flags inconsistencies",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/route-structure",
+          "patternId": "api/route-structure/express-route"
+        }
+      },
+      "confidence": {
+        "frequency": 0.24,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 24,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "python/api/api_files_get.py",
+          "line": 54,
+          "column": 55,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/api/api_message.py",
+          "line": 57,
+          "column": 47,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/api/image_get.py",
+          "line": 160,
+          "column": 35,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/api/message.py",
+          "line": 33,
+          "column": 47,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/api/skills.py",
+          "line": 42,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/api/skills_import.py",
+          "line": 43,
+          "column": 38,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/api/skills_import_preview.py",
+          "line": 43,
+          "column": 38,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/api/upload.py",
+          "line": 21,
+          "column": 41,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/dotenv.py",
+          "line": 20,
+          "column": 20,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/memory.py",
+          "line": 138,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/playwright.py",
+          "line": 24,
+          "column": 26,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/print_style.py",
+          "line": 49,
+          "column": 38,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/providers.py",
+          "line": 34,
+          "column": 41,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/settings.py",
+          "line": 233,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/skills.py",
+          "line": 41,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/skills_cli.py",
+          "line": 44,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/skills_import.py",
+          "line": 87,
+          "column": 35,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/websocket_namespace_discovery.py",
+          "line": 38,
+          "column": 51,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/helpers/whisper.py",
+          "line": 51,
+          "column": 62,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "python/tools/browser_agent.py",
+          "line": 59,
+          "column": 46,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "run_tunnel.py",
+          "line": 34,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "run_ui.py",
+          "line": 233,
+          "column": 8,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "tests/test_http_auth_csrf.py",
+          "line": 13,
+          "column": 6,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "tests/test_websocket_namespace_discovery.py",
+          "line": 226,
+          "column": 18,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.880Z",
+        "lastSeen": "2026-02-11T05:18:30.492Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "route-structure"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.492Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
+      "id": "77e63fe2701cb493",
+      "subcategory": "http-methods",
+      "name": "HTTP Methods Detector",
+      "description": "Detects HTTP method usage patterns and flags RESTful convention violations",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/http-methods",
+          "patternId": "api/http-methods/method-get"
+        }
+      },
+      "confidence": {
+        "frequency": 0.03,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 3,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "python/helpers/fasta2a_client.py",
+          "line": 60,
+          "column": 45,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "tests/test_fasta2a_client.py",
+          "line": 163,
+          "column": 23,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "tests/test_http_auth_csrf.py",
+          "line": 13,
+          "column": 6,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.881Z",
+        "lastSeen": "2026-02-11T05:18:30.571Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "http-methods"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.571Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
+      "id": "78a96895e54b72ba",
+      "subcategory": "http-methods",
+      "name": "HTTP Methods Detector",
+      "description": "Detects HTTP method usage patterns and flags RESTful convention violations",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/http-methods",
+          "patternId": "api/http-methods/method-post"
+        }
+      },
+      "confidence": {
+        "frequency": 0.01,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 1,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "python/helpers/update_check.py",
+          "line": 17,
+          "column": 26,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.881Z",
+        "lastSeen": "2026-02-11T05:18:30.612Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "http-methods"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.612Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
+      "id": "4d23e732be40fb3f",
+      "subcategory": "http-methods",
+      "name": "HTTP Methods Detector",
+      "description": "Detects HTTP method usage patterns and flags RESTful convention violations",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/http-methods",
+          "patternId": "api/http-methods/express-handler"
+        }
+      },
+      "confidence": {
+        "frequency": 0.01,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 1,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "tests/test_http_auth_csrf.py",
+          "line": 13,
+          "column": 6,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.881Z",
+        "lastSeen": "2026-02-11T05:18:30.652Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "http-methods"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.652Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
+      "id": "a74fbc7eeff1c816",
+      "subcategory": "response-envelope",
+      "name": "Response Envelope Detector",
+      "description": "Detects response envelope patterns and flags inconsistencies",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/response-envelope",
+          "patternId": "api/response-envelope/envelope-structure"
+        }
+      },
+      "confidence": {
+        "frequency": 0.22,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 22,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "webui/components/chat/attachments/attachmentsStore.js",
+          "line": 349,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/messages/resize/message-resize-store.js",
+          "line": 15,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/modals/file-browser/file-browser-store.js",
+          "line": 93,
+          "column": 9,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/modals/image-viewer/image-viewer-store.js",
+          "line": 293,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/modals/scheduler/scheduler-store.js",
+          "line": 158,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 401,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/settings/developer/websocket-test-store.js",
+          "line": 294,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/welcome/welcome-store.js",
+          "line": 35,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/index.js",
+          "line": 282,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/js/messages.js",
+          "line": 459,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 92,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/js/transformers@3.0.2.js",
+          "line": 220,
+          "column": 635,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/js/websocket.js",
+          "line": 302,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/_ace/text.js",
+          "line": 387,
+          "column": 13,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-code_lens.js",
+          "line": 1,
+          "column": 2915,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-command_bar.js",
+          "line": 1,
+          "column": 2269,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-diff.js",
+          "line": 1,
+          "column": 2973,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-inline_autocomplete.js",
+          "line": 1,
+          "column": 54116,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/mode-jsoniq.js",
+          "line": 1,
+          "column": 231270,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/mode-odin.js",
+          "line": 1,
+          "column": 1072,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/mode-xquery.js",
+          "line": 1,
+          "column": 228354,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/marked/marked.esm.js",
+          "line": 15,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.881Z",
+        "lastSeen": "2026-02-11T05:18:30.736Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "response-envelope"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.736Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
+      "id": "687d386d0cd99488",
+      "subcategory": "response-envelope",
+      "name": "Response Envelope Detector",
+      "description": "Detects response envelope patterns and flags inconsistencies",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/response-envelope",
+          "patternId": "api/response-envelope/format-standard"
+        }
+      },
+      "confidence": {
+        "frequency": 0.16,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 16,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "webui/components/modals/scheduler/scheduler-store.js",
+          "line": 158,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 401,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/settings/backup/backup-store.js",
+          "line": 24,
+          "column": 17,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/components/settings/developer/websocket-test-store.js",
+          "line": 294,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/index.js",
+          "line": 282,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 92,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/js/transformers@3.0.2.js",
+          "line": 220,
+          "column": 635,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/js/websocket.js",
+          "line": 302,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/_ace/text.js",
+          "line": 387,
+          "column": 13,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-code_lens.js",
+          "line": 1,
+          "column": 2915,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-command_bar.js",
+          "line": 1,
+          "column": 2269,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-diff.js",
+          "line": 1,
+          "column": 2973,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-inline_autocomplete.js",
+          "line": 1,
+          "column": 54116,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/mode-jsoniq.js",
+          "line": 1,
+          "column": 231270,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/mode-odin.js",
+          "line": 1,
+          "column": 1072,
+          "isOutlier": false,
+          "confidence": 1
+        },
+        {
+          "file": "webui/vendor/ace-min/mode-xquery.js",
+          "line": 1,
+          "column": 228354,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.881Z",
+        "lastSeen": "2026-02-11T05:18:30.778Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "response-envelope"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.778Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
+      "id": "0306246fbf4ae6ad",
+      "subcategory": "response-envelope",
+      "name": "Response Envelope Detector",
+      "description": "Detects response envelope patterns and flags inconsistencies",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/response-envelope",
+          "patternId": "api/response-envelope/pagination-offset"
+        }
+      },
+      "confidence": {
+        "frequency": 0.01,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 1,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "webui/components/settings/backup/backup-store.js",
+          "line": 24,
+          "column": 17,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.881Z",
+        "lastSeen": "2026-02-11T05:18:30.817Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "response-envelope"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.817Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
+      "id": "3a73a6b2a39fb043",
+      "subcategory": "response-envelope",
+      "name": "Response Envelope Detector",
+      "description": "Detects response envelope patterns and flags inconsistencies",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "api/response-envelope",
+          "patternId": "api/response-envelope/pagination-metadata"
+        }
+      },
+      "confidence": {
+        "frequency": 0.01,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 1,
+        "score": 0.95,
+        "level": "high"
+      },
+      "locations": [
+        {
+          "file": "webui/components/settings/backup/backup-store.js",
+          "line": 24,
+          "column": 17,
+          "isOutlier": false,
+          "confidence": 1
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T05:18:12.881Z",
+        "lastSeen": "2026-02-11T05:18:30.859Z",
+        "source": "auto-detected",
+        "tags": [
+          "api",
+          "response-envelope"
+        ],
+        "approvedAt": "2026-02-11T05:18:30.859Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    }
+  ],
+  "lastUpdated": "2026-02-11T05:45:18.246Z",
+  "checksum": "34e5fe3d64d7d2d1"
+}

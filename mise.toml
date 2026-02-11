@@ -195,6 +195,187 @@ description = "Bump version based on conventional commits"
 run = "git-cliff --bump --output CHANGELOG.md"
 
 # ============================================================================
+# Drift — Codebase Pattern Analysis & Institutional Memory
+# ============================================================================
+
+# --- Scanning & Status ---
+
+[tasks."drift:scan"]
+description = "Full codebase pattern scan"
+run = "drift scan --verbose"
+
+[tasks."drift:scan:incremental"]
+description = "Incremental scan (changed files only)"
+run = "drift scan --incremental"
+
+[tasks."drift:status"]
+description = "Quick codebase health overview"
+run = "drift status"
+
+[tasks."drift:next"]
+description = "Get personalized recommendations for next steps"
+run = "drift next-steps"
+
+# --- Infrastructure Build ---
+
+[tasks."drift:build"]
+description = "Build all drift infrastructure (callgraph, coupling, test-topology)"
+run = '''
+drift callgraph build
+drift coupling build
+drift test-topology
+echo "Drift infrastructure built."
+'''
+
+[tasks."drift:callgraph"]
+description = "Build call graph from source"
+run = "drift callgraph build"
+
+[tasks."drift:coupling"]
+description = "Build module coupling analysis"
+run = "drift coupling build"
+
+# --- Python-Specific Analysis ---
+
+[tasks."drift:py"]
+description = "Python project analysis summary"
+run = "drift py status"
+
+[tasks."drift:py:routes"]
+description = "List all Python HTTP routes (Flask, FastAPI)"
+run = "drift py routes"
+
+[tasks."drift:py:errors"]
+description = "Analyze Python error handling patterns"
+run = "drift py errors"
+
+[tasks."drift:py:data"]
+description = "Analyze Python database access patterns"
+run = "drift py data-access"
+
+[tasks."drift:py:decorators"]
+description = "Analyze Python decorator usage"
+run = "drift py decorators"
+
+[tasks."drift:py:async"]
+description = "Analyze Python async patterns"
+run = "drift py async"
+
+# --- Pattern Management ---
+
+[tasks."drift:patterns"]
+description = "List all discovered patterns"
+run = "drift patterns list"
+
+[tasks."drift:patterns:approved"]
+description = "List approved patterns only"
+run = "drift patterns list --approved"
+
+# --- Analysis Commands ---
+
+[tasks."drift:coupling:cycles"]
+description = "Detect circular dependency cycles"
+run = "drift coupling cycles"
+
+[tasks."drift:coupling:hotspots"]
+description = "Find highly coupled modules"
+run = "drift coupling hotspots"
+
+[tasks."drift:boundaries"]
+description = "Show data access boundaries and violations"
+run = "drift boundaries"
+
+[tasks."drift:errors"]
+description = "Analyze error handling patterns and gaps"
+run = "drift error-handling"
+
+[tasks."drift:env"]
+description = "Show environment variable access patterns"
+run = "drift env"
+
+[tasks."drift:constants"]
+description = "Analyze constants and hardcoded values"
+run = "drift constants"
+
+[tasks."drift:test-topology"]
+description = "Analyze test-to-code mappings"
+run = "drift test-topology"
+
+# --- Cortex Memory ---
+
+[tasks."drift:memory"]
+description = "Show Cortex memory system status"
+run = "drift memory status"
+
+[tasks."drift:memory:health"]
+description = "Get Cortex memory health report"
+run = "drift memory health"
+
+[tasks."drift:memory:search"]
+description = "Search Cortex memories"
+usage = 'arg "<query>" help="Search query"'
+run = 'drift memory search "${usage_query}"'
+
+[tasks."drift:memory:why"]
+description = "Get context for a task area"
+usage = 'arg "<topic>" help="Topic to get context for"'
+run = 'drift memory why "${usage_topic}"'
+
+[tasks."drift:memory:validate"]
+description = "Validate and heal stale memories"
+run = "drift memory validate --scope stale"
+
+[tasks."drift:memory:consolidate"]
+description = "Consolidate episodic memories into semantic knowledge"
+run = "drift memory consolidate"
+
+[tasks."drift:memory:backup"]
+description = "Export Cortex memories to JSON backup"
+run = 'drift memory export ".drift/memory/backup-$(date +%Y%m%d).json"'
+
+# --- Quality Gates & CI ---
+
+[tasks."drift:check"]
+description = "Check for pattern violations (pre-commit friendly)"
+run = "drift check"
+
+[tasks."drift:check:staged"]
+description = "Check only staged files for violations"
+run = "drift check --staged"
+
+[tasks."drift:gate"]
+description = "Run quality gates"
+run = "drift gate"
+
+# --- Reports & Export ---
+
+[tasks."drift:report"]
+description = "Generate analysis report"
+run = "drift report"
+
+[tasks."drift:report:json"]
+description = "Generate JSON analysis report"
+run = "drift report --format json"
+
+[tasks."drift:export"]
+description = "Export manifest for AI consumption"
+run = "drift export --format ai-context"
+
+# --- Maintenance ---
+
+[tasks."drift:audit"]
+description = "Audit patterns for duplicates and cross-reference issues"
+run = "drift audit"
+
+[tasks."drift:troubleshoot"]
+description = "Diagnose common drift issues"
+run = "drift troubleshoot"
+
+[tasks."drift:backup"]
+description = "Create full .drift backup"
+run = "drift backup create"
+
+# ============================================================================
 # CI Pipeline
 # ============================================================================
 
@@ -226,6 +407,7 @@ echo "Ruff: $(ruff --version)"
 echo "Biome: $(biome --version)"
 echo "git-cliff: $(git-cliff --version)"
 echo "hk: $(hk --version)"
+echo "drift: $(drift --version)"
 echo "mise: $(mise --version)"
 echo ""
 echo "Working directory: $(pwd)"

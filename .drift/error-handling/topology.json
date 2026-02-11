@@ -1,0 +1,32 @@
+{
+  "topology": {
+    "functions": {},
+    "boundaries": [],
+    "unhandledPaths": [],
+    "propagationChains": [],
+    "generatedAt": "2026-02-11T05:16:44.924Z",
+    "projectRoot": "/Users/jason/dev/apollos-ai/agent-zero"
+  },
+  "summary": {
+    "totalFunctions": 327,
+    "coveragePercent": 0,
+    "avgQuality": 70,
+    "unhandledPaths": 0,
+    "criticalUnhandled": 0,
+    "qualityDistribution": {
+      "excellent": 0,
+      "good": 0,
+      "fair": 0,
+      "poor": 0
+    },
+    "topIssues": []
+  },
+  "metrics": {
+    "functionsWithTryCatch": 0,
+    "functionsThatThrow": 0,
+    "boundaryCount": 0,
+    "frameworkBoundaries": 0,
+    "swallowedErrorCount": 0,
+    "unhandledAsyncCount": 0
+  }
+}

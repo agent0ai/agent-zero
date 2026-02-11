@@ -1,0 +1,118 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-02-11T05:17:39.925Z",
+  "projectRoot": "/Users/jason/dev/apollos-ai/agent-zero",
+  "summary": {
+    "totalComponentsAnalyzed": 0,
+    "totalFilesAnalyzed": 0,
+    "healthScore": 60,
+    "geneticDiversity": 0,
+    "dominantFramework": "vanilla-css",
+    "dominantBackendFramework": "unknown",
+    "lastUpdated": "2026-02-11T05:17:39.925Z"
+  },
+  "genes": {
+    "variant-handling": {
+      "id": "variant-handling",
+      "name": "Variant Handling",
+      "description": "How component variants are implemented",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "responsive-approach": {
+      "id": "responsive-approach",
+      "name": "Responsive Approach",
+      "description": "How responsive design is handled",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "state-styling": {
+      "id": "state-styling",
+      "name": "State Styling",
+      "description": "How interactive states are styled",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "theming": {
+      "id": "theming",
+      "name": "Theming",
+      "description": "How theming/dark mode is implemented",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "spacing-philosophy": {
+      "id": "spacing-philosophy",
+      "name": "Spacing Philosophy",
+      "description": "How spacing is managed",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "animation-approach": {
+      "id": "animation-approach",
+      "name": "Animation Approach",
+      "description": "How animations and transitions are implemented",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "api-response-format": {
+      "id": "api-response-format",
+      "name": "API Response Format",
+      "description": "How API responses are structured and enveloped",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "error-response-format": {
+      "id": "error-response-format",
+      "name": "Error Response Format",
+      "description": "How errors are formatted and returned in API responses",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "logging-format": {
+      "id": "logging-format",
+      "name": "Logging Format",
+      "description": "How logging is structured and formatted",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    },
+    "config-pattern": {
+      "id": "config-pattern",
+      "name": "Configuration Pattern",
+      "description": "How configuration is managed and accessed",
+      "dominant": null,
+      "alleles": [],
+      "confidence": 0,
+      "consistency": 1,
+      "exemplars": []
+    }
+  },
+  "mutations": [],
+  "evolution": []
+}

@@ -1,0 +1,20 @@
+name: Hooks Check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  hooks:
+    name: Hook Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+        with:
+          experimental: true
+      - name: Run hk checks
+        run: mise run hooks:check

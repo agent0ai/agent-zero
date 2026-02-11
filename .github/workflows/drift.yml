@@ -1,0 +1,36 @@
+name: Drift Analysis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'python/**'
+      - 'tests/**'
+      - 'prompts/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Codebase Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+        with:
+          experimental: true
+      - name: Install driftdetect
+        run: npm install -g driftdetect
+      - name: Run drift scan
+        run: drift scan --verbose
+      - name: Python analysis
+        run: drift py status
+      - name: Quality gates
+        run: drift gate
+        continue-on-error: true
+      - name: Drift status summary
+        run: drift status

@@ -1,0 +1,19 @@
+{
+  "history": [
+    {
+      "date": "2026-02-11",
+      "healthScore": 96,
+      "avgConfidence": 0.918730802574332,
+      "totalPatterns": 757,
+      "approvedCount": 522,
+      "duplicateGroups": 31,
+      "crossValidationScore": 0.9986789960369881
+    }
+  ],
+  "trends": {
+    "healthTrend": "stable",
+    "confidenceTrend": "stable",
+    "patternGrowth": "healthy"
+  },
+  "alerts": []
+}

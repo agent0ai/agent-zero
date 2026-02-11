@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-02-11T05:18:13.444Z",
+  "riskLevel": "low",
+  "summary": {
+    "totalTables": 0,
+    "sensitiveTablesCount": 0,
+    "totalAccessPoints": 0,
+    "violationCount": 0
+  },
+  "topSensitiveTables": [],
+  "topViolations": [],
+  "recentChanges": []
+}
