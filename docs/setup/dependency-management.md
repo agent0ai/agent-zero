@@ -68,7 +68,9 @@ This tells uv to ignore any transitive pin on `openai` and resolve to exactly `1
 
 ## Docker Compatibility
 
-Docker images use `uv pip install -r requirements.txt` (see `docker/run/fs/ins/install_A0.sh`). Since `requirements.txt` is generated from the lockfile with all transitive deps fully pinned, Docker builds are reproducible and don't need `pyproject.toml` or `uv.lock`.
+Docker images use `uv pip install -r requirements.txt --overrides overrides.txt` (see `docker/run/fs/ins/install_A0.sh`). The `overrides.txt` file mirrors the `[tool.uv] override-dependencies` from `pyproject.toml` — it's needed because `uv pip install` doesn't read `pyproject.toml` overrides. When you add or change an override in `pyproject.toml`, also update `overrides.txt` to keep Docker builds in sync.
+
+Since `requirements.txt` is generated from the lockfile with all transitive deps fully pinned, Docker builds are reproducible and don't need `pyproject.toml` or `uv.lock`.
 
 ## Upstream Merge Strategy
 

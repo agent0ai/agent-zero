@@ -1,0 +1,4 @@
+# Dependency overrides for Docker builds (uv pip install --overrides).
+# Mirrors [tool.uv] override-dependencies in pyproject.toml.
+# browser-use==0.5.11 pins openai==1.99.2, but we need 1.99.5.
+openai==1.99.5
