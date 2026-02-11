@@ -26,8 +26,6 @@ Or see DeepWiki generated documentation:
 > See [Usage Guide](./docs/guides/usage.md) and [Projects Tutorial](./docs/guides/projects.md) to get started.
 </div>
 
-[![Showcase](/docs/res/showcase-thumb.png)](https://youtu.be/lazLNcEYsiQ)
-
 ## A personal, organic agentic framework that grows and learns with you
 
 - Apollos AI is not a predefined agentic framework. It is designed to be dynamic, organically growing, and learning as you use it.
