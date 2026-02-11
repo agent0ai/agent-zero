@@ -4,8 +4,10 @@ FROM kalilinux/kali-rolling
 
 # Pin Kali mirror to kali.download (Cloudflare CDN) for reliable Docker builds.
 # The default http.kali.org redirector can route to unreliable mirrors.
+# Uses http:// because the base image lacks ca-certificates for TLS verification.
+# APT verifies package integrity via GPG signatures, not TLS.
 # See: https://www.kali.org/docs/community/kali-linux-mirrors/
-RUN echo "deb https://kali.download/kali kali-rolling main non-free non-free-firmware contrib" > /etc/apt/sources.list
+RUN echo "deb http://kali.download/kali kali-rolling main non-free non-free-firmware contrib" > /etc/apt/sources.list
 
 # Set locale to en_US.UTF-8 and timezone to UTC
 # hadolint ignore=DL3009
