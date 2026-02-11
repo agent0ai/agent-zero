@@ -1,6 +1,8 @@
-from python.helpers.extension import Extension
 import os
+
 import psutil
+
+from python.helpers.extension import Extension
 
 
 class SystemResourcesCheck(Extension):
@@ -20,8 +22,8 @@ class SystemResourcesCheck(Extension):
         try:
             vm = psutil.virtual_memory()
             ram_percent = vm.percent
-            ram_used_gb = (vm.total - vm.available) / (1024 ** 3)
-            ram_total_gb = vm.total / (1024 ** 3)
+            ram_used_gb = (vm.total - vm.available) / (1024**3)
+            ram_total_gb = vm.total / (1024**3)
         except Exception:
             ram_percent = None
 
@@ -63,46 +65,48 @@ class SystemResourcesCheck(Extension):
         ram_bar = self._bar_html(ram_percent)
         disk_bar = self._bar_html(disk_percent)
 
-        banners.append({
-            "id": "system-resources",
-            "type": "info",
-            "priority": 10,
-            "title": "System Resources",
-            "html": (
-                "<div style=\"display:flex;flex-direction:column;gap:14px;padding-top:6px;\">"
-                "<div style=\"display:flex;flex-direction:column;gap:12px;\">"
-                "<div style=\"display:flex;flex-wrap:wrap;column-gap:12px;row-gap:10px;align-items:center;\">"
-                "<div style=\"flex:0 1 140px;min-width:110px;display:flex;flex-direction:column;gap:6px;\">"
-                "<div style=\"font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;line-height:1.1\">CPU</div>"
-                f"<div style=\"font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1.1\">{cpu_value}</div>"
-                "</div>"
-                f"{cpu_bar}"
-                "</div>"
-                "<div style=\"display:flex;flex-wrap:wrap;column-gap:12px;row-gap:10px;align-items:center;\">"
-                "<div style=\"flex:0 1 140px;min-width:110px;display:flex;flex-direction:column;gap:6px;\">"
-                "<div style=\"font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;line-height:1.1\">RAM</div>"
-                f"<div style=\"font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1.1\">{ram_value}</div>"
-                "</div>"
-                f"{ram_bar}"
-                "</div>"
-                "<div style=\"display:flex;flex-wrap:wrap;column-gap:12px;row-gap:10px;align-items:center;\">"
-                "<div style=\"flex:0 1 140px;min-width:110px;display:flex;flex-direction:column;gap:6px;\">"
-                "<div style=\"font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;line-height:1.1\">Disk</div>"
-                f"<div style=\"font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1.1\">{disk_value}</div>"
-                "</div>"
-                f"{disk_bar}"
-                "</div>"
-                "</div>"
-                "<div style=\"height:1px;background:rgba(255,255,255,.08);\"></div>"
-                "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;\">"
-                f"<div><div style=\"font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;margin-bottom:6px;\">Load (1/5/15)</div><div style=\"font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;opacity:.85;font-variant-numeric:tabular-nums\">{load_value}</div></div>"
-                f"<div><div style=\"font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;margin-bottom:6px;\">Net (since boot)</div><div style=\"font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;opacity:.85;font-variant-numeric:tabular-nums\">{net_sent} sent / {net_recv} recv</div></div>"
-                "</div>"
-                "</div>"
-            ),
-            "dismissible": True,
-            "source": "backend",
-        })
+        banners.append(
+            {
+                "id": "system-resources",
+                "type": "info",
+                "priority": 10,
+                "title": "System Resources",
+                "html": (
+                    '<div style="display:flex;flex-direction:column;gap:14px;padding-top:6px;">'
+                    '<div style="display:flex;flex-direction:column;gap:12px;">'
+                    '<div style="display:flex;flex-wrap:wrap;column-gap:12px;row-gap:10px;align-items:center;">'
+                    '<div style="flex:0 1 140px;min-width:110px;display:flex;flex-direction:column;gap:6px;">'
+                    '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;line-height:1.1">CPU</div>'
+                    f'<div style="font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1.1">{cpu_value}</div>'
+                    "</div>"
+                    f"{cpu_bar}"
+                    "</div>"
+                    '<div style="display:flex;flex-wrap:wrap;column-gap:12px;row-gap:10px;align-items:center;">'
+                    '<div style="flex:0 1 140px;min-width:110px;display:flex;flex-direction:column;gap:6px;">'
+                    '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;line-height:1.1">RAM</div>'
+                    f'<div style="font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1.1">{ram_value}</div>'
+                    "</div>"
+                    f"{ram_bar}"
+                    "</div>"
+                    '<div style="display:flex;flex-wrap:wrap;column-gap:12px;row-gap:10px;align-items:center;">'
+                    '<div style="flex:0 1 140px;min-width:110px;display:flex;flex-direction:column;gap:6px;">'
+                    '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;line-height:1.1">Disk</div>'
+                    f'<div style="font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1.1">{disk_value}</div>'
+                    "</div>"
+                    f"{disk_bar}"
+                    "</div>"
+                    "</div>"
+                    '<div style="height:1px;background:rgba(255,255,255,.08);"></div>'
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;">'
+                    f"<div><div style=\"font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;margin-bottom:6px;\">Load (1/5/15)</div><div style=\"font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;opacity:.85;font-variant-numeric:tabular-nums\">{load_value}</div></div>"
+                    f"<div><div style=\"font-size:12px;letter-spacing:.10em;text-transform:uppercase;opacity:.65;margin-bottom:6px;\">Net (since boot)</div><div style=\"font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;opacity:.85;font-variant-numeric:tabular-nums\">{net_sent} sent / {net_recv} recv</div></div>"
+                    "</div>"
+                    "</div>"
+                ),
+                "dismissible": True,
+                "source": "backend",
+            }
+        )
 
     def _bar_html(self, percent: float | None) -> str:
         if percent is None:
@@ -117,9 +121,9 @@ class SystemResourcesCheck(Extension):
             color = "#22c55e"
 
         return (
-            "<div style=\"flex:1 1 220px;width:100%;max-width:260px;height:10px;border-radius:999px;"
-            "background:rgba(255,255,255,.10);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);\">"
-            f"<div style=\"height:100%;width:{p:.0f}%;background:{color};border-radius:999px;\"></div>"
+            '<div style="flex:1 1 220px;width:100%;max-width:260px;height:10px;border-radius:999px;'
+            'background:rgba(255,255,255,.10);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);">'
+            f'<div style="height:100%;width:{p:.0f}%;background:{color};border-radius:999px;"></div>'
             "</div>"
         )
 
@@ -133,8 +137,8 @@ class SystemResourcesCheck(Extension):
         for path in ["/", os.path.expanduser("~")]:
             try:
                 usage = psutil.disk_usage(path)
-                used_gb = usage.used / (1024 ** 3)
-                total_gb = usage.total / (1024 ** 3)
+                used_gb = usage.used / (1024**3)
+                total_gb = usage.total / (1024**3)
                 return usage.percent, used_gb, total_gb, path
             except Exception:
                 continue

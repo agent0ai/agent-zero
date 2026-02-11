@@ -2,18 +2,17 @@ import { createStore } from "/js/AlpineStore.js";
 
 // define the model object holding data and functions
 const model = {
-    example1:"Example 1",
-    example2:"Example 2",
+	example1: "Example 1",
+	example2: "Example 2",
 
-    // gets called when the store is created
-    init(){
-        console.log("Example store initialized");
-    },
+	// gets called when the store is created
+	init() {
+		console.log("Example store initialized");
+	},
 
-    clickHandler(event){
-        console.log(event)
-    }
-
+	clickHandler(event) {
+		console.log(event);
+	},
 };
 
 // convert it to alpine store

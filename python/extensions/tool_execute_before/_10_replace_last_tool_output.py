@@ -1,9 +1,12 @@
 from typing import Any
+
 from python.helpers.extension import Extension
 
 
 class ReplaceLastToolOutput(Extension):
-    async def execute(self, tool_args: dict[str, Any] | None = None, tool_name: str = "", **kwargs):
+    async def execute(
+        self, tool_args: dict[str, Any] | None = None, tool_name: str = "", **kwargs
+    ):
         if not tool_args:
             return
 

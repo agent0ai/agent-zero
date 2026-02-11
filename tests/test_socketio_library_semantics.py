@@ -70,7 +70,9 @@ async def test_socketio_wildcard_handler_only_runs_for_unhandled_events() -> Non
             assert res == {"path": "handled"}
             assert wildcard_calls == []
 
-            res2 = await client.call("unhandled_event", {"x": 2}, namespace="/ns", timeout=2)
+            res2 = await client.call(
+                "unhandled_event", {"x": 2}, namespace="/ns", timeout=2
+            )
             assert res2 == {"path": "wildcard", "event": "unhandled_event"}
             assert wildcard_calls == ["unhandled_event"]
         finally:
@@ -78,7 +80,9 @@ async def test_socketio_wildcard_handler_only_runs_for_unhandled_events() -> Non
 
 
 @pytest.mark.asyncio
-async def test_socketio_handler_return_values_ack_only_when_client_requests_ack() -> None:
+async def test_socketio_handler_return_values_ack_only_when_client_requests_ack() -> (
+    None
+):
     import socketio
 
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
@@ -105,13 +109,19 @@ async def test_socketio_handler_return_values_ack_only_when_client_requests_ack(
             sent_packets.clear()
             await client.emit("returns_value", {"x": 1}, namespace="/ns")
             await asyncio.sleep(0.05)
-            ack_packets = [p for p in sent_packets if getattr(p, "packet_type", None) in (3, 6)]
+            ack_packets = [
+                p for p in sent_packets if getattr(p, "packet_type", None) in (3, 6)
+            ]
             assert ack_packets == []
 
             sent_packets.clear()
-            res = await client.call("returns_value", {"x": 2}, namespace="/ns", timeout=2)
+            res = await client.call(
+                "returns_value", {"x": 2}, namespace="/ns", timeout=2
+            )
             assert res == {"ok": True}
-            ack_packets = [p for p in sent_packets if getattr(p, "packet_type", None) in (3, 6)]
+            ack_packets = [
+                p for p in sent_packets if getattr(p, "packet_type", None) in (3, 6)
+            ]
             assert len(ack_packets) >= 1
         finally:
             await client.disconnect()

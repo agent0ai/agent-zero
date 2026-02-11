@@ -1,10 +1,8 @@
 from python.helpers.api import ApiHandler, Request, Response
-
 from python.helpers.state_snapshot import build_snapshot
 
 
 class Poll(ApiHandler):
-
     async def process(self, input: dict, request: Request) -> dict | Response:
         return await build_snapshot(
             context=input.get("context"),

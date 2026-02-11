@@ -1,13 +1,15 @@
+import os
 import re
 import threading
 import time
-import os
-from io import StringIO
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHECKING
+from io import StringIO
+from typing import TYPE_CHECKING, Callable, Dict, List, Literal, Optional, Set, Tuple
+
 from dotenv.parser import parse_stream
-from python.helpers.errors import RepairableException
+
 from python.helpers import files
+from python.helpers.errors import RepairableException
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -142,7 +144,9 @@ class SecretsManager:
     def __init__(self, *files: str):
         self._lock = threading.RLock()
         # instance-level list of secrets files
-        self._files: Tuple[str, ...] = tuple(files) if files else (DEFAULT_SECRETS_FILE,)
+        self._files: Tuple[str, ...] = (
+            tuple(files) if files else (DEFAULT_SECRETS_FILE,)
+        )
         self._raw_snapshots: Dict[str, str] = {}
         self._secrets_cache = None
         self._last_raw_text = None
@@ -513,17 +517,25 @@ def get_secrets_manager(context: "AgentContext|None" = None) -> SecretsManager:
     # use AgentContext from contextvars if no context provided
     if not context:
         from agent import AgentContext
+
         context = AgentContext.current()
 
     # merged with project secrets if active
     if context:
         project = projects.get_context_project_name(context)
         if project:
-            secret_files.append(files.get_abs_path(projects.get_project_meta_folder(project), "secrets.env"))
+            secret_files.append(
+                files.get_abs_path(
+                    projects.get_project_meta_folder(project), "secrets.env"
+                )
+            )
 
     return SecretsManager.get_instance(*secret_files)
 
-def get_project_secrets_manager(project_name: str, merge_with_global: bool = False) -> SecretsManager:
+
+def get_project_secrets_manager(
+    project_name: str, merge_with_global: bool = False
+) -> SecretsManager:
     from python.helpers import projects
 
     # default secrets file
@@ -533,9 +545,14 @@ def get_project_secrets_manager(project_name: str, merge_with_global: bool = Fal
         secret_files.append(DEFAULT_SECRETS_FILE)
 
     # merged with project secrets if active
-    secret_files.append(files.get_abs_path(projects.get_project_meta_folder(project_name), "secrets.env"))
+    secret_files.append(
+        files.get_abs_path(
+            projects.get_project_meta_folder(project_name), "secrets.env"
+        )
+    )
 
     return SecretsManager.get_instance(*secret_files)
+
 
 def get_default_secrets_manager() -> SecretsManager:
     return SecretsManager.get_instance()

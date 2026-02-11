@@ -1,16 +1,16 @@
 import asyncio
-from python.helpers import settings, errors
-from python.helpers.extension import Extension
-from python.helpers.memory import Memory
-from python.helpers.dirty_json import DirtyJson
+
 from agent import LoopData
+from python.helpers import errors, settings
+from python.helpers.defer import THREAD_BACKGROUND, DeferredTask
+from python.helpers.dirty_json import DirtyJson
+from python.helpers.extension import Extension
 from python.helpers.log import LogItem
+from python.helpers.memory import Memory
 from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
-from python.helpers.defer import DeferredTask, THREAD_BACKGROUND
 
 
 class MemorizeMemories(Extension):
-
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
         # try:
 
@@ -93,7 +93,10 @@ class MemorizeMemories(Extension):
                 return
             else:
                 memories_txt = "\n\n".join([str(memory) for memory in memories]).strip()
-                log_item.update(heading=f"{len(memories)} entries to memorize.", memories=memories_txt)
+                log_item.update(
+                    heading=f"{len(memories)} entries to memorize.",
+                    memories=memories_txt,
+                )
 
             # Process memories with intelligent consolidation
             total_processed = 0
@@ -105,19 +108,21 @@ class MemorizeMemories(Extension):
                 txt = f"{memory}"
 
                 if set["memory_memorize_consolidation"]:
-                    
                     try:
                         # Use intelligent consolidation system
-                        from python.helpers.memory_consolidation import create_memory_consolidator
+                        from python.helpers.memory_consolidation import (
+                            create_memory_consolidator,
+                        )
+
                         consolidator = create_memory_consolidator(
                             self.agent,
                             similarity_threshold=DEFAULT_MEMORY_THRESHOLD,  # More permissive for discovery
                             max_similar_memories=8,
-                            max_llm_context_memories=4
+                            max_llm_context_memories=4,
                         )
 
                         # Create memory item-specific log for detailed tracking
-                        memory_log = None # too many utility messages, skip log for now
+                        memory_log = None  # too many utility messages, skip log for now
                         # memory_log = self.agent.context.log.log(
                         #     type="util",
                         #     heading=f"Processing memory fragment: {txt[:50]}...",
@@ -129,7 +134,7 @@ class MemorizeMemories(Extension):
                             new_memory=txt,
                             area=Memory.Area.FRAGMENTS.value,
                             metadata={"area": Memory.Area.FRAGMENTS.value},
-                            log_item=memory_log
+                            log_item=memory_log,
                         )
 
                         # Update the individual log item with completion status but keep it temporary
@@ -139,14 +144,14 @@ class MemorizeMemories(Extension):
                                 memory_log.update(
                                     result="Fragment processed successfully",
                                     heading=f"Memory fragment completed: {txt[:50]}...",
-                                    update_progress="none"  # Show briefly then disappear
+                                    update_progress="none",  # Show briefly then disappear
                                 )
                         else:
                             if memory_log:
                                 memory_log.update(
                                     result="Fragment processing failed",
                                     heading=f"Memory fragment failed: {txt[:50]}...",
-                                    update_progress="none"  # Show briefly then disappear
+                                    update_progress="none",  # Show briefly then disappear
                                 )
                         total_processed += 1
 
@@ -162,11 +167,10 @@ class MemorizeMemories(Extension):
                         result=f"{total_processed} memories processed, {total_consolidated} intelligently consolidated",
                         memories_processed=total_processed,
                         memories_consolidated=total_consolidated,
-                        update_progress="none"
+                        update_progress="none",
                     )
 
                 else:
-
                     # remove previous fragments too similiar to this one
                     if set["memory_memorize_replace_threshold"] > 0:
                         rem += await db.delete_documents_by_query(
@@ -179,17 +183,18 @@ class MemorizeMemories(Extension):
                             log_item.update(replaced=rem_txt)
 
                     # insert new memory
-                    await db.insert_text(text=txt, metadata={"area": Memory.Area.FRAGMENTS.value})
+                    await db.insert_text(
+                        text=txt, metadata={"area": Memory.Area.FRAGMENTS.value}
+                    )
 
                     log_item.update(
                         result=f"{len(memories)} entries memorized.",
                         heading=f"{len(memories)} entries memorized.",
                     )
                     if rem:
-                        log_item.stream(result=f"\nReplaced {len(rem)} previous memories.")
-                
-
-
+                        log_item.stream(
+                            result=f"\nReplaced {len(rem)} previous memories."
+                        )
 
         except Exception as e:
             err = errors.format_error(e)

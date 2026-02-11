@@ -1,7 +1,7 @@
-from python.helpers.extension import Extension
-from python.helpers import skills
-from python.tools.skills_tool import DATA_NAME_LOADED_SKILLS
 from agent import LoopData
+from python.helpers import skills
+from python.helpers.extension import Extension
+from python.tools.skills_tool import DATA_NAME_LOADED_SKILLS
 
 
 class IncludeLoadedSkills(Extension):
@@ -16,12 +16,13 @@ class IncludeLoadedSkills(Extension):
         # load skill text here
         content = ""
         for skill_name in skill_names:
-            skill_data = skills.load_skill_for_agent(skill_name=skill_name, agent=self.agent)
+            skill_data = skills.load_skill_for_agent(
+                skill_name=skill_name, agent=self.agent
+            )
             content += "\n\n" + skill_data
         content = content.strip()
         if not content:
             return
-
 
         # Inject into extras
         extras["loaded_skills"] = self.agent.read_prompt(

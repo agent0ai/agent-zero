@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from flask import Flask, Response
-
 import pytest
+from flask import Flask, Response
 
 from python.helpers import runtime
 

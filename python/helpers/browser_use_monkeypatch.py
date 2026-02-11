@@ -1,7 +1,8 @@
 from typing import Any
-from browser_use.llm import ChatGoogle
-from python.helpers import dirty_json
 
+from browser_use.llm import ChatGoogle
+
+from python.helpers import dirty_json
 
 # ------------------------------------------------------------------------------
 # Gemini Helper for Output Conformance
@@ -10,6 +11,7 @@ from python.helpers import dirty_json
 # the specific schema expectations of the browser-use library. It handles
 # markdown fences, aliases actions (like 'complete_task' to 'done'), and
 # intelligently constructs a valid 'data' object for the final action.
+
 
 def gemini_clean_and_conform(text: str):
     obj = None
@@ -56,8 +58,12 @@ def gemini_clean_and_conform(text: str):
                     summary_text = v.pop("page_summary", None)
                     title_text = v.pop("title", "Task Completed")
 
-                    final_response = response_text or "Task completed successfully." # browser-use expects string
-                    final_summary = summary_text or "No page summary available." # browser-use expects string
+                    final_response = (
+                        response_text or "Task completed successfully."
+                    )  # browser-use expects string
+                    final_summary = (
+                        summary_text or "No page summary available."
+                    )  # browser-use expects string
 
                     v["data"] = {
                         "title": title_text,
@@ -73,12 +79,14 @@ def gemini_clean_and_conform(text: str):
 
     return dirty_json.stringify(obj)
 
+
 # ------------------------------------------------------------------------------
 # Monkey-patch for browser-use Gemini schema issue
 # ------------------------------------------------------------------------------
 # The original _fix_gemini_schema in browser_use.llm.google.chat.ChatGoogle
 # removes the 'title' property but fails to remove it from the 'required' list,
 # causing a validation error with the Gemini API. This patch corrects that behavior.
+
 
 def _patched_fix_gemini_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
     """
@@ -89,20 +97,20 @@ def _patched_fix_gemini_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
     """
 
     # Handle $defs and $ref resolution
-    if '$defs' in schema:
-        defs = schema.pop('$defs')
+    if "$defs" in schema:
+        defs = schema.pop("$defs")
 
         def resolve_refs(obj: Any) -> Any:
             if isinstance(obj, dict):
-                if '$ref' in obj:
-                    ref = obj.pop('$ref')
-                    ref_name = ref.split('/')[-1]
+                if "$ref" in obj:
+                    ref = obj.pop("$ref")
+                    ref_name = ref.split("/")[-1]
                     if ref_name in defs:
                         # Replace the reference with the actual definition
                         resolved = defs[ref_name].copy()
                         # Merge any additional properties from the reference
                         for key, value in obj.items():
-                            if key != '$ref':
+                            if key != "$ref":
                                 resolved[key] = value
                         return resolve_refs(resolved)
                     return obj
@@ -121,34 +129,34 @@ def _patched_fix_gemini_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
             # Remove unsupported properties
             cleaned = {}
             for key, value in obj.items():
-                if key not in ['additionalProperties', 'title', 'default']:
+                if key not in ["additionalProperties", "title", "default"]:
                     cleaned_value = clean_schema(value)
                     # Handle empty object properties - Gemini doesn't allow empty OBJECT types
                     if (
-                        key == 'properties'
+                        key == "properties"
                         and isinstance(cleaned_value, dict)
                         and len(cleaned_value) == 0
-                        and isinstance(obj.get('type', ''), str)
-                        and obj.get('type', '').upper() == 'OBJECT'
+                        and isinstance(obj.get("type", ""), str)
+                        and obj.get("type", "").upper() == "OBJECT"
                     ):
                         # Convert empty object to have at least one property
-                        cleaned['properties'] = {'_placeholder': {'type': 'string'}}
+                        cleaned["properties"] = {"_placeholder": {"type": "string"}}
                     else:
                         cleaned[key] = cleaned_value
 
             # If this is an object type with empty properties, add a placeholder
             if (
-                isinstance(cleaned.get('type', ''), str)
-                and cleaned.get('type', '').upper() == 'OBJECT'
-                and 'properties' in cleaned
-                and isinstance(cleaned['properties'], dict)
-                and len(cleaned['properties']) == 0
+                isinstance(cleaned.get("type", ""), str)
+                and cleaned.get("type", "").upper() == "OBJECT"
+                and "properties" in cleaned
+                and isinstance(cleaned["properties"], dict)
+                and len(cleaned["properties"]) == 0
             ):
-                cleaned['properties'] = {'_placeholder': {'type': 'string'}}
+                cleaned["properties"] = {"_placeholder": {"type": "string"}}
 
             # PATCH: Also remove 'title' from the required list if it exists
-            if 'required' in cleaned and isinstance(cleaned.get('required'), list):
-                cleaned['required'] = [p for p in cleaned['required'] if p != 'title']
+            if "required" in cleaned and isinstance(cleaned.get("required"), list):
+                cleaned["required"] = [p for p in cleaned["required"] if p != "title"]
 
             return cleaned
         elif isinstance(obj, list):
@@ -156,6 +164,7 @@ def _patched_fix_gemini_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
         return obj
 
     return clean_schema(schema)
+
 
 def apply():
     """Applies the monkey-patch to ChatGoogle."""

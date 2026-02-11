@@ -12,13 +12,14 @@ Usage:
 
 import argparse
 import os
-import sys
-import yaml
 import re
-from pathlib import Path
-from typing import Optional, List, Dict, Any
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -29,6 +30,7 @@ from python.helpers import files
 @dataclass
 class Skill:
     """Represents a skill loaded from SKILL.md"""
+
     name: str
     description: str
     path: Path
@@ -131,7 +133,9 @@ def validate_skill(skill: Skill) -> List[str]:
         if not (1 <= len(skill.name) <= 64):
             issues.append("Name must be 1-64 characters")
         if not re.match(r"^[a-z0-9-]+$", skill.name):
-            issues.append(f"Invalid name format: '{skill.name}' (use lowercase letters, numbers, and hyphens)")
+            issues.append(
+                f"Invalid name format: '{skill.name}' (use lowercase letters, numbers, and hyphens)"
+            )
         if skill.name.startswith("-") or skill.name.endswith("-"):
             issues.append("Name must not start or end with a hyphen")
         if "--" in skill.name:
@@ -171,9 +175,9 @@ def create_skill(name: str, description: str = "", author: str = "") -> Path:
     # Create SKILL.md from template
     skill_content = f'''---
 name: "{name}"
-description: "{description or 'Description of what this skill does and when to use it'}"
+description: "{description or "Description of what this skill does and when to use it"}"
 version: "1.0.0"
-author: "{author or 'Your Name'}"
+author: "{author or "Your Name"}"
 tags: ["custom"]
 trigger_patterns:
   - "{name}"
@@ -263,7 +267,7 @@ Examples:
   %(prog)s show brainstorming       Show skill details
   %(prog)s validate my-skill        Validate a skill
   %(prog)s search python            Search for skills
-        """
+        """,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -296,7 +300,11 @@ Examples:
         skills = list_skills()
         if args.tags:
             filter_tags = [t.strip().lower() for t in args.tags.split(",")]
-            skills = [s for s in skills if any(t in [tag.lower() for tag in s.tags] for t in filter_tags)]
+            skills = [
+                s
+                for s in skills
+                if any(t in [tag.lower() for tag in s.tags] for t in filter_tags)
+            ]
         print_skill_table(skills)
 
     elif args.command == "create":
@@ -321,7 +329,9 @@ Examples:
             print(f"Author:      {skill.author or 'Unknown'}")
             print(f"Path:        {skill.path}")
             print(f"Tags:        {', '.join(skill.tags) if skill.tags else 'None'}")
-            print(f"Triggers:    {', '.join(skill.trigger_patterns) if skill.trigger_patterns else 'None'}")
+            print(
+                f"Triggers:    {', '.join(skill.trigger_patterns) if skill.trigger_patterns else 'None'}"
+            )
             print(f"\nDescription:")
             print(f"  {skill.description}")
             print(f"\nContent Preview (first 500 chars):")

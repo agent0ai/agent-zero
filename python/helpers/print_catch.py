@@ -1,12 +1,11 @@
 import asyncio
 import io
 import sys
-from typing import Callable, Any, Awaitable, Tuple
+from typing import Any, Awaitable, Callable, Tuple
+
 
 def capture_prints_async(
-    func: Callable[..., Awaitable[Any]],
-    *args,
-    **kwargs
+    func: Callable[..., Awaitable[Any]], *args, **kwargs
 ) -> Tuple[Awaitable[Any], Callable[[], str]]:
     # Create a StringIO object to capture the output
     captured_output = io.StringIO()

@@ -1,7 +1,7 @@
-from python.helpers.extension import Extension
 from agent import LoopData
 from python.extensions.message_loop_end._10_organize_history import DATA_NAME_TASK
-from python.helpers.defer import DeferredTask, THREAD_BACKGROUND
+from python.helpers.defer import THREAD_BACKGROUND, DeferredTask
+from python.helpers.extension import Extension
 
 
 class OrganizeHistoryWait(Extension):
@@ -10,7 +10,7 @@ class OrganizeHistoryWait(Extension):
         # sync action only required if the history is too large, otherwise leave it in background
         while self.agent.history.is_over_limit():
             # get task
-            task: DeferredTask|None = self.agent.get_data(DATA_NAME_TASK) 
+            task: DeferredTask | None = self.agent.get_data(DATA_NAME_TASK)
 
             # Check if the task is already done
             if task:
@@ -26,4 +26,3 @@ class OrganizeHistoryWait(Extension):
                 # no task was running, start and wait
                 self.agent.context.log.set_progress("Compressing history...")
                 await self.agent.history.compress()
-

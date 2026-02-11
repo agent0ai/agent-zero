@@ -4,19 +4,24 @@ import json
 import os
 import re
 import subprocess
-from typing import Any, Literal, TypedDict, cast, TypeVar
+from typing import Any, Literal, TypedDict, TypeVar, cast
 
 import models
-from python.helpers import runtime, whisper, defer, git
-from . import files, dotenv
+from python.helpers import defer, dirty_json, git, runtime, whisper
+from python.helpers.notification import (
+    NotificationManager,
+    NotificationPriority,
+    NotificationType,
+)
 from python.helpers.print_style import PrintStyle
-from python.helpers.providers import get_providers, FieldOption as ProvidersFO
+from python.helpers.providers import FieldOption as ProvidersFO
+from python.helpers.providers import get_providers
 from python.helpers.secrets import get_default_secrets_manager
-from python.helpers import dirty_json
-from python.helpers.notification import NotificationManager, NotificationType, NotificationPriority
 
+from . import dotenv, files
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def get_default_value(name: str, value: T) -> T:
     """
@@ -29,7 +34,9 @@ def get_default_value(name: str, value: T) -> T:
     Returns:
         Environment variable value (type-normalized) or default value
     """
-    env_value = dotenv.get_dotenv_value(f"A0_SET_{name}", dotenv.get_dotenv_value(f"A0_SET_{name.upper()}", None))
+    env_value = dotenv.get_dotenv_value(
+        f"A0_SET_{name}", dotenv.get_dotenv_value(f"A0_SET_{name.upper()}", None)
+    )
 
     if env_value is None:
         return value
@@ -37,7 +44,7 @@ def get_default_value(name: str, value: T) -> T:
     # Normalize type to match value param type
     try:
         if isinstance(value, bool):
-            return env_value.strip().lower() in ('true', '1', 'yes', 'on')  # type: ignore
+            return env_value.strip().lower() in ("true", "1", "yes", "on")  # type: ignore
         elif isinstance(value, dict):
             return json.loads(env_value.strip())  # type: ignore
         elif isinstance(value, str):
@@ -49,6 +56,7 @@ def get_default_value(name: str, value: T) -> T:
             f"Warning: Invalid value for A0_SET_{name}='{env_value}': {e}. Using default: {value}"
         )
         return value
+
 
 class Settings(TypedDict):
     version: str
@@ -130,7 +138,7 @@ class Settings(TypedDict):
     rfc_port_http: int
     rfc_port_ssh: int
 
-    shell_interface: Literal['local','ssh']
+    shell_interface: Literal["local", "ssh"]
     websocket_server_restart_enabled: bool
     uvicorn_access_logs_enabled: bool
 
@@ -167,6 +175,7 @@ class FieldOption(TypedDict):
     value: str
     label: str
 
+
 class SettingsField(TypedDict, total=False):
     id: str
     title: str
@@ -198,8 +207,10 @@ class SettingsSection(TypedDict, total=False):
     fields: list[SettingsField]
     tab: str  # Indicates which tab this section belongs to
 
+
 class ModelProvider(ProvidersFO):
     pass
+
 
 class SettingsOutputAdditional(TypedDict):
     chat_providers: list[ModelProvider]
@@ -226,7 +237,10 @@ _runtime_settings_snapshot: Settings | None = None
 
 OptionT = TypeVar("OptionT", bound=FieldOption)
 
-def _ensure_option_present(options: list[OptionT] | None, current_value: str | None) -> list[OptionT]:
+
+def _ensure_option_present(
+    options: list[OptionT] | None, current_value: str | None
+) -> list[OptionT]:
     """
     Ensure the currently selected value exists in a dropdown options list.
     If missing, inserts it at the front as {value: current_value, label: current_value}.
@@ -240,19 +254,27 @@ def _ensure_option_present(options: list[OptionT] | None, current_value: str | N
     opts.insert(0, cast(OptionT, {"value": current_value, "label": current_value}))
     return opts
 
+
 def convert_out(settings: Settings) -> SettingsOutput:
     out = SettingsOutput(
-        settings = settings.copy(),
-        additional = SettingsOutputAdditional(
+        settings=settings.copy(),
+        additional=SettingsOutputAdditional(
             chat_providers=get_providers("chat"),
             embedding_providers=get_providers("embedding"),
-            shell_interfaces=[{"value": "local", "label": "Local Python TTY"}, {"value": "ssh", "label": "SSH"}],
+            shell_interfaces=[
+                {"value": "local", "label": "Local Python TTY"},
+                {"value": "ssh", "label": "SSH"},
+            ],
             is_dockerized=runtime.is_dockerized(),
-            agent_subdirs=[{"value": subdir, "label": subdir}
+            agent_subdirs=[
+                {"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("agents")
-                if subdir != "_example"],
-            knowledge_subdirs=[{"value": subdir, "label": subdir}
-                for subdir in files.get_subdirectories("knowledge", exclude="default")],
+                if subdir != "_example"
+            ],
+            knowledge_subdirs=[
+                {"value": subdir, "label": subdir}
+                for subdir in files.get_subdirectories("knowledge", exclude="default")
+            ],
             stt_models=[
                 {"value": "tiny", "label": "Tiny (39M, English)"},
                 {"value": "base", "label": "Base (74M, English)"},
@@ -280,35 +302,59 @@ def convert_out(settings: Settings) -> SettingsOutput:
         ),
     }
 
-    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("chat_model_provider"))
-    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("util_model_provider"))
-    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("browser_model_provider"))
-    additional["embedding_providers"] = _ensure_option_present(additional.get("embedding_providers"), current.get("embed_model_provider"))
-    additional["shell_interfaces"] = _ensure_option_present(additional.get("shell_interfaces"), current.get("shell_interface"))
-    additional["agent_subdirs"] = _ensure_option_present(additional.get("agent_subdirs"), current.get("agent_profile"))
-    additional["knowledge_subdirs"] = _ensure_option_present(additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir"))
-    additional["stt_models"] = _ensure_option_present(additional.get("stt_models"), current.get("stt_model_size"))
+    additional["chat_providers"] = _ensure_option_present(
+        additional.get("chat_providers"), current.get("chat_model_provider")
+    )
+    additional["chat_providers"] = _ensure_option_present(
+        additional.get("chat_providers"), current.get("util_model_provider")
+    )
+    additional["chat_providers"] = _ensure_option_present(
+        additional.get("chat_providers"), current.get("browser_model_provider")
+    )
+    additional["embedding_providers"] = _ensure_option_present(
+        additional.get("embedding_providers"), current.get("embed_model_provider")
+    )
+    additional["shell_interfaces"] = _ensure_option_present(
+        additional.get("shell_interfaces"), current.get("shell_interface")
+    )
+    additional["agent_subdirs"] = _ensure_option_present(
+        additional.get("agent_subdirs"), current.get("agent_profile")
+    )
+    additional["knowledge_subdirs"] = _ensure_option_present(
+        additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir")
+    )
+    additional["stt_models"] = _ensure_option_present(
+        additional.get("stt_models"), current.get("stt_model_size")
+    )
 
     # masked api keys
     providers = get_providers("chat") + get_providers("embedding")
     for provider in providers:
         provider_name = provider["value"]
-        api_key = settings["api_keys"].get(provider_name, models.get_api_key(provider_name))
-        settings["api_keys"][provider_name] = API_KEY_PLACEHOLDER if api_key and api_key != "None" else ""
+        api_key = settings["api_keys"].get(
+            provider_name, models.get_api_key(provider_name)
+        )
+        settings["api_keys"][provider_name] = (
+            API_KEY_PLACEHOLDER if api_key and api_key != "None" else ""
+        )
 
     # load auth from dotenv
     out["settings"]["auth_login"] = dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) or ""
     out["settings"]["auth_password"] = (
-        PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD) else ""
+        PASSWORD_PLACEHOLDER
+        if dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD)
+        else ""
     )
     out["settings"]["rfc_password"] = (
         PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_RFC_PASSWORD) else ""
     )
     out["settings"]["root_password"] = (
-        PASSWORD_PLACEHOLDER if dotenv.get_dotenv_value(dotenv.KEY_ROOT_PASSWORD) else ""
+        PASSWORD_PLACEHOLDER
+        if dotenv.get_dotenv_value(dotenv.KEY_ROOT_PASSWORD)
+        else ""
     )
 
-    #secrets
+    # secrets
     secrets_manager = get_default_secrets_manager()
     try:
         out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
@@ -324,9 +370,12 @@ def convert_out(settings: Settings) -> SettingsOutput:
     # normalize certain fields
     for key, value in list(out["settings"].items()):
         # convert kwargs dicts to .env format
-        if (key.endswith("_kwargs") or key=="browser_http_headers") and isinstance(value, dict):
+        if (key.endswith("_kwargs") or key == "browser_http_headers") and isinstance(
+            value, dict
+        ):
             out["settings"][key] = _dict_to_env(value)
     return out
+
 
 def _get_api_key_field(settings: Settings, provider: str, title: str) -> SettingsField:
     key = settings["api_keys"].get(provider, models.get_api_key(provider))
@@ -344,7 +393,9 @@ def convert_in(settings: Settings) -> Settings:
 
     for key, value in settings.items():
         # Special handling for browser_http_headers and *_kwargs (stored as .env text)
-        if (key == "browser_http_headers" or key.endswith("_kwargs")) and isinstance(value, str):
+        if (key == "browser_http_headers" or key.endswith("_kwargs")) and isinstance(
+            value, str
+        ):
             current[key] = _env_to_dict(value)
             continue
 
@@ -436,13 +487,14 @@ def _adjust_to_version(settings: Settings, default: Settings):
             settings["agent_profile"] = "agent0"
 
 
-
 def _load_sensitive_settings(settings: Settings):
     # load api keys from .env
     providers = get_providers("chat") + get_providers("embedding")
     for provider in providers:
         provider_name = provider["value"]
-        api_key = settings["api_keys"].get(provider_name) or models.get_api_key(provider_name)
+        api_key = settings["api_keys"].get(provider_name) or models.get_api_key(
+            provider_name
+        )
         if api_key and api_key != "None":
             settings["api_keys"][provider_name] = api_key
 
@@ -499,7 +551,9 @@ def _write_sensitive_settings(settings: Settings):
         dotenv.save_dotenv_value(dotenv.KEY_RFC_PASSWORD, settings["rfc_password"])
     if settings["root_password"] != PASSWORD_PLACEHOLDER:
         if runtime.is_dockerized():
-            dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, settings["root_password"])
+            dotenv.save_dotenv_value(
+                dotenv.KEY_ROOT_PASSWORD, settings["root_password"]
+            )
             set_root_password(settings["root_password"])
 
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
@@ -508,13 +562,14 @@ def _write_sensitive_settings(settings: Settings):
     secrets_manager.save_secrets_with_merge(submitted_content)
 
 
-
 def get_default_settings() -> Settings:
     gitignore = files.read_file(files.get_abs_path("conf/workdir.gitignore"))
     return Settings(
         version=_get_version(),
         chat_model_provider=get_default_value("chat_model_provider", "openrouter"),
-        chat_model_name=get_default_value("chat_model_name", "google/gemini-3-pro-preview"),
+        chat_model_name=get_default_value(
+            "chat_model_name", "google/gemini-3-pro-preview"
+        ),
         chat_model_api_base=get_default_value("chat_model_api_base", ""),
         chat_model_kwargs=get_default_value("chat_model_kwargs", {"temperature": "0"}),
         chat_model_ctx_length=get_default_value("chat_model_ctx_length", 100000),
@@ -524,7 +579,9 @@ def get_default_settings() -> Settings:
         chat_model_rl_input=get_default_value("chat_model_rl_input", 0),
         chat_model_rl_output=get_default_value("chat_model_rl_output", 0),
         util_model_provider=get_default_value("util_model_provider", "openrouter"),
-        util_model_name=get_default_value("util_model_name", "google/gemini-3-flash-preview"),
+        util_model_name=get_default_value(
+            "util_model_name", "google/gemini-3-flash-preview"
+        ),
         util_model_api_base=get_default_value("util_model_api_base", ""),
         util_model_ctx_length=get_default_value("util_model_ctx_length", 100000),
         util_model_ctx_input=get_default_value("util_model_ctx_input", 0.7),
@@ -533,34 +590,56 @@ def get_default_settings() -> Settings:
         util_model_rl_input=get_default_value("util_model_rl_input", 0),
         util_model_rl_output=get_default_value("util_model_rl_output", 0),
         embed_model_provider=get_default_value("embed_model_provider", "huggingface"),
-        embed_model_name=get_default_value("embed_model_name", "sentence-transformers/all-MiniLM-L6-v2"),
+        embed_model_name=get_default_value(
+            "embed_model_name", "sentence-transformers/all-MiniLM-L6-v2"
+        ),
         embed_model_api_base=get_default_value("embed_model_api_base", ""),
         embed_model_kwargs=get_default_value("embed_model_kwargs", {}),
         embed_model_rl_requests=get_default_value("embed_model_rl_requests", 0),
         embed_model_rl_input=get_default_value("embed_model_rl_input", 0),
-        browser_model_provider=get_default_value("browser_model_provider", "openrouter"),
-        browser_model_name=get_default_value("browser_model_name", "google/gemini-3-pro-preview"),
+        browser_model_provider=get_default_value(
+            "browser_model_provider", "openrouter"
+        ),
+        browser_model_name=get_default_value(
+            "browser_model_name", "google/gemini-3-pro-preview"
+        ),
         browser_model_api_base=get_default_value("browser_model_api_base", ""),
         browser_model_vision=get_default_value("browser_model_vision", True),
         browser_model_rl_requests=get_default_value("browser_model_rl_requests", 0),
         browser_model_rl_input=get_default_value("browser_model_rl_input", 0),
         browser_model_rl_output=get_default_value("browser_model_rl_output", 0),
-        browser_model_kwargs=get_default_value("browser_model_kwargs", {"temperature": "0"}),
+        browser_model_kwargs=get_default_value(
+            "browser_model_kwargs", {"temperature": "0"}
+        ),
         browser_http_headers=get_default_value("browser_http_headers", {}),
         memory_recall_enabled=get_default_value("memory_recall_enabled", True),
         memory_recall_delayed=get_default_value("memory_recall_delayed", False),
         memory_recall_interval=get_default_value("memory_recall_interval", 3),
         memory_recall_history_len=get_default_value("memory_recall_history_len", 10000),
-        memory_recall_memories_max_search=get_default_value("memory_recall_memories_max_search", 12),
-        memory_recall_solutions_max_search=get_default_value("memory_recall_solutions_max_search", 8),
-        memory_recall_memories_max_result=get_default_value("memory_recall_memories_max_result", 5),
-        memory_recall_solutions_max_result=get_default_value("memory_recall_solutions_max_result", 3),
-        memory_recall_similarity_threshold=get_default_value("memory_recall_similarity_threshold", 0.7),
+        memory_recall_memories_max_search=get_default_value(
+            "memory_recall_memories_max_search", 12
+        ),
+        memory_recall_solutions_max_search=get_default_value(
+            "memory_recall_solutions_max_search", 8
+        ),
+        memory_recall_memories_max_result=get_default_value(
+            "memory_recall_memories_max_result", 5
+        ),
+        memory_recall_solutions_max_result=get_default_value(
+            "memory_recall_solutions_max_result", 3
+        ),
+        memory_recall_similarity_threshold=get_default_value(
+            "memory_recall_similarity_threshold", 0.7
+        ),
         memory_recall_query_prep=get_default_value("memory_recall_query_prep", False),
         memory_recall_post_filter=get_default_value("memory_recall_post_filter", False),
         memory_memorize_enabled=get_default_value("memory_memorize_enabled", True),
-        memory_memorize_consolidation=get_default_value("memory_memorize_consolidation", True),
-        memory_memorize_replace_threshold=get_default_value("memory_memorize_replace_threshold", 0.9),
+        memory_memorize_consolidation=get_default_value(
+            "memory_memorize_consolidation", True
+        ),
+        memory_memorize_replace_threshold=get_default_value(
+            "memory_memorize_replace_threshold", 0.9
+        ),
         api_keys={},
         auth_login="",
         auth_password="",
@@ -568,7 +647,9 @@ def get_default_settings() -> Settings:
         agent_profile=get_default_value("agent_profile", "agent0"),
         agent_memory_subdir=get_default_value("agent_memory_subdir", "default"),
         agent_knowledge_subdir=get_default_value("agent_knowledge_subdir", "custom"),
-        workdir_path=get_default_value("workdir_path", files.get_abs_path_dockerized("usr/workdir")),
+        workdir_path=get_default_value(
+            "workdir_path", files.get_abs_path_dockerized("usr/workdir")
+        ),
         workdir_show=get_default_value("workdir_show", True),
         workdir_max_depth=get_default_value("workdir_max_depth", 5),
         workdir_max_files=get_default_value("workdir_max_files", 20),
@@ -580,9 +661,15 @@ def get_default_settings() -> Settings:
         rfc_password="",
         rfc_port_http=get_default_value("rfc_port_http", 55080),
         rfc_port_ssh=get_default_value("rfc_port_ssh", 55022),
-        shell_interface=get_default_value("shell_interface", "local" if runtime.is_dockerized() else "ssh"),
-        websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
-        uvicorn_access_logs_enabled=get_default_value("uvicorn_access_logs_enabled", False),
+        shell_interface=get_default_value(
+            "shell_interface", "local" if runtime.is_dockerized() else "ssh"
+        ),
+        websocket_server_restart_enabled=get_default_value(
+            "websocket_server_restart_enabled", True
+        ),
+        uvicorn_access_logs_enabled=get_default_value(
+            "uvicorn_access_logs_enabled", False
+        ),
         stt_model_size=get_default_value("stt_model_size", "base"),
         stt_language=get_default_value("stt_language", "en"),
         stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
@@ -646,19 +733,18 @@ def _apply_settings(previous: Settings | None):
                     priority=NotificationPriority.NORMAL,
                     message="Updating MCP settings...",
                     display_time=999,
-                    group="settings-mcp"
+                    group="settings-mcp",
                 )
 
                 mcp_config = MCPConfig.get_instance()
                 try:
                     MCPConfig.update(mcp_servers)
                 except Exception as e:
-                    
                     NotificationManager.send_notification(
                         type=NotificationType.ERROR,
                         priority=NotificationPriority.HIGH,
                         message="Failed to update MCP settings",
-                        detail=str(e),                        
+                        detail=str(e),
                     )
                     (
                         PrintStyle(
@@ -683,7 +769,7 @@ def _apply_settings(previous: Settings | None):
                     type=NotificationType.INFO,
                     priority=NotificationPriority.NORMAL,
                     message="Finished updating MCP settings.",
-                    group="settings-mcp"
+                    group="settings-mcp",
                 )
 
             task2 = defer.DeferredTask().start_task(
@@ -691,9 +777,7 @@ def _apply_settings(previous: Settings | None):
             )  # TODO overkill, replace with background task
 
         # update token in mcp server
-        current_token = (
-            create_auth_token()
-        )  # TODO - ugly, token in settings is generated from dotenv and does not always correspond
+        current_token = create_auth_token()  # TODO - ugly, token in settings is generated from dotenv and does not always correspond
         if not previous or current_token != previous["mcp_server_token"]:
 
             async def update_mcp_token(token: str):
@@ -722,16 +806,16 @@ def _env_to_dict(data: str):
     result = {}
     for line in data.splitlines():
         line = line.strip()
-        if not line or line.startswith('#'):
+        if not line or line.startswith("#"):
             continue
-        
-        if '=' not in line:
+
+        if "=" not in line:
             continue
-            
-        key, value = line.split('=', 1)
+
+        key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip()
-        
+
         # If quoted, treat as string
         if value.startswith('"') and value.endswith('"'):
             result[key] = value[1:-1].replace('\\"', '"')  # Unescape quotes
@@ -743,7 +827,7 @@ def _env_to_dict(data: str):
                 result[key] = json.loads(value)
             except (json.JSONDecodeError, ValueError):
                 result[key] = value
-    
+
     return result
 
 
@@ -756,11 +840,11 @@ def _dict_to_env(data_dict):
             lines.append(f'{key}="{escaped_value}"')
         elif isinstance(value, (dict, list, bool)) or value is None:
             # Serialize as unquoted JSON
-            lines.append(f'{key}={json.dumps(value, separators=(",", ":"))}')
+            lines.append(f"{key}={json.dumps(value, separators=(',', ':'))}")
         else:
             # Numbers and other types as unquoted strings
-            lines.append(f'{key}={value}')
-    
+            lines.append(f"{key}={value}")
+
     return "\n".join(lines)
 
 
@@ -813,4 +897,3 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
-

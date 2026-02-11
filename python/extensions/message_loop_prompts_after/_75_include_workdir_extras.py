@@ -1,10 +1,7 @@
-from python.helpers.extension import Extension
 from agent import LoopData
-from python.helpers import projects
-from python.helpers import settings
-from python.helpers import runtime
-from python.helpers import file_tree
-from python.helpers import files
+from python.helpers import file_tree, files, projects, runtime, settings
+from python.helpers.extension import Extension
+
 
 class IncludeWorkdirExtras(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):

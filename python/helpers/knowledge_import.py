@@ -1,13 +1,15 @@
 import glob
-import os
 import hashlib
+import os
 from typing import Any, Dict, Literal, TypedDict
+
 from langchain_community.document_loaders import (
     CSVLoader,
     PyPDFLoader,
     TextLoader,
     UnstructuredHTMLLoader,
 )
+
 from python.helpers.log import LogItem
 from python.helpers.print_style import PrintStyle
 
@@ -53,7 +55,7 @@ def load_knowledge(
         "csv": CSVLoader,
         "html": UnstructuredHTMLLoader,
         "json": TextLoader,  # Use TextLoader for better consolidation compatibility
-        "md": TextLoader,    # Use TextLoader for better consolidation compatibility
+        "md": TextLoader,  # Use TextLoader for better consolidation compatibility
     }
 
     cnt_files = 0
@@ -70,7 +72,9 @@ def load_knowledge(
         try:
             os.makedirs(knowledge_dir, exist_ok=True)
             # Verify the directory was actually created and is accessible
-            if not os.path.exists(knowledge_dir) or not os.access(knowledge_dir, os.R_OK):
+            if not os.path.exists(knowledge_dir) or not os.access(
+                knowledge_dir, os.R_OK
+            ):
                 error_msg = f"Knowledge directory {knowledge_dir} was created but is not accessible"
                 if log_item:
                     log_item.stream(progress=f"\n{error_msg}")
@@ -78,8 +82,12 @@ def load_knowledge(
                 return index
 
             if log_item:
-                log_item.stream(progress=f"\nCreated knowledge directory: {knowledge_dir}")
-            PrintStyle(font_color="green").print(f"Created knowledge directory: {knowledge_dir}")
+                log_item.stream(
+                    progress=f"\nCreated knowledge directory: {knowledge_dir}"
+                )
+            PrintStyle(font_color="green").print(
+                f"Created knowledge directory: {knowledge_dir}"
+            )
         except (OSError, PermissionError) as e:
             error_msg = f"Failed to create knowledge directory {knowledge_dir}: {e}"
             if log_item:
@@ -97,10 +105,18 @@ def load_knowledge(
 
     # Fetch all files in the directory with specified extensions
     try:
-        kn_files = glob.glob(os.path.join(knowledge_dir, filename_pattern), recursive=recursive)
-        kn_files = [f for f in kn_files if os.path.isfile(f) and not os.path.basename(f).startswith('.')]
+        kn_files = glob.glob(
+            os.path.join(knowledge_dir, filename_pattern), recursive=recursive
+        )
+        kn_files = [
+            f
+            for f in kn_files
+            if os.path.isfile(f) and not os.path.basename(f).startswith(".")
+        ]
     except Exception as e:
-        PrintStyle(font_color="red").print(f"Error scanning knowledge directory {knowledge_dir}: {e}")
+        PrintStyle(font_color="red").print(
+            f"Error scanning knowledge directory {knowledge_dir}: {e}"
+        )
         if log_item:
             log_item.stream(progress=f"\nError scanning directory: {e}")
         return index
@@ -117,7 +133,7 @@ def load_knowledge(
     for file_path in kn_files:
         try:
             # Get file extension safely
-            file_parts = os.path.basename(file_path).split('.')
+            file_parts = os.path.basename(file_path).split(".")
             if len(file_parts) < 2:
                 continue  # Skip files without extensions
 
@@ -132,13 +148,16 @@ def load_knowledge(
             file_key = file_path
 
             # Load existing data from the index or create a new entry
-            file_data: KnowledgeImport = index.get(file_key, {
-                "file": file_key,
-                "checksum": "",
-                "ids": [],
-                "state": "changed",
-                "documents": []
-            })
+            file_data: KnowledgeImport = index.get(
+                file_key,
+                {
+                    "file": file_key,
+                    "checksum": "",
+                    "ids": [],
+                    "state": "changed",
+                    "documents": [],
+                },
+            )
 
             # Check if file has changed
             if file_data.get("checksum") == checksum:
@@ -181,9 +200,13 @@ def load_knowledge(
                     cnt_docs += len(documents)
 
                 except Exception as e:
-                    PrintStyle(font_color="red").print(f"Error loading {file_path}: {e}")
+                    PrintStyle(font_color="red").print(
+                        f"Error loading {file_path}: {e}"
+                    )
                     if log_item:
-                        log_item.stream(progress=f"\nError loading {os.path.basename(file_path)}: {e}")
+                        log_item.stream(
+                            progress=f"\nError loading {os.path.basename(file_path)}: {e}"
+                        )
                     continue
 
             # Update the index

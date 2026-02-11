@@ -59,7 +59,9 @@ async def _run_asgi_app(app: Any) -> AsyncIterator[str]:
 
 
 @pytest.mark.asyncio
-async def test_manager_identity_is_namespace_and_sid_allows_same_sid_across_namespaces() -> None:
+async def test_manager_identity_is_namespace_and_sid_allows_same_sid_across_namespaces() -> (
+    None
+):
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
     # Avoid flakiness from lifecycle broadcasts scheduled via asyncio.create_task.
@@ -79,7 +81,9 @@ async def test_manager_identity_is_namespace_and_sid_allows_same_sid_across_name
     assert (ns_a, sid) not in manager.connections
     assert (ns_b, sid) in manager.connections
 
-    await manager.emit_to(ns_a, sid, "test_event", {"value": 1}, correlation_id="corr-1")
+    await manager.emit_to(
+        ns_a, sid, "test_event", {"value": 1}, correlation_id="corr-1"
+    )
 
     assert (ns_a, sid) in manager.buffers
     assert (ns_b, sid) not in manager.buffers
@@ -105,8 +109,8 @@ async def test_namespace_isolation_state_sync_vs_dev_websocket_test() -> None:
     Acceptance proof for `/state_sync` vs `/dev_websocket_test` namespaces.
     """
 
-    from flask import Flask
     import socketio
+    from flask import Flask
 
     from python.helpers.websocket import WebSocketHandler
     from python.helpers.websocket_manager import WebSocketManager
@@ -143,7 +147,9 @@ async def test_namespace_isolation_state_sync_vs_dev_websocket_test() -> None:
             return ["ws_tester_emit"]
 
         async def process_event(self, event_type: str, data: dict[str, Any], sid: str):
-            await self.broadcast("ws_tester_broadcast", {"source": "dev_websocket_test"})
+            await self.broadcast(
+                "ws_tester_broadcast", {"source": "dev_websocket_test"}
+            )
             return None
 
     StateHandler._reset_instance_for_testing()
@@ -152,7 +158,9 @@ async def test_namespace_isolation_state_sync_vs_dev_websocket_test() -> None:
     webapp = Flask("test_namespace_isolation")
     webapp.secret_key = "test-secret"
 
-    sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", namespaces="*")
+    sio = socketio.AsyncServer(
+        async_mode="asgi", cors_allowed_origins="*", namespaces="*"
+    )
     lock = threading.RLock()
     manager = WebSocketManager(sio, lock)
 
@@ -190,8 +198,14 @@ async def test_namespace_isolation_state_sync_vs_dev_websocket_test() -> None:
 
         client.on("state_push", _on_state_push_state, namespace="/state_sync")
         client.on("state_push", _on_state_push_dev, namespace="/dev_websocket_test")
-        client.on("ws_tester_broadcast", _on_tester_broadcast_dev, namespace="/dev_websocket_test")
-        client.on("ws_tester_broadcast", _on_tester_broadcast_state, namespace="/state_sync")
+        client.on(
+            "ws_tester_broadcast",
+            _on_tester_broadcast_dev,
+            namespace="/dev_websocket_test",
+        )
+        client.on(
+            "ws_tester_broadcast", _on_tester_broadcast_state, namespace="/state_sync"
+        )
 
         await client.connect(
             base_url,
@@ -200,12 +214,16 @@ async def test_namespace_isolation_state_sync_vs_dev_websocket_test() -> None:
             wait_timeout=2,
         )
         try:
-            await client.call("state_request", {"context": None}, namespace="/state_sync", timeout=2)
+            await client.call(
+                "state_request", {"context": None}, namespace="/state_sync", timeout=2
+            )
             await asyncio.wait_for(state_push_state.wait(), timeout=2)
             await asyncio.sleep(0.05)
             assert state_push_dev.is_set() is False
 
-            await client.emit("ws_tester_emit", {"message": "hi"}, namespace="/dev_websocket_test")
+            await client.emit(
+                "ws_tester_emit", {"message": "hi"}, namespace="/dev_websocket_test"
+            )
             await asyncio.wait_for(tester_broadcast_dev.wait(), timeout=2)
             await asyncio.sleep(0.05)
             assert tester_broadcast_state.is_set() is False
@@ -214,7 +232,9 @@ async def test_namespace_isolation_state_sync_vs_dev_websocket_test() -> None:
 
 
 @pytest.mark.asyncio
-async def test_diagnostics_include_source_namespace_and_deliver_on_dev_namespace_only() -> None:
+async def test_diagnostics_include_source_namespace_and_deliver_on_dev_namespace_only() -> (
+    None
+):
     """
     CONTRACT.Diagnostics: dev console diagnostics are delivered on `/dev_websocket_test`,
     but must include `sourceNamespace` identifying the origin namespace.
@@ -267,7 +287,9 @@ def test_namespace_discovery_maps_core_handlers_to_expected_namespaces() -> None
     (no cross-registration).
     """
 
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from python.helpers.websocket_namespace_discovery import (
+        discover_websocket_namespaces,
+    )
 
     discoveries = discover_websocket_namespaces(
         handlers_folder="python/websocket_handlers",
@@ -278,8 +300,12 @@ def test_namespace_discovery_maps_core_handlers_to_expected_namespaces() -> None
     assert "/state_sync" in by_namespace
     assert "/dev_websocket_test" in by_namespace
 
-    state_cls_names = [cls.__name__ for cls in by_namespace["/state_sync"].handler_classes]
-    dev_cls_names = [cls.__name__ for cls in by_namespace["/dev_websocket_test"].handler_classes]
+    state_cls_names = [
+        cls.__name__ for cls in by_namespace["/state_sync"].handler_classes
+    ]
+    dev_cls_names = [
+        cls.__name__ for cls in by_namespace["/dev_websocket_test"].handler_classes
+    ]
 
     assert state_cls_names == ["StateSyncHandler"]
     assert dev_cls_names == ["DevWebsocketTestHandler"]
@@ -288,7 +314,9 @@ def test_namespace_discovery_maps_core_handlers_to_expected_namespaces() -> None
 def test_run_ui_builds_namespace_handler_map_without_cross_registration() -> None:
     from run_ui import _build_websocket_handlers_by_namespace
 
-    handlers_by_namespace = _build_websocket_handlers_by_namespace(object(), threading.RLock())
+    handlers_by_namespace = _build_websocket_handlers_by_namespace(
+        object(), threading.RLock()
+    )
 
     assert "/state_sync" in handlers_by_namespace
     assert "/dev_websocket_test" in handlers_by_namespace
@@ -304,7 +332,9 @@ def test_run_ui_builds_namespace_handler_map_without_cross_registration() -> Non
 
 
 @pytest.mark.asyncio
-async def test_route_event_dispatches_only_within_connected_namespace_and_results_are_scoped() -> None:
+async def test_route_event_dispatches_only_within_connected_namespace_and_results_are_scoped() -> (
+    None
+):
     """
     CONTRACT.NS.ROUTING: inbound routing is restricted to handlers in the connected namespace.
     """
@@ -349,11 +379,15 @@ async def test_route_event_dispatches_only_within_connected_namespace_and_result
     await manager.handle_connect(ns_dev, "sid-dev")
 
     res_state = await manager.route_event(ns_state, "route_test", {"x": 1}, "sid-state")
-    assert {item["handlerId"] for item in res_state["results"]} == {state_handler.identifier}
+    assert {item["handlerId"] for item in res_state["results"]} == {
+        state_handler.identifier
+    }
     assert res_state["results"][0]["data"]["ns"] == "state"
 
     res_dev = await manager.route_event(ns_dev, "route_test", {"x": 2}, "sid-dev")
-    assert {item["handlerId"] for item in res_dev["results"]} == {dev_handler.identifier}
+    assert {item["handlerId"] for item in res_dev["results"]} == {
+        dev_handler.identifier
+    }
     assert res_dev["results"][0]["data"]["ns"] == "dev"
 
     assert calls == ["state:sid-state", "dev:sid-dev"]
@@ -412,12 +446,18 @@ async def test_lifecycle_broadcasts_deliver_only_within_the_namespace() -> None:
         if call.args and call.args[0] == LIFECYCLE_DISCONNECT_EVENT
     ]
     assert state_disconnect_calls
-    assert all(call.kwargs.get("namespace") == ns_state for call in state_disconnect_calls)
-    assert all(call.kwargs.get("to") == "sid-state-1" for call in state_disconnect_calls)
+    assert all(
+        call.kwargs.get("namespace") == ns_state for call in state_disconnect_calls
+    )
+    assert all(
+        call.kwargs.get("to") == "sid-state-1" for call in state_disconnect_calls
+    )
 
 
 @pytest.mark.asyncio
-async def test_request_semantics_no_handlers_and_timeouts_are_namespace_scoped_and_order_insensitive() -> None:
+async def test_request_semantics_no_handlers_and_timeouts_are_namespace_scoped_and_order_insensitive() -> (
+    None
+):
     """
     CONTRACT.REQUEST.RESULTS + CONTRACT.REQUEST.RESULTS.ORDERING + CONTRACT.NS.ROUTING.
     """
@@ -467,7 +507,9 @@ async def test_request_semantics_no_handlers_and_timeouts_are_namespace_scoped_a
     assert ns_dev in no_handler["results"][0]["error"]["error"]
 
     # Unknown event name in a namespace that *does* have other handlers -> NO_HANDLERS.
-    unhandled_in_state = await manager.route_event(ns_state, "unknown_event", {"x": 1}, "sid-a")
+    unhandled_in_state = await manager.route_event(
+        ns_state, "unknown_event", {"x": 1}, "sid-a"
+    )
     assert unhandled_in_state["results"][0]["ok"] is False
     assert unhandled_in_state["results"][0]["error"]["code"] == "NO_HANDLERS"
     assert ns_state in unhandled_in_state["results"][0]["error"]["error"]
@@ -484,7 +526,9 @@ async def test_request_semantics_no_handlers_and_timeouts_are_namespace_scoped_a
     assert handler_ids == {alpha.identifier, beta.identifier}
 
     # Timeout results are represented as TIMEOUT items and scoped to the namespace.
-    aggregated = await manager.route_event_all(ns_state, "slow", {"x": 1}, timeout_ms=50)
+    aggregated = await manager.route_event_all(
+        ns_state, "slow", {"x": 1}, timeout_ms=50
+    )
     assert len(aggregated) == 2  # only state namespace connections
     assert {entry["sid"] for entry in aggregated} == {"sid-a", "sid-b"}
     for entry in aggregated:

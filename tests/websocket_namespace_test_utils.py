@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Any
 from unittest.mock import AsyncMock
 
-
 ConnectionIdentity = tuple[str, str]  # (namespace, sid)
 
 

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import types
-from typing import Any, Mapping, TypedDict, Union, get_args, get_origin, get_type_hints
-
 from dataclasses import dataclass
+from typing import Any, Mapping, TypedDict, Union, get_args, get_origin, get_type_hints
 
 import pytz  # type: ignore[import-untyped]
 
 from agent import AgentContext, AgentContextType
-
 from python.helpers.dotenv import get_dotenv_value
 from python.helpers.localization import Localization
 from python.helpers.task_scheduler import TaskScheduler
@@ -30,6 +28,7 @@ class SnapshotV1(TypedDict):
     notifications: list[dict[str, Any]]
     notifications_guid: str
     notifications_version: int
+
 
 @dataclass(frozen=True)
 class StateRequestV1:
@@ -76,7 +75,9 @@ def _annotation_to_isinstance_types(annotation: Any) -> tuple[type, ...]:
 
 def _build_schema_from_typeddict(td: type) -> dict[str, tuple[type, ...]]:
     """Extract field names and isinstance-compatible types from TypedDict."""
-    return {k: _annotation_to_isinstance_types(v) for k, v in get_type_hints(td).items()}
+    return {
+        k: _annotation_to_isinstance_types(v) for k, v in get_type_hints(td).items()
+    }
 
 
 _SNAPSHOT_V1_SCHEMA = _build_schema_from_typeddict(SnapshotV1)
@@ -199,7 +200,9 @@ def advance_state_request_after_snapshot(
         pass
 
     try:
-        notifications_from = int(snapshot.get("notifications_version", notifications_from))
+        notifications_from = int(
+            snapshot.get("notifications_version", notifications_from)
+        )
     except (TypeError, ValueError):
         pass
 
@@ -220,7 +223,9 @@ async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
     ctxid = ctxid.strip()
 
     from_no = _coerce_non_negative_int(request.log_from, default=0)
-    notifications_from_no = _coerce_non_negative_int(request.notifications_from, default=0)
+    notifications_from_no = _coerce_non_negative_int(
+        request.notifications_from, default=0
+    )
 
     active_context = AgentContext.get(ctxid) if ctxid else None
 
@@ -292,7 +297,9 @@ async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
         "log_guid": active_context.log.guid if active_context else "",
         "log_version": len(active_context.log.updates) if active_context else 0,
         "log_progress": active_context.log.progress if active_context else 0,
-        "log_progress_active": bool(active_context.log.progress_active) if active_context else False,
+        "log_progress_active": bool(active_context.log.progress_active)
+        if active_context
+        else False,
         "paused": active_context.paused if active_context else False,
         "notifications": notifications,
         "notifications_guid": notification_manager.guid,

@@ -1,38 +1,34 @@
+import json
+import logging
+import os
 from datetime import datetime
+from enum import Enum
 from typing import Any, List, Sequence
-from langchain.storage import InMemoryByteStore, LocalFileStore
+
+import faiss
+import numpy as np
 from langchain.embeddings import CacheBackedEmbeddings
-from python.helpers import guids
+from langchain.storage import InMemoryByteStore, LocalFileStore
+from langchain_community.docstore.in_memory import InMemoryDocstore
 
 # from langchain_chroma import Chroma
 from langchain_community.vectorstores import FAISS
-
-# faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
-from python.helpers import faiss_monkey_patch
-import faiss
-
-
-from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores.utils import (
     DistanceStrategy,
 )
-from langchain_core.embeddings import Embeddings
-
-import os, json
-
-import numpy as np
-
-from python.helpers.print_style import PrintStyle
-from . import files
 from langchain_core.documents import Document
-from python.helpers import knowledge_import
-from python.helpers.log import Log, LogItem
-from enum import Enum
-from agent import Agent, AgentContext
-import models
-import logging
+from langchain_core.embeddings import Embeddings
 from simpleeval import simple_eval
 
+import models
+from agent import Agent, AgentContext
+
+# faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
+from python.helpers import faiss_monkey_patch, guids, knowledge_import
+from python.helpers.log import Log, LogItem
+from python.helpers.print_style import PrintStyle
+
+from . import files
 
 # Raise the log level so WARNING messages aren't shown
 logging.getLogger("langchain_core.vectorstores.base").setLevel(logging.ERROR)
@@ -42,7 +38,11 @@ class MyFaiss(FAISS):
     # override aget_by_ids
     def get_by_ids(self, ids: Sequence[str], /) -> List[Document]:
         # return all self.docstore._dict[id] in ids
-        return [self.docstore._dict[id] for id in (ids if isinstance(ids, list) else [ids]) if id in self.docstore._dict]  # type: ignore
+        return [
+            self.docstore._dict[id]
+            for id in (ids if isinstance(ids, list) else [ids])
+            if id in self.docstore._dict
+        ]  # type: ignore
 
     async def aget_by_ids(self, ids: Sequence[str], /) -> List[Document]:
         return self.get_by_ids(ids)
@@ -52,7 +52,6 @@ class MyFaiss(FAISS):
 
 
 class Memory:
-
     class Area(Enum):
         MAIN = "main"
         FRAGMENTS = "fragments"

@@ -1,9 +1,9 @@
 from datetime import datetime
 
 from python.helpers.api import ApiHandler, Input, Output, Request
+from python.helpers.localization import Localization
 from python.helpers.print_style import PrintStyle
 from python.helpers.task_scheduler import TaskScheduler
-from python.helpers.localization import Localization
 
 
 class SchedulerTick(ApiHandler):
@@ -39,7 +39,9 @@ class SchedulerTick(ApiHandler):
         printer.print(f"Scheduler has {tasks_count} task(s)")
         if tasks_count > 0:
             for task in tasks:
-                printer.print(f"Task: {task.name} (UUID: {task.uuid}, State: {task.state})")
+                printer.print(
+                    f"Task: {task.name} (UUID: {task.uuid}, State: {task.state})"
+                )
 
         # Run the scheduler tick
         await scheduler.tick()
@@ -51,5 +53,5 @@ class SchedulerTick(ApiHandler):
             "scheduler": "tick",
             "timestamp": timestamp,
             "tasks_count": tasks_count,
-            "tasks": serialized_tasks
+            "tasks": serialized_tasks,
         }

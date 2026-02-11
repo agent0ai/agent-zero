@@ -1,6 +1,6 @@
+import asyncio
 import re
 import traceback
-import asyncio
 from typing import Literal
 
 
@@ -14,16 +14,20 @@ def error_text(e: Exception):
     return str(e)
 
 
-def format_error(e: Exception, start_entries=20, end_entries=15, error_message_position:Literal["top", "bottom", "none"] = "top"):
+def format_error(
+    e: Exception,
+    start_entries=20,
+    end_entries=15,
+    error_message_position: Literal["top", "bottom", "none"] = "top",
+):
     # format traceback from the provided exception instead of the most recent one
-    traceback_text = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+    traceback_text = "".join(traceback.format_exception(type(e), e, e.__traceback__))
     # Split the traceback into lines
     lines = traceback_text.split("\n")
 
     if not start_entries and not end_entries:
         trimmed_lines = []
     else:
-
         # Find all "File" lines
         file_indices = [
             i for i, line in enumerate(lines) if line.strip().startswith("File ")
@@ -77,4 +81,5 @@ def format_error(e: Exception, start_entries=20, end_entries=15, error_message_p
 
 class RepairableException(Exception):
     """An exception type indicating errors that can be surfaced to the LLM for potential self-repair."""
+
     pass

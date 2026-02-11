@@ -10,13 +10,37 @@ from typing import Final, Optional
 FORBIDDEN_CHARS_RE: Final = re.compile(r'[<>:"|?*~/\\\x00-\x1f\x7f]')
 
 # Windows reserved filenames
-WINDOWS_RESERVED: Final = frozenset({
-    "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
-    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-})
+WINDOWS_RESERVED: Final = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "CONIN$",
+        "CONOUT$",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9",
+    }
+)
 
 FILENAME_MAX_LENGTH: Final = 255
+
 
 def safe_filename(filename: str) -> Optional[str]:
     # Normalize Unicode (NFC)
@@ -27,8 +51,8 @@ def safe_filename(filename: str) -> Optional[str]:
     filename = filename.lstrip(" ").rstrip(". ")
 
     path = Path(filename)
-    suffixes = ''.join(path.suffixes)
-    stem = path.name[:-len(suffixes)] if suffixes else path.name
+    suffixes = "".join(path.suffixes)
+    stem = path.name[: -len(suffixes)] if suffixes else path.name
 
     # Check Windows reserved names
     if stem.upper() in WINDOWS_RESERVED:

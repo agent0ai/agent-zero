@@ -1,13 +1,17 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers.memory import Memory, get_existing_memory_subdirs, get_context_memory_subdir
-from python.helpers import files
-from models import ModelConfig, ModelType
 from langchain_core.documents import Document
+
 from agent import AgentContext
+from models import ModelConfig, ModelType
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
+from python.helpers.memory import (
+    Memory,
+    get_context_memory_subdir,
+    get_existing_memory_subdirs,
+)
 
 
 class MemoryDashboard(ApiHandler):
-
     async def process(self, input: dict, request: Request) -> dict | Response:
         try:
             action = input.get("action", "search")
@@ -183,7 +187,9 @@ class MemoryDashboard(ApiHandler):
                     memories = memories[:limit]
 
             # Format memories for the dashboard
-            formatted_memories = [self._format_memory_for_dashboard(m) for m in memories]
+            formatted_memories = [
+                self._format_memory_for_dashboard(m) for m in memories
+            ]
 
             # Get summary statistics
             total_memories = len(formatted_memories)

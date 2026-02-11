@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 import threading
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Iterable, Optional
 from urllib.parse import urlparse
-from typing import Any, Iterable, Optional, TYPE_CHECKING
 
 import socketio
 
@@ -262,10 +262,14 @@ class WebSocketResult:
         if self._ok:
             result["data"] = dict(self._data) if self._data is not None else {}
         else:
-            result["error"] = dict(self._error) if self._error is not None else {
-                "code": "INTERNAL_ERROR",
-                "error": "Internal server error",
-            }
+            result["error"] = (
+                dict(self._error)
+                if self._error is not None
+                else {
+                    "code": "INTERNAL_ERROR",
+                    "error": "Internal server error",
+                }
+            )
         return result
 
 

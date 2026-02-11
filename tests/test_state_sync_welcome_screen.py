@@ -24,14 +24,16 @@ class FakeSocketIOServer:
 
 
 @pytest.mark.asyncio
-async def test_state_sync_handshake_and_initial_snapshot_work_with_no_selected_context() -> None:
+async def test_state_sync_handshake_and_initial_snapshot_work_with_no_selected_context() -> (
+    None
+):
     """
     Regression for Welcome screen: the UI has no selected context, so `state_request.context`
     is null. We must still handshake and receive an initial `state_push` quickly (no hang).
     """
 
-    from python.helpers.state_snapshot import validate_snapshot_schema_v1
     from python.helpers.state_monitor import _reset_state_monitor_for_testing
+    from python.helpers.state_snapshot import validate_snapshot_schema_v1
     from python.websocket_handlers.state_sync_handler import StateSyncHandler
 
     socketio = FakeSocketIOServer()

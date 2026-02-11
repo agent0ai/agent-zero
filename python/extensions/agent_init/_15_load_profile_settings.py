@@ -1,16 +1,17 @@
 from initialize import initialize_agent
-from python.helpers import dirty_json, files, subagents, projects
+from python.helpers import dirty_json, files, projects, subagents
 from python.helpers.extension import Extension
 
 
 class LoadProfileSettings(Extension):
-    
     async def execute(self, **kwargs) -> None:
 
         if not self.agent or not self.agent.config.profile:
             return
 
-        config_files = subagents.get_paths(self.agent, "settings.json", include_default=False, include_user=False)
+        config_files = subagents.get_paths(
+            self.agent, "settings.json", include_default=False, include_user=False
+        )
         settings_override = {}
         for settings_path in config_files:
             if files.exists(settings_path):
@@ -43,7 +44,9 @@ class LoadProfileSettings(Extension):
                 ("browser_http_headers", "browser_http_headers"),
             ):
                 if override_key not in settings_override:
-                    setattr(new_config, config_attr, getattr(current_config, config_attr))
+                    setattr(
+                        new_config, config_attr, getattr(current_config, config_attr)
+                    )
             self.agent.config = new_config
             # self.agent.context.log.log(
             #     type="info",
@@ -52,4 +55,3 @@ class LoadProfileSettings(Extension):
             #         f"{self.agent.number} with profile '{self.agent.config.profile}'."
             #     ),
             # )
-

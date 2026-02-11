@@ -42,14 +42,16 @@ async def _run_asgi_app(app: Any) -> AsyncIterator[str]:
 
 
 @pytest.mark.asyncio
-async def test_unregistered_namespace_connection_fails_with_unknown_namespace_connect_error() -> None:
+async def test_unregistered_namespace_connection_fails_with_unknown_namespace_connect_error() -> (
+    None
+):
     """
     US5 integration: unregistered namespace connections fail deterministically with a structured
     connect_error payload (UNKNOWN_NAMESPACE), independent of python-socketio defaults.
     """
 
-    from flask import Flask
     import socketio
+    from flask import Flask
 
     from python.helpers.websocket import WebSocketHandler
     from python.helpers.websocket_manager import WebSocketManager
@@ -76,7 +78,9 @@ async def test_unregistered_namespace_connection_fails_with_unknown_namespace_co
     webapp = Flask("test_ws_namespaces_integration")
     webapp.secret_key = "test-secret"
 
-    sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", namespaces="*")
+    sio = socketio.AsyncServer(
+        async_mode="asgi", cors_allowed_origins="*", namespaces="*"
+    )
     lock = __import__("threading").RLock()
     manager = WebSocketManager(sio, lock)
 
@@ -91,7 +95,9 @@ async def test_unregistered_namespace_connection_fails_with_unknown_namespace_co
 
     async with _run_asgi_app(asgi_app) as base_url:
         client = socketio.AsyncClient()
-        connect_error_fut: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+        connect_error_fut: asyncio.Future[Any] = (
+            asyncio.get_running_loop().create_future()
+        )
 
         async def _on_connect_error(data: Any) -> None:
             if not connect_error_fut.done():

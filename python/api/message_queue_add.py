@@ -1,6 +1,6 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import message_queue as mq
 from agent import AgentContext
+from python.helpers import message_queue as mq
+from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.state_monitor_integration import mark_dirty_for_context
 
 
@@ -21,4 +21,8 @@ class MessageQueueAdd(ApiHandler):
 
         item = mq.add(context, text, attachments, item_id)
         mark_dirty_for_context(context.id, reason="message_queue_add")
-        return {"ok": True, "item_id": item["id"], "queue_length": len(mq.get_queue(context))}
+        return {
+            "ok": True,
+            "item_id": item["id"],
+            "queue_length": len(mq.get_queue(context)),
+        }

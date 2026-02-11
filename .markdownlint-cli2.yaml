@@ -115,6 +115,7 @@ config:
       - 'a'
       - 'b'
       - 'button'
+      - 'latex'
       - 'br'
       - 'details'
       - 'name-of-ai-model'

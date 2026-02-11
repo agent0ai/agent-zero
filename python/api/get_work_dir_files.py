@@ -1,9 +1,9 @@
+from python.helpers import files, runtime
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.file_browser import FileBrowser
-from python.helpers import runtime, files
+
 
 class GetWorkDirFiles(ApiHandler):
-
     @classmethod
     def get_methods(cls):
         return ["GET"]

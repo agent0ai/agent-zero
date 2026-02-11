@@ -1,47 +1,44 @@
-from abc import ABC, abstractmethod
-import re
-from typing import (
-    List,
-    Dict,
-    Optional,
-    Any,
-    TextIO,
-    Union,
-    Literal,
-    Annotated,
-    ClassVar,
-    cast,
-    Callable,
-    Awaitable,
-    TypeVar,
-)
-import threading
 import asyncio
-from contextlib import AsyncExitStack
-from shutil import which
-from datetime import timedelta
 import json
-from python.helpers import errors
-from python.helpers import settings
-from python.helpers.log import LogItem
+import re
+import threading
+from abc import ABC, abstractmethod
+from contextlib import AsyncExitStack
+from datetime import timedelta
+from shutil import which
+from typing import (
+    Annotated,
+    Any,
+    Awaitable,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    TextIO,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import httpx
-
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-from mcp.client.sse import sse_client
-from mcp.client.streamable_http import streamablehttp_client
-from mcp.shared.message import SessionMessage
-from mcp.types import CallToolResult, ListToolsResult
 from anyio.streams.memory import (
     MemoryObjectReceiveStream,
     MemoryObjectSendStream,
 )
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
+from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
+from mcp.shared.message import SessionMessage
+from mcp.types import CallToolResult, ListToolsResult
+from pydantic import BaseModel, Discriminator, Field, PrivateAttr, Tag
 
-from pydantic import BaseModel, Field, Discriminator, Tag, PrivateAttr
-from python.helpers import dirty_json
+from python.helpers import dirty_json, errors, settings
+from python.helpers.log import LogItem
 from python.helpers.print_style import PrintStyle
-from python.helpers.tool import Tool, Response
+from python.helpers.tool import Response, Tool
 
 
 def normalize_name(name: str) -> str:
@@ -59,7 +56,13 @@ def _determine_server_type(config_dict: dict) -> str:
     # First check if type is explicitly specified
     if "type" in config_dict:
         server_type = config_dict["type"].lower()
-        if server_type in ["sse", "http-stream", "streaming-http", "streamable-http", "http-streaming"]:
+        if server_type in [
+            "sse",
+            "http-stream",
+            "streaming-http",
+            "streamable-http",
+            "http-streaming",
+        ]:
             return "MCPServerRemote"
         elif server_type == "stdio":
             return "MCPServerLocal"
@@ -78,7 +81,12 @@ def _determine_server_type(config_dict: dict) -> str:
 
 def _is_streaming_http_type(server_type: str) -> bool:
     """Check if the server type is a streaming HTTP variant."""
-    return server_type.lower() in ["http-stream", "streaming-http", "streamable-http", "http-streaming"]
+    return server_type.lower() in [
+        "http-stream",
+        "streaming-http",
+        "streamable-http",
+        "http-streaming",
+    ]
 
 
 def initialize_mcp(mcp_servers_config: str):
@@ -93,9 +101,9 @@ def initialize_mcp(mcp_servers_config: str):
                 content=f"Failed to update MCP settings: {e}",
             )
 
-            PrintStyle(
-                background_color="black", font_color="red", padding=True
-            ).print(f"Failed to update MCP settings: {e}")
+            PrintStyle(background_color="black", font_color="red", padding=True).print(
+                f"Failed to update MCP settings: {e}"
+            )
 
 
 class MCPTool(Tool):
@@ -429,9 +437,7 @@ class MCPConfig(BaseModel):
                             f"Error: Parsed MCP config (from json.loads) top-level structure is not a list. Config string was: '{config_str}'"
                         )
                         # servers_data remains empty
-                except (
-                    Exception
-                ) as e_json:  # Catch json.JSONDecodeError specifically if possible, or general Exception
+                except Exception as e_json:  # Catch json.JSONDecodeError specifically if possible, or general Exception
                     PrintStyle.error(
                         f"Error parsing MCP config string: {e_json}. Config string was: '{config_str}'"
                     )
@@ -514,7 +520,7 @@ class MCPConfig(BaseModel):
         return normalized
 
     def __init__(self, servers_list: List[Dict[str, Any]]):
-        from collections.abc import Mapping, Iterable
+        from collections.abc import Iterable, Mapping
 
         # # DEBUG: Print the received servers_list
         # if servers_list:
@@ -623,6 +629,7 @@ class MCPConfig(BaseModel):
 
         # Initialize all servers in parallel (fetch tools concurrently)
         if self.servers:
+
             async def _init_server(server):
                 try:
                     await server.initialize()
@@ -766,7 +773,7 @@ class MCPConfig(BaseModel):
                         # f'    "observations": ["..."],\n' # TODO: this should be a prompt file with placeholders
                         f'    "thoughts": ["..."],\n'
                         # f'    "reflection": ["..."],\n' # TODO: this should be a prompt file with placeholders
-                        f"    \"tool_name\": \"{server_name}.{tool['name']}\",\n"
+                        f'    "tool_name": "{server_name}.{tool["name"]}",\n'
                         f'    "tool_args": !follow schema above\n'
                         f"}}\n"
                     )
@@ -787,7 +794,14 @@ class MCPConfig(BaseModel):
     def get_tool(self, agent: Any, tool_name: str) -> MCPTool | None:
         if not self.has_tool(tool_name):
             return None
-        return MCPTool(agent=agent, name=tool_name, method=None, args={}, message="", loop_data=None)
+        return MCPTool(
+            agent=agent,
+            name=tool_name,
+            method=None,
+            args={},
+            message="",
+            loop_data=None,
+        )
 
     async def call_tool(
         self, tool_name: str, input_data: Dict[str, Any]
@@ -847,7 +861,6 @@ class MCPClientBase(ABC):
         try:
             async with AsyncExitStack() as temp_stack:
                 try:
-
                     stdio, write = await self._create_stdio_transport(temp_stack)
                     # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name} - {operation_name}): Transport created. Initializing session...")
                     session = await temp_stack.enter_async_context(
@@ -1047,6 +1060,7 @@ class MCPClientLocal(MCPClientBase):
         # do not read or close the file here, as stdio is async
         return stdio_transport
 
+
 class CustomHTTPClientFactory(ABC):
     def __init__(self, verify: bool = True):
         self.verify = verify
@@ -1078,11 +1092,13 @@ class CustomHTTPClientFactory(ABC):
 
         return httpx.AsyncClient(**kwargs, verify=self.verify)
 
-class MCPClientRemote(MCPClientBase):
 
+class MCPClientRemote(MCPClientBase):
     def __init__(self, server: Union[MCPServerLocal, MCPServerRemote]):
         super().__init__(server)
-        self.session_id: Optional[str] = None  # Track session ID for streaming HTTP clients
+        self.session_id: Optional[str] = (
+            None  # Track session ID for streaming HTTP clients
+        )
         self.session_id_callback: Optional[Callable[[], Optional[str]]] = None
 
     async def _create_stdio_transport(

@@ -21,10 +21,12 @@ def truncate_text(agent, output, threshold=1000):
     return truncated_output
 
 
-def truncate_dict_by_ratio(agent, data: dict|list|str, threshold_chars: int, truncate_to: int):
+def truncate_dict_by_ratio(
+    agent, data: dict | list | str, threshold_chars: int, truncate_to: int
+):
     threshold_chars = int(threshold_chars)
     truncate_to = int(truncate_to)
-    
+
     def process_item(item):
         if isinstance(item, dict):
             truncated_dict = {}

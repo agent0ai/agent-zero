@@ -20,7 +20,9 @@ async def test_state_monitor_debounce_coalesces_without_postponing_and_cleanup_c
     monitor.update_projection(
         namespace,
         "sid-1",
-        request=StateRequestV1(context=None, log_from=0, notifications_from=0, timezone="UTC"),
+        request=StateRequestV1(
+            context=None, log_from=0, notifications_from=0, timezone="UTC"
+        ),
         seq_base=1,
     )
 
@@ -40,7 +42,9 @@ async def test_state_monitor_debounce_coalesces_without_postponing_and_cleanup_c
 
 
 @pytest.mark.asyncio
-async def test_state_monitor_namespace_identity_prevents_cross_namespace_state_push(monkeypatch) -> None:
+async def test_state_monitor_namespace_identity_prevents_cross_namespace_state_push(
+    monkeypatch,
+) -> None:
     import asyncio
     from unittest.mock import AsyncMock
 
@@ -51,7 +55,9 @@ async def test_state_monitor_namespace_identity_prevents_cross_namespace_state_p
     push_ready = asyncio.Event()
     captured: list[tuple[str, str]] = []
 
-    async def _emit_to(namespace: str, sid: str, event_type: str, _payload: object, **_kwargs):
+    async def _emit_to(
+        namespace: str, sid: str, event_type: str, _payload: object, **_kwargs
+    ):
         if event_type == "state_push":
             captured.append((namespace, sid))
             push_ready.set()
@@ -73,13 +79,17 @@ async def test_state_monitor_namespace_identity_prevents_cross_namespace_state_p
     monitor.update_projection(
         ns_a,
         sid,
-        request=StateRequestV1(context=None, log_from=0, notifications_from=0, timezone="UTC"),
+        request=StateRequestV1(
+            context=None, log_from=0, notifications_from=0, timezone="UTC"
+        ),
         seq_base=1,
     )
     monitor.update_projection(
         ns_b,
         sid,
-        request=StateRequestV1(context=None, log_from=0, notifications_from=0, timezone="UTC"),
+        request=StateRequestV1(
+            context=None, log_from=0, notifications_from=0, timezone="UTC"
+        ),
         seq_base=1,
     )
 
@@ -94,7 +104,9 @@ async def test_state_monitor_namespace_identity_prevents_cross_namespace_state_p
         }
 
     # Patch build_snapshot used by StateMonitor so this test stays lightweight.
-    monkeypatch.setattr("python.helpers.state_monitor.build_snapshot_from_request", _fake_snapshot)
+    monkeypatch.setattr(
+        "python.helpers.state_monitor.build_snapshot_from_request", _fake_snapshot
+    )
 
     monitor.mark_dirty(ns_a, sid, reason="test")
     await asyncio.wait_for(push_ready.wait(), timeout=1.0)

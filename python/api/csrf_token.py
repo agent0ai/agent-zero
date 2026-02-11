@@ -1,5 +1,8 @@
+import fnmatch
 import secrets
 from urllib.parse import urlparse
+
+from python.helpers import dotenv, login, runtime
 from python.helpers.api import (
     ApiHandler,
     Input,
@@ -8,14 +11,11 @@ from python.helpers.api import (
     Response,
     session,
 )
-from python.helpers import runtime, dotenv, login
-import fnmatch
 
 ALLOWED_ORIGINS_KEY = "ALLOWED_ORIGINS"
 
 
 class GetCsrfToken(ApiHandler):
-
     @classmethod
     def get_methods(cls) -> list[str]:
         return ["GET"]

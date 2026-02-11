@@ -1,7 +1,8 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import message_queue as mq
 from agent import AgentContext
+from python.helpers import message_queue as mq
+from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.state_monitor_integration import mark_dirty_for_context
+
 
 class MessageQueueRemove(ApiHandler):
     """Remove message(s) from queue."""

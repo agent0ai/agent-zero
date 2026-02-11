@@ -1,8 +1,9 @@
+import asyncio
+import json
 import mimetypes
 import os
-import asyncio
+
 import aiohttp
-import json
 
 from python.helpers.vector_db import VectorDB
 
@@ -352,7 +353,6 @@ class DocumentQueryStore:
 
 
 class DocumentQueryHelper:
-
     def __init__(
         self, agent: Agent, progress_callback: Callable[[str], None] | None = None
     ):
@@ -602,8 +602,9 @@ class DocumentQueryHelper:
                 temp_file_path = temp_file.name
         elif scheme in ["http", "https"]:
             # download the file from the web url to a temporary file using python libraries for downloading
-            import requests
             import tempfile
+
+            import requests
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                 response = requests.get(document, timeout=10.0)
@@ -673,8 +674,8 @@ class DocumentQueryHelper:
             # Use RFC file operations to read the file as binary
             file_content_bytes = files.read_file_bin(document)
             # Create a temporary file for UnstructuredLoader since it needs a file path
-            import tempfile
             import os
+            import tempfile
 
             # Get file extension to preserve it for proper processing
             _, ext = os.path.splitext(document)

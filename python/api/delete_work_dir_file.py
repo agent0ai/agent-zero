@@ -1,9 +1,7 @@
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
-
-
-from python.helpers.file_browser import FileBrowser
-from python.helpers import files, runtime
 from python.api import get_work_dir_files
+from python.helpers import files, runtime
+from python.helpers.api import ApiHandler, Input, Output, Request, Response
+from python.helpers.file_browser import FileBrowser
 
 
 class DeleteWorkDirFile(ApiHandler):
@@ -21,7 +19,9 @@ class DeleteWorkDirFile(ApiHandler):
             if res:
                 # Get updated file list
                 # result = browser.get_files(current_path)
-                result = await runtime.call_development_function(get_work_dir_files.get_files, current_path)
+                result = await runtime.call_development_function(
+                    get_work_dir_files.get_files, current_path
+                )
                 return {"data": result}
             else:
                 return {"error": "File not found or could not be deleted"}

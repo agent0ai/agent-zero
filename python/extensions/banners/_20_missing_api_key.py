@@ -1,6 +1,6 @@
-from python.helpers.extension import Extension
-from python.helpers import settings as settings_helper
 import models
+from python.helpers import settings as settings_helper
+from python.helpers.extension import Extension
 
 
 class MissingApiKeyCheck(Extension):
@@ -10,7 +10,7 @@ class MissingApiKeyCheck(Extension):
     LOCAL_EMBEDDING = ["huggingface"]
     MODEL_TYPE_NAMES = {
         "chat": "Chat Model",
-        "utility": "Utility Model", 
+        "utility": "Utility Model",
         "browser": "Web Browser Model",
         "embedding": "Embedding Model",
     }
@@ -23,42 +23,46 @@ class MissingApiKeyCheck(Extension):
             "browser": current_settings.get("browser_model_provider", ""),
             "embedding": current_settings.get("embed_model_provider", ""),
         }
-        
+
         missing_providers = []
-        
+
         for model_type, provider in model_providers.items():
             if not provider:
                 continue
-            
+
             provider_lower = provider.lower()
             if provider_lower in self.LOCAL_PROVIDERS:
                 continue
             if model_type == "embedding" and provider_lower in self.LOCAL_EMBEDDING:
                 continue
-            
+
             api_key = models.get_api_key(provider_lower)
             if not (api_key and api_key.strip() and api_key != "None"):
-                missing_providers.append({
-                    "model_type": self.MODEL_TYPE_NAMES.get(model_type, model_type),
-                    "provider": provider,
-                })
-        
+                missing_providers.append(
+                    {
+                        "model_type": self.MODEL_TYPE_NAMES.get(model_type, model_type),
+                        "provider": provider,
+                    }
+                )
+
         if not missing_providers:
             return
-        
+
         model_list = ", ".join(
             f"{p['model_type']} ({p['provider']})" for p in missing_providers
         )
-        
-        banners.append({
-            "id": "missing-api-key",
-            "type": "error",
-            "priority": 100,
-            "title": "Missing LLM API Key for current settings",
-            "html": f"""No API key configured for: {model_list}.<br>
+
+        banners.append(
+            {
+                "id": "missing-api-key",
+                "type": "error",
+                "priority": 100,
+                "title": "Missing LLM API Key for current settings",
+                "html": f"""No API key configured for: {model_list}.<br>
                      Agent Zero will not be able to function properly unless you provide an API key or change your settings.<br>
                      <a href="#" onclick="document.getElementById('settings').click(); return false;">
                      Add your API key</a> in Settings → External Services → API Keys.""",
-            "dismissible": False,
-            "source": "backend"
-        })
+                "dismissible": False,
+                "source": "backend",
+            }
+        )

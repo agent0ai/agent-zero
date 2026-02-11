@@ -1,13 +1,13 @@
 import base64
-import os
-from python.helpers.api import ApiHandler, Request, Response, send_file
-from python.helpers import files, runtime
 import io
+import os
 from mimetypes import guess_type
+
+from python.helpers import files, runtime
+from python.helpers.api import ApiHandler, Request, Response, send_file
 
 
 class ImageGet(ApiHandler):
-
     @classmethod
     def get_methods(cls) -> list[str]:
         return ["GET"]
@@ -37,14 +37,23 @@ class ImageGet(ApiHandler):
         filename = os.path.basename(path)
 
         # list of allowed image extensions
-        image_extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".svgz"]
+        image_extensions = [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".bmp",
+            ".webp",
+            ".svg",
+            ".ico",
+            ".svgz",
+        ]
 
         # # If metadata is requested, return file information
         # if metadata:
         #     return _get_file_metadata(path, filename, file_ext, image_extensions)
-       
-        if file_ext in image_extensions:
 
+        if file_ext in image_extensions:
             # in development environment, try to serve the image from local file system if exists, otherwise from docker
             if runtime.is_development():
                 if files.exists(path):

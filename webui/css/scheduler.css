@@ -5,79 +5,83 @@
    ========================================================================== */
 
 .scheduler-status-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: capitalize;
-  white-space: nowrap;
-  cursor: pointer;
+	display: inline-block;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 500;
+	text-transform: capitalize;
+	white-space: nowrap;
+	cursor: pointer;
 }
 
 .scheduler-status-idle {
-  background-color: rgba(0, 100, 0, 0.2);
-  color: #2a9d8f;
-  border: 1px solid rgba(42, 157, 143, 0.3);
+	background-color: rgba(0, 100, 0, 0.2);
+	color: #2a9d8f;
+	border: 1px solid rgba(42, 157, 143, 0.3);
 }
 
 .scheduler-status-running {
-  background-color: rgba(0, 60, 120, 0.2);
-  color: #4361ee;
-  border: 1px solid rgba(67, 97, 238, 0.3);
+	background-color: rgba(0, 60, 120, 0.2);
+	color: #4361ee;
+	border: 1px solid rgba(67, 97, 238, 0.3);
 }
 
 .scheduler-status-disabled {
-  background-color: rgba(70, 70, 70, 0.2);
-  color: #6c757d;
-  border: 1px solid rgba(108, 117, 125, 0.3);
+	background-color: rgba(70, 70, 70, 0.2);
+	color: #6c757d;
+	border: 1px solid rgba(108, 117, 125, 0.3);
 }
 
 .scheduler-status-error {
-  background-color: rgba(120, 0, 0, 0.2);
-  color: #e63946;
-  border: 1px solid rgba(230, 57, 70, 0.3);
+	background-color: rgba(120, 0, 0, 0.2);
+	color: #e63946;
+	border: 1px solid rgba(230, 57, 70, 0.3);
 }
 
 .scheduler-status-badge-small {
-  font-size: 10px;
-  padding: 2px 6px;
-  margin-right: 5px;
-  min-width: 40px;
-  text-align: center;
+	font-size: 10px;
+	padding: 2px 6px;
+	margin-right: 5px;
+	min-width: 40px;
+	text-align: center;
 }
 
 /* Status badge selected state */
 .scheduler-status-selected {
-  opacity: 1 !important;
-  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-border);
-  border: 1px solid var(--color-border) !important;
-  outline: none;
+	opacity: 1 !important;
+	box-shadow:
+		0 0 0 2px var(--color-bg),
+		0 0 0 4px var(--color-border);
+	border: 1px solid var(--color-border) !important;
+	outline: none;
 }
 
 /* Light mode status badges */
 .light-mode .scheduler-status-idle {
-  background-color: rgba(42, 157, 143, 0.1);
-  color: #1a6f65;
+	background-color: rgba(42, 157, 143, 0.1);
+	color: #1a6f65;
 }
 
 .light-mode .scheduler-status-running {
-  background-color: rgba(67, 97, 238, 0.1);
-  color: #2540b3;
+	background-color: rgba(67, 97, 238, 0.1);
+	color: #2540b3;
 }
 
 .light-mode .scheduler-status-disabled {
-  background-color: rgba(108, 117, 125, 0.1);
-  color: #495057;
+	background-color: rgba(108, 117, 125, 0.1);
+	color: #495057;
 }
 
 .light-mode .scheduler-status-error {
-  background-color: rgba(230, 57, 70, 0.1);
-  color: #c5283d;
+	background-color: rgba(230, 57, 70, 0.1);
+	color: #c5283d;
 }
 
 .light-mode .scheduler-status-selected {
-  box-shadow: 0 0 0 2px var(--color-bg-light), 0 0 0 4px var(--color-accent);
+	box-shadow:
+		0 0 0 2px var(--color-bg-light),
+		0 0 0 4px var(--color-accent);
 }
 
 /* ==========================================================================
@@ -85,23 +89,23 @@
    ========================================================================== */
 
 .scheduler-container {
-  width: 100%;
-  box-sizing: border-box;
-  display: block;
-  padding: 0.5rem 0;
+	width: 100%;
+	box-sizing: border-box;
+	display: block;
+	padding: 0.5rem 0;
 }
 
 .scheduler-loading {
-  text-align: center;
-  padding: 40px 0;
-  color: var(--color-text-secondary);
+	text-align: center;
+	padding: 40px 0;
+	color: var(--color-text-secondary);
 }
 
 .task-container-vertical {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: 6px;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	gap: 6px;
 }
 
 /* ==========================================================================
@@ -109,75 +113,75 @@
    ========================================================================== */
 
 .scheduler-task-list {
-  width: 100%;
-  min-width: 100%;
-  margin: 0;
-  border-collapse: separate;
-  border-spacing: 0;
-  white-space: nowrap;
-  padding-bottom: 8px;
-  table-layout: fixed;
+	width: 100%;
+	min-width: 100%;
+	margin: 0;
+	border-collapse: separate;
+	border-spacing: 0;
+	white-space: nowrap;
+	padding-bottom: 8px;
+	table-layout: fixed;
 }
 
 .scheduler-task-list th,
 .scheduler-task-list td {
-  padding: 8px 12px;
-  text-align: left;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--color-border);
+	padding: 8px 12px;
+	text-align: left;
+	vertical-align: middle;
+	border-bottom: 1px solid var(--color-border);
 }
 
 /* Column styles */
 .scheduler-task-list .col-name {
-  width: 30%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+	width: 30%;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .scheduler-task-list .col-state {
-  width: 12%;
+	width: 12%;
 }
 
 .scheduler-task-list .col-project {
-  width: 20%;
+	width: 20%;
 }
 
 .scheduler-task-list .col-lastrun {
-  width: 20%;
+	width: 20%;
 }
 
 .scheduler-task-list .col-actions {
-  width: 18%;
-  text-align: right;
+	width: 18%;
+	text-align: right;
 }
 
 /* Task actions container */
 .scheduler-task-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: nowrap;
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	flex-wrap: nowrap;
 }
 
 /* Task action buttons */
 .scheduler-task-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  padding: 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background-color: transparent;
+	border: 1px solid var(--color-border);
+	color: var(--color-text);
+	padding: 4px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	width: 28px;
+	height: 28px;
+	flex-shrink: 0;
 }
 
 .scheduler-task-action:hover {
-  background-color: var(--color-secondary);
+	background-color: var(--color-secondary);
 }
 
 /* ==========================================================================
@@ -185,79 +189,79 @@
    ========================================================================== */
 
 .scheduler-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem 0;
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+	padding: 1rem 0;
 }
 
 .scheduler-form-header {
-  display: flex;
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 1px solid var(--color-border);
-  justify-content: space-between;
+	display: flex;
+	padding-bottom: var(--spacing-sm);
+	border-bottom: 1px solid var(--color-border);
+	justify-content: space-between;
 }
 
 .scheduler-form-title {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: var(--color-primary);
-  margin: 0;
+	font-size: 1.25rem;
+	font-weight: bold;
+	color: var(--color-primary);
+	margin: 0;
 }
 
 .scheduler-form-actions {
-  display: flex;
-  gap: 0.8rem;
-  justify-content: flex-end;
-  align-items: center;
+	display: flex;
+	gap: 0.8rem;
+	justify-content: flex-end;
+	align-items: center;
 }
 
 .scheduler-form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  overflow-x: auto;
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 1.5rem;
+	overflow-x: auto;
 }
 
 .scheduler-form-field {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 1rem;
-  align-items: flex-start;
+	display: grid;
+	grid-template-columns: 1fr 2fr;
+	gap: 1rem;
+	align-items: flex-start;
 }
 
 .full-width {
-  grid-column: 1 / -1;
+	grid-column: 1 / -1;
 }
 
 .scheduler-form-label {
-  font-weight: bold;
-  color: var(--color-primary);
-  margin-bottom: 0.25rem;
+	font-weight: bold;
+	color: var(--color-primary);
+	margin-bottom: 0.25rem;
 }
 
 .scheduler-form-help {
-  color: var(--color-text);
-  font-size: 0.875rem;
-  opacity: 0.8;
-  margin: 0.25rem 0 0.5rem 0;
+	color: var(--color-text);
+	font-size: 0.875rem;
+	opacity: 0.8;
+	margin: 0.25rem 0 0.5rem 0;
 }
 
 /* Label and help text wrapper for tighter grouping */
 .label-help-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 0.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-bottom: 0.5rem;
 }
 
 .label-help-wrapper .scheduler-form-label {
-  margin-bottom: 2px;
+	margin-bottom: 2px;
 }
 
 .label-help-wrapper .scheduler-form-help {
-  margin-top: 0;
-  margin-bottom: 0;
+	margin-top: 0;
+	margin-bottom: 0;
 }
 
 /* ==========================================================================
@@ -265,106 +269,106 @@
    ========================================================================== */
 
 .scheduler-detail-view {
-  background-color: var(--color-bg-secondary);
-  border-radius: 4px;
-  margin-bottom: var(--spacing-md);
-  animation: fadeIn 0.3s ease;
+	background-color: var(--color-bg-secondary);
+	border-radius: 4px;
+	margin-bottom: var(--spacing-md);
+	animation: fadeIn 0.3s ease;
 }
 
 .scheduler-detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: var(--spacing-md) 0;
-  width: 100%;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin: var(--spacing-md) 0;
+	width: 100%;
 }
 
 .scheduler-detail-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
 }
 
 .scheduler-detail-header-left .scheduler-detail-title {
-  margin: 0;
+	margin: 0;
 }
 
 .scheduler-detail-header .scheduler-detail-title {
-  font-size: 1.4rem;
-  font-weight: 500;
-  margin: 0;
-  margin-right: auto;
+	font-size: 1.4rem;
+	font-weight: 500;
+	margin: 0;
+	margin-right: auto;
 }
 
 .scheduler-detail-header .scheduler-status-badge {
-  margin-right: 10px;
+	margin-right: 10px;
 }
 
 .scheduler-detail-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
 }
 
 .scheduler-detail-header .btn-action-header {
-  padding: 0.4rem 0.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  cursor: pointer;
+	padding: 0.4rem 0.6rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: var(--color-bg-secondary);
+	border: 1px solid var(--color-border);
+	color: var(--color-text);
+	cursor: pointer;
 }
 
 .scheduler-detail-header .btn-action-header .btn-cancel {
-  margin-left: var(--spacing-sm);
+	margin-left: var(--spacing-sm);
 }
 
 .scheduler-detail-header .btn-action-header:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-primary);
 }
 
 .scheduler-detail-header .btn-action-header.danger:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+	border-color: var(--color-accent);
+	color: var(--color-accent);
 }
 
 .scheduler-detail-header .btn-action-header .material-symbols-outlined {
-  font-size: 18px;
+	font-size: 18px;
 }
 
 .scheduler-detail-content {
-  margin-bottom: 20px;
+	margin-bottom: 20px;
 }
 
 .scheduler-details-grid {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 16px;
-  margin-top: var(--spacing-md);
+	display: grid;
+	grid-template-columns: 120px 1fr;
+	gap: 8px 16px;
+	margin-top: var(--spacing-md);
 }
 
 .scheduler-details-label {
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
+	font-weight: 500;
+	color: var(--color-text-secondary);
+	display: flex;
+	align-items: center;
 }
 
 .scheduler-details-value {
-  color: var(--color-text);
-  word-break: break-word;
+	color: var(--color-text);
+	word-break: break-word;
 }
 
 .scheduler-details-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
 }
 
 /* ==========================================================================
@@ -372,20 +376,20 @@
    ========================================================================== */
 
 .scheduler-state-selector {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
 }
 
 .scheduler-state-selector .scheduler-status-badge {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  opacity: 0.5;
-  border: 1px solid transparent;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	opacity: 0.5;
+	border: 1px solid transparent;
 }
 
 .scheduler-state-selector .scheduler-status-badge:hover {
-  opacity: 0.9;
+	opacity: 0.9;
 }
 
 /* Make status badges in selector more prominent */
@@ -393,30 +397,30 @@
 .scheduler-state-selector .scheduler-status-running,
 .scheduler-state-selector .scheduler-status-disabled,
 .scheduler-state-selector .scheduler-status-error {
-  font-weight: 600;
-  padding: 6px 12px;
+	font-weight: 600;
+	padding: 6px 12px;
 }
 
 /* State explanation styling */
 .scheduler-state-explanation {
-  margin-top: 10px;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-  min-height: 1.4em;
-  transition: all 0.2s ease;
+	margin-top: 10px;
+	font-size: 0.85rem;
+	color: var(--color-text-secondary);
+	line-height: 1.4;
+	min-height: 1.4em;
+	transition: all 0.2s ease;
 }
 
 .scheduler-state-explanation span {
-  display: block;
-  padding: 4px 8px;
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  margin-top: 8px;
+	display: block;
+	padding: 4px 8px;
+	background-color: rgba(0, 0, 0, 0.05);
+	border-radius: 4px;
+	margin-top: 8px;
 }
 
 .light-mode .scheduler-state-explanation span {
-  background-color: rgba(255, 255, 255, 0.3);
+	background-color: rgba(255, 255, 255, 0.3);
 }
 
 /* ==========================================================================
@@ -424,37 +428,37 @@
    ========================================================================== */
 
 .scheduler-schedule-builder {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 10px;
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 10px;
+	width: 100%;
+	margin-bottom: 10px;
 }
 
 .scheduler-schedule-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 70px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	max-width: 70px;
 }
 
 .scheduler-schedule-field input {
-  width: 100%;
-  min-width: 0;
-  font-size: 0.9rem;
+	width: 100%;
+	min-width: 0;
+	font-size: 0.9rem;
 }
 
 .scheduler-schedule-label {
-  font-size: 0.8rem;
-  margin-bottom: 5px;
-  color: var(--color-text);
-  opacity: 0.8;
+	font-size: 0.8rem;
+	margin-bottom: 5px;
+	color: var(--color-text);
+	opacity: 0.8;
 }
 
 .scheduler-no-schedule {
-  color: var(--color-text-secondary);
-  opacity: 0.7;
-  font-style: italic;
+	color: var(--color-text-secondary);
+	opacity: 0.7;
+	font-style: italic;
 }
 
 /* ==========================================================================
@@ -462,128 +466,128 @@
    ========================================================================== */
 
 .scheduler-plan-builder {
-  width: 100%;
-  margin-bottom: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 10px;
-  background-color: rgba(0, 0, 0, 0.2);
+	width: 100%;
+	margin-bottom: 10px;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	padding: 10px;
+	background-color: rgba(0, 0, 0, 0.2);
 }
 
 .scheduler-plan-todo {
-  display: flex;
-  flex-direction: column;
+	display: flex;
+	flex-direction: column;
 }
 
 .scheduler-plan-label {
-  font-size: 0.9rem;
-  margin-bottom: 10px;
-  color: var(--color-text);
-  font-weight: bold;
+	font-size: 0.9rem;
+	margin-bottom: 10px;
+	color: var(--color-text);
+	font-weight: bold;
 }
 
 .scheduler-todo-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-  max-height: 200px;
-  overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-top: 8px;
+	max-height: 200px;
+	overflow-y: auto;
 }
 
 .scheduler-todo-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: var(--color-background);
-  border-radius: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background-color: var(--color-background);
+	border-radius: 6px;
+	padding: 8px 12px;
+	border: 1px solid var(--color-border);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .scheduler-todo-item span {
-  flex: 1;
-  font-size: 14px;
+	flex: 1;
+	font-size: 14px;
 }
 
 .scheduler-add-todo {
-  margin-top: 12px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
+	margin-top: 12px;
+	display: flex;
+	gap: 8px;
+	align-items: center;
 }
 
 .scheduler-add-todo input {
-  flex: 1;
+	flex: 1;
 }
 
 .scheduler-add-todo input[type="datetime-local"] {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-  background-color: var(--color-background);
-  color: var(--color-text);
+	flex: 1;
+	min-width: 0;
+	padding: 8px 12px;
+	border-radius: 6px;
+	border: 1px solid var(--color-border);
+	background-color: var(--color-background);
+	color: var(--color-text);
 }
 
 .scheduler-add-todo-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  font-weight: 500;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--color-accent);
+	color: white;
+	border: none;
+	border-radius: 6px;
+	padding: 8px 12px;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+	font-weight: 500;
 }
 
 .scheduler-add-todo-button:hover {
-  background-color: var(--color-accent-dark);
+	background-color: var(--color-accent-dark);
 }
 
 .scheduler-todo-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: transparent;
-  color: var(--color-text);
-  border: none;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  margin-left: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: transparent;
+	color: var(--color-text);
+	border: none;
+	border-radius: 4px;
+	width: 24px;
+	height: 24px;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+	margin-left: 8px;
 }
 
 .scheduler-todo-remove:hover {
-  background-color: var(--color-accent-light);
-  color: var(--color-accent-dark);
+	background-color: var(--color-accent-light);
+	color: var(--color-accent-dark);
 }
 
 .scheduler-empty-plan {
-  padding: 12px;
-  color: var(--color-text-muted);
-  font-style: italic;
-  text-align: center;
-  border: 1px dashed var(--color-border);
-  border-radius: 6px;
-  margin-top: 8px;
+	padding: 12px;
+	color: var(--color-text-muted);
+	font-style: italic;
+	text-align: center;
+	border: 1px dashed var(--color-border);
+	border-radius: 6px;
+	margin-top: 8px;
 }
 
 .light-mode .scheduler-todo-item {
-  background-color: var(--color-background-light);
-  border-color: var(--color-border-light);
+	background-color: var(--color-background-light);
+	border-color: var(--color-border-light);
 }
 
 .light-mode .scheduler-todo-remove:hover {
-  background-color: #e0e0e0;
-  color: #d32f2f;
+	background-color: #e0e0e0;
+	color: #d32f2f;
 }
 
 /* ==========================================================================
@@ -591,35 +595,35 @@
    ========================================================================== */
 
 .input-group {
-  display: flex;
-  gap: 8px;
-  width: 100%;
+	display: flex;
+	gap: 8px;
+	width: 100%;
 }
 
 .input-group input[type="text"] {
-  flex: 1;
-  min-width: 0;
+	flex: 1;
+	min-width: 0;
 }
 
 /* Specific styling for the Generate button in token field */
 .input-group .scheduler-task-action {
-  white-space: nowrap;
-  padding: 4px 10px;
-  width: auto;
-  height: auto;
-  background-color: var(--color-secondary);
-  font-size: 0.9rem;
+	white-space: nowrap;
+	padding: 4px 10px;
+	width: auto;
+	height: auto;
+	background-color: var(--color-secondary);
+	font-size: 0.9rem;
 }
 
 .input-group .scheduler-task-action:hover {
-  background-color: var(--color-accent);
-  color: var(--color-bg);
+	background-color: var(--color-accent);
+	color: var(--color-bg);
 }
 
 /* Ensure parent container allows proper flow */
 .scheduler-form-field .input-group {
-  max-width: 100%;
-  overflow: hidden;
+	max-width: 100%;
+	overflow: hidden;
 }
 
 /* ==========================================================================
@@ -627,78 +631,78 @@
    ========================================================================== */
 
 @media (max-width: 768px) {
-  /* Task list column visibility */
-  .scheduler-task-list .col-project,
-  .scheduler-task-list .col-lastrun {
-    display: none;
-  }
+	/* Task list column visibility */
+	.scheduler-task-list .col-project,
+	.scheduler-task-list .col-lastrun {
+		display: none;
+	}
 
-  .scheduler-task-list .col-name {
-    width: 50%;
-  }
+	.scheduler-task-list .col-name {
+		width: 50%;
+	}
 
-  .scheduler-task-list .col-state {
-    width: 25%;
-  }
+	.scheduler-task-list .col-state {
+		width: 25%;
+	}
 
-  .scheduler-task-list .col-actions {
-    width: 25%;
-  }
+	.scheduler-task-list .col-actions {
+		width: 25%;
+	}
 
-  /* Form responsiveness */
-  .scheduler-form-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
+	/* Form responsiveness */
+	.scheduler-form-header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 1rem;
+	}
 
-  .scheduler-form-actions {
-    align-self: flex-end;
-  }
+	.scheduler-form-actions {
+		align-self: flex-end;
+	}
 
-  .scheduler-form-field {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
+	.scheduler-form-field {
+		grid-template-columns: 1fr;
+		gap: 0.5rem;
+	}
 
-  .scheduler-form-grid {
-    grid-template-columns: 1fr;
-  }
+	.scheduler-form-grid {
+		grid-template-columns: 1fr;
+	}
 
-  /* Detail header responsiveness */
-  .scheduler-detail-header {
-    gap: 0.75rem;
-  }
+	/* Detail header responsiveness */
+	.scheduler-detail-header {
+		gap: 0.75rem;
+	}
 
-  .scheduler-detail-actions {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
+	.scheduler-detail-actions {
+		width: 100%;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
 
-  /* Schedule builder responsiveness */
-  .scheduler-schedule-builder {
-    grid-template-columns: 1fr 1fr;
-  }
+	/* Schedule builder responsiveness */
+	.scheduler-schedule-builder {
+		grid-template-columns: 1fr 1fr;
+	}
 
-  /* Input group responsiveness */
-  .input-group .scheduler-task-action {
-    padding: 4px 8px;
-    font-size: 0.8rem;
-  }
+	/* Input group responsiveness */
+	.input-group .scheduler-task-action {
+		padding: 4px 8px;
+		font-size: 0.8rem;
+	}
 
-  /* Plan builder responsiveness */
-  .scheduler-add-todo {
-    flex-direction: column;
-  }
+	/* Plan builder responsiveness */
+	.scheduler-add-todo {
+		flex-direction: column;
+	}
 }
 
 @media (max-width: 480px) {
-  .input-group {
-    flex-direction: column;
-  }
+	.input-group {
+		flex-direction: column;
+	}
 
-  .input-group .scheduler-task-action {
-    align-self: flex-start;
-  }
+	.input-group .scheduler-task-action {
+		align-self: flex-start;
+	}
 }

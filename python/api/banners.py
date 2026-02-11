@@ -11,10 +11,12 @@ class GetBanners(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         banners = input.get("banners", [])
         frontend_context = input.get("context", {})
-        
+
         # Banners array passed by reference - extensions append directly to it
-        await call_extensions("banners", agent=None, banners=banners, frontend_context=frontend_context)
-        
+        await call_extensions(
+            "banners", agent=None, banners=banners, frontend_context=frontend_context
+        )
+
         return {"banners": banners}
 
     @classmethod

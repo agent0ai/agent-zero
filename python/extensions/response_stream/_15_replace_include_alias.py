@@ -1,4 +1,5 @@
 from typing import Any
+
 from python.helpers.extension import Extension
 from python.helpers.strings import replace_file_includes
 
@@ -9,7 +10,7 @@ class ReplaceIncludeAlias(Extension):
         loop_data=None,
         text: str = "",
         parsed: dict[str, Any] | None = None,
-        **kwargs
+        **kwargs,
     ):
         if not parsed or not isinstance(parsed, dict):
             return

@@ -1,6 +1,10 @@
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
 from python.helpers import projects
-from python.helpers.notification import NotificationManager, NotificationType, NotificationPriority
+from python.helpers.api import ApiHandler, Input, Output, Request, Response
+from python.helpers.notification import (
+    NotificationManager,
+    NotificationPriority,
+    NotificationType,
+)
 
 
 class Projects(ApiHandler):
@@ -31,7 +35,9 @@ class Projects(ApiHandler):
             elif action == "deactivate":
                 data = self.deactivate_project(ctxid)
             elif action == "file_structure":
-                data = self.get_file_structure(input.get("name", None), input.get("settings"))
+                data = self.get_file_structure(
+                    input.get("name", None), input.get("settings")
+                )
             else:
                 raise Exception("Invalid action")
 
@@ -56,21 +62,21 @@ class Projects(ApiHandler):
             if p.get("name")
         ]
 
-    def create_project(self, project: dict|None):
+    def create_project(self, project: dict | None):
         if project is None:
             raise Exception("Project data is required")
         data = projects.BasicProjectData(**project)
         name = projects.create_project(project["name"], data)
         return projects.load_edit_project_data(name)
 
-    def clone_project(self, project: dict|None):
+    def clone_project(self, project: dict | None):
         if project is None:
             raise Exception("Project data is required")
         git_url = project.get("git_url", "")
         git_token = project.get("git_token", "")
         if not git_url:
             raise Exception("Git URL is required")
-        
+
         # Progress notification
         notification = NotificationManager.send_notification(
             NotificationType.PROGRESS,
@@ -78,13 +84,13 @@ class Projects(ApiHandler):
             f"Cloning repository...",
             "Git Clone",
             display_time=999,
-            group="git_clone"
+            group="git_clone",
         )
-        
+
         try:
             data = projects.BasicProjectData(**project)
             name = projects.clone_git_project(project["name"], git_url, git_token, data)
-            
+
             # Success notification
             NotificationManager.send_notification(
                 NotificationType.SUCCESS,
@@ -92,7 +98,7 @@ class Projects(ApiHandler):
                 f"Repository cloned successfully",
                 "Git Clone",
                 display_time=3,
-                group="git_clone"
+                group="git_clone",
             )
             return projects.load_edit_project_data(name)
         except Exception as e:
@@ -103,46 +109,46 @@ class Projects(ApiHandler):
                 f"Clone failed: {str(e)}",
                 "Git Clone",
                 display_time=5,
-                group="git_clone"
+                group="git_clone",
             )
             raise
 
-    def load_project(self, name: str|None):
+    def load_project(self, name: str | None):
         if name is None:
             raise Exception("Project name is required")
         return projects.load_edit_project_data(name)
 
-    def update_project(self, project: dict|None):
+    def update_project(self, project: dict | None):
         if project is None:
             raise Exception("Project data is required")
         data = projects.EditProjectData(**project)
         name = projects.update_project(project["name"], data)
         return projects.load_edit_project_data(name)
 
-    def delete_project(self, name: str|None):
+    def delete_project(self, name: str | None):
         if name is None:
             raise Exception("Project name is required")
         return projects.delete_project(name)
 
-    def activate_project(self, context_id: str|None, name: str|None):
+    def activate_project(self, context_id: str | None, name: str | None):
         if not context_id:
             raise Exception("Context ID is required")
         if not name:
-            raise Exception("Project name is required") 
+            raise Exception("Project name is required")
         return projects.activate_project(context_id, name)
 
-    def deactivate_project(self, context_id: str|None):
+    def deactivate_project(self, context_id: str | None):
         if not context_id:
             raise Exception("Context ID is required")
         return projects.deactivate_project(context_id)
 
-    def get_file_structure(self, name: str|None, settings: dict|None):
+    def get_file_structure(self, name: str | None, settings: dict | None):
         if not name:
             raise Exception("Project name is required")
         # project data
         basic_data = projects.load_basic_project_data(name)
         # override file structure settings
         if settings:
-            basic_data["file_structure"] = settings # type: ignore
+            basic_data["file_structure"] = settings  # type: ignore
         # get structure
         return projects.get_file_structure(name, basic_data)

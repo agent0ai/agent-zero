@@ -1,227 +1,227 @@
 /* Button Styles */
 .button {
-  background: var(--color-panel);
-  font-weight: 500;
-  padding: 0.5rem 1.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  font-size: 0.875rem;
-  font-family: "Rubik", Arial, Helvetica, sans-serif;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 2em; /* Standard height */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
+	background: var(--color-panel);
+	font-weight: 500;
+	padding: 0.5rem 1.5rem;
+	border-radius: 6px;
+	cursor: pointer;
+	border: 1px solid var(--color-border);
+	color: var(--color-text);
+	font-size: 0.875rem;
+	font-family: "Rubik", Arial, Helvetica, sans-serif;
+	transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+	min-height: 2em; /* Standard height */
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
 }
 
 .button.confirm {
-  background: var(--color-highlight);
-  color: #fff;
+	background: var(--color-highlight);
+	color: #fff;
 }
 
 .button.cancel {
-  background: var(--color-panel);
-  color: var(--color-accent);
-  /* border: 1px solid var(--color-accent); */
+	background: var(--color-panel);
+	color: var(--color-accent);
+	/* border: 1px solid var(--color-accent); */
 }
 
 .button:hover {
-  transform: scale(1.05);
-  filter: brightness(1.05);
+	transform: scale(1.05);
+	filter: brightness(1.05);
 }
 
 .button.cancel:hover {
-  background: var(--color-panel);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+	background: var(--color-panel);
+	border-color: var(--color-accent);
+	color: var(--color-accent);
 }
 
 .buttons-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
 
 .buttons-left {
-  display: flex;
-  justify-content: flex-start;
-  gap: 0.5em;
+	display: flex;
+	justify-content: flex-start;
+	gap: 0.5em;
 }
 
 .buttons-right {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5em;
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5em;
 }
 
 .icon-button {
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
+	padding-left: 0.75rem;
+	padding-right: 0.75rem;
 }
 
 /* Action Header Buttons - for modal headers with confirm/cancel/edit/delete actions */
 .btn-action-header {
-  padding: 0.4rem 0.6rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  background: var(--color-message-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+	padding: 0.4rem 0.6rem;
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	background: var(--color-message-bg);
+	color: var(--color-text);
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.15s ease;
 }
 
 .btn-action-header .material-symbols-outlined {
-  font-size: 18px;
+	font-size: 18px;
 }
 
 .btn-action-header:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-primary);
 }
 
 .btn-action-header.confirm:hover {
-  border-color: #4CAF50;
-  color: #4CAF50;
-  background: var(--color-background);
+	border-color: #4caf50;
+	color: #4caf50;
+	background: var(--color-background);
 }
 
 .btn-action-header.cancel:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: var(--color-background);
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+	background: var(--color-background);
 }
 
 .btn-action-header.delete:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+	border-color: var(--color-accent);
+	color: var(--color-accent);
 }
 
 .btn-action-header.edit:hover,
 .btn-action-header.copy:hover,
 .btn-action-header.copy-all:hover,
 .btn-action-header.copy-content:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-primary);
 }
 
 /* Table/Row Action Buttons - for inline row actions (run, edit, delete, etc.) */
 .btn-action {
-  background: none;
-  border: 1px solid var(--color-border);
-  padding: 0.25rem;
-  color: var(--color-text);
-  opacity: 0.7;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+	background: none;
+	border: 1px solid var(--color-border);
+	padding: 0.25rem;
+	color: var(--color-text);
+	opacity: 0.7;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.15s ease;
 }
 
 .btn-action .material-symbols-outlined {
-  font-size: 18px;
+	font-size: 18px;
 }
 
 .btn-action:hover {
-  opacity: 1;
-  background: var(--color-panel);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  transform: translateY(-1px);
+	opacity: 1;
+	background: var(--color-panel);
+	border-color: var(--color-primary);
+	color: var(--color-primary);
+	transform: translateY(-1px);
 }
 
 .btn-action.delete:hover {
-  background: var(--color-panel);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+	background: var(--color-panel);
+	border-color: var(--color-accent);
+	color: var(--color-accent);
 }
 
 /* Icon Button - minimal padding for icon-only buttons */
 .btn-icon {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  padding: 0.25rem;
-  display: flex;
-  align-items: center;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+	background: transparent;
+	border: 1px solid var(--color-border);
+	color: var(--color-text);
+	padding: 0.25rem;
+	display: flex;
+	align-items: center;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.15s ease;
 }
 
 .btn-icon:hover:not(:disabled) {
-  background: var(--color-panel);
-  border-color: var(--color-primary);
-  color: var(--color-text);
+	background: var(--color-panel);
+	border-color: var(--color-primary);
+	color: var(--color-text);
 }
 
 .btn-icon:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+	opacity: 0.4;
+	cursor: not-allowed;
 }
 
 .btn-icon .material-symbols-outlined {
-  font-size: 20px;
+	font-size: 20px;
 }
 
 /* Actions wrapper for grouping action buttons */
 .actions-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
 }
 
 /* Inline Confirmation State */
 .confirming {
-  border-color: var(--color-highlight) !important;
-  background-color: var(--color-highlight) !important;
-  color: #fff !important;
+	border-color: var(--color-highlight) !important;
+	background-color: var(--color-highlight) !important;
+	color: #fff !important;
 }
 
 .confirming:hover {
-  filter: brightness(1.1);
+	filter: brightness(1.1);
 }
 
 /* Standard icon-only action button for destructive actions */
 .btn-icon-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 0.25rem;
-  color: var(--color-primary);
-  cursor: pointer;
-  padding: 0.25rem;
-  width: 1.75rem;
-  height: 1.75rem;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: 1px solid var(--color-border);
+	border-radius: 0.25rem;
+	color: var(--color-primary);
+	cursor: pointer;
+	padding: 0.25rem;
+	width: 1.75rem;
+	height: 1.75rem;
+	transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+	flex-shrink: 0;
 }
 
 .btn-icon-action .material-symbols-outlined,
 .btn-icon-action .material-icons-outlined {
-  font-size: 1rem;
+	font-size: 1rem;
 }
 
 .btn-icon-action:hover {
-  border-color: var(--color-primary);
-  background-color: var(--color-background-hover);
+	border-color: var(--color-primary);
+	background-color: var(--color-background-hover);
 }
 
 .btn-icon-action:active {
-  background-color: var(--color-background-hover);
-  color: var(--color-primary);
+	background-color: var(--color-background-hover);
+	color: var(--color-primary);
 }
 
 .btn-icon-action.danger:hover {
-  border-color: #e57373;
-  color: #e57373;
+	border-color: #e57373;
+	color: #e57373;
 }

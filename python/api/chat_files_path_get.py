@@ -1,6 +1,7 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files, memory, notification, projects, notification, runtime, settings
 import os
+
+from python.helpers import files, memory, notification, projects, runtime, settings
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class GetChatFilesPath(ApiHandler):

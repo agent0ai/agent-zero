@@ -1,6 +1,5 @@
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
-
 from python.helpers import tokens
+from python.helpers.api import ApiHandler, Input, Output, Request, Response
 
 
 class GetCtxWindow(ApiHandler):

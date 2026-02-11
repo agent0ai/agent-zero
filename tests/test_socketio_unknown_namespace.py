@@ -51,13 +51,17 @@ async def test_unknown_namespace_connect_error_can_be_made_deterministic() -> No
     import socketio
     from socketio import packet
 
-    sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", namespaces="*")
+    sio = socketio.AsyncServer(
+        async_mode="asgi", cors_allowed_origins="*", namespaces="*"
+    )
 
     allowed_namespaces = {"/known", "/"}
 
     original_handle_connect = sio._handle_connect
 
-    async def _gatekeeper_handle_connect(eio_sid: str, namespace: str | None, data: Any) -> None:
+    async def _gatekeeper_handle_connect(
+        eio_sid: str, namespace: str | None, data: Any
+    ) -> None:
         namespace = namespace or "/"
         if namespace not in allowed_namespaces:
             await sio._send_packet(
@@ -81,7 +85,9 @@ async def test_unknown_namespace_connect_error_can_be_made_deterministic() -> No
 
     async with _run_asgi_app(app) as base_url:
         client = socketio.AsyncClient()
-        connect_error_fut: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+        connect_error_fut: asyncio.Future[Any] = (
+            asyncio.get_running_loop().create_future()
+        )
 
         async def _on_connect_error(data: Any) -> None:
             if not connect_error_fut.done():

@@ -2,17 +2,17 @@ import asyncio
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from langchain_core.documents import Document
 
-from python.helpers.memory import Memory
+from agent import Agent
 from python.helpers.dirty_json import DirtyJson
 from python.helpers.log import LogItem
+from python.helpers.memory import Memory
 from python.helpers.print_style import PrintStyle
 from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
-from agent import Agent
 
 
 class ConsolidationAction(Enum):

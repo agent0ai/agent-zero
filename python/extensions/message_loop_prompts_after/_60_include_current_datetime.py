@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from python.helpers.extension import Extension
+
 from agent import LoopData
+from python.helpers.extension import Extension
 from python.helpers.localization import Localization
 
 

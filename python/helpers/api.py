@@ -1,14 +1,16 @@
-from abc import abstractmethod
 import json
 import threading
-from typing import Union, TypedDict, Dict, Any
+from abc import abstractmethod
+from typing import Any, Dict, TypedDict, Union
+
 from attr import dataclass
-from flask import Request, Response, jsonify, Flask, session, request, send_file
+from flask import Flask, Request, Response, jsonify, request, send_file, session
+from werkzeug.serving import make_server
+
 from agent import AgentContext
 from initialize import initialize_agent
-from python.helpers.print_style import PrintStyle
 from python.helpers.errors import format_error
-from werkzeug.serving import make_server
+from python.helpers.print_style import PrintStyle
 
 ThreadLockType = Union[threading.Lock, threading.RLock]
 
@@ -62,7 +64,6 @@ class ApiHandler:
                 # input_data = {"data": request.get_data(as_text=True)}
                 input_data = {}
 
-
             # process via handler
             output = await self.process(input_data, request)
 
@@ -95,8 +96,9 @@ class ApiHandler:
             if got:
                 return got
             if create_if_not_exists:
-                context = AgentContext(config=initialize_agent(), id=ctxid, set_current=True)
+                context = AgentContext(
+                    config=initialize_agent(), id=ctxid, set_current=True
+                )
                 return context
             else:
                 raise Exception(f"Context {ctxid} not found")
-            

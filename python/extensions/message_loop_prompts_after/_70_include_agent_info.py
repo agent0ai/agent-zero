@@ -1,5 +1,5 @@
-from python.helpers.extension import Extension
 from agent import LoopData
+from python.helpers.extension import Extension
 
 
 class IncludeAgentInfo(Extension):

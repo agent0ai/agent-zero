@@ -1,10 +1,11 @@
-from agent import AgentContext, UserMessage
-from python.helpers.api import ApiHandler, Request, Response
-
-from python.helpers import files, extension, message_queue as mq
 import os
-from python.helpers.security import safe_filename
+
+from agent import AgentContext, UserMessage
+from python.helpers import extension, files
+from python.helpers import message_queue as mq
+from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.defer import DeferredTask
+from python.helpers.security import safe_filename
 
 
 class Message(ApiHandler):
@@ -29,7 +30,9 @@ class Message(ApiHandler):
             attachment_paths = []
 
             upload_folder_int = "/a0/usr/uploads"
-            upload_folder_ext = files.get_abs_path("usr/uploads") # for development environment
+            upload_folder_ext = files.get_abs_path(
+                "usr/uploads"
+            )  # for development environment
 
             if attachments:
                 os.makedirs(upload_folder_ext, exist_ok=True)
@@ -57,8 +60,10 @@ class Message(ApiHandler):
         context = self.use_context(ctxid)
 
         # call extension point, alow it to modify data
-        data = { "message": message, "attachment_paths": attachment_paths }
-        await extension.call_extensions("user_message_ui", agent=context.get_agent(), data=data)
+        data = {"message": message, "attachment_paths": attachment_paths}
+        await extension.call_extensions(
+            "user_message_ui", agent=context.get_agent(), data=data
+        )
         message = data.get("message", "")
         attachment_paths = data.get("attachment_paths", [])
 

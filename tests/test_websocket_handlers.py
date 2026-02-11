@@ -9,9 +9,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from python.helpers.websocket import (
+    SingletonInstantiationError,
     WebSocketHandler,
     WebSocketResult,
-    SingletonInstantiationError,
 )
 
 
@@ -41,10 +41,13 @@ def test_websocket_result_ok_clones_payload():
     payload = {"value": 1}
     result = WebSocketResult.ok(payload)
 
-    assert result.as_result(
-        handler_id="handler",
-        fallback_correlation_id="corr",
-    )["data"] == payload
+    assert (
+        result.as_result(
+            handler_id="handler",
+            fallback_correlation_id="corr",
+        )["data"]
+        == payload
+    )
 
     payload["value"] = 2
     assert result.as_result(
@@ -140,9 +143,9 @@ def test_get_instance_returns_singleton():
 
 @pytest.mark.asyncio
 async def test_state_sync_handler_registers_and_routes_state_request():
+    from python.helpers.state_monitor import _reset_state_monitor_for_testing
     from python.helpers.websocket_manager import WebSocketManager
     from python.websocket_handlers.state_sync_handler import StateSyncHandler
-    from python.helpers.state_monitor import _reset_state_monitor_for_testing
 
     _reset_state_monitor_for_testing()
     StateSyncHandler._reset_instance_for_testing()

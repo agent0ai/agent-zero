@@ -31,11 +31,14 @@ pytest tests/ -v
 
 ## Dependencies
 ```bash
-# Install production dependencies
-pip install -r requirements.txt
+# Install all dependencies (recommended — uses uv)
+uv sync
 
-# Install dev dependencies
-pip install -r requirements.dev.txt
+# Install with dev dependencies
+uv sync --group dev
+
+# Fallback (pip)
+pip install -r requirements.txt
 ```
 
 ## System Utilities (macOS/Darwin)

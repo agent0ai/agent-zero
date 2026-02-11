@@ -5,7 +5,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from python.helpers import runtime
 from python.helpers.print_style import PrintStyle
@@ -65,7 +65,9 @@ class StateMonitor:
         self._dispatcher_loop: asyncio.AbstractEventLoop | None = None
         self._dirty_wave_seq: int = 0
 
-    def bind_manager(self, manager: "WebSocketManager", *, handler_id: str | None = None) -> None:
+    def bind_manager(
+        self, manager: "WebSocketManager", *, handler_id: str | None = None
+    ) -> None:
         with self._lock:
             self._manager = manager
             if handler_id:
@@ -108,7 +110,9 @@ class StateMonitor:
         for namespace, sid in identities:
             self.mark_dirty(namespace, sid, reason=reason, wave_id=wave_id)
 
-    def mark_dirty_for_context(self, context_id: str, *, reason: str | None = None) -> None:
+    def mark_dirty_for_context(
+        self, context_id: str, *, reason: str | None = None
+    ) -> None:
         if not isinstance(context_id, str) or not context_id.strip():
             return
         target = context_id.strip()
@@ -121,7 +125,8 @@ class StateMonitor:
             identities = [
                 identity
                 for identity, projection in self._projections.items()
-                if projection.request is not None and projection.request.context == target
+                if projection.request is not None
+                and projection.request.context == target
             ]
         for namespace, sid in identities:
             self.mark_dirty(namespace, sid, reason=reason, wave_id=wave_id)
@@ -280,7 +285,9 @@ class StateMonitor:
                 seq = projection.seq
 
                 # Advance cursors after successful snapshot emission (incremental mode).
-                projection.request = advance_state_request_after_snapshot(request, snapshot)
+                projection.request = advance_state_request_after_snapshot(
+                    request, snapshot
+                )
 
                 # Mark all dirties up to `base_version` as pushed. If new dirties
                 # arrived while building/emitting, a follow-up push will be scheduled.

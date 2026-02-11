@@ -3,7 +3,6 @@ from python.helpers.secrets import get_secrets_manager
 
 
 class MaskErrorSecrets(Extension):
-
     async def execute(self, **kwargs):
         # Get error data from kwargs
         msg = kwargs.get("msg")

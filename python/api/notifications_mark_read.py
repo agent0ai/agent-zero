@@ -1,6 +1,7 @@
-from python.helpers.api import ApiHandler
 from flask import Request, Response
+
 from agent import AgentContext
+from python.helpers.api import ApiHandler
 
 
 class NotificationsMarkRead(ApiHandler):
@@ -30,5 +31,5 @@ class NotificationsMarkRead(ApiHandler):
         return {
             "success": True,
             "marked_count": marked_count,
-            "message": f"Marked {marked_count} notifications as read"
+            "message": f"Marked {marked_count} notifications as read",
         }

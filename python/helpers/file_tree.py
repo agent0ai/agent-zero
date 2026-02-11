@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import os
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import os
 from typing import Any, Callable, Iterable, Literal, Optional, Sequence
 
 from pathspec import PathSpec
@@ -30,7 +30,10 @@ def file_tree(
     folders_first: bool = True,
     max_folders: int = 0,
     max_files: int = 0,
-    sort: tuple[Literal["name", "created", "modified"], Literal["asc", "desc"]] = ("modified", "desc"),
+    sort: tuple[Literal["name", "created", "modified"], Literal["asc", "desc"]] = (
+        "modified",
+        "desc",
+    ),
     ignore: str | None = None,
     output_mode: Literal["string", "flat", "nested"] = OUTPUT_MODE_STRING,
 ) -> str | list[dict]:
@@ -106,7 +109,9 @@ def file_tree(
     ignore_spec = _resolve_ignore_patterns(ignore, abs_root)
 
     root_stat = os.stat(abs_root, follow_symlinks=False)
-    root_name = os.path.basename(os.path.normpath(abs_root)) or os.path.basename(abs_root)
+    root_name = os.path.basename(os.path.normpath(abs_root)) or os.path.basename(
+        abs_root
+    )
     root_node = _TreeEntry(
         name=root_name,
         level=0,
@@ -124,7 +129,12 @@ def file_tree(
     limit_reached = False
     visibility_cache: dict[str, bool] = {}
 
-    def make_entry(entry: os.DirEntry, parent: _TreeEntry, level: int, item_type: Literal["file", "folder"]) -> _TreeEntry:
+    def make_entry(
+        entry: os.DirEntry,
+        parent: _TreeEntry,
+        level: int,
+        item_type: Literal["file", "folder"],
+    ) -> _TreeEntry:
         stat = entry.stat(follow_symlinks=False)
         rel_path = os.path.relpath(entry.path, abs_root)
         rel_posix = _normalize_relative_path(rel_path)
@@ -154,8 +164,12 @@ def file_tree(
             cache=visibility_cache,
         )
 
-        folder_entries = [make_entry(folder, parent_node, level, "folder") for folder in folders]
-        file_entries = [make_entry(file_entry, parent_node, level, "file") for file_entry in files]
+        folder_entries = [
+            make_entry(folder, parent_node, level, "folder") for folder in folders
+        ]
+        file_entries = [
+            make_entry(file_entry, parent_node, level, "file") for file_entry in files
+        ]
 
         children = _apply_sorting_and_limits(
             folder_entries,
@@ -245,7 +259,7 @@ def file_tree(
         return root_item
 
     if output_mode == OUTPUT_MODE_STRING:
-        display_name = output_root #relative_path.strip() or root_name
+        display_name = output_root  # relative_path.strip() or root_name
         root_line = f"{display_name.rstrip(os.sep)}/"
         lines = [root_line]
         for node in iter_visible():
@@ -279,7 +293,9 @@ class _TreeEntry:
             "created": self.created,
             "modified": self.modified,
             "text": self.text,
-            "items": [child.as_dict() for child in self.items] if self.items is not None else None,
+            "items": [child.as_dict() for child in self.items]
+            if self.items is not None
+            else None,
         }
 
 
@@ -314,9 +330,13 @@ def _directory_has_visible_entries(
                 is_dir = entry.is_dir(follow_symlinks=False)
 
                 if is_dir:
-                    ignored = ignore_spec.match_file(rel_posix) or ignore_spec.match_file(f"{rel_posix}/")
+                    ignored = ignore_spec.match_file(
+                        rel_posix
+                    ) or ignore_spec.match_file(f"{rel_posix}/")
                     if ignored:
-                        next_depth = max_depth_remaining - 1 if max_depth_remaining > 0 else -1
+                        next_depth = (
+                            max_depth_remaining - 1 if max_depth_remaining > 0 else -1
+                        )
                         if next_depth == 0:
                             continue
                         if _directory_has_visible_entries(
@@ -361,7 +381,9 @@ def _create_summary_comment(parent: _TreeEntry, noun: str, count: int) -> _TreeE
     )
 
 
-def _create_global_limit_comment(parent: _TreeEntry, hidden_children: Sequence[_TreeEntry]) -> _TreeEntry:
+def _create_global_limit_comment(
+    parent: _TreeEntry, hidden_children: Sequence[_TreeEntry]
+) -> _TreeEntry:
     folders = sum(1 for child in hidden_children if child.item_type == "folder")
     files = sum(1 for child in hidden_children if child.item_type == "file")
     parts: list[str] = []
@@ -469,7 +491,9 @@ def _refresh_render_metadata(node: _TreeEntry) -> None:
         _refresh_render_metadata(child)
 
 
-def _resolve_ignore_patterns(ignore: str | None, root_abs_path: str) -> Optional[PathSpec]:
+def _resolve_ignore_patterns(
+    ignore: str | None, root_abs_path: str
+) -> Optional[PathSpec]:
     if ignore is None:
         return None
 
@@ -527,7 +551,9 @@ def _list_directory_children(
 
                 if ignore_spec:
                     if is_directory:
-                        ignored = ignore_spec.match_file(rel_posix) or ignore_spec.match_file(f"{rel_posix}/")
+                        ignored = ignore_spec.match_file(
+                            rel_posix
+                        ) or ignore_spec.match_file(f"{rel_posix}/")
                         if ignored:
                             if _directory_has_visible_entries(
                                 entry.path,

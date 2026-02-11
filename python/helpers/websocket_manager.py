@@ -1,21 +1,26 @@
 from __future__ import annotations
 
-import asyncio, os
-import time
+import asyncio
+import os
 import threading
+import time
+import uuid
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Set
 
 import socketio
-import uuid
 
+from python.helpers import runtime
 from python.helpers.defer import DeferredTask
 from python.helpers.print_style import PrintStyle
-from python.helpers import runtime
-from python.helpers.websocket import ConnectionNotFoundError, WebSocketHandler, WebSocketResult
 from python.helpers.state_monitor import _ws_debug_enabled
+from python.helpers.websocket import (
+    ConnectionNotFoundError,
+    WebSocketHandler,
+    WebSocketResult,
+)
 
 BUFFER_MAX_SIZE = 100
 BUFFER_TTL = timedelta(hours=1)
@@ -61,11 +66,13 @@ class WebSocketManager:
     def __init__(self, socketio: socketio.AsyncServer, lock) -> None:
         self.socketio = socketio
         self.lock = lock
-        self.handlers: defaultdict[str, defaultdict[str, List[WebSocketHandler]]] = defaultdict(
-            lambda: defaultdict(list)
+        self.handlers: defaultdict[str, defaultdict[str, List[WebSocketHandler]]] = (
+            defaultdict(lambda: defaultdict(list))
         )
         self.connections: Dict[ConnectionIdentity, ConnectionInfo] = {}
-        self.buffers: defaultdict[ConnectionIdentity, Deque[BufferedEvent]] = defaultdict(deque)
+        self.buffers: defaultdict[ConnectionIdentity, Deque[BufferedEvent]] = (
+            defaultdict(deque)
+        )
         self._known_sids: Set[ConnectionIdentity] = set()
         self._identifier: str = f"{self.__class__.__module__}.{self.__class__.__name__}"
         # Session tracking (single-user default)
@@ -237,9 +244,7 @@ class WebSocketManager:
 
         asyncio.create_task(_broadcast())
 
-    def _normalize_handler_filter(
-        self, value: Any, field_name: str
-    ) -> Set[str] | None:
+    def _normalize_handler_filter(self, value: Any, field_name: str) -> Set[str] | None:
         if value is None:
             return None
         if isinstance(value, str):
@@ -247,7 +252,9 @@ class WebSocketManager:
         try:
             iterator = iter(value)
         except TypeError as exc:  # pragma: no cover - defensive
-            raise ValueError(f"{field_name} must be an array of handler identifiers") from exc
+            raise ValueError(
+                f"{field_name} must be an array of handler identifiers"
+            ) from exc
 
         normalized: Set[str] = set()
         for item in iterator:
@@ -258,9 +265,7 @@ class WebSocketManager:
             normalized.add(item)
         return normalized
 
-    def _normalize_sid_filter(
-        self, value: str | Iterable[str] | None
-    ) -> Set[str]:
+    def _normalize_sid_filter(self, value: str | Iterable[str] | None) -> Set[str]:
         if value is None:
             return set()
         if isinstance(value, str):
@@ -330,7 +335,7 @@ class WebSocketManager:
                         f"Failed to register handler {handler.identifier}: {exc}"
                     )
                     raise
-                
+
                 if _ws_debug_enabled():
                     PrintStyle.info(
                         "Registered WebSocket handler %s namespace=%s for events: %s"
@@ -838,7 +843,9 @@ class WebSocketManager:
 
             try:
                 task = asyncio.create_task(_dispatch())
-                return await asyncio.wait_for(asyncio.shield(task), timeout=timeout_seconds)
+                return await asyncio.wait_for(
+                    asyncio.shield(task), timeout=timeout_seconds
+                )
             except asyncio.TimeoutError:
                 PrintStyle.warning(
                     f"requestAll timeout for sid {target_sid} correlation={correlation_id}"
@@ -861,9 +868,7 @@ class WebSocketManager:
                     ],
                 }
 
-        tasks = {
-            sid: asyncio.create_task(_invoke_for_sid(sid)) for sid in active_sids
-        }
+        tasks = {sid: asyncio.create_task(_invoke_for_sid(sid)) for sid in active_sids}
 
         aggregated: list[dict[str, Any]] = []
         for sid, task in tasks.items():
@@ -1028,7 +1033,9 @@ class WebSocketManager:
                 }
             )
 
-    async def _run_lifecycle(self, namespace: str, fn: Callable[[WebSocketHandler], Any]) -> None:
+    async def _run_lifecycle(
+        self, namespace: str, fn: Callable[[WebSocketHandler], Any]
+    ) -> None:
         seen: Set[WebSocketHandler] = set()
         coros: list[Any] = []
         for handler_list in self.handlers.get(namespace, {}).values():
@@ -1139,12 +1146,12 @@ class WebSocketManager:
         """Return SIDs for a user; single-user default returns all active SIDs."""
         with self.lock:
             bucket = self._ALL_USERS_BUCKET if user is None else user
-            return list(self.user_to_sids.get(bucket, set())) # type: ignore
+            return list(self.user_to_sids.get(bucket, set()))  # type: ignore
 
     def get_user_for_sid(self, sid: str) -> str | None:
         """Return user identifier for a SID or None."""
         with self.lock:
-            return self.sid_to_user.get(sid) # type: ignore
+            return self.sid_to_user.get(sid)  # type: ignore
 
     def set_server_restart_broadcast(self, enabled: bool) -> None:
         """Enable or disable automatic server restart broadcasts."""

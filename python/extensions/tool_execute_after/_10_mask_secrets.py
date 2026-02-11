@@ -4,7 +4,6 @@ from python.helpers.tool import Response
 
 
 class MaskToolSecrets(Extension):
-
     async def execute(self, response: Response | None = None, **kwargs):
         if not response:
             return

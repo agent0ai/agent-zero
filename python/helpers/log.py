@@ -5,11 +5,10 @@ import time
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, cast
 
 from python.helpers.secrets import get_secrets_manager
 from python.helpers.strings import truncate_text_by_ratio
-
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -210,7 +209,6 @@ class LogItem:
 
 
 class Log:
-
     def __init__(self):
         self._lock = threading.RLock()
         self.context: "AgentContext|None" = None  # set from outside
@@ -289,7 +287,9 @@ class Log:
 
         content_out: str | None = None
         if content is not None:
-            content_out = _truncate_content(self._mask_recursive(content), type_for_truncation)
+            content_out = _truncate_content(
+                self._mask_recursive(content), type_for_truncation
+            )
 
         kvps_out: OrderedDict | None = None
         if kvps is not None:
@@ -375,7 +375,9 @@ class Log:
             self.progress_no = no
             self.progress_active = active
 
-            changed = self.progress != prev_progress or self.progress_active != prev_active
+            changed = (
+                self.progress != prev_progress or self.progress_active != prev_active
+            )
 
         if changed and ctx:
             # Progress changes are included in every snapshot, but push sync requires a
@@ -413,6 +415,7 @@ class Log:
         """Recursively mask secrets in nested objects."""
         try:
             from agent import AgentContext
+
             secrets_mgr = get_secrets_manager(self.context or AgentContext.current())
 
             # debug helper to identify context mismatch

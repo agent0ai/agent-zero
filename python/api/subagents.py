@@ -1,9 +1,11 @@
-from python.helpers.api import ApiHandler, Input, Output, Request, Response
-from python.helpers import subagents
 from typing import TYPE_CHECKING
+
+from python.helpers import subagents
+from python.helpers.api import ApiHandler, Input, Output, Request, Response
 
 if TYPE_CHECKING:
     from python.helpers import projects
+
 
 class Subagents(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
@@ -38,12 +40,12 @@ class Subagents(ApiHandler):
     def get_subagents_list(self):
         return subagents.get_agents_list()
 
-    def load_agent(self, name: str|None):
+    def load_agent(self, name: str | None):
         if name is None:
             raise Exception("Subagent name is required")
         return subagents.load_agent_data(name)
 
-    def save_agent(self, name:str|None, data: dict|None):
+    def save_agent(self, name: str | None, data: dict | None):
         if name is None:
             raise Exception("Subagent name is required")
         if data is None:
@@ -52,7 +54,7 @@ class Subagents(ApiHandler):
         subagents.save_agent_data(name, subagent)
         return subagents.load_agent_data(name)
 
-    def delete_agent(self, name: str|None):
+    def delete_agent(self, name: str | None):
         if name is None:
             raise Exception("Subagent name is required")
         subagents.delete_agent_data(name)

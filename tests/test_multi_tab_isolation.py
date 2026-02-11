@@ -10,7 +10,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 @pytest.mark.asyncio
-async def test_state_monitor_per_sid_isolation_independent_snapshots_seq_and_cursors(monkeypatch):
+async def test_state_monitor_per_sid_isolation_independent_snapshots_seq_and_cursors(
+    monkeypatch,
+):
     import python.helpers.state_monitor as state_monitor_module
     from python.helpers.state_monitor import StateMonitor
     from python.helpers.state_snapshot import StateRequestV1
@@ -54,7 +56,9 @@ async def test_state_monitor_per_sid_isolation_independent_snapshots_seq_and_cur
         def __init__(self, loop):
             self._dispatcher_loop = loop
 
-        async def emit_to(self, namespace, sid, event_type, payload, *, handler_id=None):
+        async def emit_to(
+            self, namespace, sid, event_type, payload, *, handler_id=None
+        ):
             emitted.append(
                 {
                     "namespace": namespace,
@@ -81,7 +85,9 @@ async def test_state_monitor_per_sid_isolation_independent_snapshots_seq_and_cur
     monitor.update_projection(
         namespace,
         "sid-a",
-        request=StateRequestV1(context="ctx-a", log_from=0, notifications_from=0, timezone="UTC"),
+        request=StateRequestV1(
+            context="ctx-a", log_from=0, notifications_from=0, timezone="UTC"
+        ),
         seq_base=10,
     )
     monitor.update_projection(
@@ -102,7 +108,12 @@ async def test_state_monitor_per_sid_isolation_independent_snapshots_seq_and_cur
 
     assert snapshot_calls == [
         {"context": "ctx-a", "log_from": 0, "notifications_from": 0, "timezone": "UTC"},
-        {"context": "ctx-b", "log_from": 40, "notifications_from": 7, "timezone": "Europe/Berlin"},
+        {
+            "context": "ctx-b",
+            "log_from": 40,
+            "notifications_from": 7,
+            "timezone": "Europe/Berlin",
+        },
     ]
 
     assert len(emitted) == 2
@@ -140,13 +151,17 @@ async def test_state_monitor_mark_dirty_for_context_scopes_to_active_context():
     monitor.update_projection(
         namespace,
         "sid-a",
-        request=StateRequestV1(context="ctx-a", log_from=0, notifications_from=0, timezone="UTC"),
+        request=StateRequestV1(
+            context="ctx-a", log_from=0, notifications_from=0, timezone="UTC"
+        ),
         seq_base=10,
     )
     monitor.update_projection(
         namespace,
         "sid-b",
-        request=StateRequestV1(context="ctx-b", log_from=0, notifications_from=0, timezone="UTC"),
+        request=StateRequestV1(
+            context="ctx-b", log_from=0, notifications_from=0, timezone="UTC"
+        ),
         seq_base=10,
     )
 

@@ -1,5 +1,6 @@
-from python.helpers import dotenv
 import hashlib
+
+from python.helpers import dotenv
 
 
 def get_credentials_hash():

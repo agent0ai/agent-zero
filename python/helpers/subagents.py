@@ -1,9 +1,10 @@
-from python.helpers import files
-from typing import TypedDict, TYPE_CHECKING
-from pydantic import BaseModel, model_validator
 import json
-from typing import Literal
 import os
+from typing import TYPE_CHECKING, Literal, TypedDict
+
+from pydantic import BaseModel, model_validator
+
+from python.helpers import files
 
 GLOBAL_DIR = "."
 USER_DIR = "usr"
@@ -222,7 +223,9 @@ def _merge_agent_list_items(
 
 
 def get_agents_roots() -> list[str]:
-    project_agents = files.find_existing_paths_by_pattern("usr/projects/*/.a0proj/agents")
+    project_agents = files.find_existing_paths_by_pattern(
+        "usr/projects/*/.a0proj/agents"
+    )
     paths = [
         files.get_abs_path(DEFAULT_AGENTS_DIR),
         files.get_abs_path(USER_AGENTS_DIR),
@@ -300,7 +303,7 @@ def get_available_agents_dict(
 def get_paths(
     agent: "Agent|None",
     *subpaths,
-    must_exist_completely: bool = True, 
+    must_exist_completely: bool = True,
     include_project: bool = True,
     include_user: bool = True,
     include_default: bool = True,
@@ -333,15 +336,18 @@ def get_paths(
                 paths.append(path)
 
     if profile_name:
-
         # usr/agents/<profile>/...
         path = files.get_abs_path(USER_AGENTS_DIR, profile_name, *subpaths)
-        if (not must_exist_completely) or files.exists(files.get_abs_path(USER_AGENTS_DIR, profile_name, *check_subpaths)):
+        if (not must_exist_completely) or files.exists(
+            files.get_abs_path(USER_AGENTS_DIR, profile_name, *check_subpaths)
+        ):
             paths.append(path)
 
         # agents/<profile>/...
         path = files.get_abs_path(DEFAULT_AGENTS_DIR, profile_name, *subpaths)
-        if (not must_exist_completely) or files.exists(files.get_abs_path(DEFAULT_AGENTS_DIR, profile_name, *check_subpaths)):
+        if (not must_exist_completely) or files.exists(
+            files.get_abs_path(DEFAULT_AGENTS_DIR, profile_name, *check_subpaths)
+        ):
             paths.append(path)
 
     if include_user:

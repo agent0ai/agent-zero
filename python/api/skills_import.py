@@ -5,11 +5,12 @@ import time
 import uuid
 from pathlib import Path
 
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files
-from python.helpers.skills_import import import_skills
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
+
+from python.helpers import files
+from python.helpers.api import ApiHandler, Request, Response
+from python.helpers.skills_import import import_skills
 
 
 class SkillsImport(ApiHandler):
@@ -62,7 +63,9 @@ class SkillsImport(ApiHandler):
 
             imported = [files.deabsolute_path(str(p)) for p in result.imported]
             skipped = [files.deabsolute_path(str(p)) for p in result.skipped]
-            dest_root = files.deabsolute_path(str(result.destination_root / result.namespace))
+            dest_root = files.deabsolute_path(
+                str(result.destination_root / result.namespace)
+            )
 
             return {
                 "success": True,

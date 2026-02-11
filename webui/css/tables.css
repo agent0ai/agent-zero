@@ -8,54 +8,54 @@
    Flex-based filter layout for search/filter controls
    ========================================================================== */
 .filters-header {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 1rem;
-    background: var(--color-panel);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    margin-bottom: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: center;
+	padding: 1rem;
+	background: var(--color-panel);
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	margin-bottom: 0;
 }
 
 .filter-group-inline {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
 }
 
 .filter-group-inline label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--color-text);
-    opacity: 0.8;
-    white-space: nowrap;
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--color-text);
+	opacity: 0.8;
+	white-space: nowrap;
 }
 
 .filter-group-inline select,
 .filter-group-inline input {
-    border: 1px solid var(--color-border);
-    min-width: 0;
+	border: 1px solid var(--color-border);
+	min-width: 0;
 }
 
 .filter-group-inline select:focus,
 .filter-group-inline input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    background: var(--color-input-focus);
+	outline: none;
+	border-color: var(--color-primary);
+	background: var(--color-input-focus);
 }
 
 /* Filter threshold (range slider with label) */
 .filter-threshold {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
 }
 
 .filter-threshold label {
-    font-size: 0.85rem;
-    opacity: 0.8;
+	font-size: 0.85rem;
+	opacity: 0.8;
 }
 
 /* ==========================================================================
@@ -63,58 +63,58 @@
    Status info and pagination controls
    ========================================================================== */
 .data-status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    background: var(--color-panel);
-    border: 1px solid var(--color-border);
-    border-top: none;
-    font-size: 0.9rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0.75rem 1rem;
+	background: var(--color-panel);
+	border: 1px solid var(--color-border);
+	border-top: none;
+	font-size: 0.9rem;
 }
 
 .data-status-bar-top {
-    border-top: 1px solid var(--color-border);
-    border-bottom: none;
-    border-radius: 8px 8px 0 0;
+	border-top: 1px solid var(--color-border);
+	border-bottom: none;
+	border-radius: 8px 8px 0 0;
 }
 
 .data-status-bar-bottom {
-    border-top: 1px solid var(--color-border);
-    border-radius: 0 0 8px 8px;
+	border-top: 1px solid var(--color-border);
+	border-radius: 0 0 8px 8px;
 }
 
 .data-status-bar-standalone {
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
 }
 
 .status-info {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
 }
 
 .status-item {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
 }
 
 .status-item strong {
-    color: var(--color-primary);
-    font-weight: 600;
+	color: var(--color-primary);
+	font-weight: 600;
 }
 
 .status-item .material-symbols-outlined {
-    font-size: 18px;
-    opacity: 0.6;
+	font-size: 18px;
+	opacity: 0.6;
 }
 
 .status-separator {
-    color: var(--color-border);
-    margin: 0 0.25rem;
+	color: var(--color-border);
+	margin: 0 0.25rem;
 }
 
 /* ==========================================================================
@@ -122,61 +122,61 @@
    Page navigation controls
    ========================================================================== */
 .status-pagination {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
 }
 
 .page-input-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
 }
 
 .page-input-group label {
-    opacity: 0.8;
+	opacity: 0.8;
 }
 
 .page-total {
-    color: var(--color-text);
-    opacity: 0.8;
-    font-size: 0.85rem;
-    white-space: nowrap;
+	color: var(--color-text);
+	opacity: 0.8;
+	font-size: 0.85rem;
+	white-space: nowrap;
 }
 
 .page-total strong {
-    color: var(--color-primary);
-    font-weight: 600;
+	color: var(--color-primary);
+	font-weight: 600;
 }
 
 .page-input {
-    width: 60px;
-    padding: 0.25rem 0.5rem;
-    text-align: center;
-    border: 1px solid var(--color-border);
-    background: var(--color-input);
-    color: var(--color-text);
-    border-radius: 4px;
-    font-size: 0.85rem;
-    height: 28px;
+	width: 60px;
+	padding: 0.25rem 0.5rem;
+	text-align: center;
+	border: 1px solid var(--color-border);
+	background: var(--color-input);
+	color: var(--color-text);
+	border-radius: 4px;
+	font-size: 0.85rem;
+	height: 28px;
 }
 
 .page-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    background: var(--color-input-focus);
+	outline: none;
+	border-color: var(--color-primary);
+	background: var(--color-input-focus);
 }
 
 /* Remove spinner arrows from number input */
 .page-input::-webkit-inner-spin-button,
 .page-input::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+	-webkit-appearance: none;
+	margin: 0;
 }
 
-.page-input[type=number] {
-    -moz-appearance: textfield;
-    appearance: textfield;
+.page-input[type="number"] {
+	-moz-appearance: textfield;
+	appearance: textfield;
 }
 
 /* ==========================================================================
@@ -184,77 +184,77 @@
    Wrapper and base table styling
    ========================================================================== */
 .data-table-container {
-    border: 1px solid var(--color-border);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    overflow: hidden;
+	border: 1px solid var(--color-border);
+	border-top: none;
+	border-radius: 0 0 8px 8px;
+	overflow: hidden;
 }
 
 .data-table-container-standalone {
-    border-top: 1px solid var(--color-border);
-    border-radius: 8px;
+	border-top: 1px solid var(--color-border);
+	border-radius: 8px;
 }
 
 .table-wrapper {
-    overflow-x: auto;
+	overflow-x: auto;
 }
 
 .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: auto;
-    font-size: 0.9rem;
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: auto;
+	font-size: 0.9rem;
 }
 
 .data-table th,
 .data-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid var(--color-border);
-    vertical-align: middle;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+	padding: 0.75rem;
+	text-align: left;
+	border-bottom: 1px solid var(--color-border);
+	vertical-align: middle;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .data-table th {
-    background: var(--color-panel);
-    font-weight: 600;
-    color: var(--color-text);
+	background: var(--color-panel);
+	font-weight: 600;
+	color: var(--color-text);
 }
 
 .data-table th.sortable {
-    cursor: pointer;
-    user-select: none;
+	cursor: pointer;
+	user-select: none;
 }
 
 .data-table th.sortable:hover {
-    background: var(--color-bg-tertiary);
+	background: var(--color-bg-tertiary);
 }
 
 .data-table tbody tr {
-    cursor: pointer;
-    transition: background-color 0.2s ease;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
 }
 
 .data-table tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.03);
+	background-color: rgba(255, 255, 255, 0.03);
 }
 
 .light-mode .data-table tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.02);
+	background-color: rgba(0, 0, 0, 0.02);
 }
 
 .data-table tbody tr:last-child td {
-    border-bottom: none;
+	border-bottom: none;
 }
 
 /* Sticky header for scrollable tables */
 .data-table th.sticky {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    border-bottom: 2px solid var(--color-border);
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	border-bottom: 2px solid var(--color-border);
 }
 
 /* ==========================================================================
@@ -262,13 +262,13 @@
    Arrow indicator for sortable columns
    ========================================================================== */
 .sort-indicator {
-    display: inline-block;
-    margin-left: 4px;
-    transition: transform 0.2s ease;
+	display: inline-block;
+	margin-left: 4px;
+	transition: transform 0.2s ease;
 }
 
 .sort-indicator.desc {
-    transform: rotate(180deg);
+	transform: rotate(180deg);
 }
 
 /* ==========================================================================
@@ -276,81 +276,81 @@
    Empty results and loading indicators
    ========================================================================== */
 .data-empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--color-text);
-    opacity: 0.8;
-    background: var(--color-panel);
-    border: 1px solid var(--color-border);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
+	text-align: center;
+	padding: 3rem 1rem;
+	color: var(--color-text);
+	opacity: 0.8;
+	background: var(--color-panel);
+	border: 1px solid var(--color-border);
+	border-top: none;
+	border-radius: 0 0 8px 8px;
 }
 
 .data-empty-state-standalone {
-    border-top: 1px solid var(--color-border);
-    border-radius: 8px;
+	border-top: 1px solid var(--color-border);
+	border-radius: 8px;
 }
 
 .data-empty-state .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 1rem;
 }
 
 .loading-state {
-    text-align: center;
-    padding: 2rem;
-    color: var(--color-text);
-    opacity: 0.8;
-    margin: 1rem 0;
-    display: grid;
-    align-items: center;
+	text-align: center;
+	padding: 2rem;
+	color: var(--color-text);
+	opacity: 0.8;
+	margin: 1rem 0;
+	display: grid;
+	align-items: center;
 }
 
 .error-state {
-    text-align: center;
-    padding: 2rem;
-    color: var(--color-accent);
-    border: 1px solid var(--color-accent);
-    background: var(--color-panel);
-    border-radius: 8px;
-    margin: 1rem 0;
+	text-align: center;
+	padding: 2rem;
+	color: var(--color-accent);
+	border: 1px solid var(--color-accent);
+	background: var(--color-panel);
+	border-radius: 8px;
+	margin: 1rem 0;
 }
 
 .init-message {
-    text-align: center;
-    padding: 2rem;
-    color: var(--color-primary);
-    border: 1px solid var(--color-primary);
-    background: var(--color-panel);
-    border-radius: 8px;
-    margin: 1rem 0;
+	text-align: center;
+	padding: 2rem;
+	color: var(--color-primary);
+	border: 1px solid var(--color-primary);
+	background: var(--color-panel);
+	border-radius: 8px;
+	margin: 1rem 0;
 }
 
 .loading-spinner {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    min-height: 24px;
-    max-width: 24px;
-    max-height: 24px;
-    border: 3px solid var(--color-border);
-    border-top-color: var(--color-primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 0.5rem;
-    flex-shrink: 0;
-    flex-grow: 0;
-    display: inline-block;
-    position: relative;
-    box-sizing: border-box;
+	width: 24px;
+	height: 24px;
+	min-width: 24px;
+	min-height: 24px;
+	max-width: 24px;
+	max-height: 24px;
+	border: 3px solid var(--color-border);
+	border-top-color: var(--color-primary);
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+	margin: 0 auto 0.5rem;
+	flex-shrink: 0;
+	flex-grow: 0;
+	display: inline-block;
+	position: relative;
+	box-sizing: border-box;
 }
 
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 /* ==========================================================================
@@ -358,57 +358,57 @@
    Bulk action controls for selected items
    ========================================================================== */
 .mass-action-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background: var(--color-panel);
-    margin: 0;
-    animation: slideDown 0.3s ease;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1rem;
+	background: var(--color-panel);
+	margin: 0;
+	animation: slideDown 0.3s ease;
 }
 
 .selection-info {
-    font-weight: 600;
+	font-weight: 600;
 }
 
 .mass-actions {
-    display: flex;
-    gap: 0.5rem;
+	display: flex;
+	gap: 0.5rem;
 }
 
 .btn-mass {
-    align-items: center;
-    border: 1px solid var(--color-border);
-    gap: 0.25rem;
-    display: flex;
-    background: var(--color-background);
-    color: var(--color-text);
+	align-items: center;
+	border: 1px solid var(--color-border);
+	gap: 0.25rem;
+	display: flex;
+	background: var(--color-background);
+	color: var(--color-text);
 }
 
 .btn-mass .material-symbols-outlined {
-    font-size: 18px;
+	font-size: 18px;
 }
 
 .btn-mass:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: var(--color-panel);
+	border-color: var(--color-primary);
+	color: var(--color-primary);
+	background: var(--color-panel);
 }
 
 .btn-mass.delete:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
+	border-color: var(--color-accent);
+	color: var(--color-accent);
 }
 
 @keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* ==========================================================================
@@ -416,51 +416,50 @@
    Mobile breakpoints for tables and status bars
    ========================================================================== */
 @media (max-width: 870px) {
-    .filters-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
+	.filters-header {
+		flex-direction: column;
+		align-items: stretch;
+	}
 
-    .filter-group-inline {
-        width: 100%;
-    }
+	.filter-group-inline {
+		width: 100%;
+	}
 
-    .filter-group-inline select,
-    .filter-group-inline input {
-        flex: 1;
-    }
+	.filter-group-inline select,
+	.filter-group-inline input {
+		flex: 1;
+	}
 
-    .data-status-bar {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
+	.data-status-bar {
+		flex-direction: column;
+		gap: 0.75rem;
+	}
 
-    .status-info {
-        width: 100%;
-        justify-content: center;
-    }
+	.status-info {
+		width: 100%;
+		justify-content: center;
+	}
 
-    .status-pagination {
-        width: 100%;
-        justify-content: center;
-        padding-top: 0.5rem;
-        border-top: 1px solid var(--color-border);
-    }
+	.status-pagination {
+		width: 100%;
+		justify-content: center;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border);
+	}
 
-    .data-table th,
-    .data-table td {
-        padding: 0.5rem 0.25rem;
-        font-size: 0.85rem;
-    }
+	.data-table th,
+	.data-table td {
+		padding: 0.5rem 0.25rem;
+		font-size: 0.85rem;
+	}
 
-    .mass-action-toolbar {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
+	.mass-action-toolbar {
+		flex-direction: column;
+		gap: 0.75rem;
+	}
 
-    .mass-actions {
-        flex-wrap: wrap;
-        justify-content: center;
-    }
+	.mass-actions {
+		flex-wrap: wrap;
+		justify-content: center;
+	}
 }
-

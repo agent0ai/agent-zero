@@ -1,18 +1,18 @@
 from typing import Any
+
+from agent import Agent, LoopData
+from python.helpers import projects, skills
 from python.helpers.extension import Extension
 from python.helpers.mcp_handler import MCPConfig
-from agent import Agent, LoopData
 from python.helpers.settings import get_settings
-from python.helpers import projects, skills
 
 
 class SystemPrompt(Extension):
-
     async def execute(
         self,
         system_prompt: list[str] = [],
         loop_data: LoopData = LoopData(),
-        **kwargs: Any
+        **kwargs: Any,
     ):
         # append main system prompt and tools
         main = get_main_prompt(self.agent)
@@ -32,7 +32,7 @@ class SystemPrompt(Extension):
             system_prompt.append(secrets_prompt)
         if project_prompt:
             system_prompt.append(project_prompt)
-       
+
 
 def get_main_prompt(agent: Agent):
     return agent.read_prompt("agent.system.main.md")
@@ -83,6 +83,7 @@ def get_project_prompt(agent: Agent):
     else:
         result += "\n\n" + agent.read_prompt("agent.system.projects.inactive.md")
     return result
+
 
 def get_skills_prompt(agent: Agent):
     available = skills.list_skills(agent=agent)

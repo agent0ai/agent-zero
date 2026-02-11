@@ -60,9 +60,14 @@ Now when you select one of the python files in the project, you should see prope
 
 ![VS Code env terminal](res/dev/devinst-5.png)
 
-3. Install dependencies. Run these two commands in the terminal:
+3. Install dependencies. Run these commands in the terminal:
 
 ```bash
+# Recommended (uses uv — fast, reproducible):
+uv sync
+playwright install chromium
+
+# Alternative (pip fallback):
 pip install -r requirements.txt
 playwright install chromium
 ```
@@ -142,6 +147,7 @@ You have successfully set up a complete Agent Zero development environment! You 
 You're now ready to contribute to Agent Zero, create custom extensions, or modify the framework to suit your needs. Happy coding!
 
 ## Next steps
+- See [dependency management](dependency-management.md) for adding/removing packages, upstream merge strategy, and Docker compatibility.
 - See [extensions](../developer/extensions.md) for instructions on how to create custom extensions.
 - See [websocket infrastructure](websocket-infrastructure.md) for real-time handler patterns, client APIs, and troubleshooting tips.
 - See [contribution](../guides/contribution.md) for instructions on how to contribute to the framework.

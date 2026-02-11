@@ -2,6 +2,7 @@
 example tool to test functionality
 this tool is automatically included to system prompt because the file name is "agent.system.tool.*.md"
 usage:
+
 ~~~json
 {
     "thoughts": [

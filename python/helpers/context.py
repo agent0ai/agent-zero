@@ -1,10 +1,12 @@
 from contextvars import ContextVar
-from typing import Any, TypeVar, cast, Optional, Dict
+from typing import Any, Dict, Optional, TypeVar, cast
 
 T = TypeVar("T")
 
 # no mutable default — None is safe
-_context_data: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_context_data", default=None)
+_context_data: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
+    "_context_data", default=None
+)
 
 
 def _ensure_context() -> Dict[str, Any]:

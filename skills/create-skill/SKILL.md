@@ -65,7 +65,7 @@ Your skill instructions go here...
 
 ## Skill Directory Structure
 
-```
+```text
 /a0/usr/skills/
 └── my-skill/
    ├── SKILL.md           # Required: Main skill file
@@ -207,6 +207,7 @@ cProfile.run('your_function()')
 ### Step 2: Common Optimizations
 
 1. **Use List Comprehensions**
+
    ```python
    # Slow
    result = []
@@ -218,6 +219,7 @@ cProfile.run('your_function()')
    ```
 
 2. **Use Sets for Lookups**
+
    ```python
    # Slow: O(n)
    if item in large_list:
@@ -227,6 +229,7 @@ cProfile.run('your_function()')
    ```
 
 3. **Use Generators for Large Data**
+
    ```python
    # Memory-heavy
    data = [process(x) for x in huge_list]
@@ -237,6 +240,7 @@ cProfile.run('your_function()')
 
 ### Step 3: Verify Improvement
 Always measure before and after:
+
 ```python
 import time
 start = time.perf_counter()
@@ -249,18 +253,19 @@ print(f"Took {elapsed:.4f} seconds")
 - Premature optimization
 - Optimizing without profiling
 - Sacrificing readability for tiny gains
-```
 
 ## Skill Installation
 
 ### Local Installation
 
 1. Create skill directory:
+
    ```bash
    mkdir -p /a0/usr/skills/my-skill
    ```
 
 2. Create SKILL.md:
+
    ```bash
    touch /a0/usr/skills/my-skill/SKILL.md
    ```

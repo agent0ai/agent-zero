@@ -1,10 +1,10 @@
+import asyncio
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
-import asyncio
-import time
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -27,8 +27,8 @@ async def _create_manager() -> WebSocketManager:
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    from python.websocket_handlers.state_sync_handler import StateSyncHandler
     from python.helpers.state_monitor import _reset_state_monitor_for_testing
+    from python.websocket_handlers.state_sync_handler import StateSyncHandler
 
     _reset_state_monitor_for_testing()
     StateSyncHandler._reset_instance_for_testing()
@@ -38,12 +38,14 @@ async def _create_manager() -> WebSocketManager:
     return manager
 
 
-async def _create_manager_with_socketio() -> tuple[WebSocketManager, FakeSocketIOServer]:
+async def _create_manager_with_socketio() -> tuple[
+    WebSocketManager, FakeSocketIOServer
+]:
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
-    from python.websocket_handlers.state_sync_handler import StateSyncHandler
     from python.helpers.state_monitor import _reset_state_monitor_for_testing
+    from python.websocket_handlers.state_sync_handler import StateSyncHandler
 
     _reset_state_monitor_for_testing()
     StateSyncHandler._reset_instance_for_testing()
@@ -82,7 +84,10 @@ async def test_state_request_success_returns_wire_level_shape_and_contract_paylo
     assert first["correlationId"] == "client-1"
     assert isinstance(first.get("data"), dict)
     assert set(first["data"].keys()) >= {"runtime_epoch", "seq_base"}
-    assert isinstance(first["data"]["runtime_epoch"], str) and first["data"]["runtime_epoch"]
+    assert (
+        isinstance(first["data"]["runtime_epoch"], str)
+        and first["data"]["runtime_epoch"]
+    )
     assert isinstance(first["data"]["seq_base"], int)
 
 

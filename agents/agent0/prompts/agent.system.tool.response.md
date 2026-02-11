@@ -12,8 +12,8 @@ images shown with ![alt](img:///path/to/image.png) show images when possible whe
 all math and variables wrap with latex notation delimiters <latex>x = ...</latex>, use only single line latex do formatting in markdown instead
 speech: text and lists are spoken, tables and code blocks not, therefore use tables for files and technicals, use text and lists for plain english, do not include technical details in lists
 
-
 usage:
+
 ~~~json
 {
     "thoughts": [

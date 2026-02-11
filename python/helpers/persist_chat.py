@@ -1,12 +1,12 @@
+import json
+import uuid
 from collections import OrderedDict
 from datetime import datetime
 from typing import Any
-import uuid
-from agent import Agent, AgentConfig, AgentContext, AgentContextType
-from python.helpers import files, history
-import json
-from initialize import initialize_agent
 
+from agent import Agent, AgentConfig, AgentContext, AgentContextType
+from initialize import initialize_agent
+from python.helpers import files, history
 from python.helpers.log import Log, LogItem
 
 CHATS_FOLDER = "usr/chats"
@@ -26,8 +26,10 @@ def get_chat_folder_path(ctxid: str):
     """
     return files.get_abs_path(CHATS_FOLDER, ctxid)
 
+
 def get_chat_msg_files_folder(ctxid: str):
     return files.get_abs_path(get_chat_folder_path(ctxid), "messages")
+
 
 def save_tmp_chat(context: AgentContext):
     """Save context to the chats folder"""
@@ -123,9 +125,10 @@ def _serialize_context(context: AgentContext):
         agents.append(_serialize_agent(agent))
         agent = agent.data.get(Agent.DATA_NAME_SUBORDINATE, None)
 
-
     data = {k: v for k, v in context.data.items() if not k.startswith("_")}
-    output_data = {k: v for k, v in context.output_data.items() if not k.startswith("_")}
+    output_data = {
+        k: v for k, v in context.output_data.items() if not k.startswith("_")
+    }
 
     return {
         "id": context.id,
@@ -166,7 +169,9 @@ def _serialize_agent(agent: Agent):
 def _serialize_log(log: Log):
     # Guard against concurrent log mutations while serializing.
     with log._lock:
-        logs = [item.output() for item in log.logs[-LOG_SIZE:]]  # serialize LogItem objects
+        logs = [
+            item.output() for item in log.logs[-LOG_SIZE:]
+        ]  # serialize LogItem objects
         guid = log.guid
         progress = log.progress
         progress_no = log.progress_no

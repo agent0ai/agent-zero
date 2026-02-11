@@ -79,8 +79,12 @@ def _write_handler_module(path: Path, class_name: str, event_type: str) -> None:
     )
 
 
-def test_discovery_supports_folder_entries_and_ignores_deeper_nesting(tmp_path: Path) -> None:
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+def test_discovery_supports_folder_entries_and_ignores_deeper_nesting(
+    tmp_path: Path,
+) -> None:
+    from python.helpers.websocket_namespace_discovery import (
+        discover_websocket_namespaces,
+    )
 
     folder = tmp_path / "orders"
     folder.mkdir()
@@ -89,9 +93,13 @@ def test_discovery_supports_folder_entries_and_ignores_deeper_nesting(tmp_path: 
     # Deeper nesting must be ignored (and must not be imported).
     nested = folder / "nested"
     nested.mkdir()
-    (nested / "boom.py").write_text("raise RuntimeError('should-not-import')\n", encoding="utf-8")
+    (nested / "boom.py").write_text(
+        "raise RuntimeError('should-not-import')\n", encoding="utf-8"
+    )
 
-    discoveries = discover_websocket_namespaces(handlers_folder=str(tmp_path), include_root_default=False)
+    discoveries = discover_websocket_namespaces(
+        handlers_folder=str(tmp_path), include_root_default=False
+    )
     by_ns = {d.namespace: d for d in discoveries}
 
     assert "/orders" in by_ns
@@ -100,23 +108,31 @@ def test_discovery_supports_folder_entries_and_ignores_deeper_nesting(tmp_path: 
 
 
 def test_discovery_folder_suffix_handler_stripped(tmp_path: Path) -> None:
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from python.helpers.websocket_namespace_discovery import (
+        discover_websocket_namespaces,
+    )
 
     folder = tmp_path / "sales_handler"
     folder.mkdir()
     _write_handler_module(folder / "main.py", "SalesHandler", "sales_request")
 
-    discoveries = discover_websocket_namespaces(handlers_folder=str(tmp_path), include_root_default=False)
+    discoveries = discover_websocket_namespaces(
+        handlers_folder=str(tmp_path), include_root_default=False
+    )
     namespaces = {d.namespace for d in discoveries}
     assert "/sales" in namespaces
 
 
-def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(tmp_path: Path, monkeypatch) -> None:
-    from flask import Flask
+def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(
+    tmp_path: Path, monkeypatch
+) -> None:
     import socketio
+    from flask import Flask
 
     from python.helpers.websocket_manager import WebSocketManager
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from python.helpers.websocket_namespace_discovery import (
+        discover_websocket_namespaces,
+    )
     from run_ui import configure_websocket_namespaces
 
     empty = tmp_path / "empty"
@@ -128,16 +144,22 @@ def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(tmp_path
     def _warn(message: str) -> None:
         warnings.append(message)
 
-    monkeypatch.setattr("python.helpers.print_style.PrintStyle.warning", staticmethod(_warn))
+    monkeypatch.setattr(
+        "python.helpers.print_style.PrintStyle.warning", staticmethod(_warn)
+    )
 
-    discoveries = discover_websocket_namespaces(handlers_folder=str(tmp_path), include_root_default=False)
+    discoveries = discover_websocket_namespaces(
+        handlers_folder=str(tmp_path), include_root_default=False
+    )
     assert "/empty" not in {d.namespace for d in discoveries}
     assert any("empty" in msg.lower() for msg in warnings)
 
     # Integration check: treat as unregistered -> UNKNOWN_NAMESPACE connect_error.
     app = Flask("test_empty_folder_unregistered")
     app.secret_key = "test-secret"
-    sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", namespaces="*")
+    sio = socketio.AsyncServer(
+        async_mode="asgi", cors_allowed_origins="*", namespaces="*"
+    )
     lock = __import__("threading").RLock()
     manager = WebSocketManager(sio, lock)
 
@@ -155,10 +177,13 @@ def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(tmp_path
     )
 
     asgi_app = socketio.ASGIApp(sio)
+
     async def _run() -> None:
         async with _run_asgi_app(asgi_app) as base_url:
             client = socketio.AsyncClient()
-            connect_error_fut: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+            connect_error_fut: asyncio.Future[Any] = (
+                asyncio.get_running_loop().create_future()
+            )
 
             async def _on_connect_error(data: Any) -> None:
                 if not connect_error_fut.done():
@@ -180,15 +205,21 @@ def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(tmp_path
     asyncio.run(_run())
 
 
-def test_discovery_invalid_modules_fail_fast_with_descriptive_errors(tmp_path: Path) -> None:
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+def test_discovery_invalid_modules_fail_fast_with_descriptive_errors(
+    tmp_path: Path,
+) -> None:
+    from python.helpers.websocket_namespace_discovery import (
+        discover_websocket_namespaces,
+    )
 
     # 0 handlers in a *_handler.py module
     (tmp_path / "bad_handler.py").write_text(
         "class NotAHandler:\n    pass\n", encoding="utf-8"
     )
     with pytest.raises(RuntimeError) as excinfo:
-        discover_websocket_namespaces(handlers_folder=str(tmp_path), include_root_default=False)
+        discover_websocket_namespaces(
+            handlers_folder=str(tmp_path), include_root_default=False
+        )
     assert "defines no WebSocketHandler subclasses" in str(excinfo.value)
 
     # 2+ handlers in a *_handler.py module
@@ -219,7 +250,9 @@ def test_discovery_invalid_modules_fail_fast_with_descriptive_errors(tmp_path: P
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError) as excinfo2:
-        discover_websocket_namespaces(handlers_folder=str(tmp_path), include_root_default=False)
+        discover_websocket_namespaces(
+            handlers_folder=str(tmp_path), include_root_default=False
+        )
     message = str(excinfo2.value)
     assert "defines multiple WebSocketHandler subclasses" in message
     assert "A" in message and "B" in message

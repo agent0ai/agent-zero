@@ -1,7 +1,7 @@
-from dataclasses import dataclass
-import uuid
 import threading
-from datetime import datetime, timezone, timedelta
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 
@@ -48,8 +48,12 @@ class NotificationItem:
         return {
             "no": self.no,
             "id": self.id,
-            "type": self.type.value if isinstance(self.type, NotificationType) else self.type,
-            "priority": self.priority.value if isinstance(self.priority, NotificationPriority) else self.priority,
+            "type": self.type.value
+            if isinstance(self.type, NotificationType)
+            else self.type,
+            "priority": self.priority.value
+            if isinstance(self.priority, NotificationPriority)
+            else self.priority,
             "title": self.title,
             "message": self.message,
             "detail": self.detail,
@@ -79,6 +83,7 @@ class NotificationManager:
         group: str = "",
     ) -> NotificationItem:
         from agent import AgentContext
+
         return AgentContext.get_notification_manager().add_notification(
             type, priority, message, title, detail, display_time, group
         )
@@ -116,6 +121,7 @@ class NotificationManager:
             self._enforce_limit()
 
         from python.helpers.state_monitor_integration import mark_dirty_all
+
         mark_dirty_all(reason="notification.NotificationManager.add_notification")
         return item
 
@@ -129,7 +135,9 @@ class NotificationManager:
                 for i, notification in enumerate(self.notifications):
                     notification.no = i
                 # Adjust updates list
-                self.updates = [no - to_remove for no in self.updates if no >= to_remove]
+                self.updates = [
+                    no - to_remove for no in self.updates if no >= to_remove
+                ]
 
     def get_recent_notifications(self, seconds: int = 30) -> list[NotificationItem]:
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=seconds)
@@ -176,6 +184,7 @@ class NotificationManager:
             return 0
 
         from python.helpers.state_monitor_integration import mark_dirty_all
+
         mark_dirty_all(reason="notification.NotificationManager.mark_read_by_ids")
         return len(changed_nos)
 
@@ -197,6 +206,7 @@ class NotificationManager:
             return
 
         from python.helpers.state_monitor_integration import mark_dirty_all
+
         mark_dirty_all(reason="notification.NotificationManager._update_item")
 
     def mark_all_read(self):
@@ -213,6 +223,7 @@ class NotificationManager:
             return
 
         from python.helpers.state_monitor_integration import mark_dirty_all
+
         mark_dirty_all(reason="notification.NotificationManager.mark_all_read")
 
     def clear_all(self):
@@ -221,8 +232,11 @@ class NotificationManager:
             self.updates = []
             self.guid = str(uuid.uuid4())
         from python.helpers.state_monitor_integration import mark_dirty_all
+
         mark_dirty_all(reason="notification.NotificationManager.clear_all")
 
-    def get_notifications_by_type(self, type: NotificationType) -> list[NotificationItem]:
+    def get_notifications_by_type(
+        self, type: NotificationType
+    ) -> list[NotificationItem]:
         with self._lock:
             return [n for n in self.notifications if n.type == type]

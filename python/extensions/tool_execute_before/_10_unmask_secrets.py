@@ -3,7 +3,6 @@ from python.helpers.secrets import get_secrets_manager
 
 
 class UnmaskToolSecrets(Extension):
-
     async def execute(self, **kwargs):
         # Get tool args from kwargs
         tool_args = kwargs.get("tool_args")

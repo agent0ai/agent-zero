@@ -21,6 +21,7 @@ from python.helpers.print_style import PrintStyle
 @dataclass
 class Message:
     """Email message representation with sender, subject, body, and attachments."""
+
     sender: str
     subject: str
     body: str
@@ -91,7 +92,9 @@ class EmailClient:
         loop = asyncio.get_event_loop()
 
         def _sync_connect():
-            client = IMAPClient(self.server, port=self.port, ssl=self.ssl, timeout=self.timeout)
+            client = IMAPClient(
+                self.server, port=self.port, ssl=self.ssl, timeout=self.timeout
+            )
             # Increase line length limit to handle large emails (default is 10000)
             # This fixes "line too long" errors for emails with large headers or embedded content
             client._imap._maxline = 100000
@@ -104,7 +107,7 @@ class EmailClient:
     async def _connect_exchange(self) -> None:
         """Establish Exchange connection."""
         try:
-            from exchangelib import Account, Configuration, Credentials, DELEGATE
+            from exchangelib import DELEGATE, Account, Configuration, Credentials
 
             loop = asyncio.get_event_loop()
 
@@ -115,7 +118,7 @@ class EmailClient:
                     primary_smtp_address=self.username,
                     config=config,
                     autodiscover=False,
-                    access_type=DELEGATE
+                    access_type=DELEGATE,
                 )
 
             self.exchange_account = await loop.run_in_executor(None, _sync_connect)
@@ -174,7 +177,9 @@ class EmailClient:
     ) -> List[Message]:
         """Fetch messages from IMAP server."""
         if not self.client:
-            raise RepairableException("IMAP client not connected. Call connect() first.")
+            raise RepairableException(
+                "IMAP client not connected. Call connect() first."
+            )
 
         loop = asyncio.get_event_loop()
         messages: List[Message] = []
@@ -210,11 +215,15 @@ class EmailClient:
         # Fetch and process messages
         for msg_id in message_ids:
             try:
-                msg = await self._fetch_and_parse_imap_message(msg_id, download_folder, filter)
+                msg = await self._fetch_and_parse_imap_message(
+                    msg_id, download_folder, filter
+                )
                 if msg:
                     messages.append(msg)
             except Exception as e:
-                PrintStyle.error(f"Error processing message {msg_id}: {format_error(e)}")
+                PrintStyle.error(
+                    f"Error processing message {msg_id}: {format_error(e)}"
+                )
                 continue
 
         return messages
@@ -236,13 +245,17 @@ class EmailClient:
                 error_msg = str(e).lower()
                 # If "line too long" error, try fetching in parts
                 if "line too long" in error_msg or "fetch_failed" in error_msg:
-                    PrintStyle.warning(f"Message {msg_id} too large for standard fetch, trying alternative method")
+                    PrintStyle.warning(
+                        f"Message {msg_id} too large for standard fetch, trying alternative method"
+                    )
                     # Fetch headers and body separately to avoid line length issues
                     try:
                         envelope = self.client.fetch([msg_id], ["BODY.PEEK[]"])[msg_id]
                         return envelope
                     except Exception as e2:
-                        PrintStyle.error(f"Alternative fetch also failed for message {msg_id}: {format_error(e2)}")
+                        PrintStyle.error(
+                            f"Alternative fetch also failed for message {msg_id}: {format_error(e2)}"
+                        )
                         raise
                 raise
 
@@ -274,7 +287,9 @@ class EmailClient:
             return await self._parse_message(email_msg, download_folder)
 
         except Exception as e:
-            PrintStyle.error(f"Failed to fetch/parse message {msg_id}: {format_error(e)}")
+            PrintStyle.error(
+                f"Failed to fetch/parse message {msg_id}: {format_error(e)}"
+            )
             return None
 
     async def _fetch_exchange_messages(
@@ -284,7 +299,9 @@ class EmailClient:
     ) -> List[Message]:
         """Fetch messages from Exchange server."""
         if not self.exchange_account:
-            raise RepairableException("Exchange account not connected. Call connect() first.")
+            raise RepairableException(
+                "Exchange account not connected. Call connect() first."
+            )
 
         from exchangelib import Q
 
@@ -323,7 +340,9 @@ class EmailClient:
                 if msg:
                     messages.append(msg)
             except Exception as e:
-                PrintStyle.error(f"Error processing Exchange message: {format_error(e)}")
+                PrintStyle.error(
+                    f"Error processing Exchange message: {format_error(e)}"
+                )
                 continue
 
         return messages
@@ -351,9 +370,7 @@ class EmailClient:
             for attachment in ex_msg.attachments:
                 if hasattr(attachment, "content"):
                     path = await self._save_attachment_bytes(
-                        attachment.name,
-                        attachment.content,
-                        download_folder
+                        attachment.name, attachment.content, download_folder
                     )
                     attachment_paths.append(path)
 
@@ -361,7 +378,7 @@ class EmailClient:
             sender=str(ex_msg.sender.email_address) if ex_msg.sender else "",
             subject=str(ex_msg.subject or ""),
             body=body,
-            attachments=attachment_paths
+            attachments=attachment_paths,
         )
 
     async def _parse_message(
@@ -421,13 +438,17 @@ class EmailClient:
                 elif content_type == "text/plain":
                     if not body:  # Use first text/plain as primary body
                         charset = part.get_content_charset() or "utf-8"
-                        body = part.get_payload(decode=True).decode(charset, errors="ignore")
+                        body = part.get_payload(decode=True).decode(
+                            charset, errors="ignore"
+                        )
                         body_parts.append(body)
 
                 elif content_type == "text/html":
                     if not body:  # Use first text/html as primary body if no text/plain
                         charset = part.get_content_charset() or "utf-8"
-                        html_content = part.get_payload(decode=True).decode(charset, errors="ignore")
+                        html_content = part.get_payload(decode=True).decode(
+                            charset, errors="ignore"
+                        )
                         body = self._html_to_text(html_content, cid_map)
                         body_parts.append(body)
 
@@ -441,18 +462,19 @@ class EmailClient:
             content = email_msg.get_payload(decode=True)
             if content:
                 if content_type == "text/html":
-                    body = self._html_to_text(content.decode(charset, errors="ignore"), cid_map)
+                    body = self._html_to_text(
+                        content.decode(charset, errors="ignore"), cid_map
+                    )
                 else:
                     body = content.decode(charset, errors="ignore")
 
         return Message(
-            sender=sender,
-            subject=subject,
-            body=body,
-            attachments=attachment_paths
+            sender=sender, subject=subject, body=body, attachments=attachment_paths
         )
 
-    def _html_to_text(self, html_content: str, cid_map: Optional[Dict[str, str]] = None) -> str:
+    def _html_to_text(
+        self, html_content: str, cid_map: Optional[Dict[str, str]] = None
+    ) -> str:
         """
         Convert HTML to plain text with inline attachment references.
 

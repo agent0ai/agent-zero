@@ -1,5 +1,6 @@
 from python.helpers.api import ApiHandler, Request, Response
 
+
 class Nudge(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         ctxid = input.get("ctxid", "")
@@ -11,7 +12,7 @@ class Nudge(ApiHandler):
 
         msg = "Process reset, agent nudged."
         context.log.log(type="info", content=msg)
-        
+
         return {
             "message": msg,
             "ctxid": context.id,

@@ -1,17 +1,19 @@
 import os
+
 from python.helpers import files
 from python.helpers.print_style import PrintStyle
+
 
 def migrate_user_data() -> None:
     """
     Migrate user data from /tmp and other locations to /usr.
     """
-    
+
     PrintStyle().print("Checking for data migration...")
-    
+
     # --- Migrate Directories -------------------------------------------------------
     # Move directories from tmp/ or other source locations to usr/
-    
+
     _move_dir("tmp/chats", "usr/chats")
     _move_dir("tmp/scheduler", "usr/scheduler", overwrite=True)
     _move_dir("tmp/uploads", "usr/uploads")
@@ -22,29 +24,31 @@ def migrate_user_data() -> None:
 
     # --- Migrate Files -------------------------------------------------------------
     # Move specific configuration files to usr/
-    
+
     _move_file("tmp/settings.json", "usr/settings.json")
     _move_file("tmp/secrets.env", "usr/secrets.env")
     _move_file(".env", "usr/.env", overwrite=True)
 
     # --- Special Migration Cases ---------------------------------------------------
-    
+
     # Migrate Memory
     _migrate_memory()
 
     # Flatten default directories (knowledge/default -> knowledge/, etc.)
-    # We use _merge_dir_contents because we want to move the *contents* of default/ 
+    # We use _merge_dir_contents because we want to move the *contents* of default/
     # into the parent directory, not move the default directory itself.
     _merge_dir_contents("knowledge/default", "knowledge")
 
     # --- Cleanup -------------------------------------------------------------------
-    
+
     # Remove obsolete directories after migration
     _cleanup_obsolete()
 
     PrintStyle().print("Migration check complete.")
 
+
 # --- Helper Functions ----------------------------------------------------------
+
 
 def _move_dir(src: str, dst: str, overwrite: bool = False) -> None:
     """
@@ -56,6 +60,7 @@ def _move_dir(src: str, dst: str, overwrite: bool = False) -> None:
             files.delete_dir(dst)
         files.move_dir(src, dst)
 
+
 def _move_file(src: str, dst: str, overwrite: bool = False) -> None:
     """
     Move a file from src to dst if src exists and dst does not.
@@ -63,6 +68,7 @@ def _move_file(src: str, dst: str, overwrite: bool = False) -> None:
     if files.exists(src) and (not files.exists(dst) or overwrite):
         PrintStyle().print(f"Migrating {src} to {dst}...")
         files.move_file(src, dst)
+
 
 def _migrate_memory(base_path: str = "memory") -> None:
     """
@@ -77,6 +83,7 @@ def _migrate_memory(base_path: str = "memory") -> None:
             # Move other memory items to usr/memory
             dst = f"usr/memory/{subdir}"
             _move_dir(f"memory/{subdir}", dst)
+
 
 def _merge_dir_contents(src_parent: str, dst_parent: str) -> None:
     """
@@ -96,14 +103,12 @@ def _merge_dir_contents(src_parent: str, dst_parent: str) -> None:
         elif os.path.isfile(abs_src):
             _move_file(src, dst)
 
+
 def _cleanup_obsolete() -> None:
     """
     Remove directories that are no longer needed.
     """
-    to_remove = [
-        "knowledge/default",
-        "memory"
-    ]
+    to_remove = ["knowledge/default", "memory"]
     for path in to_remove:
         if files.exists(path):
             PrintStyle().print(f"Removing {path}...")

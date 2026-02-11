@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+import time
 from collections.abc import Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-import sys
-import time
 from typing import Any, Callable, Dict, List, Optional
 
 try:
@@ -16,7 +16,9 @@ except ImportError:  # pragma: no cover
     pytest = None
 
 if pytest is not None:
-    pytestmark = pytest.mark.skip(reason="Visualization utility; excluded from automated test runs.")
+    pytestmark = pytest.mark.skip(
+        reason="Visualization utility; excluded from automated test runs."
+    )
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +37,6 @@ from python.helpers.file_tree import (
     file_tree,
 )
 from python.helpers.files import create_dir, delete_dir, get_abs_path, write_file
-
 
 BASE_TEMP_ROOT = "tmp/tests/file_tree/visualize"
 
@@ -125,7 +126,9 @@ def _set_entry_times(relative_path: str, timestamp: float) -> None:
     time.sleep(0.01)
 
 
-def _apply_timestamps(base_rel: str, paths: List[str], base_ts: Optional[float] = None) -> None:
+def _apply_timestamps(
+    base_rel: str, paths: List[str], base_ts: Optional[float] = None
+) -> None:
     if base_ts is None:
         base_ts = time.time()
     for offset, rel in enumerate(paths, start=1):

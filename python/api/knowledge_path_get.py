@@ -1,7 +1,9 @@
-from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files, memory, notification, projects, notification
 import os
+
 from werkzeug.utils import secure_filename
+
+from python.helpers import files, memory, notification, projects
+from python.helpers.api import ApiHandler, Request, Response
 
 
 class GetKnowledgePath(ApiHandler):
@@ -13,7 +15,9 @@ class GetKnowledgePath(ApiHandler):
 
         project_name = projects.get_context_project_name(context)
         if project_name:
-            knowledge_folder = projects.get_project_meta_folder(project_name, "knowledge")
+            knowledge_folder = projects.get_project_meta_folder(
+                project_name, "knowledge"
+            )
         else:
             knowledge_folder = memory.get_custom_knowledge_subdir_abs(context.agent0)
 

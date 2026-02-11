@@ -25,7 +25,9 @@ class FakeSocketIOServer:
         self.disconnect = AsyncMock()
 
 
-async def _create_manager() -> tuple[WebSocketManager, DevWebsocketTestHandler, FakeSocketIOServer]:
+async def _create_manager() -> tuple[
+    WebSocketManager, DevWebsocketTestHandler, FakeSocketIOServer
+]:
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
     DevWebsocketTestHandler._reset_instance_for_testing()
@@ -48,7 +50,9 @@ async def test_harness_emit_broadcasts_to_active_connections():
 
     socketio.emit.assert_awaited()
     emit_calls = [(call.args, call.kwargs) for call in socketio.emit.await_args_list]
-    match = next((c for c in emit_calls if c[0] and c[0][0] == "ws_tester_broadcast"), None)
+    match = next(
+        (c for c in emit_calls if c[0] and c[0][0] == "ws_tester_broadcast"), None
+    )
     assert match is not None
     args, kwargs = match
     envelope = args[1]
@@ -115,7 +119,9 @@ async def test_harness_persistence_emit_targets_requesting_sid():
 
     socketio.emit.assert_awaited()
     emit_calls = [(call.args, call.kwargs) for call in socketio.emit.await_args_list]
-    match = next((c for c in emit_calls if c[0] and c[0][0] == "ws_tester_persistence"), None)
+    match = next(
+        (c for c in emit_calls if c[0] and c[0][0] == "ws_tester_persistence"), None
+    )
     assert match is not None
     args, kwargs = match
     payload = args[1]
