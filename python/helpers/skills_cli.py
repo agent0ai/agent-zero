@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Skills CLI - Easy skill management for Agent Zero
+Skills CLI - Easy skill management.
 
 Usage:
     python -m python.helpers.skills_cli list              List all skills
@@ -22,7 +22,7 @@ import yaml
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from python.helpers import files
+from python.helpers import branding, files
 
 
 @dataclass
@@ -251,7 +251,7 @@ def print_skill_table(skills: List[Skill]):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Agent Zero Skills CLI",
+        description=f"{branding.BRAND_NAME} Skills CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

@@ -1,6 +1,6 @@
 import re
 
-from python.helpers import dotenv
+from python.helpers import branding, dotenv
 from python.helpers.extension import Extension
 
 
@@ -30,7 +30,7 @@ class UnsecuredConnectionCheck(Extension):
                     "type": "warning",
                     "priority": 80,
                     "title": "Unsecured Connection",
-                    "html": """You are accessing Agent Zero from a non-local address without authentication. 
+                    "html": f"""You are accessing {branding.BRAND_NAME} from a non-local address without authentication.
                          <a href="#" onclick="document.getElementById('settings').click(); return false;">
                          Configure credentials</a> in Settings → External Services → Authentication.""",
                     "dismissible": True,
@@ -45,7 +45,7 @@ class UnsecuredConnectionCheck(Extension):
                     "type": "warning",
                     "priority": 90,
                     "title": "Credentials May Be Sent Unencrypted",
-                    "html": """Your connection is not using HTTPS. Login credentials may be transmitted in plain text. 
+                    "html": """Your connection is not using HTTPS. Login credentials may be transmitted in plain text.
                          Consider using HTTPS or a secure tunnel.""",
                     "dismissible": True,
                     "source": "backend",
