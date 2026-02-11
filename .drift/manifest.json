@@ -1,13 +1,13 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-02-11T06:02:37.995Z",
+  "generatedAt": "2026-02-11T07:46:03.529Z",
   "projectRoot": "/Users/jason/dev/apollos-ai/agent-zero",
   "stats": {
     "patterns": {
       "total": 757,
       "byCategory": {
-        "components": 62,
         "structural": 61,
+        "components": 62,
         "styling": 60,
         "api": 11,
         "auth": 44,
@@ -23,17 +23,17 @@
         "documentation": 35
       },
       "byStatus": {
-        "discovered": 1,
-        "approved": 753,
+        "discovered": 0,
+        "approved": 754,
         "ignored": 3
       },
       "byConfidence": {
-        "high": 634,
-        "medium": 123,
+        "high": 635,
+        "medium": 122,
         "low": 0,
         "uncertain": 0
       },
-      "totalLocations": 46839,
+      "totalLocations": 47015,
       "totalOutliers": 33
     },
     "security": {
@@ -65,15 +65,15 @@
   },
   "fileHashes": {},
   "lastScan": {
-    "timestamp": "2026-02-11T06:02:37.955Z",
-    "duration": 1007451,
-    "filesScanned": 1089,
+    "timestamp": "2026-02-11T07:46:03.490Z",
+    "duration": 1000839,
+    "filesScanned": 1091,
     "patternsFound": 757,
     "errors": 0
   },
   "views": {
     "status": {
-      "generatedAt": "2026-02-11T06:02:37.994Z",
+      "generatedAt": "2026-02-11T07:46:03.528Z",
       "stale": true,
       "invalidatedBy": [
         "pattern stats updated",
@@ -82,14 +82,14 @@
       ]
     },
     "patternIndex": {
-      "generatedAt": "2026-02-11T06:02:37.994Z",
+      "generatedAt": "2026-02-11T07:46:03.528Z",
       "stale": true,
       "invalidatedBy": [
         "pattern stats updated"
       ]
     },
     "securitySummary": {
-      "generatedAt": "2026-02-11T06:02:37.994Z",
+      "generatedAt": "2026-02-11T07:46:03.528Z",
       "stale": true,
       "invalidatedBy": [
         "security stats updated"

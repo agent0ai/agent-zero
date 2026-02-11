@@ -32,7 +32,7 @@
         },
         {
           "file": ".serena/memories/project_overview.md",
-          "line": 34,
+          "line": 44,
           "column": 42,
           "isOutlier": false,
           "confidence": 0.77
@@ -46,28 +46,28 @@
         },
         {
           "file": "PROJECT_INDEX.md",
-          "line": 100,
+          "line": 118,
           "column": 24,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
           "file": "README.md",
-          "line": 176,
+          "line": 170,
           "column": 84,
           "isOutlier": false,
           "confidence": 0.6824999999999999
         },
         {
           "file": "README.md",
-          "line": 178,
+          "line": 172,
           "column": 5,
           "isOutlier": false,
           "confidence": 0.6824999999999999
         },
         {
           "file": "README.md",
-          "line": 265,
+          "line": 259,
           "column": 34,
           "isOutlier": false,
           "confidence": 0.6824999999999999
@@ -217,7 +217,35 @@
           "line": 112,
           "column": 20,
           "isOutlier": false,
-          "confidence": 0.5366666666666666
+          "confidence": 0.7116666666666667
+        },
+        {
+          "file": "docs/setup/dev-setup.md",
+          "line": 173,
+          "column": 15,
+          "isOutlier": false,
+          "confidence": 0.7116666666666667
+        },
+        {
+          "file": "docs/setup/dev-setup.md",
+          "line": 183,
+          "column": 1,
+          "isOutlier": false,
+          "confidence": 0.7116666666666667
+        },
+        {
+          "file": "docs/setup/dev-setup.md",
+          "line": 221,
+          "column": 30,
+          "isOutlier": false,
+          "confidence": 0.7116666666666667
+        },
+        {
+          "file": "docs/setup/dev-setup.md",
+          "line": 229,
+          "column": 29,
+          "isOutlier": false,
+          "confidence": 0.7116666666666667
         },
         {
           "file": "docs/setup/installation.md",
@@ -313,7 +341,7 @@
         {
           "file": "docs/setup/installation.md",
           "line": 189,
-          "column": 60,
+          "column": 70,
           "isOutlier": false,
           "confidence": 0.5999999999999999
         },
@@ -361,21 +389,21 @@
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 176,
+          "line": 174,
           "column": 84,
           "isOutlier": false,
           "confidence": 0.6824999999999999
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 178,
+          "line": 176,
           "column": 5,
           "isOutlier": false,
           "confidence": 0.6824999999999999
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 265,
+          "line": 263,
           "column": 34,
           "isOutlier": false,
           "confidence": 0.6824999999999999
@@ -474,7 +502,7 @@
         {
           "file": "knowledge/main/about/installation.md",
           "line": 189,
-          "column": 60,
+          "column": 70,
           "isOutlier": false,
           "confidence": 0.5999999999999999
         },
@@ -694,40 +722,12 @@
           "column": 11,
           "isOutlier": false,
           "confidence": 0.5866666666666667
-        },
-        {
-          "file": "python/helpers/images.py",
-          "line": 21,
-          "column": 33,
-          "isOutlier": false,
-          "confidence": 0.5866666666666667
-        },
-        {
-          "file": "python/helpers/images.py",
-          "line": 29,
-          "column": 51,
-          "isOutlier": false,
-          "confidence": 0.5866666666666667
-        },
-        {
-          "file": "python/helpers/notification.py",
-          "line": 88,
-          "column": 38,
-          "isOutlier": false,
-          "confidence": 0.6387499999999999
-        },
-        {
-          "file": "python/tools/vision_load.py",
-          "line": 33,
-          "column": 38,
-          "isOutlier": false,
-          "confidence": 0.5658333333333334
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.407Z",
-        "lastSeen": "2026-02-11T06:02:37.407Z",
+        "firstSeen": "2026-02-11T07:46:02.861Z",
+        "lastSeen": "2026-02-11T07:46:02.861Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -767,21 +767,21 @@
         },
         {
           "file": "PROJECT_INDEX.md",
-          "line": 221,
+          "line": 269,
           "column": 38,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
           "file": "PROJECT_INDEX.md",
-          "line": 223,
+          "line": 271,
           "column": 40,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
           "file": "README.md",
-          "line": 84,
+          "line": 78,
           "column": 138,
           "isOutlier": false,
           "confidence": 0.77
@@ -887,7 +887,7 @@
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 84,
+          "line": 82,
           "column": 138,
           "isOutlier": false,
           "confidence": 0.77
@@ -1084,8 +1084,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.408Z",
-        "lastSeen": "2026-02-11T06:02:37.408Z",
+        "firstSeen": "2026-02-11T07:46:02.862Z",
+        "lastSeen": "2026-02-11T07:46:02.862Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -1111,7 +1111,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 69,
+        "spread": 73,
         "score": 0.77,
         "level": "medium"
       },
@@ -1152,6 +1152,27 @@
           "confidence": 0.77
         },
         {
+          "file": ".serena/memories/project_overview.md",
+          "line": 61,
+          "column": 85,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": ".serena/memories/task_completion_checklist.md",
+          "line": 37,
+          "column": 14,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".serena/memories/task_completion_checklist.md",
+          "line": 38,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
           "file": ".serena/memories/websocket_and_frontend.md",
           "line": 36,
           "column": 25,
@@ -1159,8 +1180,29 @@
           "confidence": 0.595
         },
         {
+          "file": "CLAUDE.md",
+          "line": 68,
+          "column": 72,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": "CLAUDE.md",
+          "line": 71,
+          "column": 48,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": "QUICKSTART.md",
+          "line": 134,
+          "column": 17,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
           "file": "README.md",
-          "line": 230,
+          "line": 224,
           "column": 15,
           "isOutlier": false,
           "confidence": 0.77
@@ -1608,8 +1650,8 @@
         },
         {
           "file": "docs/setup/dev-setup.md",
-          "line": 171,
-          "column": 3,
+          "line": 234,
+          "column": 22,
           "isOutlier": false,
           "confidence": 0.77
         },
@@ -1692,7 +1734,7 @@
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 230,
+          "line": 228,
           "column": 15,
           "isOutlier": false,
           "confidence": 0.77
@@ -1773,54 +1815,12 @@
           "column": 9,
           "isOutlier": false,
           "confidence": 0.77
-        },
-        {
-          "file": "prompts/fw.rename_chat.sys.md",
-          "line": 13,
-          "column": 3,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "prompts/memory.consolidation.sys.md",
-          "line": 3,
-          "column": 224,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "prompts/memory.consolidation.sys.md",
-          "line": 37,
-          "column": 41,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "prompts/memory.consolidation.sys.md",
-          "line": 40,
-          "column": 41,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "prompts/memory.consolidation.sys.md",
-          "line": 115,
-          "column": 6,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "prompts/memory.solutions_sum.sys.md",
-          "line": 8,
-          "column": 15,
-          "isOutlier": false,
-          "confidence": 0.77
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.388Z",
-        "lastSeen": "2026-02-11T06:02:37.388Z",
+        "firstSeen": "2026-02-11T07:46:02.840Z",
+        "lastSeen": "2026-02-11T07:46:02.840Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -1853,21 +1853,21 @@
       "locations": [
         {
           "file": "PROJECT_INDEX.md",
-          "line": 221,
+          "line": 269,
           "column": 38,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
           "file": "PROJECT_INDEX.md",
-          "line": 223,
+          "line": 271,
           "column": 40,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
           "file": "README.md",
-          "line": 84,
+          "line": 78,
           "column": 138,
           "isOutlier": false,
           "confidence": 0.77
@@ -1973,7 +1973,7 @@
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 84,
+          "line": 82,
           "column": 138,
           "isOutlier": false,
           "confidence": 0.77
@@ -2157,8 +2157,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.412Z",
-        "lastSeen": "2026-02-11T06:02:37.412Z",
+        "firstSeen": "2026-02-11T07:46:02.868Z",
+        "lastSeen": "2026-02-11T07:46:02.868Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -2815,8 +2815,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.418Z",
-        "lastSeen": "2026-02-11T06:02:37.418Z",
+        "firstSeen": "2026-02-11T07:46:02.874Z",
+        "lastSeen": "2026-02-11T07:46:02.874Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -3438,8 +3438,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.419Z",
-        "lastSeen": "2026-02-11T06:02:37.419Z",
+        "firstSeen": "2026-02-11T07:46:02.875Z",
+        "lastSeen": "2026-02-11T07:46:02.875Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -3466,8 +3466,8 @@
         "consistency": 0.9,
         "age": 0,
         "spread": 5,
-        "score": 0.7990697674418604,
-        "level": "medium"
+        "score": 0.9116666666666666,
+        "level": "high"
       },
       "locations": [
         {
@@ -3475,8 +3475,8 @@
           "line": 70,
           "column": 3,
           "isOutlier": true,
-          "confidence": 0.7366666666666666,
-          "outlierReason": "Value below IQR lower bound"
+          "confidence": 0.9116666666666666,
+          "outlierReason": "Value above IQR upper bound"
         },
         {
           "file": "python/helpers/document_query.py",
@@ -3516,8 +3516,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.425Z",
-        "lastSeen": "2026-02-11T06:02:37.425Z",
+        "firstSeen": "2026-02-11T07:46:02.880Z",
+        "lastSeen": "2026-02-11T07:46:02.880Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -3540,10 +3540,10 @@
         }
       },
       "confidence": {
-        "frequency": 0.5,
+        "frequency": 0.51,
         "consistency": 0.9,
         "age": 0,
-        "spread": 26,
+        "spread": 27,
         "score": 0.95,
         "level": "high"
       },
@@ -3554,6 +3554,13 @@
           "column": 39,
           "isOutlier": false,
           "confidence": 0.97
+        },
+        {
+          "file": ".serena/memories/project_overview.md",
+          "line": 62,
+          "column": 54,
+          "isOutlier": false,
+          "confidence": 0.7949999999999999
         },
         {
           "file": "agents/developer/prompts/agent.system.main.role.md",
@@ -3901,8 +3908,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.398Z",
-        "lastSeen": "2026-02-11T06:02:37.398Z",
+        "firstSeen": "2026-02-11T07:46:02.850Z",
+        "lastSeen": "2026-02-11T07:46:02.850Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -4640,8 +4647,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.398Z",
-        "lastSeen": "2026-02-11T06:02:37.398Z",
+        "firstSeen": "2026-02-11T07:46:02.850Z",
+        "lastSeen": "2026-02-11T07:46:02.851Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -4759,8 +4766,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.398Z",
-        "lastSeen": "2026-02-11T06:02:37.398Z",
+        "firstSeen": "2026-02-11T07:46:02.851Z",
+        "lastSeen": "2026-02-11T07:46:02.851Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -4940,7 +4947,7 @@
         },
         {
           "file": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
-          "line": 123,
+          "line": 121,
           "column": 44,
           "isOutlier": false,
           "confidence": 0.97
@@ -4961,21 +4968,21 @@
         },
         {
           "file": "python/helpers/memory.py",
-          "line": 308,
+          "line": 307,
           "column": 38,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/memory.py",
-          "line": 402,
+          "line": 401,
           "column": 56,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/tools/memory_save.py",
-          "line": 9,
+          "line": 8,
           "column": 32,
           "isOutlier": false,
           "confidence": 0.97
@@ -5144,8 +5151,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.406Z",
-        "lastSeen": "2026-02-11T06:02:37.406Z",
+        "firstSeen": "2026-02-11T07:46:02.859Z",
+        "lastSeen": "2026-02-11T07:46:02.859Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -5305,8 +5312,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.409Z",
-        "lastSeen": "2026-02-11T06:02:37.409Z",
+        "firstSeen": "2026-02-11T07:46:02.863Z",
+        "lastSeen": "2026-02-11T07:46:02.863Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -5339,7 +5346,7 @@
       "locations": [
         {
           "file": "README.md",
-          "line": 188,
+          "line": 182,
           "column": 67,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -5369,7 +5376,7 @@
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 188,
+          "line": 186,
           "column": 67,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -5739,8 +5746,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.413Z",
-        "lastSeen": "2026-02-11T06:02:37.413Z",
+        "firstSeen": "2026-02-11T07:46:02.869Z",
+        "lastSeen": "2026-02-11T07:46:02.869Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -5773,7 +5780,7 @@
       "locations": [
         {
           "file": "README.md",
-          "line": 293,
+          "line": 287,
           "column": 60,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -5781,7 +5788,7 @@
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 293,
+          "line": 291,
           "column": 60,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -6480,8 +6487,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.413Z",
-        "lastSeen": "2026-02-11T06:02:37.413Z",
+        "firstSeen": "2026-02-11T07:46:02.869Z",
+        "lastSeen": "2026-02-11T07:46:02.869Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -6514,7 +6521,7 @@
       "locations": [
         {
           "file": "README.md",
-          "line": 103,
+          "line": 97,
           "column": 128,
           "isOutlier": true,
           "confidence": 0.97,
@@ -6522,7 +6529,7 @@
         },
         {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 103,
+          "line": 101,
           "column": 128,
           "isOutlier": true,
           "confidence": 0.97,
@@ -6530,21 +6537,21 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 189,
+          "line": 188,
           "column": 12,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 285,
+          "line": 284,
           "column": 12,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 318,
+          "line": 317,
           "column": 16,
           "isOutlier": false,
           "confidence": 0.7949999999999999
@@ -6712,8 +6719,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.413Z",
-        "lastSeen": "2026-02-11T06:02:37.413Z",
+        "firstSeen": "2026-02-11T07:46:02.869Z",
+        "lastSeen": "2026-02-11T07:46:02.869Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -6739,14 +6746,14 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 111,
+        "spread": 110,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
         {
           "file": "README.md",
-          "line": 112,
+          "line": 106,
           "column": 95,
           "isOutlier": false,
           "confidence": 0.8825
@@ -6783,16 +6790,8 @@
           "confidence": 0.8825
         },
         {
-          "file": "docs/setup/dev-setup.md",
-          "line": 170,
-          "column": 58,
-          "isOutlier": true,
-          "confidence": 0.7366666666666666,
-          "outlierReason": "Low confidence outlier"
-        },
-        {
           "file": "knowledge/main/about/github_readme.md",
-          "line": 112,
+          "line": 110,
           "column": 95,
           "isOutlier": false,
           "confidence": 0.8825
@@ -7495,12 +7494,19 @@
           "column": 28753,
           "isOutlier": false,
           "confidence": 0.97
+        },
+        {
+          "file": "webui/vendor/ace-min/ext-inline_autocomplete.js",
+          "line": 1,
+          "column": 28767,
+          "isOutlier": false,
+          "confidence": 0.97
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.413Z",
-        "lastSeen": "2026-02-11T06:02:37.413Z",
+        "firstSeen": "2026-02-11T07:46:02.869Z",
+        "lastSeen": "2026-02-11T07:46:02.869Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -7570,42 +7576,42 @@
         },
         {
           "file": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
-          "line": 34,
+          "line": 33,
           "column": 17,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
-          "line": 92,
+          "line": 90,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
-          "line": 100,
+          "line": 98,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
-          "line": 136,
+          "line": 134,
           "column": 17,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
-          "line": 187,
+          "line": 185,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/message_loop_prompts_after/_50_recall_memories.py",
-          "line": 198,
+          "line": 196,
           "column": 13,
           "isOutlier": false,
           "confidence": 0.97
@@ -7619,91 +7625,91 @@
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 60,
+          "line": 59,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 67,
+          "line": 66,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 73,
+          "line": 72,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 78,
+          "line": 77,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 86,
+          "line": 85,
           "column": 37,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 90,
+          "line": 89,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 95,
+          "line": 94,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 126,
+          "line": 125,
           "column": 31,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 144,
+          "line": 143,
           "column": 37,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 151,
+          "line": 150,
           "column": 37,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 163,
+          "line": 162,
           "column": 25,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 190,
+          "line": 189,
           "column": 25,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/monologue_end/_50_memorize_fragments.py",
-          "line": 200,
+          "line": 199,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
@@ -7808,98 +7814,98 @@
         },
         {
           "file": "python/extensions/reasoning_stream/_10_log_from_stream.py",
-          "line": 16,
+          "line": 15,
           "column": 9,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/reasoning_stream/_10_log_from_stream.py",
-          "line": 22,
+          "line": 21,
           "column": 58,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/reasoning_stream/_10_log_from_stream.py",
-          "line": 22,
+          "line": 21,
           "column": 66,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/reasoning_stream/_10_log_from_stream.py",
-          "line": 27,
+          "line": 26,
           "column": 25,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/reasoning_stream/_10_log_from_stream.py",
-          "line": 27,
+          "line": 26,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 20,
+          "line": 19,
           "column": 9,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 22,
+          "line": 21,
           "column": 13,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 24,
+          "line": 23,
           "column": 13,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 30,
+          "line": 29,
           "column": 13,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 32,
+          "line": 31,
           "column": 13,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 39,
+          "line": 38,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 39,
+          "line": 38,
           "column": 29,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 69,
+          "line": 68,
           "column": 25,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/extensions/response_stream/_10_log_from_stream.py",
-          "line": 69,
+          "line": 68,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
@@ -7928,7 +7934,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 150,
+          "line": 149,
           "column": 5,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -7936,7 +7942,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 166,
+          "line": 165,
           "column": 9,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -7944,7 +7950,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 176,
+          "line": 175,
           "column": 17,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -7952,14 +7958,14 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 176,
+          "line": 175,
           "column": 25,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 185,
+          "line": 184,
           "column": 9,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -7967,7 +7973,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 226,
+          "line": 225,
           "column": 9,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -7975,7 +7981,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 254,
+          "line": 253,
           "column": 13,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -7983,14 +7989,14 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 254,
+          "line": 253,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 270,
+          "line": 269,
           "column": 9,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -7998,7 +8004,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 284,
+          "line": 283,
           "column": 9,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -8006,7 +8012,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 286,
+          "line": 285,
           "column": 13,
           "isOutlier": true,
           "confidence": 0.7949999999999999,
@@ -8014,7 +8020,7 @@
         },
         {
           "file": "python/helpers/log.py",
-          "line": 286,
+          "line": 285,
           "column": 66,
           "isOutlier": false,
           "confidence": 0.7949999999999999
@@ -8035,7 +8041,7 @@
         },
         {
           "file": "python/helpers/memory.py",
-          "line": 251,
+          "line": 250,
           "column": 29,
           "isOutlier": false,
           "confidence": 0.97
@@ -8063,7 +8069,7 @@
         },
         {
           "file": "python/helpers/task_scheduler.py",
-          "line": 1028,
+          "line": 1026,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.97
@@ -8098,7 +8104,7 @@
         },
         {
           "file": "python/helpers/wait.py",
-          "line": 66,
+          "line": 65,
           "column": 17,
           "isOutlier": false,
           "confidence": 0.97
@@ -8119,126 +8125,126 @@
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 106,
+          "line": 105,
           "column": 13,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 322,
+          "line": 319,
           "column": 17,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 323,
+          "line": 320,
           "column": 68,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 323,
+          "line": 320,
           "column": 76,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 339,
+          "line": 336,
           "column": 29,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 342,
+          "line": 339,
           "column": 45,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 342,
+          "line": 339,
           "column": 53,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 355,
+          "line": 352,
           "column": 17,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 356,
+          "line": 353,
           "column": 60,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 356,
+          "line": 353,
           "column": 68,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 379,
+          "line": 376,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 380,
+          "line": 377,
           "column": 64,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 380,
+          "line": 377,
           "column": 72,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 405,
+          "line": 402,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 409,
+          "line": 406,
           "column": 64,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 409,
+          "line": 406,
           "column": 72,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 426,
+          "line": 423,
           "column": 9,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/code_execution_tool.py",
-          "line": 455,
+          "line": 452,
           "column": 52,
           "isOutlier": false,
           "confidence": 0.97
@@ -8246,8 +8252,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.418Z",
-        "lastSeen": "2026-02-11T06:02:37.418Z",
+        "firstSeen": "2026-02-11T07:46:02.874Z",
+        "lastSeen": "2026-02-11T07:46:02.874Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -8996,8 +9002,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.418Z",
-        "lastSeen": "2026-02-11T06:02:37.418Z",
+        "firstSeen": "2026-02-11T07:46:02.874Z",
+        "lastSeen": "2026-02-11T07:46:02.874Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -9599,7 +9605,7 @@
         },
         {
           "file": "python/tools/browser_agent.py",
-          "line": 399,
+          "line": 398,
           "column": 46,
           "isOutlier": true,
           "confidence": 0.97,
@@ -9607,7 +9613,7 @@
         },
         {
           "file": "python/tools/notify_user.py",
-          "line": 10,
+          "line": 9,
           "column": 9,
           "isOutlier": true,
           "confidence": 0.97,
@@ -9615,14 +9621,14 @@
         },
         {
           "file": "python/tools/notify_user.py",
-          "line": 10,
+          "line": 9,
           "column": 32,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/notify_user.py",
-          "line": 40,
+          "line": 39,
           "column": 13,
           "isOutlier": true,
           "confidence": 0.97,
@@ -9630,14 +9636,14 @@
         },
         {
           "file": "python/tools/notify_user.py",
-          "line": 40,
+          "line": 39,
           "column": 19,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "python/tools/vision_load.py",
-          "line": 17,
+          "line": 16,
           "column": 14,
           "isOutlier": false,
           "confidence": 0.7658333333333334
@@ -9743,8 +9749,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.418Z",
-        "lastSeen": "2026-02-11T06:02:37.418Z",
+        "firstSeen": "2026-02-11T07:46:02.874Z",
+        "lastSeen": "2026-02-11T07:46:02.874Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -9914,7 +9920,7 @@
         },
         {
           "file": "python/helpers/strings.py",
-          "line": 120,
+          "line": 119,
           "column": 42,
           "isOutlier": true,
           "confidence": 0.97,
@@ -9922,35 +9928,35 @@
         },
         {
           "file": "python/tools/vision_load.py",
-          "line": 23,
+          "line": 22,
           "column": 33,
           "isOutlier": false,
           "confidence": 0.7658333333333334
         },
         {
           "file": "python/tools/vision_load.py",
-          "line": 25,
+          "line": 24,
           "column": 56,
           "isOutlier": false,
           "confidence": 0.7658333333333334
         },
         {
           "file": "python/tools/vision_load.py",
-          "line": 59,
+          "line": 57,
           "column": 17,
           "isOutlier": false,
           "confidence": 0.7658333333333334
         },
         {
           "file": "python/tools/vision_load.py",
-          "line": 61,
+          "line": 59,
           "column": 20,
           "isOutlier": false,
           "confidence": 0.7658333333333334
         },
         {
           "file": "python/tools/vision_load.py",
-          "line": 88,
+          "line": 86,
           "column": 25,
           "isOutlier": false,
           "confidence": 0.7658333333333334
@@ -10483,8 +10489,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.419Z",
-        "lastSeen": "2026-02-11T06:02:37.419Z",
+        "firstSeen": "2026-02-11T07:46:02.875Z",
+        "lastSeen": "2026-02-11T07:46:02.875Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -10553,8 +10559,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.419Z",
-        "lastSeen": "2026-02-11T06:02:37.419Z",
+        "firstSeen": "2026-02-11T07:46:02.875Z",
+        "lastSeen": "2026-02-11T07:46:02.875Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -10623,8 +10629,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.419Z",
-        "lastSeen": "2026-02-11T06:02:37.419Z",
+        "firstSeen": "2026-02-11T07:46:02.875Z",
+        "lastSeen": "2026-02-11T07:46:02.875Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -11007,7 +11013,7 @@
         },
         {
           "file": "tests/test_http_auth_csrf.py",
-          "line": 102,
+          "line": 101,
           "column": 38,
           "isOutlier": false,
           "confidence": 0.97
@@ -11358,8 +11364,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.421Z",
-        "lastSeen": "2026-02-11T06:02:37.421Z",
+        "firstSeen": "2026-02-11T07:46:02.877Z",
+        "lastSeen": "2026-02-11T07:46:02.877Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -11449,8 +11455,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.421Z",
-        "lastSeen": "2026-02-11T06:02:37.421Z",
+        "firstSeen": "2026-02-11T07:46:02.877Z",
+        "lastSeen": "2026-02-11T07:46:02.877Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -11624,8 +11630,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.422Z",
-        "lastSeen": "2026-02-11T06:02:37.422Z",
+        "firstSeen": "2026-02-11T07:46:02.878Z",
+        "lastSeen": "2026-02-11T07:46:02.878Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -12362,8 +12368,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.422Z",
-        "lastSeen": "2026-02-11T06:02:37.422Z",
+        "firstSeen": "2026-02-11T07:46:02.878Z",
+        "lastSeen": "2026-02-11T07:46:02.878Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -12418,8 +12424,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.425Z",
-        "lastSeen": "2026-02-11T06:02:37.425Z",
+        "firstSeen": "2026-02-11T07:46:02.879Z",
+        "lastSeen": "2026-02-11T07:46:02.879Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -13155,8 +13161,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.425Z",
-        "lastSeen": "2026-02-11T06:02:37.425Z",
+        "firstSeen": "2026-02-11T07:46:02.880Z",
+        "lastSeen": "2026-02-11T07:46:02.880Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -13520,8 +13526,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.426Z",
-        "lastSeen": "2026-02-11T06:02:37.426Z",
+        "firstSeen": "2026-02-11T07:46:02.880Z",
+        "lastSeen": "2026-02-11T07:46:02.880Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -13554,14 +13560,14 @@
       "locations": [
         {
           "file": "prompts/agent.system.tool.call_sub.py",
-          "line": 26,
+          "line": 25,
           "column": 22,
           "isOutlier": false,
           "confidence": 0.97
         },
         {
           "file": "prompts/agent.system.tool.call_sub.py",
-          "line": 26,
+          "line": 25,
           "column": 39,
           "isOutlier": false,
           "confidence": 0.97
@@ -13722,7 +13728,7 @@
         },
         {
           "file": "python/tools/search_engine.py",
-          "line": 30,
+          "line": 29,
           "column": 37,
           "isOutlier": false,
           "confidence": 0.97
@@ -14073,8 +14079,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.426Z",
-        "lastSeen": "2026-02-11T06:02:37.426Z",
+        "firstSeen": "2026-02-11T07:46:02.880Z",
+        "lastSeen": "2026-02-11T07:46:02.880Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14114,7 +14120,7 @@
         },
         {
           "file": "python/helpers/history.py",
-          "line": 531,
+          "line": 530,
           "column": 27,
           "isOutlier": false,
           "confidence": 1
@@ -14122,8 +14128,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.426Z",
-        "lastSeen": "2026-02-11T06:02:37.426Z",
+        "firstSeen": "2026-02-11T07:46:02.881Z",
+        "lastSeen": "2026-02-11T07:46:02.881Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14192,8 +14198,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.427Z",
-        "lastSeen": "2026-02-11T06:02:37.427Z",
+        "firstSeen": "2026-02-11T07:46:02.882Z",
+        "lastSeen": "2026-02-11T07:46:02.882Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14226,63 +14232,63 @@
       "locations": [
         {
           "file": "python/helpers/log.py",
-          "line": 190,
+          "line": 189,
           "column": 25,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 190,
+          "line": 189,
           "column": 38,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 190,
+          "line": 189,
           "column": 48,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 203,
+          "line": 202,
           "column": 14,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 203,
+          "line": 202,
           "column": 29,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 319,
+          "line": 318,
           "column": 22,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 319,
+          "line": 318,
           "column": 32,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 336,
+          "line": 335,
           "column": 21,
           "isOutlier": false,
           "confidence": 0.7949999999999999
         },
         {
           "file": "python/helpers/log.py",
-          "line": 338,
+          "line": 337,
           "column": 42,
           "isOutlier": false,
           "confidence": 0.7949999999999999
@@ -14346,8 +14352,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.427Z",
-        "lastSeen": "2026-02-11T06:02:37.427Z",
+        "firstSeen": "2026-02-11T07:46:02.882Z",
+        "lastSeen": "2026-02-11T07:46:02.882Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14430,8 +14436,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.882Z",
+        "lastSeen": "2026-02-11T07:46:02.882Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14493,8 +14499,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14556,8 +14562,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14598,8 +14604,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
@@ -14610,6 +14616,6 @@
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T06:27:51.687Z",
-  "checksum": "486f85af5d69fa85"
+  "lastUpdated": "2026-02-11T07:46:02.971Z",
+  "checksum": "11318b72d5b54f51"
 }

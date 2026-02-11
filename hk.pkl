@@ -43,6 +43,7 @@ local security = new Mapping<String, Step> {
 
   ["check-large-files"] {
     check = "hk util check-added-large-files --maxkb 500 {{files}}"
+    exclude = List(".drift/**")
   }
 
   ["check-merge-conflict"] {

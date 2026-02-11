@@ -1,24 +1,24 @@
 {
-  "generatedAt": "2026-02-11T06:02:37.980Z",
+  "generatedAt": "2026-02-11T07:46:03.515Z",
   "health": {
     "score": 92,
     "trend": "stable",
     "factors": [
       {
         "name": "Pattern Approval Rate",
-        "score": 0.9947159841479525,
+        "score": 0.9960369881109643,
         "weight": 0.3,
         "trend": "stable"
       },
       {
         "name": "High Confidence Patterns",
-        "score": 0.8375165125495376,
+        "score": 0.8388375165125496,
         "weight": 0.3,
         "trend": "stable"
       },
       {
         "name": "Low Outlier Rate",
-        "score": 0.9992959549411162,
+        "score": 0.9992985886753953,
         "weight": 0.4,
         "trend": "stable"
       }
@@ -26,12 +26,12 @@
   },
   "patterns": {
     "total": 757,
-    "approved": 753,
-    "discovered": 1,
+    "approved": 754,
+    "discovered": 0,
     "ignored": 3,
     "byCategory": {
-      "components": 62,
       "structural": 61,
+      "components": 62,
       "styling": 60,
       "api": 11,
       "auth": 44,
@@ -80,9 +80,9 @@
     "riskLevel": "low"
   },
   "lastScan": {
-    "timestamp": "2026-02-11T06:02:37.955Z",
-    "duration": 1007451,
-    "filesScanned": 1089,
+    "timestamp": "2026-02-11T07:46:03.490Z",
+    "duration": 1000839,
+    "filesScanned": 1091,
     "patternsFound": 757,
     "errors": 0
   }

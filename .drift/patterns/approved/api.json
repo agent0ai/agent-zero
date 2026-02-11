@@ -88,7 +88,7 @@
         },
         {
           "file": "python/helpers/memory.py",
-          "line": 138,
+          "line": 137,
           "column": 32,
           "isOutlier": false,
           "confidence": 1
@@ -179,7 +179,7 @@
         },
         {
           "file": "tests/test_http_auth_csrf.py",
-          "line": 13,
+          "line": 12,
           "column": 6,
           "isOutlier": false,
           "confidence": 1
@@ -194,8 +194,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.426Z",
-        "lastSeen": "2026-02-11T06:02:37.426Z",
+        "firstSeen": "2026-02-11T07:46:02.881Z",
+        "lastSeen": "2026-02-11T07:46:02.881Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -242,7 +242,7 @@
         },
         {
           "file": "tests/test_http_auth_csrf.py",
-          "line": 13,
+          "line": 12,
           "column": 6,
           "isOutlier": false,
           "confidence": 1
@@ -250,8 +250,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.427Z",
-        "lastSeen": "2026-02-11T06:02:37.427Z",
+        "firstSeen": "2026-02-11T07:46:02.882Z",
+        "lastSeen": "2026-02-11T07:46:02.882Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -292,8 +292,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.882Z",
+        "lastSeen": "2026-02-11T07:46:02.882Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -326,7 +326,7 @@
       "locations": [
         {
           "file": "tests/test_http_auth_csrf.py",
-          "line": 13,
+          "line": 12,
           "column": 6,
           "isOutlier": false,
           "confidence": 1
@@ -334,8 +334,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -418,7 +418,7 @@
         {
           "file": "webui/components/welcome/welcome-store.js",
           "line": 35,
-          "column": 5,
+          "column": 3,
           "isOutlier": false,
           "confidence": 1
         },
@@ -523,8 +523,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -670,8 +670,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -712,8 +712,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -754,8 +754,8 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T06:02:37.428Z",
-        "lastSeen": "2026-02-11T06:02:37.428Z",
+        "firstSeen": "2026-02-11T07:46:02.883Z",
+        "lastSeen": "2026-02-11T07:46:02.883Z",
         "source": "auto-detected",
         "tags": [
           "api",
@@ -766,6 +766,6 @@
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T06:27:51.645Z",
-  "checksum": "0ec57d5252859821"
+  "lastUpdated": "2026-02-11T07:46:02.916Z",
+  "checksum": "72f77abbbf7def02"
 }
