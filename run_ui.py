@@ -1,5 +1,20 @@
 import asyncio
 
+# Suppress known third-party deprecation warnings before any imports trigger them.
+# - SWIG warnings: faiss-cpu built with SWIG < 4.4 (fix expected in faiss 1.15.0)
+# - aiohttp warning: LiteLLM passes enable_cleanup_closed=True, unnecessary on Python 3.12.7+
+import warnings
+
+warnings.filterwarnings(
+    "ignore", message="builtin type Swig", category=DeprecationWarning
+)
+warnings.filterwarnings(
+    "ignore", message="builtin type swig", category=DeprecationWarning
+)
+warnings.filterwarnings(
+    "ignore", message="enable_cleanup_closed", category=DeprecationWarning
+)
+
 # disable logging
 import logging
 import os

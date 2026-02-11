@@ -1,4 +1,4 @@
-# Agent Zero - Tools Reference
+# Apollos AI - Tools Reference
 
 All tools extend the base `Tool` class from `python/helpers/tool.py`.
 Tools are auto-discovered from `python/tools/` (files ending in `._py` are disabled).

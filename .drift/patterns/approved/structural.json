@@ -507,14 +507,14 @@
           "confidence": 0.6533333333333333
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 10,
           "column": 13,
           "isOutlier": false,
           "confidence": 0.6533333333333333
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 10,
           "column": 33,
           "isOutlier": false,
@@ -1382,49 +1382,49 @@
           "confidence": 0.595
         },
         {
-          "file": "agents/agent0/_context.md",
+          "file": "agents/apollos/_context.md",
           "line": 3,
           "column": 19,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 12,
           "column": 19,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 2,
           "column": 17,
           "isOutlier": false,
           "confidence": 0.6699999999999999
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 3,
           "column": 22,
           "isOutlier": false,
           "confidence": 0.6699999999999999
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 5,
           "column": 8,
           "isOutlier": false,
           "confidence": 0.6699999999999999
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 7,
           "column": 1,
           "isOutlier": false,
           "confidence": 0.6699999999999999
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 12,
           "column": 84,
           "isOutlier": false,
@@ -3419,7 +3419,7 @@
           "confidence": 0.7116666666666667
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 14,
           "column": 17,
           "isOutlier": false,
@@ -8578,7 +8578,7 @@
           "confidence": 0.97
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 13,
           "column": 89,
           "isOutlier": false,
@@ -10949,14 +10949,14 @@
           "confidence": 0.7949999999999999
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 13,
           "column": 74,
           "isOutlier": false,
           "confidence": 0.87
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 13,
           "column": 111,
           "isOutlier": false,

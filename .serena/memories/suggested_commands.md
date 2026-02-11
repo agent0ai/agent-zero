@@ -75,8 +75,8 @@ uv export --no-hashes --no-dev --no-emit-project -o requirements.txt
 
 ## Docker
 ```bash
-docker build -f DockerfileLocal -t agent-zero-local .
-docker run -p 50001:80 agent-zero-local
+docker build -f DockerfileLocal -t apollos-ai-local .
+docker run -p 50001:80 apollos-ai-local
 ```
 
 ## Environment

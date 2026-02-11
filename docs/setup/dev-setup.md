@@ -1,5 +1,5 @@
-# Development manual for Agent Zero
-This guide will show you how to setup a local development environment for Agent Zero in a VS Code compatible IDE, including proper debugger.
+# Development manual for Apollos AI
+This guide will show you how to setup a local development environment for Apollos AI in a VS Code compatible IDE, including proper debugger.
 
 [![Tutorial video](./res/devguide_vid.png)](https://www.youtube.com/watch?v=KE39P4qBjDk)
 
@@ -7,7 +7,7 @@ This guide will show you how to setup a local development environment for Agent 
 > This guide is for developers and contributors. It assumes you have a basic understanding of how to use Git/GitHub, Docker, IDEs and Python.
 
 > [!NOTE]
-> - Agent Zero runs in a Docker container, this simplifies installation and ensures unified environment and behavior across systems.
+> - Apollos AI runs in a Docker container, this simplifies installation and ensures unified environment and behavior across systems.
 > - Developing and debugging in a container would be complicated though, therefore we use a hybrid approach where the python framework runs on your machine (in VS Code for example) and only connects to a Dockerized instance when it needs to execute code or use other pre-installed functionality like the built-in search engine.
 
 ## To follow this guide you will need:
@@ -25,17 +25,17 @@ This guide will show you how to setup a local development environment for Agent 
 - For Python you can choose your environment manager - base Python venv, Conda, uv...
 
 ## Step 1: Clone or download the repository
-- Agent Zero is available on GitHub [github.com/jrmatherly/agent-zero](https://github.com/jrmatherly/agent-zero).
-- You can download the files using a browser and extract or run `git clone https://github.com/jrmatherly/agent-zero` in your desired directory.
+- Apollos AI is available on GitHub [github.com/jrmatherly/apollos-ai](https://github.com/jrmatherly/apollos-ai).
+- You can download the files using a browser and extract or run `git clone https://github.com/jrmatherly/apollos-ai` in your desired directory.
 
 > [!NOTE]
-> In my case, I used `cd ~/Desktop` and `git clone https://github.com/jrmatherly/agent-zero`, so my project folder is `~/Desktop/agent-zero`.
+> In my case, I used `cd ~/Desktop` and `git clone https://github.com/jrmatherly/apollos-ai`, so my project folder is `~/Desktop/apollos-ai`.
 
 ## Step 2: Open project folder in your IDE
 - I will be using plain and clean VS Code for this example to make sure I don't skip any setup part, you can use any of it's variants like Cursor, Windsurf etc.
-- Agent Zero comes with `.vscode` folder that contains basic setup, recommended extensions, and debugger profiles. These will help us a lot.
+- Apollos AI comes with `.vscode` folder that contains basic setup, recommended extensions, and debugger profiles. These will help us a lot.
 
-1. Open your IDE and open the project folder using `File > Open Folder` and select your folder, in my case `~/Desktop/agent-zero`.
+1. Open your IDE and open the project folder using `File > Open Folder` and select your folder, in my case `~/Desktop/apollos-ai`.
 2. You will probably be prompted to trust the directory, confirm that.
 3. You should now have the project open in your IDE
 ![VS Code project](res/dev/devinst-1.png)
@@ -52,11 +52,11 @@ ms-python.python
 Now when you select one of the python files in the project, you should see proper Python syntax highlighting and error detection. It should immediately show some errors, because we did not yet install dependencies.
 ![VS Code Python](res/dev/devinst-2.png)
 
-2. Prepare the python environment to run Agent Zero in. (⚠️ This step assumes you have some Python runtime installed.) By clicking the python version in lower right corner (3.13.1 in my example), you should get a list of available environments. You can click the `+ Create Virtual Environment` button. You might be prompted to select the environment manager if you have multiple installed. I have venv and Conda, I will select Conda here. I'm also prompted for desired python version, I will select 3.12, that is known to work well.
+2. Prepare the python environment to run Apollos AI in. (⚠️ This step assumes you have some Python runtime installed.) By clicking the python version in lower right corner (3.13.1 in my example), you should get a list of available environments. You can click the `+ Create Virtual Environment` button. You might be prompted to select the environment manager if you have multiple installed. I have venv and Conda, I will select Conda here. I'm also prompted for desired python version, I will select 3.12, that is known to work well.
 ![VS Code Python environments](res/dev/devinst-3.png)
 ![VS Code Python environments](res/dev/devinst-4.png)
 
-- Your new environment should be automatically activated. If not, select it in the lower right corner. You might need to open a new terminal in VS Code to reflect the changes with `Terminal > New Terminal` or clicking the `+` button in the terminal tab. Your terminal prompt should now start with your environment name/path, in my case `(/Users/frdel/Desktop/agent-zero/.conda)` This shows the environment is active in the terminal.
+- Your new environment should be automatically activated. If not, select it in the lower right corner. You might need to open a new terminal in VS Code to reflect the changes with `Terminal > New Terminal` or clicking the `+` button in the terminal tab. Your terminal prompt should now start with your environment name/path, in my case `(/Users/frdel/Desktop/apollos-ai/.conda)` This shows the environment is active in the terminal.
 
 ![VS Code env terminal](res/dev/devinst-5.png)
 
@@ -75,8 +75,8 @@ playwright install chromium
 These will install all the python packages and browser binaries for playwright (browser agent).
 Errors in the code editor caused by missing packages should now be gone. If not, try reloading the window.
 
-## Step 4: Run Agent Zero in the IDE
-Great work! Now you should be able to run Agent Zero from your IDE including real-time debugging.
+## Step 4: Run Apollos AI in the IDE
+Great work! Now you should be able to run Apollos AI from your IDE including real-time debugging.
 It will not be able to do code execution and few other features requiring the Docker container just yet, but most of the framework will already work.
 
 1. The project is pre-configured for debugging. Go to Debugging tab, select "run_ui.py" and click the green play button (or press F5 by default). The configuration can be found at `.vscode/launch.json`.
@@ -90,7 +90,7 @@ You can also set the bind host via `"--host=0.0.0.0"` (or `WEB_UI_HOST=0.0.0.0`)
 It may take a while the first time. You should see output like the screenshot below. The RFC error is ok for now as we did not yet connect our local development to another instance in docker.
 ![First run](res/dev/devinst-7.png)
 
-After inserting my API key in settings, my Agent Zero instance works. I can send a simple message and get a response.
+After inserting my API key in settings, my Apollos AI instance works. I can send a simple message and get a response.
 ⚠️ Some tools like code execution will not work yet as they need to be connected to a Dockerized instance.
 
 ![First message](res/dev/devinst-8.png)
@@ -105,13 +105,13 @@ After inserting my API key in settings, my Agent Zero instance works. I can send
 
 ![Debugging](res/dev/devinst-10.png)
 
-## Step 5: Run another instance of Agent Zero in Docker
+## Step 5: Run another instance of Apollos AI in Docker
 - Some parts of the application require a standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
 - To make development easier, we can use an existing application instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
 
-1. Pull the docker image `ghcr.io/jrmatherly/agent-zero` from GHCR and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
+1. Pull the docker image `ghcr.io/jrmatherly/apollos-ai` from GHCR and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
 If you want, you can also map the `/a0` folder to our local project folder as well, this way we can update our local instance and the docker instance at the same time.
-This is how it looks in my example: port `80` is mapped to `8880` on the host and `22` to `8822`, `/a0` folder mapped to `/Users/frdel/Desktop/agent-zero`:
+This is how it looks in my example: port `80` is mapped to `8880` on the host and `22` to `8822`, `/a0` folder mapped to `/Users/frdel/Desktop/apollos-ai`:
 
 ![docker run](res/dev/devinst-11.png)
 ![docker run](res/dev/devinst-12.png)
@@ -133,18 +133,18 @@ My VS Code instance:
 ![VS Code instance](res/dev/devinst-13.png)
 
 ## RFC Notes (Host IDE + Docker Execution)
-Agent Zero runs code inside the container by default. If you are running the framework locally in your IDE but want tools (like code execution) to run in Docker, configure RFC in **Settings -> Development** and point it to a running Agent Zero container. This routes execution through SSH/RFC to the container while keeping the UI and agent loop on your host.
+Apollos AI runs code inside the container by default. If you are running the framework locally in your IDE but want tools (like code execution) to run in Docker, configure RFC in **Settings -> Development** and point it to a running Apollos AI container. This routes execution through SSH/RFC to the container while keeping the UI and agent loop on your host.
 
 # Congratulations!
 
-You have successfully set up a complete Agent Zero development environment! You now have:
+You have successfully set up a complete Apollos AI development environment! You now have:
 
 - A local development instance running in your IDE with full debugging capabilities
 - A dockerized instance for code execution and system operations
 - RFC and SSH communication between both instances
-- The ability to develop, debug, and test Agent Zero features seamlessly
+- The ability to develop, debug, and test Apollos AI features seamlessly
 
-You're now ready to contribute to Agent Zero, create custom extensions, or modify the framework to suit your needs. Happy coding!
+You're now ready to contribute to Apollos AI, create custom extensions, or modify the framework to suit your needs. Happy coding!
 
 ## Next steps
 - See [dependency management](dependency-management.md) for adding/removing packages, upstream merge strategy, and Docker compatibility.
@@ -181,14 +181,14 @@ See [Environment Variables Reference](../reference/environment-variables.md) for
 Build a local image from your working tree:
 
 ```bash
-docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker build -f DockerfileLocal -t apollos-ai-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 ```
 
 The `CACHE_DATE` argument is optional — it caches most of the build and only rebuilds the last steps when files change.
 
 ### Pushing to GHCR (GitHub Container Registry)
 
-Images are hosted on GHCR at `ghcr.io/jrmatherly/agent-zero` and `ghcr.io/jrmatherly/agent-zero-base`.
+Images are hosted on GHCR at `ghcr.io/jrmatherly/apollos-ai` and `ghcr.io/jrmatherly/apollos-ai-base`.
 
 **1. Create a GitHub Personal Access Token (PAT)**
 
@@ -229,7 +229,7 @@ docker buildx create --name multiarch --driver docker-container \
 **4. Build and push the base image** (from `docker/base/`):
 
 ```bash
-docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest \
+docker buildx build -t ghcr.io/jrmatherly/apollos-ai-base:latest \
   --platform linux/amd64,linux/arm64 --push \
   --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 ```
@@ -237,7 +237,7 @@ docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest \
 **5. Build and push the app image** (from `docker/run/`):
 
 ```bash
-docker buildx build -t ghcr.io/jrmatherly/agent-zero:latest \
+docker buildx build -t ghcr.io/jrmatherly/apollos-ai:latest \
   --platform linux/amd64,linux/arm64 --push \
   --build-arg BRANCH=main \
   --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .

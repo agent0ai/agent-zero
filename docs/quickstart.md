@@ -1,5 +1,5 @@
 # Quick Start
-This guide provides a quick introduction to using Agent Zero. We'll cover the essential installation steps and running your first Skill.
+This guide provides a quick introduction to using Apollos AI. We'll cover the essential installation steps and running your first Skill.
 
 ## Installation Steps
 
@@ -14,22 +14,22 @@ Download and install Docker Desktop for your operating system:
 > [!TIP]
 > For complete OS-specific installation instructions, see the [full Installation Guide](setup/installation.md#step-1-install-docker-desktop).
 
-### Step 2: Pull the Agent Zero Image
+### Step 2: Pull the Apollos AI Image
 
-Using Docker Desktop GUI, search for `ghcr.io/jrmatherly/agent-zero` and click Pull, or use the terminal:
+Using Docker Desktop GUI, search for `ghcr.io/jrmatherly/apollos-ai` and click Pull, or use the terminal:
 
 ```bash
-docker pull ghcr.io/jrmatherly/agent-zero
+docker pull ghcr.io/jrmatherly/apollos-ai
 ```
 
 ### Step 3: Run the Container
 
-**Using Docker Desktop:** Go to Images tab, click Run next to `ghcr.io/jrmatherly/agent-zero`, open Optional settings, map a host port to container port `80` (use `0` for automatic assignment), then click Run.
+**Using Docker Desktop:** Go to Images tab, click Run next to `ghcr.io/jrmatherly/apollos-ai`, open Optional settings, map a host port to container port `80` (use `0` for automatic assignment), then click Run.
 
 **Using Terminal:**
 
 ```bash
-docker run -p 0:80 ghcr.io/jrmatherly/agent-zero
+docker run -p 0:80 ghcr.io/jrmatherly/apollos-ai
 ```
 
 The container will start in a few seconds. Find the mapped port in Docker Desktop (shown as `<PORT>:80`).
@@ -38,7 +38,7 @@ The container will start in a few seconds. Find the mapped port in Docker Deskto
 
 Open your browser and navigate to `http://localhost:<PORT>`. The Web UI will show a warning banner about missing API key.
 
-![Agent Zero Web UI](res/setup/6-docker-a0-running-new.png)
+![Apollos AI Web UI](res/setup/6-docker-a0-running-new.png)
 
 Click **Add your API key** to open Settings and configure:
 
@@ -47,11 +47,11 @@ Click **Add your API key** to open Settings and configure:
 - **Model Selection:** Choose your chat model (e.g., `anthropic/claude-sonnet-4-5` for OpenRouter)
 
 > [!NOTE]
-> Agent Zero supports any LLM provider, including local models via Ollama. For detailed provider configuration and local model setup, see the [Installation Guide](setup/installation.md#choosing-your-llms).
+> Apollos AI supports any LLM provider, including local models via Ollama. For detailed provider configuration and local model setup, see the [Installation Guide](setup/installation.md#choosing-your-llms).
 
 ### Step 5: Start Your First Chat
 
-Once configured, you'll see the Agent Zero dashboard with access to:
+Once configured, you'll see the Apollos AI dashboard with access to:
 
 - **Projects** - organize your work into projects
 - **Memory** - open the memory dashboard
@@ -60,9 +60,9 @@ Once configured, you'll see the Agent Zero dashboard with access to:
 - **Settings** - configure models and preferences
 - **System Stats** - monitor resource usage
 
-Click **New Chat** to start creating with Agent Zero!
+Click **New Chat** to start creating with Apollos AI!
 
-![Agent Zero Dashboard](res/quickstart/ui_newchat1.png)
+![Apollos AI Dashboard](res/quickstart/ui_newchat1.png)
 
 > [!TIP]
 > The Web UI provides a comprehensive chat actions dropdown with options for managing conversations, including creating new chats, resetting, saving/loading, and many more advanced features. Chats are saved in JSON format in the `/usr/chats` directory.
@@ -72,10 +72,10 @@ Click **New Chat** to start creating with Agent Zero!
 ---
 
 ## Example Interaction
-Let's ask Agent Zero to use one of the built-in skills. Here's how:
+Let's ask Apollos AI to use one of the built-in skills. Here's how:
 
 1. Type "Activate your brainstorming skill" in the chat input field and press Enter or click the send button.
-2. Agent Zero will process your request. You'll see its thoughts and tool calls in the UI.
+2. Apollos AI will process your request. You'll see its thoughts and tool calls in the UI.
 3. The agent will acknowledge the skill activation and ask you for a follow-up on the brainstorming request.
 
 Here's an example of what you might see in the Web UI at step 3:
@@ -83,7 +83,7 @@ Here's an example of what you might see in the Web UI at step 3:
 ![1](res/quickstart/image-24.png)
 
 ## Next Steps
-Now that you've run a simple task, you can experiment with more complex requests. Try asking Agent Zero to:
+Now that you've run a simple task, you can experiment with more complex requests. Try asking Apollos AI to:
 
 - Connect to your email
 - Execute shell commands

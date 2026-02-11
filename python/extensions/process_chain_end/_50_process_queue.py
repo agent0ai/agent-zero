@@ -9,7 +9,7 @@ class ProcessQueue(Extension):
     """Process queued messages after monologue ends."""
 
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-        # Only process for agent0 (main agent)
+        # Only process for apollos (main agent)
         if self.agent.number != 0:
             return
 

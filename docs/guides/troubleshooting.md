@@ -1,9 +1,9 @@
 # Troubleshooting and FAQ
-This page addresses frequently asked questions (FAQ) and provides troubleshooting steps for common issues encountered while using Agent Zero.
+This page addresses frequently asked questions (FAQ) and provides troubleshooting steps for common issues encountered while using Apollos AI.
 
 ## Frequently Asked Questions
-**1. How do I ask Agent Zero to work directly on my files or dirs?**
-- Place the files/dirs in `/a0/usr`. Agent Zero will be able to perform tasks on them.
+**1. How do I ask Apollos AI to work directly on my files or dirs?**
+- Place the files/dirs in `/a0/usr`. Apollos AI will be able to perform tasks on them.
 
 **2. When I input something in the chat, nothing happens. What's wrong?**
 - Check if you have set up API keys in the Settings page. If not, the application cannot call LLM providers.
@@ -17,14 +17,14 @@ This page addresses frequently asked questions (FAQ) and provides troubleshootin
 **5. Where is chat history stored?**
 - Chat history lives at `/a0/usr/chats/` inside the container.
 
-**6. How do I integrate open-source models with Agent Zero?**
+**6. How do I integrate open-source models with Apollos AI?**
 Refer to the [Choosing your LLMs](../setup/installation.md#installing-and-using-ollama-local-models) section for configuring local models (Ollama, LM Studio, etc.).
 
 > [!TIP]
 > Some LLM providers offer free usage tiers, for example Groq, Mistral, SambaNova, or CometAPI.
 
-**7. How can I make Agent Zero retain memory between sessions?**
-Use **Settings → Backup & Restore** and avoid mapping the entire `/a0` directory. See [How to update Agent Zero](../setup/installation.md#how-to-update-agent-zero).
+**7. How can I make Apollos AI retain memory between sessions?**
+Use **Settings → Backup & Restore** and avoid mapping the entire `/a0` directory. See [How to update Apollos AI](../setup/installation.md#how-to-update-apollos-ai).
 
 **8. My browser agent fails or is unreliable. What now?**
 The built-in browser agent is currently unstable on some systems. Use Skills or MCP alternatives such as Browser OS, Chrome DevTools, or Vercel's Agent Browser. See [MCP Setup](mcp-setup.md).
@@ -32,18 +32,15 @@ The built-in browser agent is currently unstable on some systems. Use Skills or 
 **9. My secrets disappeared after a backup restore.**
 Secrets are stored in `/a0/usr/secrets.env` and are not always included in backup archives. Copy them manually.
 
-**10. Where can I find more documentation or tutorials?**
-- Join the Agent Zero [Skool](https://www.skool.com/agent-zero) or [Discord](https://discord.gg/B8KZKNsPpj) community.
-
-**11. How do I adjust API rate limits?**
+**10. How do I adjust API rate limits?**
 Use the model rate limit fields in Settings (Chat/Utility/Browser model sections) to set request/input/output limits. These map to the model config limits (for example `limit_requests`, `limit_input`, `limit_output`).
 
-**12. My `code_execution_tool` doesn't work, what's wrong?**
+**11. My `code_execution_tool` doesn't work, what's wrong?**
 - Ensure Docker is installed and running.
 - On macOS, grant Docker Desktop access to your project files.
 - Verify that the Docker image is updated.
 
-**13. Can Agent Zero interact with external APIs or services (e.g., WhatsApp)?**
+**12. Can Apollos AI interact with external APIs or services (e.g., WhatsApp)?**
 Yes, by creating custom tools or using MCP servers. See [Extensions](../developer/extensions.md) and [MCP Setup](mcp-setup.md).
 
 ## Troubleshooting
@@ -58,4 +55,4 @@ Yes, by creating custom tools or using MCP servers. See [Extensions](../develope
 
 - **Error Messages:** Pay close attention to the error messages displayed in the Web UI or terminal.  They often provide valuable clues for diagnosing the issue. Refer to the specific error message in online searches or community forums for potential solutions.
 
-- **Performance Issues:** If Agent Zero is slow or unresponsive, it might be due to resource limitations, network latency, or the complexity of your prompts and tasks, especially when using local models.
+- **Performance Issues:** If Apollos AI is slow or unresponsive, it might be due to resource limitations, network latency, or the complexity of your prompts and tasks, especially when using local models.

@@ -1,10 +1,10 @@
 # A2A Server Setup
 
-Agent Zero can communicate with other Agent Zero instances using the A2A (Agent-to-Agent) protocol based on FastA2A. This guide shows you how to enable and configure A2A connectivity through the Settings UI.
+Apollos AI can communicate with other Apollos AI instances using the A2A (Agent-to-Agent) protocol based on FastA2A. This guide shows you how to enable and configure A2A connectivity through the Settings UI.
 
 ## What is A2A?
 
-A2A enables direct communication between multiple Agent Zero instances. This allows:
+A2A enables direct communication between multiple Apollos AI instances. This allows:
 
 - **Distributed workflows** - Delegate tasks to specialized agent instances
 - **Context isolation** - Maintain separate workspaces for different agents
@@ -12,7 +12,7 @@ A2A enables direct communication between multiple Agent Zero instances. This all
 - **Project-specific delegation** - Route work to agents with specific project contexts
 
 > [!NOTE]
-> This guide covers enabling Agent Zero as an A2A server. For API-level integration details, see the [advanced connectivity documentation](../developer/connectivity.md).
+> This guide covers enabling Apollos AI as an A2A server. For API-level integration details, see the [advanced connectivity documentation](../developer/connectivity.md).
 
 ## Enabling the A2A Server
 
@@ -41,7 +41,7 @@ A2A enables direct communication between multiple Agent Zero instances. This all
 2. The A2A server is now active and ready to accept connections
 
 > [!IMPORTANT]
-> The API token changes when you update your Agent Zero credentials. Existing connections will need to be reconfigured with the new token.
+> The API token changes when you update your Apollos AI credentials. Existing connections will need to be reconfigured with the new token.
 
 ## Connection URL Format
 
@@ -68,7 +68,7 @@ When a project is specified:
 
 ### 1. Local Development Setup
 
-Two Agent Zero instances on the same machine:
+Two Apollos AI instances on the same machine:
 
 ```
 Instance 1: http://localhost:8080/a2a/t-abc123xyz
@@ -77,7 +77,7 @@ Instance 2: http://localhost:8081/a2a/t-def456uvw
 
 ### 2. Remote Agent Collaboration
 
-Connect to a remote Agent Zero instance:
+Connect to a remote Apollos AI instance:
 
 ```
 http://agent.example.com:8080/a2a/t-remote-token
@@ -93,15 +93,15 @@ http://localhost:8081/a2a/t-frontend-token/p-webapp-ui
 
 ## Docker Networking
 
-If running Agent Zero in Docker:
+If running Apollos AI in Docker:
 
 - **Same Host:** Use `host.docker.internal:PORT` (macOS/Windows) or container networking (Linux)
 - **Different Hosts:** Use the public IP or domain name of the target instance
-- **Port Mapping:** Ensure the Agent Zero port is exposed in your Docker configuration
+- **Port Mapping:** Ensure the Apollos AI port is exposed in your Docker configuration
 
 ## Security Considerations
 
-- **Token Protection:** Keep your API tokens secure - they provide full access to your Agent Zero instance
+- **Token Protection:** Keep your API tokens secure - they provide full access to your Apollos AI instance
 - **Network Access:** Consider using firewalls or reverse proxies to restrict A2A endpoint access
 - **HTTPS:** For production deployments, use HTTPS to encrypt A2A communication
 - **Credential Rotation:** Changing your password will invalidate all existing A2A connection URLs
@@ -133,7 +133,7 @@ curl -X POST http://localhost:8080/a2a/t-YOUR_TOKEN \
 ### Connection Refused
 
 - Verify the A2A server is enabled in Settings
-- Check that the Agent Zero instance is running
+- Check that the Apollos AI instance is running
 - Confirm the port is accessible (check firewall rules)
 
 ### Invalid Token

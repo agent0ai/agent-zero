@@ -10,7 +10,7 @@ class ReindexKnowledge(ApiHandler):
         context = self.use_context(ctxid)
 
         # reload memory to re-import knowledge
-        await memory.Memory.reload(context.agent0)
+        await memory.Memory.reload(context.apollos)
         context.log.set_initial_progress()
 
         return {

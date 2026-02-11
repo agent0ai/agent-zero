@@ -1,8 +1,8 @@
 ---
 name: "create-skill"
-description: "Wizard for creating new Agent Zero skills. Guides users through creating well-structured SKILL.md files. Use when users want to create custom skills."
+description: "Wizard for creating new Apollos AI skills. Guides users through creating well-structured SKILL.md files. Use when users want to create custom skills."
 version: "1.0.0"
-author: "Agent Zero Team"
+author: "Apollos AI Team"
 tags: ["meta", "wizard", "creation", "tutorial", "skills"]
 trigger_patterns:
   - "create skill"
@@ -14,7 +14,7 @@ trigger_patterns:
 
 # Create Skill Wizard
 
-This skill helps you create new Agent Zero skills that follow the SKILL.md standard.
+This skill helps you create new Apollos AI skills that follow the SKILL.md standard.
 
 ## Quick Start
 
@@ -181,7 +181,7 @@ mkdir -p /a0/usr/skills/my-skill/{scripts,templates,docs}
 name: "python-optimizer"
 description: "Optimize Python code for performance and readability. Use when asked to improve or optimize Python code."
 version: "1.0.0"
-author: "Agent Zero Team"
+author: "Apollos AI Team"
 tags: ["python", "optimization", "performance"]
 trigger_patterns:
   - "optimize python"

@@ -59,7 +59,7 @@ commit_parsers = [
 ]
 
 link_parsers = [
-    { pattern = "#(\\d+)", href = "https://github.com/jrmatherly/agent-zero/issues/$1" },
+    { pattern = "#(\\d+)", href = "https://github.com/jrmatherly/apollos-ai/issues/$1" },
 ]
 
 [bump]
@@ -70,5 +70,5 @@ initial_tag = "0.1.0"
 # Uncomment and set GITHUB_TOKEN to enable PR/issue enrichment:
 # [remote.github]
 # owner = "jrmatherly"
-# repo = "agent-zero"
+# repo = "apollos-ai"
 # token = ""

@@ -1,4 +1,4 @@
-# Agent Zero - Extensions System Reference
+# Apollos AI - Extensions System Reference
 
 ## How Extensions Work
 

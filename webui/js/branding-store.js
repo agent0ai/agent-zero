@@ -3,8 +3,8 @@ import { createStore } from "/js/AlpineStore.js";
 const model = {
   name: "Apollos AI",
   slug: "apollos-ai",
-  url: "https://apollos.ai",
-  github_url: "https://github.com/jrmatherly/agent-zero",
+  url: "https://matherly.net",
+  github_url: "https://github.com/jrmatherly/apollos-ai",
   _initialized: false,
 
   async init() {

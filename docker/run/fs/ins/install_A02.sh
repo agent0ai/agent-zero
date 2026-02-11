@@ -5,7 +5,7 @@ set -e
 
 # remove repo (if not local branch)
 if [ "$1" != "local" ]; then
-    rm -rf /git/agent-zero
+    rm -rf /git/apollos-ai
 fi
 
 # run the original install script again

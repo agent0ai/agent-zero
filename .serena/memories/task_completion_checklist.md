@@ -1,6 +1,6 @@
 # Task Completion Checklist
 
-When completing a development task on Agent Zero:
+When completing a development task on Apollos AI:
 
 ## Code Quality
 1. **Run linter**: `mise run lint` (Ruff for Python, Biome for CSS)

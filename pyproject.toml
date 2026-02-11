@@ -1,6 +1,6 @@
 [project]
-name = "agent-zero"
-version = "0.1.0"
+name = "apollos-ai"
+version = "0.2.0"
 description = "Personal organic agentic AI framework"
 readme = "README.md"
 license = "MIT"

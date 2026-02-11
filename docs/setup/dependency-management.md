@@ -1,6 +1,6 @@
 # Dependency Management
 
-Agent Zero uses [uv](https://docs.astral.sh/uv/) for dependency management with `pyproject.toml` as the single source of truth.
+Apollos AI uses [uv](https://docs.astral.sh/uv/) for dependency management with `pyproject.toml` as the single source of truth.
 
 ## File Roles
 
@@ -74,7 +74,7 @@ Since `requirements.txt` is generated from the lockfile with all transitive deps
 
 ## Upstream Merge Strategy
 
-This repo is a fork of [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero), maintained at [jrmatherly/agent-zero](https://github.com/jrmatherly/agent-zero). The upstream project still uses a plain `requirements.txt`. When merging upstream changes:
+This repo is a fork of [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero), maintained at [jrmatherly/apollos-ai](https://github.com/jrmatherly/apollos-ai). The upstream project still uses a plain `requirements.txt`. When merging upstream changes:
 
 1. **Accept their `requirements.txt` changes** — let git take upstream's version (it will be overwritten).
 2. **Update `pyproject.toml`** — add any new packages or version changes from their `requirements.txt` into the `[project] dependencies` list.

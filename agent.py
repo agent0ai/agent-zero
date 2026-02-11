@@ -56,7 +56,7 @@ class AgentContext:
         config: "AgentConfig",
         id: str | None = None,
         name: str | None = None,
-        agent0: "Agent|None" = None,
+        apollos: "Agent|None" = None,
         log: Log.Log | None = None,
         paused: bool = False,
         streaming_agent: "Agent|None" = None,
@@ -97,7 +97,7 @@ class AgentContext:
         self.last_message = last_message or datetime.now(timezone.utc)
 
         # initialize agent at last (context is complete now)
-        self.agent0 = agent0 or Agent(0, self.config, self)
+        self.apollos = apollos or Agent(0, self.config, self)
 
     @staticmethod
     def get(id: str):
@@ -229,7 +229,7 @@ class AgentContext:
     def reset(self):
         self.kill_process()
         self.log.reset()
-        self.agent0 = Agent(0, self.config, self)
+        self.apollos = Agent(0, self.config, self)
         self.streaming_agent = None
         self.paused = False
 
@@ -237,12 +237,12 @@ class AgentContext:
         self.kill_process()
         self.paused = False
         self.task = self.communicate(
-            UserMessage(self.agent0.read_prompt("fw.msg_nudge.md"))
+            UserMessage(self.apollos.read_prompt("fw.msg_nudge.md"))
         )
         return self.task
 
     def get_agent(self):
-        return self.streaming_agent or self.agent0
+        return self.streaming_agent or self.apollos
 
     def is_running(self) -> bool:
         return (self.task and self.task.is_alive()) or False
@@ -370,7 +370,7 @@ class Agent:
         self.config = config
 
         # agent context
-        self.context = context or AgentContext(config=config, agent0=self)
+        self.context = context or AgentContext(config=config, apollos=self)
 
         # non-config vars
         self.number = number

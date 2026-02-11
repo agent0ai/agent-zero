@@ -1,4 +1,4 @@
-# Agent Zero - API Reference
+# Apollos AI - API Reference
 
 All API handlers extend `ApiHandler` from `python/helpers/api.py`.
 Handlers are auto-discovered from `python/api/` folder.

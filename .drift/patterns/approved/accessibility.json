@@ -73,7 +73,7 @@
           "confidence": 0.6824999999999999
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 11,
           "column": 21,
           "isOutlier": false,
@@ -787,14 +787,14 @@
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 13,
           "column": 1,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 9,
           "column": 1,
           "isOutlier": false,
@@ -1208,7 +1208,7 @@
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/_context.md",
+          "file": "agents/apollos/_context.md",
           "line": 2,
           "column": 3,
           "isOutlier": false,
@@ -1873,14 +1873,14 @@
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 13,
           "column": 1,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 9,
           "column": 1,
           "isOutlier": false,
@@ -8285,7 +8285,7 @@
       },
       "locations": [
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 5,
           "column": 32,
           "isOutlier": false,
@@ -9035,7 +9035,7 @@
       },
       "locations": [
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 11,
           "column": 26,
           "isOutlier": false,

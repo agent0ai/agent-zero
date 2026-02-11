@@ -1,6 +1,6 @@
 # Use the pre-built base image for A0
-# FROM agent-zero-base:local
-FROM ghcr.io/jrmatherly/agent-zero-base:latest
+# FROM apollos-ai-base:local
+FROM ghcr.io/jrmatherly/apollos-ai-base:latest
 
 # Set BRANCH to "local" if not provided
 ARG BRANCH=local
@@ -9,7 +9,7 @@ ENV BRANCH=$BRANCH
 # Copy filesystem files to root
 COPY ./docker/run/fs/ /
 # Copy current development files to git, they will only be used in "local" branch
-COPY ./ /git/agent-zero
+COPY ./ /git/apollos-ai
 
 # pre installation steps
 RUN bash /ins/pre_install.sh $BRANCH

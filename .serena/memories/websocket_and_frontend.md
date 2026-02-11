@@ -1,4 +1,4 @@
-# Agent Zero - WebSocket & Frontend Reference
+# Apollos AI - WebSocket & Frontend Reference
 
 ## WebSocket Architecture
 

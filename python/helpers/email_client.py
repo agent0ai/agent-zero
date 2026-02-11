@@ -520,7 +520,7 @@ class EmailClient:
         """
         Save attachment to disk and return absolute path.
 
-        Uses Agent Zero's file helpers for path management.
+        Uses Apollos AI's file helpers for path management.
         """
         # Sanitize filename
         filename = files.safe_file_name(filename)

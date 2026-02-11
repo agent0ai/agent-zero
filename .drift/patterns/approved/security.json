@@ -1270,7 +1270,7 @@
           "confidence": 0.6078048780487806
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 9,
           "column": 30,
           "isOutlier": false,
@@ -3566,7 +3566,7 @@
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 5,
           "column": 1,
           "isOutlier": false,
@@ -19165,7 +19165,7 @@
       },
       "locations": [
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 5,
           "column": 32,
           "isOutlier": false,

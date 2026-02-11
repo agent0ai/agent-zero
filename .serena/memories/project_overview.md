@@ -1,7 +1,7 @@
-# Agent Zero - Project Overview
+# Apollos AI - Project Overview
 
 ## Purpose
-Agent Zero is a personal, organic agentic AI framework that grows and learns with the user. It is a general-purpose AI assistant that uses the computer as a tool—writing code, executing terminal commands, browsing the web, managing memory, and cooperating with subordinate agent instances.
+Apollos AI is a personal, organic agentic AI framework that grows and learns with the user. It is a general-purpose AI assistant that uses the computer as a tool—writing code, executing terminal commands, browsing the web, managing memory, and cooperating with subordinate agent instances.
 
 ## Tech Stack
 - **Language**: Python 3.12+ (backend), vanilla JS + Alpine.js (frontend)
@@ -57,8 +57,8 @@ Agent Zero is a personal, organic agentic AI framework that grows and learns wit
 - **Prompt-driven**: Behavior is defined by prompts in `prompts/` folder, fully customizable
 
 ## GitHub
-- **Remote**: `jrmatherly/agent-zero` (fork of `agent0ai/agent-zero`)
-- **Container Registry**: GHCR (`ghcr.io/jrmatherly/agent-zero`, `ghcr.io/jrmatherly/agent-zero-base`)
+- **Remote**: `jrmatherly/apollos-ai` (fork of `agent0ai/agent-zero`)
+- **Container Registry**: GHCR (`ghcr.io/jrmatherly/apollos-ai`, `ghcr.io/jrmatherly/apollos-ai-base`)
 - **CI/CD Workflows**:
   - `ci.yml` — Lint + format + test (parallel jobs); paths-ignore, concurrency, uv cache
   - `drift.yml` — Codebase pattern analysis (push to main, manual dispatch, weekly)

@@ -1,11 +1,11 @@
-# Project Index: Agent Zero
+# Project Index: Apollos AI
 
 Generated: 2026-02-11
 
 ## Project Overview
 
 Personal organic agentic AI framework that grows and learns with the user.
-Fork of [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero), maintained at [jrmatherly/agent-zero](https://github.com/jrmatherly/agent-zero).
+Fork of [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero), maintained at [jrmatherly/apollos-ai](https://github.com/jrmatherly/apollos-ai).
 
 - **Language**: Python 3.12+ (backend), vanilla JS + Alpine.js (frontend)
 - **Server**: Flask + uvicorn + python-socketio (ASGI)
@@ -16,7 +16,7 @@ Fork of [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero), maintaine
 ## Project Structure
 
 ```text
-agent-zero/
+apollos-ai/
 ├── agent.py              # Core Agent class (monologue loop)
 ├── models.py             # LiteLLM multi-provider model config
 ├── initialize.py         # Agent initialization from settings
@@ -52,7 +52,7 @@ agent-zero/
 │   ├── js/               # Core JS utilities
 │   ├── css/              # Stylesheets
 │   └── vendor/           # Ace editor, Alpine.js, Socket.IO, etc.
-├── agents/               # 6 agent profiles (default, agent0, developer, hacker, researcher, _example)
+├── agents/               # 6 agent profiles (default, apollos, developer, hacker, researcher, _example)
 ├── skills/               # Skill definitions (create-skill template)
 ├── knowledge/            # Knowledge base (main + solutions)
 ├── tests/                # 28 test files (pytest + pytest-asyncio)
@@ -265,7 +265,7 @@ Run: `pytest tests/`
 | Profile | Description |
 |---------|-------------|
 | `default` | Base agent with standard capabilities |
-| `agent0` | Core Agent Zero personality |
+| `apollos` | Core Apollos AI personality |
 | `developer` | Software development focused |
 | `hacker` | Security/hacking oriented |
 | `researcher` | Research and analysis focused |
@@ -288,4 +288,4 @@ Run: `pytest tests/`
 - Disabled files: `._py` suffix
 - Prompt templates: `{{ include }}` and `{{variable}}` syntax
 - Commits: Conventional Commits format (enforced by hk commit-msg hook)
-- GitHub remote: `jrmatherly/agent-zero` (fork of `agent0ai/agent-zero`)
+- GitHub remote: `jrmatherly/apollos-ai` (fork of `agent0ai/agent-zero`)

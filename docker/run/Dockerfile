@@ -1,7 +1,7 @@
 # Use the pre-built base image for A0
-# FROM agent-zero-base:local
-# FROM ghcr.io/jrmatherly/agent-zero-base:testing
-FROM ghcr.io/jrmatherly/agent-zero-base:latest
+# FROM apollos-ai-base:local
+# FROM ghcr.io/jrmatherly/apollos-ai-base:testing
+FROM ghcr.io/jrmatherly/apollos-ai-base:latest
 
 # Check if the argument is provided, else throw an error
 ARG BRANCH

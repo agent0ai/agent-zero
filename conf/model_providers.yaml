@@ -1,4 +1,4 @@
-# Supported model providers for Agent Zero
+# Supported model providers for Apollos AI
 # ---------------------------------------
 #
 # Each provider type ("chat", "embedding") contains a mapping of provider IDs
@@ -17,23 +17,25 @@
 #                     This is useful for `api_base`, `extra_headers`, etc.
 
 chat:
-  # Upstream Agent Zero community LLM proxy — URL is a third-party service, not brandable
-  a0_venice:
-    name: Community LLM Proxy
-    litellm_provider: openai
+  # Upstream Apollos AI community LLM proxy — URL is a third-party service, not brandable
+  litellm_proxy:
+    name: LiteLLM Proxy
+    litellm_provider: litellm_proxy
     kwargs:
-      api_base: https://llm.agent-zero.ai/v1
-      venice_parameters:
-        include_venice_system_prompt: false
+      api_base: http://localhost:4000/v1
+      drop_params: true
   anthropic:
     name: Anthropic
     litellm_provider: anthropic
+  azure:
+    name: Azure OpenAI
+    litellm_provider: azure
+  openai:
+    name: OpenAI
+    litellm_provider: openai
   cometapi:
     name: CometAPI
     litellm_provider: cometapi
-  deepseek:
-    name: DeepSeek
-    litellm_provider: deepseek
   github_copilot:
     name: GitHub Copilot
     litellm_provider: github_copilot
@@ -48,114 +50,112 @@ chat:
   groq:
     name: Groq
     litellm_provider: groq
-  huggingface:
-    name: HuggingFace
-    litellm_provider: huggingface
+  other:
+    name: Other OpenAI compatible
+    litellm_provider: openai
+    kwargs:
+      drop_params: true
   lm_studio:
     name: LM Studio
     litellm_provider: lm_studio
-  mistral:
-    name: Mistral AI
-    litellm_provider: mistral
-  moonshot:
-    name: Moonshot AI
-    litellm_provider: moonshot
   ollama:
     name: Ollama
     litellm_provider: ollama
-  openai:
-    name: OpenAI
-    litellm_provider: openai
-  azure:
-    name: OpenAI Azure
-    litellm_provider: azure
-  bedrock:
-    name: AWS Bedrock
-    litellm_provider: bedrock
-  openrouter:
-    name: OpenRouter
-    litellm_provider: openrouter
-    kwargs:
-      extra_headers:
-        "HTTP-Referer": "https://matherly.net/"
-        "X-Title": "Apollos AI"
-  sambanova:
-    name: Sambanova
-    litellm_provider: sambanova
-  venice:
-    name: Venice.ai
-    litellm_provider: openai
-    kwargs:
-      api_base: https://api.venice.ai/api/v1
-      venice_parameters:
-        include_venice_system_prompt: false
-  xai:
-    name: xAI
-    litellm_provider: xai
-  zai:
-    name: Z.AI
-    litellm_provider: openai
-    kwargs:
-      api_base: https://api.z.ai/api/paas/v4
-  zai_coding:
-    name: Z.AI Coding
-    litellm_provider: openai
-    kwargs:
-      api_base: https://api.z.ai/api/coding/paas/v4
+#  a0_venice:
+#    name: Community LLM Proxy
+#    litellm_provider: openai
+#    kwargs:
+#      api_base: https://llm.apollos-ai.ai/v1
+#      venice_parameters:
+#        include_venice_system_prompt: false
+#  deepseek:
+#    name: DeepSeek
+#    litellm_provider: deepseek
+#  huggingface:
+#    name: HuggingFace
+#    litellm_provider: huggingface
+#  mistral:
+#    name: Mistral AI
+#    litellm_provider: mistral
+#  moonshot:
+#    name: Moonshot AI
+#    litellm_provider: moonshot
+#  openrouter:
+#    name: OpenRouter
+#    litellm_provider: openrouter
+#    kwargs:
+#      extra_headers:
+#        "HTTP-Referer": "https://matherly.net/"
+#        "X-Title": "Apollos AI"
+#  bedrock:
+#    name: AWS Bedrock
+#    litellm_provider: bedrock
+#  sambanova:
+#    name: Sambanova
+#    litellm_provider: sambanova
+#  venice:
+#    name: Venice.ai
+#    litellm_provider: openai
+#    kwargs:
+#      api_base: https://api.venice.ai/api/v1
+#      venice_parameters:
+#        include_venice_system_prompt: false
+#  xai:
+#    name: xAI
+#    litellm_provider: xai
+#  zai:
+#    name: Z.AI
+#    litellm_provider: openai
+#    kwargs:
+#      api_base: https://api.z.ai/api/paas/v4
+#  zai_coding:
+#    name: Z.AI Coding
+#    litellm_provider: openai
+#    kwargs:
+#      api_base: https://api.z.ai/api/coding/paas/v4
+
+embedding:
   litellm_proxy:
     name: LiteLLM Proxy
     litellm_provider: litellm_proxy
     kwargs:
       api_base: http://localhost:4000/v1
       drop_params: true
-  other:
-    name: Other OpenAI compatible
+  azure:
+    name: OpenAI Azure
+    litellm_provider: azure
+  openai:
+    name: OpenAI
     litellm_provider: openai
-    kwargs:
-      drop_params: true
-
-embedding:
-  huggingface:
-    name: HuggingFace
-    litellm_provider: huggingface
   google:
     name: Google
     litellm_provider: gemini
   lm_studio:
     name: LM Studio
     litellm_provider: lm_studio
-  mistral:
-    name: Mistral AI
-    litellm_provider: mistral
   ollama:
     name: Ollama
     litellm_provider: ollama
-  openai:
-    name: OpenAI
-    litellm_provider: openai
-  azure:
-    name: OpenAI Azure
-    litellm_provider: azure
-  bedrock:
-    name: AWS Bedrock
-    litellm_provider: bedrock
-  # TODO: OpenRouter not yet supported by LiteLLM, replace with native litellm_provider openrouter and remove api_base when ready
-  openrouter:
-    name: OpenRouter
-    litellm_provider: openai
-    kwargs:
-      api_base: https://openrouter.ai/api/v1
-      extra_headers:
-        "HTTP-Referer": "https://matherly.net/"
-        "X-Title": "Apollos AI"
-  litellm_proxy:
-    name: LiteLLM Proxy
-    litellm_provider: litellm_proxy
-    kwargs:
-      api_base: http://localhost:4000/v1
-      drop_params: true
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
     kwargs:
       drop_params: true
+#  huggingface:
+#    name: HuggingFace
+#    litellm_provider: huggingface
+#  mistral:
+#    name: Mistral AI
+#    litellm_provider: mistral
+#  bedrock:
+#    name: AWS Bedrock
+#    litellm_provider: bedrock
+#  # TODO: OpenRouter not yet supported by LiteLLM, replace with native litellm_provider openrouter and remove api_base when ready
+#  openrouter:
+#    name: OpenRouter
+#    litellm_provider: openai
+#    kwargs:
+#      api_base: https://openrouter.ai/api/v1
+#      extra_headers:
+#        "HTTP-Referer": "https://matherly.net/"
+#        "X-Title": "Apollos AI"

@@ -1167,7 +1167,7 @@
       "957fb5b33b487807",
       "204b0fb17404a5ed"
     ],
-    "agents/agent0/prompts/agent.system.tool.response.md": [
+    "agents/apollos/prompts/agent.system.tool.response.md": [
       "7459826f35a59bd3",
       "04f4110432505998",
       "bf137d4e15973b09",
@@ -1830,13 +1830,13 @@
       "957fb5b33b487807",
       "4562c1e5d097ab23"
     ],
-    "agents/agent0/_context.md": [
+    "agents/apollos/_context.md": [
       "04f4110432505998",
       "05bfb33d368fb38c",
       "1ee52c15a90e9f82",
       "5bca6a43b463f3a2"
     ],
-    "agents/agent0/prompts/agent.system.main.role.md": [
+    "agents/apollos/prompts/agent.system.main.role.md": [
       "04f4110432505998",
       "601029c6db2e54ed",
       "05bfb33d368fb38c",

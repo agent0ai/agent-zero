@@ -15,7 +15,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Agent Zero Version
+      label: Apollos AI Version
       placeholder: e.g., v0.8.1 or commit hash
     validations:
       required: true

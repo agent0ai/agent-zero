@@ -1,12 +1,12 @@
 # Working with Projects
 
-Projects are one of Agent Zero's most powerful features for organizing your work. They create isolated workspaces with dedicated context, instructions, memory, and secrets - preventing context bleed between unrelated tasks or clients.
+Projects are one of Apollos AI's most powerful features for organizing your work. They create isolated workspaces with dedicated context, instructions, memory, and secrets - preventing context bleed between unrelated tasks or clients.
 
 This tutorial will guide you through creating, configuring, and using projects effectively.
 
 ## What Are Projects?
 
-A project in Agent Zero is an isolated workspace that includes:
+A project in Apollos AI is an isolated workspace that includes:
 
 - **Dedicated folder structure** under `/a0/usr/projects/<project_name>/`
 - **Custom instructions** automatically injected into the agent's system prompt
@@ -55,13 +55,13 @@ The wizard includes:
 
 ### Creating a Git-Based Project
 
-Agent Zero's **Git Projects** feature allows you to clone repositories directly into your project workspace:
+Apollos AI's **Git Projects** feature allows you to clone repositories directly into your project workspace:
 
 1. In the creation form, enter a Git repository URL in the **Git Repository** field
    - Supports both public and private repositories
    - For private repositories, you can provide an authentication token
 2. Click **"Create and continue"**
-3. Agent Zero will clone the repository
+3. Apollos AI will clone the repository
 
 ![Git Clone Progress](../res/usage/projects/projects-gitprojects-clone.png)
 
@@ -80,7 +80,7 @@ After cloning completes, you'll see:
 - Last commit information
 
 > [!NOTE]
-> If the cloned repository already contains a `.a0proj/` folder with `project.json`, Agent Zero will merge the existing configuration with your specified title and color preferences.
+> If the cloned repository already contains a `.a0proj/` folder with `project.json`, Apollos AI will merge the existing configuration with your specified title and color preferences.
 
 ## Project Configuration
 
@@ -387,7 +387,7 @@ Each with domain-specific:
 
 ## Combining Projects with Tasks
 
-Projects work exceptionally well with Agent Zero's **Tasks & Scheduling** feature:
+Projects work exceptionally well with Apollos AI's **Tasks & Scheduling** feature:
 
 1. Create a project for a specific domain (e.g., "Daily Email Reports")
 2. Configure project instructions for the recurring task

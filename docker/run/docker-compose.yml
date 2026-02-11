@@ -1,8 +1,8 @@
 services:
-  agent-zero:
-    container_name: agent-zero
-    image: ghcr.io/jrmatherly/agent-zero:latest
+  apollos-ai:
+    container_name: apollos-ai
+    image: ghcr.io/jrmatherly/apollos-ai:latest
     volumes:
-      - ./agent-zero:/a0
+      - ./apollos-ai:/a0
     ports:
       - "50080:80"

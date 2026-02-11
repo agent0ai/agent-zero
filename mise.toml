@@ -6,7 +6,7 @@ min_version = "2025.1.0"
 # ============================================================================
 
 [env]
-PROJECT_NAME = "agent-zero"
+PROJECT_NAME = "apollos-ai"
 PYTHONUNBUFFERED = "1"
 PYTHONDONTWRITEBYTECODE = "1"
 
@@ -62,7 +62,7 @@ run = "uv sync --no-dev"
 
 [tasks.run]
 alias = "r"
-description = "Start the Agent Zero UI server"
+description = "Start the Apollos AI UI server"
 run = "uv run python run_ui.py"
 
 # ============================================================================
@@ -149,14 +149,14 @@ run = "uv lock"
 [tasks."docker:build"]
 description = "Build local Docker image"
 run = '''
-docker build -f DockerfileLocal -t agent-zero-local \
+docker build -f DockerfileLocal -t apollos-ai-local \
   --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 '''
 sources = ["DockerfileLocal", "requirements.txt", "docker/**"]
 
 [tasks."docker:run"]
 description = "Run local Docker container"
-run = "docker run -it -p 50080:80 agent-zero-local"
+run = "docker run -it -p 50080:80 apollos-ai-local"
 
 # ============================================================================
 # Git Hooks (hk)

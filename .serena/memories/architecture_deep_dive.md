@@ -1,4 +1,4 @@
-# Agent Zero - Architecture Deep Dive
+# Apollos AI - Architecture Deep Dive
 
 ## System Architecture
 

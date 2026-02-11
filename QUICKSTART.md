@@ -9,8 +9,8 @@
 ## 1. Clone and Setup
 
 ```bash
-git clone https://github.com/jrmatherly/agent-zero.git
-cd agent-zero
+git clone https://github.com/jrmatherly/apollos-ai.git
+cd apollos-ai
 mise install          # Install all tools (Python 3.12, uv, ruff, biome, etc.)
 mise run setup        # Install deps, Playwright browser, git hooks
 ```
@@ -54,8 +54,8 @@ Open `http://localhost:5000` (or the port shown in terminal output). Configure y
 **Code execution requires Docker.** The agent executes code inside a container. Start a Docker instance alongside your local dev server:
 
 ```bash
-docker pull ghcr.io/jrmatherly/agent-zero
-docker run -p 8880:80 -p 8822:22 ghcr.io/jrmatherly/agent-zero
+docker pull ghcr.io/jrmatherly/apollos-ai
+docker run -p 8880:80 -p 8822:22 ghcr.io/jrmatherly/apollos-ai
 ```
 
 Then in the web UI: Settings > Development > set RFC password (same on both instances), SSH port `8822`, HTTP port `8880`.
@@ -66,7 +66,7 @@ For a self-contained deployment without a local dev environment:
 
 ```bash
 # Pull and run
-docker run -p 50080:80 -v ./agent-zero-data:/a0/usr ghcr.io/jrmatherly/agent-zero
+docker run -p 50080:80 -v ./apollos-ai-data:/a0/usr ghcr.io/jrmatherly/apollos-ai
 
 # Or use Docker Compose
 cd docker/run
@@ -117,11 +117,11 @@ Server requirements: 2+ GB RAM, 20+ GB storage, Docker Engine 24.0+.
 
 ```bash
 # On the server
-docker pull ghcr.io/jrmatherly/agent-zero
+docker pull ghcr.io/jrmatherly/apollos-ai
 docker run -d --restart unless-stopped \
   -p 50080:80 \
-  -v /opt/agent-zero/usr:/a0/usr \
-  ghcr.io/jrmatherly/agent-zero
+  -v /opt/apollos-ai/usr:/a0/usr \
+  ghcr.io/jrmatherly/apollos-ai
 ```
 
 Set up a reverse proxy (Apache/Nginx) with SSL for production. Enable WebSocket proxying for Socket.IO. Set authentication in Settings > Authentication before exposing to the internet.

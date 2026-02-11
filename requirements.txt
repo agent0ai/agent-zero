@@ -2,7 +2,7 @@
 # To update: edit pyproject.toml, run `uv lock`, then:
 #   uv export --no-hashes --no-dev --no-emit-project -o requirements.txt
 a2wsgi==1.10.8
-    # via agent-zero
+    # via apollos-ai
 accelerate==1.12.0
     # via unstructured-inference
 addict==2.4.0
@@ -25,7 +25,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
     # via pydantic
 ansio==0.0.1
-    # via agent-zero
+    # via apollos-ai
 anthropic==0.58.2
     # via browser-use
 antlr4-python3-runtime==4.9.3
@@ -70,7 +70,7 @@ beartype==0.22.9
     #   py-key-value-shared
 beautifulsoup4==4.14.3
     # via
-    #   agent-zero
+    #   apollos-ai
     #   feedfinder2
     #   markdownify
     #   newspaper3k
@@ -82,13 +82,13 @@ blinker==1.9.0
 blis==1.3.3
     # via thinc
 boto3==1.42.46
-    # via agent-zero
+    # via apollos-ai
 botocore==1.42.46
     # via
     #   boto3
     #   s3transfer
 browser-use==0.5.11
-    # via agent-zero
+    # via apollos-ai
 bubus==1.5.6
     # via browser-use
 cached-property==2.0.1
@@ -143,7 +143,7 @@ confection==0.1.5
 contourpy==1.3.3
     # via matplotlib
 crontab==1.0.1
-    # via agent-zero
+    # via apollos-ai
 cryptography==46.0.5
     # via
     #   authlib
@@ -201,7 +201,7 @@ dnspython==2.8.0
     #   email-validator
     #   exchangelib
 docker==7.1.0
-    # via agent-zero
+    # via apollos-ai
 docopt==0.6.2
     # via num2words
 docstring-parser==0.17.0
@@ -209,7 +209,7 @@ docstring-parser==0.17.0
 docutils==0.22.4
     # via rich-rst
 duckduckgo-search==6.1.12
-    # via agent-zero
+    # via apollos-ai
 effdet==0.4.1
     # via unstructured
 email-validator==2.3.0
@@ -225,13 +225,13 @@ eval-type-backport==0.3.1
 exceptiongroup==1.3.1
     # via fastmcp
 exchangelib==5.6.0
-    # via agent-zero
+    # via apollos-ai
 faiss-cpu==1.11.0
-    # via agent-zero
+    # via apollos-ai
 fasta2a==0.5.0
-    # via agent-zero
+    # via apollos-ai
 fastmcp==2.13.1
-    # via agent-zero
+    # via apollos-ai
 fastuuid==0.14.0
     # via litellm
 feedfinder2==0.0.4
@@ -247,13 +247,13 @@ filelock==3.20.3
 filetype==1.2.0
     # via unstructured
 flaredantic==0.1.5
-    # via agent-zero
+    # via apollos-ai
 flask==3.0.3
     # via
-    #   agent-zero
+    #   apollos-ai
     #   flask-basicauth
 flask-basicauth==0.2.0
-    # via agent-zero
+    # via apollos-ai
 flatbuffers==25.12.19
     # via onnxruntime
 fonttools==4.61.1
@@ -269,7 +269,7 @@ fsspec==2026.2.0
 gitdb==4.0.12
     # via gitpython
 gitpython==3.1.43
-    # via agent-zero
+    # via apollos-ai
 google-api-core==2.29.0
     # via
     #   browser-use
@@ -320,7 +320,7 @@ h11==0.16.0
 hf-xet==1.2.0 ; platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
     # via huggingface-hub
 html2text==2025.4.15
-    # via agent-zero
+    # via apollos-ai
 html5lib==1.1
     # via unstructured
 httpcore==1.0.9
@@ -366,13 +366,13 @@ idna==3.11
     #   tldextract
     #   yarl
 imapclient==3.1.0
-    # via agent-zero
+    # via apollos-ai
 importlib-metadata==8.7.1
     # via
     #   litellm
     #   opentelemetry-api
 inputimeout==1.0.4
-    # via agent-zero
+    # via apollos-ai
 isodate==0.7.2
     # via
     #   csvw
@@ -428,14 +428,14 @@ keyring==25.7.0
 kiwisolver==1.4.9
     # via matplotlib
 kokoro==0.9.4
-    # via agent-zero
+    # via apollos-ai
 langchain==0.3.22
     # via langchain-community
 langchain-community==0.3.19
-    # via agent-zero
+    # via apollos-ai
 langchain-core==0.3.49
     # via
-    #   agent-zero
+    #   apollos-ai
     #   langchain
     #   langchain-community
     #   langchain-text-splitters
@@ -443,7 +443,7 @@ langchain-core==0.3.49
 langchain-text-splitters==0.3.7
     # via langchain
 langchain-unstructured==0.1.6
-    # via agent-zero
+    # via apollos-ai
 langdetect==1.0.9
     # via unstructured
 langsmith==0.3.45
@@ -454,7 +454,7 @@ langsmith==0.3.45
 language-tags==1.2.0
     # via csvw
 litellm==1.79.3
-    # via agent-zero
+    # via apollos-ai
 llvmlite==0.46.0
     # via numba
 loguru==0.7.3
@@ -469,10 +469,10 @@ lxml==6.0.2
     #   python-pptx
     #   unstructured
 lxml-html-clean==0.3.1
-    # via agent-zero
+    # via apollos-ai
 markdown==3.7
     # via
-    #   agent-zero
+    #   apollos-ai
     #   unstructured
 markdown-it-py==3.0.0
     # via
@@ -482,7 +482,7 @@ markdown-pdf==1.5
     # via browser-use
 markdownify==1.1.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   browser-use
 markupsafe==3.0.3
     # via
@@ -494,7 +494,7 @@ matplotlib==3.10.8
     # via unstructured-inference
 mcp==1.22.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   browser-use
     #   fastmcp
 mdurl==0.1.2
@@ -523,14 +523,14 @@ mypy-extensions==1.1.0
     # via typing-inspect
 nest-asyncio==1.6.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   unstructured-client
 networkx==3.6.1
     # via
     #   torch
     #   unstructured
 newspaper3k==0.2.8
-    # via agent-zero
+    # via apollos-ai
 nltk==3.9.2
     # via
     #   newspaper3k
@@ -625,11 +625,11 @@ onnxruntime==1.19.2
     #   unstructured-inference
 openai==1.99.5
     # via
-    #   agent-zero
+    #   apollos-ai
     #   browser-use
     #   litellm
 openai-whisper==20250625
-    # via agent-zero
+    # via apollos-ai
 openapi-pydantic==0.5.1
     # via fastmcp
 opencv-python==4.11.0.86
@@ -662,18 +662,18 @@ pandas==3.0.0
     #   unstructured
     #   unstructured-inference
 paramiko==3.5.0
-    # via agent-zero
+    # via apollos-ai
 patchright==1.58.0
     # via browser-use
 pathable==0.4.4
     # via jsonschema-path
 pathspec==1.0.4
-    # via agent-zero
+    # via apollos-ai
 pathvalidate==3.3.1
     # via py-key-value-aio
 pdf2image==1.17.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   unstructured
 pdfminer-six==20260107
     # via
@@ -701,7 +701,7 @@ platformdirs==4.5.1
     # via fastmcp
 playwright==1.52.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   browser-use
 portalocker==2.10.1
     # via
@@ -733,7 +733,7 @@ protobuf==6.33.5
 psutil==7.2.2
     # via
     #   accelerate
-    #   agent-zero
+    #   apollos-ai
     #   browser-use
     #   unstructured
 py-key-value-aio==0.2.8
@@ -752,7 +752,7 @@ pycparser==3.0 ; implementation_name != 'PyPy'
     # via cffi
 pydantic==2.11.7
     # via
-    #   agent-zero
+    #   apollos-ai
     #   anthropic
     #   browser-use
     #   bubus
@@ -792,7 +792,7 @@ pyjwt==2.11.0
     # via mcp
 pymupdf==1.25.3
     # via
-    #   agent-zero
+    #   apollos-ai
     #   markdown-pdf
 pynacl==1.6.2
     # via paramiko
@@ -1526,7 +1526,7 @@ pyparsing==3.3.2
     #   rdflib
 pypdf==6.0.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   browser-use
     #   unstructured
     #   unstructured-client
@@ -1543,7 +1543,7 @@ pyreqwest-impersonate==0.5.3
 pyspnego==0.12.0
     # via requests-ntlm
 pytesseract==0.3.13
-    # via agent-zero
+    # via apollos-ai
 python-dateutil==2.9.0.post0
     # via
     #   botocore
@@ -1557,7 +1557,7 @@ python-docx==1.2.0
     # via unstructured
 python-dotenv==1.1.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   browser-use
     #   fastmcp
     #   litellm
@@ -1577,9 +1577,9 @@ python-oxmsg==0.0.2
 python-pptx==1.0.2
     # via unstructured
 python-socketio==5.16.1
-    # via agent-zero
+    # via apollos-ai
 pytz==2024.2
-    # via agent-zero
+    # via apollos-ai
 pywin32==311 ; sys_platform == 'win32'
     # via
     #   docker
@@ -1588,7 +1588,7 @@ pywin32==311 ; sys_platform == 'win32'
 pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
     # via keyring
 pywinpty==3.0.2 ; sys_platform == 'win32'
-    # via agent-zero
+    # via apollos-ai
 pyyaml==6.0.3
     # via
     #   accelerate
@@ -1695,7 +1695,7 @@ secretstorage==3.5.0 ; sys_platform == 'linux'
 segments==2.3.0
     # via phonemizer-fork
 sentence-transformers==3.0.1
-    # via agent-zero
+    # via apollos-ai
 setuptools==82.0.0
     # via
     #   spacy
@@ -1706,7 +1706,7 @@ sgmllib3k==1.0.0
 simple-websocket==1.1.0
     # via python-engineio
 simpleeval==1.0.3
-    # via agent-zero
+    # via apollos-ai
 six==1.17.0
     # via
     #   feedfinder2
@@ -1725,7 +1725,7 @@ sniffio==1.3.1
     #   groq
     #   openai
 soundfile==0.13.1
-    # via agent-zero
+    # via apollos-ai
 soupsieve==2.8.3
     # via beautifulsoup4
 spacy==3.8.11
@@ -1772,7 +1772,7 @@ threadpoolctl==3.6.0
     # via scikit-learn
 tiktoken==0.8.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   litellm
     #   openai-whisper
 timm==1.0.24
@@ -1878,10 +1878,10 @@ tzdata==2025.3
 tzlocal==5.3.1
     # via exchangelib
 unstructured==0.16.23
-    # via agent-zero
+    # via apollos-ai
 unstructured-client==0.31.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   langchain-unstructured
     #   unstructured
 unstructured-inference==1.1.1
@@ -1903,7 +1903,7 @@ uuid7==0.1.0
     #   bubus
 uvicorn==0.40.0
     # via
-    #   agent-zero
+    #   apollos-ai
     #   fastmcp
     #   mcp
 wasabi==1.1.3
@@ -1914,7 +1914,7 @@ wasabi==1.1.3
 weasel==0.4.3
     # via spacy
 webcolors==24.6.0
-    # via agent-zero
+    # via apollos-ai
 webencodings==0.5.1
     # via html5lib
 websockets==15.0.1
@@ -1932,7 +1932,7 @@ wrapt==2.1.1
     #   unstructured
 wsproto==1.3.2
     # via
-    #   agent-zero
+    #   apollos-ai
     #   simple-websocket
 xlrd==2.0.2
     # via unstructured

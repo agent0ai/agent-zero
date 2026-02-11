@@ -1,7 +1,7 @@
 amends "package://github.com/jdx/hk/releases/download/v1.35.0/hk@1.35.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v1.35.0/hk@1.35.0#/Builtins.pkl"
 
-/// agent-zero: Python linting (Ruff) + CSS linting (Biome) + conventional commits
+/// apollos-ai: Python linting (Ruff) + CSS linting (Biome) + conventional commits
 
 // ---------------------------------------------------------------------------
 // Linters

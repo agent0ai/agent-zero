@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docker/base/**'
+      - "docker/base/**"
   workflow_dispatch:
 
 permissions:
@@ -30,4 +30,4 @@ jobs:
           file: docker/base/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/jrmatherly/agent-zero-base:latest
+          tags: ghcr.io/jrmatherly/apollos-ai-base:latest

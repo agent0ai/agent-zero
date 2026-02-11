@@ -1,4 +1,4 @@
-# Agent Zero - Helpers Reference (84 modules)
+# Apollos AI - Helpers Reference (84 modules)
 
 ## Grouped by Functional Area
 
@@ -48,7 +48,7 @@
 | Module | Purpose |
 |--------|---------|
 | `mcp_handler.py` | MCP client (connect to external MCP servers) |
-| `mcp_server.py` | MCP server (expose Agent Zero as MCP, FastMCP + SSE) |
+| `mcp_server.py` | MCP server (expose Apollos AI as MCP, FastMCP + SSE) |
 
 ### Configuration (5)
 | Module | Purpose |

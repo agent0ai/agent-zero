@@ -1,6 +1,6 @@
-# Agent Zero Installation Guide
+# Apollos AI Installation Guide
 
-> **Purpose:** Step-by-step guide for deploying Agent Zero instances on VPS/dedicated servers  
+> **Purpose:** Step-by-step guide for deploying Apollos AI instances on VPS/dedicated servers  
 > **Author:** Auto-generated from deployment experience  
 > **Last Updated:** December 21 2025  
 > **Compatibility:** Docker-capable Linux servers (AlmaLinux, CentOS, Rocky, Ubuntu, Debian)
@@ -11,7 +11,7 @@
 
 1. [Prerequisites](#prerequisites)
 2. [Docker Installation](#docker-installation)
-3. [Agent Zero Container Deployment](#agent-zero-container-deployment)
+3. [Apollos AI Container Deployment](#apollos-ai-container-deployment)
 4. [Apache Reverse Proxy Configuration](#apache-reverse-proxy-configuration)
 5. [SSL/TLS Configuration](#ssltls-configuration)
 6. [Authentication Setup](#authentication-setup)
@@ -118,7 +118,7 @@ docker run hello-world
 
 ---
 
-## Agent Zero Container Deployment
+## Apollos AI Container Deployment
 
 ### Step 1: Create Directory Structure
 
@@ -139,13 +139,13 @@ mkdir -p ${A0_PATH}/logs
 ```bash
 # Create .env file with authentication
 cat > ${A0_PATH}/.env << 'EOF'
-# Agent Zero Configuration
+# Apollos AI Configuration
 # Authentication (REQUIRED for web access)
 AUTH_LOGIN=your_username_here
 AUTH_PASSWORD=your_secure_password_here
 
 # Optional: Additional configuration
-# See Agent Zero documentation for all options
+# See Apollos AI documentation for all options
 EOF
 ```
 
@@ -170,10 +170,10 @@ A0_PATH="/opt/${A0_NAME}"
 A0_PORT="50080"
 
 # Pull latest image
-docker pull ghcr.io/jrmatherly/agent-zero:latest
+docker pull ghcr.io/jrmatherly/apollos-ai:latest
 
 # Run container
-docker run -d   --name ${A0_NAME}   --restart unless-stopped   -p ${A0_PORT}:80   -v ${A0_PATH}/.env:/a0/.env   -v ${A0_PATH}/usr:/a0/usr   ghcr.io/jrmatherly/agent-zero:latest
+docker run -d   --name ${A0_NAME}   --restart unless-stopped   -p ${A0_PORT}:80   -v ${A0_PATH}/.env:/a0/.env   -v ${A0_PATH}/usr:/a0/usr   ghcr.io/jrmatherly/apollos-ai:latest
 ```
 
 ### Step 5: Verify Container
@@ -211,7 +211,7 @@ httpd -M | grep -E "proxy|rewrite|ssl"
 Create `/etc/apache2/sites-available/a0-instance.conf`:
 
 ```apache
-# Agent Zero Reverse Proxy Configuration
+# Apollos AI Reverse Proxy Configuration
 # Instance: a0-instance
 # Domain: a0.example.com
 
@@ -269,7 +269,7 @@ systemctl reload apache2
 Edit `/etc/httpd/conf/extra/httpd-includes.conf`:
 
 ```apache
-# Agent Zero Proxy Configuration
+# Apollos AI Proxy Configuration
 # Instance: a0-instance
 # Domain: a0.example.com
 # Note: Use specific IP, not wildcards, for DirectAdmin compatibility
@@ -495,7 +495,7 @@ curl -I https://a0.example.com/
 
 # 7. Test login page loads
 curl -s https://a0.example.com/login | grep -i "<title>"
-# Expected: <title>Login - Agent Zero</title>
+# Expected: <title>Login - Apollos AI</title>
 ```
 
 ### WebSocket Verification
@@ -633,18 +633,18 @@ docker exec a0-instance cat /a0/.env
 
 ## Maintenance & Updates
 
-### Updating Agent Zero
+### Updating Apollos AI
 
 ```bash
 # Pull latest image
-docker pull ghcr.io/jrmatherly/agent-zero:latest
+docker pull ghcr.io/jrmatherly/apollos-ai:latest
 
 # Stop and remove old container (data persists in volumes)
 docker stop a0-instance
 docker rm a0-instance
 
 # Recreate with same settings
-docker run -d   --name a0-instance   --restart unless-stopped   -p 50080:80   -v /opt/a0-instance/.env:/a0/.env   -v /opt/a0-instance/usr:/a0/usr   -v /opt/agent-zero:latest
+docker run -d   --name a0-instance   --restart unless-stopped   -p 50080:80   -v /opt/a0-instance/.env:/a0/.env   -v /opt/a0-instance/usr:/a0/usr   -v /opt/apollos-ai:latest
 ```
 
 ### Backup Strategy
@@ -732,7 +732,7 @@ curl -I https://your-domain.com/login
 ### .env Template
 
 ```bash
-# Agent Zero Configuration Template
+# Apollos AI Configuration Template
 # Copy and customize for each instance
 
 # Authentication (REQUIRED for production)
@@ -740,7 +740,7 @@ AUTH_LOGIN=your_username
 AUTH_PASSWORD=your_secure_password
 
 # Optional: Additional settings
-# Refer to Agent Zero documentation for all options
+# Refer to Apollos AI documentation for all options
 ```
 
 ---
@@ -772,6 +772,6 @@ Each instance needs:
 
 ---
 
-*This guide comes from successful Agent Zero deployments across DirectAdmin and standard Linux environments.*
+*This guide comes from successful Apollos AI deployments across DirectAdmin and standard Linux environments.*
 
 Contributed by @hurtdidit in the community.

@@ -1,12 +1,12 @@
 # Adding External APIs Without Code
 
-One of Agent Zero's most powerful capabilities is the ability to integrate external APIs on the fly without writing any code. By simply providing API documentation or code snippets, the agent can learn to use new services and remember how to use them in future conversations.
+One of Apollos AI's most powerful capabilities is the ability to integrate external APIs on the fly without writing any code. By simply providing API documentation or code snippets, the agent can learn to use new services and remember how to use them in future conversations.
 
 This tutorial demonstrates how to integrate Google's image generation API from Google AI Studio - but the same process works for any public API.
 
 ## How It Works
 
-Agent Zero can:
+Apollos AI can:
 
 1. **Analyze API code** - Understand how to use an API from provided snippets or documentation
 2. **Execute the integration** - Run the code to accomplish your task
@@ -34,31 +34,31 @@ First, we need the code snippet that shows how to use the API.
 > [!TIP]
 > Most API platforms (OpenAI, Anthropic, Replicate, etc.) provide similar "Get Code" features or have documentation with ready-to-use snippets.
 
-### Step 2: Provide the Code to Agent Zero
+### Step 2: Provide the Code to Apollos AI
 
-Now we'll tell Agent Zero to use this code:
+Now we'll tell Apollos AI to use this code:
 
-1. Open a chat with Agent Zero
-2. Send a message like: **"Use this code to generate an image of the Agent Zero logo"**
+1. Open a chat with Apollos AI
+2. Send a message like: **"Use this code to generate an image of the Apollos AI logo"**
 3. Either:
    - Attach the downloaded Python file, or
    - Paste the code snippet into the chat
 
-Agent Zero will analyze the code and understand:
+Apollos AI will analyze the code and understand:
 - What dependencies are needed (`google-genai` package)
 - How to structure the API request
 - What parameters are required
 - How to handle the response
 
-![Agent Zero analyzing the API code](../res/usage/api-int/api-int-2image-gen-api2.png)
+![Apollos AI analyzing the API code](../res/usage/api-int/api-int-2image-gen-api2.png)
 
 ### Step 3: Configure API Credentials
 
-On first run, Agent Zero will attempt to use the API but discover it needs an API key:
+On first run, Apollos AI will attempt to use the API but discover it needs an API key:
 
 ![Missing API key error](../res/usage/api-int/api-int-3-api-key-missing-secrets.png)
 
-Agent Zero will tell you:
+Apollos AI will tell you:
 - What credential is missing (e.g., `GEMINI_API_KEY`)
 - Where to configure it (Settings → External Services or Project settings)
 
@@ -85,11 +85,11 @@ You have two options for storing credentials:
 
 ### Step 4: Generate the Image
 
-After configuring the API key, tell Agent Zero to proceed:
+After configuring the API key, tell Apollos AI to proceed:
 
 **"I set the API key in secrets. Now you can use it."**
 
-Agent Zero will:
+Apollos AI will:
 1. Retrieve the API key from secrets
 2. Install required dependencies (`google-genai` package)
 3. Execute the image generation code
@@ -105,7 +105,7 @@ The agent confirms:
 
 ## How Memory Works
 
-Here's where it gets interesting: **Agent Zero will remember this solution**.
+Here's where it gets interesting: **Apollos AI will remember this solution**.
 
 The next time you ask it to generate an image:
 - It will automatically use the Gemini API approach it learned
@@ -203,11 +203,11 @@ This helps the agent understand what tools are available for the current project
 
 ## Advanced: Custom API Wrappers
 
-For APIs you use frequently, you can have Agent Zero create reusable wrapper functions:
+For APIs you use frequently, you can have Apollos AI create reusable wrapper functions:
 
 **"Create a Python module called `image_gen.py` with a function `generate_image(prompt, style='professional')` that uses the Gemini API. Include error handling and save the image to the current project folder."**
 
-Agent Zero will:
+Apollos AI will:
 1. Create a clean, reusable module
 2. Add proper documentation
 3. Include error handling
@@ -219,13 +219,13 @@ Then in future chats:
 
 ## Conclusion
 
-By leveraging Agent Zero's ability to learn from API code snippets, you can:
+By leveraging Apollos AI's ability to learn from API code snippets, you can:
 
 - **Add new capabilities instantly** without writing integration code
 - **Keep solutions in memory** for reuse across conversations
 - **Manage credentials securely** with global or project-scoped secrets
 - **Scale across any public API** using the same simple workflow
 
-This makes Agent Zero incredibly versatile - it's not limited to its built-in features. Show it how to use an API once, and it becomes part of its permanent toolkit.
+This makes Apollos AI incredibly versatile - it's not limited to its built-in features. Show it how to use an API once, and it becomes part of its permanent toolkit.
 
 Ready to try it yourself? Pick any API you want to integrate and follow the steps above!

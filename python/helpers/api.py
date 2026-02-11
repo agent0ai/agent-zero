@@ -3,7 +3,13 @@ import threading
 from abc import abstractmethod
 from typing import Any, Dict, TypedDict, Union
 
-from flask import Flask, Request, Response, send_file, session  # noqa: F401 — send_file, session re-exported for API handlers
+from flask import (  # noqa: F401 — send_file, session re-exported for API handlers
+    Flask,
+    Request,
+    Response,
+    send_file,
+    session,
+)
 
 from agent import AgentContext
 from initialize import initialize_agent
@@ -80,7 +86,7 @@ class ApiHandler:
             PrintStyle.error(f"API error: {error}")
             return Response(response=error, status=500, mimetype="text/plain")
 
-    # get context to run agent zero in
+    # get context to run apollos ai in
     def use_context(self, ctxid: str, create_if_not_exists: bool = True):
         with self.thread_lock:
             if not ctxid:

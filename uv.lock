@@ -59,7 +59,7 @@ wheels = [
 ]
 
 [[package]]
-name = "agent-zero"
+name = "apollos-ai"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

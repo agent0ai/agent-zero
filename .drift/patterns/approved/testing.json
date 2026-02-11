@@ -990,7 +990,7 @@
           "confidence": 0.7116666666666667
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 14,
           "column": 17,
           "isOutlier": false,
@@ -1697,7 +1697,7 @@
           "confidence": 0.7116666666666667
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 14,
           "column": 17,
           "isOutlier": false,
@@ -2656,7 +2656,7 @@
           "confidence": 0.7116666666666667
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 14,
           "column": 17,
           "isOutlier": false,
@@ -10503,14 +10503,14 @@
           "confidence": 0.7366666666666666
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 11,
           "column": 64,
           "isOutlier": false,
           "confidence": 0.8533333333333333
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 11,
           "column": 78,
           "isOutlier": false,
@@ -14674,7 +14674,7 @@
           "outlierReason": "Low confidence outlier"
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 3,
           "column": 31,
           "isOutlier": false,

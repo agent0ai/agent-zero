@@ -54,7 +54,7 @@ class ApiFilesGet(ApiHandler):
                         external_path = files.get_abs_path("usr/uploads", filename)
                         filename = os.path.basename(external_path)
                     elif path.startswith("/a0/"):
-                        # Other internal Agent Zero paths
+                        # Other internal Apollos AI paths
                         relative_path = path.replace("/a0/", "")
                         external_path = files.get_abs_path(relative_path)
                         filename = os.path.basename(external_path)

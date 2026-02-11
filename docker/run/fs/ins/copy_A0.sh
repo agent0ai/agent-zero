@@ -2,7 +2,7 @@
 set -e
 
 # Paths
-SOURCE_DIR="/git/agent-zero"
+SOURCE_DIR="/git/apollos-ai"
 TARGET_DIR="/a0"
 
 # Copy repository files if run_ui.py is missing in /a0 (if the volume is mounted)

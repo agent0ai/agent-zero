@@ -3,7 +3,7 @@ name: "🚀 Release"
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -60,5 +60,5 @@ jobs:
             BRANCH=main
             CACHE_DATE=${{ github.run_id }}
           tags: |
-            ghcr.io/jrmatherly/agent-zero:${{ github.ref_name }}
-            ghcr.io/jrmatherly/agent-zero:latest
+            ghcr.io/jrmatherly/apollos-ai:${{ github.ref_name }}
+            ghcr.io/jrmatherly/apollos-ai:latest

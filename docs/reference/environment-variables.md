@@ -1,6 +1,6 @@
 # Environment Variables Reference
 
-Agent Zero reads environment variables from two sources:
+Apollos AI reads environment variables from two sources:
 
 1. **`usr/.env`** — Project-local dotenv file (loaded at startup via `python-dotenv`)
 2. **System environment** — Standard shell/container env vars
@@ -45,11 +45,11 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 
 ## API Keys (Provider Authentication)
 
-API keys follow the primary pattern `API_KEY_{PROVIDER}` where `{PROVIDER}` matches the provider ID in `conf/model_providers.yaml` (uppercased). This is the format the app writes when saving via the web UI. Agent Zero also accepts the alternative patterns `{PROVIDER}_API_KEY` and `{PROVIDER}_API_TOKEN`.
+API keys follow the primary pattern `API_KEY_{PROVIDER}` where `{PROVIDER}` matches the provider ID in `conf/model_providers.yaml` (uppercased). This is the format the app writes when saving via the web UI. Apollos AI also accepts the alternative patterns `{PROVIDER}_API_KEY` and `{PROVIDER}_API_TOKEN`.
 
 | Variable (primary format) | Description | Required |
 |---------------------------|-------------|----------|
-| `API_KEY_A0_VENICE` | Agent Zero API (Venice-backed) key | When using Agent Zero API provider |
+| `API_KEY_A0_VENICE` | Apollos AI API (Venice-backed) key | When using Apollos AI API provider |
 | `API_KEY_ANTHROPIC` | Anthropic API key | When using Anthropic provider |
 | `API_KEY_AZURE` | Azure OpenAI API key | When using Azure provider |
 | `API_KEY_BEDROCK` | AWS Bedrock API key | When using AWS Bedrock provider |
@@ -79,14 +79,14 @@ Custom base URLs follow the pattern `{PROVIDER}_API_BASE` (uppercased). These ov
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `A0_VENICE_API_BASE` | Base URL for Agent Zero API | `https://llm.agent-zero.ai/v1` (from YAML) |
+| `A0_VENICE_API_BASE` | Base URL for Apollos AI API | `https://llm.apollos-ai.ai/v1` (from YAML) |
 | `LITELLM_PROXY_API_BASE` | Base URL for LiteLLM Proxy | `http://localhost:4000/v1` (from YAML) |
 | `VENICE_API_BASE` | Base URL for Venice.ai | `https://api.venice.ai/api/v1` (from YAML) |
 | `ZAI_API_BASE` | Base URL for Z.AI | `https://api.z.ai/api/paas/v4` (from YAML) |
 | `ZAI_CODING_API_BASE` | Base URL for Z.AI Coding | `https://api.z.ai/api/coding/paas/v4` (from YAML) |
 | `{PROVIDER}_API_BASE` | Base URL for any provider (generic pattern) | Provider-specific or empty |
 
-## Agent Zero Internal
+## Apollos AI Internal
 
 | Variable | Description | Values | Default | Required |
 |----------|-------------|--------|---------|----------|
@@ -108,7 +108,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 | Variable | Description | Values | Default | Required |
 |----------|-------------|--------|---------|----------|
 | `ANONYMIZED_TELEMETRY` | Disable browser-use library telemetry; auto-written to `usr/.env` at startup | `true`, `false` | `false` (auto-set) | No |
-| `LITELLM_LOG` | LiteLLM logging verbosity (set by Agent Zero at startup) | `DEBUG`, `INFO`, `ERROR` | `ERROR` | No |
+| `LITELLM_LOG` | LiteLLM logging verbosity (set by Apollos AI at startup) | `DEBUG`, `INFO`, `ERROR` | `ERROR` | No |
 | `KMP_DUPLICATE_LIB_OK` | Set to `TRUE` to prevent OMP Error #15 crash caused by duplicate `libomp.dylib` libraries bundled in faiss, torch, and sklearn on macOS; automatically set at startup | `TRUE`, `FALSE` | `TRUE` (set at startup) | No |
 | `TOKENIZERS_PARALLELISM` | HuggingFace tokenizers parallelism (set at startup to avoid fork warnings) | `true`, `false` | `false` | No |
 | `TZ` | System timezone (set at startup) | IANA tz name | `UTC` | No |
@@ -195,7 +195,7 @@ Any UI setting can be overridden via environment variable using the prefix `A0_S
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `A0_SET_AGENT_PROFILE` | Default agent profile subdirectory | `agent0` |
+| `A0_SET_AGENT_PROFILE` | Default agent profile subdirectory | `apollos` |
 | `A0_SET_AGENT_MEMORY_SUBDIR` | Memory storage subdirectory | `default` |
 | `A0_SET_AGENT_KNOWLEDGE_SUBDIR` | Knowledge base subdirectory | `custom` |
 | `A0_SET_WORKDIR_PATH` | Working directory path | `usr/workdir` |
@@ -258,7 +258,7 @@ These settings exist in the `Settings` TypedDict but are auto-managed by the app
 
 ## Secrets Store (`usr/secrets.env`)
 
-Agent Zero has a dedicated secrets file at `usr/secrets.env`, separate from `usr/.env`. This file is managed through the web UI (Settings > Secrets) and supports:
+Apollos AI has a dedicated secrets file at `usr/secrets.env`, separate from `usr/.env`. This file is managed through the web UI (Settings > Secrets) and supports:
 
 - Standard `.env` key-value format
 - `§§secret(KEY)` placeholder syntax for agents to reference secrets without exposing raw values
@@ -278,7 +278,7 @@ These variables are read by `python/helpers/branding.py` at import time and used
 | `BRAND_NAME` | Display name shown in the UI, browser title, HTTP headers, and system prompts | `Apollos AI` | No |
 | `BRAND_SLUG` | URL-safe and filename-safe identifier used in paths and generated assets | `apollos-ai` | No |
 | `BRAND_URL` | Project website URL displayed in the UI footer and about pages | `https://apollos.ai` | No |
-| `BRAND_GITHUB_URL` | GitHub repository URL used for source links and update checks | `https://github.com/jrmatherly/agent-zero` | No |
+| `BRAND_GITHUB_URL` | GitHub repository URL used for source links and update checks | `https://github.com/jrmatherly/apollos-ai` | No |
 
 **Example — custom branding for a white-label deployment:**
 
@@ -292,7 +292,7 @@ BRAND_GITHUB_URL=https://github.com/myorg/my-custom-ai
 
 ## Docker & Container
 
-Used when running Agent Zero in Docker. See `Dockerfile`, `DockerfileLocal`, and `docker/run/`.
+Used when running Apollos AI in Docker. See `Dockerfile`, `DockerfileLocal`, and `docker/run/`.
 
 | Variable | Description | Values | Default | Required |
 |----------|-------------|--------|---------|----------|

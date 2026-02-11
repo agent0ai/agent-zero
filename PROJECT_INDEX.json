@@ -1,6 +1,6 @@
 {
 	"project": {
-		"name": "Agent Zero",
+		"name": "Apollos AI",
 		"description": "Personal organic agentic AI framework that grows/learns with the user",
 		"language": "Python",
 		"frontend": "vanilla JS + Alpine.js",
@@ -9,7 +9,7 @@
 		"memory": "FAISS + sentence-transformers",
 		"license": "MIT",
 		"generated": "2026-02-11",
-		"github_remote": "jrmatherly/agent-zero"
+		"github_remote": "jrmatherly/apollos-ai"
 	},
 	"entry_points": {
 		"ui_server": "run_ui.py",
@@ -260,7 +260,7 @@
 			"name": "default",
 			"description": "Base agent with standard capabilities"
 		},
-		{ "name": "agent0", "description": "Core Agent Zero personality" },
+		{ "name": "apollos", "description": "Core Apollos AI personality" },
 		{ "name": "developer", "description": "Software development focused" },
 		{ "name": "hacker", "description": "Security/hacking oriented" },
 		{ "name": "researcher", "description": "Research and analysis focused" },

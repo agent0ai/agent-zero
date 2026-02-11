@@ -34,7 +34,12 @@ from agent import AgentContext, UserMessage  # noqa: E402
 from initialize import initialize_agent  # noqa: E402
 from python.helpers import guids, projects  # noqa: E402
 from python.helpers.defer import DeferredTask  # noqa: E402
-from python.helpers.files import get_abs_path, make_dirs, read_file, write_file  # noqa: E402
+from python.helpers.files import (  # noqa: E402
+    get_abs_path,
+    make_dirs,
+    read_file,
+    write_file,
+)
 from python.helpers.localization import Localization  # noqa: E402
 from python.helpers.persist_chat import save_tmp_chat  # noqa: E402
 from python.helpers.print_style import PrintStyle  # noqa: E402
@@ -979,7 +984,7 @@ class TaskScheduler:
                 # This is critical for the polling mechanism to find and stream logs
                 # Dict operations are atomic
                 # AgentContext._contexts[context.id] = context
-                agent = context.streaming_agent or context.agent0
+                agent = context.streaming_agent or context.apollos
 
                 # Prepare attachment filenames for logging
                 attachment_filenames = []

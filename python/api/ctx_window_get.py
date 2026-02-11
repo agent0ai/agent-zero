@@ -5,7 +5,7 @@ class GetCtxWindow(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
         ctxid = input.get("context", [])
         context = self.use_context(ctxid)
-        agent = context.streaming_agent or context.agent0
+        agent = context.streaming_agent or context.apollos
         window = agent.get_data(agent.DATA_NAME_CTX_WINDOW)
         if not window or not isinstance(window, dict):
             return {"content": "", "tokens": 0}

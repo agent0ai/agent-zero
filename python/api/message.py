@@ -68,7 +68,7 @@ class Message(ApiHandler):
         attachment_paths = data.get("attachment_paths", [])
 
         # Store attachments in agent data
-        # context.agent0.set_data("attachments", attachment_paths)
+        # context.apollos.set_data("attachments", attachment_paths)
 
         # Log to console and UI using helper function
         mq.log_user_message(context, message, attachment_paths, message_id)

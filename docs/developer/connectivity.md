@@ -1,8 +1,8 @@
-# Agent Zero Connectivity Guide
+# Apollos AI Connectivity Guide
 
-This guide covers the different ways to connect to Agent Zero from external applications, including using the External API, connecting as an MCP client, and enabling agent-to-agent communication.
+This guide covers the different ways to connect to Apollos AI from external applications, including using the External API, connecting as an MCP client, and enabling agent-to-agent communication.
 
-**Note:** You can find your specific URLs and API tokens in your Agent Zero instance under `Settings > External Services`.
+**Note:** You can find your specific URLs and API tokens in your Apollos AI instance under `Settings > External Services`.
 
 ### API Token Information
 
@@ -12,11 +12,11 @@ The API token is automatically generated from your username and password. This s
 
 ## External API Endpoints
 
-Agent Zero provides external API endpoints for integration with other applications. These endpoints use API key authentication and support text messages and file attachments.
+Apollos AI provides external API endpoints for integration with other applications. These endpoints use API key authentication and support text messages and file attachments.
 
 ### `POST /api_message`
 
-Send messages to Agent Zero and receive responses. Supports text messages, file attachments, and conversation continuity.
+Send messages to Apollos AI and receive responses. Supports text messages, file attachments, and conversation continuity.
 
 ### API Reference
 
@@ -598,18 +598,18 @@ attachmentWorkflow();
 
 ## MCP Server Connectivity
 
-Agent Zero includes an MCP Server that allows other MCP-compatible clients to connect to it. The server runs on the same URL and port as the Web UI.
+Apollos AI includes an MCP Server that allows other MCP-compatible clients to connect to it. The server runs on the same URL and port as the Web UI.
 
 It provides two endpoint types:
 - **SSE (`/mcp/sse`):** For clients that support Server-Sent Events.
 - **Streamable HTTP (`/mcp/http/`):** For clients that use streamable HTTP requests.
 
 > [!NOTE]
-> This section describes **Agent Zero as an MCP server**. To configure Agent Zero as an MCP **client** (consuming external tools), see [MCP Setup](../guides/mcp-setup.md).
+> This section describes **Apollos AI as an MCP server**. To configure Apollos AI as an MCP **client** (consuming external tools), see [MCP Setup](../guides/mcp-setup.md).
 
 ### Example MCP Server Configuration
 
-Below is an example of a `mcp.json` configuration file that a client could use to connect to the Agent Zero MCP server.
+Below is an example of a `mcp.json` configuration file that a client could use to connect to the Apollos AI MCP server.
 
 **Note:** You can find your personalized connection URLs under `Settings > MCP Server > MCP Server`.
 
@@ -617,11 +617,11 @@ Below is an example of a `mcp.json` configuration file that a client could use t
 {
     "mcpServers":
     {
-        "agent-zero": {
+        "apollos-ai": {
             "type": "sse",
             "url": "YOUR_AGENT_ZERO_URL/mcp/t-YOUR_API_TOKEN/sse"
         },
-        "agent-zero-http": {
+        "apollos-ai-http": {
             "type": "streamable-http",
             "url": "YOUR_AGENT_ZERO_URL/mcp/t-YOUR_API_TOKEN/http/"
         }
@@ -636,11 +636,11 @@ You can specify a project for MCP connections by including it in the URL path:
 ```json
 {
     "mcpServers": {
-        "agent-zero-with-project": {
+        "apollos-ai-with-project": {
             "type": "sse",
             "url": "YOUR_AGENT_ZERO_URL/mcp/t-YOUR_API_TOKEN/p-my-project-name/sse"
         },
-        "agent-zero-http-with-project": {
+        "apollos-ai-http-with-project": {
             "type": "streamable-http",
             "url": "YOUR_AGENT_ZERO_URL/mcp/t-YOUR_API_TOKEN/p-my-project-name/http/"
         }
@@ -657,11 +657,11 @@ When a project is specified in the URL:
 
 ## A2A (Agent-to-Agent) Connectivity
 
-Agent Zero's A2A Server enables communication with other agents using the FastA2A protocol. Other agents can connect to your instance using the connection URL.
+Apollos AI's A2A Server enables communication with other agents using the FastA2A protocol. Other agents can connect to your instance using the connection URL.
 
 ### A2A Connection URL
 
-To connect another agent to your Agent Zero instance, use the following URL format.
+To connect another agent to your Apollos AI instance, use the following URL format.
 
 **Note:** You can find your specific A2A connection URL under `Settings > External Services > A2A Connection`.
 
@@ -681,7 +681,7 @@ When a project is specified:
 - This enables project-isolated agent-to-agent communication
 
 ### Practical Use Cases
-- Connect two Agent Zero instances for long-running, isolated workflows
+- Connect two Apollos AI instances for long-running, isolated workflows
 - Delegate specialized tasks to a dedicated agent instance
 - Maintain strict context separation between agents
 

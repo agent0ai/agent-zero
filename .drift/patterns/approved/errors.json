@@ -2462,14 +2462,14 @@
           "confidence": 0.6403703703703703
         },
         {
-          "file": "agents/agent0/prompts/agent.system.main.role.md",
+          "file": "agents/apollos/prompts/agent.system.main.role.md",
           "line": 5,
           "column": 9,
           "isOutlier": false,
           "confidence": 0.77
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 13,
           "column": 47,
           "isOutlier": false,

@@ -479,11 +479,11 @@ def normalize_settings(settings: Settings) -> Settings:
 
 
 def _adjust_to_version(settings: Settings, default: Settings):
-    # starting with 0.9, the default prompt subfolder for agent no. 0 is agent0
-    # switch to agent0 if the old default is used from v0.8
+    # starting with 0.9, the default prompt subfolder for agent no. 0 is apollos
+    # switch to apollos if the old default is used from v0.8
     if "version" not in settings or settings["version"].startswith("v0.8"):
         if "agent_profile" not in settings or settings["agent_profile"] == "default":
-            settings["agent_profile"] = "agent0"
+            settings["agent_profile"] = "apollos"
 
 
 def _load_sensitive_settings(settings: Settings):
@@ -643,7 +643,7 @@ def get_default_settings() -> Settings:
         auth_login="",
         auth_password="",
         root_password="",
-        agent_profile=get_default_value("agent_profile", "agent0"),
+        agent_profile=get_default_value("agent_profile", "apollos"),
         agent_memory_subdir=get_default_value("agent_memory_subdir", "default"),
         agent_knowledge_subdir=get_default_value("agent_knowledge_subdir", "custom"),
         workdir_path=get_default_value(
@@ -698,7 +698,7 @@ def _apply_settings(previous: Settings | None):
         for ctx in AgentContext.all():
             ctx.config = config  # reinitialize context config with new settings
             # apply config to agents
-            agent = ctx.agent0
+            agent = ctx.apollos
             while agent:
                 agent.config = ctx.config
                 agent = agent.get_data(agent.DATA_NAME_SUBORDINATE)

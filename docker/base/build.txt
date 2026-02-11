@@ -1,8 +1,8 @@
 # local image with smart cache
-docker build -t agent-zero-base:local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S)  .
+docker build -t apollos-ai-base:local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S)  .
 
 # local image without cache
-docker build -t agent-zero-base:local --no-cache  .
+docker build -t apollos-ai-base:local --no-cache  .
 
 # GHCR push:
 
@@ -16,13 +16,13 @@ docker buildx create --name multiarch --driver docker-container --driver-opt net
 # If builds fail with network timeouts, recreate: docker buildx rm multiarch && run the above again
 
 # 3a. Multi-arch push with cache
-docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker buildx build -t ghcr.io/jrmatherly/apollos-ai-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
 # 3b. Multi-arch push without cache
-docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) --no-cache .
+docker buildx build -t ghcr.io/jrmatherly/apollos-ai-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) --no-cache .
 
 # 3c. Single-arch push (skip --platform to build for local arch only)
-docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker buildx build -t ghcr.io/jrmatherly/apollos-ai-base:latest --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
 # plain output
 --progress=plain

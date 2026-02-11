@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Agent Zero (branded as configurable via `BRAND_NAME` env var, default "Apollos AI") is a personal organic agentic AI framework (Python backend, Alpine.js frontend). Fork of `agent0ai/agent-zero`, remote at `jrmatherly/agent-zero`.
+Apollos AI (branded as configurable via `BRAND_NAME` env var, default "Apollos AI") is a personal organic agentic AI framework (Python backend, Alpine.js frontend). Fork of `agent0ai/agent-zero`, remote at `jrmatherly/apollos-ai`.
 
 ## Commands
 

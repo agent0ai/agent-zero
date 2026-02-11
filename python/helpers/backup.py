@@ -6,8 +6,7 @@ import tempfile
 import zipfile
 from typing import Any, Dict, List, Optional
 
-from pathspec import PathSpec
-from pathspec.patterns.gitwildmatch import GitWildMatchPattern
+from pathspec import GitIgnoreSpec
 
 from python.helpers import branding, files, git, runtime
 from python.helpers.print_style import PrintStyle
@@ -15,7 +14,7 @@ from python.helpers.print_style import PrintStyle
 
 class BackupService:
     """
-    Core backup and restore service for Agent Zero.
+    Core backup and restore service for Apollos AI.
 
     Features:
     - JSON-based metadata with user-editable path specifications
@@ -27,7 +26,7 @@ class BackupService:
 
     def __init__(self):
         self.agent_zero_version = self._get_agent_zero_version()
-        self.agent_zero_root = files.get_abs_path("")  # Resolved Agent Zero root
+        self.agent_zero_root = files.get_abs_path("")  # Resolved Apollos AI root
 
         # Build base paths map for pattern resolution
         self.base_paths = {
@@ -52,7 +51,7 @@ class BackupService:
     def _get_default_patterns(self) -> str:
         """Get default backup patterns with resolved absolute paths.
 
-        Only includes Agent Zero project directory patterns.
+        Only includes Apollos AI project directory patterns.
         """
         # Ensure paths don't have double slashes
         agent_root = self.agent_zero_root.rstrip("/")
@@ -63,7 +62,7 @@ class BackupService:
 """
 
     def _get_agent_zero_version(self) -> str:
-        """Get current Agent Zero version"""
+        """Get current Apollos AI version"""
         try:
             # Get version from git info (same as run_ui.py)
             gitinfo = git.get_git_info()
@@ -208,7 +207,7 @@ class BackupService:
     ) -> List[str]:
         """Translate patterns from backed up system to current system.
 
-        Replaces the backed up Agent Zero root path with the current Agent Zero root path
+        Replaces the backed up Apollos AI root path with the current Apollos AI root path
         in all patterns if there's an exact match at the beginning of the pattern.
 
         Args:
@@ -218,11 +217,11 @@ class BackupService:
         Returns:
             List of translated patterns for the current system
         """
-        # Get the backed up agent zero root path from metadata
+        # Get the backed up apollos ai root path from metadata
         environment_info = backup_metadata.get("environment_info", {})
         backed_up_agent_root = environment_info.get("agent_zero_root", "")
 
-        # Get current agent zero root path
+        # Get current apollos ai root path
         current_agent_root = self.agent_zero_root
 
         # If we don't have the backed up root path, return patterns as-is
@@ -235,7 +234,7 @@ class BackupService:
 
         translated_patterns = []
         for pattern in patterns:
-            # Check if the pattern starts with the backed up agent zero root
+            # Check if the pattern starts with the backed up apollos ai root
             if (
                 pattern.startswith(backed_up_agent_root + "/")
                 or pattern == backed_up_agent_root
@@ -281,7 +280,7 @@ class BackupService:
         processed_count = 0
 
         try:
-            spec = PathSpec.from_lines(GitWildMatchPattern, pattern_lines)
+            spec = GitIgnoreSpec.from_lines(pattern_lines)
 
             # Walk through base directories
             for base_pattern_path, base_real_path in self.base_paths.items():
@@ -547,12 +546,9 @@ class BackupService:
                             pattern_lines.append(f"!{pattern.lstrip('/')}")
 
                     if pattern_lines:
-                        from pathspec import PathSpec
-                        from pathspec.patterns.gitwildmatch import GitWildMatchPattern
+                        from pathspec import GitIgnoreSpec
 
-                        restore_spec = PathSpec.from_lines(
-                            GitWildMatchPattern, pattern_lines
-                        )
+                        restore_spec = GitIgnoreSpec.from_lines(pattern_lines)
 
                 # Process each file in archive
                 for archive_path in archive_files:
@@ -742,12 +738,9 @@ class BackupService:
                             pattern_lines.append(f"!{pattern.lstrip('/')}")
 
                     if pattern_lines:
-                        from pathspec import PathSpec
-                        from pathspec.patterns.gitwildmatch import GitWildMatchPattern
+                        from pathspec import GitIgnoreSpec
 
-                        restore_spec = PathSpec.from_lines(
-                            GitWildMatchPattern, pattern_lines
-                        )
+                        restore_spec = GitIgnoreSpec.from_lines(pattern_lines)
 
                 # Process each file in archive
                 for archive_path in archive_files:
@@ -857,7 +850,7 @@ class BackupService:
     ) -> str:
         """Translate file path from backed up system to current system.
 
-        Replaces the backed up Agent Zero root path with the current Agent Zero root path
+        Replaces the backed up Apollos AI root path with the current Apollos AI root path
         if there's an exact match at the beginning of the path.
 
         Args:
@@ -867,11 +860,11 @@ class BackupService:
         Returns:
             Translated path for the current system
         """
-        # Get the backed up agent zero root path from metadata
+        # Get the backed up apollos ai root path from metadata
         environment_info = backup_metadata.get("environment_info", {})
         backed_up_agent_root = environment_info.get("agent_zero_root", "")
 
-        # Get current agent zero root path
+        # Get current apollos ai root path
         current_agent_root = self.agent_zero_root
 
         # If we don't have the backed up root path, use original path with leading slash
@@ -888,7 +881,7 @@ class BackupService:
         else:
             absolute_archive_path = archive_path
 
-        # Check if the archive path starts with the backed up agent zero root
+        # Check if the archive path starts with the backed up apollos ai root
         if (
             absolute_archive_path.startswith(backed_up_agent_root + "/")
             or absolute_archive_path == backed_up_agent_root

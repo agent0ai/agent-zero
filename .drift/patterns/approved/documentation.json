@@ -5807,7 +5807,7 @@
           "confidence": 0.97
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 15,
           "column": 1,
           "isOutlier": false,
@@ -8081,7 +8081,7 @@
           "confidence": 0.8533333333333333
         },
         {
-          "file": "agents/agent0/prompts/agent.system.tool.response.md",
+          "file": "agents/apollos/prompts/agent.system.tool.response.md",
           "line": 15,
           "column": 1,
           "isOutlier": false,

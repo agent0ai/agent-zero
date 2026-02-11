@@ -1,19 +1,19 @@
 # Extensions Framework
 
 > [!NOTE]
-> Agent Zero is built with extensibility in mind. It provides a framework for creating custom extensions, agents, skills, and tools that can be used to enhance the functionality of the framework.
+> Apollos AI is built with extensibility in mind. It provides a framework for creating custom extensions, agents, skills, and tools that can be used to enhance the functionality of the framework.
 
 ## Extensible components
-- The Python framework controlling Agent Zero is built as simple as possible, relying on independent smaller and modular scripts for individual tools, API endpoints, system extensions and helper scripts.
+- The Python framework controlling Apollos AI is built as simple as possible, relying on independent smaller and modular scripts for individual tools, API endpoints, system extensions and helper scripts.
 - This way individual components can be easily replaced, upgraded or extended.
 
 Here's a summary of the extensible components:
 
 ### Extensions
-Extensions are components that hook into specific points in the agent's lifecycle. They allow you to modify or enhance the behavior of Agent Zero at predefined extension points. The framework uses a plugin-like architecture where extensions are automatically discovered and loaded.
+Extensions are components that hook into specific points in the agent's lifecycle. They allow you to modify or enhance the behavior of Apollos AI at predefined extension points. The framework uses a plugin-like architecture where extensions are automatically discovered and loaded.
 
 #### Extension Points
-Agent Zero provides several extension points where custom code can be injected:
+Apollos AI provides several extension points where custom code can be injected:
 
 - **agent_init**: Executed when an agent is initialized
 - **before_main_llm_call**: Executed before the main LLM call is made
@@ -28,7 +28,7 @@ Agent Zero provides several extension points where custom code can be injected:
 - **system_prompt**: Executed when system prompts are processed
 
 #### Extension Mechanism
-The extension mechanism in Agent Zero works through the `call_extensions` function in `agent.py`, which:
+The extension mechanism in Apollos AI works through the `call_extensions` function in `agent.py`, which:
 
 1. Loads default extensions from `/python/extensions/{extension_point}/`
 2. Loads agent-specific extensions from `/agents/{agent_profile}/extensions/{extension_point}/`
@@ -52,8 +52,8 @@ from python.helpers.extension import Extension
 
 class ExampleExtension(Extension):
     async def execute(self, **kwargs):
-        # rename the agent to SuperAgent0
-        self.agent.agent_name = "SuperAgent" + str(self.agent.number)
+        # rename the agent to SuperApollos
+        self.agent.agent_name = "SuperApollos" + str(self.agent.number)
 ```
 
 #### Extension Override Logic
@@ -74,7 +74,7 @@ Each tool is implemented as a Python class that inherits from the base `Tool` cl
 - Agent-specific tools: `/agents/{agent_profile}/tools/`
 
 #### Tool Override Logic
-When a tool with the same name is requested, Agent Zero first checks for its existence in the agent-specific tools directory. If found, that version is used. If not found, it falls back to the default tools directory.
+When a tool with the same name is requested, Apollos AI first checks for its existence in the agent-specific tools directory. If found, that version is used. If not found, it falls back to the default tools directory.
 
 **Example tool override:**
 
@@ -100,7 +100,7 @@ When a tool is called, it goes through the following lifecycle:
 4. `after_execution` method
 
 ### API Endpoints
-API endpoints expose Agent Zero functionality to external systems or the user interface. They are modular and can be extended or replaced.
+API endpoints expose Apollos AI functionality to external systems or the user interface. They are modular and can be extended or replaced.
 
 API endpoints are located in:
 - Default endpoints: `/python/api/`
@@ -124,7 +124,7 @@ Prompts are located in:
 > Since v0.9.7, custom prompts should be placed under `agents/<agent_profile>/prompts/` instead of a shared `prompts` subdirectory.
 
 #### Prompt Features
-Agent Zero's prompt system supports several powerful features:
+Apollos AI's prompt system supports several powerful features:
 
 ##### Variable Placeholders
 Prompts can include variables using the `{{var}}` syntax. These variables are replaced with actual values when the prompt is processed.
@@ -140,7 +140,7 @@ Prompts can include variables using the `{{var}}` syntax. These variables are re
 ##### Dynamic Variable Loaders
 For more advanced prompt customization, you can create Python files with the same name as your prompt files. These Python files act as dynamic variable loaders that generate variables at runtime.
 
-When a prompt file is processed, Agent Zero automatically looks for a corresponding `.py` file in the same directory. If found, it uses this Python file to generate dynamic variables for the prompt.
+When a prompt file is processed, Apollos AI automatically looks for a corresponding `.py` file in the same directory. If found, it uses this Python file to generate dynamic variables for the prompt.
 
 **Example:**
 If you have a prompt file `agent.system.tools.md`, you can create `agent.system.tools.py` alongside it:
@@ -182,7 +182,7 @@ Prompts can include content from other prompt files using the `{{ include "path/
 **Example:**
 
 ```markdown
-# Agent Zero System Manual
+# Apollos AI System Manual
 
 {{ include "agent.system.main.role.md" }}
 
@@ -204,13 +204,13 @@ Similar to extensions and tools, prompts follow an override pattern. When the ag
 > !!!
 
 ## Your role
-You are Agent Zero, a sci-fi character from the movie "Agent Zero".
+You are Apollos AI, a sci-fi character from the movie "Apollos AI".
 ```
 
 This example overrides the default role definition in `/prompts/agent.system.main.role.md` with a custom one for a specific agent profile.
 
 ## Subagent Customization
-Agent Zero supports creating specialized subagents with customized behavior. The `_example` agent in the `/agents/_example/` directory demonstrates this pattern.
+Apollos AI supports creating specialized subagents with customized behavior. The `_example` agent in the `/agents/_example/` directory demonstrates this pattern.
 
 ### Creating a Subagent
 
@@ -227,7 +227,7 @@ This allows power users to, for example, change the AI model, context window siz
 
 ### Example Subagent Structure
 
-```
+```text
 /agents/_example/
 ├── extensions/
 │   └── agent_init/
@@ -260,7 +260,7 @@ Projects are ideal for multi-client or multi-domain work because each project ca
 
 Each project directory contains a hidden `.a0proj` folder with project metadata and configuration:
 
-```
+```text
 /a0/usr/projects/{project_name}/
 └── .a0proj/
     ├── project.json          # project metadata and settings
@@ -295,12 +295,12 @@ These files allow you to keep credentials and configuration tightly scoped to a 
 
 ### When to Use Projects
 
-Projects are the recommended way to create specialized workflows in Agent Zero when you need to:
+Projects are the recommended way to create specialized workflows in Apollos AI when you need to:
 
 - Add specific instructions without affecting global behavior
 - Isolate file context, knowledge, and memory for a particular task or client
 - Keep passwords and other secrets scoped to a single workspace
-- Run multiple independent flows side by side under the same Agent Zero installation
+- Run multiple independent flows side by side under the same Apollos AI installation
 
 See [Usage → Tasks & Scheduling](../guides/usage.md#tasks--scheduling) for how to pair projects with scheduled tasks.
 
