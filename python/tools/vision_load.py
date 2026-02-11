@@ -71,11 +71,27 @@ class VisionLoad(Tool):
                             "text": "Error processing image " + path,
                         }
                     )
-            # append as raw message content for LLMs with vision tokens estimate
-            msg = history.RawMessage(raw_content=content, preview="<Base64 encoded image data>")
-            self.agent.hist_add_message(
-                False, content=msg, tokens=TOKENS_ESTIMATE * len(content)
-            )
+            try:
+                # append as raw message content for LLMs with vision tokens estimate
+                msg = history.RawMessage(
+                    raw_content=content,
+                    preview=f"<Base64 encoded image data ({len(content)} image(s))>",
+                )
+                self.agent.hist_add_message(
+                    False, content=msg, tokens=TOKENS_ESTIMATE * len(content)
+                )
+            except Exception as e:
+                # Graceful degradation: add text description instead of raw image
+                # to prevent corrupted image data from persisting in chat history
+                PrintStyle().error(f"Error adding image to history: {e}")
+                self.agent.context.log.log(
+                    "warning", f"Error adding image to history: {e}"
+                )
+                fallback = (
+                    f"{len(self.images_dict)} image(s) loaded but could not be "
+                    f"added to context: {e}"
+                )
+                self.agent.hist_add_tool_result(self.name, fallback)
         else:
             self.agent.hist_add_tool_result(self.name, "No images processed")
 
