@@ -1,31 +1,31 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-02-11T05:18:13.446Z",
+  "generatedAt": "2026-02-11T06:02:37.995Z",
   "projectRoot": "/Users/jason/dev/apollos-ai/agent-zero",
   "stats": {
     "patterns": {
       "total": 757,
       "byCategory": {
-        "auth": 44,
-        "security": 56,
-        "errors": 54,
-        "structural": 61,
         "components": 62,
+        "structural": 61,
         "styling": 60,
-        "logging": 49,
-        "testing": 55,
+        "api": 11,
+        "auth": 44,
+        "errors": 54,
         "data-access": 81,
+        "testing": 55,
+        "logging": 49,
+        "security": 56,
         "config": 47,
         "types": 59,
-        "accessibility": 37,
         "performance": 46,
-        "documentation": 35,
-        "api": 11
+        "accessibility": 37,
+        "documentation": 35
       },
       "byStatus": {
-        "discovered": 757,
-        "approved": 0,
-        "ignored": 0
+        "discovered": 1,
+        "approved": 753,
+        "ignored": 3
       },
       "byConfidence": {
         "high": 634,
@@ -33,7 +33,7 @@
         "low": 0,
         "uncertain": 0
       },
-      "totalLocations": 46824,
+      "totalLocations": 46839,
       "totalOutliers": 33
     },
     "security": {
@@ -65,15 +65,15 @@
   },
   "fileHashes": {},
   "lastScan": {
-    "timestamp": "2026-02-11T05:18:13.405Z",
-    "duration": 1009684,
-    "filesScanned": 1084,
+    "timestamp": "2026-02-11T06:02:37.955Z",
+    "duration": 1007451,
+    "filesScanned": 1089,
     "patternsFound": 757,
     "errors": 0
   },
   "views": {
     "status": {
-      "generatedAt": "2026-02-11T05:18:13.445Z",
+      "generatedAt": "2026-02-11T06:02:37.994Z",
       "stale": true,
       "invalidatedBy": [
         "pattern stats updated",
@@ -82,14 +82,14 @@
       ]
     },
     "patternIndex": {
-      "generatedAt": "2026-02-11T05:18:13.445Z",
+      "generatedAt": "2026-02-11T06:02:37.994Z",
       "stale": true,
       "invalidatedBy": [
         "pattern stats updated"
       ]
     },
     "securitySummary": {
-      "generatedAt": "2026-02-11T05:18:13.445Z",
+      "generatedAt": "2026-02-11T06:02:37.994Z",
       "stale": true,
       "invalidatedBy": [
         "security stats updated"

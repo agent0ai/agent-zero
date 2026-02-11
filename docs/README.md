@@ -33,8 +33,8 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 ## Community & Support
 
 - **Join the Community:** Connect with other users on [Discord](https://discord.gg/B8KZKNsPpj) to discuss ideas, ask questions, and collaborate.
-- **Share Your Work:** Show off your Agent Zero creations and workflows in the [Show and Tell](https://github.com/agent0ai/agent-zero/discussions/categories/show-and-tell) area.
-- **Report Issues:** Use the [GitHub issue tracker](https://github.com/agent0ai/agent-zero/issues) to report bugs or suggest features.
+- **Share Your Work:** Show off your Agent Zero creations and workflows in the [Show and Tell](https://github.com/jrmatherly/agent-zero/discussions/categories/show-and-tell) area.
+- **Report Issues:** Use the [GitHub issue tracker](https://github.com/jrmatherly/agent-zero/issues) to report bugs or suggest features.
 - **Follow Updates:** Subscribe to the [YouTube channel](https://www.youtube.com/@AgentZeroFW) for tutorials and release videos.
 
 ---

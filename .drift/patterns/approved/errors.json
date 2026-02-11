@@ -18,7 +18,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 165,
+        "spread": 166,
         "score": 0.77,
         "level": "medium"
       },
@@ -176,6 +176,20 @@
           "column": 34,
           "isOutlier": false,
           "confidence": 0.7381818181818183
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 16,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 15,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 0.77
         },
         {
           "file": "agent.py",
@@ -708,32 +722,17 @@
           "column": 14,
           "isOutlier": false,
           "confidence": 0.6241666666666668
-        },
-        {
-          "file": "docs/developer/connectivity.md",
-          "line": 220,
-          "column": 14,
-          "isOutlier": false,
-          "confidence": 0.6241666666666668
-        },
-        {
-          "file": "docs/developer/connectivity.md",
-          "line": 278,
-          "column": 14,
-          "isOutlier": false,
-          "confidence": 0.6241666666666668
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.849Z",
-        "lastSeen": "2026-02-11T05:23:02.974Z",
+        "firstSeen": "2026-02-11T06:02:37.399Z",
+        "lastSeen": "2026-02-11T06:02:37.399Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.974Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -754,7 +753,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 192,
+        "spread": 193,
         "score": 0.77,
         "level": "medium"
       },
@@ -795,6 +794,14 @@
           "file": "README.md",
           "line": 233,
           "column": 51,
+          "isOutlier": true,
+          "confidence": 0.77,
+          "outlierReason": "High confidence outlier"
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 15,
+          "column": 3,
           "isOutlier": true,
           "confidence": 0.77,
           "outlierReason": "High confidence outlier"
@@ -1466,26 +1473,17 @@
           "isOutlier": true,
           "confidence": 0.77,
           "outlierReason": "High confidence outlier"
-        },
-        {
-          "file": "docs/guides/api-integration.md",
-          "line": 213,
-          "column": 12,
-          "isOutlier": true,
-          "confidence": 0.77,
-          "outlierReason": "High confidence outlier"
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:03.014Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:23:03.014Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1506,7 +1504,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 85,
+        "spread": 86,
         "score": 0.77,
         "level": "medium"
       },
@@ -1543,6 +1541,13 @@
           "file": "README.md",
           "line": 233,
           "column": 51,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 15,
+          "column": 3,
           "isOutlier": false,
           "confidence": 0.77
         },
@@ -2203,25 +2208,17 @@
           "column": 19,
           "isOutlier": false,
           "confidence": 0.5755555555555556
-        },
-        {
-          "file": "python/helpers/api.py",
-          "line": 81,
-          "column": 38,
-          "isOutlier": false,
-          "confidence": 0.5700000000000001
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:03.056Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:23:03.056Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2242,11 +2239,18 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 66,
+        "spread": 67,
         "score": 0.77,
         "level": "medium"
       },
       "locations": [
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 19,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6824999999999999
+        },
         {
           "file": ".serena/memories/code_style_and_conventions.md",
           "line": 11,
@@ -2939,25 +2943,17 @@
           "column": 29,
           "isOutlier": false,
           "confidence": 0.6594736842105262
-        },
-        {
-          "file": "docs/guides/api-integration.md",
-          "line": 53,
-          "column": 32,
-          "isOutlier": false,
-          "confidence": 0.6594736842105262
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.853Z",
-        "lastSeen": "2026-02-11T05:23:03.109Z",
+        "firstSeen": "2026-02-11T06:02:37.388Z",
+        "lastSeen": "2026-02-11T06:02:37.388Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:23:03.109Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3686,14 +3682,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.856Z",
-        "lastSeen": "2026-02-11T05:23:03.153Z",
+        "firstSeen": "2026-02-11T06:02:37.404Z",
+        "lastSeen": "2026-02-11T06:02:37.404Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:23:03.153Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4422,14 +4417,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:23:03.196Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:23:03.196Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5046,14 +5040,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:23:03.239Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-propagation"
-        ],
-        "approvedAt": "2026-02-11T05:23:03.239Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5792,14 +5785,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.836Z",
-        "lastSeen": "2026-02-11T05:18:32.423Z",
+        "firstSeen": "2026-02-11T06:02:37.390Z",
+        "lastSeen": "2026-02-11T06:02:37.390Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.423Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6534,14 +6526,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.853Z",
-        "lastSeen": "2026-02-11T05:18:32.465Z",
+        "firstSeen": "2026-02-11T06:02:37.401Z",
+        "lastSeen": "2026-02-11T06:02:37.401Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.465Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7270,14 +7261,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.858Z",
-        "lastSeen": "2026-02-11T05:18:32.506Z",
+        "firstSeen": "2026-02-11T06:02:37.406Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.506Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8006,14 +7996,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:18:32.547Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.547Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8748,14 +8737,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:18:32.587Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.587Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9492,14 +9480,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:18:32.629Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.629Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10228,14 +10215,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:18:32.670Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.670Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10977,14 +10963,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:18:32.712Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.712Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11714,14 +11699,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.862Z",
-        "lastSeen": "2026-02-11T05:18:32.755Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.755Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12462,14 +12446,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.862Z",
-        "lastSeen": "2026-02-11T05:18:32.796Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.796Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12666,14 +12649,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:32.837Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.837Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12694,11 +12676,32 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 38,
+        "spread": 39,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 31,
+          "column": 23,
+          "isOutlier": false,
+          "confidence": 0.8825
+        },
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 35,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.8825
+        },
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 36,
+          "column": 20,
+          "isOutlier": false,
+          "confidence": 0.8825
+        },
         {
           "file": "README.md",
           "line": 66,
@@ -13377,39 +13380,17 @@
           "column": 33090,
           "isOutlier": false,
           "confidence": 0.9279999999999999
-        },
-        {
-          "file": "webui/js/transformers@3.0.2.js",
-          "line": 229,
-          "column": 33112,
-          "isOutlier": false,
-          "confidence": 0.9279999999999999
-        },
-        {
-          "file": "webui/js/transformers@3.0.2.js",
-          "line": 229,
-          "column": 49078,
-          "isOutlier": false,
-          "confidence": 0.9279999999999999
-        },
-        {
-          "file": "webui/js/transformers@3.0.2.js",
-          "line": 229,
-          "column": 49103,
-          "isOutlier": false,
-          "confidence": 0.9279999999999999
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:32.878Z",
+        "firstSeen": "2026-02-11T06:02:37.388Z",
+        "lastSeen": "2026-02-11T06:02:37.388Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.878Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13487,14 +13468,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:32.923Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-propagation"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.923Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14223,14 +14203,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:32.964Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:18:32.964Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14979,14 +14958,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:33.016Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.016Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15007,11 +14985,18 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 155,
+        "spread": 156,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 34,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.97
+        },
         {
           "file": "agent.py",
           "line": 388,
@@ -15704,25 +15689,17 @@
           "column": 9,
           "isOutlier": false,
           "confidence": 0.845
-        },
-        {
-          "file": "python/api/memory_dashboard.py",
-          "line": 41,
-          "column": 9,
-          "isOutlier": false,
-          "confidence": 0.845
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.057Z",
+        "firstSeen": "2026-02-11T06:02:37.388Z",
+        "lastSeen": "2026-02-11T06:02:37.388Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.057Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16452,14 +16429,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.098Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.098Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16523,14 +16499,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.139Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.139Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16629,14 +16604,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.180Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.180Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17365,14 +17339,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.221Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.221Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17393,11 +17366,18 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 154,
+        "spread": 155,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 34,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.97
+        },
         {
           "file": "agent.py",
           "line": 281,
@@ -18090,25 +18070,17 @@
           "column": 13,
           "isOutlier": false,
           "confidence": 0.83
-        },
-        {
-          "file": "python/api/scheduler_task_run.py",
-          "line": 48,
-          "column": 9,
-          "isOutlier": false,
-          "confidence": 0.931111111111111
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.264Z",
+        "firstSeen": "2026-02-11T06:02:37.388Z",
+        "lastSeen": "2026-02-11T06:02:37.388Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.264Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -18839,14 +18811,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.305Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.305Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19309,14 +19280,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.347Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.347Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19408,14 +19378,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.390Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.390Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -20144,14 +20113,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.431Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.431Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -20418,14 +20386,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.473Z",
+        "firstSeen": "2026-02-11T06:02:37.414Z",
+        "lastSeen": "2026-02-11T06:02:37.414Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.473Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -20446,11 +20413,18 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 110,
+        "spread": 111,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 34,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.97
+        },
         {
           "file": "agent.py",
           "line": 388,
@@ -21143,25 +21117,17 @@
           "column": 15,
           "isOutlier": false,
           "confidence": 0.7342857142857142
-        },
-        {
-          "file": "python/helpers/knowledge_import.py",
-          "line": 78,
-          "column": 17,
-          "isOutlier": false,
-          "confidence": 0.7342857142857142
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.867Z",
-        "lastSeen": "2026-02-11T05:18:33.515Z",
+        "firstSeen": "2026-02-11T06:02:37.388Z",
+        "lastSeen": "2026-02-11T06:02:37.388Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.515Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -21890,14 +21856,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:33.557Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.557Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -22629,14 +22594,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:33.598Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "exception-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.598Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -23365,14 +23329,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.873Z",
-        "lastSeen": "2026-02-11T05:18:33.638Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.638Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -24101,14 +24064,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.873Z",
-        "lastSeen": "2026-02-11T05:18:33.681Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.681Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -24466,14 +24428,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.873Z",
-        "lastSeen": "2026-02-11T05:18:33.741Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.741Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -24852,14 +24813,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.877Z",
-        "lastSeen": "2026-02-11T05:18:33.786Z",
+        "firstSeen": "2026-02-11T06:02:37.423Z",
+        "lastSeen": "2026-02-11T06:02:37.423Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.786Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -25588,14 +25548,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:33.829Z",
+        "firstSeen": "2026-02-11T06:02:37.424Z",
+        "lastSeen": "2026-02-11T06:02:37.424Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.829Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -26324,14 +26283,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:33.871Z",
+        "firstSeen": "2026-02-11T06:02:37.424Z",
+        "lastSeen": "2026-02-11T06:02:37.424Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-propagation"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.871Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27060,14 +27018,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:33.911Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-propagation"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.911Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27131,14 +27088,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:33.953Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.953Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27279,14 +27235,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:33.995Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:33.995Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27322,14 +27277,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:34.040Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.040Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27393,14 +27347,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:34.083Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.083Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27485,14 +27438,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:34.123Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.123Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27584,14 +27536,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:34.164Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-logging"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.164Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27655,14 +27606,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:34.205Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-propagation"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.205Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27908,14 +27858,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:34.246Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "async-errors"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.246Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27951,14 +27900,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:34.288Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "error-codes"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.288Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28001,14 +27949,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:34.328Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "try-catch"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.328Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28058,19 +28005,18 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:34.367Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "errors",
           "circuit-breaker"
-        ],
-        "approvedAt": "2026-02-11T05:18:34.367Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T05:47:13.999Z",
-  "checksum": "673ac20647af2863"
+  "lastUpdated": "2026-02-11T06:02:37.462Z",
+  "checksum": "83bbbf3fdc9fc48a"
 }

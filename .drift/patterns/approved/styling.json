@@ -18,7 +18,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 65,
+        "spread": 66,
         "score": 0.77,
         "level": "medium"
       },
@@ -178,6 +178,14 @@
           "file": "README.md",
           "line": 289,
           "column": 59,
+          "isOutlier": true,
+          "confidence": 0.77,
+          "outlierReason": "Value above IQR upper bound"
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 8,
+          "column": 3,
           "isOutlier": true,
           "confidence": 0.77,
           "outlierReason": "Value above IQR upper bound"
@@ -748,25 +756,17 @@
           "column": 39,
           "isOutlier": false,
           "confidence": 0.6416666666666666
-        },
-        {
-          "file": "docs/setup/installation.md",
-          "line": 524,
-          "column": 71,
-          "isOutlier": false,
-          "confidence": 0.6416666666666666
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:02.235Z",
+        "firstSeen": "2026-02-11T06:02:37.401Z",
+        "lastSeen": "2026-02-11T06:02:37.401Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.235Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -787,11 +787,18 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 730,
+        "spread": 731,
         "score": 0.77,
         "level": "medium"
       },
       "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 24,
+          "column": 28,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
         {
           "file": ".serena/memories/architecture_deep_dive.md",
           "line": 8,
@@ -1484,25 +1491,17 @@
           "column": 1,
           "isOutlier": false,
           "confidence": 0.6533333333333333
-        },
-        {
-          "file": "python/api/backup_get_defaults.py",
-          "line": 5,
-          "column": 1,
-          "isOutlier": false,
-          "confidence": 0.6533333333333333
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.852Z",
-        "lastSeen": "2026-02-11T05:23:02.282Z",
+        "firstSeen": "2026-02-11T06:02:37.385Z",
+        "lastSeen": "2026-02-11T06:02:37.386Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.282Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1523,7 +1522,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 23,
+        "spread": 24,
         "score": 0.77,
         "level": "medium"
       },
@@ -1548,6 +1547,14 @@
           "file": "README.md",
           "line": 287,
           "column": 10,
+          "isOutlier": true,
+          "confidence": 0.77,
+          "outlierReason": "High confidence outlier"
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 12,
+          "column": 3,
           "isOutlier": true,
           "confidence": 0.77,
           "outlierReason": "High confidence outlier"
@@ -2235,25 +2242,17 @@
           "column": 2,
           "isOutlier": false,
           "confidence": 0.6286538461538462
-        },
-        {
-          "file": "webui/css/messages.css",
-          "line": 21,
-          "column": 2,
-          "isOutlier": false,
-          "confidence": 0.6286538461538462
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:23:02.327Z",
+        "firstSeen": "2026-02-11T06:02:37.406Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "spacing-scale"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.327Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2996,14 +2995,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:23:02.372Z",
+        "firstSeen": "2026-02-11T06:02:37.406Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "color-usage"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.372Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3782,14 +3780,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:23:02.416Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "typography"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.416Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4518,14 +4515,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:23:02.459Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "tailwind-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.459Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5212,14 +5208,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:23:02.502Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "z-index-scale"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.502Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5240,7 +5235,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 27,
+        "spread": 28,
         "score": 0.77,
         "level": "medium"
       },
@@ -5293,6 +5288,13 @@
           "column": 19,
           "isOutlier": false,
           "confidence": 0.6345161290322581
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 9,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 0.77
         },
         {
           "file": "agents/developer/prompts/agent.system.main.role.md",
@@ -5937,25 +5939,17 @@
           "column": 57,
           "isOutlier": false,
           "confidence": 0.6723255813953488
-        },
-        {
-          "file": "webui/css/messages.css",
-          "line": 766,
-          "column": 2,
-          "isOutlier": false,
-          "confidence": 0.6723255813953488
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:23:02.546Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.546Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5998,14 +5992,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.882Z",
-        "lastSeen": "2026-02-11T05:23:02.591Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "spacing-scale"
-        ],
-        "approvedAt": "2026-02-11T05:23:02.591Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6739,14 +6732,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.838Z",
-        "lastSeen": "2026-02-11T05:18:28.323Z",
+        "firstSeen": "2026-02-11T06:02:37.390Z",
+        "lastSeen": "2026-02-11T06:02:37.391Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "spacing-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.323Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7567,14 +7559,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.838Z",
-        "lastSeen": "2026-02-11T05:18:28.361Z",
+        "firstSeen": "2026-02-11T06:02:37.391Z",
+        "lastSeen": "2026-02-11T06:02:37.391Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "typography"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.361Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8320,14 +8311,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.839Z",
-        "lastSeen": "2026-02-11T05:18:28.403Z",
+        "firstSeen": "2026-02-11T06:02:37.391Z",
+        "lastSeen": "2026-02-11T06:02:37.392Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.403Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9056,14 +9046,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.840Z",
-        "lastSeen": "2026-02-11T05:18:28.444Z",
+        "firstSeen": "2026-02-11T06:02:37.392Z",
+        "lastSeen": "2026-02-11T06:02:37.392Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.444Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9820,14 +9809,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.840Z",
-        "lastSeen": "2026-02-11T05:18:28.484Z",
+        "firstSeen": "2026-02-11T06:02:37.392Z",
+        "lastSeen": "2026-02-11T06:02:37.392Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "tailwind-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.484Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10556,14 +10544,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.840Z",
-        "lastSeen": "2026-02-11T05:18:28.523Z",
+        "firstSeen": "2026-02-11T06:02:37.392Z",
+        "lastSeen": "2026-02-11T06:02:37.392Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.523Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11068,14 +11055,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.840Z",
-        "lastSeen": "2026-02-11T05:18:28.564Z",
+        "firstSeen": "2026-02-11T06:02:37.392Z",
+        "lastSeen": "2026-02-11T06:02:37.392Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.564Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11804,14 +11790,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.853Z",
-        "lastSeen": "2026-02-11T05:18:28.603Z",
+        "firstSeen": "2026-02-11T06:02:37.402Z",
+        "lastSeen": "2026-02-11T06:02:37.402Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.603Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12540,14 +12525,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.853Z",
-        "lastSeen": "2026-02-11T05:18:28.643Z",
+        "firstSeen": "2026-02-11T06:02:37.402Z",
+        "lastSeen": "2026-02-11T06:02:37.402Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.643Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12565,14 +12549,21 @@
         }
       },
       "confidence": {
-        "frequency": 0.26,
+        "frequency": 0.28,
         "consistency": 0.9,
         "age": 0,
-        "spread": 8,
+        "spread": 9,
         "score": 0.8825,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 23,
+          "column": 20,
+          "isOutlier": false,
+          "confidence": 0.7949999999999999
+        },
         {
           "file": ".serena/memories/project_overview.md",
           "line": 7,
@@ -12668,14 +12659,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:28.686Z",
+        "firstSeen": "2026-02-11T06:02:37.385Z",
+        "lastSeen": "2026-02-11T06:02:37.385Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.686Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13343,14 +13333,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:18:28.724Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.724Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13498,14 +13487,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:28.765Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "typography"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.765Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13646,14 +13634,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:28.805Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "tailwind-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.805Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14256,14 +14243,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:28.846Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "z-index-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.846Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15013,14 +14999,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:28.885Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.885Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15041,11 +15026,18 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 37,
+        "spread": 38,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 33,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.97
+        },
         {
           "file": "agent.py",
           "line": 671,
@@ -15738,25 +15730,17 @@
           "column": 10,
           "isOutlier": false,
           "confidence": 0.92625
-        },
-        {
-          "file": "webui/components/modals/history/history-store.js",
-          "line": 42,
-          "column": 12,
-          "isOutlier": false,
-          "confidence": 0.92625
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:28.929Z",
+        "firstSeen": "2026-02-11T06:02:37.389Z",
+        "lastSeen": "2026-02-11T06:02:37.389Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.929Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16485,14 +16469,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:28.969Z",
+        "firstSeen": "2026-02-11T06:02:37.415Z",
+        "lastSeen": "2026-02-11T06:02:37.415Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "spacing-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:28.969Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17221,14 +17204,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:29.010Z",
+        "firstSeen": "2026-02-11T06:02:37.415Z",
+        "lastSeen": "2026-02-11T06:02:37.415Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "color-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.010Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17754,14 +17736,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:29.049Z",
+        "firstSeen": "2026-02-11T06:02:37.415Z",
+        "lastSeen": "2026-02-11T06:02:37.415Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "color-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.049Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -18490,14 +18471,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:29.089Z",
+        "firstSeen": "2026-02-11T06:02:37.415Z",
+        "lastSeen": "2026-02-11T06:02:37.415Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "color-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.089Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19238,14 +19218,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:29.167Z",
+        "firstSeen": "2026-02-11T06:02:37.415Z",
+        "lastSeen": "2026-02-11T06:02:37.415Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "typography"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.167Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19975,14 +19954,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:29.207Z",
+        "firstSeen": "2026-02-11T06:02:37.415Z",
+        "lastSeen": "2026-02-11T06:02:37.415Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.207Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -20711,14 +20689,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.868Z",
-        "lastSeen": "2026-02-11T05:18:29.248Z",
+        "firstSeen": "2026-02-11T06:02:37.415Z",
+        "lastSeen": "2026-02-11T06:02:37.415Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "tailwind-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.248Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -21470,14 +21447,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:29.287Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "typography"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.287Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -22185,14 +22161,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:29.328Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "tailwind-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.328Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -22922,14 +22897,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:29.367Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "typography"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.367Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -23378,14 +23352,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:29.410Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "spacing-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.410Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -23449,14 +23422,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.873Z",
-        "lastSeen": "2026-02-11T05:18:29.470Z",
+        "firstSeen": "2026-02-11T06:02:37.420Z",
+        "lastSeen": "2026-02-11T06:02:37.420Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.470Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -24224,14 +24196,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.873Z",
-        "lastSeen": "2026-02-11T05:18:29.527Z",
+        "firstSeen": "2026-02-11T06:02:37.420Z",
+        "lastSeen": "2026-02-11T06:02:37.421Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.527Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -24722,14 +24693,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.875Z",
-        "lastSeen": "2026-02-11T05:18:29.568Z",
+        "firstSeen": "2026-02-11T06:02:37.421Z",
+        "lastSeen": "2026-02-11T06:02:37.421Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.568Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -25475,14 +25445,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.877Z",
-        "lastSeen": "2026-02-11T05:18:29.609Z",
+        "firstSeen": "2026-02-11T06:02:37.423Z",
+        "lastSeen": "2026-02-11T06:02:37.423Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.609Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -26211,14 +26180,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.877Z",
-        "lastSeen": "2026-02-11T05:18:29.650Z",
+        "firstSeen": "2026-02-11T06:02:37.424Z",
+        "lastSeen": "2026-02-11T06:02:37.424Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "tailwind-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.650Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -26960,14 +26928,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:29.693Z",
+        "firstSeen": "2026-02-11T06:02:37.424Z",
+        "lastSeen": "2026-02-11T06:02:37.424Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "z-index-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.693Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27716,14 +27683,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:29.733Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "color-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.733Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28137,14 +28103,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:29.772Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "z-index-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.772Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28885,14 +28850,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:29.812Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.812Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28992,14 +28956,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:29.852Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "z-index-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.852Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29170,14 +29133,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:29.892Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.892Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29269,14 +29231,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:29.934Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.934Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29361,14 +29322,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:29.976Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "typography"
-        ],
-        "approvedAt": "2026-02-11T05:18:29.976Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29439,14 +29399,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:30.015Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "tailwind-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.015Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30175,14 +30134,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:30.055Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "color-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.055Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30225,14 +30183,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:30.094Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "color-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.094Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30842,14 +30799,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:30.134Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "z-index-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.134Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30913,14 +30869,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:30.174Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.174Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -31147,14 +31102,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:30.213Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "design-tokens"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.213Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -31225,14 +31179,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:30.254Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "spacing-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.254Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -31415,14 +31368,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:30.293Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.293Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -31458,14 +31410,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:30.332Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "responsive"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.332Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -31522,14 +31473,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:30.370Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "z-index-scale"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.370Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -31607,19 +31557,18 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.882Z",
-        "lastSeen": "2026-02-11T05:18:30.410Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "styling",
           "class-naming"
-        ],
-        "approvedAt": "2026-02-11T05:18:30.410Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T05:47:13.990Z",
-  "checksum": "d920b1fa4540c08e"
+  "lastUpdated": "2026-02-11T06:02:37.445Z",
+  "checksum": "f34ce3e9120ac207"
 }

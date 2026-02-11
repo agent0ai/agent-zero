@@ -59,6 +59,8 @@ agent-zero/
 ├── docker/               # Docker build (base + run stages)
 ├── docs/                 # 20 documentation files
 ├── conf/                 # Runtime config (model_providers.yaml)
+├── CLAUDE.md             # AI agent guidance
+├── QUICKSTART.md         # Quickstart guide
 └── STYLING-PLAYBOOK.md   # Drift DNA-generated styling guide
 ```
 

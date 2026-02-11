@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-02-11T05:18:13.429Z",
+  "generatedAt": "2026-02-11T06:02:37.980Z",
   "health": {
-    "score": 42,
+    "score": 92,
     "trend": "stable",
     "factors": [
       {
         "name": "Pattern Approval Rate",
-        "score": 0,
+        "score": 0.9947159841479525,
         "weight": 0.3,
         "trend": "stable"
       },
@@ -18,7 +18,7 @@
       },
       {
         "name": "Low Outlier Rate",
-        "score": 0.9992957295601511,
+        "score": 0.9992959549411162,
         "weight": 0.4,
         "trend": "stable"
       }
@@ -26,25 +26,25 @@
   },
   "patterns": {
     "total": 757,
-    "approved": 0,
-    "discovered": 757,
-    "ignored": 0,
+    "approved": 753,
+    "discovered": 1,
+    "ignored": 3,
     "byCategory": {
-      "auth": 44,
-      "security": 56,
-      "errors": 54,
-      "structural": 61,
       "components": 62,
+      "structural": 61,
       "styling": 60,
-      "logging": 49,
-      "testing": 55,
+      "api": 11,
+      "auth": 44,
+      "errors": 54,
       "data-access": 81,
+      "testing": 55,
+      "logging": 49,
+      "security": 56,
       "config": 47,
       "types": 59,
-      "accessibility": 37,
       "performance": 46,
-      "documentation": 35,
-      "api": 11
+      "accessibility": 37,
+      "documentation": 35
     }
   },
   "issues": {
@@ -59,18 +59,18 @@
         "patternId": "bd04d00b24d6c135"
       },
       {
-        "id": "outlier-dc6271e44e31a1d3",
-        "type": "outlier",
-        "severity": "warning",
-        "message": "Route Structure Detector has 1 outliers",
-        "patternId": "dc6271e44e31a1d3"
-      },
-      {
         "id": "outlier-84741639ced8441f",
         "type": "outlier",
         "severity": "warning",
         "message": "HTTP Methods Detector has 1 outliers",
         "patternId": "84741639ced8441f"
+      },
+      {
+        "id": "outlier-dc6271e44e31a1d3",
+        "type": "outlier",
+        "severity": "warning",
+        "message": "Route Structure Detector has 1 outliers",
+        "patternId": "dc6271e44e31a1d3"
       }
     ]
   },
@@ -80,9 +80,9 @@
     "riskLevel": "low"
   },
   "lastScan": {
-    "timestamp": "2026-02-11T05:18:13.405Z",
-    "duration": 1009684,
-    "filesScanned": 1084,
+    "timestamp": "2026-02-11T06:02:37.955Z",
+    "duration": 1007451,
+    "filesScanned": 1089,
     "patternsFound": 757,
     "errors": 0
   }

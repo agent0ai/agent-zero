@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Agent Zero is a personal organic agentic AI framework (Python backend, Alpine.js frontend). Fork of `agent0ai/agent-zero`, remote at `jrmatherly/agent-zero`.
+Agent Zero is a personal organic agentic AI framework (Python backend, Alpine.js frontend). Fork of `jrmatherly/agent-zero`, remote at `jrmatherly/agent-zero`.
 
 ## Commands
 

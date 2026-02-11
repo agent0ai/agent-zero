@@ -18,11 +18,158 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 398,
+        "spread": 403,
         "score": 0.77,
         "level": "medium"
       },
       "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 20,
+          "column": 25,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 33,
+          "column": 25,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 38,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 44,
+          "column": 25,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 47,
+          "column": 19,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 48,
+          "column": 23,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 17,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 18,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 30,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 31,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 41,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 42,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 0.7430769230769232
+        },
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 25,
+          "column": 25,
+          "isOutlier": false,
+          "confidence": 0.7
+        },
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 34,
+          "column": 28,
+          "isOutlier": false,
+          "confidence": 0.7
+        },
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 22,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 0.7
+        },
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 23,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 0.7
+        },
+        {
+          "file": ".github/workflows/hooks-check.yml",
+          "line": 18,
+          "column": 25,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".github/workflows/hooks-check.yml",
+          "line": 15,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".github/workflows/hooks-check.yml",
+          "line": 16,
+          "column": 31,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 16,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 0.5366666666666666
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 30,
+          "column": 43,
+          "isOutlier": false,
+          "confidence": 0.5366666666666666
+        },
         {
           "file": ".markdownlint-cli2.yaml",
           "line": 6,
@@ -575,165 +722,17 @@
           "column": 49,
           "isOutlier": false,
           "confidence": 0.665
-        },
-        {
-          "file": ".serena/memories/project_overview.md",
-          "line": 30,
-          "column": 36,
-          "isOutlier": false,
-          "confidence": 0.665
-        },
-        {
-          "file": ".serena/memories/project_overview.md",
-          "line": 41,
-          "column": 26,
-          "isOutlier": false,
-          "confidence": 0.665
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 9,
-          "column": 34,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 20,
-          "column": 8,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 23,
-          "column": 8,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 23,
-          "column": 14,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 26,
-          "column": 11,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 29,
-          "column": 8,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 41,
-          "column": 29,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 26,
-          "column": 9,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/suggested_commands.md",
-          "line": 29,
-          "column": 16,
-          "isOutlier": false,
-          "confidence": 0.7063636363636363
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 9,
-          "column": 3,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 15,
-          "column": 3,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 17,
-          "column": 76,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 18,
-          "column": 41,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 18,
-          "column": 46,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 23,
-          "column": 3,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 25,
-          "column": 52,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 31,
-          "column": 3,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 34,
-          "column": 68,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
-        },
-        {
-          "file": ".serena/memories/tools_reference.md",
-          "line": 37,
-          "column": 3,
-          "isOutlier": false,
-          "confidence": 0.6699999999999999
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.841Z",
-        "lastSeen": "2026-02-11T05:23:05.042Z",
+        "firstSeen": "2026-02-11T06:02:37.387Z",
+        "lastSeen": "2026-02-11T06:02:37.387Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.042Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1462,14 +1461,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:05.082Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.082Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1490,7 +1488,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 121,
+        "spread": 122,
         "score": 0.77,
         "level": "medium"
       },
@@ -1772,6 +1770,20 @@
           "file": "README.md",
           "line": 289,
           "column": 31,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 10,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 17,
+          "column": 3,
           "isOutlier": false,
           "confidence": 0.77
         },
@@ -2180,32 +2192,17 @@
           "column": 38,
           "isOutlier": false,
           "confidence": 0.5435294117647058
-        },
-        {
-          "file": "docs/developer/websockets.md",
-          "line": 593,
-          "column": 58,
-          "isOutlier": false,
-          "confidence": 0.5435294117647058
-        },
-        {
-          "file": "docs/guides/a2a-setup.md",
-          "line": 3,
-          "column": 157,
-          "isOutlier": false,
-          "confidence": 0.6824999999999999
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:05.120Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.120Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2934,14 +2931,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:05.163Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.163Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3670,14 +3666,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:05.203Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.203Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4406,14 +4401,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.852Z",
-        "lastSeen": "2026-02-11T05:23:05.243Z",
+        "firstSeen": "2026-02-11T06:02:37.401Z",
+        "lastSeen": "2026-02-11T06:02:37.401Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.243Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5142,14 +5136,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:23:05.289Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.289Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5192,14 +5185,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:23:05.371Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.371Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5235,14 +5227,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:23:05.414Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.414Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5263,11 +5254,18 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 132,
+        "spread": 133,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 24,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.97
+        },
         {
           "file": ".markdownlint-cli2.yaml",
           "line": 45,
@@ -5960,25 +5958,17 @@
           "column": 70,
           "isOutlier": false,
           "confidence": 0.97
-        },
-        {
-          "file": "python/api/skills_import_preview.py",
-          "line": 45,
-          "column": 57,
-          "isOutlier": false,
-          "confidence": 0.97
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.841Z",
-        "lastSeen": "2026-02-11T05:18:45.524Z",
+        "firstSeen": "2026-02-11T06:02:37.390Z",
+        "lastSeen": "2026-02-11T06:02:37.390Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.524Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6708,14 +6698,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.842Z",
-        "lastSeen": "2026-02-11T05:18:45.566Z",
+        "firstSeen": "2026-02-11T06:02:37.393Z",
+        "lastSeen": "2026-02-11T06:02:37.393Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.566Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7521,14 +7510,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.842Z",
-        "lastSeen": "2026-02-11T05:18:45.608Z",
+        "firstSeen": "2026-02-11T06:02:37.393Z",
+        "lastSeen": "2026-02-11T06:02:37.398Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.608Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7558,6 +7546,13 @@
           "file": ".markdownlint-cli2.yaml",
           "line": 160,
           "column": 72,
+          "isOutlier": false,
+          "confidence": 0.97
+        },
+        {
+          "file": ".markdownlint-cli2.yaml",
+          "line": 187,
+          "column": 9,
           "isOutlier": false,
           "confidence": 0.97
         },
@@ -8291,25 +8286,17 @@
           "isOutlier": true,
           "confidence": 0.76,
           "outlierReason": "Low confidence outlier"
-        },
-        {
-          "file": "python/helpers/email_client.py",
-          "line": 1,
-          "column": 8,
-          "isOutlier": false,
-          "confidence": 0.8999999999999999
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.848Z",
-        "lastSeen": "2026-02-11T05:18:45.652Z",
+        "firstSeen": "2026-02-11T06:02:37.398Z",
+        "lastSeen": "2026-02-11T06:02:37.398Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.652Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8330,11 +8317,32 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 732,
+        "spread": 734,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 29,
+          "column": 27,
+          "isOutlier": false,
+          "confidence": 0.8999999999999999
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 24,
+          "column": 25,
+          "isOutlier": false,
+          "confidence": 0.7366666666666666
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 22,
+          "column": 38,
+          "isOutlier": false,
+          "confidence": 0.7366666666666666
+        },
         {
           "file": ".serena/memories/architecture_deep_dive.md",
           "line": 70,
@@ -9013,39 +9021,17 @@
           "column": 112,
           "isOutlier": false,
           "confidence": 0.7901388888888888
-        },
-        {
-          "file": "agents/developer/prompts/agent.system.main.communication.md",
-          "line": 22,
-          "column": 163,
-          "isOutlier": false,
-          "confidence": 0.7901388888888888
-        },
-        {
-          "file": "agents/developer/prompts/agent.system.main.communication.md",
-          "line": 22,
-          "column": 201,
-          "isOutlier": false,
-          "confidence": 0.7901388888888888
-        },
-        {
-          "file": "agents/developer/prompts/agent.system.main.communication.md",
-          "line": 22,
-          "column": 330,
-          "isOutlier": false,
-          "confidence": 0.7901388888888888
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.852Z",
-        "lastSeen": "2026-02-11T05:18:45.696Z",
+        "firstSeen": "2026-02-11T06:02:37.388Z",
+        "lastSeen": "2026-02-11T06:02:37.389Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.696Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9774,14 +9760,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.854Z",
-        "lastSeen": "2026-02-11T05:18:45.741Z",
+        "firstSeen": "2026-02-11T06:02:37.402Z",
+        "lastSeen": "2026-02-11T06:02:37.402Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.741Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10510,14 +10495,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.858Z",
-        "lastSeen": "2026-02-11T05:18:45.783Z",
+        "firstSeen": "2026-02-11T06:02:37.405Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.783Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11246,14 +11230,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:45.826Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.826Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11744,14 +11727,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:45.869Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.869Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12485,14 +12467,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:45.935Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.935Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13221,14 +13202,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:45.980Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:18:45.980Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13719,14 +13699,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:46.024Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.024Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13747,11 +13726,33 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 306,
+        "spread": 308,
         "score": 0.95,
         "level": "high"
       },
       "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 37,
+          "column": 3,
+          "isOutlier": true,
+          "confidence": 0.9430769230769231,
+          "outlierReason": "High confidence outlier"
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 5,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 0.7366666666666666
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 33,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.7366666666666666
+        },
         {
           "file": ".serena/memories/helpers_reference.md",
           "line": 71,
@@ -14431,39 +14432,17 @@
           "column": 9,
           "isOutlier": false,
           "confidence": 0.8066666666666666
-        },
-        {
-          "file": "agents/_example/tools/example_tool.py",
-          "line": 13,
-          "column": 34,
-          "isOutlier": false,
-          "confidence": 0.8066666666666666
-        },
-        {
-          "file": "agents/_example/tools/example_tool.py",
-          "line": 16,
-          "column": 24,
-          "isOutlier": false,
-          "confidence": 0.8066666666666666
-        },
-        {
-          "file": "agents/_example/tools/example_tool.py",
-          "line": 16,
-          "column": 43,
-          "isOutlier": false,
-          "confidence": 0.8066666666666666
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:46.068Z",
+        "firstSeen": "2026-02-11T06:02:37.387Z",
+        "lastSeen": "2026-02-11T06:02:37.388Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.068Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15192,14 +15171,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:18:46.110Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.110Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15928,14 +15906,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:18:46.153Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.153Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16758,14 +16735,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.863Z",
-        "lastSeen": "2026-02-11T05:18:46.195Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.195Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17574,14 +17550,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:46.241Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.241Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -18402,14 +18377,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:46.284Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.284Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19138,14 +19112,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:46.325Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.325Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19874,14 +19847,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:46.367Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.367Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -20092,14 +20064,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.866Z",
-        "lastSeen": "2026-02-11T05:18:46.411Z",
+        "firstSeen": "2026-02-11T06:02:37.413Z",
+        "lastSeen": "2026-02-11T06:02:37.413Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.411Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -20854,14 +20825,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.869Z",
-        "lastSeen": "2026-02-11T05:18:46.454Z",
+        "firstSeen": "2026-02-11T06:02:37.416Z",
+        "lastSeen": "2026-02-11T06:02:37.416Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.454Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -21600,14 +21570,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.869Z",
-        "lastSeen": "2026-02-11T05:18:46.498Z",
+        "firstSeen": "2026-02-11T06:02:37.416Z",
+        "lastSeen": "2026-02-11T06:02:37.416Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.498Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -22349,14 +22318,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.869Z",
-        "lastSeen": "2026-02-11T05:18:46.540Z",
+        "firstSeen": "2026-02-11T06:02:37.416Z",
+        "lastSeen": "2026-02-11T06:02:37.416Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.540Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -23167,14 +23135,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.869Z",
-        "lastSeen": "2026-02-11T05:18:46.584Z",
+        "firstSeen": "2026-02-11T06:02:37.416Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.584Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -23903,14 +23870,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:46.625Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.625Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -24664,14 +24630,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:46.669Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.669Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -24833,14 +24798,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:46.713Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.713Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -25569,14 +25533,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:46.758Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.758Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -26305,14 +26268,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:46.800Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.800Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27041,14 +27003,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:46.842Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.842Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27175,14 +27136,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:46.887Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.887Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27254,14 +27214,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:46.935Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.935Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -27395,14 +27354,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:46.981Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "type-assertions"
-        ],
-        "approvedAt": "2026-02-11T05:18:46.981Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28148,14 +28106,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.875Z",
-        "lastSeen": "2026-02-11T05:18:47.026Z",
+        "firstSeen": "2026-02-11T06:02:37.421Z",
+        "lastSeen": "2026-02-11T06:02:37.422Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.026Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28735,14 +28692,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.877Z",
-        "lastSeen": "2026-02-11T05:18:47.071Z",
+        "firstSeen": "2026-02-11T06:02:37.423Z",
+        "lastSeen": "2026-02-11T06:02:37.423Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.071Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28837,14 +28793,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:47.118Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.118Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -28901,14 +28856,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:47.162Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.162Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29035,14 +28989,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:47.207Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.207Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29260,14 +29213,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:47.253Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.253Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29415,14 +29367,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:47.296Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.296Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29822,14 +29773,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.339Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.339Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29923,14 +29873,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.382Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "generic-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.382Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -29973,14 +29922,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.427Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "utility-types"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.427Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30121,14 +30069,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.472Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "naming-conventions"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.472Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30178,14 +30125,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.531Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.531Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30235,14 +30181,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.576Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.576Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30278,14 +30223,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.621Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "any-usage"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.621Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30657,14 +30601,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:47.665Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "interface-vs-type"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.665Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -30742,19 +30685,18 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.882Z",
-        "lastSeen": "2026-02-11T05:18:47.710Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "types",
           "file-location"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.710Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T05:47:14.023Z",
-  "checksum": "6a5438644cae468a"
+  "lastUpdated": "2026-02-11T06:02:37.501Z",
+  "checksum": "29582e4e4c4fbe6f"
 }

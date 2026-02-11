@@ -2,12 +2,6 @@
 
 # `Agent Zero`
 
-<p align="center">
-    <a href="https://trendshift.io/repositories/11745" target="_blank"><img src="https://trendshift.io/api/badge/repositories/11745" alt="frdel%2Fagent-zero | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
-
-[![Agent Zero Website](https://img.shields.io/badge/Website-agent--zero.ai-0A192F?style=for-the-badge&logo=vercel&logoColor=white)](https://agent-zero.ai) [![Thanks to Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-Thanks%20to%20Sponsors-FF69B4?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/agent0ai) [![Follow on X](https://img.shields.io/badge/X-Follow-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Agent0ai) [![Join our Discord](https://img.shields.io/badge/Discord-Join%20our%20server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/B8KZKNsPpj) [![Subscribe on YouTube](https://img.shields.io/badge/YouTube-Subscribe-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@AgentZeroFW) [![Connect on LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jan-tomasek/) [![Follow on Warpcast](https://img.shields.io/badge/Warpcast-Follow-5A32F3?style=for-the-badge)](https://warpcast.com/agent-zero)
-
 ## Documentation
 
 [Introduction](#a-personal-organic-agentic-framework-that-grows-and-learns-with-you) •
@@ -18,7 +12,7 @@
 
 Or see DeepWiki generated documentation:
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agent0ai/agent-zero)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jrmatherly/agent-zero)
 
 </div>
 
@@ -53,8 +47,8 @@ A detailed setup guide for Windows, macOS, and Linux with a video can be found i
 ```bash
 # Pull and run with Docker
 
-docker pull agent0ai/agent-zero
-docker run -p 50001:80 agent0ai/agent-zero
+docker pull jrmatherly/agent-zero
+docker run -p 50001:80 jrmatherly/agent-zero
 
 # Visit http://localhost:50001 to start
 ```
@@ -337,7 +331,7 @@ Default models set to gpt-4.1
 ### v0.8.3
 [Release video](https://youtu.be/bPIZo0poalY)
 
-- _**Planning and scheduling**_
+- ***Planning and scheduling***
 
 ### v0.8.2
 [Release video](https://youtu.be/xMUNynQ9x6Y)
@@ -378,4 +372,4 @@ Default models set to gpt-4.1
 
 - [Join our Discord](https://discord.gg/B8KZKNsPpj) for live discussions or [visit our Skool Community](https://www.skool.com/agent-zero).
 - [Follow our YouTube channel](https://www.youtube.com/@AgentZeroFW) for hands-on explanations and tutorials
-- [Report Issues](https://github.com/agent0ai/agent-zero/issues) for bug fixes and features
+- [Report Issues](https://github.com/jrmatherly/agent-zero/issues) for bug fixes and features

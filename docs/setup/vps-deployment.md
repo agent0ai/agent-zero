@@ -170,10 +170,10 @@ A0_PATH="/opt/${A0_NAME}"
 A0_PORT="50080"
 
 # Pull latest image
-docker pull agent0ai/agent-zero:latest
+docker pull jrmatherly/agent-zero:latest
 
 # Run container
-docker run -d   --name ${A0_NAME}   --restart unless-stopped   -p ${A0_PORT}:80   -v ${A0_PATH}/.env:/a0/.env   -v ${A0_PATH}/usr:/a0/usr   agent0ai/agent-zero:latest
+docker run -d   --name ${A0_NAME}   --restart unless-stopped   -p ${A0_PORT}:80   -v ${A0_PATH}/.env:/a0/.env   -v ${A0_PATH}/usr:/a0/usr   jrmatherly/agent-zero:latest
 ```
 
 ### Step 5: Verify Container
@@ -637,7 +637,7 @@ docker exec a0-instance cat /a0/.env
 
 ```bash
 # Pull latest image
-docker pull agent0ai/agent-zero:latest
+docker pull jrmatherly/agent-zero:latest
 
 # Stop and remove old container (data persists in volumes)
 docker stop a0-instance
@@ -772,6 +772,6 @@ Each instance needs:
 
 ---
 
-_This guide comes from successful Agent Zero deployments across DirectAdmin and standard Linux environments._
+*This guide comes from successful Agent Zero deployments across DirectAdmin and standard Linux environments.*
 
 Contributed by @hurtdidit in the A0 Community.

@@ -18,7 +18,7 @@
 
 Or see DeepWiki generated documentation:
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agent0ai/agent-zero)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jrmatherly/agent-zero)
 
 </div>
 
@@ -53,8 +53,8 @@ A detailed setup guide for Windows, macOS, and Linux with a video can be found i
 ```bash
 # Pull and run with Docker
 
-docker pull agent0ai/agent-zero
-docker run -p 50001:80 agent0ai/agent-zero
+docker pull jrmatherly/agent-zero
+docker run -p 50001:80 jrmatherly/agent-zero
 
 # Visit http://localhost:50001 to start
 ```
@@ -337,7 +337,7 @@ Default models set to gpt-4.1
 ### v0.8.3
 [Release video](https://youtu.be/bPIZo0poalY)
 
-- _**Planning and scheduling**_
+- ***Planning and scheduling***
 
 ### v0.8.2
 [Release video](https://youtu.be/xMUNynQ9x6Y)
@@ -378,4 +378,4 @@ Default models set to gpt-4.1
 
 - [Join our Discord](https://discord.gg/B8KZKNsPpj) for live discussions or [visit our Skool Community](https://www.skool.com/agent-zero).
 - [Follow our YouTube channel](https://www.youtube.com/@AgentZeroFW) for hands-on explanations and tutorials
-- [Report Issues](https://github.com/agent0ai/agent-zero/issues) for bug fixes and features
+- [Report Issues](https://github.com/jrmatherly/agent-zero/issues) for bug fixes and features

@@ -25,11 +25,11 @@ This guide will show you how to setup a local development environment for Agent 
 - For Python you can choose your environment manager - base Python venv, Conda, uv...
 
 ## Step 1: Clone or download the repository
-- Agent Zero is available on GitHub [github.com/agent0ai/agent-zero](https://github.com/agent0ai/agent-zero).
-- You can download the files using a browser and extract or run `git clone https://github.com/agent0ai/agent-zero` in your desired directory.
+- Agent Zero is available on GitHub [github.com/jrmatherly/agent-zero](https://github.com/jrmatherly/agent-zero).
+- You can download the files using a browser and extract or run `git clone https://github.com/jrmatherly/agent-zero` in your desired directory.
 
 > [!NOTE]
-> In my case, I used `cd ~/Desktop` and `git clone https://github.com/agent0ai/agent-zero`, so my project folder is `~/Desktop/agent-zero`.
+> In my case, I used `cd ~/Desktop` and `git clone https://github.com/jrmatherly/agent-zero`, so my project folder is `~/Desktop/agent-zero`.
 
 ## Step 2: Open project folder in your IDE
 - I will be using plain and clean VS Code for this example to make sure I don't skip any setup part, you can use any of it's variants like Cursor, Windsurf etc.
@@ -109,7 +109,7 @@ After inserting my API key in settings, my Agent Zero instance works. I can send
 - Some parts of A0 require standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
 - To make development easier, we can use existing A0 instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
 
-1. Pull the docker image `agent0ai/agent-zero` from Docker Hub and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
+1. Pull the docker image `jrmatherly/agent-zero` from Docker Hub and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
 If you want, you can also map the `/a0` folder to our local project folder as well, this way we can update our local instance and the docker instance at the same time.
 This is how it looks in my example: port `80` is mapped to `8880` on the host and `22` to `8822`, `/a0` folder mapped to `/Users/frdel/Desktop/agent-zero`:
 

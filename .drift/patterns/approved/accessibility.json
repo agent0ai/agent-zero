@@ -726,14 +726,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:23:05.741Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "alt-text"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.741Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1085,14 +1084,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:23:05.781Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "keyboard-nav"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.781Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1113,11 +1111,46 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 65,
+        "spread": 69,
         "score": 0.77,
         "level": "medium"
       },
       "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 5,
+          "column": 16,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".github/workflows/ci.yml",
+          "line": 7,
+          "column": 16,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".github/workflows/drift.yml",
+          "line": 5,
+          "column": 16,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".github/workflows/hooks-check.yml",
+          "line": 5,
+          "column": 16,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "line": 25,
+          "column": 34,
+          "isOutlier": false,
+          "confidence": 0.77
+        },
         {
           "file": ".serena/memories/websocket_and_frontend.md",
           "line": 36,
@@ -1782,53 +1815,17 @@
           "column": 15,
           "isOutlier": false,
           "confidence": 0.77
-        },
-        {
-          "file": "prompts/memory.solutions_sum.sys.md",
-          "line": 8,
-          "column": 75,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "python/api/csrf_token.py",
-          "line": 74,
-          "column": 21,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "python/api/csrf_token.py",
-          "line": 78,
-          "column": 25,
-          "isOutlier": false,
-          "confidence": 0.77
-        },
-        {
-          "file": "python/api/image_get.py",
-          "line": 84,
-          "column": 22,
-          "isOutlier": false,
-          "confidence": 0.7262500000000001
-        },
-        {
-          "file": "python/api/image_get.py",
-          "line": 85,
-          "column": 22,
-          "isOutlier": false,
-          "confidence": 0.7262500000000001
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:23:05.822Z",
+        "firstSeen": "2026-02-11T06:02:37.388Z",
+        "lastSeen": "2026-02-11T06:02:37.388Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "semantic-html"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.822Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2160,14 +2157,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:23:05.862Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "focus-management"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.862Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2819,14 +2815,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:23:05.904Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "heading-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.904Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3443,14 +3438,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:23:05.947Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "aria-roles"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.947Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3522,14 +3516,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:23:05.985Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "alt-text"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.985Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3908,14 +3901,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.849Z",
-        "lastSeen": "2026-02-11T05:18:49.601Z",
+        "firstSeen": "2026-02-11T06:02:37.398Z",
+        "lastSeen": "2026-02-11T06:02:37.398Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "semantic-html"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.601Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4648,14 +4640,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.849Z",
-        "lastSeen": "2026-02-11T05:18:49.649Z",
+        "firstSeen": "2026-02-11T06:02:37.398Z",
+        "lastSeen": "2026-02-11T06:02:37.398Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "heading-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.649Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4768,14 +4759,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.849Z",
-        "lastSeen": "2026-02-11T05:18:49.738Z",
+        "firstSeen": "2026-02-11T06:02:37.398Z",
+        "lastSeen": "2026-02-11T06:02:37.398Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "heading-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.738Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5154,14 +5144,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.858Z",
-        "lastSeen": "2026-02-11T05:18:49.786Z",
+        "firstSeen": "2026-02-11T06:02:37.406Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "semantic-html"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.786Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5316,14 +5305,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:18:49.830Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "semantic-html"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.830Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5751,14 +5739,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.866Z",
-        "lastSeen": "2026-02-11T05:18:49.874Z",
+        "firstSeen": "2026-02-11T06:02:37.413Z",
+        "lastSeen": "2026-02-11T06:02:37.413Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "aria-roles"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.874Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6493,14 +6480,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.866Z",
-        "lastSeen": "2026-02-11T05:18:49.919Z",
+        "firstSeen": "2026-02-11T06:02:37.413Z",
+        "lastSeen": "2026-02-11T06:02:37.413Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "aria-roles"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.919Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6726,14 +6712,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.866Z",
-        "lastSeen": "2026-02-11T05:18:49.962Z",
+        "firstSeen": "2026-02-11T06:02:37.413Z",
+        "lastSeen": "2026-02-11T06:02:37.413Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "heading-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.962Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7514,14 +7499,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.866Z",
-        "lastSeen": "2026-02-11T05:18:50.009Z",
+        "firstSeen": "2026-02-11T06:02:37.413Z",
+        "lastSeen": "2026-02-11T06:02:37.413Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "alt-text"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.009Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8262,14 +8246,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:50.054Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "heading-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.054Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9013,14 +8996,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:50.099Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "semantic-html"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.099Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9761,14 +9743,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:50.144Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "alt-text"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.144Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10502,14 +10483,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:50.190Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "alt-text"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.190Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10573,14 +10553,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:50.235Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "keyboard-nav"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.235Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10644,14 +10623,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:50.281Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "focus-management"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.281Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11380,14 +11358,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.874Z",
-        "lastSeen": "2026-02-11T05:18:50.328Z",
+        "firstSeen": "2026-02-11T06:02:37.421Z",
+        "lastSeen": "2026-02-11T06:02:37.421Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "semantic-html"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.328Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11472,14 +11449,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.874Z",
-        "lastSeen": "2026-02-11T05:18:50.371Z",
+        "firstSeen": "2026-02-11T06:02:37.421Z",
+        "lastSeen": "2026-02-11T06:02:37.421Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "semantic-html"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.371Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11648,14 +11624,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.875Z",
-        "lastSeen": "2026-02-11T05:18:50.416Z",
+        "firstSeen": "2026-02-11T06:02:37.422Z",
+        "lastSeen": "2026-02-11T06:02:37.422Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "aria-roles"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.416Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12387,14 +12362,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.875Z",
-        "lastSeen": "2026-02-11T05:18:50.461Z",
+        "firstSeen": "2026-02-11T06:02:37.422Z",
+        "lastSeen": "2026-02-11T06:02:37.422Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "keyboard-nav"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.461Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12444,14 +12418,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:50.511Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "aria-roles"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.511Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13182,14 +13155,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:50.560Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "focus-management"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.560Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13548,14 +13520,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:50.605Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "aria-roles"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.605Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14102,14 +14073,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:50.651Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "alt-text"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.651Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14152,14 +14122,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:50.695Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "alt-text"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.695Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14223,14 +14192,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:50.738Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "keyboard-nav"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.738Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14378,14 +14346,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:50.784Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "heading-hierarchy"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.784Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14463,14 +14430,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:50.831Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "keyboard-nav"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.831Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14527,14 +14493,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:50.877Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "focus-management"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.877Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14591,14 +14556,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:50.923Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "focus-management"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.923Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14634,19 +14598,18 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:50.968Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "accessibility",
           "focus-management"
-        ],
-        "approvedAt": "2026-02-11T05:18:50.968Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T05:47:14.035Z",
-  "checksum": "84b93b4367bea4a5"
+  "lastUpdated": "2026-02-11T06:02:37.509Z",
+  "checksum": "486f85af5d69fa85"
 }

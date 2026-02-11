@@ -18,7 +18,7 @@
         "frequency": 1,
         "consistency": 0.9,
         "age": 0,
-        "spread": 108,
+        "spread": 109,
         "score": 0.77,
         "level": "medium"
       },
@@ -323,6 +323,13 @@
           "column": 4,
           "isOutlier": false,
           "confidence": 0.7474193548387096
+        },
+        {
+          "file": "STYLING-PLAYBOOK.md",
+          "line": 14,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 0.77
         },
         {
           "file": "agents/developer/prompts/agent.system.main.role.md",
@@ -715,25 +722,17 @@
           "column": 30,
           "isOutlier": false,
           "confidence": 0.7637499999999999
-        },
-        {
-          "file": "docs/README.md",
-          "line": 17,
-          "column": 66,
-          "isOutlier": false,
-          "confidence": 0.7637499999999999
         }
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:23:06.023Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:23:06.023Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1462,14 +1461,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:23:06.075Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:23:06.075Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2198,14 +2196,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:23:06.114Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:23:06.114Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2466,14 +2463,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:23:06.156Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "deprecation"
-        ],
-        "approvedAt": "2026-02-11T05:23:06.156Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3174,14 +3170,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.866Z",
-        "lastSeen": "2026-02-11T05:23:06.198Z",
+        "firstSeen": "2026-02-11T06:02:37.413Z",
+        "lastSeen": "2026-02-11T06:02:37.413Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "todo-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:23:06.198Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3252,14 +3247,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:23:06.239Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:23:06.239Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3988,14 +3982,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.851Z",
-        "lastSeen": "2026-02-11T05:18:51.017Z",
+        "firstSeen": "2026-02-11T06:02:37.400Z",
+        "lastSeen": "2026-02-11T06:02:37.400Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.017Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4724,14 +4717,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.852Z",
-        "lastSeen": "2026-02-11T05:18:51.065Z",
+        "firstSeen": "2026-02-11T06:02:37.401Z",
+        "lastSeen": "2026-02-11T06:02:37.401Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.065Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4928,14 +4920,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.853Z",
-        "lastSeen": "2026-02-11T05:18:51.111Z",
+        "firstSeen": "2026-02-11T06:02:37.401Z",
+        "lastSeen": "2026-02-11T06:02:37.401Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.111Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5328,14 +5319,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.860Z",
-        "lastSeen": "2026-02-11T05:18:51.156Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.408Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.156Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5462,14 +5452,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:51.203Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.203Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5764,14 +5753,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:51.247Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "todo-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.247Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6353,14 +6341,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.865Z",
-        "lastSeen": "2026-02-11T05:18:51.293Z",
+        "firstSeen": "2026-02-11T06:02:37.412Z",
+        "lastSeen": "2026-02-11T06:02:37.412Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.293Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7102,14 +7089,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.866Z",
-        "lastSeen": "2026-02-11T05:18:51.339Z",
+        "firstSeen": "2026-02-11T06:02:37.413Z",
+        "lastSeen": "2026-02-11T06:02:37.413Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.339Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7838,14 +7824,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:51.381Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.381Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7902,14 +7887,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:51.426Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.426Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8050,14 +8034,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:51.471Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.471Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8611,14 +8594,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:51.516Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.516Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8661,14 +8643,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:51.565Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.565Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8760,14 +8741,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:51.611Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.611Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9223,14 +9203,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:51.658Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.658Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9455,14 +9434,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:51.705Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "example-code"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.705Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9589,14 +9567,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.875Z",
-        "lastSeen": "2026-02-11T05:18:51.751Z",
+        "firstSeen": "2026-02-11T06:02:37.422Z",
+        "lastSeen": "2026-02-11T06:02:37.422Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.751Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10338,14 +10315,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:51.803Z",
+        "firstSeen": "2026-02-11T06:02:37.424Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "jsdoc-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.803Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10444,14 +10420,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:51.853Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "todo-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.853Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10494,14 +10469,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:51.924Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "todo-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.924Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10587,14 +10561,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:51.970Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "deprecation"
-        ],
-        "approvedAt": "2026-02-11T05:18:51.970Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11245,14 +11218,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:52.015Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "deprecation"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.015Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11302,14 +11274,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:52.061Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "deprecation"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.061Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11541,14 +11512,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:52.106Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "todo-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.106Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11640,14 +11610,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:52.151Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "deprecation"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.151Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11774,14 +11743,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:52.194Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.194Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11838,14 +11806,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:52.239Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.239Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11930,14 +11897,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:52.285Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "readme-structure"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.285Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12666,19 +12632,18 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.882Z",
-        "lastSeen": "2026-02-11T05:18:52.333Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "documentation",
           "todo-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:52.333Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T05:47:14.036Z",
-  "checksum": "eddfe661b20e98c6"
+  "lastUpdated": "2026-02-11T06:02:37.516Z",
+  "checksum": "e5df998919206333"
 }

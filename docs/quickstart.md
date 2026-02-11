@@ -16,20 +16,20 @@ Download and install Docker Desktop for your operating system:
 
 ### Step 2: Pull the Agent Zero Image
 
-Using Docker Desktop GUI, search for `agent0ai/agent-zero` and click Pull, or use the terminal:
+Using Docker Desktop GUI, search for `jrmatherly/agent-zero` and click Pull, or use the terminal:
 
 ```bash
-docker pull agent0ai/agent-zero
+docker pull jrmatherly/agent-zero
 ```
 
 ### Step 3: Run the Container
 
-**Using Docker Desktop:** Go to Images tab, click Run next to `agent0ai/agent-zero`, open Optional settings, map a host port to container port `80` (use `0` for automatic assignment), then click Run.
+**Using Docker Desktop:** Go to Images tab, click Run next to `jrmatherly/agent-zero`, open Optional settings, map a host port to container port `80` (use `0` for automatic assignment), then click Run.
 
 **Using Terminal:**
 
 ```bash
-docker run -p 0:80 agent0ai/agent-zero
+docker run -p 0:80 jrmatherly/agent-zero
 ```
 
 The container will start in a few seconds. Find the mapped port in Docker Desktop (shown as `<PORT>:80`).

@@ -453,14 +453,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.853Z",
-        "lastSeen": "2026-02-11T05:23:05.454Z",
+        "firstSeen": "2026-02-11T06:02:37.401Z",
+        "lastSeen": "2026-02-11T06:02:37.401Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "bundle-size"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.454Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1189,14 +1188,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.854Z",
-        "lastSeen": "2026-02-11T05:23:05.495Z",
+        "firstSeen": "2026-02-11T06:02:37.402Z",
+        "lastSeen": "2026-02-11T06:02:37.402Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.495Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -1925,14 +1923,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.858Z",
-        "lastSeen": "2026-02-11T05:23:05.535Z",
+        "firstSeen": "2026-02-11T06:02:37.406Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.535Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -2661,14 +2658,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:23:05.577Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.577Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -3397,14 +3393,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:23:05.618Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "caching-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.618Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4133,14 +4128,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:23:05.662Z",
+        "firstSeen": "2026-02-11T06:02:37.408Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.662Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4190,14 +4184,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:23:05.703Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:23:05.703Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -4443,14 +4436,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.849Z",
-        "lastSeen": "2026-02-11T05:18:47.753Z",
+        "firstSeen": "2026-02-11T06:02:37.398Z",
+        "lastSeen": "2026-02-11T06:02:37.399Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.753Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5179,14 +5171,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.854Z",
-        "lastSeen": "2026-02-11T05:18:47.796Z",
+        "firstSeen": "2026-02-11T06:02:37.402Z",
+        "lastSeen": "2026-02-11T06:02:37.402Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.796Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -5915,14 +5906,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.858Z",
-        "lastSeen": "2026-02-11T05:18:47.840Z",
+        "firstSeen": "2026-02-11T06:02:37.406Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.840Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6651,14 +6641,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.858Z",
-        "lastSeen": "2026-02-11T05:18:47.882Z",
+        "firstSeen": "2026-02-11T06:02:37.406Z",
+        "lastSeen": "2026-02-11T06:02:37.406Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.882Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6708,14 +6697,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:47.927Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.927Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -6821,14 +6809,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.859Z",
-        "lastSeen": "2026-02-11T05:18:47.985Z",
+        "firstSeen": "2026-02-11T06:02:37.407Z",
+        "lastSeen": "2026-02-11T06:02:37.407Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "caching-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:47.985Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -7354,14 +7341,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.861Z",
-        "lastSeen": "2026-02-11T05:18:48.041Z",
+        "firstSeen": "2026-02-11T06:02:37.409Z",
+        "lastSeen": "2026-02-11T06:02:37.409Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "caching-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.041Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8090,14 +8076,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:48.086Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.086Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -8826,14 +8811,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:48.128Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.128Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -9562,14 +9546,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:48.173Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "caching-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.173Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10130,14 +10113,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.864Z",
-        "lastSeen": "2026-02-11T05:18:48.217Z",
+        "firstSeen": "2026-02-11T06:02:37.411Z",
+        "lastSeen": "2026-02-11T06:02:37.411Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.217Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10243,14 +10225,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:48.262Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.262Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -10739,14 +10720,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:48.305Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.305Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11475,14 +11455,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:48.351Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.351Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -11700,14 +11679,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:48.393Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.393Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -12440,14 +12418,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:48.433Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.433Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13141,14 +13118,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:48.488Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.488Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13184,14 +13160,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.871Z",
-        "lastSeen": "2026-02-11T05:18:48.534Z",
+        "firstSeen": "2026-02-11T06:02:37.418Z",
+        "lastSeen": "2026-02-11T06:02:37.418Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.534Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13486,14 +13461,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:48.577Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.577Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -13718,14 +13692,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.872Z",
-        "lastSeen": "2026-02-11T05:18:48.621Z",
+        "firstSeen": "2026-02-11T06:02:37.419Z",
+        "lastSeen": "2026-02-11T06:02:37.419Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "bundle-size"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.621Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -14458,14 +14431,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:48.665Z",
+        "firstSeen": "2026-02-11T06:02:37.424Z",
+        "lastSeen": "2026-02-11T06:02:37.424Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "bundle-size"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.665Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15005,14 +14977,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.878Z",
-        "lastSeen": "2026-02-11T05:18:48.709Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "caching-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.709Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15750,14 +15721,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:48.753Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.753Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15912,14 +15882,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:48.798Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "caching-patterns"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.798Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -15983,14 +15952,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:48.842Z",
+        "firstSeen": "2026-02-11T06:02:37.425Z",
+        "lastSeen": "2026-02-11T06:02:37.425Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.842Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16082,14 +16050,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:48.886Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.886Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16224,14 +16191,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:48.931Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.931Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16309,14 +16275,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.879Z",
-        "lastSeen": "2026-02-11T05:18:48.977Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:18:48.977Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -16730,14 +16695,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:49.026Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "bundle-size"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.026Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17466,14 +17430,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:49.069Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "code-splitting"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.069Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17580,14 +17543,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:49.113Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.113Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17644,14 +17606,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.880Z",
-        "lastSeen": "2026-02-11T05:18:49.155Z",
+        "firstSeen": "2026-02-11T06:02:37.426Z",
+        "lastSeen": "2026-02-11T06:02:37.426Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "memoization"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.155Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17757,14 +17718,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:49.199Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "bundle-size"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.199Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -17863,14 +17823,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:49.242Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "bundle-size"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.242Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -18270,14 +18229,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:49.326Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.326Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -18327,14 +18285,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:49.372Z",
+        "firstSeen": "2026-02-11T06:02:37.427Z",
+        "lastSeen": "2026-02-11T06:02:37.427Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.372Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -18662,14 +18619,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:49.419Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "lazy-loading"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.419Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19435,14 +19391,13 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.881Z",
-        "lastSeen": "2026-02-11T05:18:49.476Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "bundle-size"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.476Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
@@ -19506,19 +19461,18 @@
       ],
       "outliers": [],
       "metadata": {
-        "firstSeen": "2026-02-11T05:18:12.882Z",
-        "lastSeen": "2026-02-11T05:18:49.552Z",
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:02:37.428Z",
         "source": "auto-detected",
         "tags": [
           "performance",
           "debounce-throttle"
-        ],
-        "approvedAt": "2026-02-11T05:18:49.552Z"
+        ]
       },
       "severity": "info",
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T05:47:14.028Z",
-  "checksum": "2abdd115a5fbcf90"
+  "lastUpdated": "2026-02-11T06:02:37.505Z",
+  "checksum": "0a6f6cebaa270112"
 }
