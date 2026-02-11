@@ -4,15 +4,15 @@ docker build -t agent-zero-base:local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H
 # local image without cache
 docker build -t agent-zero-base:local --no-cache  .
 
-# dockerhub push:
+# GHCR push:
 
-docker login
+echo $GITHUB_TOKEN | docker login ghcr.io -u jrmatherly --password-stdin
 
 # with cache
-docker buildx build -t agent0ai/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
 # without cache
-docker buildx build -t agent0ai/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) --no-cache .
+docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) --no-cache .
 
 # plain output
 --progress=plain

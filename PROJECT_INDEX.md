@@ -5,7 +5,7 @@ Generated: 2026-02-11
 ## Project Overview
 
 Personal organic agentic AI framework that grows and learns with the user.
-Fork of [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero).
+Fork of [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero), maintained at [jrmatherly/agent-zero](https://github.com/jrmatherly/agent-zero).
 
 - **Language**: Python 3.12+ (backend), vanilla JS + Alpine.js (frontend)
 - **Server**: Flask + uvicorn + python-socketio (ASGI)

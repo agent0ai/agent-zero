@@ -23,19 +23,19 @@ docker build -t agent-zero-main --build-arg BRANCH=main --build-arg CACHE_DATE=$
 
 
 
-# DOCKERHUB PUSH
+# GHCR PUSH
 # Run these commands from the /docker/run directory
 
-docker login
+echo $GITHUB_TOKEN | docker login ghcr.io -u jrmatherly --password-stdin
 
 # development:
-docker buildx build -t agent0ai/agent-zero:development --platform linux/amd64,linux/arm64 --push --build-arg BRANCH=development --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker buildx build -t ghcr.io/jrmatherly/agent-zero:development --platform linux/amd64,linux/arm64 --push --build-arg BRANCH=development --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
 # testing:
-docker buildx build -t agent0ai/agent-zero:testing --platform linux/amd64,linux/arm64 --push --build-arg BRANCH=testing --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker buildx build -t ghcr.io/jrmatherly/agent-zero:testing --platform linux/amd64,linux/arm64 --push --build-arg BRANCH=testing --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
 # main
-docker buildx build -t agent0ai/agent-zero:vx.x.x -t agent0ai/agent-zero:latest --platform linux/amd64,linux/arm64 --push --build-arg BRANCH=main --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker buildx build -t ghcr.io/jrmatherly/agent-zero:vx.x.x -t ghcr.io/jrmatherly/agent-zero:latest --platform linux/amd64,linux/arm64 --push --build-arg BRANCH=main --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
 
 # plain output

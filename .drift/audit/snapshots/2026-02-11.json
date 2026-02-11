@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-02-11T05:23:22.159Z",
-  "scanHash": "fab66dfb62cc0f12",
+  "generatedAt": "2026-02-11T06:25:09.491Z",
+  "scanHash": "8869504555d5d8ee",
   "summary": {
     "totalPatterns": 757,
     "autoApproveEligible": 522,
@@ -85,7 +85,7 @@
         "autoApproveEligible": 37,
         "flaggedForReview": 10,
         "likelyFalsePositives": 0,
-        "avgConfidence": 0.9202713327556885
+        "avgConfidence": 0.9210869355925679
       },
       "types": {
         "total": 59,
@@ -544,12 +544,12 @@
       "name": "Co-Location Detector",
       "category": "structural",
       "confidence": 0.95,
-      "locationCount": 69,
+      "locationCount": 70,
       "outlierCount": 0,
       "recommendation": "auto-approve",
       "reasons": [
         "High confidence (95%)",
-        "69 consistent locations",
+        "70 consistent locations",
         "No outliers detected"
       ],
       "crossValidation": {
@@ -859,7 +859,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-edb80b98"
+      "duplicateGroupId": "dup-cab08339"
     },
     {
       "id": "4118c60ce58016e6",
@@ -1119,7 +1119,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-edb80b98"
+      "duplicateGroupId": "dup-cab08339"
     },
     {
       "id": "c710373b1ed764c3",
@@ -1298,7 +1298,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-bc513667"
+      "duplicateGroupId": "dup-b0f04445"
     },
     {
       "id": "5ff24a63a0e53f3f",
@@ -1320,7 +1320,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-bc513667"
+      "duplicateGroupId": "dup-b0f04445"
     },
     {
       "id": "bf1b442c01dc67ce",
@@ -1568,7 +1568,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-6c480a94"
+      "duplicateGroupId": "dup-e0622b2c"
     },
     {
       "id": "c674ecb547324090",
@@ -1610,7 +1610,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-6c480a94"
+      "duplicateGroupId": "dup-e0622b2c"
     },
     {
       "id": "afa12e901439ce7a",
@@ -1732,7 +1732,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-81c120c4"
+      "duplicateGroupId": "dup-7a83240b"
     },
     {
       "id": "d26df7f964cb98ac",
@@ -1934,7 +1934,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-d64381fe"
+      "duplicateGroupId": "dup-93b36909"
     },
     {
       "id": "a23b035f74d4beaa",
@@ -1955,7 +1955,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-77d2bd45"
+      "duplicateGroupId": "dup-9868e4c9"
     },
     {
       "id": "60893c248b645304",
@@ -1996,7 +1996,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-77d2bd45"
+      "duplicateGroupId": "dup-9868e4c9"
     },
     {
       "id": "4d3f05f7cd38dba5",
@@ -2038,7 +2038,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-d64381fe"
+      "duplicateGroupId": "dup-93b36909"
     },
     {
       "id": "fd9130d4fdf93c64",
@@ -2120,7 +2120,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-81c120c4"
+      "duplicateGroupId": "dup-7a83240b"
     },
     {
       "id": "1dd7e5f8f6cc6c75",
@@ -2141,7 +2141,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-d65a22e8"
+      "duplicateGroupId": "dup-eb61d6ea"
     },
     {
       "id": "7da38dbf319e9067",
@@ -2200,7 +2200,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-d65a22e8"
+      "duplicateGroupId": "dup-eb61d6ea"
     },
     {
       "id": "8d5f91f80c0f8cf8",
@@ -2906,7 +2906,7 @@
       "name": "Class Naming Detector",
       "category": "styling",
       "confidence": 0.8825,
-      "locationCount": 13,
+      "locationCount": 14,
       "outlierCount": 0,
       "recommendation": "review",
       "reasons": [
@@ -2959,7 +2959,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-8951bdd5"
+      "duplicateGroupId": "dup-c3be0b58"
     },
     {
       "id": "6f369e0e404f6fb6",
@@ -2981,7 +2981,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-8951bdd5"
+      "duplicateGroupId": "dup-c3be0b58"
     },
     {
       "id": "454bc22be4e7f9c8",
@@ -3740,27 +3740,6 @@
       }
     },
     {
-      "id": "dc6271e44e31a1d3",
-      "name": "Route Structure Detector",
-      "category": "api",
-      "confidence": 0.95,
-      "locationCount": 24,
-      "outlierCount": 1,
-      "recommendation": "review",
-      "reasons": [
-        "High confidence (95%)",
-        "24 consistent locations",
-        "Part of potential duplicate group"
-      ],
-      "crossValidation": {
-        "inCallGraph": true,
-        "matchesConstraints": true,
-        "hasTestCoverage": true,
-        "issues": []
-      },
-      "duplicateGroupId": "dup-804aa054"
-    },
-    {
       "id": "b24897c875651aa0",
       "name": "Route Structure Detector",
       "category": "api",
@@ -3780,26 +3759,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-804aa054"
-    },
-    {
-      "id": "84741639ced8441f",
-      "name": "HTTP Methods Detector",
-      "category": "api",
-      "confidence": 0.95,
-      "locationCount": 4,
-      "outlierCount": 1,
-      "recommendation": "auto-approve",
-      "reasons": [
-        "High confidence (95%)",
-        "4 consistent locations"
-      ],
-      "crossValidation": {
-        "inCallGraph": true,
-        "matchesConstraints": true,
-        "hasTestCoverage": true,
-        "issues": []
-      }
+      "duplicateGroupId": "dup-f2db7c70"
     },
     {
       "id": "77e63fe2701cb493",
@@ -3857,28 +3817,6 @@
         "matchesConstraints": true,
         "hasTestCoverage": true,
         "issues": []
-      }
-    },
-    {
-      "id": "bd04d00b24d6c135",
-      "name": "Response Envelope Detector",
-      "category": "api",
-      "confidence": 0.95,
-      "locationCount": 7,
-      "outlierCount": 31,
-      "recommendation": "review",
-      "reasons": [
-        "Moderate confidence (95%)",
-        "Outlier ratio: 82%",
-        "Pattern \"Response Envelope Detector\" has high outlier ratio (82%)"
-      ],
-      "crossValidation": {
-        "inCallGraph": true,
-        "matchesConstraints": true,
-        "hasTestCoverage": true,
-        "issues": [
-          "Pattern \"Response Envelope Detector\" has high outlier ratio (82%)"
-        ]
       }
     },
     {
@@ -3940,7 +3878,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-ee287eec"
+      "duplicateGroupId": "dup-1269ea5a"
     },
     {
       "id": "3a73a6b2a39fb043",
@@ -3961,7 +3899,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-ee287eec"
+      "duplicateGroupId": "dup-1269ea5a"
     },
     {
       "id": "f03a6e5ec2bbe356",
@@ -4313,12 +4251,12 @@
       "name": "Audit Logging Detector",
       "category": "auth",
       "confidence": 0.95,
-      "locationCount": 61,
+      "locationCount": 62,
       "outlierCount": 0,
       "recommendation": "auto-approve",
       "reasons": [
         "High confidence (95%)",
-        "61 consistent locations",
+        "62 consistent locations",
         "No outliers detected"
       ],
       "crossValidation": {
@@ -4593,12 +4531,12 @@
       "name": "RBAC Patterns Detector",
       "category": "auth",
       "confidence": 0.95,
-      "locationCount": 11,
+      "locationCount": 15,
       "outlierCount": 0,
       "recommendation": "auto-approve",
       "reasons": [
         "High confidence (95%)",
-        "11 consistent locations",
+        "15 consistent locations",
         "No outliers detected"
       ],
       "crossValidation": {
@@ -4770,12 +4708,12 @@
       "name": "Token Handling Detector",
       "category": "auth",
       "confidence": 0.95,
-      "locationCount": 80,
+      "locationCount": 81,
       "outlierCount": 0,
       "recommendation": "auto-approve",
       "reasons": [
         "High confidence (95%)",
-        "80 consistent locations",
+        "81 consistent locations",
         "No outliers detected"
       ],
       "crossValidation": {
@@ -5330,7 +5268,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-7569e118"
+      "duplicateGroupId": "dup-6542641c"
     },
     {
       "id": "6f092e9bffb21801",
@@ -5532,7 +5470,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-44a393c7"
+      "duplicateGroupId": "dup-6297ece2"
     },
     {
       "id": "a9b8fc7313014aa0",
@@ -5554,7 +5492,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-44a393c7"
+      "duplicateGroupId": "dup-6297ece2"
     },
     {
       "id": "3b25a1a3d0f9a9bc",
@@ -5775,7 +5713,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-7569e118"
+      "duplicateGroupId": "dup-6542641c"
     },
     {
       "id": "30fc10e73e160682",
@@ -6331,7 +6269,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-90037c9f"
+      "duplicateGroupId": "dup-44deed2f"
     },
     {
       "id": "50de8ce5fe59f083",
@@ -6673,7 +6611,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-90037c9f"
+      "duplicateGroupId": "dup-44deed2f"
     },
     {
       "id": "2154a98f4cc3c3bd",
@@ -7627,7 +7565,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-51728eff"
+      "duplicateGroupId": "dup-4bff6b5c"
     },
     {
       "id": "30176ff1236f2b31",
@@ -7669,7 +7607,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-5ee1d713"
+      "duplicateGroupId": "dup-992ce54b"
     },
     {
       "id": "bf70ebcaea52f08e",
@@ -7731,7 +7669,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-b7f00303"
+      "duplicateGroupId": "dup-e1af8ab0"
     },
     {
       "id": "3cddeb190a609eb6",
@@ -7753,7 +7691,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-b7f00303"
+      "duplicateGroupId": "dup-e1af8ab0"
     },
     {
       "id": "c9b47950c4113088",
@@ -7775,7 +7713,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-5ee1d713"
+      "duplicateGroupId": "dup-992ce54b"
     },
     {
       "id": "47fc5c061c715487",
@@ -7817,7 +7755,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-5a276958"
+      "duplicateGroupId": "dup-23579dbd"
     },
     {
       "id": "62885764891cce99",
@@ -7859,7 +7797,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-5a276958"
+      "duplicateGroupId": "dup-23579dbd"
     },
     {
       "id": "8168f7fae8a47a6e",
@@ -8086,6 +8024,28 @@
       "name": "Test File Naming Detector",
       "category": "testing",
       "confidence": 0.9116666666666666,
+      "locationCount": 15,
+      "outlierCount": 0,
+      "recommendation": "review",
+      "reasons": [
+        "High confidence (91%)",
+        "15 consistent locations",
+        "No outliers detected",
+        "Part of potential duplicate group"
+      ],
+      "crossValidation": {
+        "inCallGraph": true,
+        "matchesConstraints": true,
+        "hasTestCoverage": true,
+        "issues": []
+      },
+      "duplicateGroupId": "dup-5924a50b"
+    },
+    {
+      "id": "9aa26aeb7ad63516",
+      "name": "Test Co-Location Detector",
+      "category": "testing",
+      "confidence": 0.9116666666666666,
       "locationCount": 14,
       "outlierCount": 0,
       "recommendation": "review",
@@ -8101,29 +8061,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-bdb91bcb"
-    },
-    {
-      "id": "9aa26aeb7ad63516",
-      "name": "Test Co-Location Detector",
-      "category": "testing",
-      "confidence": 0.9116666666666666,
-      "locationCount": 13,
-      "outlierCount": 0,
-      "recommendation": "review",
-      "reasons": [
-        "High confidence (91%)",
-        "13 consistent locations",
-        "No outliers detected",
-        "Part of potential duplicate group"
-      ],
-      "crossValidation": {
-        "inCallGraph": true,
-        "matchesConstraints": true,
-        "hasTestCoverage": true,
-        "issues": []
-      },
-      "duplicateGroupId": "dup-bdb91bcb"
+      "duplicateGroupId": "dup-5924a50b"
     },
     {
       "id": "e912b9299f4fa1f0",
@@ -8165,7 +8103,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-4a10b38a"
+      "duplicateGroupId": "dup-356d0b9a"
     },
     {
       "id": "133d250f7f323f5e",
@@ -8187,7 +8125,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-4a10b38a"
+      "duplicateGroupId": "dup-356d0b9a"
     },
     {
       "id": "992edac9db6938d3",
@@ -8228,7 +8166,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-51728eff"
+      "duplicateGroupId": "dup-4bff6b5c"
     },
     {
       "id": "2bbeea94b63ee339",
@@ -8290,7 +8228,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-0ee9b87a"
+      "duplicateGroupId": "dup-14312e28"
     },
     {
       "id": "313a9a59e674353a",
@@ -8312,7 +8250,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-0ee9b87a"
+      "duplicateGroupId": "dup-14312e28"
     },
     {
       "id": "96cea710e49bb41d",
@@ -8334,7 +8272,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-104b610a"
+      "duplicateGroupId": "dup-bbfa6877"
     },
     {
       "id": "49b3fe5c6dfda400",
@@ -8356,7 +8294,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-104b610a"
+      "duplicateGroupId": "dup-bbfa6877"
     },
     {
       "id": "3f725390d9d18c8f",
@@ -8398,7 +8336,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-382a2e45"
+      "duplicateGroupId": "dup-0fa6adb1"
     },
     {
       "id": "48b498ccdccd8a4e",
@@ -8420,7 +8358,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-382a2e45"
+      "duplicateGroupId": "dup-0fa6adb1"
     },
     {
       "id": "e8af7f47e63e5fab",
@@ -9126,12 +9064,12 @@
       "name": "Health Checks Detector",
       "category": "logging",
       "confidence": 0.95,
-      "locationCount": 90,
+      "locationCount": 93,
       "outlierCount": 0,
       "recommendation": "auto-approve",
       "reasons": [
         "High confidence (95%)",
-        "90 consistent locations",
+        "93 consistent locations",
         "No outliers detected"
       ],
       "crossValidation": {
@@ -10029,12 +9967,12 @@
       "name": "CSP Headers Detector",
       "category": "security",
       "confidence": 0.95,
-      "locationCount": 76,
+      "locationCount": 77,
       "outlierCount": 0,
       "recommendation": "auto-approve",
       "reasons": [
         "High confidence (95%)",
-        "76 consistent locations",
+        "77 consistent locations",
         "No outliers detected"
       ],
       "crossValidation": {
@@ -11305,13 +11243,13 @@
       "id": "899bad48aea0ebb9",
       "name": "Environment Detection Detector",
       "category": "config",
-      "confidence": 0.9116666666666666,
-      "locationCount": 46,
+      "confidence": 0.95,
+      "locationCount": 47,
       "outlierCount": 0,
       "recommendation": "auto-approve",
       "reasons": [
-        "High confidence (91%)",
-        "46 consistent locations",
+        "High confidence (95%)",
+        "47 consistent locations",
         "No outliers detected"
       ],
       "crossValidation": {
@@ -11615,7 +11553,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-3788ac10"
+      "duplicateGroupId": "dup-87f09168"
     },
     {
       "id": "ddc1b13de4aa176b",
@@ -11653,7 +11591,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-3788ac10"
+      "duplicateGroupId": "dup-87f09168"
     },
     {
       "id": "1ee52c15a90e9f82",
@@ -11907,7 +11845,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-8d44415f"
+      "duplicateGroupId": "dup-4e89bc04"
     },
     {
       "id": "4208d04d823105f2",
@@ -11929,7 +11867,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-23ba28ae"
+      "duplicateGroupId": "dup-8195406c"
     },
     {
       "id": "756fe191ce7d7a02",
@@ -11971,7 +11909,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-8d44415f"
+      "duplicateGroupId": "dup-4e89bc04"
     },
     {
       "id": "cbb4ff8f9116c80b",
@@ -11993,7 +11931,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-23ba28ae"
+      "duplicateGroupId": "dup-8195406c"
     },
     {
       "id": "74af256b60a4d4ca",
@@ -12075,7 +12013,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-94737edc"
+      "duplicateGroupId": "dup-41a04da0"
     },
     {
       "id": "9d54f0c37b4e2e9f",
@@ -12117,7 +12055,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-94737edc"
+      "duplicateGroupId": "dup-41a04da0"
     },
     {
       "id": "8fa6f1ab8cedc8f4",
@@ -12199,7 +12137,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-02f18edb"
+      "duplicateGroupId": "dup-1dbaff5c"
     },
     {
       "id": "706ba171c4e4d134",
@@ -12241,7 +12179,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-02f18edb"
+      "duplicateGroupId": "dup-1dbaff5c"
     },
     {
       "id": "927fac6aabb03263",
@@ -12363,7 +12301,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-c14f473f"
+      "duplicateGroupId": "dup-98f02405"
     },
     {
       "id": "a441d9f869cd2d77",
@@ -12385,7 +12323,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-c14f473f"
+      "duplicateGroupId": "dup-98f02405"
     },
     {
       "id": "a6803c3d380a6b0b",
@@ -12680,7 +12618,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-720a7213"
+      "duplicateGroupId": "dup-968eba4f"
     },
     {
       "id": "0c28656094c7d724",
@@ -12700,7 +12638,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-720a7213"
+      "duplicateGroupId": "dup-968eba4f"
     },
     {
       "id": "7cbab3786dbe297e",
@@ -13696,7 +13634,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-4038de77"
+      "duplicateGroupId": "dup-965d3667"
     },
     {
       "id": "5bca6a43b463f3a2",
@@ -13734,7 +13672,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-4038de77"
+      "duplicateGroupId": "dup-965d3667"
     },
     {
       "id": "322e35f11ceb4366",
@@ -14070,7 +14008,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-98f37cf9"
+      "duplicateGroupId": "dup-c142085a"
     },
     {
       "id": "ba25a819a31b1672",
@@ -14092,7 +14030,7 @@
         "hasTestCoverage": true,
         "issues": []
       },
-      "duplicateGroupId": "dup-98f37cf9"
+      "duplicateGroupId": "dup-c142085a"
     },
     {
       "id": "5ded2562427826b8",
@@ -15063,11 +15001,73 @@
         "hasTestCoverage": true,
         "issues": []
       }
+    },
+    {
+      "id": "84741639ced8441f",
+      "name": "HTTP Methods Detector",
+      "category": "api",
+      "confidence": 0.95,
+      "locationCount": 4,
+      "outlierCount": 1,
+      "recommendation": "auto-approve",
+      "reasons": [
+        "High confidence (95%)",
+        "4 consistent locations"
+      ],
+      "crossValidation": {
+        "inCallGraph": true,
+        "matchesConstraints": true,
+        "hasTestCoverage": true,
+        "issues": []
+      }
+    },
+    {
+      "id": "dc6271e44e31a1d3",
+      "name": "Route Structure Detector",
+      "category": "api",
+      "confidence": 0.95,
+      "locationCount": 24,
+      "outlierCount": 1,
+      "recommendation": "review",
+      "reasons": [
+        "High confidence (95%)",
+        "24 consistent locations",
+        "Part of potential duplicate group"
+      ],
+      "crossValidation": {
+        "inCallGraph": true,
+        "matchesConstraints": true,
+        "hasTestCoverage": true,
+        "issues": []
+      },
+      "duplicateGroupId": "dup-f2db7c70"
+    },
+    {
+      "id": "bd04d00b24d6c135",
+      "name": "Response Envelope Detector",
+      "category": "api",
+      "confidence": 0.95,
+      "locationCount": 7,
+      "outlierCount": 31,
+      "recommendation": "review",
+      "reasons": [
+        "Moderate confidence (95%)",
+        "Outlier ratio: 82%",
+        "Pattern \"Response Envelope Detector\" has high outlier ratio (82%)"
+      ],
+      "crossValidation": {
+        "inCallGraph": true,
+        "matchesConstraints": true,
+        "hasTestCoverage": true,
+        "issues": [
+          "Pattern \"Response Envelope Detector\" has high outlier ratio (82%)"
+        ]
+      }
     }
   ],
   "duplicates": [
     {
-      "id": "dup-edb80b98",
+      "id": "dup-cab08339",
       "patterns": [
         "7bb72f4bddcde447",
         "b7d9be27a98c6b35"
@@ -15083,7 +15083,7 @@
       "totalLocations": 166
     },
     {
-      "id": "dup-bc513667",
+      "id": "dup-b0f04445",
       "patterns": [
         "ced67641002e7219",
         "5ff24a63a0e53f3f"
@@ -15099,7 +15099,7 @@
       "totalLocations": 12
     },
     {
-      "id": "dup-6c480a94",
+      "id": "dup-e0622b2c",
       "patterns": [
         "18829a092d95165a",
         "baa0a2af1fea3628"
@@ -15115,7 +15115,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-81c120c4",
+      "id": "dup-7a83240b",
       "patterns": [
         "99f0504b302b92ee",
         "9b877a0aaab3a0dd"
@@ -15131,7 +15131,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-d64381fe",
+      "id": "dup-93b36909",
       "patterns": [
         "7978d6ea0f5ff563",
         "63bf7bec3ab2b8f1"
@@ -15147,7 +15147,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-77d2bd45",
+      "id": "dup-9868e4c9",
       "patterns": [
         "a23b035f74d4beaa",
         "5b6d58fcd301fb13"
@@ -15163,7 +15163,7 @@
       "totalLocations": 2
     },
     {
-      "id": "dup-d65a22e8",
+      "id": "dup-eb61d6ea",
       "patterns": [
         "1dd7e5f8f6cc6c75",
         "208813ea27664c2f"
@@ -15179,7 +15179,7 @@
       "totalLocations": 2
     },
     {
-      "id": "dup-8951bdd5",
+      "id": "dup-c3be0b58",
       "patterns": [
         "8f5cb64eba29d0c2",
         "6f369e0e404f6fb6"
@@ -15195,10 +15195,10 @@
       "totalLocations": 33
     },
     {
-      "id": "dup-804aa054",
+      "id": "dup-f2db7c70",
       "patterns": [
-        "dc6271e44e31a1d3",
-        "b24897c875651aa0"
+        "b24897c875651aa0",
+        "dc6271e44e31a1d3"
       ],
       "patternNames": [
         "Route Structure Detector",
@@ -15211,7 +15211,7 @@
       "totalLocations": 48
     },
     {
-      "id": "dup-ee287eec",
+      "id": "dup-1269ea5a",
       "patterns": [
         "0306246fbf4ae6ad",
         "3a73a6b2a39fb043"
@@ -15227,7 +15227,7 @@
       "totalLocations": 2
     },
     {
-      "id": "dup-7569e118",
+      "id": "dup-6542641c",
       "patterns": [
         "0bd54424c6d11ecc",
         "aa89cf3e7c4fd716"
@@ -15243,7 +15243,7 @@
       "totalLocations": 18
     },
     {
-      "id": "dup-44a393c7",
+      "id": "dup-6297ece2",
       "patterns": [
         "aa439b2f5d78a46e",
         "a9b8fc7313014aa0"
@@ -15259,7 +15259,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-90037c9f",
+      "id": "dup-44deed2f",
       "patterns": [
         "231c4fce51003b08",
         "0ae05e214e4a0bb2"
@@ -15275,7 +15275,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-51728eff",
+      "id": "dup-4bff6b5c",
       "patterns": [
         "794a39a62eb472fa",
         "88a00b7bdb3dac2e"
@@ -15291,7 +15291,7 @@
       "totalLocations": 4
     },
     {
-      "id": "dup-5ee1d713",
+      "id": "dup-992ce54b",
       "patterns": [
         "a3c7d61a60b3a724",
         "c9b47950c4113088"
@@ -15307,7 +15307,7 @@
       "totalLocations": 84
     },
     {
-      "id": "dup-b7f00303",
+      "id": "dup-e1af8ab0",
       "patterns": [
         "64050685ff2e45e3",
         "3cddeb190a609eb6"
@@ -15323,7 +15323,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-5a276958",
+      "id": "dup-23579dbd",
       "patterns": [
         "e09d5542593155b1",
         "7ca6b9b279a36b79"
@@ -15339,7 +15339,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-bdb91bcb",
+      "id": "dup-5924a50b",
       "patterns": [
         "1b72a6f59234647e",
         "9aa26aeb7ad63516"
@@ -15348,14 +15348,14 @@
         "Test File Naming Detector",
         "Test Co-Location Detector"
       ],
-      "similarity": 0.6875,
+      "similarity": 0.7058823529411765,
       "reason": "High location overlap detected",
       "recommendation": "review",
-      "overlappingLocations": 11,
-      "totalLocations": 27
+      "overlappingLocations": 12,
+      "totalLocations": 29
     },
     {
-      "id": "dup-4a10b38a",
+      "id": "dup-356d0b9a",
       "patterns": [
         "05980e60af4a18e6",
         "133d250f7f323f5e"
@@ -15371,7 +15371,7 @@
       "totalLocations": 161
     },
     {
-      "id": "dup-0ee9b87a",
+      "id": "dup-14312e28",
       "patterns": [
         "913ef2b23de17821",
         "313a9a59e674353a"
@@ -15387,7 +15387,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-104b610a",
+      "id": "dup-bbfa6877",
       "patterns": [
         "96cea710e49bb41d",
         "49b3fe5c6dfda400"
@@ -15403,7 +15403,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-382a2e45",
+      "id": "dup-0fa6adb1",
       "patterns": [
         "3a3a78277d1913b8",
         "48b498ccdccd8a4e"
@@ -15419,7 +15419,7 @@
       "totalLocations": 34
     },
     {
-      "id": "dup-3788ac10",
+      "id": "dup-87f09168",
       "patterns": [
         "e622f9a205ff7a1c",
         "59ac7fd7c9849d49"
@@ -15435,7 +15435,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-8d44415f",
+      "id": "dup-4e89bc04",
       "patterns": [
         "e516a0c77045b899",
         "27662c385c843732"
@@ -15451,7 +15451,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-23ba28ae",
+      "id": "dup-8195406c",
       "patterns": [
         "4208d04d823105f2",
         "cbb4ff8f9116c80b"
@@ -15467,7 +15467,7 @@
       "totalLocations": 132
     },
     {
-      "id": "dup-94737edc",
+      "id": "dup-41a04da0",
       "patterns": [
         "62e9f5b53d1156f6",
         "74f29bee153c68a6"
@@ -15483,7 +15483,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-02f18edb",
+      "id": "dup-1dbaff5c",
       "patterns": [
         "d5437f20a5234bcf",
         "9da06af5c53cb0c1"
@@ -15499,7 +15499,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-c14f473f",
+      "id": "dup-98f02405",
       "patterns": [
         "3c19125455db4f4e",
         "a441d9f869cd2d77"
@@ -15515,7 +15515,7 @@
       "totalLocations": 200
     },
     {
-      "id": "dup-720a7213",
+      "id": "dup-968eba4f",
       "patterns": [
         "36c400ed42ccc63c",
         "0c28656094c7d724"
@@ -15531,7 +15531,7 @@
       "totalLocations": 6
     },
     {
-      "id": "dup-4038de77",
+      "id": "dup-965d3667",
       "patterns": [
         "a16caf8754999bb0",
         "8e24998bb63aa954"
@@ -15547,7 +15547,7 @@
       "totalLocations": 89
     },
     {
-      "id": "dup-98f37cf9",
+      "id": "dup-c142085a",
       "patterns": [
         "1d5a3c7e3a578bd3",
         "ba25a819a31b1672"
@@ -15577,5 +15577,15 @@
         "message": "Pattern \"Response Envelope Detector\" has high outlier ratio (82%)"
       }
     ]
+  },
+  "degradation": {
+    "previousAuditDate": "2026-02-11T05:23:22.159Z",
+    "healthScoreDelta": 0,
+    "confidenceDelta": 0.000050638485248888365,
+    "patternCountDelta": 0,
+    "newIssues": [],
+    "resolvedIssues": [],
+    "trend": "stable",
+    "alerts": []
   }
 }

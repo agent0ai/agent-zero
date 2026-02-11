@@ -56,6 +56,7 @@ Agent Zero is a personal, organic agentic AI framework that grows and learns wit
 
 ## GitHub
 - **Remote**: `jrmatherly/agent-zero` (fork of `agent0ai/agent-zero`)
+- **Container Registry**: GHCR (`ghcr.io/jrmatherly/agent-zero`, `ghcr.io/jrmatherly/agent-zero-base`)
 - **CI/CD Workflows**:
   - `ci.yml` — Lint (Ruff + Biome), format check, test (parallel jobs on push/PR to main)
   - `drift.yml` — Codebase pattern analysis (push to main, manual dispatch, weekly)

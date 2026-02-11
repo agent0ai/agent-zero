@@ -3,6 +3,623 @@
   "category": "components",
   "patterns": [
     {
+      "id": "7f916716829bf1fd",
+      "subcategory": "modal-patterns",
+      "name": "Modal Patterns Detector",
+      "description": "Learns modal/dialog patterns from your codebase",
+      "detector": {
+        "type": "regex",
+        "config": {
+          "detectorId": "components/modal-patterns",
+          "patternId": "components/modal-patterns/unknown"
+        }
+      },
+      "confidence": {
+        "frequency": 0.83,
+        "consistency": 0.9,
+        "age": 0,
+        "spread": 11,
+        "score": 0.6892307692307693,
+        "level": "medium"
+      },
+      "locations": [
+        {
+          "file": "webui/components/modals/context/context-store.js",
+          "line": 109,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/components/modals/context/context-store.js",
+          "line": 109,
+          "column": 33,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/components/modals/file-browser/file-browser-store.js",
+          "line": 94,
+          "column": 22,
+          "isOutlier": false,
+          "confidence": 0.5276923076923077
+        },
+        {
+          "file": "webui/components/modals/file-browser/file-browser-store.js",
+          "line": 95,
+          "column": 23,
+          "isOutlier": false,
+          "confidence": 0.5276923076923077
+        },
+        {
+          "file": "webui/components/modals/file-browser/file-browser-store.js",
+          "line": 110,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.5276923076923077
+        },
+        {
+          "file": "webui/components/modals/file-browser/file-browser-store.js",
+          "line": 111,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.5276923076923077
+        },
+        {
+          "file": "webui/components/modals/file-editor/file-editor-store.js",
+          "line": 30,
+          "column": 24,
+          "isOutlier": false,
+          "confidence": 0.5489473684210526
+        },
+        {
+          "file": "webui/components/modals/file-editor/file-editor-store.js",
+          "line": 32,
+          "column": 24,
+          "isOutlier": false,
+          "confidence": 0.5489473684210526
+        },
+        {
+          "file": "webui/components/modals/file-editor/file-editor-store.js",
+          "line": 86,
+          "column": 24,
+          "isOutlier": false,
+          "confidence": 0.5489473684210526
+        },
+        {
+          "file": "webui/components/modals/file-editor/file-editor-store.js",
+          "line": 88,
+          "column": 49,
+          "isOutlier": false,
+          "confidence": 0.5489473684210526
+        },
+        {
+          "file": "webui/components/modals/history/history-store.js",
+          "line": 109,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/components/modals/history/history-store.js",
+          "line": 109,
+          "column": 33,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/components/modals/image-viewer/image-viewer-store.js",
+          "line": 33,
+          "column": 24,
+          "isOutlier": false,
+          "confidence": 0.6199999999999999
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 81,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 92,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 97,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 103,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 108,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 112,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 125,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 170,
+          "column": 15,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 203,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/components/projects/projects-store.js",
+          "line": 287,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.6892307692307693
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 3,
+          "column": 43,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 7,
+          "column": 19,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 538,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 553,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 557,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 568,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 568,
+          "column": 43,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 572,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 580,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 584,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 590,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 597,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 602,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/css/modals.css",
+          "line": 606,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.6809090909090909
+        },
+        {
+          "file": "webui/index.css",
+          "line": 1254,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/index.css",
+          "line": 1269,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/index.css",
+          "line": 1280,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/index.css",
+          "line": 1289,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/js/confirmDialog.js",
+          "line": 18,
+          "column": 22,
+          "isOutlier": false,
+          "confidence": 0.6533333333333333
+        },
+        {
+          "file": "webui/js/confirmDialog.js",
+          "line": 18,
+          "column": 44,
+          "isOutlier": false,
+          "confidence": 0.6533333333333333
+        },
+        {
+          "file": "webui/js/confirmDialog.js",
+          "line": 28,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 0.6533333333333333
+        },
+        {
+          "file": "webui/js/confirmDialog.js",
+          "line": 40,
+          "column": 26,
+          "isOutlier": false,
+          "confidence": 0.6533333333333333
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 20,
+          "column": 3,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 20,
+          "column": 23,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 24,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 32,
+          "column": 27,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 112,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 116,
+          "column": 30,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 120,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 130,
+          "column": 38,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 133,
+          "column": 11,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 133,
+          "column": 48,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 139,
+          "column": 13,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 148,
+          "column": 15,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 149,
+          "column": 15,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 161,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 161,
+          "column": 20,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 162,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 162,
+          "column": 23,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 163,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 180,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 197,
+          "column": 44,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 210,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 210,
+          "column": 25,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 212,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 216,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 219,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 224,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 249,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 249,
+          "column": 44,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 272,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 272,
+          "column": 32,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 280,
+          "column": 5,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 296,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 297,
+          "column": 7,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/modals.js",
+          "line": 302,
+          "column": 21,
+          "isOutlier": false,
+          "confidence": 0.5537078651685392
+        },
+        {
+          "file": "webui/js/shortcuts.js",
+          "line": 31,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/js/shortcuts.js",
+          "line": 31,
+          "column": 27,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/js/shortcuts.js",
+          "line": 35,
+          "column": 10,
+          "isOutlier": false,
+          "confidence": 0.595
+        },
+        {
+          "file": "webui/js/shortcuts.js",
+          "line": 35,
+          "column": 28,
+          "isOutlier": false,
+          "confidence": 0.595
+        }
+      ],
+      "outliers": [],
+      "metadata": {
+        "firstSeen": "2026-02-11T06:02:37.428Z",
+        "lastSeen": "2026-02-11T06:27:51.618Z",
+        "source": "auto-detected",
+        "tags": [
+          "components",
+          "modal-patterns"
+        ],
+        "approvedAt": "2026-02-11T06:27:51.618Z"
+      },
+      "severity": "info",
+      "autoFixable": false
+    },
+    {
       "id": "2e97a57ae0a72cdf",
       "subcategory": "state-patterns",
       "name": "State Patterns Detector",
@@ -27933,6 +28550,6 @@
       "autoFixable": false
     }
   ],
-  "lastUpdated": "2026-02-11T06:02:37.440Z",
-  "checksum": "476e5cecfac75692"
+  "lastUpdated": "2026-02-11T06:27:51.632Z",
+  "checksum": "8d83918c906e33ab"
 }
