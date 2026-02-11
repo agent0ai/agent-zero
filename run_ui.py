@@ -33,6 +33,7 @@ from werkzeug.wrappers.response import Response as BaseResponse
 
 import initialize
 from python.helpers import (
+    branding,
     dotenv,
     fasta2a_server,
     files,
@@ -559,7 +560,7 @@ def wait_for_health(host: str, port: int):
         try:
             with urllib.request.urlopen(url, timeout=2) as resp:
                 if resp.status == 200:
-                    PrintStyle().print("Agent Zero is running.")
+                    PrintStyle().print(f"{branding.BRAND_NAME} is running.")
                     return
         except Exception:
             pass
