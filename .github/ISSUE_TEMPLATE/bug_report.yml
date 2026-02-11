@@ -1,0 +1,44 @@
+name: "\U0001F41B Bug Report"
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment Type
+      options:
+        - Docker
+        - Local (run_ui.py)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Agent Zero Version
+      placeholder: e.g., v0.8.1 or commit hash
+    validations:
+      required: true
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Bug Description
+    validations:
+      required: true
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to Reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Screenshots, error logs, browser console output, model provider, etc.

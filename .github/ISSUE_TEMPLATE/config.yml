@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "\U0001F4D6 Documentation"
+    url: https://github.com/jrmatherly/agent-zero/tree/main/docs
+    about: Check documentation for setup guides and troubleshooting
+  - name: "\U0001F512 Security Issues"
+    url: https://github.com/jrmatherly/agent-zero/security/advisories/new
+    about: Report security vulnerabilities privately

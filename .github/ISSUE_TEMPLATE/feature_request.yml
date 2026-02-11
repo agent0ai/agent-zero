@@ -1,0 +1,37 @@
+name: "\u2728 Feature Request"
+description: Suggest a feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: feature_description
+    attributes:
+      label: Feature Description
+    validations:
+      required: true
+  - type: textarea
+    id: problem_statement
+    attributes:
+      label: Problem Statement
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - AI Model / Provider Integration
+        - Memory / Knowledge System
+        - Agent Tools
+        - Web UI / UX
+        - Docker / Deployment
+        - MCP / A2A
+        - Extensions / Hooks
+        - Performance
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
