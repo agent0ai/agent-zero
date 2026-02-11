@@ -193,7 +193,17 @@ export GITHUB_TOKEN="ghp_YOUR_TOKEN_HERE"
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u jrmatherly --password-stdin
 ```
 
-**3. Build and push the base image** (from `docker/base/`):
+**3. Create a multi-platform builder** (one-time setup)
+
+The default Docker builder doesn't support multi-platform builds. Create a builder that uses the `docker-container` driver:
+
+```bash
+docker buildx create --name multiarch --driver docker-container --use
+```
+
+> To skip multi-platform and build only for your local architecture, omit the `--platform` flag from the build commands below.
+
+**4. Build and push the base image** (from `docker/base/`):
 
 ```bash
 docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest \
@@ -201,7 +211,7 @@ docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest \
   --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 ```
 
-**4. Build and push the app image** (from `docker/run/`):
+**5. Build and push the app image** (from `docker/run/`):
 
 ```bash
 docker buildx build -t ghcr.io/jrmatherly/agent-zero:latest \

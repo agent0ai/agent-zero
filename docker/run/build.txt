@@ -26,7 +26,14 @@ docker build -t agent-zero-main --build-arg BRANCH=main --build-arg CACHE_DATE=$
 # GHCR PUSH
 # Run these commands from the /docker/run directory
 
-echo $GITHUB_TOKEN | docker login ghcr.io -u jrmatherly --password-stdin
+# 1. Authenticate (requires a GitHub PAT with write:packages scope)
+export GITHUB_TOKEN="ghp_YOUR_TOKEN_HERE"
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u jrmatherly --password-stdin
+
+# 2. Create multi-platform builder (one-time setup)
+docker buildx create --name multiarch --driver docker-container --use
+
+# 3. Push images (omit --platform to build for local arch only)
 
 # development:
 docker buildx build -t ghcr.io/jrmatherly/agent-zero:development --platform linux/amd64,linux/arm64 --push --build-arg BRANCH=development --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .

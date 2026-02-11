@@ -6,13 +6,21 @@ docker build -t agent-zero-base:local --no-cache  .
 
 # GHCR push:
 
-echo $GITHUB_TOKEN | docker login ghcr.io -u jrmatherly --password-stdin
+# 1. Authenticate (requires a GitHub PAT with write:packages scope)
+export GITHUB_TOKEN="ghp_YOUR_TOKEN_HERE"
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u jrmatherly --password-stdin
 
-# with cache
+# 2. Create multi-platform builder (one-time setup)
+docker buildx create --name multiarch --driver docker-container --use
+
+# 3a. Multi-arch push with cache
 docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
-# without cache
+# 3b. Multi-arch push without cache
 docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --platform linux/amd64,linux/arm64 --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) --no-cache .
+
+# 3c. Single-arch push (skip --platform to build for local arch only)
+docker buildx build -t ghcr.io/jrmatherly/agent-zero-base:latest --push --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
 
 # plain output
 --progress=plain
