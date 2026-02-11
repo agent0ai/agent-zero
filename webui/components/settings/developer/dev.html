@@ -9,7 +9,7 @@
         <div>
           <div class="section-title">Development</div>
           <div class="section-description">
-            Parameters for A0 framework development. RFCs (remote function calls) are used to call functions on another A0 instance. You can develop and debug A0 natively on your local system while redirecting some functions to A0 instance in docker. This is crucial for development as A0 needs to run in standardized environment to support all features.
+            Parameters for framework development. RFCs (remote function calls) are used to call functions on another instance. You can develop and debug natively on your local system while redirecting some functions to a Docker instance. This is crucial for development as the application needs to run in a standardized environment to support all features.
           </div>
 
           <div class="field">
@@ -34,7 +34,7 @@
                 <div class="field-label">
                   <div class="field-title">RFC Destination URL</div>
                   <div class="field-description">
-                    URL of dockerized A0 instance for remote function calls. Do not specify port here.
+                    URL of dockerized instance for remote function calls. Do not specify port here.
                   </div>
                 </div>
                 <div class="field-control">
@@ -61,7 +61,7 @@
               <div class="field">
                 <div class="field-label">
                   <div class="field-title">RFC HTTP port</div>
-                  <div class="field-description">HTTP port for dockerized instance of A0.</div>
+                  <div class="field-description">HTTP port for dockerized instance.</div>
                 </div>
                 <div class="field-control">
                   <input type="number" x-model.number="$store.settings.settings.rfc_port_http" />
@@ -71,7 +71,7 @@
               <div class="field">
                 <div class="field-label">
                   <div class="field-title">RFC SSH port</div>
-                  <div class="field-description">SSH port for dockerized instance of A0.</div>
+                  <div class="field-description">SSH port for dockerized instance.</div>
                 </div>
                 <div class="field-control">
                   <input type="number" x-model.number="$store.settings.settings.rfc_port_ssh" />

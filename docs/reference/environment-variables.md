@@ -246,6 +246,29 @@ Agent Zero has a dedicated secrets file at `usr/secrets.env`, separate from `usr
 
 > **Do not edit `usr/secrets.env` manually** — use the Settings UI instead. The merge logic preserves comments and key ordering.
 
+## Branding Configuration
+
+Customize the project identity displayed in the UI, notifications, HTTP headers, and LLM prompts. All values are optional. Default values create an "Apollos AI" branded experience.
+
+These variables are read by `python/helpers/branding.py` at import time and used across the application wherever the project name, URL, or GitHub link appears.
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `BRAND_NAME` | Display name shown in the UI, browser title, HTTP headers, and system prompts | `Apollos AI` | No |
+| `BRAND_SLUG` | URL-safe and filename-safe identifier used in paths and generated assets | `apollos-ai` | No |
+| `BRAND_URL` | Project website URL displayed in the UI footer and about pages | `https://apollos.ai` | No |
+| `BRAND_GITHUB_URL` | GitHub repository URL used for source links and update checks | `https://github.com/jrmatherly/agent-zero` | No |
+
+**Example — custom branding for a white-label deployment:**
+
+```bash
+# In usr/.env
+BRAND_NAME=My Custom AI
+BRAND_SLUG=my-custom-ai
+BRAND_URL=https://mycustomai.example.com
+BRAND_GITHUB_URL=https://github.com/myorg/my-custom-ai
+```
+
 ## Docker & Container
 
 Used when running Agent Zero in Docker. See `Dockerfile`, `DockerfileLocal`, and `docker/run/`.

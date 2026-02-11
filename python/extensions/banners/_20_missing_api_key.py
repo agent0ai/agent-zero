@@ -1,5 +1,5 @@
 import models
-from python.helpers import settings as settings_helper
+from python.helpers import branding, settings as settings_helper
 from python.helpers.extension import Extension
 
 
@@ -59,7 +59,7 @@ class MissingApiKeyCheck(Extension):
                 "priority": 100,
                 "title": "Missing LLM API Key for current settings",
                 "html": f"""No API key configured for: {model_list}.<br>
-                     Agent Zero will not be able to function properly unless you provide an API key or change your settings.<br>
+                     {branding.BRAND_NAME} will not be able to function properly unless you provide an API key or change your settings.<br>
                      <a href="#" onclick="document.getElementById('settings').click(); return false;">
                      Add your API key</a> in Settings → External Services → API Keys.""",
                 "dismissible": False,

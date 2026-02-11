@@ -80,9 +80,7 @@
     <template x-if="!window.runtimeInfo?.isDevelopment">
       <div class="ws-tester ws-disabled">
         <h2>WebSocket Developer Harness</h2>
-        <p class="ws-description">
-          The WebSocket test harness is available only when Agent Zero runs in development mode.
-        </p>
+        <p class="ws-description" x-text="`The WebSocket test harness is available only when ${$store.branding.name} runs in development mode.`"></p>
       </div>
     </template>
   </div>

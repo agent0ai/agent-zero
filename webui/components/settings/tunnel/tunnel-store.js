@@ -42,7 +42,7 @@ const model = {
 
   processNotifications(notifications) {
     if (!notifications || !Array.isArray(notifications)) return;
-    
+
     for (const n of notifications) {
       switch (n.event) {
         case "downloading":
@@ -281,9 +281,9 @@ const model = {
       // If no authentication is set, warn the user
       if (!hasAuth) {
         const proceed = confirm(
-          "WARNING: No authentication is configured for your Agent Zero instance.\n\n" +
+          `WARNING: No authentication is configured for your ${Alpine.store("branding").name} instance.\n\n` +
             "Creating a public tunnel without authentication means anyone with the URL " +
-            "can access your Agent Zero instance.\n\n" +
+            `can access your ${Alpine.store("branding").name} instance.\n\n` +
             "It is recommended to set up authentication in the Settings > Authentication section " +
             "before creating a public tunnel.\n\n" +
             "Do you want to proceed anyway?"

@@ -31,7 +31,13 @@ from langchain_core.messages import (
 from langchain_core.outputs.chat_generation import ChatGenerationChunk
 from litellm import acompletion, completion, embedding
 from pydantic import ConfigDict
-from python.helpers import browser_use_monkeypatch, dirty_json, dotenv, settings
+from python.helpers import (
+    branding,
+    browser_use_monkeypatch,
+    dirty_json,
+    dotenv,
+    settings,
+)
 from python.helpers.dotenv import load_dotenv
 from python.helpers.providers import ModelType as ProviderModelType
 from python.helpers.providers import get_provider_config
@@ -890,8 +896,8 @@ def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):
     # for openrouter add app reference
     if provider_name == "openrouter":
         kwargs["extra_headers"] = {
-            "HTTP-Referer": "https://agent-zero.ai",
-            "X-Title": "Agent Zero",
+            "HTTP-Referer": branding.BRAND_URL,
+            "X-Title": branding.BRAND_NAME,
         }
 
     # remap other to openai for litellm

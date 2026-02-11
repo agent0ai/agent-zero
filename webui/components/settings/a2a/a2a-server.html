@@ -1,23 +1,21 @@
 <html>
   <head>
-    <title>A0 A2A Server</title>
+    <title>A2A Server</title>
   </head>
 
   <body>
     <div x-data="{ get settings() { return $store.settings.settings } }">
       <template x-if="settings">
         <div>
-          <div class="section-title">A0 A2A Server</div>
+          <div class="section-title"><span x-text="$store.branding.name"></span> A2A Server</div>
           <div class="section-description">
-            Agent Zero can be exposed as an A2A server. See <a href="javascript:openModal('settings/a2a/a2a-connection.html')">connection example</a>.
+            <span x-text="`${$store.branding.name} can be exposed as an A2A server.`"></span> See <a href="javascript:openModal('settings/a2a/a2a-connection.html')">connection example</a>.
           </div>
 
           <div class="field">
             <div class="field-label">
               <div class="field-title">Enable A2A server</div>
-              <div class="field-description">
-                Expose Agent Zero as A2A server. This allows other agents to connect to A0 via A2A protocol.
-              </div>
+              <div class="field-description" x-text="`Expose ${$store.branding.name} as A2A server. This allows other agents to connect to ${$store.branding.name} via A2A protocol.`"></div>
             </div>
             <div class="field-control">
               <label class="toggle">

@@ -38,12 +38,12 @@
     </div>
 
     <!-- Dropdown Menu -->
-    <div class="dropdown-menu quick-actions-dropdown" 
+    <div class="dropdown-menu quick-actions-dropdown"
          x-show="dropdownOpen"
          :style="$store.sidebar.dropdownStyle">
-      
+
       <div class="dropdown-header">Navigation</div>
-      
+
       <button class="dropdown-item" @click="deselectChat(); dropdownOpen = false">
         <span class="material-symbols-outlined">home</span>
         <span>Dashboard</span>
@@ -53,35 +53,35 @@
         <span class="material-symbols-outlined">snippet_folder</span>
         <span>Projects</span>
       </button>
-      
+
       <button class="dropdown-item" @click="openModal('modals/memory/memory-dashboard.html'); dropdownOpen = false">
         <span class="material-symbols-outlined">psychology</span>
         <span>Memories</span>
       </button>
-      
+
       <button class="dropdown-item" @click="openModal('modals/scheduler/scheduler-modal.html'); dropdownOpen = false">
         <span class="material-symbols-outlined">schedule</span>
         <span>Scheduler</span>
       </button>
-      
+
       <button class="dropdown-item" @click="openModal('settings/settings.html'); dropdownOpen = false">
         <span class="material-symbols-outlined">settings</span>
         <span>Settings</span>
       </button>
-      
+
       <div class="dropdown-separator"></div>
       <div class="dropdown-header">Chat Actions</div>
-      
+
       <button class="dropdown-item" @click="$store.chats.newChat(); dropdownOpen = false">
         <span class="material-symbols-outlined">edit_square</span>
         <span>New Chat</span>
       </button>
-      
+
       <button class="dropdown-item" @click="$store.chats.loadChats(); dropdownOpen = false">
         <span class="material-symbols-outlined">folder_open</span>
         <span>Load Chat</span>
       </button>
-      
+
       <button class="dropdown-item" @click="$store.chats.saveChat(); dropdownOpen = false" :disabled="!$store.chats.selected">
         <span class="material-symbols-outlined">save</span>
         <span>Save Chat</span>
@@ -91,9 +91,9 @@
         <span class="material-symbols-outlined">delete_sweep</span>
         <span>Clear Chat</span>
       </button>
-      
+
       <div class="dropdown-separator"></div>
-      
+
       <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.logout(); dropdownOpen = false })" :disabled="!$store.chats.loggedIn">
         <span class="material-symbols-outlined">logout</span>
         <span>Logout</span>
@@ -101,7 +101,7 @@
 
       <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); dropdownOpen = false })">
         <span class="material-symbols-outlined">restart_alt</span>
-        <span>Restart A0</span>
+        <span x-text="'Restart ' + $store.branding.name"></span>
       </button>
 
     </div>
@@ -232,8 +232,8 @@
   }
   #newChat:hover { opacity: 0.85; transform: scale(1.04); }
   #newChat:active { opacity: 0.5; transform: scale(0.98); }
-  #newChat .material-symbols-outlined { 
-    color: var(--color-text); 
+  #newChat .material-symbols-outlined {
+    color: var(--color-text);
     font-size: 24px;
   }
 

@@ -399,7 +399,7 @@ echo "Cleaned."
 [tasks.info]
 description = "Show project info and tool versions"
 run = '''
-echo "=== Agent Zero - Environment Info ==="
+echo "=== ${BRAND_NAME:-Apollos AI} - Environment Info ==="
 echo ""
 echo "Python: $(python --version)"
 echo "uv: $(uv --version)"

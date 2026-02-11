@@ -17,12 +17,12 @@ backend = "aqua:orhun/git-cliff"
 "platforms.windows-x64" = { checksum = "sha256:f2b8c692d9488c3313d7786e2099976151c10fd8f76580b12d045bb9683a8379", url = "https://github.com/orhun/git-cliff/releases/download/v2.12.0/git-cliff-2.12.0-x86_64-pc-windows-msvc.zip"}
 
 [[tools.hk]]
-version = "1.35.0"
+version = "1.36.0"
 backend = "aqua:jdx/hk"
-"platforms.linux-arm64" = { checksum = "sha256:e51d6404b59b2cebba411bf3900f93e81fb7ad807b7faaf8916c64c6fb327328", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-aarch64-unknown-linux-gnu.tar.gz"}
-"platforms.linux-x64" = { checksum = "sha256:1e2b7642c099faa4df20b4591059826529d7dafaed9dac98cd2212317c7c071e", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-x86_64-unknown-linux-gnu.tar.gz"}
-"platforms.macos-arm64" = { checksum = "sha256:ace34e486adc4fe22419e55ff14bacfe9a49deab47d6fba87138160bc0a6ee47", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-aarch64-apple-darwin.tar.gz"}
-"platforms.windows-x64" = { checksum = "sha256:204789f5fa33600eecd8ac0c9ac13ebf4834d9512f9840d66cc0db8251e8d57d", url = "https://github.com/jdx/hk/releases/download/v1.35.0/hk-x86_64-pc-windows-msvc.zip"}
+"platforms.linux-arm64" = { checksum = "sha256:51cf51e2035038ee64d772e71f8daf4978380ef82faffee2b12c413f009341ab", url = "https://github.com/jdx/hk/releases/download/v1.36.0/hk-aarch64-unknown-linux-gnu.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:d20fa0be3f1135abc74471670306ae0353ad2336804595362293f0c8460952e7", url = "https://github.com/jdx/hk/releases/download/v1.36.0/hk-x86_64-unknown-linux-gnu.tar.gz"}
+"platforms.macos-arm64" = { checksum = "sha256:553ff3c7c18d91f1c1dcdbae44315db0324b52336b5a02ed5b9c382f08499b3b", url = "https://github.com/jdx/hk/releases/download/v1.36.0/hk-aarch64-apple-darwin.tar.gz"}
+"platforms.windows-x64" = { checksum = "sha256:1f12218ccad806a3f49bcf521f86b6825fbd89486e830c1c04f72e3796f84589", url = "https://github.com/jdx/hk/releases/download/v1.36.0/hk-x86_64-pc-windows-msvc.zip"}
 
 [[tools.pkl]]
 version = "0.30.2"
@@ -38,13 +38,13 @@ version = "3.12.12"
 backend = "core:python"
 
 [[tools.ruff]]
-version = "0.14.14"
+version = "0.15.0"
 backend = "aqua:astral-sh/ruff"
-"platforms.linux-arm64" = { checksum = "sha256:a4d7302aa201a6f8e71dfa217cd8273fddd4e434a93ee3b4b07047fd7a684ac1", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-aarch64-unknown-linux-musl.tar.gz"}
-"platforms.linux-x64" = { checksum = "sha256:55a1ee65f5ac9416cc40f99c2df62f0d4525d40369fe371caff945c495174d57", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-x86_64-unknown-linux-musl.tar.gz"}
-"platforms.macos-arm64" = { checksum = "sha256:76a9b0ebe57d0eee56940dbe0b62462578d1369cca8314ed0d2a6f2102292d4f", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-aarch64-apple-darwin.tar.gz"}
-"platforms.macos-x64" = { checksum = "sha256:749396c675c6f07205be6c4ef89e2e95123d790062d681059a355030e9d7d119", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-x86_64-apple-darwin.tar.gz"}
-"platforms.windows-x64" = { checksum = "sha256:81bfeed34f15296e6c81ecea912b6fff4430b957de8a1181ce9365434e3d6744", url = "https://github.com/astral-sh/ruff/releases/download/0.14.14/ruff-x86_64-pc-windows-msvc.zip"}
+"platforms.linux-arm64" = { checksum = "sha256:b9860c394ea814a9e9560e80bc798c53b8a3a5120ce961a2555fb563cee9f73b", url = "https://github.com/astral-sh/ruff/releases/download/0.15.0/ruff-aarch64-unknown-linux-musl.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:f2bd69f091517ebc49405319a6e7818b1037e250b8d539336aa0b91c44ffa4aa", url = "https://github.com/astral-sh/ruff/releases/download/0.15.0/ruff-x86_64-unknown-linux-musl.tar.gz"}
+"platforms.macos-arm64" = { checksum = "sha256:093d355ac33c6b8e91e80b8497d5581c61b028c0405e265cf38fd88f9a291c5c", url = "https://github.com/astral-sh/ruff/releases/download/0.15.0/ruff-aarch64-apple-darwin.tar.gz"}
+"platforms.macos-x64" = { checksum = "sha256:09fa6fe0d4172e1bb84cc6d937a0e1f42ff84c90b61163fff4f31c51a9c14879", url = "https://github.com/astral-sh/ruff/releases/download/0.15.0/ruff-x86_64-apple-darwin.tar.gz"}
+"platforms.windows-x64" = { checksum = "sha256:d1613f4231095d160ab4d3487bf56de23f29945888bcbe4521fcb0cb5e695d92", url = "https://github.com/astral-sh/ruff/releases/download/0.15.0/ruff-x86_64-pc-windows-msvc.zip"}
 
 [[tools.uv]]
 version = "0.10.2"

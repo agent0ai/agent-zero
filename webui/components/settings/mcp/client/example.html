@@ -7,13 +7,13 @@
 
 <body>
     <div x-data>
-        <p>Agent Zero uses standard JSON configuration known from other AI applications.<br>
+        <p><span x-text="`${$store.branding.name} uses standard JSON configuration known from other AI applications.`"></span><br>
             The configuration is a JSON object containing "mcpServers" object where each key is an individual MCP
             server.<br>
             Local servers are defined by a "command", "args", "env" variables.<br>
             Remote servers are defined by a "url", "headers".<br>
             "disabled" can be set to true to disable a server without removing config.<br>
-            Custom "description" can be set to provide additional information about the server to A0.<br>
+            Custom "description" can be set to provide additional information about the server to the agent.<br>
             All servers can also define "init_timeout" and "tool_timeout" which override global settings.</p>
 
 

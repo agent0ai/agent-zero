@@ -1,12 +1,12 @@
 <html>
 
 <head>
-    <title>Connection to A0 A2A Server</title>
+    <title>A2A Server Connection</title>
 </head>
 
 <body>
     <div x-data>
-        <p>Agent Zero A2A Server enables FastA2A protocol communication with other agents.</p>
+        <p x-text="`${$store.branding.name} A2A Server enables FastA2A protocol communication with other agents.`"></p>
         <p>Other agents can connect using the URL below (replace host if needed):</p>
 
         <!-- API Token Information -->
@@ -45,7 +45,7 @@
             (async () => {
                 const API = await import("/js/api.js");
                 const url = window.location.origin;
-                
+
                 // Fetch token from settings API - try a2a_token first, fallback to mcp_server_token
                 let token = "";
                 try {

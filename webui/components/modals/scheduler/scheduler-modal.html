@@ -10,7 +10,7 @@
     <template x-if="$store.schedulerStore">
       <div class="scheduler-modal-content">
         <div id="scheduler-settings-root" class="scheduler-dashboard">
-          <div class="scheduler-dashboard-description">Manage scheduled tasks and automated processes for Agent Zero.</div>
+          <div class="scheduler-dashboard-description" x-text="`Manage scheduled tasks and automated processes for ${$store.branding.name}.`"></div>
           <x-component path="modals/scheduler/scheduler-task-editor.html"></x-component>
           <x-component path="modals/scheduler/scheduler-task-list.html"></x-component>
         </div>

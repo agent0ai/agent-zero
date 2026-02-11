@@ -30,6 +30,17 @@ Or skip this and configure via the web UI after starting (Settings > API Keys).
 
 See `docs/reference/environment-variables.md` for the complete variable catalog.
 
+### Branding
+
+To customize the project name displayed in the UI:
+
+```bash
+# In usr/.env
+BRAND_NAME=My Custom AI
+```
+
+See [Environment Variables Reference](docs/reference/environment-variables.md#branding-configuration) for all branding options.
+
 Supported providers: Anthropic, OpenAI, OpenRouter, Ollama (local), and [many more via LiteLLM](https://docs.litellm.ai/docs/providers).
 
 ## 3. Run Locally

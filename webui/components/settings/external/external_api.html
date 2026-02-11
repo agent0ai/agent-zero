@@ -7,16 +7,12 @@
     <div x-data>
       <div>
         <div class="section-title">External API</div>
-        <div class="section-description">
-          Agent Zero provides external API endpoints for integration with other applications. These endpoints use API key authentication and support text messages and file attachments.
-        </div>
+        <div class="section-description" x-text="`${$store.branding.name} provides external API endpoints for integration with other applications. These endpoints use API key authentication and support text messages and file attachments.`"></div>
 
         <div class="field">
           <div class="field-label">
             <div class="field-title">API Examples</div>
-            <div class="field-description">
-              View examples for using Agent Zero's external API endpoints with API key authentication.
-            </div>
+            <div class="field-description" x-text="`View examples for using ${$store.branding.name}'s external API endpoints with API key authentication.`"></div>
           </div>
           <div class="field-control">
             <button

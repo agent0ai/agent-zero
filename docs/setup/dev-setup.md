@@ -106,8 +106,8 @@ After inserting my API key in settings, my Agent Zero instance works. I can send
 ![Debugging](res/dev/devinst-10.png)
 
 ## Step 5: Run another instance of Agent Zero in Docker
-- Some parts of A0 require standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
-- To make development easier, we can use existing A0 instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
+- Some parts of the application require a standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
+- To make development easier, we can use an existing application instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
 
 1. Pull the docker image `ghcr.io/jrmatherly/agent-zero` from GHCR and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
 If you want, you can also map the `/a0` folder to our local project folder as well, this way we can update our local instance and the docker instance at the same time.

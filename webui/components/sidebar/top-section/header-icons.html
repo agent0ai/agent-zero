@@ -13,8 +13,8 @@
     </button>
 
     <div id="logo-container">
-      <a href="https://github.com/jrmatherly/agent-zero" target="_blank" rel="noopener noreferrer">
-        <img src="./public/splash.jpg" alt="a0" width="22" height="22">
+      <a :href="$store.branding.github_url" target="_blank" rel="noopener noreferrer">
+        <img src="./public/splash.jpg" :alt="$store.branding.name" width="22" height="22">
       </a>
     </div>
   </div>
@@ -41,10 +41,10 @@
     }
     .toggle-sidebar-button:hover { background-color: var(--color-background-hover); opacity: 1; }
     .toggle-sidebar-button:active { opacity: 0.5; }
-    .toggle-sidebar-button .material-symbols-outlined { 
+    .toggle-sidebar-button .material-symbols-outlined {
       font-size: 22px;
-      -webkit-transition: all var(--transition-speed) ease; 
-      transition: all var(--transition-speed) ease; 
+      -webkit-transition: all var(--transition-speed) ease;
+      transition: all var(--transition-speed) ease;
     }
     .toggle-sidebar-button:active .material-symbols-outlined { -webkit-transform: scaleY(0.8); transform: scaleY(0.8); }
 

@@ -1,4 +1,4 @@
-# Agent Zero System Manual
+# {{brand_name}} System Manual
 
 {{ include "agent.system.main.role.md" }}
 

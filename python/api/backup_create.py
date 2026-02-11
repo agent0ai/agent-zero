@@ -1,3 +1,4 @@
+from python.helpers import branding
 from python.helpers.api import ApiHandler, Request, Response, send_file
 from python.helpers.backup import BackupService
 from python.helpers.persist_chat import save_tmp_chats
@@ -18,7 +19,7 @@ class BackupCreate(ApiHandler):
             include_patterns = input.get("include_patterns", [])
             exclude_patterns = input.get("exclude_patterns", [])
             include_hidden = input.get("include_hidden", True)
-            backup_name = input.get("backup_name", "agent-zero-backup")
+            backup_name = input.get("backup_name", f"{branding.BRAND_SLUG}-backup")
 
             # Support legacy string patterns format for backward compatibility
             patterns_string = input.get("patterns", "")

@@ -1,7 +1,7 @@
 import datetime
 
 from agent import LoopData
-from python.helpers import notification, settings, update_check
+from python.helpers import branding, notification, settings, update_check
 from python.helpers.extension import Extension
 
 # check for newer versions of A0 available and send notification
@@ -57,7 +57,7 @@ class UpdateCheck(Extension):
             title=notif.get("title", "Newer version available"),
             message=notif.get(
                 "message",
-                "A newer version of Agent Zero is available. Please update to the latest version.",
+                f"A newer version of {branding.BRAND_NAME} is available. Please update to the latest version.",
             ),
             type=notif.get("type", "info"),
             detail=notif.get("detail", ""),
