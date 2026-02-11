@@ -195,13 +195,22 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u jrmatherly --password-stdin
 
 **3. Create a multi-platform builder** (one-time setup)
 
-The default Docker builder doesn't support multi-platform builds. Create a builder that uses the `docker-container` driver:
+The default Docker builder doesn't support multi-platform builds. Create a builder that uses the `docker-container` driver with host networking (required for reliable package downloads during build):
 
 ```bash
-docker buildx create --name multiarch --driver docker-container --use
+docker buildx create --name multiarch --driver docker-container \
+  --driver-opt network=host --use
 ```
 
 > To skip multi-platform and build only for your local architecture, omit the `--platform` flag from the build commands below.
+
+> **Troubleshooting:** If builds fail with network errors like `Could not connect to mirror...connection timed out`, the BuildKit container can't reach external package mirrors. Recreate the builder with host networking:
+>
+> ```bash
+> docker buildx rm multiarch
+> docker buildx create --name multiarch --driver docker-container \
+>   --driver-opt network=host --use
+> ```
 
 **4. Build and push the base image** (from `docker/base/`):
 

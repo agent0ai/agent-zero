@@ -31,7 +31,9 @@ export GITHUB_TOKEN="ghp_YOUR_TOKEN_HERE"
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u jrmatherly --password-stdin
 
 # 2. Create multi-platform builder (one-time setup)
-docker buildx create --name multiarch --driver docker-container --use
+#    --driver-opt network=host is required so BuildKit can reach package mirrors
+docker buildx create --name multiarch --driver docker-container --driver-opt network=host --use
+# If builds fail with network timeouts, recreate: docker buildx rm multiarch && run the above again
 
 # 3. Push images (omit --platform to build for local arch only)
 
