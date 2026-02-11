@@ -448,6 +448,71 @@ find . -path ./.venv -prune -o -type f -name '*.pyc' -print -delete 2>/dev/null 
 echo "Cleaned."
 '''
 
+[tasks."clean:all"]
+description = "Full project reset — remove all runtime data, logs, caches, and user settings for a clean launch"
+run = '''
+echo "🧹 Apollos AI — Full Clean"
+echo ""
+
+# --- 1. Python caches (same as 'mise clean') ---
+echo "→ Python caches..."
+rm -rf .ruff_cache .pytest_cache __pycache__ .coverage htmlcov
+find . -path ./.venv -prune -o -type d -name __pycache__ -print -exec rm -rf {} + 2>/dev/null || true
+find . -path ./.venv -prune -o -type f -name '*.pyc' -print -delete 2>/dev/null || true
+
+# --- 2. User settings (persists across restarts — this is the big one) ---
+echo "→ User settings & secrets..."
+rm -f usr/settings.json
+rm -f usr/secrets.env
+
+# --- 3. Chat history ---
+echo "→ Chat history..."
+find usr/chats -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 4. Agent memory (FAISS indexes, embeddings, knowledge imports) ---
+echo "→ Agent memory..."
+find usr/memory -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 5. User knowledge uploads ---
+echo "→ User knowledge..."
+find usr/knowledge -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 6. Scheduler tasks ---
+echo "→ Scheduler..."
+find usr/scheduler -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 7. Agent profiles (user-customized) ---
+echo "→ Agent profiles..."
+find usr/agents -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 8. User workdir ---
+echo "→ User workdir..."
+find usr/workdir -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 9. User skills ---
+echo "→ User skills..."
+find usr/skills -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 10. Logs ---
+echo "→ Logs..."
+find logs -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 11. Tmp (embedding cache, runtime temp files) ---
+echo "→ Tmp & embedding cache..."
+find tmp -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+
+# --- 12. Knowledge fragments (runtime-generated, not tracked) ---
+echo "→ Knowledge fragments..."
+find knowledge/fragments -mindepth 1 -exec rm -rf {} + 2>/dev/null || true
+
+# --- 13. Browser artifacts ---
+echo "→ Browser artifacts..."
+rm -f agent_history.gif
+
+echo ""
+echo "✅ Full clean complete. Run 'mise run r' for a fresh start."
+'''
+
 [tasks.info]
 description = "Show project info and tool versions"
 run = '''
