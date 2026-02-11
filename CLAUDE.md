@@ -72,6 +72,14 @@ Four GitHub Actions workflows in `.github/workflows/`:
 
 All CI workflows use `jdx/mise-action@v3` as the single tool installer.
 
+## Environment Variables
+
+- **Reference**: `docs/reference/environment-variables.md` — complete catalog of all env vars
+- **Example file**: `usr/.env.example` — annotated template (copy to `usr/.env`)
+- **API keys**: `{PROVIDER}_API_KEY` pattern, matching provider IDs in `conf/model_providers.yaml`
+- **Settings overrides**: `A0_SET_{setting_name}` prefix overrides any UI setting
+- **Base URLs**: `{PROVIDER}_API_BASE` overrides YAML defaults
+
 ## DriftDetect
 
 `.drift/` contains codebase pattern analysis artifacts. The `patterns/approved/` directory and config are committed; `memory/`, `cache/`, `lake/`, `history/` are gitignored. Run `mise run drift:scan` to analyze, `mise run drift:gate` for quality gates.

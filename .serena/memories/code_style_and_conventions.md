@@ -35,6 +35,10 @@
 - Prompts: Markdown files in `prompts/`, using `{{ include }}` and `{{variable}}` syntax
 - Disabled files: `._py` suffix indicates disabled/archived
 - Settings: JSON-based system (`python/helpers/settings.py`)
+- Environment variables: Documented in `docs/reference/environment-variables.md`; example at `usr/.env.example`
+  - API keys: `{PROVIDER}_API_KEY` pattern
+  - Settings overrides: `A0_SET_{setting_name}` prefix
+  - Base URLs: `{PROVIDER}_API_BASE` pattern
 
 ## Dependency Management
 - **Source of truth**: `pyproject.toml` (managed by uv)

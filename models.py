@@ -931,6 +931,12 @@ def _merge_provider_defaults(
             for k, v in extra_kwargs.items():
                 kwargs.setdefault(k, v)
 
+    # Inject api_base from {PROVIDER}_API_BASE env var if still missing
+    if "api_base" not in kwargs:
+        env_base = os.environ.get(f"{original_provider.upper()}_API_BASE", "")
+        if env_base:
+            kwargs["api_base"] = env_base
+
     # Inject API key based on the *original* provider id if still missing
     if "api_key" not in kwargs:
         key = get_api_key(original_provider)

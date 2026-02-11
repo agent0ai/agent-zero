@@ -154,10 +154,16 @@ You're now ready to contribute to Agent Zero, create custom extensions, or modif
 
 ## Configuration via Environment Variables
 
-For development and testing, you can override default settings using the `.env` file with `A0_SET_` prefixed variables:
+For development and testing, you can override default settings using environment variables in `usr/.env`. Copy the annotated example file to get started:
+
+```bash
+cp usr/.env.example usr/.env
+```
+
+Then uncomment and set the variables you need:
 
 ```env
-# Add to your .env file
+# Add to your usr/.env file
 A0_SET_chat_model_provider=ollama
 A0_SET_chat_model_name=llama3.2
 A0_SET_chat_model_api_base=http://localhost:11434
@@ -165,6 +171,8 @@ A0_SET_memory_recall_interval=5
 ```
 
 These environment variables automatically override the hardcoded defaults in `get_default_settings()` without modifying code. Useful for testing different configurations or multi-environment setups.
+
+See [Environment Variables Reference](../reference/environment-variables.md) for the complete catalog of all variables.
 
 ## Building Docker Images
 

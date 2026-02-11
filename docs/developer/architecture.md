@@ -66,6 +66,7 @@ This architecture ensures:
 | `usr/settings.json` | Main runtime settings (written by the Settings UI) |
 | `usr/secrets.env` | Secrets store (managed via Settings -> Secrets) |
 | `conf/model_providers.yaml` | Model provider defaults and settings |
+| `usr/.env` | Environment config (API keys, settings overrides; see `usr/.env.example`) |
 | `agent.py` | Core agent implementation |
 | `initialize.py` | Framework initialization |
 | `models.py` | Model providers and configs |
