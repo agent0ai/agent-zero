@@ -1,4 +1,5 @@
 import { createStore } from "/js/AlpineStore.js";
+import { callJsonApi } from "/js/api.js";
 
 const store = createStore("orchestrator", {
 
@@ -6,6 +7,7 @@ const store = createStore("orchestrator", {
   flows: [],
   currentFlow: null,
   currentFlowName: "",
+  currentFilename: "",
   dirty: false,
 
   // Execution state
@@ -32,13 +34,14 @@ const store = createStore("orchestrator", {
     this.running = false;
     this.flowRunId = null;
     this.nodeStates = {};
-    await this.fetchAgentProfiles();
+    await Promise.all([this.fetchAgentProfiles(), this.loadFlows()]);
   },
 
   // Lifecycle — called via x-destroy when modal unmounts
   onClose() {
     this.currentFlow = null;
     this.currentFlowName = "";
+    this.currentFilename = "";
     this.dirty = false;
     this.running = false;
     this.flowRunId = null;
@@ -48,12 +51,73 @@ const store = createStore("orchestrator", {
     this.reactReady = false;
   },
 
-  // Fetch available agent profiles
+  // ─── Flow CRUD ───
+
+  async loadFlows() {
+    try {
+      const resp = await callJsonApi("/flow_list", {});
+      if (resp && resp.ok) {
+        this.flows = resp.flows || [];
+      }
+    } catch (e) {
+      console.warn("Failed to load flows:", e);
+      this.flows = [];
+    }
+  },
+
+  async loadFlow(filename) {
+    try {
+      const resp = await callJsonApi("/flow_load", { filename });
+      if (resp && resp.ok && resp.flow) {
+        this.currentFlow = resp.flow;
+        this.currentFlowName = resp.flow.name || filename;
+        this.currentFilename = resp.flow.filename || filename;
+        this.dirty = false;
+        this.showFlowList = false;
+        this.showInspector = false;
+        // Wait for React to be ready, then load the flow into canvas
+        this._waitForReactThenLoad();
+      }
+    } catch (e) {
+      console.warn("Failed to load flow:", e);
+    }
+  },
+
+  async saveFlow() {
+    if (!this.currentFlow) return;
+
+    try {
+      const resp = await callJsonApi("/flow_save", {
+        flow: this.currentFlow,
+        filename: this.currentFilename || "",
+      });
+      if (resp && resp.ok) {
+        this.currentFilename = resp.filename;
+        this.dirty = false;
+      }
+    } catch (e) {
+      console.warn("Failed to save flow:", e);
+    }
+  },
+
+  async deleteFlow(filename) {
+    try {
+      const resp = await callJsonApi("/flow_delete", { filename });
+      if (resp && resp.ok) {
+        this.flows = this.flows.filter((f) => f.filename !== filename);
+      }
+    } catch (e) {
+      console.warn("Failed to delete flow:", e);
+    }
+  },
+
+  // ─── Agent Profiles ───
+
   async fetchAgentProfiles() {
     try {
-      const resp = await (globalThis.callJsonApi || globalThis.fetch)("/api/agents", {});
-      if (resp && resp.agents) {
-        this.agentProfiles = resp.agents;
+      const resp = await callJsonApi("/agents", { action: "list" });
+      if (resp && resp.ok && resp.data) {
+        this.agentProfiles = resp.data;
       }
     } catch (e) {
       console.warn("Failed to fetch agent profiles:", e);
@@ -61,7 +125,8 @@ const store = createStore("orchestrator", {
     }
   },
 
-  // New flow
+  // ─── Flow creation ───
+
   newFlow() {
     this.currentFlow = {
       name: "Untitled Flow",
@@ -84,16 +149,14 @@ const store = createStore("orchestrator", {
       viewport: { x: 0, y: 0, zoom: 1 },
     };
     this.currentFlowName = "Untitled Flow";
+    this.currentFilename = "";
     this.dirty = false;
     this.showFlowList = false;
-    this._dispatchToReact("flow:load", {
-      nodes: this.currentFlow.nodes,
-      edges: this.currentFlow.edges,
-      viewport: this.currentFlow.viewport,
-    });
+    this._waitForReactThenLoad();
   },
 
-  // Handle flow changes from React canvas
+  // ─── React canvas bridge ───
+
   onFlowChanged(detail) {
     if (this.currentFlow) {
       this.currentFlow.nodes = detail.nodes;
@@ -102,7 +165,6 @@ const store = createStore("orchestrator", {
     }
   },
 
-  // Handle node selection from React canvas
   onNodeSelected(detail) {
     if (detail && detail.nodeId) {
       this.inspectedNodeId = detail.nodeId;
@@ -115,33 +177,60 @@ const store = createStore("orchestrator", {
     }
   },
 
-  // Update node config from inspector
   updateNodeConfig(nodeId, newData) {
     this._dispatchToReact("flow:updateNode", { nodeId, data: newData });
     this.dirty = true;
   },
 
-  // Back to flow list
+  // ─── Navigation ───
+
   backToFlowList() {
     this.currentFlow = null;
     this.currentFlowName = "";
+    this.currentFilename = "";
     this.dirty = false;
     this.showFlowList = true;
     this.showInspector = false;
     this.inspectedNodeId = null;
     this._dispatchToReact("flow:reset", {});
+    this.loadFlows();
   },
 
-  // Mark React as ready
   setReactReady() {
     this.reactReady = true;
   },
 
-  // Bridge helper
+  // ─── Helpers ───
+
   _dispatchToReact(eventName, detail) {
     const root = document.getElementById("react-flow-root");
     if (root) {
       root.dispatchEvent(new CustomEvent(eventName, { detail }));
+    }
+  },
+
+  _waitForReactThenLoad() {
+    const load = () => {
+      if (!this.currentFlow) return;
+      this._dispatchToReact("flow:load", {
+        nodes: this.currentFlow.nodes,
+        edges: this.currentFlow.edges,
+        viewport: this.currentFlow.viewport,
+      });
+    };
+
+    if (this.reactReady) {
+      load();
+    } else {
+      // Poll until React is ready (CDN modules loading)
+      const interval = setInterval(() => {
+        if (this.reactReady) {
+          clearInterval(interval);
+          load();
+        }
+      }, 200);
+      // Safety timeout: give up after 15s
+      setTimeout(() => clearInterval(interval), 15000);
     }
   },
 });

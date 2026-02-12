@@ -28,13 +28,20 @@
               <p>No flows yet. Create one to orchestrate agents visually.</p>
             </div>
 
-            <template x-for="flow in $store.orchestrator.flows" :key="flow.name">
-              <div class="orch-flow-item" @click="$store.orchestrator.loadFlow(flow.name)">
-                <span class="material-symbols-outlined">account_tree</span>
-                <div class="orch-flow-item-info">
-                  <span class="orch-flow-item-name" x-text="flow.name"></span>
-                  <span class="orch-flow-item-desc" x-text="flow.description || 'No description'"></span>
+            <template x-for="flow in $store.orchestrator.flows" :key="flow.filename">
+              <div class="orch-flow-item">
+                <div class="orch-flow-item-main" @click="$store.orchestrator.loadFlow(flow.filename)">
+                  <span class="material-symbols-outlined">account_tree</span>
+                  <div class="orch-flow-item-info">
+                    <span class="orch-flow-item-name" x-text="flow.name"></span>
+                    <span class="orch-flow-item-desc" x-text="flow.description || 'No description'"></span>
+                  </div>
                 </div>
+                <button class="orch-flow-item-delete"
+                        @click.stop="$confirmClick($event, () => $store.orchestrator.deleteFlow(flow.filename))"
+                        title="Delete flow">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
               </div>
             </template>
           </div>
@@ -49,7 +56,12 @@
               <button class="orch-toolbar-btn" @click="$store.orchestrator.backToFlowList()" title="Back to flows">
                 <span class="material-symbols-outlined">arrow_back</span>
               </button>
-              <span class="orch-toolbar-name" x-text="$store.orchestrator.currentFlowName"></span>
+              <input class="orch-toolbar-name-input"
+                     type="text"
+                     :value="$store.orchestrator.currentFlowName"
+                     @input="$store.orchestrator.currentFlowName = $event.target.value; if ($store.orchestrator.currentFlow) $store.orchestrator.currentFlow.name = $event.target.value; $store.orchestrator.dirty = true;"
+                     @keydown.enter="$event.target.blur()"
+                     spellcheck="false">
               <span class="orch-toolbar-dirty" x-show="$store.orchestrator.dirty">*</span>
               <div class="orch-toolbar-spacer"></div>
               <button class="orch-toolbar-btn"
@@ -242,17 +254,40 @@
     .orch-flow-item {
       display: flex;
       align-items: center;
-      gap: var(--spacing-sm);
-      padding: var(--spacing-sm) var(--spacing-md);
       background: var(--color-panel);
       border: 1px solid var(--color-border);
       border-radius: 8px;
-      cursor: pointer;
       transition: background var(--transition-speed);
     }
 
     .orch-flow-item:hover {
       background: var(--color-background-hover, rgba(255,255,255,0.05));
+    }
+
+    .orch-flow-item-main {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-md);
+      flex: 1;
+      cursor: pointer;
+      min-width: 0;
+    }
+
+    .orch-flow-item-delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: var(--spacing-sm);
+      color: var(--color-text);
+      opacity: 0.3;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .orch-flow-item-delete:hover {
+      opacity: 0.8;
+      color: #f87171;
     }
 
     .orch-flow-item-info {
@@ -307,10 +342,25 @@
       background: rgba(255,255,255,0.05);
     }
 
-    .orch-toolbar-name {
+    .orch-toolbar-name-input {
       font-size: var(--font-size-normal);
       color: var(--color-text);
       font-weight: 500;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 2px 6px;
+      outline: none;
+      max-width: 250px;
+    }
+
+    .orch-toolbar-name-input:hover {
+      border-color: var(--color-border);
+    }
+
+    .orch-toolbar-name-input:focus {
+      border-color: var(--color-accent);
+      background: var(--color-input, var(--color-background));
     }
 
     .orch-toolbar-dirty {
