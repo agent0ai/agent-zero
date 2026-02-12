@@ -1,0 +1,687 @@
+<html>
+<head>
+  <title>Agent Orchestrator</title>
+  <script type="module">
+    import { store } from "/components/modals/orchestrator/orchestrator-store.js";
+  </script>
+</head>
+<body>
+  <div x-data
+       x-init="$store.orchestrator.onOpen()"
+       x-destroy="$store.orchestrator.onClose()">
+    <template x-if="$store.orchestrator">
+      <div class="orch-container">
+
+        <!-- Flow list view -->
+        <template x-if="$store.orchestrator.showFlowList">
+          <div class="orch-flow-list">
+            <div class="orch-flow-list-header">
+              <h3>Orchestration Flows</h3>
+              <button class="btn btn-ok" @click="$store.orchestrator.newFlow()">
+                <span class="material-symbols-outlined" style="font-size:18px;margin-right:4px;">add</span>
+                New Flow
+              </button>
+            </div>
+
+            <div class="orch-flow-list-empty" x-show="$store.orchestrator.flows.length === 0">
+              <span class="material-symbols-outlined" style="font-size:48px;opacity:0.3;">account_tree</span>
+              <p>No flows yet. Create one to orchestrate agents visually.</p>
+            </div>
+
+            <template x-for="flow in $store.orchestrator.flows" :key="flow.name">
+              <div class="orch-flow-item" @click="$store.orchestrator.loadFlow(flow.name)">
+                <span class="material-symbols-outlined">account_tree</span>
+                <div class="orch-flow-item-info">
+                  <span class="orch-flow-item-name" x-text="flow.name"></span>
+                  <span class="orch-flow-item-desc" x-text="flow.description || 'No description'"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Canvas view -->
+        <template x-if="!$store.orchestrator.showFlowList">
+          <div class="orch-canvas-view">
+
+            <!-- Toolbar -->
+            <div class="orch-toolbar">
+              <button class="orch-toolbar-btn" @click="$store.orchestrator.backToFlowList()" title="Back to flows">
+                <span class="material-symbols-outlined">arrow_back</span>
+              </button>
+              <span class="orch-toolbar-name" x-text="$store.orchestrator.currentFlowName"></span>
+              <span class="orch-toolbar-dirty" x-show="$store.orchestrator.dirty">*</span>
+              <div class="orch-toolbar-spacer"></div>
+              <button class="orch-toolbar-btn"
+                      @click="$store.orchestrator.executeFlow()"
+                      x-show="!$store.orchestrator.running"
+                      title="Run flow">
+                <span class="material-symbols-outlined" style="color:#4ade80;">play_arrow</span>
+              </button>
+              <button class="orch-toolbar-btn"
+                      @click="$store.orchestrator.stopFlow()"
+                      x-show="$store.orchestrator.running"
+                      title="Stop flow">
+                <span class="material-symbols-outlined" style="color:#f87171;">stop</span>
+              </button>
+            </div>
+
+            <!-- Canvas + Inspector layout -->
+            <div class="orch-canvas-area">
+              <!-- React Flow mount point -->
+              <div id="react-flow-root" class="orch-react-root"
+                   x-init="
+                     import('/components/modals/orchestrator/orchestrator-bridge.js').then(b => b.initBridge($store.orchestrator));
+                     import('/components/modals/orchestrator/react/OrchestrationCanvas.js').then(m => {
+                       const el = document.getElementById('react-flow-root');
+                       if (el) m.mountCanvas(el);
+                     });
+                   "
+                   x-destroy="
+                     import('/components/modals/orchestrator/orchestrator-bridge.js').then(b => b.destroyBridge());
+                   ">
+                <div class="orch-loading" x-show="!$store.orchestrator.reactReady">
+                  <span class="material-symbols-outlined orch-loading-icon">hourglass_empty</span>
+                  <span>Loading React Flow...</span>
+                </div>
+              </div>
+
+              <!-- Inspector drawer -->
+              <div class="orch-inspector"
+                   x-show="$store.orchestrator.showInspector"
+                   x-transition:enter="orch-slide-in"
+                   x-transition:enter-start="orch-slide-start"
+                   x-transition:enter-end="orch-slide-end"
+                   x-transition:leave="orch-slide-out"
+                   x-transition:leave-start="orch-slide-end"
+                   x-transition:leave-end="orch-slide-start">
+
+                <div class="orch-inspector-header">
+                  <span x-text="$store.orchestrator.inspectedNodeData?.label || 'Node'"></span>
+                  <button class="orch-inspector-close" @click="$store.orchestrator.showInspector = false; $store.orchestrator.inspectedNodeId = null;">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+
+                <div class="orch-inspector-body">
+                  <!-- Running state: show output -->
+                  <template x-if="$store.orchestrator.running && $store.orchestrator.nodeStates[$store.orchestrator.inspectedNodeId]">
+                    <div class="orch-inspector-live">
+                      <div class="orch-inspector-status">
+                        <span class="orch-status-dot"
+                              :class="'status-' + ($store.orchestrator.nodeStates[$store.orchestrator.inspectedNodeId]?.status || 'idle')"></span>
+                        <span x-text="$store.orchestrator.nodeStates[$store.orchestrator.inspectedNodeId]?.status || 'idle'"></span>
+                      </div>
+                      <pre class="orch-inspector-output"
+                           x-text="$store.orchestrator.nodeStates[$store.orchestrator.inspectedNodeId]?.output || 'Waiting...'"></pre>
+                    </div>
+                  </template>
+
+                  <!-- Edit state: show config -->
+                  <template x-if="!$store.orchestrator.running && $store.orchestrator.inspectedNodeData">
+                    <div class="orch-inspector-config">
+                      <!-- Label -->
+                      <label class="orch-field-label">Label</label>
+                      <input type="text" class="orch-field-input"
+                             :value="$store.orchestrator.inspectedNodeData?.label || ''"
+                             @input="$store.orchestrator.updateNodeConfig($store.orchestrator.inspectedNodeId, { label: $event.target.value })">
+
+                      <!-- Agent-specific fields -->
+                      <template x-if="$store.orchestrator.inspectedNodeData?._nodeType === 'agentNode' || $store.orchestrator.inspectedNodeData?.agentProfile !== undefined">
+                        <div>
+                          <label class="orch-field-label">Agent Profile</label>
+                          <select class="orch-field-input"
+                                  :value="$store.orchestrator.inspectedNodeData?.agentProfile || 'default'"
+                                  @change="$store.orchestrator.updateNodeConfig($store.orchestrator.inspectedNodeId, { agentProfile: $event.target.value })">
+                            <template x-for="p in $store.orchestrator.agentProfiles" :key="p.name">
+                              <option :value="p.name" x-text="p.title || p.name"></option>
+                            </template>
+                          </select>
+
+                          <label class="orch-field-label">Prompt Override</label>
+                          <textarea class="orch-field-textarea"
+                                    :value="$store.orchestrator.inspectedNodeData?.systemPromptOverride || ''"
+                                    @input="$store.orchestrator.updateNodeConfig($store.orchestrator.inspectedNodeId, { systemPromptOverride: $event.target.value })"
+                                    placeholder="Optional system prompt override..."></textarea>
+                        </div>
+                      </template>
+
+                      <!-- Condition-specific fields -->
+                      <template x-if="$store.orchestrator.inspectedNodeData?.expression !== undefined">
+                        <div>
+                          <label class="orch-field-label">Expression</label>
+                          <textarea class="orch-field-textarea"
+                                    :value="$store.orchestrator.inspectedNodeData?.expression || ''"
+                                    @input="$store.orchestrator.updateNodeConfig($store.orchestrator.inspectedNodeId, { expression: $event.target.value })"
+                                    placeholder="Python expression (e.g. len(input) > 100)"></textarea>
+                        </div>
+                      </template>
+
+                      <!-- Parallel-specific fields -->
+                      <template x-if="$store.orchestrator.inspectedNodeData?.mergeStrategy !== undefined">
+                        <div>
+                          <label class="orch-field-label">Merge Strategy</label>
+                          <select class="orch-field-input"
+                                  :value="$store.orchestrator.inspectedNodeData?.mergeStrategy || 'concatenate'"
+                                  @change="$store.orchestrator.updateNodeConfig($store.orchestrator.inspectedNodeId, { mergeStrategy: $event.target.value })">
+                            <option value="concatenate">Concatenate</option>
+                            <option value="summarize">Summarize</option>
+                            <option value="first">First Response</option>
+                          </select>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </template>
+
+      </div>
+    </template>
+  </div>
+
+  <!-- Footer -->
+  <template x-if="$store.orchestrator">
+    <div class="modal-footer" data-modal-footer
+         x-show="!$store.orchestrator.showFlowList && $store.orchestrator.currentFlow">
+      <button class="btn btn-ok" @click="$store.orchestrator.saveFlow()" :disabled="!$store.orchestrator.dirty">
+        Save
+      </button>
+      <button class="btn btn-cancel" @click="closeModal('modals/orchestrator/orchestrator.html')">
+        Close
+      </button>
+    </div>
+  </template>
+
+  <style>
+    /* ─── Container ─── */
+    .orch-container {
+      display: flex;
+      flex-direction: column;
+      height: 75vh;
+      min-height: 500px;
+      overflow: hidden;
+    }
+
+    /* ─── Flow List ─── */
+    .orch-flow-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      padding: var(--spacing-md);
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .orch-flow-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .orch-flow-list-header h3 {
+      margin: 0;
+      font-size: var(--font-size-large);
+      color: var(--color-text);
+    }
+
+    .orch-flow-list-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      flex: 1;
+      color: var(--color-text);
+      opacity: 0.5;
+    }
+
+    .orch-flow-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background var(--transition-speed);
+    }
+
+    .orch-flow-item:hover {
+      background: var(--color-background-hover, rgba(255,255,255,0.05));
+    }
+
+    .orch-flow-item-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .orch-flow-item-name {
+      font-weight: 500;
+      color: var(--color-text);
+    }
+
+    .orch-flow-item-desc {
+      font-size: var(--font-size-small);
+      color: var(--color-text);
+      opacity: 0.6;
+    }
+
+    /* ─── Canvas View ─── */
+    .orch-canvas-view {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .orch-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-panel);
+      flex-shrink: 0;
+    }
+
+    .orch-toolbar-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      color: var(--color-text);
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+
+    .orch-toolbar-btn:hover {
+      opacity: 1;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .orch-toolbar-name {
+      font-size: var(--font-size-normal);
+      color: var(--color-text);
+      font-weight: 500;
+    }
+
+    .orch-toolbar-dirty {
+      color: var(--color-accent);
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+
+    .orch-toolbar-spacer {
+      flex: 1;
+    }
+
+    /* ─── Canvas Area ─── */
+    .orch-canvas-area {
+      display: flex;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .orch-react-root {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+
+    .orch-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: var(--spacing-sm);
+      color: var(--color-text);
+      opacity: 0.5;
+    }
+
+    .orch-loading-icon {
+      font-size: 32px;
+      animation: orch-spin 1.5s linear infinite;
+    }
+
+    @keyframes orch-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* ─── Inspector Drawer ─── */
+    .orch-inspector {
+      width: 320px;
+      flex-shrink: 0;
+      border-left: 1px solid var(--color-border);
+      background: var(--color-panel);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .orch-slide-in,
+    .orch-slide-out {
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .orch-slide-start {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+
+    .orch-slide-end {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    .orch-inspector-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-bottom: 1px solid var(--color-border);
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .orch-inspector-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--color-text);
+      opacity: 0.6;
+      padding: 2px;
+    }
+
+    .orch-inspector-close:hover {
+      opacity: 1;
+    }
+
+    .orch-inspector-body {
+      padding: var(--spacing-md);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .orch-field-label {
+      font-size: var(--font-size-small);
+      color: var(--color-text);
+      opacity: 0.7;
+      margin-bottom: 2px;
+      display: block;
+    }
+
+    .orch-field-input {
+      width: 100%;
+      padding: 6px 8px;
+      background: var(--color-input, var(--color-background));
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      color: var(--color-text);
+      font-size: var(--font-size-small);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .orch-field-textarea {
+      width: 100%;
+      min-height: 60px;
+      padding: 6px 8px;
+      background: var(--color-input, var(--color-background));
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      color: var(--color-text);
+      font-size: var(--font-size-small);
+      resize: vertical;
+      font-family: inherit;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    /* ─── Inspector Live Output ─── */
+    .orch-inspector-live {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .orch-inspector-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      text-transform: capitalize;
+      font-size: var(--font-size-small);
+    }
+
+    .orch-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: gray;
+    }
+
+    .orch-status-dot.status-running {
+      background: #60a5fa;
+      animation: orch-pulse 1s ease-in-out infinite;
+    }
+
+    .orch-status-dot.status-complete { background: #4ade80; }
+    .orch-status-dot.status-failed { background: #f87171; }
+    .orch-status-dot.status-pending { background: #888; }
+
+    @keyframes orch-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .orch-inspector-output {
+      font-size: var(--font-size-small);
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--color-text);
+      opacity: 0.8;
+      max-height: 300px;
+      overflow-y: auto;
+      background: var(--color-background);
+      padding: var(--spacing-sm);
+      border-radius: 4px;
+      margin: 0;
+    }
+
+    /* ─── React Flow Node Styles ─── */
+    .orch-node {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 2px solid var(--color-border, #333);
+      background: var(--color-panel, #1e1e2e);
+      color: var(--color-text, #e0e0e0);
+      min-width: 150px;
+      font-size: 13px;
+      position: relative;
+    }
+
+    .orch-node.selected {
+      box-shadow: 0 0 0 2px var(--color-accent, #60a5fa);
+    }
+
+    .orch-node-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      opacity: 0.6;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .orch-node-label {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .orch-node-detail {
+      font-size: 11px;
+      opacity: 0.5;
+    }
+
+    /* Node type colors */
+    .orch-node-input { border-color: #4ade80; }
+    .orch-node-input .orch-node-badge { color: #4ade80; }
+
+    .orch-node-output { border-color: #f87171; }
+    .orch-node-output .orch-node-badge { color: #f87171; }
+
+    .orch-node-agent { border-color: #60a5fa; }
+    .orch-node-agent .orch-node-badge { color: #60a5fa; }
+
+    .orch-node-parallel {
+      border-color: #c084fc;
+      min-width: 200px;
+      min-height: 120px;
+    }
+    .orch-node-parallel .orch-node-badge { color: #c084fc; }
+
+    .orch-node-condition { border-color: #fbbf24; }
+    .orch-node-condition .orch-node-badge { color: #fbbf24; }
+
+    .orch-condition-handles {
+      position: relative;
+      height: 0;
+    }
+
+    .orch-condition-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      margin-top: 6px;
+      opacity: 0.6;
+    }
+
+    .orch-cond-true { color: #4ade80; }
+    .orch-cond-false { color: #f87171; }
+
+    /* Node execution states */
+    .orch-node.running {
+      border-color: #60a5fa;
+      box-shadow: 0 0 12px rgba(96, 165, 250, 0.3);
+      animation: orch-node-pulse 1.5s ease-in-out infinite;
+    }
+
+    .orch-node.complete {
+      border-color: #4ade80;
+    }
+
+    .orch-node.failed {
+      border-color: #f87171;
+      box-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+    }
+
+    .orch-node.pending {
+      border-style: dashed;
+      opacity: 0.6;
+    }
+
+    .orch-node.skipped {
+      border-style: dotted;
+      opacity: 0.4;
+    }
+
+    @keyframes orch-node-pulse {
+      0%, 100% { box-shadow: 0 0 12px rgba(96, 165, 250, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.6); }
+    }
+
+    .orch-node-spinner {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(96, 165, 250, 0.3);
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: orch-spin 0.8s linear infinite;
+    }
+
+    /* ─── Node Palette ─── */
+    .orch-palette {
+      background: var(--color-panel, #1e1e2e);
+      border: 1px solid var(--color-border, #333);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 120px;
+    }
+
+    .orch-palette-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      opacity: 0.5;
+      padding: 2px 4px;
+      color: var(--color-text, #e0e0e0);
+    }
+
+    .orch-palette-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border-left: 3px solid transparent;
+      cursor: grab;
+      font-size: 13px;
+      color: var(--color-text, #e0e0e0);
+      transition: background 0.15s;
+    }
+
+    .orch-palette-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .orch-palette-item:active {
+      cursor: grabbing;
+    }
+
+    /* ─── React Flow overrides ─── */
+    .react-flow__handle {
+      width: 10px;
+      height: 10px;
+      background: var(--color-accent, #60a5fa);
+      border: 2px solid var(--color-panel, #1e1e2e);
+    }
+
+    .react-flow__edge-path {
+      stroke: var(--color-border, #555);
+      stroke-width: 2;
+    }
+
+    .react-flow__controls {
+      background: var(--color-panel, #1e1e2e);
+      border: 1px solid var(--color-border, #333);
+      border-radius: 8px;
+    }
+
+    .react-flow__controls-button {
+      background: var(--color-panel, #1e1e2e);
+      border-color: var(--color-border, #333);
+      fill: var(--color-text, #e0e0e0);
+    }
+
+    .react-flow__controls-button:hover {
+      background: rgba(255,255,255,0.1);
+    }
+  </style>
+</body>
+</html>
