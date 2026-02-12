@@ -52,6 +52,13 @@ agent_history.gif
 # AI Agents
 .agent/**
 .claude/**
+!.claude/settings.json
+!.claude/hooks/
+!.claude/hooks/**
+!.claude/skills/
+!.claude/skills/**
+!.claude/agents/
+!.claude/agents/**
 
 # Local Docs
 .local_docs/
