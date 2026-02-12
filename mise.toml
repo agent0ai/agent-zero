@@ -473,9 +473,10 @@ find usr/chats -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || t
 echo "→ Agent memory..."
 find usr/memory -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
 
-# --- 5. User knowledge uploads ---
+# --- 5. User knowledge uploads (preserve .gitkeep in subdirs) ---
 echo "→ User knowledge..."
-find usr/knowledge -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+find usr/knowledge -mindepth 1 ! -name '.gitkeep' ! -type d -exec rm -rf {} + 2>/dev/null || true
+find usr/knowledge -mindepth 2 -type d -empty -exec rmdir {} + 2>/dev/null || true
 
 # --- 6. Scheduler tasks ---
 echo "→ Scheduler..."
