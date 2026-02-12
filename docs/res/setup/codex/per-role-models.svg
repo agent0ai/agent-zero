@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#11141b"/>
+  <rect x="44" y="44" width="1192" height="632" rx="20" fill="#191f2b" stroke="#31394a"/>
+  <text x="84" y="114" fill="#f4f7fd" font-family="Arial, sans-serif" font-size="40" font-weight="700">
+    Per-Role Codex Models
+  </text>
+  <text x="84" y="174" fill="#bbc6dd" font-family="Arial, sans-serif" font-size="24">
+    Replace this placeholder with screenshot of Chat / Utility / Browser sections showing different model names.
+  </text>
+  <rect x="84" y="232" width="1112" height="116" rx="12" fill="#222b3a" stroke="#364863"/>
+  <rect x="84" y="368" width="1112" height="116" rx="12" fill="#222b3a" stroke="#364863"/>
+  <rect x="84" y="504" width="1112" height="116" rx="12" fill="#222b3a" stroke="#364863"/>
+  <text x="112" y="296" fill="#d9e1f3" font-family="Arial, sans-serif" font-size="28">Chat Model: gpt-5.2-codex</text>
+  <text x="112" y="432" fill="#d9e1f3" font-family="Arial, sans-serif" font-size="28">Utility Model: gpt-5.1-codex-mini</text>
+  <text x="112" y="568" fill="#d9e1f3" font-family="Arial, sans-serif" font-size="28">Browser Model: gpt-5.2</text>
+</svg>

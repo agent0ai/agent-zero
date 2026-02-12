@@ -1,7 +1,8 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 import logging
 import os
+from types import SimpleNamespace
 from typing import (
     Any,
     Awaitable,
@@ -23,6 +24,7 @@ from python.helpers import dotenv
 from python.helpers import settings, dirty_json
 from python.helpers.dotenv import load_dotenv
 from python.helpers.providers import ModelType as ProviderModelType, get_provider_config
+from python.helpers import codex_exec
 from python.helpers.rate_limiter import RateLimiter
 from python.helpers.tokens import approximate_tokens
 from python.helpers import dirty_json, browser_use_monkeypatch
@@ -286,6 +288,166 @@ def apply_rate_limiter_sync(
     nest_asyncio.apply()
     return asyncio.run(
         apply_rate_limiter(model_config, input_text, rate_limiter_callback)
+    )
+
+
+def _message_content_to_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                item_type = str(item.get("type", "")).lower()
+                if item_type == "text":
+                    text = str(item.get("text", "")).strip()
+                    if text:
+                        parts.append(text)
+                else:
+                    # Preserve non-text blocks in compact JSON form.
+                    parts.append(dirty_json.stringify(item))
+            else:
+                parts.append(str(item))
+        return "\n".join(p for p in parts if p).strip()
+    if content is None:
+        return ""
+    return str(content)
+
+
+def _messages_to_codex_prompt(messages: list[BaseMessage]) -> str:
+    role_mapping = {
+        "human": "USER",
+        "ai": "ASSISTANT",
+        "system": "SYSTEM",
+        "tool": "TOOL",
+    }
+    blocks: list[str] = []
+    for message in messages:
+        role = role_mapping.get(message.type, str(message.type).upper())
+        body = _message_content_to_text(message.content)
+        if not body:
+            continue
+        blocks.append(f"{role}:\n{body}")
+    return "\n\n".join(blocks).strip()
+
+
+def _normalize_codex_chat_message(message: str) -> str:
+    """
+    Agent Zero's main chat loop expects strict tool-request JSON.
+    If Codex returns plain text, wrap it into the `response` tool format.
+    """
+    text = str(message or "").strip()
+    parsed = None
+    if text:
+        try:
+            parsed = dirty_json.try_parse(text)
+        except Exception:
+            parsed = None
+
+    if isinstance(parsed, dict):
+        tool_name = parsed.get("tool_name", parsed.get("tool", ""))
+        tool_args = parsed.get("tool_args", parsed.get("args", {}))
+        if isinstance(tool_name, str) and tool_name.strip():
+            normalized: dict[str, Any] = {"tool_name": tool_name.strip()}
+            if isinstance(tool_args, str):
+                try:
+                    parsed_args = dirty_json.try_parse(tool_args)
+                    tool_args = parsed_args if isinstance(parsed_args, dict) else {"text": tool_args}
+                except Exception:
+                    tool_args = {"text": tool_args}
+            elif not isinstance(tool_args, dict):
+                tool_args = {}
+            normalized["tool_args"] = tool_args
+
+            thoughts = parsed.get("thoughts")
+            if isinstance(thoughts, list):
+                normalized["thoughts"] = thoughts
+            headline = parsed.get("headline")
+            if headline is not None:
+                normalized["headline"] = str(headline)
+            return dirty_json.stringify(normalized)
+
+    wrapped = {
+        "thoughts": [
+            "Codex returned plain text, wrapping to response tool format required by Agent Zero."
+        ],
+        "headline": "Returning direct response",
+        "tool_name": "response",
+        "tool_args": {
+            "text": text or "Done.",
+        },
+    }
+    return dirty_json.stringify(wrapped)
+
+
+def _get_context_codex_threads(context_id: str) -> dict[str, str]:
+    if not context_id:
+        return {}
+    try:
+        from agent import AgentContext
+
+        context = AgentContext.get(context_id)
+        if not context:
+            return {}
+        raw = context.get_data("codex_threads")
+        if isinstance(raw, dict):
+            return {str(k): str(v) for k, v in raw.items() if v}
+        return {}
+    except Exception:
+        return {}
+
+
+def _set_context_codex_thread(context_id: str, role: str, thread_id: str) -> None:
+    if not context_id or not role or not thread_id:
+        return
+    try:
+        from agent import AgentContext
+
+        context = AgentContext.get(context_id)
+        if not context:
+            return
+        threads = _get_context_codex_threads(context_id)
+        threads[role] = thread_id
+        context.set_data("codex_threads", threads)
+    except Exception:
+        return
+
+
+def _role_fallback_prefix(role: str) -> str:
+    normalized = (role or "chat").strip().lower()
+    if normalized in ("utility", "util"):
+        return "util_model"
+    if normalized == "browser":
+        return "browser_model"
+    return "chat_model"
+
+
+def _get_role_fallback_snapshot(role: str) -> tuple[str, str, str, dict[str, Any]]:
+    prefix = _role_fallback_prefix(role)
+    cfg = settings.get_settings()
+    provider = str(cfg.get(f"{prefix}_provider_prev", "")).strip().lower()
+    model_name = str(cfg.get(f"{prefix}_name_prev", "")).strip()
+    api_base = str(cfg.get(f"{prefix}_api_base_prev", "")).strip()
+    kwargs = cfg.get(f"{prefix}_kwargs_prev", {})
+    kwargs = kwargs.copy() if isinstance(kwargs, dict) else {}
+    return provider, model_name, api_base, kwargs
+
+
+def _fallback_model_config(
+    model_config: ModelConfig | None,
+    provider: str,
+    name: str,
+    api_base: str,
+    kwargs: dict[str, Any],
+) -> ModelConfig | None:
+    if not model_config:
+        return None
+    return replace(
+        model_config,
+        provider=provider,
+        name=name,
+        api_base=api_base,
+        kwargs=kwargs.copy(),
     )
 
 
@@ -562,6 +724,224 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 await asyncio.sleep(retry_delay_s)
 
 
+class CodexExecChatWrapper(SimpleChatModel):
+    model_name: str
+    provider: str
+    kwargs: dict = {}
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="allow",
+        validate_assignment=False,
+    )
+
+    def __init__(
+        self,
+        model: str,
+        provider: str,
+        model_config: Optional[ModelConfig] = None,
+        **kwargs: Any,
+    ):
+        role = str(kwargs.pop("a0_role", "chat")).strip().lower() or "chat"
+        context_id = str(kwargs.pop("a0_context_id", "")).strip()
+        enable_fallback = bool(kwargs.pop("a0_enable_fallback", True))
+
+        model_value = model.strip() or "gpt-5-codex"
+        super().__init__(model_name=model_value, provider=provider, kwargs=kwargs)  # type: ignore
+        self.a0_model_conf = model_config
+        self.a0_role = role
+        self.a0_context_id = context_id
+        self.a0_enable_fallback = enable_fallback
+
+    @property
+    def _llm_type(self) -> str:
+        return "codex-exec-chat"
+
+    async def _run_codex(self, messages: list[BaseMessage]) -> codex_exec.CodexExecResult:
+        import asyncio
+
+        prompt = _messages_to_codex_prompt(messages)
+        if not prompt:
+            prompt = "Continue."
+
+        threads = _get_context_codex_threads(self.a0_context_id)
+        resume_thread_id = threads.get(self.a0_role, "")
+        result = await asyncio.to_thread(
+            codex_exec.run_codex_exec,
+            prompt=prompt,
+            model=self.model_name,
+            resume_thread_id=resume_thread_id,
+        )
+
+        if result.ok and result.thread_id:
+            _set_context_codex_thread(self.a0_context_id, self.a0_role, result.thread_id)
+        return result
+
+    async def _run_fallback(
+        self,
+        *,
+        messages: list[BaseMessage],
+        response_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        tokens_callback: Callable[[str, int], Awaitable[None]] | None = None,
+        rate_limiter_callback: (
+            Callable[[str, str, int, int], Awaitable[bool]] | None
+        ) = None,
+        diagnostic: str = "",
+    ) -> tuple[str, str]:
+        provider_prev, model_prev, api_base_prev, kwargs_prev = _get_role_fallback_snapshot(
+            self.a0_role
+        )
+        if not provider_prev or provider_prev == "codex" or not model_prev:
+            raise RuntimeError(
+                f"Codex failed for role '{self.a0_role}' and no valid fallback provider snapshot was found."
+            )
+
+        fallback_conf = _fallback_model_config(
+            self.a0_model_conf,
+            provider_prev,
+            model_prev,
+            api_base_prev,
+            kwargs_prev,
+        )
+        fallback_kwargs = fallback_conf.build_kwargs() if fallback_conf else kwargs_prev.copy()
+
+        fallback_model = get_chat_model(
+            provider_prev,
+            model_prev,
+            model_config=fallback_conf,
+            a0_role=self.a0_role,
+            a0_context_id=self.a0_context_id,
+            **fallback_kwargs,
+        )
+        fallback_response, fallback_reasoning = await fallback_model.unified_call(
+            messages=messages,
+            response_callback=response_callback,
+            reasoning_callback=reasoning_callback,
+            tokens_callback=tokens_callback,
+            rate_limiter_callback=rate_limiter_callback,
+        )
+        codex_exec.set_latest_warning(
+            role=self.a0_role,
+            message=(
+                f"Codex call failed for role '{self.a0_role}'. "
+                f"Temporarily used fallback provider '{provider_prev}'."
+            ),
+            fallback_provider=provider_prev,
+            fallback_model=model_prev,
+            diagnostic=diagnostic,
+        )
+        return fallback_response, fallback_reasoning
+
+    async def unified_call(
+        self,
+        system_message: str = "",
+        user_message: str = "",
+        messages: list[BaseMessage] | None = None,
+        response_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        tokens_callback: Callable[[str, int], Awaitable[None]] | None = None,
+        rate_limiter_callback: (
+            Callable[[str, str, int, int], Awaitable[bool]] | None
+        ) = None,
+        **kwargs: Any,
+    ) -> tuple[str, str]:
+        turn_off_logging()
+
+        if not messages:
+            messages = []
+        if system_message:
+            messages.insert(0, SystemMessage(content=system_message))
+        if user_message:
+            messages.append(HumanMessage(content=user_message))
+
+        await apply_rate_limiter(self.a0_model_conf, str(messages), rate_limiter_callback)
+
+        try:
+            result = await self._run_codex(messages)
+            if not result.ok:
+                raise RuntimeError(result.diagnostic or "codex execution failed")
+
+            if self.a0_role == "chat" and result.message:
+                result.message = _normalize_codex_chat_message(result.message)
+
+            if reasoning_callback and result.reasoning:
+                await reasoning_callback(result.reasoning, result.reasoning)
+            if response_callback and result.message:
+                await response_callback(result.message, result.message)
+            if tokens_callback:
+                if result.reasoning:
+                    await tokens_callback(result.reasoning, approximate_tokens(result.reasoning))
+                if result.message:
+                    await tokens_callback(result.message, approximate_tokens(result.message))
+
+            return result.message, result.reasoning
+        except Exception as exc:
+            diagnostic = str(exc)
+            if not self.a0_enable_fallback:
+                raise
+            try:
+                return await self._run_fallback(
+                    messages=messages,
+                    response_callback=response_callback,
+                    reasoning_callback=reasoning_callback,
+                    tokens_callback=tokens_callback,
+                    rate_limiter_callback=rate_limiter_callback,
+                    diagnostic=diagnostic,
+                )
+            except Exception as fallback_exc:
+                codex_exec.set_latest_warning(
+                    role=self.a0_role,
+                    message=f"Codex call failed for role '{self.a0_role}'. No fallback could be used.",
+                    fallback_provider="",
+                    fallback_model="",
+                    diagnostic=f"{diagnostic} | fallback: {fallback_exc}",
+                )
+                raise RuntimeError(
+                    f"Codex failed for role '{self.a0_role}' and fallback was unavailable: {fallback_exc}"
+                ) from fallback_exc
+
+    def _call(
+        self,
+        messages: list[BaseMessage],
+        stop: Optional[list[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        import nest_asyncio
+        import asyncio
+
+        nest_asyncio.apply()
+        response, _ = asyncio.run(self.unified_call(messages=messages, **kwargs))
+        return response
+
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: Optional[list[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        import nest_asyncio
+        import asyncio
+
+        nest_asyncio.apply()
+        response, _ = asyncio.run(self.unified_call(messages=messages, **kwargs))
+        if response:
+            yield ChatGenerationChunk(message=AIMessageChunk(content=response))
+
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: Optional[list[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        response, _ = await self.unified_call(messages=messages, **kwargs)
+        if response:
+            yield ChatGenerationChunk(message=AIMessageChunk(content=response))
+
+
 class AsyncAIChatReplacement:
     class _Completions:
         def __init__(self, wrapper):
@@ -656,6 +1036,125 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
             pass
 
         return resp
+
+
+class CodexBrowserCompatibleChatWrapper(ChatOpenRouter):
+    """
+    Browser-use adapter for Codex backend.
+    Uses Codex for primary call and falls back to previous browser provider on failure.
+    """
+
+    def __init__(self, *args, **kwargs):
+        turn_off_logging()
+        kwargs["a0_role"] = "browser"
+        kwargs["a0_enable_fallback"] = False
+        self._wrapper = CodexExecChatWrapper(*args, **kwargs)
+        self.model = self._wrapper.model_name
+        self.kwargs = self._wrapper.kwargs
+
+    @property
+    def model_name(self) -> str:
+        return self._wrapper.model_name
+
+    @property
+    def provider(self) -> str:
+        return self._wrapper.provider
+
+    def get_client(self, *args, **kwargs):  # type: ignore
+        return AsyncAIChatReplacement(self, *args, **kwargs)
+
+    async def _acall(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ):
+        try:
+            response, _reasoning = await self._wrapper.unified_call(messages=messages)
+            response_format = kwargs.get("response_format")
+            expects_json = (
+                isinstance(response_format, dict)
+                and (
+                    "json_schema" in response_format
+                    or "json_object" in response_format
+                )
+            )
+            if expects_json and response:
+                text = response.strip()
+                if not text.startswith("{"):
+                    try:
+                        parsed = dirty_json.parse(text)
+                        response = dirty_json.stringify(parsed)
+                    except Exception as exc:
+                        raise ValueError(
+                            "Codex browser response was not valid JSON for browser-use schema."
+                        ) from exc
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(message=SimpleNamespace(content=response))
+                ]
+            )
+        except Exception as exc:
+            diagnostic = str(exc)
+            provider_prev, model_prev, api_base_prev, kwargs_prev = _get_role_fallback_snapshot(
+                "browser"
+            )
+            if not provider_prev or provider_prev == "codex" or not model_prev:
+                codex_exec.set_latest_warning(
+                    role="browser",
+                    message="Codex browser call failed and no valid fallback provider was configured.",
+                    fallback_provider="",
+                    fallback_model="",
+                    diagnostic=diagnostic,
+                )
+                raise RuntimeError(
+                    "Codex browser call failed and no valid fallback provider snapshot was found."
+                ) from exc
+
+            fallback_conf = _fallback_model_config(
+                self._wrapper.a0_model_conf,
+                provider_prev,
+                model_prev,
+                api_base_prev,
+                kwargs_prev,
+            )
+            fallback_kwargs = (
+                fallback_conf.build_kwargs() if fallback_conf else kwargs_prev.copy()
+            )
+            fallback_model = get_browser_model(
+                provider_prev,
+                model_prev,
+                model_config=fallback_conf,
+                a0_role="browser",
+                a0_context_id=self._wrapper.a0_context_id,
+                **fallback_kwargs,
+            )
+
+            if hasattr(fallback_model, "_acall"):
+                response = await fallback_model._acall(  # type: ignore[attr-defined]
+                    messages=messages,
+                    stop=stop,
+                    run_manager=run_manager,
+                    **kwargs,
+                )
+            else:
+                text, _reason = await fallback_model.unified_call(messages=messages)  # type: ignore[attr-defined]
+                response = SimpleNamespace(
+                    choices=[SimpleNamespace(message=SimpleNamespace(content=text))]
+                )
+
+            codex_exec.set_latest_warning(
+                role="browser",
+                message=(
+                    "Codex browser call failed. "
+                    f"Temporarily used fallback provider '{provider_prev}'."
+                ),
+                fallback_provider=provider_prev,
+                fallback_model=model_prev,
+                diagnostic=diagnostic,
+            )
+            return response
 
 class LiteLLMEmbeddingWrapper(Embeddings):
     model_name: str
@@ -893,8 +1392,24 @@ def _merge_provider_defaults(
 
 def get_chat_model(
     provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
-) -> LiteLLMChatWrapper:
+) -> LiteLLMChatWrapper | CodexExecChatWrapper:
     orig = provider.lower()
+    if orig == "codex":
+        a0_role = kwargs.pop("a0_role", "chat")
+        a0_context_id = kwargs.pop("a0_context_id", "")
+        kwargs.pop("api_key", None)
+        return CodexExecChatWrapper(
+            model=name.strip() or "gpt-5-codex",
+            provider=orig,
+            model_config=model_config,
+            a0_role=a0_role,
+            a0_context_id=a0_context_id,
+            **kwargs,
+        )
+
+    kwargs.pop("a0_role", None)
+    kwargs.pop("a0_context_id", None)
+    kwargs.pop("a0_enable_fallback", None)
     provider_name, kwargs = _merge_provider_defaults("chat", orig, kwargs)
     return _get_litellm_chat(
         LiteLLMChatWrapper, name, provider_name, model_config, **kwargs
@@ -903,8 +1418,24 @@ def get_chat_model(
 
 def get_browser_model(
     provider: str, name: str, model_config: Optional[ModelConfig] = None, **kwargs: Any
-) -> BrowserCompatibleChatWrapper:
+) -> BrowserCompatibleChatWrapper | CodexBrowserCompatibleChatWrapper:
     orig = provider.lower()
+    if orig == "codex":
+        a0_role = kwargs.pop("a0_role", "browser")
+        a0_context_id = kwargs.pop("a0_context_id", "")
+        kwargs.pop("api_key", None)
+        return CodexBrowserCompatibleChatWrapper(
+            model=name.strip() or "gpt-5-codex",
+            provider=orig,
+            model_config=model_config,
+            a0_role=a0_role,
+            a0_context_id=a0_context_id,
+            **kwargs,
+        )
+
+    kwargs.pop("a0_role", None)
+    kwargs.pop("a0_context_id", None)
+    kwargs.pop("a0_enable_fallback", None)
     provider_name, kwargs = _merge_provider_defaults("chat", orig, kwargs)
     return _get_litellm_chat(
         BrowserCompatibleChatWrapper, name, provider_name, model_config, **kwargs

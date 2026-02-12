@@ -1,0 +1,117 @@
+<html>
+  <head>
+    <title>ChatGPT Subscription</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settings.settings">
+        <div>
+          <div class="section-title">ChatGPT Subscription</div>
+          <div class="section-description">
+            Connect your ChatGPT account once for all Codex model roles (Chat, Utility, Browser).
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Connection status</div>
+              <div class="field-description">Global login used by Codex provider.</div>
+            </div>
+            <div class="field-control">
+              <div class="field-description">
+                Installed:
+                <strong x-text="$store.settings.getCodexStatus()?.installed ? 'yes' : 'no'"></strong>
+              </div>
+              <div class="field-description">
+                Logged in:
+                <strong x-text="$store.settings.getCodexStatus()?.logged_in ? 'yes' : 'no'"></strong>
+              </div>
+              <div class="field-description">
+                Auth mode:
+                <strong x-text="$store.settings.getCodexStatus()?.auth_mode || 'unknown'"></strong>
+              </div>
+              <div class="field-description">
+                Login flow:
+                <strong x-text="$store.settings.getCodexLoginState()?.status || 'idle'"></strong>
+              </div>
+              <template x-if="$store.settings.getCodexStatus()?.diagnostic">
+                <div class="field-description">
+                  Diagnostic:
+                  <code x-text="$store.settings.getCodexStatus()?.diagnostic"></code>
+                </div>
+              </template>
+              <template x-if="$store.settings.codexLastMessage">
+                <div class="field-description">
+                  Message:
+                  <code x-text="$store.settings.codexLastMessage"></code>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Account actions</div>
+              <div class="field-description">
+                Use Connect to open ChatGPT authorization. No email/password is stored in Agent Zero.
+              </div>
+            </div>
+            <div class="field-control">
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-ok"
+                        :disabled="$store.settings.codexActionLoading"
+                        @click="$store.settings.connectChatGptSubscription()">
+                  Connect ChatGPT
+                </button>
+                <button class="btn btn-cancel"
+                        :disabled="$store.settings.codexActionLoading"
+                        @click="$store.settings.refreshCodexSubscriptionStatus()">
+                  Check Status
+                </button>
+                <button class="btn btn-cancel"
+                        :disabled="$store.settings.codexActionLoading"
+                        @click="$store.settings.disconnectChatGptSubscription()">
+                  Disconnect
+                </button>
+                <button class="btn btn-cancel"
+                        :disabled="$store.settings.codexActionLoading || !$store.settings.getCodexStatus()?.logged_in"
+                        @click="$store.settings.refreshCodexModels(true)">
+                  Refresh Models
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Available Codex models</div>
+              <div class="field-description">
+                These options appear in Chat/Utility/Browser model selectors when provider is Codex.
+              </div>
+            </div>
+            <div class="field-control">
+              <div class="field-description">
+                Verified:
+                <strong x-text="$store.settings.getCodexModelPayload()?.verified ? 'yes' : 'no'"></strong>
+              </div>
+              <template x-if="$store.settings.getCodexModelPayload()?.diagnostic">
+                <div class="field-description">
+                  Model check:
+                  <code x-text="$store.settings.getCodexModelPayload()?.diagnostic"></code>
+                </div>
+              </template>
+              <div class="field-description">
+                <template x-for="model in $store.settings.getCodexModelOptions('', 'subscription-model')" :key="model.key">
+                  <div>
+                    <code x-text="model.value"></code>
+                    <span x-text="model.available === true ? ' (available)' : (model.available === false ? ' (unavailable)' : '')"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

@@ -15,7 +15,8 @@
 [Installation](./docs/setup/installation.md) •
 [How to update](./docs/setup/installation.md#how-to-update-agent-zero) <br>
 [Development Setup](./docs/setup/dev-setup.md) •
-[Usage](./docs/guides/usage.md)
+[Usage](./docs/guides/usage.md) •
+[Codex Subscription](./docs/guides/codex-subscription.md)
 
 Or see DeepWiki generated documentation:
 
@@ -155,6 +156,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 |-------|-------------|
 | [Installation](./docs/setup/installation.md) | Installation, setup and configuration |
 | [Usage](./docs/guides/usage.md) | Basic and advanced usage |
+| [Codex Subscription](./docs/guides/codex-subscription.md) | Connect ChatGPT subscription, select per-role Codex models, and verify setup |
 | [Guides](./docs/guides/) | Step-by-step guides: Usage, Projects, API Integration, MCP Setup, A2A Setup |
 | [Development Setup](./docs/setup/dev-setup.md) | Development and customization |
 | [WebSocket Infrastructure](./docs/developer/websockets.md) | Real-time WebSocket handlers, client APIs, filtering semantics, envelopes |

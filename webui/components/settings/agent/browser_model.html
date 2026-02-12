@@ -19,7 +19,7 @@
             </div>
             <div class="field-control">
               <select x-model="$store.settings.settings.browser_model_provider">
-                <template x-for="option in $store.settings.additional?.chat_providers" :key="option.value">
+                <template x-for="option in $store.settings.additional?.chat_providers" :key="'browser-provider-' + option.value">
                   <option :value="option.value" :selected="option.value === $store.settings.settings.browser_model_provider" x-text="option.label"></option>
                 </template>
               </select>
@@ -29,26 +29,73 @@
           <div class="field">
             <div class="field-label">
               <div class="field-title">Web browser model name</div>
-              <div class="field-description">Exact name of model from selected provider</div>
+              <div class="field-description">
+                Exact model name. When provider is Codex, choose from available subscription models.
+              </div>
             </div>
             <div class="field-control">
-              <input type="text" x-model="$store.settings.settings.browser_model_name" />
+              <template x-if="!$store.settings.isCodexProvider($store.settings.settings.browser_model_provider)">
+                <input type="text" x-model="$store.settings.settings.browser_model_name" />
+              </template>
+              <template x-if="$store.settings.isCodexProvider($store.settings.settings.browser_model_provider)">
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <input type="text"
+                         list="codex-browser-models"
+                         x-model="$store.settings.settings.browser_model_name" />
+                  <datalist id="codex-browser-models">
+                    <template x-for="model in $store.settings.getCodexModelOptions($store.settings.settings.browser_model_name, 'browser-model')" :key="model.key">
+                      <option :value="model.value" x-text="model.label + (model.available === false ? ' (unavailable)' : '')"></option>
+                    </template>
+                  </datalist>
+                  <button class="btn btn-cancel"
+                          :disabled="$store.settings.codexActionLoading"
+                          @click="$store.settings.refreshCodexModels(true)">
+                    Refresh
+                  </button>
+                </div>
+              </template>
             </div>
           </div>
 
-          <div class="field">
-            <div class="field-label">
-              <div class="field-title">API key</div>
-              <div class="field-description">API key for the selected web browser model provider</div>
+          <template x-if="!$store.settings.isCodexProvider($store.settings.settings.browser_model_provider)">
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">API key</div>
+                <div class="field-description">API key for the selected web browser model provider</div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="text"
+                  x-model="$store.settings.settings.api_keys[$store.settings.settings.browser_model_provider]"
+                  autocomplete="off"
+                />
+              </div>
             </div>
-            <div class="field-control">
-              <input
-                type="text"
-                x-model="$store.settings.settings.api_keys[$store.settings.settings.browser_model_provider]"
-                autocomplete="off"
-              />
+          </template>
+
+          <template x-if="$store.settings.isCodexProvider($store.settings.settings.browser_model_provider)">
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Codex status</div>
+                <div class="field-description">
+                  API key is not used for Codex. Manage login in
+                  <a href="#section-codex-subscription">ChatGPT Subscription</a>.
+                </div>
+              </div>
+              <div class="field-control">
+                <div class="field-description">
+                  Status:
+                  <strong x-text="$store.settings.getCodexStatus()?.logged_in ? 'Connected' : 'Not connected'"></strong>
+                </div>
+                <template x-if="$store.settings.getCodexStatus()?.diagnostic">
+                  <div class="field-description">
+                    Diagnostic:
+                    <code x-text="$store.settings.getCodexStatus()?.diagnostic"></code>
+                  </div>
+                </template>
+              </div>
             </div>
-          </div>
+          </template>
 
           <div class="field">
             <div class="field-label">

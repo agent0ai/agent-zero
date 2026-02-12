@@ -295,6 +295,31 @@ Configure API keys for various service providers directly within the Web UI. Cli
 > [!NOTE]
 > **OpenAI API vs Plus subscription:** A ChatGPT Plus subscription does not include API credits. You must provide a separate API key for OpenAI usage in Agent Zero.
 
+> [!NOTE]
+> **Codex provider (ChatGPT subscription):** The `Codex (ChatGPT subscription)` provider uses your local `codex` login instead of OpenAI API keys.  
+> In the Settings panel, use **Agent Settings → ChatGPT Subscription** to connect and verify login status.
+
+> [!CAUTION]
+> **Codex execution mode:** If Codex is configured with unrestricted full-auto, it may execute commands without sandbox/approval prompts. Use this mode only in trusted environments.
+
+### Codex (ChatGPT subscription) quick setup
+
+Use this when you want Agent Zero to run through your ChatGPT subscription instead of OpenAI API billing.
+
+1. Open **Settings → Agent Settings → ChatGPT Subscription**.
+2. Click **Connect ChatGPT** and finish login in browser.
+3. Click **Check Status** (must show logged in) and **Refresh Models**.
+4. In each model section (`Chat`, `Utility`, `Web Browser`), set provider to `Codex (ChatGPT subscription)`.
+5. Choose model name per role and click **Save**.
+
+![Codex setup flow](../res/setup/codex/subscription-panel.svg)
+
+> [!NOTE]
+> Login is global, but model selection is per role. You can run different models for Chat, Utility, and Browser.
+
+> [!TIP]
+> See the full walkthrough, screenshots, verification checklist, and internals in [Codex Subscription Guide](../guides/codex-subscription.md).
+
 > [!TIP]
 > For OpenAI-compatible providers (e.g., custom gateways or Z.AI/GLM), add the API key under **External Services → Other OpenAI-compatible API keys**, then select **OpenAI Compatible** as the provider in model settings.
 

@@ -14,6 +14,36 @@ This page addresses frequently asked questions (FAQ) and provides troubleshootin
 **4. Does ChatGPT Plus include API access?**
 - No. ChatGPT Plus does not include API credits. You must provide an OpenAI API key in Settings.
 
+**4a. Can I use ChatGPT subscription without OpenAI API billing?**
+- Yes, by using the `Codex (ChatGPT subscription)` provider for Chat/Utility/Browser roles.
+- This provider relies on your local `codex` login status instead of API keys.
+- Use **Settings → Agent Settings → ChatGPT Subscription** to connect/disconnect and verify status.
+
+**4b. Codex provider is selected but calls fail. What should I check?**
+- Verify `codex` is installed and available on PATH.
+- Run `codex login status` locally and confirm it reports logged in.
+- In Agent Zero Settings, check Codex status diagnostics for the selected role.
+- If Codex fails, Agent Zero can temporarily fallback to previous non-codex provider and show a warning banner.
+- If you enabled unrestricted full-auto for Codex, make sure you trust the execution environment.
+
+**4c. UI shows the same Codex model in Chat/Utility/Browser, but backend values are different.**
+- Confirm saved values with:
+  ```bash
+  cd agent-zero
+  ./.venv/bin/python - <<'PY'
+  from python.helpers import settings
+  s=settings.get_settings()
+  print("chat:", s["chat_model_name"])
+  print("util:", s["util_model_name"])
+  print("browser:", s["browser_model_name"])
+  PY
+  ```
+- If backend is correct, update to latest frontend patch and hard-refresh browser.
+- Reopen Settings and verify each role field shows its own value.
+
+**4d. Where is the full setup guide for ChatGPT subscription mode?**
+- See [Codex Subscription Guide](codex-subscription.md) for login flow, model selection, screenshots, and verification checklist.
+
 **5. Where is chat history stored?**
 - Chat history lives at `/a0/usr/chats/` inside the container.
 

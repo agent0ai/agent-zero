@@ -28,6 +28,9 @@ const model = {
   settings: null,
   additional: null,
   workdirFileStructureTestOutput: "",
+  codexActionLoading: false,
+  codexLastMessage: "",
+  codexPollHandle: null,
   
   // Tab state
   _activeTab: DEFAULT_TAB,
@@ -71,9 +74,13 @@ const model = {
 
     // Trigger tab activation for current tab
     this.applyActiveTab(null, this._activeTab);
+
+    // Keep Codex subscription state fresh when settings open
+    await this.refreshCodexSubscriptionStatus();
   },
 
   cleanup() {
+    this.stopCodexLoginPolling();
     this.settings = null;
     this.additional = null;
     this.error = null;
@@ -100,6 +107,7 @@ const model = {
     const addProvider = (prov) => {
       if (!prov?.value) return;
       const key = prov.value.toLowerCase();
+      if (key === "codex") return;
       if (seen.has(key)) return;
       seen.add(key);
       options.push({ value: prov.value, label: prov.label || prov.value });
@@ -108,6 +116,147 @@ const model = {
     (this.additional?.embedding_providers || []).forEach(addProvider);
     options.sort((a, b) => a.label.localeCompare(b.label));
     return options;
+  },
+
+  isCodexProvider(provider) {
+    return String(provider || "").toLowerCase() === "codex";
+  },
+
+  getCodexStatus() {
+    return this.additional?.runtime_settings?.codex_status || null;
+  },
+
+  getCodexLoginState() {
+    return this.additional?.runtime_settings?.codex_login || null;
+  },
+
+  getCodexModelPayload() {
+    return this.additional?.runtime_settings?.codex_models || null;
+  },
+
+  getCodexModelOptions(selectedModel = "", roleKey = "codex-model") {
+    const payload = this.getCodexModelPayload();
+    let models = Array.isArray(payload?.models)
+      ? payload.models.map((model) => ({ ...model }))
+      : [];
+    if (!models.length) {
+      models = [{ value: "gpt-5-codex", label: "GPT-5-Codex", available: null }];
+    }
+    const selected = String(selectedModel || "").trim();
+    if (selected && !models.find((m) => m.value === selected)) {
+      models.unshift({
+        value: selected,
+        label: selected,
+        available: null,
+      });
+    }
+    return models.map((model, index) => ({
+      ...model,
+      key: `${roleKey}-${index}-${model.value}`,
+    }));
+  },
+
+  _setCodexRuntime(status = null, login = null, models = null) {
+    if (!this.additional) this.additional = {};
+    if (!this.additional.runtime_settings) this.additional.runtime_settings = {};
+    if (status) this.additional.runtime_settings.codex_status = status;
+    if (login) this.additional.runtime_settings.codex_login = login;
+    if (models) this.additional.runtime_settings.codex_models = models;
+  },
+
+  startCodexLoginPolling() {
+    this.stopCodexLoginPolling();
+    this.codexPollHandle = setInterval(async () => {
+      const response = await this.refreshCodexSubscriptionStatus();
+      const running = !!response?.login?.running;
+      const connected = !!response?.status?.logged_in;
+      if (!running) {
+        this.stopCodexLoginPolling();
+      }
+      if (connected) {
+        await this.refreshCodexModels(true);
+      }
+    }, 2000);
+  },
+
+  stopCodexLoginPolling() {
+    if (this.codexPollHandle) {
+      clearInterval(this.codexPollHandle);
+      this.codexPollHandle = null;
+    }
+  },
+
+  async refreshCodexSubscriptionStatus() {
+    this.codexActionLoading = true;
+    try {
+      const response = await API.callJsonApi("codex_subscription_status", {});
+      this._setCodexRuntime(response?.status || null, response?.login || null, response?.models || null);
+      if (response?.login?.message) this.codexLastMessage = response.login.message;
+      return response;
+    } catch (e) {
+      toast("Failed to check ChatGPT subscription status: " + e.message, "error");
+      return null;
+    } finally {
+      this.codexActionLoading = false;
+    }
+  },
+
+  async connectChatGptSubscription() {
+    this.codexActionLoading = true;
+    try {
+      const response = await API.callJsonApi("codex_subscription_start", {});
+      this._setCodexRuntime(response?.status || null, response?.login || null, response?.models || null);
+      if (response?.login?.message) this.codexLastMessage = response.login.message;
+
+      const authUrl = response?.login?.auth_url || "";
+      if (authUrl) {
+        window.open(authUrl, "_blank", "noopener,noreferrer");
+        toast("Opened ChatGPT login page. Finish authorization in browser.", "info");
+        this.startCodexLoginPolling();
+      } else {
+        toast("Started login flow. If browser did not open, click Check Status.", "info");
+      }
+      return response;
+    } catch (e) {
+      toast("Failed to start ChatGPT subscription login: " + e.message, "error");
+      return null;
+    } finally {
+      this.codexActionLoading = false;
+    }
+  },
+
+  async disconnectChatGptSubscription() {
+    this.stopCodexLoginPolling();
+    this.codexActionLoading = true;
+    try {
+      const response = await API.callJsonApi("codex_subscription_logout", {});
+      this._setCodexRuntime(response?.status || null, response?.login || null, response?.models || null);
+      this.codexLastMessage = response?.message || "Disconnected.";
+      toast(response?.ok ? "ChatGPT subscription disconnected" : "Disconnect finished with warnings", response?.ok ? "success" : "warning");
+      return response;
+    } catch (e) {
+      toast("Failed to disconnect ChatGPT subscription: " + e.message, "error");
+      return null;
+    } finally {
+      this.codexActionLoading = false;
+    }
+  },
+
+  async refreshCodexModels(forceRefresh = true) {
+    this.codexActionLoading = true;
+    try {
+      const response = await API.callJsonApi("codex_models_get", { force_refresh: forceRefresh });
+      this._setCodexRuntime(response?.status || null, null, response?.models || null);
+      const diagnostic = response?.models?.diagnostic || "";
+      if (diagnostic) this.codexLastMessage = diagnostic;
+      toast("Codex models refreshed", "success");
+      return response;
+    } catch (e) {
+      toast("Failed to refresh Codex models: " + e.message, "error");
+      return null;
+    } finally {
+      this.codexActionLoading = false;
+    }
   },
 
   // Save settings
@@ -191,4 +340,3 @@ const model = {
 const store = createStore("settings", model);
 
 export { store };
-

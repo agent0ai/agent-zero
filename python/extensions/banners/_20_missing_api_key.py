@@ -6,7 +6,7 @@ import models
 class MissingApiKeyCheck(Extension):
     """Check if API keys are configured for selected model providers."""
 
-    LOCAL_PROVIDERS = ["ollama", "lm_studio"]
+    LOCAL_PROVIDERS = ["ollama", "lm_studio", "codex"]
     LOCAL_EMBEDDING = ["huggingface"]
     MODEL_TYPE_NAMES = {
         "chat": "Chat Model",

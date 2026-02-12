@@ -8,6 +8,7 @@ from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
 from python.helpers import runtime, whisper, defer, git
+from python.helpers import codex_exec
 from . import files, dotenv
 from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -63,6 +64,10 @@ class Settings(TypedDict):
     chat_model_rl_requests: int
     chat_model_rl_input: int
     chat_model_rl_output: int
+    chat_model_provider_prev: str
+    chat_model_name_prev: str
+    chat_model_api_base_prev: str
+    chat_model_kwargs_prev: dict[str, Any]
 
     util_model_provider: str
     util_model_name: str
@@ -73,6 +78,10 @@ class Settings(TypedDict):
     util_model_rl_requests: int
     util_model_rl_input: int
     util_model_rl_output: int
+    util_model_provider_prev: str
+    util_model_name_prev: str
+    util_model_api_base_prev: str
+    util_model_kwargs_prev: dict[str, Any]
 
     embed_model_provider: str
     embed_model_name: str
@@ -89,6 +98,10 @@ class Settings(TypedDict):
     browser_model_rl_input: int
     browser_model_rl_output: int
     browser_model_kwargs: dict[str, Any]
+    browser_model_provider_prev: str
+    browser_model_name_prev: str
+    browser_model_api_base_prev: str
+    browser_model_kwargs_prev: dict[str, Any]
     browser_http_headers: dict[str, Any]
 
     agent_profile: str
@@ -277,8 +290,32 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 "uvicorn_access_logs_enabled",
                 default_settings["uvicorn_access_logs_enabled"],
             )
-        ),
+        )
     }
+    try:
+        additional["runtime_settings"]["codex_status"] = codex_exec.get_codex_status()
+        additional["runtime_settings"]["codex_models"] = codex_exec.get_cached_codex_models()
+        additional["runtime_settings"]["codex_login"] = codex_exec.get_codex_login_state()
+    except Exception as e:
+        additional["runtime_settings"]["codex_status"] = {
+            "installed": False,
+            "version": "",
+            "logged_in": False,
+            "auth_mode": "unknown",
+            "diagnostic": f"failed to check codex status: {e}",
+        }
+        additional["runtime_settings"]["codex_models"] = {
+            "models": [{"value": "gpt-5-codex", "label": "GPT-5-Codex", "available": None}],
+            "verified": False,
+            "diagnostic": f"failed to read codex models: {e}",
+        }
+        additional["runtime_settings"]["codex_login"] = {
+            "session_id": "",
+            "status": "idle",
+            "auth_url": "",
+            "message": f"failed to read codex login state: {e}",
+            "running": False,
+        }
 
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("chat_model_provider"))
     additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("util_model_provider"))
@@ -378,6 +415,7 @@ def set_settings(settings: Settings, apply: bool = True):
     global _settings
     previous = _settings
     _settings = normalize_settings(settings)
+    _sync_previous_model_snapshots(_settings)
     _write_settings_file(_settings)
     if apply:
         _apply_settings(previous)
@@ -424,8 +462,41 @@ def normalize_settings(settings: Settings) -> Settings:
 
     # mcp server token is set automatically
     copy["mcp_server_token"] = create_auth_token()
+    _sync_previous_model_snapshots(copy)
 
     return copy
+
+
+def _sync_previous_model_snapshots(settings: Settings) -> None:
+    """
+    Keep a snapshot of last non-codex provider/model per role.
+    Snapshot updates only while the active provider for that role is non-codex.
+    """
+    role_map = {
+        "chat": "chat_model",
+        "utility": "util_model",
+        "browser": "browser_model",
+    }
+    for _, prefix in role_map.items():
+        provider_key = f"{prefix}_provider"
+        name_key = f"{prefix}_name"
+        api_base_key = f"{prefix}_api_base"
+        kwargs_key = f"{prefix}_kwargs"
+
+        provider_prev_key = f"{prefix}_provider_prev"
+        name_prev_key = f"{prefix}_name_prev"
+        api_base_prev_key = f"{prefix}_api_base_prev"
+        kwargs_prev_key = f"{prefix}_kwargs_prev"
+
+        current_provider = str(settings.get(provider_key, "")).strip().lower()
+        if not current_provider or current_provider == "codex":
+            continue
+
+        settings[provider_prev_key] = str(settings.get(provider_key, "")).strip()  # type: ignore[index]
+        settings[name_prev_key] = str(settings.get(name_key, "")).strip()  # type: ignore[index]
+        settings[api_base_prev_key] = str(settings.get(api_base_key, "")).strip()  # type: ignore[index]
+        curr_kwargs = settings.get(kwargs_key, {})  # type: ignore[index]
+        settings[kwargs_prev_key] = curr_kwargs.copy() if isinstance(curr_kwargs, dict) else {}  # type: ignore[index]
 
 
 def _adjust_to_version(settings: Settings, default: Settings):
@@ -523,6 +594,10 @@ def get_default_settings() -> Settings:
         chat_model_rl_requests=get_default_value("chat_model_rl_requests", 0),
         chat_model_rl_input=get_default_value("chat_model_rl_input", 0),
         chat_model_rl_output=get_default_value("chat_model_rl_output", 0),
+        chat_model_provider_prev=get_default_value("chat_model_provider_prev", "openrouter"),
+        chat_model_name_prev=get_default_value("chat_model_name_prev", "google/gemini-3-pro-preview"),
+        chat_model_api_base_prev=get_default_value("chat_model_api_base_prev", ""),
+        chat_model_kwargs_prev=get_default_value("chat_model_kwargs_prev", {"temperature": "0"}),
         util_model_provider=get_default_value("util_model_provider", "openrouter"),
         util_model_name=get_default_value("util_model_name", "google/gemini-3-flash-preview"),
         util_model_api_base=get_default_value("util_model_api_base", ""),
@@ -532,6 +607,10 @@ def get_default_settings() -> Settings:
         util_model_rl_requests=get_default_value("util_model_rl_requests", 0),
         util_model_rl_input=get_default_value("util_model_rl_input", 0),
         util_model_rl_output=get_default_value("util_model_rl_output", 0),
+        util_model_provider_prev=get_default_value("util_model_provider_prev", "openrouter"),
+        util_model_name_prev=get_default_value("util_model_name_prev", "google/gemini-3-flash-preview"),
+        util_model_api_base_prev=get_default_value("util_model_api_base_prev", ""),
+        util_model_kwargs_prev=get_default_value("util_model_kwargs_prev", {"temperature": "0"}),
         embed_model_provider=get_default_value("embed_model_provider", "huggingface"),
         embed_model_name=get_default_value("embed_model_name", "sentence-transformers/all-MiniLM-L6-v2"),
         embed_model_api_base=get_default_value("embed_model_api_base", ""),
@@ -546,6 +625,10 @@ def get_default_settings() -> Settings:
         browser_model_rl_input=get_default_value("browser_model_rl_input", 0),
         browser_model_rl_output=get_default_value("browser_model_rl_output", 0),
         browser_model_kwargs=get_default_value("browser_model_kwargs", {"temperature": "0"}),
+        browser_model_provider_prev=get_default_value("browser_model_provider_prev", "openrouter"),
+        browser_model_name_prev=get_default_value("browser_model_name_prev", "google/gemini-3-pro-preview"),
+        browser_model_api_base_prev=get_default_value("browser_model_api_base_prev", ""),
+        browser_model_kwargs_prev=get_default_value("browser_model_kwargs_prev", {"temperature": "0"}),
         browser_http_headers=get_default_value("browser_http_headers", {}),
         memory_recall_enabled=get_default_value("memory_recall_enabled", True),
         memory_recall_delayed=get_default_value("memory_recall_delayed", False),
@@ -813,4 +896,3 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
-

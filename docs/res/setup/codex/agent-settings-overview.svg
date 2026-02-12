@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#101319"/>
+  <rect x="40" y="40" width="1200" height="640" rx="20" fill="#171b24" stroke="#2a3140"/>
+  <text x="80" y="120" fill="#f4f6fb" font-family="Arial, sans-serif" font-size="42" font-weight="700">
+    Agent Settings Overview
+  </text>
+  <text x="80" y="190" fill="#b7c0d4" font-family="Arial, sans-serif" font-size="26">
+    Replace this placeholder with an actual screenshot from your running UI.
+  </text>
+  <text x="80" y="260" fill="#8ea1c6" font-family="Arial, sans-serif" font-size="24">
+    Suggested capture: Settings page showing Chat / Utility / Browser / ChatGPT Subscription sections.
+  </text>
+  <rect x="80" y="320" width="520" height="300" rx="12" fill="#202838" stroke="#30405e"/>
+  <rect x="640" y="320" width="520" height="300" rx="12" fill="#202838" stroke="#30405e"/>
+  <text x="110" y="380" fill="#c8d2ea" font-family="Arial, sans-serif" font-size="22">Chat Model</text>
+  <text x="110" y="425" fill="#c8d2ea" font-family="Arial, sans-serif" font-size="22">Utility Model</text>
+  <text x="110" y="470" fill="#c8d2ea" font-family="Arial, sans-serif" font-size="22">Browser Model</text>
+  <text x="670" y="380" fill="#c8d2ea" font-family="Arial, sans-serif" font-size="22">ChatGPT Subscription</text>
+  <text x="670" y="425" fill="#c8d2ea" font-family="Arial, sans-serif" font-size="22">Connect / Check / Refresh</text>
+</svg>

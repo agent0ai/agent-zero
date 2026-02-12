@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#0f1218"/>
+  <rect x="48" y="48" width="1184" height="624" rx="18" fill="#181d27" stroke="#2d3342"/>
+  <text x="88" y="118" fill="#f5f7fc" font-family="Arial, sans-serif" font-size="40" font-weight="700">
+    ChatGPT Subscription Panel
+  </text>
+  <text x="88" y="178" fill="#b9c2d7" font-family="Arial, sans-serif" font-size="24">
+    Replace with screenshot after clicking: Connect ChatGPT / Check Status / Refresh Models
+  </text>
+  <rect x="88" y="228" width="1104" height="384" rx="12" fill="#212a39" stroke="#33445f"/>
+  <rect x="120" y="270" width="200" height="52" rx="10" fill="#3659d9"/>
+  <rect x="340" y="270" width="180" height="52" rx="10" fill="#2b3342"/>
+  <rect x="540" y="270" width="160" height="52" rx="10" fill="#2b3342"/>
+  <rect x="720" y="270" width="170" height="52" rx="10" fill="#2b3342"/>
+  <text x="145" y="303" fill="#ffffff" font-family="Arial, sans-serif" font-size="20">Connect</text>
+  <text x="370" y="303" fill="#d4dced" font-family="Arial, sans-serif" font-size="20">Check Status</text>
+  <text x="570" y="303" fill="#d4dced" font-family="Arial, sans-serif" font-size="20">Disconnect</text>
+  <text x="750" y="303" fill="#d4dced" font-family="Arial, sans-serif" font-size="20">Refresh Models</text>
+</svg>
