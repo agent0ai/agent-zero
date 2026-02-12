@@ -157,6 +157,7 @@ class Settings(TypedDict):
     litellm_global_kwargs: dict[str, Any]
 
     update_check_enabled: bool
+    telegram_bot_enabled: bool
 
 
 class PartialSettings(Settings, total=False):
@@ -599,6 +600,7 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
+        telegram_bot_enabled=get_default_value("telegram_bot_enabled", False),
     )
 
 
@@ -716,6 +718,23 @@ def _apply_settings(previous: Settings | None):
             task4 = defer.DeferredTask().start_task(
                 update_a2a_token, current_token
             )  # TODO overkill, replace with background task
+
+        # update telegram bot if setting changed
+        telegram_changed = (
+            not previous
+            or _settings["telegram_bot_enabled"] != previous.get("telegram_bot_enabled")
+        )
+        secrets_changed = (
+            not previous
+            or _settings.get("secrets", "") != previous.get("secrets", "")
+        )
+        if telegram_changed or secrets_changed:
+
+            async def update_telegram_bot():
+                from python.helpers.telegram_bot import reconfigure_bot
+                reconfigure_bot()
+
+            task5 = defer.DeferredTask().start_task(update_telegram_bot)
 
 
 def _env_to_dict(data: str):

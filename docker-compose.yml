@@ -1,0 +1,13 @@
+services:
+  agent-zero:
+    container_name: agent-zero-v2
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    volumes:
+      - agent-zero-data:/a0
+    ports:
+      - "52080:80"
+
+volumes:
+  agent-zero-data:
