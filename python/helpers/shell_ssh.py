@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import re
 import time
 from typing import Tuple
@@ -7,6 +8,18 @@ import paramiko
 
 from python.helpers.log import Log
 from python.helpers.print_style import PrintStyle
+
+
+def _is_local_or_private(hostname: str) -> bool:
+    """Check if hostname is localhost or a private/link-local IP."""
+    if hostname in ("localhost", "127.0.0.1", "::1"):
+        return True
+    try:
+        addr = ipaddress.ip_address(hostname)
+        return addr.is_private or addr.is_loopback or addr.is_link_local
+    except ValueError:
+        return False
+
 
 # from python.helpers.strings import calculate_valid_match_lengths
 
@@ -30,7 +43,11 @@ class SSHInteractiveSession:
         self.username = username
         self.password = password
         self.client = paramiko.SSHClient()
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        if _is_local_or_private(hostname):
+            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        else:
+            self.client.load_system_host_keys()
+            self.client.set_missing_host_key_policy(paramiko.RejectPolicy())
         self.shell = None
         self.full_output = b""
         self.last_command = b""

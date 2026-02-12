@@ -51,9 +51,10 @@ def print_test_commands():
     token = data["token"]
     urls = data["urls"]
 
+    masked_token = f"{token[:4]}...{token[-4:]}" if len(token) > 8 else "****"
     print("🚀 FastA2A Agent Card Testing Commands")
     print("=" * 60)
-    print(f"Current token: {token}")
+    print(f"Current token: {masked_token}")
     print()
 
     print("1️⃣  Token-based URL (recommended):")
@@ -61,11 +62,13 @@ def print_test_commands():
     print()
 
     print("2️⃣  Bearer authentication:")
-    print(f"   curl -v -H 'Authorization: Bearer {token}' '{urls['bearer_auth']}'")
+    print(
+        f"   curl -v -H 'Authorization: Bearer {masked_token}' '{urls['bearer_auth']}'"
+    )
     print()
 
     print("3️⃣  API key header:")
-    print(f"   curl -v -H 'X-API-KEY: {token}' '{urls['api_key_header']}'")
+    print(f"   curl -v -H 'X-API-KEY: {masked_token}' '{urls['api_key_header']}'")
     print()
 
     print("4️⃣  API key query parameter:")

@@ -160,6 +160,17 @@ class CodeExecution(Tool):
                     cwd=cwd,
                 )
             else:
+                if not runtime.is_development():
+                    raise Exception(
+                        "Code execution requires SSH sandboxing in production. "
+                        "Set code_exec_ssh_enabled=true and configure Docker SSH, "
+                        "or set DEVELOPMENT_MODE=true to run unsandboxed locally."
+                    )
+                else:
+                    PrintStyle.warning(
+                        "Code execution running UNSANDBOXED on host. "
+                        "This is allowed in development mode only."
+                    )
                 shell = LocalInteractiveSession(cwd=cwd)
 
             shells[session] = ShellWrap(id=session, session=shell, running=False)

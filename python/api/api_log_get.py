@@ -69,6 +69,15 @@ class ApiLogGet(ApiHandler):
             }
 
         except Exception as e:
+            from python.helpers import runtime
+            from python.helpers.print_style import PrintStyle
+
+            PrintStyle.error(f"API log get error: {str(e)}")
+            error_detail = (
+                str(e) if runtime.is_development() else "Internal server error"
+            )
             return Response(
-                f'{{"error": "{str(e)}"}}', status=500, mimetype="application/json"
+                f'{{"error": "{error_detail}"}}',
+                status=500,
+                mimetype="application/json",
             )

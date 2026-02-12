@@ -184,7 +184,9 @@ dataclasses-json==0.6.7
 defusedxml==0.7.1
     # via exchangelib
 deprecated==1.3.1
-    # via pikepdf
+    # via
+    #   limits
+    #   pikepdf
 diskcache==5.6.3
     # via py-key-value-aio
 distro==1.9.0
@@ -251,7 +253,13 @@ flask==3.0.3
     # via
     #   apollos-ai
     #   flask-basicauth
+    #   flask-cors
+    #   flask-limiter
 flask-basicauth==0.2.0
+    # via apollos-ai
+flask-cors==6.0.2
+    # via apollos-ai
+flask-limiter==4.1.1
     # via apollos-ai
 flatbuffers==25.12.19
     # via onnxruntime
@@ -452,6 +460,8 @@ langsmith==0.3.45
     #   langchain-core
 language-tags==1.2.0
     # via csvw
+limits==5.8.0
+    # via flask-limiter
 litellm==1.79.3
     # via apollos-ai
 llvmlite==0.46.0
@@ -637,6 +647,8 @@ openpyxl==3.1.5
     # via unstructured
 opentelemetry-api==1.39.1
     # via fasta2a
+ordered-set==4.1.0
+    # via flask-limiter
 orjson==3.11.7 ; platform_python_implementation != 'PyPy'
     # via langsmith
 packaging==24.2
@@ -646,6 +658,7 @@ packaging==24.2
     #   huggingface-hub
     #   langchain-core
     #   langsmith
+    #   limits
     #   marshmallow
     #   matplotlib
     #   onnxruntime
@@ -1835,11 +1848,13 @@ typing-extensions==4.15.0
     #   browser-use
     #   bubus
     #   exceptiongroup
+    #   flask-limiter
     #   google-genai
     #   groq
     #   grpcio
     #   huggingface-hub
     #   langchain-core
+    #   limits
     #   mcp
     #   onnx
     #   openai
@@ -1921,7 +1936,9 @@ websockets==15.0.1
     #   fastmcp
     #   google-genai
 werkzeug==3.1.5
-    # via flask
+    # via
+    #   flask
+    #   flask-cors
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
 wrapt==2.1.1

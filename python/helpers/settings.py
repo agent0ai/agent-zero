@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 import json
 import os
 import subprocess
@@ -887,10 +888,13 @@ def create_auth_token() -> str:
     runtime_id = runtime.get_persistent_id()
     username = dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) or ""
     password = dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD) or ""
-    # use base64 encoding for a more compact token with alphanumeric chars
-    hash_bytes = hashlib.sha256(f"{runtime_id}:{username}:{password}".encode()).digest()
-    # encode as base64 and remove any non-alphanumeric chars (like +, /, =)
-    b64_token = base64.urlsafe_b64encode(hash_bytes).decode().replace("=", "")
+    # HMAC-SHA256 for proper key derivation (not bare SHA-256)
+    token_bytes = hmac.new(
+        runtime_id.encode(),
+        f"{username}:{password}".encode(),
+        hashlib.sha256,
+    ).digest()
+    b64_token = base64.urlsafe_b64encode(token_bytes).decode().replace("=", "")
     return b64_token[:16]
 
 

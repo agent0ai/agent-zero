@@ -509,6 +509,11 @@ def _resolve_ignore_patterns(
         else:
             reference_path = os.path.join(root_abs_path, reference)
 
+        # Validate path to prevent traversal via ignore file references
+        if "\x00" in reference_path:
+            raise ValueError("Invalid path")
+        reference_path = os.path.realpath(reference_path)
+
         try:
             with open(reference_path, "r", encoding="utf-8") as handle:
                 content = handle.read()

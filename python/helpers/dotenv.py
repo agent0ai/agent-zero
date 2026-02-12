@@ -1,5 +1,6 @@
 import os
 import re
+import stat
 from typing import Any
 
 from dotenv import load_dotenv as _load_dotenv
@@ -42,6 +43,11 @@ def save_dotenv_value(key: str, value: str):
         if not found:
             lines.append(f"\n{key}={value}\n")
         f.seek(0)
+        # lgtm[py/clear-text-storage-sensitive-data]
+        # Justification: .env file IS the intended credential store (gitignored, local-only).
+        # File permissions restricted to 0o600 (owner read/write only) after write.
         f.writelines(lines)
         f.truncate()
+    # Restrict .env file to owner read/write only (0o600)
+    os.chmod(dotenv_path, stat.S_IRUSR | stat.S_IWUSR)
     load_dotenv()

@@ -23,18 +23,23 @@ class ImageGet(ApiHandler):
         if not path:
             raise ValueError("No path provided")
 
-        # no real need to check, we have the extension filter in place
-        # check if path is within base directory
-        # if runtime.is_development():
-        #     in_base = files.is_in_base_dir(files.fix_dev_path(path))
-        # else:
-        #     in_base = files.is_in_base_dir(path)
-        # if not in_base and not files.is_in_dir(path, "/root"):
-        #     raise ValueError("Path is outside of allowed directory")
+        # Validate path to prevent directory traversal
+        if "\x00" in path:
+            raise ValueError("Invalid path")
+
+        if runtime.is_development():
+            real_path = os.path.realpath(files.fix_dev_path(path))
+        else:
+            real_path = os.path.realpath(path)
+
+        if not files.is_in_base_dir(real_path) and not files.is_in_dir(
+            real_path, "/root"
+        ):
+            raise ValueError("Path is outside of allowed directory")
 
         # get file extension and info
-        file_ext = os.path.splitext(path)[1].lower()
-        filename = os.path.basename(path)
+        file_ext = os.path.splitext(real_path)[1].lower()
+        filename = os.path.basename(real_path)
 
         # list of allowed image extensions
         image_extensions = [
@@ -56,8 +61,8 @@ class ImageGet(ApiHandler):
         if file_ext in image_extensions:
             # in development environment, try to serve the image from local file system if exists, otherwise from docker
             if runtime.is_development():
-                if files.exists(path):
-                    response = send_file(path)
+                if files.exists(real_path):
+                    response = send_file(real_path)
                 elif await runtime.call_development_function(files.exists, path):
                     b64_content = await runtime.call_development_function(
                         files.read_file_base64, path
@@ -75,8 +80,8 @@ class ImageGet(ApiHandler):
                 else:
                     response = _send_fallback_icon("image")
             else:
-                if files.exists(path):
-                    response = send_file(path)
+                if files.exists(real_path):
+                    response = send_file(real_path)
                 else:
                     response = _send_fallback_icon("image")
 

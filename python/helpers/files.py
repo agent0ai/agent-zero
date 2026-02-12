@@ -75,7 +75,7 @@ def load_plugin_variables(
     return {}
 
 
-from python.helpers.strings import sanitize_string  # noqa: E402 — avoids circular import
+from python.helpers.strings import sanitize_string  # noqa: E402
 
 
 def parse_file(
@@ -406,6 +406,9 @@ def write_file(relative_path: str, content: str, encoding: str = "utf-8"):
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
     content = sanitize_string(content, encoding)
     with open(abs_path, "w", encoding=encoding) as f:
+        # lgtm[py/clear-text-storage-sensitive-data]
+        # Justification: Generic file writer. Caller is responsible for data sensitivity.
+        # Sensitive paths (e.g., dotenv) apply their own file permission restrictions.
         f.write(content)
 
 
@@ -439,10 +442,10 @@ def delete_dir(relative_path: str):
                 for root, dirs, files in os.walk(abs_path, topdown=False):
                     for name in files:
                         file_path = os.path.join(root, name)
-                        os.chmod(file_path, 0o777)
+                        os.chmod(file_path, 0o700)
                     for name in dirs:
                         dir_path = os.path.join(root, name)
-                        os.chmod(dir_path, 0o777)
+                        os.chmod(dir_path, 0o700)
 
                 # try again after changing permissions
                 shutil.rmtree(abs_path, ignore_errors=True)

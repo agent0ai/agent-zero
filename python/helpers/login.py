@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 
 from python.helpers import dotenv
 
@@ -8,7 +9,12 @@ def get_credentials_hash():
     password = dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD)
     if not user:
         return None
-    return hashlib.sha256(f"{user}:{password}".encode()).hexdigest()
+    # HMAC-SHA256 for session token derivation (not password storage).
+    # Using runtime persistent ID as HMAC key binds the token to this server instance.
+    from python.helpers import runtime
+
+    secret = runtime.get_persistent_id().encode()
+    return hmac.new(secret, f"{user}:{password}".encode(), hashlib.sha256).hexdigest()
 
 
 def is_login_required():

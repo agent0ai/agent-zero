@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import platform
+import re
 import tempfile
 import zipfile
 from typing import Any, Dict, List, Optional
@@ -359,6 +360,9 @@ class BackupService:
         backup_name: str = "",
     ) -> str:
         """Create backup archive and return path to created file"""
+
+        # Sanitize backup_name to prevent path traversal
+        backup_name = re.sub(r"[^\w\-]", "_", backup_name)
 
         if not backup_name:
             backup_name = f"{branding.BRAND_SLUG}-backup"

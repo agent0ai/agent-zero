@@ -1,6 +1,6 @@
 import threading
 
-from flask import Flask, request
+from flask import Flask, jsonify, request
 
 from python.api.tunnel import Tunnel
 from python.helpers import dotenv, process, runtime
@@ -33,7 +33,12 @@ def run():
     # handle api request
     @app.route("/", methods=["POST"])
     async def handle_request():
-        return await tunnel.handle_request(request=request)  # type: ignore
+        try:
+            result = await tunnel.handle_request(request=request)  # type: ignore
+            return jsonify(result)
+        except Exception as e:
+            PrintStyle.error(f"Tunnel error: {str(e)}")
+            return jsonify({"error": "Internal server error"}), 500
 
     try:
         server = make_server(

@@ -13,6 +13,7 @@ from flask import (  # noqa: F401 — send_file, session re-exported for API han
 
 from agent import AgentContext
 from initialize import initialize_agent
+from python.helpers import runtime
 from python.helpers.errors import format_error
 from python.helpers.print_style import PrintStyle
 
@@ -84,7 +85,14 @@ class ApiHandler:
         except Exception as e:
             error = format_error(e)
             PrintStyle.error(f"API error: {error}")
-            return Response(response=error, status=500, mimetype="text/plain")
+            if runtime.is_development():
+                return Response(response=error, status=500, mimetype="text/plain")
+            else:
+                return Response(
+                    response=json.dumps({"error": "Internal server error"}),
+                    status=500,
+                    mimetype="application/json",
+                )
 
     # get context to run apollos ai in
     def use_context(self, ctxid: str, create_if_not_exists: bool = True):

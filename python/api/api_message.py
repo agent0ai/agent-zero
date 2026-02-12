@@ -137,8 +137,11 @@ class ApiMessage(ApiHandler):
                 try:
                     projects.activate_project(context_id, project_name)
                 except Exception as e:
+                    PrintStyle.error(
+                        f"Failed to activate project '{project_name}': {str(e)}"
+                    )
                     return Response(
-                        f'{{"error": "Failed to activate project: {str(e)}"}}',
+                        f'{{"error": "Failed to activate project \\"{project_name}\\""}}',
                         status=400,
                         mimetype="application/json",
                     )
@@ -186,8 +189,15 @@ class ApiMessage(ApiHandler):
 
         except Exception as e:
             PrintStyle.error(f"External API error: {e}")
+            from python.helpers import runtime
+
+            error_detail = (
+                str(e) if runtime.is_development() else "Internal server error"
+            )
             return Response(
-                f'{{"error": "{str(e)}"}}', status=500, mimetype="application/json"
+                f'{{"error": "{error_detail}"}}',
+                status=500,
+                mimetype="application/json",
             )
 
     @classmethod

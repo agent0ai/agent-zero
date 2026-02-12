@@ -1,21 +1,4 @@
 import asyncio
-
-# Suppress known third-party deprecation warnings before any imports trigger them.
-# - SWIG warnings: faiss-cpu built with SWIG < 4.4 (fix expected in faiss 1.15.0)
-# - aiohttp warning: LiteLLM passes enable_cleanup_closed=True, unnecessary on Python 3.12.7+
-import warnings
-
-warnings.filterwarnings(
-    "ignore", message="builtin type Swig", category=DeprecationWarning
-)
-warnings.filterwarnings(
-    "ignore", message="builtin type swig", category=DeprecationWarning
-)
-warnings.filterwarnings(
-    "ignore", message="enable_cleanup_closed", category=DeprecationWarning
-)
-
-# disable logging
 import logging
 import os
 import secrets
@@ -39,6 +22,9 @@ from flask import (
     session,
     url_for,
 )
+from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from socketio import ASGIApp, packet
 from starlette.applications import Starlette
 from starlette.routing import Mount
@@ -102,6 +88,49 @@ webapp.config.update(
         os.getenv("FLASK_MAX_FORM_MEMORY_SIZE", str(UPLOAD_LIMIT_BYTES))
     ),
 )
+
+# --- Phase 0.5B: Rate Limiting ---
+limiter = Limiter(
+    app=webapp,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
+
+# --- Phase 0.5C: CORS Policy ---
+_cors_extra = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+CORS(
+    webapp,
+    origins=[
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        *_cors_extra,
+    ],
+    supports_credentials=True,
+)
+
+
+# --- Phase 0.5D: Security Response Headers ---
+@webapp.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # CSP: Alpine.js requires unsafe-eval; Socket.IO needs ws: connect-src
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self' ws: wss:; "
+        "frame-ancestors 'none';"
+    )
+    return response
+
 
 lock = threading.RLock()
 
@@ -281,8 +310,9 @@ async def serve_index():
 
 @webapp.route("/manifest.json")
 async def manifest_json():
-    from python.helpers import branding
     import json
+
+    from python.helpers import branding
 
     manifest = {
         "name": branding.BRAND_NAME,

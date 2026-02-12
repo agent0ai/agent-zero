@@ -61,6 +61,8 @@ dependencies = [
     "uvicorn>=0.38.0",
     "webcolors==24.6.0",
     "wsproto>=1.2.0",
+    "flask-limiter>=4.1.1",
+    "flask-cors>=6.0.2",
 ]
 
 [dependency-groups]

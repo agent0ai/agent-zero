@@ -47,6 +47,11 @@ class ApiFilesGet(ApiHandler):
 
             for path in paths:
                 try:
+                    # Validate path to prevent directory traversal
+                    if "\x00" in path:
+                        PrintStyle.warning(f"Null byte in path, skipping: {repr(path)}")
+                        continue
+
                     # Convert internal paths to external paths
                     if path.startswith("/a0/tmp/uploads/"):
                         # Internal path - convert to external
@@ -63,13 +68,18 @@ class ApiFilesGet(ApiHandler):
                         external_path = path
                         filename = os.path.basename(path)
 
+                    real_path = os.path.realpath(external_path)
+                    if not files.is_in_base_dir(real_path):
+                        PrintStyle.warning(f"Path outside allowed directory: {path}")
+                        continue
+
                     # Check if file exists
-                    if not os.path.exists(external_path):
+                    if not os.path.exists(real_path):
                         PrintStyle.warning(f"File not found: {path}")
                         continue
 
                     # Read and encode file
-                    with open(external_path, "rb") as f:
+                    with open(real_path, "rb") as f:
                         file_content = f.read()
                         base64_content = base64.b64encode(file_content).decode("utf-8")
                         result[filename] = base64_content
@@ -91,8 +101,13 @@ class ApiFilesGet(ApiHandler):
 
         except Exception as e:
             PrintStyle.error(f"API files get error: {str(e)}")
+            from python.helpers import runtime
+
+            error_detail = (
+                str(e) if runtime.is_development() else "Internal server error"
+            )
             return Response(
-                json.dumps({"error": f"Internal server error: {str(e)}"}),
+                json.dumps({"error": error_detail}),
                 status=500,
                 mimetype="application/json",
             )

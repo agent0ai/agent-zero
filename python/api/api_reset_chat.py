@@ -64,8 +64,13 @@ class ApiResetChat(ApiHandler):
 
         except Exception as e:
             PrintStyle.error(f"API reset chat error: {str(e)}")
+            from python.helpers import runtime
+
+            error_detail = (
+                str(e) if runtime.is_development() else "Internal server error"
+            )
             return Response(
-                json.dumps({"error": f"Internal server error: {str(e)}"}),
+                json.dumps({"error": error_detail}),
                 status=500,
                 mimetype="application/json",
             )

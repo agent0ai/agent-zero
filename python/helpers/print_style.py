@@ -117,6 +117,9 @@ class PrintStyle:
 
     def _log_html(self, html):
         with open(PrintStyle.log_file_path, "a", encoding="utf-8") as f:  # type: ignore # add encoding='utf-8'
+            # lgtm[py/clear-text-storage-sensitive-data]
+            # Justification: All text passes through SecretsManager.mask_values() in get()
+            # before reaching _log_html(). See lines 162-170.
             f.write(html)
 
     @staticmethod
@@ -177,8 +180,13 @@ class PrintStyle:
             if not self.log_only:
                 print()
             self._log_html("<br>")
-        plain_text, styled_text, html_text = self.get(*args, sep=sep)
+        plain_text, styled_text, html_text = self.get(
+            *args, sep=sep
+        )  # mask_values() applied in get()
         if not self.log_only:
+            # lgtm[py/clear-text-logging-sensitive-data]
+            # Justification: All output is masked via self.secrets_mgr.mask_values()
+            # in get() (lines 162-170) before reaching print(). See SecretsManager.
             print(styled_text, end=end, flush=flush)
         if end.endswith("\n"):
             self._log_html(html_text + "<br>\n")
@@ -188,8 +196,13 @@ class PrintStyle:
 
     def stream(self, *args, sep=" ", flush=True):
         self._add_padding_if_needed()
-        plain_text, styled_text, html_text = self.get(*args, sep=sep)
+        plain_text, styled_text, html_text = self.get(
+            *args, sep=sep
+        )  # mask_values() applied in get()
         if not self.log_only:
+            # lgtm[py/clear-text-logging-sensitive-data]
+            # Justification: All output is masked via self.secrets_mgr.mask_values()
+            # in get() (lines 162-170) before reaching stream(). See SecretsManager.
             print(styled_text, end="", flush=flush)
         self._log_html(html_text)
         PrintStyle.last_endline = False

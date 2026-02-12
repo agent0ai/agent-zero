@@ -59,141 +59,6 @@ wheels = [
 ]
 
 [[package]]
-name = "apollos-ai"
-version = "0.2.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "a2wsgi" },
-    { name = "ansio" },
-    { name = "beautifulsoup4" },
-    { name = "boto3" },
-    { name = "browser-use" },
-    { name = "crontab" },
-    { name = "docker" },
-    { name = "duckduckgo-search" },
-    { name = "exchangelib" },
-    { name = "faiss-cpu" },
-    { name = "fasta2a" },
-    { name = "fastmcp" },
-    { name = "flaredantic" },
-    { name = "flask", extra = ["async"] },
-    { name = "flask-basicauth" },
-    { name = "gitpython" },
-    { name = "html2text" },
-    { name = "imapclient" },
-    { name = "inputimeout" },
-    { name = "kokoro" },
-    { name = "langchain-community" },
-    { name = "langchain-core" },
-    { name = "langchain-unstructured" },
-    { name = "litellm" },
-    { name = "lxml-html-clean" },
-    { name = "markdown" },
-    { name = "markdownify" },
-    { name = "mcp" },
-    { name = "nest-asyncio" },
-    { name = "newspaper3k" },
-    { name = "openai" },
-    { name = "openai-whisper" },
-    { name = "paramiko" },
-    { name = "pathspec" },
-    { name = "pdf2image" },
-    { name = "playwright" },
-    { name = "psutil" },
-    { name = "pydantic" },
-    { name = "pymupdf" },
-    { name = "pypdf" },
-    { name = "pytesseract" },
-    { name = "python-dotenv" },
-    { name = "python-socketio" },
-    { name = "pytz" },
-    { name = "pywinpty", marker = "sys_platform == 'win32'" },
-    { name = "sentence-transformers" },
-    { name = "simpleeval" },
-    { name = "soundfile" },
-    { name = "tiktoken" },
-    { name = "unstructured", extra = ["all-docs"] },
-    { name = "unstructured-client" },
-    { name = "uvicorn" },
-    { name = "webcolors" },
-    { name = "wsproto" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-mock" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "a2wsgi", specifier = "==1.10.8" },
-    { name = "ansio", specifier = "==0.0.1" },
-    { name = "beautifulsoup4", specifier = ">=4.12.3" },
-    { name = "boto3", specifier = ">=1.35.0" },
-    { name = "browser-use", specifier = "==0.5.11" },
-    { name = "crontab", specifier = "==1.0.1" },
-    { name = "docker", specifier = "==7.1.0" },
-    { name = "duckduckgo-search", specifier = "==6.1.12" },
-    { name = "exchangelib", specifier = ">=5.4.3" },
-    { name = "faiss-cpu", specifier = "==1.11.0" },
-    { name = "fasta2a", specifier = "==0.5.0" },
-    { name = "fastmcp", specifier = "==2.13.1" },
-    { name = "flaredantic", specifier = "==0.1.5" },
-    { name = "flask", extras = ["async"], specifier = "==3.0.3" },
-    { name = "flask-basicauth", specifier = "==0.2.0" },
-    { name = "gitpython", specifier = "==3.1.43" },
-    { name = "html2text", specifier = ">=2024.2.26" },
-    { name = "imapclient", specifier = ">=3.0.1" },
-    { name = "inputimeout", specifier = "==1.0.4" },
-    { name = "kokoro", specifier = ">=0.9.2" },
-    { name = "langchain-community", specifier = "==0.3.19" },
-    { name = "langchain-core", specifier = "==0.3.49" },
-    { name = "langchain-unstructured", specifier = "==0.1.6" },
-    { name = "litellm", specifier = "==1.79.3" },
-    { name = "lxml-html-clean", specifier = "==0.3.1" },
-    { name = "markdown", specifier = "==3.7" },
-    { name = "markdownify", specifier = "==1.1.0" },
-    { name = "mcp", specifier = "==1.22.0" },
-    { name = "nest-asyncio", specifier = "==1.6.0" },
-    { name = "newspaper3k", specifier = "==0.2.8" },
-    { name = "openai", specifier = "==1.99.5" },
-    { name = "openai-whisper", specifier = "==20250625" },
-    { name = "paramiko", specifier = "==3.5.0" },
-    { name = "pathspec", specifier = ">=0.12.1" },
-    { name = "pdf2image", specifier = "==1.17.0" },
-    { name = "playwright", specifier = "==1.52.0" },
-    { name = "psutil", specifier = ">=7.0.0" },
-    { name = "pydantic", specifier = "==2.11.7" },
-    { name = "pymupdf", specifier = "==1.25.3" },
-    { name = "pypdf", specifier = "==6.0.0" },
-    { name = "pytesseract", specifier = "==0.3.13" },
-    { name = "python-dotenv", specifier = "==1.1.0" },
-    { name = "python-socketio", specifier = ">=5.14.2" },
-    { name = "pytz", specifier = "==2024.2" },
-    { name = "pywinpty", marker = "sys_platform == 'win32'", specifier = "==3.0.2" },
-    { name = "sentence-transformers", specifier = "==3.0.1" },
-    { name = "simpleeval", specifier = "==1.0.3" },
-    { name = "soundfile", specifier = "==0.13.1" },
-    { name = "tiktoken", specifier = "==0.8.0" },
-    { name = "unstructured", extras = ["all-docs"], specifier = "==0.16.23" },
-    { name = "unstructured-client", specifier = "==0.31.0" },
-    { name = "uvicorn", specifier = ">=0.38.0" },
-    { name = "webcolors", specifier = "==24.6.0" },
-    { name = "wsproto", specifier = ">=1.2.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "pytest-asyncio", specifier = ">=1.2.0" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "pytest-mock", specifier = ">=3.15.1" },
-]
-
-[[package]]
 name = "aiofiles"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -337,6 +202,145 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/96/f0/5eb65b2bb0d09ac6776f2eb54adee6abe8228ea05b20a5ad0e4945de8aac/anyio-4.12.1.tar.gz", hash = "sha256:41cfcc3a4c85d3f05c932da7c26d0201ac36f72abd4435ba90d0464a3ffed703", size = 228685, upload-time = "2026-01-06T11:45:21.246Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/38/0e/27be9fdef66e72d64c0cdc3cc2823101b80585f8119b5c112c2e8f5f7dab/anyio-4.12.1-py3-none-any.whl", hash = "sha256:d405828884fc140aa80a3c667b8beed277f1dfedec42ba031bd6ac3db606ab6c", size = 113592, upload-time = "2026-01-06T11:45:19.497Z" },
+]
+
+[[package]]
+name = "apollos-ai"
+version = "0.2.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "a2wsgi" },
+    { name = "ansio" },
+    { name = "beautifulsoup4" },
+    { name = "boto3" },
+    { name = "browser-use" },
+    { name = "crontab" },
+    { name = "docker" },
+    { name = "duckduckgo-search" },
+    { name = "exchangelib" },
+    { name = "faiss-cpu" },
+    { name = "fasta2a" },
+    { name = "fastmcp" },
+    { name = "flaredantic" },
+    { name = "flask", extra = ["async"] },
+    { name = "flask-basicauth" },
+    { name = "flask-cors" },
+    { name = "flask-limiter" },
+    { name = "gitpython" },
+    { name = "html2text" },
+    { name = "imapclient" },
+    { name = "inputimeout" },
+    { name = "kokoro" },
+    { name = "langchain-community" },
+    { name = "langchain-core" },
+    { name = "langchain-unstructured" },
+    { name = "litellm" },
+    { name = "lxml-html-clean" },
+    { name = "markdown" },
+    { name = "markdownify" },
+    { name = "mcp" },
+    { name = "nest-asyncio" },
+    { name = "newspaper3k" },
+    { name = "openai" },
+    { name = "openai-whisper" },
+    { name = "paramiko" },
+    { name = "pathspec" },
+    { name = "pdf2image" },
+    { name = "playwright" },
+    { name = "psutil" },
+    { name = "pydantic" },
+    { name = "pymupdf" },
+    { name = "pypdf" },
+    { name = "pytesseract" },
+    { name = "python-dotenv" },
+    { name = "python-socketio" },
+    { name = "pytz" },
+    { name = "pywinpty", marker = "sys_platform == 'win32'" },
+    { name = "sentence-transformers" },
+    { name = "simpleeval" },
+    { name = "soundfile" },
+    { name = "tiktoken" },
+    { name = "unstructured", extra = ["all-docs"] },
+    { name = "unstructured-client" },
+    { name = "uvicorn" },
+    { name = "webcolors" },
+    { name = "wsproto" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "a2wsgi", specifier = "==1.10.8" },
+    { name = "ansio", specifier = "==0.0.1" },
+    { name = "beautifulsoup4", specifier = ">=4.12.3" },
+    { name = "boto3", specifier = ">=1.35.0" },
+    { name = "browser-use", specifier = "==0.5.11" },
+    { name = "crontab", specifier = "==1.0.1" },
+    { name = "docker", specifier = "==7.1.0" },
+    { name = "duckduckgo-search", specifier = "==6.1.12" },
+    { name = "exchangelib", specifier = ">=5.4.3" },
+    { name = "faiss-cpu", specifier = "==1.11.0" },
+    { name = "fasta2a", specifier = "==0.5.0" },
+    { name = "fastmcp", specifier = "==2.13.1" },
+    { name = "flaredantic", specifier = "==0.1.5" },
+    { name = "flask", extras = ["async"], specifier = "==3.0.3" },
+    { name = "flask-basicauth", specifier = "==0.2.0" },
+    { name = "flask-cors", specifier = ">=6.0.2" },
+    { name = "flask-limiter", specifier = ">=4.1.1" },
+    { name = "gitpython", specifier = "==3.1.43" },
+    { name = "html2text", specifier = ">=2024.2.26" },
+    { name = "imapclient", specifier = ">=3.0.1" },
+    { name = "inputimeout", specifier = "==1.0.4" },
+    { name = "kokoro", specifier = ">=0.9.2" },
+    { name = "langchain-community", specifier = "==0.3.19" },
+    { name = "langchain-core", specifier = "==0.3.49" },
+    { name = "langchain-unstructured", specifier = "==0.1.6" },
+    { name = "litellm", specifier = "==1.79.3" },
+    { name = "lxml-html-clean", specifier = "==0.3.1" },
+    { name = "markdown", specifier = "==3.7" },
+    { name = "markdownify", specifier = "==1.1.0" },
+    { name = "mcp", specifier = "==1.22.0" },
+    { name = "nest-asyncio", specifier = "==1.6.0" },
+    { name = "newspaper3k", specifier = "==0.2.8" },
+    { name = "openai", specifier = "==1.99.5" },
+    { name = "openai-whisper", specifier = "==20250625" },
+    { name = "paramiko", specifier = "==3.5.0" },
+    { name = "pathspec", specifier = ">=0.12.1" },
+    { name = "pdf2image", specifier = "==1.17.0" },
+    { name = "playwright", specifier = "==1.52.0" },
+    { name = "psutil", specifier = ">=7.0.0" },
+    { name = "pydantic", specifier = "==2.11.7" },
+    { name = "pymupdf", specifier = "==1.25.3" },
+    { name = "pypdf", specifier = "==6.0.0" },
+    { name = "pytesseract", specifier = "==0.3.13" },
+    { name = "python-dotenv", specifier = "==1.1.0" },
+    { name = "python-socketio", specifier = ">=5.14.2" },
+    { name = "pytz", specifier = "==2024.2" },
+    { name = "pywinpty", marker = "sys_platform == 'win32'", specifier = "==3.0.2" },
+    { name = "sentence-transformers", specifier = "==3.0.1" },
+    { name = "simpleeval", specifier = "==1.0.3" },
+    { name = "soundfile", specifier = "==0.13.1" },
+    { name = "tiktoken", specifier = "==0.8.0" },
+    { name = "unstructured", extras = ["all-docs"], specifier = "==0.16.23" },
+    { name = "unstructured-client", specifier = "==0.31.0" },
+    { name = "uvicorn", specifier = ">=0.38.0" },
+    { name = "webcolors", specifier = "==24.6.0" },
+    { name = "wsproto", specifier = ">=1.2.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
 ]
 
 [[package]]
@@ -1460,6 +1464,34 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/16/18/9726cac3c7cb9e5a1ac4523b3e508128136b37aadb3462c857a19318900e/Flask-BasicAuth-0.2.0.tar.gz", hash = "sha256:df5ebd489dc0914c224419da059d991eb72988a01cdd4b956d52932ce7d501ff", size = 16052, upload-time = "2013-06-15T14:19:12.812Z" }
 
 [[package]]
+name = "flask-cors"
+version = "6.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "werkzeug" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/74/0fc0fa68d62f21daef41017dafab19ef4b36551521260987eb3a5394c7ba/flask_cors-6.0.2.tar.gz", hash = "sha256:6e118f3698249ae33e429760db98ce032a8bf9913638d085ca0f4c5534ad2423", size = 13472, upload-time = "2025-12-12T20:31:42.861Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4f/af/72ad54402e599152de6d067324c46fe6a4f531c7c65baf7e96c63db55eaf/flask_cors-6.0.2-py3-none-any.whl", hash = "sha256:e57544d415dfd7da89a9564e1e3a9e515042df76e12130641ca6f3f2f03b699a", size = 13257, upload-time = "2025-12-12T20:31:41.3Z" },
+]
+
+[[package]]
+name = "flask-limiter"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "limits" },
+    { name = "ordered-set" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/98/71780be5d1afb941219c4b48d241d4e246e3062b017caa4e79c4dc71314c/flask_limiter-4.1.1.tar.gz", hash = "sha256:ca11608fc7eec43dcea606964ca07c3bd4ec1ae89043a0f67f717899a4f48106", size = 403198, upload-time = "2025-12-06T17:39:00.575Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/7c/9fe9ffc83be199011bb0c6deb82cdcbc5a355601e380581de9dbc30490dd/flask_limiter-4.1.1-py3-none-any.whl", hash = "sha256:e1ae13e06e6b3e39a4902e7d240b901586b25932c2add7bd5f5eeb4bdc11111b", size = 30554, upload-time = "2025-12-06T17:38:59.162Z" },
+]
+
+[[package]]
 name = "flatbuffers"
 version = "25.12.19"
 source = { registry = "https://pypi.org/simple" }
@@ -2379,6 +2411,20 @@ wheels = [
 ]
 
 [[package]]
+name = "limits"
+version = "5.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "deprecated" },
+    { name = "packaging" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/69/826a5d1f45426c68d8f6539f8d275c0e4fcaa57f0c017ec3100986558a41/limits-5.8.0.tar.gz", hash = "sha256:c9e0d74aed837e8f6f50d1fcebcf5fd8130957287206bc3799adaee5092655da", size = 226104, upload-time = "2026-02-05T07:17:35.859Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/98/cb5ca20618d205a09d5bec7591fbc4130369c7e6308d9a676a28ff3ab22c/limits-5.8.0-py3-none-any.whl", hash = "sha256:ae1b008a43eb43073c3c579398bd4eb4c795de60952532dc24720ab45e1ac6b8", size = 60954, upload-time = "2026-02-05T07:17:34.425Z" },
+]
+
+[[package]]
 name = "litellm"
 version = "1.79.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3238,6 +3284,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/97/b9/3161be15bb8e3ad01be8be5a968a9237c3027c5be504362ff800fca3e442/opentelemetry_api-1.39.1.tar.gz", hash = "sha256:fbde8c80e1b937a2c61f20347e91c0c18a1940cecf012d62e65a7caf08967c9c", size = 65767, upload-time = "2025-12-11T13:32:39.182Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cf/df/d3f1ddf4bb4cb50ed9b1139cc7b1c54c34a1e7ce8fd1b9a37c0d1551a6bd/opentelemetry_api-1.39.1-py3-none-any.whl", hash = "sha256:2edd8463432a7f8443edce90972169b195e7d6a05500cd29e6d13898187c9950", size = 66356, upload-time = "2025-12-11T13:32:17.304Z" },
+]
+
+[[package]]
+name = "ordered-set"
+version = "4.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/ca/bfac8bc689799bcca4157e0e0ced07e70ce125193fc2e166d2e685b7e2fe/ordered-set-4.1.0.tar.gz", hash = "sha256:694a8e44c87657c59292ede72891eb91d34131f6531463aab3009191c77364a8", size = 12826, upload-time = "2022-01-26T14:38:56.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/55/af02708f230eb77084a299d7b08175cff006dea4f2721074b92cdb0296c0/ordered_set-4.1.0-py3-none-any.whl", hash = "sha256:046e1132c71fcf3330438a539928932caf51ddbc582496833e23de611de14562", size = 7634, upload-time = "2022-01-26T14:38:48.677Z" },
 ]
 
 [[package]]
