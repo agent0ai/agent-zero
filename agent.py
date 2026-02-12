@@ -730,6 +730,8 @@ class Agent:
             self.config.chat_model.provider,
             self.config.chat_model.name,
             model_config=self.config.chat_model,
+            a0_role="chat",
+            a0_context_id=self.context.id,
             **self.config.chat_model.build_kwargs(),
         )
 
@@ -738,6 +740,8 @@ class Agent:
             self.config.utility_model.provider,
             self.config.utility_model.name,
             model_config=self.config.utility_model,
+            a0_role="utility",
+            a0_context_id=self.context.id,
             **self.config.utility_model.build_kwargs(),
         )
 
@@ -746,6 +750,8 @@ class Agent:
             self.config.browser_model.provider,
             self.config.browser_model.name,
             model_config=self.config.browser_model,
+            a0_role="browser",
+            a0_context_id=self.context.id,
             **self.config.browser_model.build_kwargs(),
         )
 

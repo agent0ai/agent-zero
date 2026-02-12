@@ -30,6 +30,9 @@ chat:
   cometapi:
     name: CometAPI
     litellm_provider: cometapi
+  codex:
+    name: Codex (ChatGPT subscription)
+    litellm_provider: codex
   deepseek:
     name: DeepSeek
     litellm_provider: deepseek
