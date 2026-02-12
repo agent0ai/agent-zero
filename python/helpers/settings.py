@@ -140,7 +140,10 @@ class Settings(TypedDict):
     stt_silence_duration: int
     stt_waiting_timeout: int
 
-    tts_kokoro: bool
+    tts_enabled: bool
+    tts_engine: str
+    tts_voice: str
+    tts_rate: str
 
     mcp_servers: str
     mcp_client_init_timeout: int
@@ -588,7 +591,10 @@ def get_default_settings() -> Settings:
         stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
         stt_silence_duration=get_default_value("stt_silence_duration", 1000),
         stt_waiting_timeout=get_default_value("stt_waiting_timeout", 2000),
-        tts_kokoro=get_default_value("tts_kokoro", True),
+        tts_enabled=get_default_value("tts_enabled", True),
+        tts_engine=get_default_value("tts_engine", "kokoro"),
+        tts_voice=get_default_value("tts_voice", ""),
+        tts_rate=get_default_value("tts_rate", "+0%"),
         mcp_servers=get_default_value("mcp_servers", '{\n    "mcpServers": {}\n}'),
         mcp_client_init_timeout=get_default_value("mcp_client_init_timeout", 10),
         mcp_client_tool_timeout=get_default_value("mcp_client_tool_timeout", 120),
