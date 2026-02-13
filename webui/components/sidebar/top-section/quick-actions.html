@@ -26,6 +26,11 @@
         <span class="material-symbols-outlined">schedule</span>
       </button>
 
+      <!-- Orchestrator -->
+      <button class="config-button" id="orchestrator" @click="openModal('modals/orchestrator/orchestrator.html')" title="Orchestrator">
+        <span class="material-symbols-outlined">account_tree</span>
+      </button>
+
       <!-- Settings -->
       <button class="config-button" id="settings" @click="openModal('settings/settings.html')" title="Settings">
         <span class="material-symbols-outlined">settings</span>
@@ -64,11 +69,16 @@
         <span>Scheduler</span>
       </button>
       
+      <button class="dropdown-item" @click="openModal('modals/orchestrator/orchestrator.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">account_tree</span>
+        <span>Orchestrator</span>
+      </button>
+
       <button class="dropdown-item" @click="openModal('settings/settings.html'); dropdownOpen = false">
         <span class="material-symbols-outlined">settings</span>
         <span>Settings</span>
       </button>
-      
+
       <div class="dropdown-separator"></div>
       <div class="dropdown-header">Chat Actions</div>
       
