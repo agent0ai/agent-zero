@@ -35,6 +35,9 @@ usr/**
 # Global rule to include .gitkeep files anywhere
 !**/.gitkeep
 
+# Runtime flow execution data
+flows/
+
 # for browser-use
 agent_history.gif
 

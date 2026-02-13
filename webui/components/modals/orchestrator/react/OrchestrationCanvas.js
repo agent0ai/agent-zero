@@ -30,7 +30,7 @@ export async function mountCanvas(rootEl) {
   const htm = (await import("https://esm.sh/htm@3.1.1")).default;
 
   const html = htm.bind(React.createElement);
-  const { useState, useCallback, useEffect, useRef, memo } = React;
+  const { useCallback, useEffect, useRef, memo } = React;
 
   // Import CSS for React Flow (avoid duplicates on re-open)
   if (!document.querySelector('link[href*="xyflow/react"]')) {
@@ -65,13 +65,32 @@ export async function mountCanvas(rootEl) {
   });
 
   const AgentNode = memo(({ data, selected }) => {
+    const progress = data._progress;
+    const isRunning = data._status === "running";
+
+    // Format elapsed time as "Xs" or "Xm Ys"
+    const elapsed = progress && progress.elapsed_sec != null
+      ? progress.elapsed_sec >= 60
+        ? `${Math.floor(progress.elapsed_sec / 60)}m ${Math.round(progress.elapsed_sec % 60)}s`
+        : `${Math.round(progress.elapsed_sec)}s`
+      : null;
+
+    // Activity line: tool name or heading, truncated
+    const activity = progress
+      ? progress.tool || progress.heading || progress.progress || null
+      : null;
+
     return html`
       <div class="orch-node orch-node-agent ${selected ? "selected" : ""} ${data._status || ""}">
         <${Handle} type="target" position="top" />
         <div class="orch-node-badge">AGENT</div>
         <div class="orch-node-label">${data.label || "Agent"}</div>
         <div class="orch-node-detail">${data.agentProfile || "default"}</div>
-        ${data._status === "running" ? html`<div class="orch-node-spinner"></div>` : null}
+        ${isRunning ? html`
+          <div class="orch-node-spinner"></div>
+          ${activity ? html`<div class="orch-node-activity" title=${activity}>${activity}</div>` : null}
+          ${elapsed ? html`<div class="orch-node-elapsed">${elapsed}</div>` : null}
+        ` : null}
         <${Handle} type="source" position="bottom" />
       </div>
     `;
@@ -187,7 +206,7 @@ export async function mountCanvas(rootEl) {
           root.dispatchEvent(
             new CustomEvent("flow:changed", {
               detail: {
-                nodes: nodes.map((n) => ({ ...n, data: { ...n.data, _status: undefined } })),
+                nodes: nodes.map((n) => ({ ...n, data: { ...n.data, _status: undefined, _progress: undefined } })),
                 edges,
               },
             })
@@ -237,14 +256,39 @@ export async function mountCanvas(rootEl) {
       };
 
       const onNodeStates = (e) => {
-        const states = e.detail;
+        const { nodeStates, nodeProgress } = e.detail;
+        if (!nodeStates) return;
         setNodes((nds) =>
           nds.map((n) => {
-            const st = states[n.id];
-            if (st) {
-              return { ...n, data: { ...n.data, _status: st.status } };
+            const status = nodeStates[n.id];
+            const progress = nodeProgress ? nodeProgress[n.id] || null : null;
+            const prevStatus = n.data._status;
+            const prevProgress = n.data._progress;
+            // Only update if something changed
+            const statusChanged = status && status !== prevStatus;
+            const progressChanged = progress !== prevProgress &&
+              JSON.stringify(progress) !== JSON.stringify(prevProgress);
+            if (statusChanged || progressChanged) {
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  ...(statusChanged ? { _status: status } : {}),
+                  _progress: progress,
+                },
+              };
             }
             return n;
+          })
+        );
+        // Animate edges whose source node is running
+        setEdges((eds) =>
+          eds.map((ed) => {
+            const shouldAnimate = nodeStates[ed.source] === "running";
+            if (ed.animated !== shouldAnimate) {
+              return { ...ed, animated: shouldAnimate };
+            }
+            return ed;
           })
         );
       };
@@ -278,14 +322,22 @@ export async function mountCanvas(rootEl) {
     }, [setNodes, setEdges, reactFlow]);
 
     // Drag and drop from palette
+    // stopPropagation on all drag events prevents Agent Zero's global
+    // file-drop overlay (attachmentsStore) from intercepting palette drags.
+    const onDragEnter = useCallback((event) => {
+      event.stopPropagation();
+    }, []);
+
     const onDragOver = useCallback((event) => {
       event.preventDefault();
+      event.stopPropagation();
       event.dataTransfer.dropEffect = "move";
     }, []);
 
     const onDrop = useCallback(
       (event) => {
         event.preventDefault();
+        event.stopPropagation();
         const type = event.dataTransfer.getData("application/reactflow-type");
         if (!type) return;
 
@@ -325,6 +377,7 @@ export async function mountCanvas(rootEl) {
           onConnect=${onConnect}
           onNodeClick=${onNodeClick}
           onPaneClick=${onPaneClick}
+          onDragEnter=${onDragEnter}
           onDragOver=${onDragOver}
           onDrop=${onDrop}
           nodeTypes=${nodeTypes}

@@ -6,7 +6,7 @@
  *
  * Alpine → React events:
  *   flow:load        { nodes, edges, viewport }
- *   flow:nodeStates  { [nodeId]: { status, output } }
+ *   flow:nodeStates  { nodeStates: { [nodeId]: "pending"|"running"|... } }
  *   flow:reset       {}
  *   flow:updateNode  { nodeId, data }
  *

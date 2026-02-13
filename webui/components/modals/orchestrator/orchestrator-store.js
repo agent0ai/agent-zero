@@ -5,6 +5,7 @@ const store = createStore("orchestrator", {
 
   // Flow management
   flows: [],
+  templates: [],
   currentFlow: null,
   currentFlowName: "",
   currentFilename: "",
@@ -13,15 +14,32 @@ const store = createStore("orchestrator", {
   // Execution state
   flowRunId: null,
   nodeStates: {},
+  nodeOutputs: {},
+  finalOutput: null,
+  executionError: null,
   running: false,
 
   // UI state
   inspectedNodeId: null,
   inspectedNodeData: null,
-  agentProfiles: [],
+  agentProfiles: [{ key: "default", label: "Default Agent" }],
   showFlowList: true,
   showInspector: false,
+  showOutputPanel: true,
   reactReady: false,
+
+  get hasExecutionState() {
+    return this.running || this.finalOutput !== null || this.executionError;
+  },
+
+  _resetExecutionState() {
+    this.running = false;
+    this.flowRunId = null;
+    this.nodeStates = {};
+    this.nodeOutputs = {};
+    this.finalOutput = null;
+    this.executionError = null;
+  },
 
   // Lifecycle — called via x-init when modal mounts
   async onOpen() {
@@ -31,21 +49,18 @@ const store = createStore("orchestrator", {
     this.inspectedNodeId = null;
     this.inspectedNodeData = null;
     this.dirty = false;
-    this.running = false;
-    this.flowRunId = null;
-    this.nodeStates = {};
-    await Promise.all([this.fetchAgentProfiles(), this.loadFlows()]);
+    this._resetExecutionState();
+    await Promise.all([this.fetchAgentProfiles(), this.loadFlows(), this.loadTemplates()]);
   },
 
   // Lifecycle — called via x-destroy when modal unmounts
   onClose() {
+    this._stopStatusPolling();
     this.currentFlow = null;
     this.currentFlowName = "";
     this.currentFilename = "";
     this.dirty = false;
-    this.running = false;
-    this.flowRunId = null;
-    this.nodeStates = {};
+    this._resetExecutionState();
     this.inspectedNodeId = null;
     this.inspectedNodeData = null;
     this.reactReady = false;
@@ -63,6 +78,30 @@ const store = createStore("orchestrator", {
       console.warn("Failed to load flows:", e);
       this.flows = [];
     }
+  },
+
+  async loadTemplates() {
+    try {
+      const resp = await callJsonApi("/flow_template_list", {});
+      if (resp && resp.ok) {
+        this.templates = resp.templates || [];
+      }
+    } catch (e) {
+      console.warn("Failed to load templates:", e);
+      this.templates = [];
+    }
+  },
+
+  useTemplate(template) {
+    const flow = JSON.parse(JSON.stringify(template.flow));
+    this.currentFlow = flow;
+    this.currentFlowName = flow.name || template.name;
+    this.currentFilename = "";
+    this.dirty = false;
+    this.showFlowList = false;
+    this.showInspector = false;
+    this._resetExecutionState();
+    this._waitForReactThenLoad();
   },
 
   async loadFlow(filename) {
@@ -121,7 +160,7 @@ const store = createStore("orchestrator", {
       }
     } catch (e) {
       console.warn("Failed to fetch agent profiles:", e);
-      this.agentProfiles = [{ name: "default", title: "Default Agent" }];
+      this.agentProfiles = [{ key: "default", label: "Default Agent" }];
     }
   },
 
@@ -159,8 +198,20 @@ const store = createStore("orchestrator", {
 
   onFlowChanged(detail) {
     if (this.currentFlow) {
-      this.currentFlow.nodes = detail.nodes;
-      this.currentFlow.edges = detail.edges;
+      // Strip React Flow internal metadata — keep only serializable essentials
+      this.currentFlow.nodes = (detail.nodes || []).map((n) => ({
+        id: n.id,
+        type: n.type,
+        position: { x: n.position.x, y: n.position.y },
+        data: { ...n.data, _status: undefined, _progress: undefined },
+      }));
+      this.currentFlow.edges = (detail.edges || []).map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        ...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {}),
+        ...(e.targetHandle ? { targetHandle: e.targetHandle } : {}),
+      }));
       this.dirty = true;
     }
   },
@@ -182,16 +233,128 @@ const store = createStore("orchestrator", {
     this.dirty = true;
   },
 
+  // ─── Execution ───
+
+  _statusPollInterval: null,
+
+  async executeFlow(userPrompt) {
+    if (!this.currentFlow || this.running) return;
+
+    this._resetExecutionState();
+    this.running = true;
+
+    try {
+      const resp = await callJsonApi("/flow_execute", {
+        flow: this.currentFlow,
+        user_prompt: userPrompt || "",
+      });
+      if (resp && resp.ok && resp.run_id) {
+        this.flowRunId = resp.run_id;
+        this._startStatusPolling();
+      } else {
+        this.running = false;
+        console.warn("Failed to start flow:", resp?.error);
+      }
+    } catch (e) {
+      this.running = false;
+      console.warn("Failed to execute flow:", e);
+    }
+  },
+
+  async stopFlow() {
+    if (!this.flowRunId) return;
+
+    try {
+      await callJsonApi("/flow_stop", { run_id: this.flowRunId });
+    } catch (e) {
+      console.warn("Failed to stop flow:", e);
+    }
+  },
+
+  _startStatusPolling() {
+    this._stopStatusPolling();
+    this._statusPollInterval = setInterval(() => this._pollStatus(), 1000);
+  },
+
+  _stopStatusPolling() {
+    if (this._statusPollInterval) {
+      clearInterval(this._statusPollInterval);
+      this._statusPollInterval = null;
+    }
+  },
+
+  async _pollStatus() {
+    if (!this.flowRunId) {
+      this._stopStatusPolling();
+      return;
+    }
+
+    try {
+      const resp = await callJsonApi("/flow_status", {
+        run_id: this.flowRunId,
+      });
+      if (resp && resp.ok) {
+        this.nodeStates = resp.node_states || {};
+        this.nodeOutputs = resp.node_outputs || {};
+        this._dispatchToReact("flow:nodeStates", {
+          nodeStates: this.nodeStates,
+          nodeProgress: resp.node_progress || {},
+        });
+
+        if (!resp.running) {
+          this.running = false;
+          this.finalOutput = resp.final_output || null;
+          this.executionError = resp.error || null;
+          this._stopStatusPolling();
+        }
+      }
+    } catch (e) {
+      console.warn("Status poll failed:", e);
+    }
+  },
+
+  dismissResults() {
+    this._resetExecutionState();
+    this.showOutputPanel = true;
+    this._dispatchToReact("flow:nodeStates", { nodeStates: {} });
+  },
+
+  async sendResultToChat() {
+    if (!this.finalOutput) return;
+
+    const contextId = globalThis.getContext?.();
+    if (!contextId) {
+      console.warn("No active chat context to send results to");
+      return;
+    }
+
+    try {
+      const resp = await callJsonApi("/flow_result", {
+        context_id: contextId,
+        content: this.finalOutput,
+        heading: `Flow: ${this.currentFlowName || "Orchestration"}`,
+      });
+      if (resp && resp.ok) {
+        console.log("Flow result sent to chat");
+      }
+    } catch (e) {
+      console.warn("Failed to send flow result to chat:", e);
+    }
+  },
+
   // ─── Navigation ───
 
   backToFlowList() {
+    this._stopStatusPolling();
     this.currentFlow = null;
     this.currentFlowName = "";
     this.currentFilename = "";
     this.dirty = false;
+    this._resetExecutionState();
     this.showFlowList = true;
     this.showInspector = false;
     this.inspectedNodeId = null;
+    this.reactReady = false;
     this._dispatchToReact("flow:reset", {});
     this.loadFlows();
   },

@@ -7,10 +7,15 @@ memory/**
 instruments/**
 knowledge/custom/**
 
-# Logs, tmp, usr
+# Logs, tmp, usr, runtime data
 logs/*
 tmp/*
 usr/*
+chats/*
+workdir/*
+flows/*
+scheduler/*
+settings.json
 
 
 # Keep .gitkeep markers anywhere
