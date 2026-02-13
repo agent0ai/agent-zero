@@ -1,4 +1,5 @@
 a2wsgi==1.10.8
+ag-ui-protocol>=0.1.0
 ansio==0.0.1
 browser-use==0.5.11
 docker==7.1.0
