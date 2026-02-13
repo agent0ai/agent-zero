@@ -189,20 +189,16 @@ async function updateUserTime() {
   }
 
   const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const seconds = now.getSeconds();
-  const ampm = hours >= 12 ? "pm" : "am";
-  const formattedHours = hours % 12 || 12;
-
-  // Format the time
-  const timeString = `${formattedHours}:${minutes
-    .toString()
-    .padStart(2, "0")}:${seconds.toString().padStart(2, "0")} ${ampm}`;
-
-  // Format the date
-  const options = { year: "numeric", month: "short", day: "numeric" };
-  const dateString = now.toLocaleDateString(undefined, options);
+  const timeString = now.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  const dateString = now.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
 
   // Update the HTML
   userTimeElement.innerHTML = `${timeString}<br><span id="user-date">${dateString}</span>`;
