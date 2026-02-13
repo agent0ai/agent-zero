@@ -26,7 +26,12 @@ const model = {
   stt_waiting_timeout: 2000,
 
   // TTS Settings
-  tts_kokoro: false,
+  tts_enabled: true,
+  tts_engine: "kokoro",
+
+  // TTS Voice list (loaded dynamically)
+  voiceList: [],
+  _ratePercent: 0,
 
   // TTS State
   isSpeaking: false,
@@ -123,12 +128,37 @@ const model = {
           settings.stt_silence_duration ?? this.stt_silence_duration;
         this.stt_waiting_timeout =
           settings.stt_waiting_timeout ?? this.stt_waiting_timeout;
-        this.tts_kokoro = settings.tts_kokoro ?? this.tts_kokoro;
+        this.tts_enabled = settings.tts_enabled ?? this.tts_enabled;
+        this.tts_engine = settings.tts_engine ?? this.tts_engine;
+        // Parse rate percent from rate string like "+20%"
+        const rateStr = settings.tts_rate ?? "+0%";
+        this._ratePercent = parseInt(rateStr.replace("%", "").replace("+", "")) || 0;
       }
     } catch (error) {
       window.toastFetchError("Failed to load speech settings", error);
       console.error("Failed to load speech settings:", error);
     }
+
+    // Load voice list for current engine
+    await this.loadVoiceList(this.tts_engine);
+  },
+
+  // Load voice list for given engine
+  async loadVoiceList(engine) {
+    try {
+      const response = await sendJsonData("/tts_voices", { engine });
+      if (response.success) {
+        this.voiceList = response.voices || [];
+      }
+    } catch (error) {
+      console.error("Failed to load TTS voices:", error);
+      this.voiceList = [];
+    }
+  },
+
+  // Called when engine selection changes in settings UI
+  async onEngineChanged(engine) {
+    await this.loadVoiceList(engine);
   },
 
   // Setup browser TTS
@@ -265,13 +295,13 @@ const model = {
 
   // speak wrapper
   async _speak(text, waitForPrevious, terminator) {
-    // default browser speech
-    if (!this.tts_kokoro)
+    // browser TTS when server TTS is disabled
+    if (!this.tts_enabled)
       return await this.speakWithBrowser(text, waitForPrevious, terminator);
 
-    // kokoro tts
+    // server-side TTS (kokoro or edge) with browser fallback
     try {
-      await await this.speakWithKokoro(text, waitForPrevious, terminator);
+      await this.speakWithServer(text, waitForPrevious, terminator);
     } catch (error) {
       console.error(error);
       return await this.speakWithBrowser(text, waitForPrevious, terminator);
@@ -421,8 +451,8 @@ const model = {
     this.synth.speak(this.browserUtterance);
   },
 
-  // Kokoro TTS
-  async speakWithKokoro(text, waitForPrevious = false, terminator = null) {
+  // Server-side TTS (kokoro / edge)
+  async speakWithServer(text, waitForPrevious = false, terminator = null) {
     try {
       // synthesize on the backend
       const response = await sendJsonData("/synthesize", { text });
@@ -447,10 +477,10 @@ const model = {
           this.playAudio(response.audio);
         }
       } else {
-        throw new Error("Kokoro TTS error:", response.error);
+        throw new Error("TTS synthesis error:", response.error);
       }
     } catch (error) {
-      throw new Error("Kokoro TTS error:", error);
+      throw new Error("TTS synthesis error:", error);
     }
   },
 

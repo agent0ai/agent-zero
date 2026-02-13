@@ -12,6 +12,7 @@ flaredantic==0.1.5
 GitPython==3.1.43
 inputimeout==1.0.4
 kokoro>=0.9.2
+edge-tts>=7.2.7
 simpleeval==1.0.3
 langchain-core==0.3.49
 langchain-community==0.3.19
