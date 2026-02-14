@@ -15,6 +15,7 @@ from tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 DATA_NAME_TASK = "_recall_memories_task"
 DATA_NAME_ITER = "_recall_memories_iter"
+SEARCH_TIMEOUT = 30
 
 
 class RecallMemories(Extension):
@@ -45,7 +46,10 @@ class RecallMemories(Extension):
             )
 
             task = asyncio.create_task(
-                self.search_memories(loop_data=loop_data, log_item=log_item, **kwargs)
+                asyncio.wait_for(
+                    self.search_memories(loop_data=loop_data, log_item=log_item, **kwargs),
+                    timeout=SEARCH_TIMEOUT,
+                )
             )
         else:
             task = None
