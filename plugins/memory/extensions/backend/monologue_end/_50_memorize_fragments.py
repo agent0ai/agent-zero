@@ -1,12 +1,14 @@
 import asyncio
 from python.helpers import settings, errors
 from python.helpers.extension import Extension
-from python.helpers.memory import Memory
 from python.helpers.dirty_json import DirtyJson
 from agent import LoopData
 from python.helpers.log import LogItem
-from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 from python.helpers.defer import DeferredTask, THREAD_BACKGROUND
+
+# Direct import - this extension lives inside the memory plugin
+from plugins.memory.helpers.memory import Memory
+from plugins.memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
 class MemorizeMemories(Extension):
@@ -108,7 +110,7 @@ class MemorizeMemories(Extension):
                     
                     try:
                         # Use intelligent consolidation system
-                        from python.helpers.memory_consolidation import create_memory_consolidator
+                        from plugins.memory.helpers.memory_consolidation import create_memory_consolidator
                         consolidator = create_memory_consolidator(
                             self.agent,
                             similarity_threshold=DEFAULT_MEMORY_THRESHOLD,  # More permissive for discovery
@@ -188,7 +190,6 @@ class MemorizeMemories(Extension):
                     if rem:
                         log_item.stream(result=f"\nReplaced {len(rem)} previous memories.")
                 
-
 
 
         except Exception as e:

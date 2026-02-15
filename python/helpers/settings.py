@@ -7,7 +7,7 @@ import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
-from python.helpers import runtime, whisper, defer, git
+from python.helpers import runtime, whisper, defer, git, subagents
 from . import files, dotenv
 from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -248,9 +248,9 @@ def convert_out(settings: Settings) -> SettingsOutput:
             embedding_providers=get_providers("embedding"),
             shell_interfaces=[{"value": "local", "label": "Local Python TTY"}, {"value": "ssh", "label": "SSH"}],
             is_dockerized=runtime.is_dockerized(),
-            agent_subdirs=[{"value": subdir, "label": subdir}
-                for subdir in files.get_subdirectories("agents")
-                if subdir != "_example"],
+            agent_subdirs=[{"value": item["key"], "label": item["label"]}
+                for item in subagents.get_all_agents_list()
+                if item["key"] != "_example"],
             knowledge_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")],
             stt_models=[
@@ -623,15 +623,17 @@ def _apply_settings(previous: Settings | None):
                 whisper.preload, _settings["stt_model_size"]
             )  # TODO overkill, replace with background task
 
-        # force memory reload on embedding model change
+        # notify plugins of embedding model change
         if not previous or (
             _settings["embed_model_name"] != previous["embed_model_name"]
             or _settings["embed_model_provider"] != previous["embed_model_provider"]
             or _settings["embed_model_kwargs"] != previous["embed_model_kwargs"]
         ):
-            from python.helpers.memory import reload as memory_reload
+            from python.helpers.extension import call_extensions
 
-            memory_reload()
+            defer.DeferredTask().start_task(
+                call_extensions, "embedding_model_changed"
+            )
 
         # update mcp settings if necessary
         if not previous or _settings["mcp_servers"] != previous["mcp_servers"]:
@@ -813,4 +815,3 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
-

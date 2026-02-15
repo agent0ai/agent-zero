@@ -16,9 +16,9 @@
 .venv/
 
 # obsolete folders
-memory/
-knowledge/custom/
-instruments/
+/memory/
+/knowledge/custom/
+/instruments/
 
 # Handle logs directory
 logs/**

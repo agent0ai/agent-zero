@@ -1,7 +1,8 @@
 from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files, memory
-import os
+from python.helpers import files
 from python.helpers.security import safe_filename
+from plugins.memory.helpers.memory import Memory, get_custom_knowledge_subdir_abs
+import os
 
 
 class ImportKnowledge(ApiHandler):
@@ -16,7 +17,7 @@ class ImportKnowledge(ApiHandler):
         context = self.use_context(ctxid)
 
         file_list = request.files.getlist("files[]")
-        KNOWLEDGE_FOLDER = files.get_abs_path(memory.get_custom_knowledge_subdir_abs(context.agent0), "main")
+        KNOWLEDGE_FOLDER = files.get_abs_path(get_custom_knowledge_subdir_abs(context.agent0), "main")
 
         # Ensure knowledge folder exists (create if missing)
         try:
@@ -39,7 +40,7 @@ class ImportKnowledge(ApiHandler):
                 saved_filenames.append(filename)
 
         #reload memory to re-import knowledge
-        await memory.Memory.reload(context.agent0)
+        await Memory.reload(context.agent0)
         context.log.set_initial_progress()
 
         return {

@@ -10,7 +10,7 @@ USER_DIR = "usr"
 DEFAULT_AGENTS_DIR = "agents"
 USER_AGENTS_DIR = "usr/agents"
 
-type Origin = Literal["default", "user", "project"]
+type Origin = Literal["default", "user", "project", "plugin"]
 
 if TYPE_CHECKING:
     from agent import Agent
@@ -57,10 +57,19 @@ def get_agents_dict(
             )
         return merged
 
-    # load default and custom agents and merge
+    from python.helpers import plugins
+
+    # load default, plugin, and custom agents and merge
     default_agents = _get_agents_list_from_dir(DEFAULT_AGENTS_DIR, origin="default")
+    merged: dict[str, SubAgentListItem] = dict(default_agents)
+
+    # merge with plugin agents
+    for plugin_dir in plugins.get_plugin_paths("agents"):
+        plugin_agents = _get_agents_list_from_dir(plugin_dir, origin="plugin")
+        merged = _merge_agent_dicts(merged, plugin_agents)
+
     custom_agents = _get_agents_list_from_dir(USER_AGENTS_DIR, origin="user")
-    merged = _merge_agent_dicts(default_agents, custom_agents)
+    merged = _merge_agent_dicts(merged, custom_agents)
 
     # merge with project agents if possible
     if project_name:
@@ -102,12 +111,21 @@ def load_agent_data(name: str, project_name: str | None = None) -> SubAgent:
             return original
         return override
 
-    # load default and user agents and merge
+    from python.helpers import plugins
+
+    # load default, plugin, and user agents and merge
     default_agent = _load_agent_data_from_dir(
         DEFAULT_AGENTS_DIR, name, origin="default"
     )
+    merged = default_agent
+
+    # merge with plugin agents
+    for plugin_dir in plugins.get_plugin_paths("agents"):
+        plugin_agent = _load_agent_data_from_dir(plugin_dir, name, origin="plugin")
+        merged = _merge_agent(merged, plugin_agent)
+
     user_agent = _load_agent_data_from_dir(USER_AGENTS_DIR, name, origin="user")
-    merged = _merge_agent(default_agent, user_agent)
+    merged = _merge_agent(merged, user_agent)
 
     # merge with project agent if possible
     if project_name:
@@ -121,7 +139,7 @@ def load_agent_data(name: str, project_name: str | None = None) -> SubAgent:
 
     if merged is None:
         raise FileNotFoundError(
-            f"Agent '{name}' not found in default or custom directories"
+            f"Agent '{name}' not found in default, plugin, or custom directories"
         )
 
     return merged
@@ -222,9 +240,13 @@ def _merge_agent_list_items(
 
 
 def get_agents_roots() -> list[str]:
+    from python.helpers import plugins
+
+    plugin_agents = plugins.get_plugin_paths("agents")
     project_agents = files.find_existing_paths_by_pattern("usr/projects/*/.a0proj/agents")
     paths = [
         files.get_abs_path(DEFAULT_AGENTS_DIR),
+        *plugin_agents,
         files.get_abs_path(USER_AGENTS_DIR),
         *project_agents,
     ]
@@ -249,6 +271,8 @@ def get_all_agents_list() -> list[dict[str, str]]:
             return "project"
         if rel.startswith("usr/agents"):
             return "user"
+        if "/plugins/" in rel or rel.startswith("plugins/"):
+            return "plugin"
         return "default"
 
     merged: dict[str, SubAgentListItem] = {}
@@ -304,10 +328,11 @@ def get_paths(
     include_project: bool = True,
     include_user: bool = True,
     include_default: bool = True,
+    include_plugins: bool = False,
     default_root: str = "",
 ) -> list[str]:
     """Returns list of file paths for the given agent and subpaths, searched in order of priority:
-    project/agents/, project/, usr/agents/, agents/, usr/, default."""
+    project/agents/, project/, usr/agents/, plugin agents/, agents/, usr/, plugins/, default."""
     paths: list[str] = []
     check_subpaths = subpaths if must_exist_completely else []
     profile_name = agent.config.profile if agent and agent.config.profile else ""
@@ -339,6 +364,13 @@ def get_paths(
         if (not must_exist_completely) or files.exists(files.get_abs_path(USER_AGENTS_DIR, profile_name, *check_subpaths)):
             paths.append(path)
 
+        # plugin agents/<profile>/...
+        from python.helpers import plugins
+        for plugin_dir in plugins.get_plugin_paths("agents"):
+            path = files.get_abs_path(plugin_dir, profile_name, *subpaths)
+            if (not must_exist_completely) or files.exists(files.get_abs_path(plugin_dir, profile_name, *check_subpaths)):
+                paths.append(path)
+
         # agents/<profile>/...
         path = files.get_abs_path(DEFAULT_AGENTS_DIR, profile_name, *subpaths)
         if (not must_exist_completely) or files.exists(files.get_abs_path(DEFAULT_AGENTS_DIR, profile_name, *check_subpaths)):
@@ -349,6 +381,16 @@ def get_paths(
         path = files.get_abs_path(USER_DIR, *subpaths)
         if (not must_exist_completely) or files.exists(path):
             paths.append(path)
+
+    if include_plugins:
+        # plugins/*/subpaths...
+        from python.helpers import plugins
+
+        for plugin in plugins.list_plugins():
+            path = files.get_abs_path(str(plugin.path), *subpaths)
+            if (not must_exist_completely) or files.exists(path):
+                if path not in paths:
+                    paths.append(path)
 
     if include_default:
         # default_root/...

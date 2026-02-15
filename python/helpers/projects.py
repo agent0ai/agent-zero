@@ -477,14 +477,8 @@ def create_project_meta_folders(name: str):
     # create instructions folder
     files.create_dir(get_project_meta_folder(name, PROJECT_INSTRUCTIONS_DIR))
 
-    # create knowledge folders
+    # create knowledge folders (plugins create their own subdirs lazily)
     files.create_dir(get_project_meta_folder(name, PROJECT_KNOWLEDGE_DIR))
-    from python.helpers import memory
-
-    for memory_type in memory.Memory.Area:
-        files.create_dir(
-            get_project_meta_folder(name, PROJECT_KNOWLEDGE_DIR, memory_type.value)
-        )
 
 
 def get_knowledge_files_count(name: str):

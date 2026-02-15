@@ -23,9 +23,9 @@ import os, json
 import numpy as np
 
 from python.helpers.print_style import PrintStyle
-from . import files
+from python.helpers import files
 from langchain_core.documents import Document
-from python.helpers import knowledge_import
+from . import knowledge_import
 from python.helpers.log import Log, LogItem
 from enum import Enum
 from agent import Agent, AgentContext
