@@ -9,6 +9,48 @@ class RateLimiter:
         self.limits = {key: value if isinstance(value, (int, float)) else 0 for key, value in (limits or {}).items()}
         self.values = {key: [] for key in self.limits.keys()}
         self._lock = asyncio.Lock()
+        self._concurrent_limit = 0
+        self._semaphore: asyncio.Semaphore | None = None
+        self._semaphore_loop_id: int | None = None
+
+    def _get_current_loop_id(self) -> int:
+        """Get ID of the current running event loop."""
+        return id(asyncio.get_running_loop())
+
+    def _ensure_semaphore(self) -> asyncio.Semaphore | None:
+        """Ensure we have a Semaphore bound to the current event loop."""
+        if self._concurrent_limit <= 0:
+            return None
+        loop_id = self._get_current_loop_id()
+        if self._semaphore_loop_id != loop_id:
+            self._semaphore = asyncio.Semaphore(self._concurrent_limit)
+            self._semaphore_loop_id = loop_id
+        return self._semaphore
+
+    def set_concurrent_limit(self, limit: int):
+        """Set the maximum number of concurrent requests allowed."""
+        if limit != self._concurrent_limit:
+            self._concurrent_limit = limit
+            self._semaphore = None  # Reset to be recreated lazily
+
+    async def acquire(self, callback: Callable[[str, str, int, int], Awaitable[bool]] | None = None):
+        """Acquire a semaphore slot, waiting if concurrent limit is reached."""
+        semaphore = self._ensure_semaphore()
+        if semaphore:
+            if semaphore._value == 0 and callback:
+                total = self._concurrent_limit - semaphore._value
+                msg = f"Concurrent request limit reached ({total}/{self._concurrent_limit}), waiting..."
+                await callback(msg, "concurrent", total, self._concurrent_limit)
+            await semaphore.acquire()
+
+    def release(self):
+        """Release a semaphore slot, allowing another request to proceed."""
+        semaphore = self._semaphore  # Use cached, don't create new
+        if semaphore:
+            try:
+                semaphore.release()
+            except ValueError:
+                pass
 
     def add(self, **kwargs: int):
         now = time.time()

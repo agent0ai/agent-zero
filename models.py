@@ -76,6 +76,7 @@ class ModelConfig:
     limit_requests: int = 0
     limit_input: int = 0
     limit_output: int = 0
+    limit_concurrent: int = 0
     vision: bool = False
     kwargs: dict = field(default_factory=dict)
 
@@ -215,13 +216,14 @@ def get_api_key(service: str) -> str:
 
 
 def get_rate_limiter(
-    provider: str, name: str, requests: int, input: int, output: int
+    provider: str, name: str, requests: int, input: int, output: int, concurrent: int = 0
 ) -> RateLimiter:
     key = f"{provider}\\{name}"
     rate_limiters[key] = limiter = rate_limiters.get(key, RateLimiter(seconds=60))
     limiter.limits["requests"] = requests or 0
     limiter.limits["input"] = input or 0
     limiter.limits["output"] = output or 0
+    limiter.set_concurrent_limit(concurrent or 0)
     return limiter
 
 
@@ -265,10 +267,12 @@ async def apply_rate_limiter(
         model_config.limit_requests,
         model_config.limit_input,
         model_config.limit_output,
+        model_config.limit_concurrent,
     )
     limiter.add(input=approximate_tokens(input_text))
     limiter.add(requests=1)
     await limiter.wait(rate_limiter_callback)
+    await limiter.acquire(rate_limiter_callback)
     return limiter
 
 
@@ -490,10 +494,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
         # convert to litellm format
         msgs_conv = self._convert_messages(messages, explicit_caching=explicit_caching)
 
-        # Apply rate limiting if configured
-        limiter = await apply_rate_limiter(
-            self.a0_model_conf, str(msgs_conv), rate_limiter_callback
-        )
 
         # Prepare call kwargs and retry config (strip A0-only params before calling LiteLLM)
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
@@ -506,6 +506,10 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
         attempt = 0
         while True:
+            # Apply rate limiting if configured
+            limiter = await apply_rate_limiter(
+                self.a0_model_conf, str(msgs_conv), rate_limiter_callback
+            )
             got_any_chunk = False
             try:
                 # call model
@@ -570,6 +574,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
                     raise
                 attempt += 1
                 await asyncio.sleep(retry_delay_s)
+            finally:
+                if limiter:
+                    limiter.release()
 
 
 class AsyncAIChatReplacement:
@@ -625,7 +632,7 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
         **kwargs: Any,
     ):
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self._wrapper.a0_model_conf, str(messages))
+        limiter = apply_rate_limiter_sync(self._wrapper.a0_model_conf, str(messages))
 
         # Call the model
         try:
@@ -655,6 +662,9 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
 
         except Exception as e:
             raise e
+        finally:
+            if limiter:
+                limiter.release()
 
         # another hack for browser-use post process invalid jsons
         try:
@@ -685,21 +695,27 @@ class LiteLLMEmbeddingWrapper(Embeddings):
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
-
-        resp = embedding(model=self.model_name, input=texts, **self.kwargs)
-        return [
-            item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
-            for item in resp.data  # type: ignore
-        ]
+        limiter = apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+        try:
+            resp = embedding(model=self.model_name, input=texts, **self.kwargs)
+            return [
+                item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
+                for item in resp.data  # type: ignore
+            ]
+        finally:
+            if limiter:
+                limiter.release()
 
     def embed_query(self, text: str) -> List[float]:
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, text)
-
-        resp = embedding(model=self.model_name, input=[text], **self.kwargs)
-        item = resp.data[0]  # type: ignore
-        return item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
+        limiter = apply_rate_limiter_sync(self.a0_model_conf, text)
+        try:
+            resp = embedding(model=self.model_name, input=[text], **self.kwargs)
+            item = resp.data[0]  # type: ignore
+            return item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
+        finally:
+            if limiter:
+                limiter.release()
 
 
 class LocalSentenceTransformerWrapper(Embeddings):

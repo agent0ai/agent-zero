@@ -63,6 +63,7 @@ class Settings(TypedDict):
     chat_model_rl_requests: int
     chat_model_rl_input: int
     chat_model_rl_output: int
+    chat_model_rl_concurrent: int
 
     util_model_provider: str
     util_model_name: str
@@ -73,6 +74,7 @@ class Settings(TypedDict):
     util_model_rl_requests: int
     util_model_rl_input: int
     util_model_rl_output: int
+    util_model_rl_concurrent: int
 
     embed_model_provider: str
     embed_model_name: str
@@ -80,6 +82,7 @@ class Settings(TypedDict):
     embed_model_kwargs: dict[str, Any]
     embed_model_rl_requests: int
     embed_model_rl_input: int
+    embed_model_rl_concurrent: int
 
     browser_model_provider: str
     browser_model_name: str
@@ -88,6 +91,7 @@ class Settings(TypedDict):
     browser_model_rl_requests: int
     browser_model_rl_input: int
     browser_model_rl_output: int
+    browser_model_rl_concurrent: int
     browser_model_kwargs: dict[str, Any]
     browser_http_headers: dict[str, Any]
 
@@ -523,6 +527,7 @@ def get_default_settings() -> Settings:
         chat_model_rl_requests=get_default_value("chat_model_rl_requests", 0),
         chat_model_rl_input=get_default_value("chat_model_rl_input", 0),
         chat_model_rl_output=get_default_value("chat_model_rl_output", 0),
+        chat_model_rl_concurrent=get_default_value("chat_model_rl_concurrent", 0),
         util_model_provider=get_default_value("util_model_provider", "openrouter"),
         util_model_name=get_default_value("util_model_name", "google/gemini-3-flash-preview"),
         util_model_api_base=get_default_value("util_model_api_base", ""),
@@ -532,12 +537,14 @@ def get_default_settings() -> Settings:
         util_model_rl_requests=get_default_value("util_model_rl_requests", 0),
         util_model_rl_input=get_default_value("util_model_rl_input", 0),
         util_model_rl_output=get_default_value("util_model_rl_output", 0),
+        util_model_rl_concurrent=get_default_value("util_model_rl_concurrent", 0),
         embed_model_provider=get_default_value("embed_model_provider", "huggingface"),
         embed_model_name=get_default_value("embed_model_name", "sentence-transformers/all-MiniLM-L6-v2"),
         embed_model_api_base=get_default_value("embed_model_api_base", ""),
         embed_model_kwargs=get_default_value("embed_model_kwargs", {}),
         embed_model_rl_requests=get_default_value("embed_model_rl_requests", 0),
         embed_model_rl_input=get_default_value("embed_model_rl_input", 0),
+        embed_model_rl_concurrent=get_default_value("embed_model_rl_concurrent", 0),
         browser_model_provider=get_default_value("browser_model_provider", "openrouter"),
         browser_model_name=get_default_value("browser_model_name", "google/gemini-3-pro-preview"),
         browser_model_api_base=get_default_value("browser_model_api_base", ""),
@@ -545,6 +552,7 @@ def get_default_settings() -> Settings:
         browser_model_rl_requests=get_default_value("browser_model_rl_requests", 0),
         browser_model_rl_input=get_default_value("browser_model_rl_input", 0),
         browser_model_rl_output=get_default_value("browser_model_rl_output", 0),
+        browser_model_rl_concurrent=get_default_value("browser_model_rl_concurrent", 0),
         browser_model_kwargs=get_default_value("browser_model_kwargs", {}),
         browser_http_headers=get_default_value("browser_http_headers", {}),
         memory_recall_enabled=get_default_value("memory_recall_enabled", True),
