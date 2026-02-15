@@ -1,0 +1,464 @@
+<html>
+
+<head>
+  <script type="module">
+    import { store } from "/components/chat/split-view/split-view-store.js";
+    import { marked } from "/vendor/marked/marked.esm.js";
+
+    // Expose marked for use in Alpine expressions
+    globalThis._splitViewMarked = marked;
+  </script>
+</head>
+
+<body>
+  <div x-data="{
+    renderMarkdown(content) {
+      if (!content) return '';
+      return globalThis._splitViewMarked.parse(content, { breaks: true });
+    },
+    escapeHtml(text) {
+      if (!text) return '';
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    },
+    renderMsg(msg) {
+      if (msg.type === 'response') return this.renderMarkdown(msg.content);
+      return this.escapeHtml(msg.content || msg.heading || '');
+    }
+  }">
+    <template x-if="$store.splitView">
+      <div class="split-view-container" x-show="$store.splitView.active"
+        x-destroy="$store.splitView.cleanup()">
+
+        <div class="split-header">
+          <div class="split-header-left">
+            <span class="material-symbols-outlined">compare</span>
+            <span>Comparing chats</span>
+            <template x-if="$store.splitView.forkPoint !== null">
+              <span class="split-fork-badge">
+                <span class="material-symbols-outlined" style="font-size: 14px;">call_split</span>
+                <span x-text="'Fork at message #' + $store.splitView.forkPoint"></span>
+              </span>
+            </template>
+          </div>
+          <button class="btn-sm" @click="$store.splitView.closeSplit()" title="Close split view">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <!-- Loading state -->
+        <template x-if="$store.splitView.loading">
+          <div class="split-loading">
+            <div class="split-loading-spinner"></div>
+            <span>Loading messages...</span>
+          </div>
+        </template>
+
+        <!-- Error state -->
+        <template x-if="$store.splitView.error">
+          <div class="split-error">
+            <span class="material-symbols-outlined">error</span>
+            <span x-text="$store.splitView.error"></span>
+          </div>
+        </template>
+
+        <!-- Panes -->
+        <div class="split-panes" x-show="!$store.splitView.loading">
+
+          <!-- Left pane (Original) -->
+          <div class="split-pane split-pane-left">
+            <div class="pane-label">
+              <span>Original</span>
+              <span class="pane-msg-count"
+                x-text="$store.splitView.getDisplayMessages('left').length + ' messages'"></span>
+            </div>
+            <div class="pane-messages" id="split-left-messages">
+              <template x-if="$store.splitView.getDisplayMessages('left').length === 0 && !$store.splitView.loading">
+                <p class="split-placeholder">No messages</p>
+              </template>
+              <template x-for="msg in $store.splitView.getDisplayMessages('left')" :key="msg.no">
+                <div class="split-msg"
+                  :class="{
+                    'split-msg-user': msg.type === 'user',
+                    'split-msg-response': msg.type === 'response',
+                    'split-msg-shared': $store.splitView.getMessageClass(msg) === 'shared',
+                    'split-msg-divergent': $store.splitView.getMessageClass(msg) === 'divergent',
+                  }">
+                  <!-- Fork point indicator -->
+                  <template x-if="$store.splitView.forkPoint !== null && msg.no === $store.splitView.forkPoint">
+                    <div class="split-fork-indicator">
+                      <div class="split-fork-line"></div>
+                      <span class="split-fork-label">
+                        <span class="material-symbols-outlined" style="font-size: 14px;">call_split</span>
+                        Fork point
+                      </span>
+                      <div class="split-fork-line"></div>
+                    </div>
+                  </template>
+                  <div class="split-msg-header">
+                    <span class="split-msg-icon material-symbols-outlined"
+                      x-text="msg.type === 'user' ? 'person' : 'smart_toy'"></span>
+                    <span class="split-msg-type" x-text="msg.type === 'user' ? 'User' : 'Response'"></span>
+                    <span class="split-msg-no" x-text="'#' + msg.no"></span>
+                  </div>
+                  <div class="split-msg-content"
+                    x-html="renderMsg(msg)">
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="split-divider"></div>
+
+          <!-- Right pane (Fork) -->
+          <div class="split-pane split-pane-right">
+            <div class="pane-label">
+              <span>Fork</span>
+              <span class="pane-msg-count"
+                x-text="$store.splitView.getDisplayMessages('right').length + ' messages'"></span>
+            </div>
+            <div class="pane-messages" id="split-right-messages">
+              <template x-if="$store.splitView.getDisplayMessages('right').length === 0 && !$store.splitView.loading">
+                <p class="split-placeholder">No messages</p>
+              </template>
+              <template x-for="msg in $store.splitView.getDisplayMessages('right')" :key="msg.no">
+                <div class="split-msg"
+                  :class="{
+                    'split-msg-user': msg.type === 'user',
+                    'split-msg-response': msg.type === 'response',
+                    'split-msg-shared': $store.splitView.getMessageClass(msg) === 'shared',
+                    'split-msg-divergent': $store.splitView.getMessageClass(msg) === 'divergent',
+                  }">
+                  <!-- Fork point indicator -->
+                  <template x-if="$store.splitView.forkPoint !== null && msg.no === $store.splitView.forkPoint">
+                    <div class="split-fork-indicator">
+                      <div class="split-fork-line"></div>
+                      <span class="split-fork-label">
+                        <span class="material-symbols-outlined" style="font-size: 14px;">call_split</span>
+                        Fork point
+                      </span>
+                      <div class="split-fork-line"></div>
+                    </div>
+                  </template>
+                  <div class="split-msg-header">
+                    <span class="split-msg-icon material-symbols-outlined"
+                      x-text="msg.type === 'user' ? 'person' : 'smart_toy'"></span>
+                    <span class="split-msg-type" x-text="msg.type === 'user' ? 'User' : 'Response'"></span>
+                    <span class="split-msg-no" x-text="'#' + msg.no"></span>
+                  </div>
+                  <div class="split-msg-content"
+                    x-html="renderMsg(msg)">
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .split-view-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2000;
+      background: var(--color-background);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .split-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-panel);
+      flex-shrink: 0;
+    }
+
+    .split-header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+    }
+
+    .split-header-left .material-symbols-outlined {
+      font-size: 20px;
+    }
+
+    .split-fork-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--color-accent);
+      color: var(--color-background);
+      font-size: var(--font-size-small);
+      font-weight: 500;
+    }
+
+    /* Loading */
+    .split-loading {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: var(--color-secondary);
+    }
+
+    .split-loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-accent);
+      border-radius: 50%;
+      animation: split-spin 0.8s linear infinite;
+    }
+
+    @keyframes split-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Error */
+    .split-error {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      margin: 1rem;
+      border-radius: 8px;
+      background: rgba(220, 50, 50, 0.1);
+      color: var(--color-error, #dc3232);
+    }
+
+    /* Panes */
+    .split-panes {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .split-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .split-divider {
+      width: 1px;
+      background: var(--color-border);
+      flex-shrink: 0;
+    }
+
+    .pane-label {
+      padding: 0.5rem 1rem;
+      font-size: var(--font-size-small);
+      font-weight: 600;
+      color: var(--color-secondary);
+      border-bottom: 1px solid var(--color-border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pane-msg-count {
+      font-weight: 400;
+      opacity: 0.6;
+      font-size: 0.75rem;
+    }
+
+    .pane-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .split-placeholder {
+      color: var(--color-secondary);
+      opacity: 0.5;
+      text-align: center;
+      padding-top: 2rem;
+    }
+
+    /* Messages */
+    .split-msg {
+      border-radius: 8px;
+      padding: 0.75rem;
+      transition: opacity var(--transition-speed) ease-in-out;
+    }
+
+    .split-msg-shared {
+      opacity: 0.45;
+    }
+
+    .split-msg-shared:hover {
+      opacity: 0.7;
+    }
+
+    .split-msg-divergent {
+      opacity: 1;
+    }
+
+    .split-msg-user {
+      background: var(--color-input);
+      border: 1px solid var(--color-border);
+    }
+
+    .split-msg-response {
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+    }
+
+    .split-msg-divergent.split-msg-response {
+      border-left: 3px solid var(--color-accent);
+    }
+
+    .split-msg-divergent.split-msg-user {
+      border-left: 3px solid var(--color-primary);
+    }
+
+    .split-msg-header {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+      font-size: var(--font-size-small);
+      color: var(--color-secondary);
+    }
+
+    .split-msg-icon {
+      font-size: 16px;
+    }
+
+    .split-msg-type {
+      font-weight: 600;
+    }
+
+    .split-msg-no {
+      opacity: 0.5;
+      font-size: 0.7rem;
+    }
+
+    .split-msg-content {
+      font-size: var(--font-size-normal);
+      color: var(--color-text);
+      line-height: 1.5;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .split-msg-content p {
+      margin: 0 0 0.5em 0;
+    }
+
+    .split-msg-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    .split-msg-content pre {
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 0.5rem;
+      overflow-x: auto;
+      font-size: 0.85em;
+    }
+
+    .split-msg-content code {
+      background: var(--color-background);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+
+    .split-msg-content pre code {
+      background: none;
+      padding: 0;
+    }
+
+    /* Fork point indicator */
+    .split-fork-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.5rem 0 0.75rem 0;
+    }
+
+    .split-fork-line {
+      flex: 1;
+      height: 1px;
+      background: var(--color-accent);
+      opacity: 0.5;
+    }
+
+    .split-fork-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 10px;
+      background: var(--color-accent);
+      color: var(--color-background);
+      font-size: 0.7rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Button */
+    .btn-sm {
+      background: none;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      color: var(--color-text);
+      padding: 4px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    .btn-sm:hover {
+      background: var(--color-background-hover);
+    }
+
+    .btn-sm .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    /* Responsive: stack panes on narrow screens */
+    @media (max-width: 700px) {
+      .split-panes {
+        flex-direction: column;
+      }
+
+      .split-divider {
+        width: 100%;
+        height: 1px;
+      }
+
+      .split-pane {
+        max-height: 50%;
+      }
+    }
+  </style>
+</body>
+
+</html>
