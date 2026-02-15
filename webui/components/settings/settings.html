@@ -42,18 +42,22 @@
                  :class="{'active': $store.settings.activeTab === 'external'}"
                  @click="$store.settings.switchTab('external')"
                  title="External Services">External Services</div>
-            <div class="settings-tab" 
+            <div class="settings-tab"
                  :class="{'active': $store.settings.activeTab === 'mcp'}"
-                 @click="$store.settings.switchTab('mcp')" 
+                 @click="$store.settings.switchTab('mcp')"
                  title="MCP">MCP/A2A</div>
-            <div class="settings-tab" 
+            <div class="settings-tab"
                  :class="{'active': $store.settings.activeTab === 'developer'}"
-                 @click="$store.settings.switchTab('developer')" 
+                 @click="$store.settings.switchTab('developer')"
                  title="Developer">Developer</div>
             <div class="settings-tab"
                  :class="{'active': $store.settings.activeTab === 'backup'}"
                  @click="$store.settings.switchTab('backup')"
                  title="Backup & Restore">Backup & Restore</div>
+            <div class="settings-tab"
+                 :class="{'active': $store.settings.activeTab === 'observability'}"
+                 @click="$store.settings.switchTab('observability')"
+                 title="Tracing">Tracing</div>
           </div>
         </div>
 
@@ -77,17 +81,20 @@
           <div x-show="$store.settings.activeTab === 'skills'">
             <x-component path="settings/skills/skills-settings.html"></x-component>
           </div>
+          <div x-show="$store.settings.activeTab === 'observability'">
+            <x-component path="settings/observability/observability-settings.html"></x-component>
+          </div>
         </div>
       </div>
 
       <!-- Footer -->
       <div class="modal-footer" data-modal-footer x-show="$store.settings.settings">
-        <button class="btn btn-ok" 
+        <button class="btn btn-ok"
             @click="$store.settings.saveAndClose()"
             :disabled="$store.settings?.isLoading">
         Save
         </button>
-        <button class="btn btn-cancel" 
+        <button class="btn btn-cancel"
                 @click="$store.settings.closeSettings()">
           Cancel
         </button>
@@ -139,4 +146,3 @@
   to { transform: rotate(360deg); }
 }
 </style>
-

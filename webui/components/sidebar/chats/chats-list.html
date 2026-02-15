@@ -28,12 +28,30 @@
                 <div class="chat-list-button">
                   <span :class="{'project-color-ball': true, 'heartbeat': context.running}"
                     :style="context.project?.color ? { backgroundColor: context.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                  <span class="material-symbols-outlined fork-indicator"
+                    x-show="context.fork_info"
+                    title="Forked chat">call_split</span>
                   <span class="chat-name"
                     x-text="context.name ? context.name : 'Chat #' + context.no"></span>
                 </div>
-                <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
-                  <span class="material-symbols-outlined">close</span>
-                </button>
+                <div class="chat-list-actions">
+                  <button class="btn-icon-action chat-list-action-btn" title="Compare with original"
+                    x-show="context.fork_info?.forked_from"
+                    @click.stop="(() => {
+                      const sv = $store.splitView;
+                      if (sv) sv.openSplit(context.fork_info.forked_from, context.id, context.fork_info.fork_point);
+                    })()">
+                    <span class="material-symbols-outlined">compare</span>
+                  </button>
+                  <button class="btn-icon-action chat-list-action-btn" title="Fork chat"
+                    @click.stop="$store.chats.forkChat(context.id)">
+                    <span class="material-symbols-outlined">call_split</span>
+                  </button>
+                  <button class="btn-icon-action chat-list-action-btn" title="Close chat"
+                    @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
               </div>
             </li>
           </template>
@@ -117,6 +135,25 @@
 
     .chat-list-action-btn {
       flex-shrink: 0;
+    }
+
+    .fork-indicator {
+      font-size: 14px;
+      opacity: 0.5;
+      flex-shrink: 0;
+    }
+
+    .chat-list-actions {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .chat-list-actions .chat-list-action-btn {
+      margin-right: 4px;
+    }
+
+    .chat-list-actions .chat-list-action-btn:last-child {
       margin-right: 8px;
     }
 
@@ -124,20 +161,20 @@
       background-color: var(--color-background-hover);
     }
 
-    .device-pointer .chat-container .chat-list-action-btn {
+    .device-pointer .chat-container .chat-list-actions {
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
       transition: opacity 0s;
     }
 
-    .device-pointer .chat-container:hover .chat-list-action-btn {
+    .device-pointer .chat-container:hover .chat-list-actions {
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
     }
 
-    .device-touch .chats-list-container .chat-list-action-btn {
+    .device-touch .chats-list-container .chat-list-actions {
       opacity: 1;
       visibility: visible;
       pointer-events: auto;

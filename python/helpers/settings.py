@@ -158,6 +158,13 @@ class Settings(TypedDict):
 
     update_check_enabled: bool
 
+    # Observability - Langfuse
+    langfuse_enabled: bool
+    langfuse_public_key: str
+    langfuse_secret_key: str
+    langfuse_host: str
+    langfuse_sample_rate: float
+
 
 class PartialSettings(Settings, total=False):
     pass
@@ -320,6 +327,11 @@ def convert_out(settings: Settings) -> SettingsOutput:
         for provider, value in list(out["settings"]["api_keys"].items()):
             if value:
                 out["settings"]["api_keys"][provider] = API_KEY_PLACEHOLDER
+
+    # mask langfuse secret key
+    out["settings"]["langfuse_secret_key"] = (
+        PASSWORD_PLACEHOLDER if settings.get("langfuse_secret_key") else ""
+    )
 
     # normalize certain fields
     for key, value in list(out["settings"].items()):
@@ -485,6 +497,7 @@ def _remove_sensitive_settings(settings: Settings):
     settings["root_password"] = ""
     settings["mcp_server_token"] = ""
     settings["secrets"] = ""
+    settings["langfuse_secret_key"] = ""
 
 
 def _write_sensitive_settings(settings: Settings):
@@ -501,6 +514,10 @@ def _write_sensitive_settings(settings: Settings):
         if runtime.is_dockerized():
             dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, settings["root_password"])
             set_root_password(settings["root_password"])
+
+    # langfuse secret key
+    if settings.get("langfuse_secret_key") and settings["langfuse_secret_key"] != PASSWORD_PLACEHOLDER:
+        dotenv.save_dotenv_value("LANGFUSE_SECRET_KEY", settings["langfuse_secret_key"])
 
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
     secrets_manager = get_default_secrets_manager()
@@ -599,6 +616,11 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
+        langfuse_enabled=get_default_value("langfuse_enabled", False),
+        langfuse_public_key=get_default_value("langfuse_public_key", ""),
+        langfuse_secret_key="",
+        langfuse_host=get_default_value("langfuse_host", "https://cloud.langfuse.com"),
+        langfuse_sample_rate=get_default_value("langfuse_sample_rate", 1.0),
     )
 
 
@@ -632,6 +654,13 @@ def _apply_settings(previous: Settings | None):
             from python.helpers.memory import reload as memory_reload
 
             memory_reload()
+
+        # reset langfuse client to pick up new credentials
+        try:
+            from python.helpers.langfuse_helper import reset_client
+            reset_client()
+        except ImportError:
+            pass
 
         # update mcp settings if necessary
         if not previous or _settings["mcp_servers"] != previous["mcp_servers"]:

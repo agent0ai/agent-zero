@@ -1,0 +1,570 @@
+<html>
+<head>
+    <title>Trace Viewer</title>
+    <script type="module">
+        import { store } from "/components/modals/trace-viewer/trace-viewer-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.traceViewer">
+            <div class="trace-viewer"
+                 x-destroy="$store.traceViewer.cleanup()">
+
+                <!-- Loading -->
+                <div x-show="$store.traceViewer.loading" class="trace-loading">
+                    <span class="material-symbols-outlined spinning">progress_activity</span>
+                    <span>Loading trace...</span>
+                </div>
+
+                <!-- Error -->
+                <div x-show="$store.traceViewer.error" class="trace-error">
+                    <span class="material-symbols-outlined">error</span>
+                    <span x-text="$store.traceViewer.error"></span>
+                </div>
+
+                <!-- Content -->
+                <div x-show="!$store.traceViewer.loading && !$store.traceViewer.error && $store.traceViewer.trace">
+
+                    <!-- Trace Summary -->
+                    <div class="trace-summary">
+                        <div class="trace-summary-row">
+                            <div class="trace-stat">
+                                <span class="trace-stat-label">Latency</span>
+                                <span class="trace-stat-value"
+                                      x-text="$store.traceViewer.trace?.latency != null
+                                        ? $store.traceViewer.trace.latency.toFixed(2) + 's'
+                                        : '-'"></span>
+                            </div>
+                            <div class="trace-stat">
+                                <span class="trace-stat-label">Cost</span>
+                                <span class="trace-stat-value"
+                                      x-text="$store.traceViewer.trace?.total_cost != null
+                                        ? '$' + $store.traceViewer.trace.total_cost.toFixed(4)
+                                        : '-'"></span>
+                            </div>
+                            <div class="trace-stat">
+                                <span class="trace-stat-label">Observations</span>
+                                <span class="trace-stat-value"
+                                      x-text="$store.traceViewer.observations.length"></span>
+                            </div>
+                            <template x-if="$store.traceViewer.traceUrl">
+                                <a class="trace-link"
+                                   :href="$store.traceViewer.traceUrl"
+                                   target="_blank" rel="noopener noreferrer">
+                                    <span class="material-symbols-outlined">open_in_new</span>
+                                    Open in Langfuse
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- View Toggle -->
+                    <div class="trace-tabs">
+                        <button class="trace-tab"
+                                :class="{'active': $store.traceViewer.diagramMode === 'tree'}"
+                                @click="$store.traceViewer.switchDiagram('tree')">
+                            <span class="material-symbols-outlined">account_tree</span>
+                            Tree
+                        </button>
+                        <button class="trace-tab"
+                                :class="{'active': $store.traceViewer.diagramMode === 'sequence'}"
+                                @click="$store.traceViewer.switchDiagram('sequence')">
+                            <span class="material-symbols-outlined">swap_vert</span>
+                            Sequence
+                        </button>
+                    </div>
+
+                    <!-- Mermaid Diagram -->
+                    <div class="trace-diagram"
+                         x-show="$store.traceViewer.diagramSvg"
+                         x-html="$store.traceViewer.diagramSvg">
+                    </div>
+
+                    <!-- Observation Table -->
+                    <div class="trace-table-container">
+                        <table class="trace-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:30px"></th>
+                                    <th style="width:100px">Type</th>
+                                    <th>Name</th>
+                                    <th style="width:140px">Model</th>
+                                    <th style="width:90px">Tokens</th>
+                                    <th style="width:80px">Latency</th>
+                                    <th style="width:75px">Cost</th>
+                                </tr>
+                            </thead>
+                                <template x-for="obs in $store.traceViewer.observations" :key="obs.id">
+                                    <tbody>
+                                        <tr :class="[$store.traceViewer.typeClass(obs), {'obs-row-selected': $store.traceViewer.isSelected(obs.id)}]"
+                                            class="obs-row-clickable"
+                                            @click="$store.traceViewer.toggleObservation(obs.id)">
+                                            <td class="obs-expand">
+                                                <span class="material-symbols-outlined obs-chevron"
+                                                      :class="{'obs-chevron-open': $store.traceViewer.isSelected(obs.id)}"
+                                                      >chevron_right</span>
+                                            </td>
+                                            <td class="obs-type">
+                                                <span class="material-symbols-outlined obs-icon"
+                                                      x-text="$store.traceViewer.typeIcon(obs)"></span>
+                                                <span x-text="obs.type"></span>
+                                            </td>
+                                            <td class="obs-name" x-text="obs.name"></td>
+                                            <td class="obs-model" x-text="obs.model || '-'"></td>
+                                            <td class="obs-tokens" x-text="$store.traceViewer.formatTokens(obs)"></td>
+                                            <td class="obs-latency" x-text="$store.traceViewer.formatDuration(obs)"></td>
+                                            <td class="obs-cost" x-text="$store.traceViewer.formatCost(obs)"></td>
+                                        </tr>
+                                        <tr x-show="$store.traceViewer.isSelected(obs.id)" class="obs-detail-row">
+                                            <td colspan="7" class="obs-detail-cell">
+                                                <div class="obs-detail">
+                                                    <!-- Timing bar -->
+                                                    <div class="obs-detail-meta">
+                                                        <div class="obs-detail-meta-item">
+                                                            <span class="obs-detail-label">Start</span>
+                                                            <span class="obs-detail-value" x-text="$store.traceViewer.formatTimestamp(obs.start_time)"></span>
+                                                        </div>
+                                                        <div class="obs-detail-meta-item">
+                                                            <span class="obs-detail-label">End</span>
+                                                            <span class="obs-detail-value" x-text="$store.traceViewer.formatTimestamp(obs.end_time)"></span>
+                                                        </div>
+                                                        <div class="obs-detail-meta-item" x-show="obs.level && obs.level !== 'DEFAULT'">
+                                                            <span class="obs-detail-label">Level</span>
+                                                            <span class="obs-detail-value" x-text="obs.level"></span>
+                                                        </div>
+                                                        <template x-if="obs.calculated_input_cost != null">
+                                                            <div class="obs-detail-meta-item">
+                                                                <span class="obs-detail-label">Input Cost</span>
+                                                                <span class="obs-detail-value" x-text="'$' + obs.calculated_input_cost.toFixed(6)"></span>
+                                                            </div>
+                                                        </template>
+                                                        <template x-if="obs.calculated_output_cost != null">
+                                                            <div class="obs-detail-meta-item">
+                                                                <span class="obs-detail-label">Output Cost</span>
+                                                                <span class="obs-detail-value" x-text="'$' + obs.calculated_output_cost.toFixed(6)"></span>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+
+                                                    <!-- Input (Prompt) -->
+                                                    <template x-if="obs.input != null">
+                                                        <div class="obs-detail-section">
+                                                            <div class="obs-detail-section-header">
+                                                                <span class="material-symbols-outlined">input</span>
+                                                                <span x-text="obs.type === 'GENERATION' ? 'Prompt' : 'Input'"></span>
+                                                            </div>
+                                                            <pre class="obs-detail-content" x-text="$store.traceViewer.formatContent(obs.input)"></pre>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Output (Response) -->
+                                                    <template x-if="obs.output != null">
+                                                        <div class="obs-detail-section">
+                                                            <div class="obs-detail-section-header">
+                                                                <span class="material-symbols-outlined">output</span>
+                                                                <span x-text="obs.type === 'GENERATION' ? 'Response' : 'Output'"></span>
+                                                            </div>
+                                                            <pre class="obs-detail-content" x-text="$store.traceViewer.formatContent(obs.output)"></pre>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Metadata -->
+                                                    <template x-if="obs.metadata && Object.keys(obs.metadata).length > 0">
+                                                        <div class="obs-detail-section">
+                                                            <div class="obs-detail-section-header">
+                                                                <span class="material-symbols-outlined">data_object</span>
+                                                                <span>Metadata</span>
+                                                            </div>
+                                                            <pre class="obs-detail-content obs-detail-metadata" x-text="JSON.stringify(obs.metadata, null, 2)"></pre>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Prompt Lab button for GENERATION observations -->
+                                                    <div class="obs-detail-actions" x-show="obs.type === 'GENERATION'">
+                                                        <button class="btn btn-ok btn-prompt-lab"
+                                                            @click.stop="$store.traceViewer.openPromptLab(obs.id)">
+                                                            <span class="material-symbols-outlined">auto_awesome</span>
+                                                            Optimize in Prompt Lab
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </template>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </template>
+    </div>
+</body>
+</html>
+
+<style>
+.trace-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-top: 0.5rem;
+}
+
+.trace-loading,
+.trace-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    color: var(--color-text);
+    opacity: 0.8;
+}
+
+.trace-error {
+    color: var(--color-accent, #e74c3c);
+}
+
+.spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Summary */
+.trace-summary {
+    padding: 1rem 1.25rem;
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+}
+
+.trace-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.trace-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.trace-stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    opacity: 0.6;
+    color: var(--color-text);
+}
+
+.trace-stat-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    font-family: 'Roboto Mono', monospace;
+}
+
+.trace-link {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 0.875rem;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
+
+.trace-link:hover {
+    opacity: 1;
+}
+
+.trace-link .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+/* View Toggle */
+.trace-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.trace-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.trace-tab:hover {
+    background: var(--color-panel);
+}
+
+.trace-tab.active {
+    background: var(--color-panel);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.trace-tab .material-symbols-outlined {
+    font-size: 1.1rem;
+}
+
+/* Mermaid Diagram */
+.trace-diagram {
+    padding: 1.5rem;
+    margin-top: 0.25rem;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    text-align: center;
+}
+
+.trace-diagram svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.mermaid-error {
+    color: var(--color-text);
+    opacity: 0.6;
+    font-size: 0.8rem;
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Observation Table */
+.trace-table-container {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+}
+
+.trace-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 0.85rem;
+}
+
+.trace-table th {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    background: var(--color-panel);
+    color: var(--color-text);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    opacity: 0.8;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+
+.trace-table td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trace-table tbody:last-of-type tr.obs-row-clickable td {
+    border-bottom: none;
+}
+
+.obs-type .obs-icon {
+    vertical-align: middle;
+    margin-right: 0.4rem;
+}
+
+.obs-type span {
+    vertical-align: middle;
+}
+
+.obs-icon {
+    font-size: 1rem;
+    opacity: 0.7;
+}
+
+tr.obs-generation .obs-icon { color: #89b4fa; }
+tr.obs-span .obs-icon { color: #a6e3a1; }
+tr.obs-event .obs-icon { color: #f9e2af; }
+
+.obs-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.obs-model {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.obs-tokens,
+.obs-latency,
+.obs-cost {
+    font-family: 'Roboto Mono', monospace;
+    text-align: right;
+}
+
+/* Clickable rows */
+.obs-row-clickable {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.obs-row-clickable:hover {
+    background: var(--color-panel);
+}
+
+.obs-row-selected {
+    background: var(--color-panel) !important;
+}
+
+.obs-expand {
+    width: 1.5rem;
+    padding-left: 0.5rem !important;
+    padding-right: 0 !important;
+}
+
+.obs-chevron {
+    font-size: 1rem;
+    opacity: 0.5;
+    transition: transform 0.2s;
+    display: inline-block;
+}
+
+.obs-chevron-open {
+    transform: rotate(90deg);
+    opacity: 0.9;
+}
+
+/* Detail row */
+.obs-detail-row {
+    background: var(--color-background);
+}
+
+.obs-detail-row:hover {
+    background: var(--color-background) !important;
+}
+
+.obs-detail-cell {
+    padding: 0 !important;
+}
+
+.obs-detail {
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-top: 1px solid var(--color-border);
+}
+
+/* Metadata bar */
+.obs-detail-meta {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.75rem;
+    background: var(--color-panel);
+    border-radius: 0.4rem;
+}
+
+.obs-detail-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.obs-detail-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    opacity: 0.5;
+    color: var(--color-text);
+}
+
+.obs-detail-value {
+    font-size: 0.8rem;
+    font-family: 'Roboto Mono', monospace;
+    color: var(--color-text);
+}
+
+/* Content sections (input/output/metadata) */
+.obs-detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.obs-detail-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-transform: uppercase;
+}
+
+.obs-detail-section-header .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+.obs-detail-content {
+    margin: 0;
+    padding: 0.75rem;
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    color: var(--color-text);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.obs-detail-metadata {
+    max-height: 150px;
+    opacity: 0.8;
+}
+
+/* Prompt Lab action button */
+.obs-detail-actions {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.btn-prompt-lab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--font-size-small);
+}
+
+.btn-prompt-lab .material-symbols-outlined {
+    font-size: 18px;
+}
+</style>

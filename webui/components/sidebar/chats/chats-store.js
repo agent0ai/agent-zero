@@ -171,6 +171,32 @@ const model = {
     }
   },
 
+  // Fork a chat (optionally at a specific log entry)
+  async forkChat(contextId, forkAtLogNo = null) {
+    if (!contextId) {
+      console.error("No context ID provided for fork");
+      return;
+    }
+
+    try {
+      const payload = { context_id: contextId };
+      if (forkAtLogNo !== null) {
+        payload.fork_at_log_no = forkAtLogNo;
+      }
+
+      const response = await sendJsonData("/chat_fork", payload);
+
+      if (response.success) {
+        this.selectChat(response.context_id);
+        justToast("Chat forked successfully", "success", 1500, "chat-fork");
+      } else {
+        toast(response.error || "Fork failed", "error");
+      }
+    } catch (e) {
+      toastFetchError("Error forking chat", e);
+    }
+  },
+
   deselectChat(){
     globalThis.deselectChat(); //TODO move here
   },

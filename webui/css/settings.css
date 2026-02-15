@@ -314,10 +314,6 @@ nav ul li a img {
 
 .settings-tab.active {
   border-color: var(--color-border);
-  /* box-shadow:
-    0 -4px 8px -2px var(--color-border),
-    4px 0 8px -2px var(--color-border),
-    -4px 0 8px -2px var(--color-border); */
   font-weight: bold;
   background-color: var(--color-panel);
   min-width: min-content;
