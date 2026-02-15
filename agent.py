@@ -931,8 +931,18 @@ class Agent:
                 finally:
                     self.loop_data.current_tool = None
             else:
+                # Enhanced error handling for tool not found
+                available_tools = []
+                for tool_name_check, tool_instance_check in self.tools.items():
+                    if hasattr(tool_instance_check, "execute"):
+                        available_tools.append(tool_name_check)
+                    else:
+                        for attr in dir(tool_instance_check):
+                            if not attr.startswith("_") and callable(getattr(tool_instance_check, attr)):
+                                available_tools.append(f"{tool_name_check}:{attr}")
                 error_detail = (
-                    f"Tool '{raw_tool_name}' not found or could not be initialized."
+                    f"Tool '{raw_tool_name}' not found. "
+                    f"Available tools: {', '.join(self.tools.keys())}"
                 )
                 self.hist_add_warning(error_detail)
                 PrintStyle(font_color="red", padding=True).print(error_detail)
