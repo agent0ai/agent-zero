@@ -17,7 +17,7 @@
       </button>
 
       <!-- Memory -->
-      <button class="config-button" id="memory-dash" @click="openModal('../plugins/memory/ui/memory-dashboard.html')" title="Memory">
+      <button class="config-button" id="memory-dash" @click="openModal('../plugins/memory/extensions/frontend/memory_dashboard/memory-dashboard.html')" title="Memory">
         <span class="material-symbols-outlined">psychology</span>
       </button>
 
@@ -53,12 +53,7 @@
         <span class="material-symbols-outlined">snippet_folder</span>
         <span>Projects</span>
       </button>
-      
-      <button class="dropdown-item" @click="openModal('../plugins/memory/ui/memory-dashboard.html'); dropdownOpen = false">
-        <span class="material-symbols-outlined">psychology</span>
-        <span>Memories</span>
-      </button>
-      
+            
       <button class="dropdown-item" @click="openModal('modals/scheduler/scheduler-modal.html'); dropdownOpen = false">
         <span class="material-symbols-outlined">schedule</span>
         <span>Scheduler</span>

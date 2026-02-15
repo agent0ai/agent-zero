@@ -1,8 +1,5 @@
 from python.helpers.api import ApiHandler, Request, Response
-from python.helpers import files, notification, projects, notification
-from python.helpers.plugins import import_plugin_module
-memory = import_plugin_module("memory", "helpers/memory.py")
-import os
+from plugins.memory.helpers.memory import Memory
 
 
 class ReindexKnowledge(ApiHandler):
@@ -13,7 +10,7 @@ class ReindexKnowledge(ApiHandler):
         context = self.use_context(ctxid)
 
         # reload memory to re-import knowledge
-        await memory.Memory.reload(context.agent0)
+        await Memory.reload(context.agent0)
         context.log.set_initial_progress()
 
         return {

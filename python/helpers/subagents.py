@@ -57,13 +57,14 @@ def get_agents_dict(
             )
         return merged
 
+    from python.helpers import plugins
+
     # load default, plugin, and custom agents and merge
     default_agents = _get_agents_list_from_dir(DEFAULT_AGENTS_DIR, origin="default")
     merged: dict[str, SubAgentListItem] = dict(default_agents)
 
     # merge with plugin agents
-    from python.helpers import plugins
-    for plugin_dir in reversed(plugins.get_plugin_paths("agent")):
+    for plugin_dir in plugins.get_plugin_paths("agents"):
         plugin_agents = _get_agents_list_from_dir(plugin_dir, origin="plugin")
         merged = _merge_agent_dicts(merged, plugin_agents)
 
@@ -110,6 +111,8 @@ def load_agent_data(name: str, project_name: str | None = None) -> SubAgent:
             return original
         return override
 
+    from python.helpers import plugins
+
     # load default, plugin, and user agents and merge
     default_agent = _load_agent_data_from_dir(
         DEFAULT_AGENTS_DIR, name, origin="default"
@@ -117,8 +120,7 @@ def load_agent_data(name: str, project_name: str | None = None) -> SubAgent:
     merged = default_agent
 
     # merge with plugin agents
-    from python.helpers import plugins
-    for plugin_dir in reversed(plugins.get_plugin_paths("agent")):
+    for plugin_dir in plugins.get_plugin_paths("agents"):
         plugin_agent = _load_agent_data_from_dir(plugin_dir, name, origin="plugin")
         merged = _merge_agent(merged, plugin_agent)
 
@@ -240,7 +242,7 @@ def _merge_agent_list_items(
 def get_agents_roots() -> list[str]:
     from python.helpers import plugins
 
-    plugin_agents = list(reversed(plugins.get_plugin_paths("agent")))
+    plugin_agents = plugins.get_plugin_paths("agents")
     project_agents = files.find_existing_paths_by_pattern("usr/projects/*/.a0proj/agents")
     paths = [
         files.get_abs_path(DEFAULT_AGENTS_DIR),
@@ -326,10 +328,11 @@ def get_paths(
     include_project: bool = True,
     include_user: bool = True,
     include_default: bool = True,
+    include_plugins: bool = False,
     default_root: str = "",
 ) -> list[str]:
     """Returns list of file paths for the given agent and subpaths, searched in order of priority:
-    project/agents/, project/, usr/agents/, agents/, usr/, default."""
+    project/agents/, project/, usr/agents/, plugin agents/, agents/, usr/, plugins/, default."""
     paths: list[str] = []
     check_subpaths = subpaths if must_exist_completely else []
     profile_name = agent.config.profile if agent and agent.config.profile else ""
@@ -363,7 +366,7 @@ def get_paths(
 
         # plugin agents/<profile>/...
         from python.helpers import plugins
-        for plugin_dir in plugins.get_plugin_paths("agent"):
+        for plugin_dir in plugins.get_plugin_paths("agents"):
             path = files.get_abs_path(plugin_dir, profile_name, *subpaths)
             if (not must_exist_completely) or files.exists(files.get_abs_path(plugin_dir, profile_name, *check_subpaths)):
                 paths.append(path)
@@ -378,6 +381,11 @@ def get_paths(
         path = files.get_abs_path(USER_DIR, *subpaths)
         if (not must_exist_completely) or files.exists(path):
             paths.append(path)
+
+    if include_plugins:
+        # plugins/*/subpaths...
+        plugin_paths = plugins.get_plugin_paths(*subpaths)
+        paths.extend(p for p in plugin_paths if p not in paths)
 
     if include_default:
         # default_root/...

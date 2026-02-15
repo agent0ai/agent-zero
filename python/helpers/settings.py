@@ -623,17 +623,17 @@ def _apply_settings(previous: Settings | None):
                 whisper.preload, _settings["stt_model_size"]
             )  # TODO overkill, replace with background task
 
-        # force memory reload on embedding model change
+        # notify plugins of embedding model change
         if not previous or (
             _settings["embed_model_name"] != previous["embed_model_name"]
             or _settings["embed_model_provider"] != previous["embed_model_provider"]
             or _settings["embed_model_kwargs"] != previous["embed_model_kwargs"]
         ):
-            from python.helpers.plugins import import_plugin_module
-            memory = import_plugin_module("memory", "helpers/memory.py")
-            memory_reload = memory.reload
+            from python.helpers.extension import call_extensions
 
-            memory_reload()
+            defer.DeferredTask().start_task(
+                call_extensions, "embedding_model_changed"
+            )
 
         # update mcp settings if necessary
         if not previous or _settings["mcp_servers"] != previous["mcp_servers"]:
