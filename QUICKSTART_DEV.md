@@ -170,7 +170,7 @@ Deploy your local source code to Coolify using the official Kali Linux base imag
 |-----------|-------------|
 | Base Image | `agent0ai/agent-zero-base:latest` (Kali Linux) |
 | Source Code | Your local code (copied instead of cloned from GitHub) |
-| Port | `80` (mapped to external port) |
+| Port | `80` (mapped to external port by Coolify) |
 
 ### Step 1: Push Code to Git Repository
 
@@ -180,42 +180,60 @@ Push your code to a Git repository (GitHub, GitLab, Gitea, etc.) that Coolify ca
 
 In Coolify dashboard:
 
-1. **New Resource** → **Docker Compose** (or **Service** → **Dockerfile**)
+1. **New Resource** → **Docker Compose**
 2. Connect your Git repository
-3. Set the following:
+3. Set **Compose location**: `docker-compose.coolify.yml`
 
-| Setting | Value |
-|---------|-------|
-| Dockerfile | `Dockerfile.coolify` |
-| Or Docker Compose | `docker-compose.coolify.yml` |
-| Port | `80` |
+### Step 3: Configure Domain
 
-### Step 3: Configure Environment Variables
+In Coolify:
+1. Go to your resource → **Configuration** → **Domains**
+2. Add your domain (e.g., `agent-zero.yourdomain.com`)
+3. Enable HTTPS (Coolify handles SSL automatically)
+
+### Step 4: Configure Environment Variables
 
 In Coolify's environment variables section, add:
 
 ```env
-BRANCH=local
-WEB_UI_PORT=80
-WEB_UI_HOST=0.0.0.0
+# CORS - Add your domain
+ALLOWED_ORIGINS=*://yourdomain.com:*,https://yourdomain.com
 
-# Add your API keys
+# Optional: Authentication
+AUTH_LOGIN=admin
+AUTH_PASSWORD=your_secure_password
+
+# Optional: API Keys (or configure in web UI)
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
 API_KEY_OPENAI=sk-your-openai-key-here
+
+# Optional: Telegram Bot
+TELEGRAM_BOT_TOKEN=your_bot_token
 ```
 
-### Step 4: Deploy
+### Step 5: Deploy
 
 Click **Deploy** in Coolify. Your source code will be built using Kali Linux and deployed.
+
+---
 
 ### Files for Coolify
 
 | File | Purpose |
 |------|---------|
 | `Dockerfile.coolify` | Uses Kali base image + your source code |
-| `docker-compose.coolify.yml` | Docker Compose with volume persistence |
+| `docker-compose.coolify.yml` | Docker Compose with health checks, volumes, Traefik labels |
 | `.dockerignore` | Excludes unnecessary files from build |
 | `docker/run/fs/*` | Build scripts (required, included in build) |
+
+### Docker Compose Features
+
+| Feature | Description |
+|---------|-------------|
+| Health check | Monitors `/health` endpoint |
+| Traefik labels | Routes traffic to port 80 |
+| Volume persistence | Data survives container restarts |
+| `shm_size: 2gb` | Required for browser automation |
 
 ### What Gets Built
 
