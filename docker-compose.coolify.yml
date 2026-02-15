@@ -1,0 +1,35 @@
+# Agent Zero - Docker Compose for Coolify
+# Deploy from source code using Kali Linux base image
+
+services:
+  agent-zero:
+    build:
+      context: .
+      dockerfile: Dockerfile.coolify
+    container_name: agent-zero
+    ports:
+      # Web UI
+      - "7080:80"
+      # SSH (optional, for remote code execution)
+      # - "50022:22"
+      # MCP/A2A ports (optional)
+      # - "9000:9000"
+      # - "9001:9001"
+    environment:
+      - BRANCH=local
+      - WEB_UI_PORT=80
+      - WEB_UI_HOST=0.0.0.0
+    env_file:
+      - .env
+    volumes:
+      # Persist agent data and work directory
+      - agent-zero-data:/a0
+      # Persist memory/knowledge
+      - agent-zero-memory:/a0/memory
+    restart: unless-stopped
+    # Required for browser automation
+    shm_size: '2gb'
+
+volumes:
+  agent-zero-data:
+  agent-zero-memory:

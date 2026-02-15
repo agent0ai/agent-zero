@@ -498,6 +498,9 @@ def run():
         except Exception as e:
             PrintStyle.warning(f"Shutdown flush failed ({reason}): {e}")
 
+    # Enable hot reload in development mode
+    reload_enabled = runtime.is_development() and dotenv.get_dotenv_value("HOT_RELOAD", "true").lower() == "true"
+
     config = uvicorn.Config(
         asgi_app,
         host=host,
@@ -505,6 +508,7 @@ def run():
         log_level="info",
         access_log=_settings.get("uvicorn_access_logs_enabled", False),
         ws="wsproto",
+        reload=reload_enabled,
     )
     server = uvicorn.Server(config)
 
