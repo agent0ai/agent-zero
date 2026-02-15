@@ -384,8 +384,13 @@ def get_paths(
 
     if include_plugins:
         # plugins/*/subpaths...
-        plugin_paths = plugins.get_plugin_paths(*subpaths)
-        paths.extend(p for p in plugin_paths if p not in paths)
+        from python.helpers import plugins
+
+        for plugin in plugins.list_plugins():
+            path = files.get_abs_path(str(plugin.path), *subpaths)
+            if (not must_exist_completely) or files.exists(path):
+                if path not in paths:
+                    paths.append(path)
 
     if include_default:
         # default_root/...
