@@ -14,7 +14,7 @@ from typing import (
     TypedDict,
 )
 
-from litellm import completion, acompletion, embedding
+from litellm import EmbeddingResponse, completion, acompletion, embedding
 import litellm
 import openai
 from litellm.types.utils import ModelResponse
@@ -260,7 +260,7 @@ async def apply_rate_limiter(
     ) = None,
 ):
     if not model_config:
-        return
+        return None, None
     limiter = get_rate_limiter(
         model_config.provider,
         model_config.name,
@@ -272,8 +272,8 @@ async def apply_rate_limiter(
     limiter.add(input=approximate_tokens(input_text))
     limiter.add(requests=1)
     await limiter.wait(rate_limiter_callback)
-    await limiter.acquire(rate_limiter_callback)
-    return limiter
+    semaphore = await limiter.acquire(rate_limiter_callback)
+    return limiter, semaphore
 
 
 def apply_rate_limiter_sync(
@@ -284,7 +284,7 @@ def apply_rate_limiter_sync(
     ) = None,
 ):
     if not model_config:
-        return
+        return None, None
     import asyncio, nest_asyncio
 
     nest_asyncio.apply()
@@ -389,17 +389,21 @@ class LiteLLMChatWrapper(SimpleChatModel):
         msgs = self._convert_messages(messages)
 
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, str(msgs))
+        limiter, semaphore = apply_rate_limiter_sync(self.a0_model_conf, str(msgs))
 
-        # Call the model
-        resp = completion(
-            model=self.model_name, messages=msgs, stop=stop, **{**self.kwargs, **kwargs}
-        )
+        try:
+            # Call the model
+            resp = completion(
+                model=self.model_name, messages=msgs, stop=stop, **{**self.kwargs, **kwargs}
+            )
 
-        # Parse output
-        parsed = _parse_chunk(resp)
-        output = ChatGenerationResult(parsed).output()
-        return output["response_delta"]
+            # Parse output
+            parsed = _parse_chunk(resp)
+            output = ChatGenerationResult(parsed).output()
+            return output["response_delta"]
+        finally:
+            if limiter:
+                limiter.release(semaphore)
 
     def _stream(
         self,
@@ -413,26 +417,30 @@ class LiteLLMChatWrapper(SimpleChatModel):
         msgs = self._convert_messages(messages)
 
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, str(msgs))
+        limiter, semaphore = apply_rate_limiter_sync(self.a0_model_conf, str(msgs))
 
-        result = ChatGenerationResult()
+        try:
+            result = ChatGenerationResult()
 
-        for chunk in completion(
-            model=self.model_name,
-            messages=msgs,
-            stream=True,
-            stop=stop,
-            **{**self.kwargs, **kwargs},
-        ):
-            # parse chunk
-            parsed = _parse_chunk(chunk) # chunk parsing
-            output = result.add_chunk(parsed) # chunk processing
+            for chunk in completion(
+                model=self.model_name,
+                messages=msgs,
+                stream=True,
+                stop=stop,
+                **{**self.kwargs, **kwargs},
+            ):
+                # parse chunk
+                parsed = _parse_chunk(chunk) # chunk parsing
+                output = result.add_chunk(parsed) # chunk processing
 
-            # Only yield chunks with non-None content
-            if output["response_delta"]:
-                yield ChatGenerationChunk(
-                    message=AIMessageChunk(content=output["response_delta"])
-                )
+                # Only yield chunks with non-None content
+                if output["response_delta"]:
+                    yield ChatGenerationChunk(
+                        message=AIMessageChunk(content=output["response_delta"])
+                    )
+        finally:
+            if limiter:
+                limiter.release(semaphore)
 
     async def _astream(
         self,
@@ -444,27 +452,31 @@ class LiteLLMChatWrapper(SimpleChatModel):
         msgs = self._convert_messages(messages)
 
         # Apply rate limiting if configured
-        await apply_rate_limiter(self.a0_model_conf, str(msgs))
+        limiter, semaphore = await apply_rate_limiter(self.a0_model_conf, str(msgs))
 
-        result = ChatGenerationResult()
+        try:
+            result = ChatGenerationResult()
 
-        response = await acompletion(
-            model=self.model_name,
-            messages=msgs,
-            stream=True,
-            stop=stop,
-            **{**self.kwargs, **kwargs},
-        )
-        async for chunk in response:  # type: ignore
-            # parse chunk
-            parsed = _parse_chunk(chunk) # chunk parsing
-            output = result.add_chunk(parsed) # chunk processing
+            response = await acompletion(
+                model=self.model_name,
+                messages=msgs,
+                stream=True,
+                stop=stop,
+                **{**self.kwargs, **kwargs},
+            )
+            async for chunk in response:  # type: ignore
+                # parse chunk
+                parsed = _parse_chunk(chunk) # chunk parsing
+                output = result.add_chunk(parsed) # chunk processing
 
-            # Only yield chunks with non-None content
-            if output["response_delta"]:
-                yield ChatGenerationChunk(
-                    message=AIMessageChunk(content=output["response_delta"])
-                )
+                # Only yield chunks with non-None content
+                if output["response_delta"]:
+                    yield ChatGenerationChunk(
+                        message=AIMessageChunk(content=output["response_delta"])
+                    )
+        finally:
+            if limiter:
+                limiter.release(semaphore)
 
     async def unified_call(
         self,
@@ -507,7 +519,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
         attempt = 0
         while True:
             # Apply rate limiting if configured
-            limiter = await apply_rate_limiter(
+            limiter, semaphore = await apply_rate_limiter(
                 self.a0_model_conf, str(msgs_conv), rate_limiter_callback
             )
             got_any_chunk = False
@@ -576,7 +588,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 await asyncio.sleep(retry_delay_s)
             finally:
                 if limiter:
-                    limiter.release()
+                    limiter.release(semaphore)
 
 
 class AsyncAIChatReplacement:
@@ -632,7 +644,7 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
         **kwargs: Any,
     ):
         # Apply rate limiting if configured
-        limiter = apply_rate_limiter_sync(self._wrapper.a0_model_conf, str(messages))
+        limiter, semaphore = await apply_rate_limiter(self._wrapper.a0_model_conf, str(messages))
 
         # Call the model
         try:
@@ -664,7 +676,7 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
             raise e
         finally:
             if limiter:
-                limiter.release()
+                limiter.release(semaphore)
 
         # another hack for browser-use post process invalid jsons
         try:
@@ -695,27 +707,27 @@ class LiteLLMEmbeddingWrapper(Embeddings):
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         # Apply rate limiting if configured
-        limiter = apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+        limiter, semaphore = apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
         try:
-            resp = embedding(model=self.model_name, input=texts, **self.kwargs)
+            resp: EmbeddingResponse = embedding(model=self.model_name, input=texts, **self.kwargs)
             return [
                 item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
                 for item in resp.data  # type: ignore
             ]
         finally:
             if limiter:
-                limiter.release()
+                limiter.release(semaphore)
 
     def embed_query(self, text: str) -> List[float]:
         # Apply rate limiting if configured
-        limiter = apply_rate_limiter_sync(self.a0_model_conf, text)
+        limiter, semaphore = apply_rate_limiter_sync(self.a0_model_conf, text)
         try:
-            resp = embedding(model=self.model_name, input=[text], **self.kwargs)
-            item = resp.data[0]  # type: ignore
+            resp: EmbeddingResponse = embedding(model=self.model_name, input=[text], **self.kwargs)
+            item = resp.data[0]
             return item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
         finally:
             if limiter:
-                limiter.release()
+                limiter.release(semaphore)
 
 
 class LocalSentenceTransformerWrapper(Embeddings):
@@ -752,20 +764,28 @@ class LocalSentenceTransformerWrapper(Embeddings):
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+        limiter, semaphore = apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
 
-        embeddings = self.model.encode(texts, convert_to_tensor=False)  # type: ignore
-        return embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings  # type: ignore
+        try:
+            embeddings = self.model.encode(texts, convert_to_tensor=False)  # type: ignore
+            return embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings  # type: ignore
+        finally:
+            if limiter:
+                limiter.release(semaphore)
 
     def embed_query(self, text: str) -> List[float]:
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, text)
+        limiter, semaphore = apply_rate_limiter_sync(self.a0_model_conf, text)
 
-        embedding = self.model.encode([text], convert_to_tensor=False)  # type: ignore
-        result = (
-            embedding[0].tolist() if hasattr(embedding[0], "tolist") else embedding[0]
-        )
-        return result  # type: ignore
+        try:
+            embedding = self.model.encode([text], convert_to_tensor=False)  # type: ignore
+            result = (
+                embedding[0].tolist() if hasattr(embedding[0], "tolist") else embedding[0]
+            )
+            return result  # type: ignore
+        finally:
+            if limiter:
+                limiter.release(semaphore)
 
 
 def _get_litellm_chat(
