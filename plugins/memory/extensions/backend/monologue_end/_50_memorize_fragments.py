@@ -6,14 +6,9 @@ from agent import LoopData
 from python.helpers.log import LogItem
 from python.helpers.defer import DeferredTask, THREAD_BACKGROUND
 
-# Import Memory and DEFAULT_THRESHOLD from plugin
-import sys
-from pathlib import Path
-_plugin_root = Path(__file__).parent.parent.parent
-if str(_plugin_root) not in sys.path:
-    sys.path.insert(0, str(_plugin_root))
-from helpers.memory import Memory
-from tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
+# Direct import - this extension lives inside the memory plugin
+from plugins.memory.helpers.memory import Memory
+from plugins.memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
 class MemorizeMemories(Extension):
@@ -115,7 +110,7 @@ class MemorizeMemories(Extension):
                     
                     try:
                         # Use intelligent consolidation system
-                        from helpers.memory_consolidation import create_memory_consolidator
+                        from plugins.memory.helpers.memory_consolidation import create_memory_consolidator
                         consolidator = create_memory_consolidator(
                             self.agent,
                             similarity_threshold=DEFAULT_MEMORY_THRESHOLD,  # More permissive for discovery
@@ -195,7 +190,6 @@ class MemorizeMemories(Extension):
                     if rem:
                         log_item.stream(result=f"\nReplaced {len(rem)} previous memories.")
                 
-
 
 
         except Exception as e:

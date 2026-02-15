@@ -468,7 +468,7 @@ def run():
         runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     )
 
-    def register_api_handler(app, handler: type[ApiHandler]):
+    def register_api_handler(app, handler: type[ApiHandler], url_prefix: str = ""):
         name = handler.__module__.split(".")[-1]
         instance = handler(app, lock)
 
@@ -484,9 +484,10 @@ def run():
         if handler.requires_csrf():
             handler_wrap = csrf_protect(handler_wrap)
 
+        route = f"{url_prefix}/{name}"
         app.add_url_rule(
-            f"/{name}",
-            f"/{name}",
+            route,
+            route,
             handler_wrap,
             methods=handler.get_methods(),
         )
@@ -495,12 +496,19 @@ def run():
     for handler in handlers:
         register_api_handler(webapp, handler)
     
-    # Load API handlers from plugins
+    # Load API handlers from plugins (prefixed with /plugins/{plugin_id}/)
     from python.helpers import plugins
-    plugin_api_paths = plugins.get_plugin_paths("api")
-    for api_path in plugin_api_paths:
-        plugin_handlers = load_classes_from_folder(api_path, "*.py", ApiHandler)
+
+    for plugin in plugins.list_plugins():
+        api_path = plugin.path / "api"
+        if not api_path.exists() or not api_path.is_dir():
+            continue
+
+        plugin_handlers = load_classes_from_folder(str(api_path), "*.py", ApiHandler)
         for handler in plugin_handlers:
+            # prefixed route for explicit namespacing
+            register_api_handler(webapp, handler, url_prefix=f"/plugins/{plugin.id}")
+            # bare route so callers don't need to know the plugin prefix
             register_api_handler(webapp, handler)
 
     handlers_by_namespace = _build_websocket_handlers_by_namespace(socketio_server, lock)

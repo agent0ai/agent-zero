@@ -1,9 +1,10 @@
 from python.helpers import files
-from python.helpers.plugins import import_plugin_module
-memory = import_plugin_module("memory", "helpers/memory.py")
 from python.helpers.tool import Tool, Response
 from agent import Agent
 from python.helpers.log import LogItem
+
+# Direct import - this tool lives inside the memory plugin
+from plugins.memory.helpers import memory
 
 
 class UpdateBehaviour(Tool):
@@ -18,12 +19,6 @@ class UpdateBehaviour(Tool):
         return Response(
             message=self.agent.read_prompt("behaviour.updated.md"), break_loop=False
         )
-
-    # async def before_execution(self, **kwargs):
-    #     pass
-
-    # async def after_execution(self, response, **kwargs):
-    #     pass
 
 
 async def update_behaviour(agent: Agent, log_item: LogItem, adjustments: str):

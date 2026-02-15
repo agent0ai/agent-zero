@@ -3,6 +3,7 @@ import { getContext } from "/index.js";
 import * as API from "/js/api.js";
 import { openModal, closeModal } from "/js/modals.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+const MEMORY_DASHBOARD_API = "/plugins/memory/memory_dashboard";
 
 // Helper function for toasts
 function justToast(text, type = "info", timeout = 5000) {
@@ -53,7 +54,7 @@ const memoryDashboardStore = {
   pollingEnabled: false,
 
   async openModal() {
-    await openModal("../plugins/memory/ui/memory-dashboard.html");
+    await openModal("../plugins/memory/extensions/frontend/memory_dashboard/memory-dashboard.html");
   },
 
   init() {
@@ -91,7 +92,7 @@ const memoryDashboardStore = {
   async getCurrentMemorySubdir() {
     try {
       // Try to get current memory subdirectory from the backend
-      const response = await API.callJsonApi("memory_dashboard", {
+      const response = await API.callJsonApi(MEMORY_DASHBOARD_API, {
         action: "get_current_memory_subdir",
         context_id: getContext(),
       });
@@ -113,7 +114,7 @@ const memoryDashboardStore = {
     this.error = null;
 
     try {
-      const response = await API.callJsonApi("memory_dashboard", {
+      const response = await API.callJsonApi(MEMORY_DASHBOARD_API, {
         action: "get_memory_subdirs",
       });
 
@@ -172,7 +173,7 @@ const memoryDashboardStore = {
     }
 
     try {
-      const response = await API.callJsonApi("memory_dashboard", {
+      const response = await API.callJsonApi(MEMORY_DASHBOARD_API, {
         action: "search",
         memory_subdir: this.selectedMemorySubdir,
         area: this.areaFilter,
@@ -326,7 +327,7 @@ const memoryDashboardStore = {
 
     try {
       this.loading = true;
-      const response = await API.callJsonApi("memory_dashboard", {
+      const response = await API.callJsonApi(MEMORY_DASHBOARD_API, {
         action: "bulk_delete",
         memory_subdir: this.selectedMemorySubdir,
         memory_ids: selectedMemories.map((memory) => memory.id),
@@ -448,7 +449,7 @@ ${memory.content_full}
     this.editMode = false;
     this.editMemoryBackup = null;
     // Use global modal system
-    openModal("../plugins/memory/ui/memory-detail-modal.html");
+    openModal("../plugins/memory/extensions/frontend/memory_dashboard/memory-detail-modal.html");
   },
 
   closeMemoryDetails() {
@@ -556,7 +557,7 @@ ${memory.content_full}
       const isViewingThisMemory =
         this.detailMemory && this.detailMemory.id === memory.id;
 
-      const response = await API.callJsonApi("memory_dashboard", {
+      const response = await API.callJsonApi(MEMORY_DASHBOARD_API, {
         action: "delete",
         memory_subdir: this.selectedMemorySubdir,
         memory_id: memory.id,
@@ -674,7 +675,7 @@ ${memory.content_full}
   async confirmEditMode() {
     try {
 
-      const response = await API.callJsonApi("memory_dashboard", {
+      const response = await API.callJsonApi(MEMORY_DASHBOARD_API, {
         action: "update",
         memory_subdir: this.selectedMemorySubdir,
         original: JSON.parse(this.editMemoryBackup),

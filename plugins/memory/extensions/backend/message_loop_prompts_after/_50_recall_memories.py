@@ -3,14 +3,9 @@ from python.helpers.extension import Extension
 from agent import LoopData
 from python.helpers import dirty_json, errors, settings, log
 
-# Import Memory and DEFAULT_THRESHOLD from plugin
-import sys
-from pathlib import Path
-_plugin_root = Path(__file__).parent.parent.parent
-if str(_plugin_root) not in sys.path:
-    sys.path.insert(0, str(_plugin_root))
-from helpers.memory import Memory
-from tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD 
+# Direct import - this extension lives inside the memory plugin
+from plugins.memory.helpers.memory import Memory
+from plugins.memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
 DATA_NAME_TASK = "_recall_memories_task"

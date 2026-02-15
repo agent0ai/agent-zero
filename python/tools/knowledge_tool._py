@@ -1,9 +1,7 @@
 import asyncio
 from python.helpers import dotenv, perplexity_search, duckduckgo_search
-from python.helpers.plugins import import_plugin_module
-memory = import_plugin_module("memory", "helpers/memory.py")
-memory_load_tool = import_plugin_module("memory", "tools/memory_load.py")
-DEFAULT_MEMORY_THRESHOLD = memory_load_tool.DEFAULT_THRESHOLD
+from plugins.memory.helpers.memory import Memory
+from plugins.memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 from python.helpers.tool import Tool, Response
 from python.helpers.document_query import DocumentQueryHelper
@@ -98,11 +96,11 @@ class Knowledge(Tool):
         return result
 
     async def mem_search(self, question: str):
-        db = await memory.Memory.get(self.agent)
+        db = await Memory.get(self.agent)
         docs = await db.search_similarity_threshold(
             query=question, limit=5, threshold=DEFAULT_MEMORY_THRESHOLD
         )
-        text = memory.Memory.format_docs_plain(docs)
+        text = Memory.format_docs_plain(docs)
         return "\n\n".join(text)
 
     async def mem_search_enhanced(self, question: str):
@@ -111,7 +109,7 @@ class Knowledge(Tool):
         Separates and prioritizes knowledge sources vs conversation memories.
         """
         try:
-            db = await memory.Memory.get(self.agent)
+            db = await Memory.get(self.agent)
 
             # Search for knowledge sources (knowledge_source=True)
             knowledge_docs = await db.search_similarity_threshold(

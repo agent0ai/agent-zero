@@ -2,83 +2,53 @@
 
 This directory contains default plugins shipped with Agent Zero.
 
-## Plugin Architecture
+## Architecture
 
-Agent Zero uses a unified capability-based plugin system where a single `plugin.json` manifest declares all capabilities via a `provides` dictionary. Each capability type maps to an integration point in the framework.
+Agent Zero uses a convention-over-configuration plugin model:
 
-## Plugin Structure
+- `plugin.json` is not used by runtime discovery.
+- Runtime capabilities are discovered from directory structure.
+- Backend owns discovery and routing; frontend consumes resolved URLs.
 
-Each plugin directory should contain:
-- `plugin.json` - Manifest file with capability declarations
-- Capability-specific files organized by type (helpers, tools, extensions, api, ui, etc.)
-- Other assets (CSS, images, documentation)
+## Directory Conventions
 
-## Manifest Schema
+Each plugin lives in `plugins/<plugin_id>/` (or `usr/plugins/<plugin_id>/` for overrides).
 
-The `plugin.json` uses a `provides` dict where keys are integration point types:
+Capability discovery is based on these paths:
 
-```json
-{
-  "id": "my-plugin",
-  "name": "My Plugin",
-  "version": "1.0.0",
-  "author": "Author Name",
-  "description": "Plugin description",
-  "tags": ["tag1", "tag2"],
-  "provides": {
-    "helper": [
-      { "module": "helpers/my_helper.py", "description": "Helper module description" }
-    ],
-    "tool": [
-      { "module": "tools/my_tool.py", "description": "Tool description" }
-    ],
-    "extension": [
-      { "module": "extensions/hook_name/my_extension.py", "description": "Extension description" }
-    ],
-    "api": [
-      { "module": "api/my_api.py", "description": "API endpoint description" }
-    ],
-    "ui": {
-      "component": "ui/component.html",
-      "module": "ui/main.js",
-      "description": "UI component description"
-    }
-  }
-}
-```
+- `api/*.py` - API handlers (`ApiHandler` subclasses), exposed as `/plugins/{plugin_id}/{handler_name}`
+- `tools/*.py` - Agent tools (`Tool` subclasses)
+- `helpers/*.py` - Shared Python helpers
+- `extensions/backend/{extension_point}/*.py` - Backend lifecycle extensions
+- `extensions/frontend/**/*.html` - Frontend UI components (auto-injected via `<meta name="plugin-target">`)
+- `prompts/**/*.md` - Prompt templates
+- `agents/` - Agent profiles
+- `extensions/frontend/` - Frontend UI assets and auto-injected components
 
-## Capability Types
+## Frontend Auto-Injection (PoC)
 
-- **helper**: Python modules providing reusable functionality (imported via proxy or direct)
-- **tool**: Agent tools extending agent capabilities
-- **extension**: Extension hooks that run at specific lifecycle points
-- **api**: Flask API endpoints (ApiHandler subclasses)
-- **ui**: Frontend components loaded via `<x-extension>` tags
-- **prompt**: Custom prompt templates
-- **knowledge**: Knowledge base files and directories
-- **instrument**: Custom instrumentation and monitoring
+Plugins can inject HTML components into the core UI. Place components under `extensions/frontend/` and declare the injection target with a `<meta>` tag:
 
-## Using Plugins
-
-### UI Components
 ```html
-<x-extension id="plugin-id"></x-extension>
+<meta name="plugin-target" content=".quick-actions-dropdown">
 ```
 
-### Backend Capabilities
-Backend capabilities (helpers, tools, extensions, APIs) are automatically discovered and integrated when the plugin is loaded.
+Components without the meta tag (e.g. modals, dashboards) are standalone and not auto-injected.
 
-## User Plugins
+Resolution flow:
 
-User-created plugins should be placed in one of the following directories:
+1. The backend parses `<meta name="plugin-target">` from each component HTML at scan time.
+2. `/plugins_resolve` returns component URLs with their target selectors.
+3. `plugins.js` (loaded globally) creates `<x-component>` elements at the declared target selectors.
+4. The standard `components.js` MutationObserver handles loading automatically.
+5. A MutationObserver in `plugins.js` retries for targets that appear after initial page render.
 
-- `/usr/plugins/` (Global user plugins)
-- `/usr/projects/<project_name>/.a0proj/plugins/` (Project-specific plugins)
+## Routes
 
-Note: `/usr/` refers to the Agent Zero user data directory in the application root, not the system `/usr` directory.
+- Plugin static assets: `GET /plugins/<plugin_id>/<path>`
+- Plugin APIs: `/plugins/<plugin_id>/<handler>`
 
-User plugins with the same ID as repo plugins will completely override the repo version.
+## Notes
 
-## Documentation
-
-See [docs/extensibility.md](../docs/extensibility.md) for complete documentation on creating plugins.
+- User plugins in `usr/plugins/` override repo plugins by plugin ID.
+- Runtime behavior is fully convention-driven from directory structure.
