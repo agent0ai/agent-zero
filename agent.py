@@ -33,7 +33,7 @@ from python.helpers.defer import DeferredTask
 from typing import Callable
 from python.helpers.localization import Localization
 from python.helpers.extension import call_extensions
-from python.helpers.errors import RepairableException
+from python.helpers.errors import RepairableException, HandledException
 
 
 class AgentContextType(Enum):
@@ -335,6 +335,7 @@ class LoopData:
         self.params_temporary: dict = {}
         self.params_persistent: dict = {}
         self.current_tool = None
+        self.consecutive_misformat = 0  # Counter for consecutive misformat errors
 
         # override values with kwargs
         for key, value in kwargs.items():
@@ -853,8 +854,13 @@ class Agent:
         tool_request = extract_tools.json_parse_dirty(msg)
 
         if tool_request is not None:
+            # Reset misformat counter when valid JSON is parsed
+            self.loop_data.consecutive_misformat = 0
             raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
             tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
+            # Ensure tool_args is always a dictionary (not a string or other type)
+            if not isinstance(tool_args, dict):
+                tool_args = {}
 
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
@@ -925,8 +931,18 @@ class Agent:
                 finally:
                     self.loop_data.current_tool = None
             else:
+                # Enhanced error handling for tool not found
+                available_tools = []
+                for tool_name_check, tool_instance_check in self.tools.items():
+                    if hasattr(tool_instance_check, "execute"):
+                        available_tools.append(tool_name_check)
+                    else:
+                        for attr in dir(tool_instance_check):
+                            if not attr.startswith("_") and callable(getattr(tool_instance_check, attr)):
+                                available_tools.append(f"{tool_name_check}:{attr}")
                 error_detail = (
-                    f"Tool '{raw_tool_name}' not found or could not be initialized."
+                    f"Tool '{raw_tool_name}' not found. "
+                    f"Available tools: {', '.join(self.tools.keys())}"
                 )
                 self.hist_add_warning(error_detail)
                 PrintStyle(font_color="red", padding=True).print(error_detail)
@@ -934,12 +950,24 @@ class Agent:
                     type="warning", content=f"{self.agent_name}: {error_detail}"
                 )
         else:
+            # Track consecutive misformat errors to prevent infinite loops
+            self.loop_data.consecutive_misformat += 1
+            
+            # After too many consecutive misformats, escalate to critical error to break the loop
+            if self.loop_data.consecutive_misformat >= 5:
+                error_msg = f"Too many consecutive misformatted responses ({self.loop_data.consecutive_misformat}). Breaking loop to prevent infinite iteration."
+                self.hist_add_warning(error_msg)
+                PrintStyle(font_color="red", padding=True).print(error_msg)
+                self.context.log.log(type="error", content=error_msg)
+                # Raise critical exception to break the loop
+                raise HandledException("Agent producing consistently malformed JSON responses")
+            
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
             self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: Message misformat, no valid tool request found.",
+                content=f"{self.agent_name}: Message misformat, no valid tool request found. (Consecutive: {self.loop_data.consecutive_misformat})",
             )
 
     async def handle_reasoning_stream(self, stream: str):
