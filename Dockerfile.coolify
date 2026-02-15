@@ -3,15 +3,11 @@
 
 FROM agent0ai/agent-zero-base:latest
 
-# Copy filesystem files (scripts, configs, supervisor configs)
-COPY ./docker/run/fs/ /
-
-# Copy your local source code to /git/agent-zero
-# The install_A0.sh script will use this when BRANCH=local
-COPY . /git/agent-zero
-
 # Set branch to "local" to use copied files instead of cloning from GitHub
 ENV BRANCH=local
+
+# Copy filesystem files (scripts, configs, supervisor configs)
+COPY ./docker/run/fs/ /
 
 # Make sure scripts are executable
 RUN chmod +x /ins/*.sh /exe/*.sh 2>/dev/null || true
@@ -19,9 +15,15 @@ RUN chmod +x /ins/*.sh /exe/*.sh 2>/dev/null || true
 # Pre-installation steps (apt update, SSH setup)
 RUN bash /ins/pre_install.sh local
 
-# Setup virtual environment and install dependencies from local source
-# Using bash -c to ensure source command works
+# === LAYER CACHING OPTIMIZATION ===
+# Copy ONLY requirements files first - this layer gets cached if requirements don't change
+COPY requirements.txt requirements2.txt /git/agent-zero/
+
+# Install Python dependencies (cached layer - only rebuilds if requirements.txt changes)
 RUN bash -c "source /opt/venv-a0/bin/activate && uv pip install -r /git/agent-zero/requirements.txt && uv pip install -r /git/agent-zero/requirements2.txt || true"
+
+# NOW copy the rest of the source code (changes frequently, but doesn't invalidate pip cache)
+COPY . /git/agent-zero
 
 # Install playwright browsers
 RUN bash /ins/install_playwright.sh local || true

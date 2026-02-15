@@ -159,6 +159,11 @@ class Settings(TypedDict):
     update_check_enabled: bool
     telegram_bot_enabled: bool
 
+    # Loop detection settings
+    loop_detection_enabled: bool
+    loop_detection_threshold: int
+    loop_detection_history_size: int
+
 
 class PartialSettings(Settings, total=False):
     pass
@@ -601,6 +606,10 @@ def get_default_settings() -> Settings:
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
         telegram_bot_enabled=get_default_value("telegram_bot_enabled", False),
+        # Loop detection settings
+        loop_detection_enabled=get_default_value("loop_detection_enabled", True),
+        loop_detection_threshold=get_default_value("loop_detection_threshold", 3),
+        loop_detection_history_size=get_default_value("loop_detection_history_size", 5),
     )
 
 
