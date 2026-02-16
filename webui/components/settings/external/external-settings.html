@@ -51,6 +51,13 @@
                   <span>Flare Tunnel</span>
                 </a>
               </li>
+              <!-- TEMPORARY: Remove when plugin-scoped settings land (Phase 2) -->
+              <li>
+                <a href="#section-telegram">
+                  <img src="/public/external_api.svg" alt="Telegram Bot" />
+                  <span>Telegram Bot</span>
+                </a>
+              </li>
             </ul>
           </nav>
 
@@ -76,6 +83,11 @@
           <!-- Tunnel section content -->
           <div id="section-tunnel" class="section">
             <x-component path="settings/tunnel/tunnel-section.html"></x-component>
+          </div>
+
+          <!-- TEMPORARY: Remove when plugin-scoped settings land (Phase 2) -->
+          <div id="section-telegram" class="section">
+            <x-component path="settings/external/telegram_comms.html"></x-component>
           </div>
         </div>
       </template>
