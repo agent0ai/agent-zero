@@ -40,3 +40,7 @@ agent_history.gif
 
 .agent/**
 .claude/**
+tools
+goals
+context
+data
