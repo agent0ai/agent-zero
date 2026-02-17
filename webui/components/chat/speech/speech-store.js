@@ -989,7 +989,7 @@ document.addEventListener("settings-updated", () => store.loadSettings());
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
-      const response = await fetch("/api/el11_tts", {
+      const response = await fetch("/el11_tts", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({text, profile}),
