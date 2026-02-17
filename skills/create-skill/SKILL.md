@@ -285,4 +285,4 @@ After creating a skill:
 1. Start a new conversation
 2. Use one of your trigger patterns
 3. Verify the agent follows your instructions
-4. Iterate and improve based on results
+4. Iterate and improve based on results## ElevenLabs Voice Config\nWhen creating new agent profiles, emit default elevenlabs_voice.json with voice_id, model, stability, similarity_boost.

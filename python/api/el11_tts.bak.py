@@ -2,7 +2,6 @@ from python.helpers.api import ApiHandler, Request, Response
 from fastapi.responses import StreamingResponse
 import httpx
 import os
-import json
 from python.helpers import runtime
 
 class El11Tts(ApiHandler):
@@ -13,18 +12,12 @@ class El11Tts(ApiHandler):
         profile = input.get("profile")
         if not profile:
             return {"error": "No profile provided", "success": False}
-        json_path = f'agents/{profile}/elevenlabs_voice.json'
         try:
-            config_str = await runtime.read_file(json_path)
-            config = json.loads(config_str)
-            voice_id = config.get("voice_id")
-            if not voice_id:
-                raise ValueError("voice_id missing in config")
-            model_id = config.get("model", "eleven_turbo_v2_5")
-            stability = config.get("stability", 0.3)
-            similarity_boost = config.get("similarity_boost", 0.75)
+            voice_id = (await runtime.read_file(f'agents/{profile}/voice_id.txt')).strip()
+        except FileNotFoundError:
+            return {"error": f'Voice ID file missing: agents/{profile}/voice_id.txt', "success": False}
         except Exception as e:
-            return {"error": f"Config error for {profile}: {str(e)}", "success": False}
+            return {"error": str(e), "success": False}
         api_key = os.getenv("EL11_API_KEY")
         if not api_key:
             return {"error": "EL11_API_KEY missing", "success": False}
@@ -32,12 +25,11 @@ class El11Tts(ApiHandler):
         headers = {'xi-api-key': api_key, 'Content-Type': 'application/json'}
         data = {
             'text': text,
-            'model_id': model_id,
-            'voice_settings': {'stability': stability, 'similarity_boost': similarity_boost}
+            'model_id': 'eleven_monolingual_v1',
+            'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75}
         }
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, headers=headers, json=data, stream=True)
             if resp.status_code != 200:
-                error_body = await resp.aread()
-                return {"error": f'EL11 API error {resp.status_code}: {error_body[:500]}', "success": False}
+                return {"error": f'EL11 API error {resp.status_code}: {await resp.aread()[:500]}', "success": False}
             return StreamingResponse(resp.aiter_bytes(), media_type='audio/mpeg')
