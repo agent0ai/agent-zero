@@ -10,11 +10,24 @@ from python.helpers import files, projects
 import models
 
 
+def _safe_score(value: Any) -> float:
+    """Coerce a value to a float score, defaulting to 0.0."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _kwarg_or(kwargs: dict[str, Any], key: str, default: Any) -> Any:
+    """Return kwargs[key] if present and not None, else default."""
+    value = kwargs.get(key)
+    return value if value is not None else default
+
+
 class StartTask(Tool):
     """Tool for Agent 0 to start benchmark tasks or task sets."""
 
     async def execute(self, **kwargs) -> Response:
-        # Only Agent 0 can use this tool
         if self.agent.number != 0:
             return Response(
                 message="This tool is only available to Agent 0.",
@@ -25,23 +38,22 @@ class StartTask(Tool):
         task_name = kwargs.get("task_name", "")
         task_set_file = kwargs.get("task_set", "")
         agent_profile = kwargs.get("agent_profile", "")
-        # Support single task or array
+
         if task_name and not task_names:
             task_names = [task_name]
-        
+
         score_multipliers: dict[str, float] = {}
         if task_set_file:
             task_names, score_multipliers = await self._load_task_set(task_set_file)
-        
+
         if not task_names:
             return Response(
                 message="No task(s) specified. Provide task_name, task_names array, or task_set file.",
                 break_loop=False
             )
 
-        # Model configuration (use current if not specified)
         model_config = self._build_model_config(kwargs)
-        
+
         if len(task_names) == 1:
             result = await self._run_single_task(
                 task_name=task_names[0],
@@ -63,13 +75,13 @@ class StartTask(Tool):
         """Load task set from JSON file."""
         project_dir = self._get_project_dir()
         set_path = os.path.join(project_dir, "task_sets", set_file)
-        
+
         if not os.path.exists(set_path):
-            set_path = set_file  # Try absolute path
-        
+            set_path = set_file
+
         with open(set_path, 'r') as f:
             data = json.load(f)
-        
+
         task_names: list[str] = []
         multipliers: dict[str, float] = {}
 
@@ -81,35 +93,25 @@ class StartTask(Tool):
                 name = str(item.get("task_name", item.get("name", ""))).strip()
                 if not name:
                     continue
-                mult = item.get("score_multiplier", 1.0)
-                try:
-                    mult = float(mult)
-                except Exception:
-                    mult = 1.0
                 task_names.append(name)
-                multipliers[name] = mult
-        
+                multipliers[name] = _safe_score(item.get("score_multiplier", 1.0)) or 1.0
+
         return task_names, multipliers
 
     def _build_model_config(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Build model configuration from kwargs or use current settings."""
-        endpoint = (
-            kwargs.get("chat_model_api_endpoint")
-            or kwargs.get("chat_model_api_base")
-            or self.agent.config.chat_model.api_base
-        )
-        
+        cfg = self.agent.config.chat_model
         return {
-            "provider": kwargs.get("chat_model_provider") or self.agent.config.chat_model.provider,
-            "name": kwargs.get("chat_model_name") or self.agent.config.chat_model.name,
-            "api_endpoint": endpoint,
-            "ctx_length": kwargs.get("chat_model_context_size") or self.agent.config.chat_model.ctx_length,
-            "vision": (
-                kwargs.get("chat_model_vision_enabled")
-                if kwargs.get("chat_model_vision_enabled") is not None
-                else self.agent.config.chat_model.vision
+            "provider": _kwarg_or(kwargs, "chat_model_provider", cfg.provider),
+            "name": _kwarg_or(kwargs, "chat_model_name", cfg.name),
+            "api_endpoint": (
+                kwargs.get("chat_model_api_endpoint")
+                or kwargs.get("chat_model_api_base")
+                or cfg.api_base
             ),
-            "kwargs": kwargs.get("chat_model_kwargs") or self.agent.config.chat_model.kwargs,
+            "ctx_length": _kwarg_or(kwargs, "chat_model_context_size", cfg.ctx_length),
+            "vision": _kwarg_or(kwargs, "chat_model_vision_enabled", cfg.vision),
+            "kwargs": _kwarg_or(kwargs, "chat_model_kwargs", cfg.kwargs),
         }
 
     def _get_project_name(self) -> str:
@@ -121,37 +123,52 @@ class StartTask(Tool):
     def _get_project_dir(self) -> str:
         return projects.get_project_folder(self._get_project_name())
 
+    def _next_number_in_dir(self, directory: str, extract_number) -> int:
+        """Scan directory entries, extract numbers via callback, return max+1 (or 1)."""
+        os.makedirs(directory, exist_ok=True)
+        nums = [n for name in os.listdir(directory) if (n := extract_number(name)) is not None]
+        return (max(nums) + 1) if nums else 1
+
     def _get_next_exec_number(self, kind: str) -> int:
-        """
-        kind:
-        - 'run' -> scan project_dir/run/<number>
-        - 'task' or 'set' -> scan project_dir/results/{kind}-<number>.json
-        """
         project_dir = self._get_project_dir()
 
         if kind == "run":
-            run_dir = os.path.join(project_dir, "run")
-            os.makedirs(run_dir, exist_ok=True)
-            nums: list[int] = []
-            for name in os.listdir(run_dir):
-                if name.isdigit():
-                    nums.append(int(name))
-            return (max(nums) + 1) if nums else 1
+            return self._next_number_in_dir(
+                os.path.join(project_dir, "run"),
+                lambda name: int(name) if name.isdigit() else None,
+            )
 
         if kind in ("task", "set"):
-            results_dir = os.path.join(project_dir, "results")
-            os.makedirs(results_dir, exist_ok=True)
-            nums: list[int] = []
             prefix = f"{kind}-"
-            for name in os.listdir(results_dir):
-                if not (name.startswith(prefix) and name.endswith(".json")):
-                    continue
-                raw = name[len(prefix):-5]
-                if raw.isdigit():
-                    nums.append(int(raw))
-            return (max(nums) + 1) if nums else 1
+            def extract(name: str) -> int | None:
+                if name.startswith(prefix) and name.endswith(".json"):
+                    raw = name[len(prefix):-5]
+                    return int(raw) if raw.isdigit() else None
+                return None
+            return self._next_number_in_dir(
+                os.path.join(project_dir, "results"),
+                extract,
+            )
 
         raise ValueError(f"Unknown execution kind: {kind}")
+
+    def _make_parameters(self, model_config: dict[str, Any], agent_profile: str, **extra: Any) -> dict[str, Any]:
+        """Build the parameters sub-dict shared by single tasks and task sets."""
+        params = {
+            "agent_profile": agent_profile or self.agent.config.profile,
+            "chat_model_provider": model_config["provider"],
+            "chat_model_name": model_config["name"],
+            "chat_model_api_endpoint": model_config["api_endpoint"],
+            "chat_model_context_size": model_config["ctx_length"],
+            "chat_model_vision_enabled": model_config["vision"],
+            "chat_model_kwargs": model_config["kwargs"],
+        }
+        params.update(extra)
+        return params
+
+    def _save_json(self, path: str, data: dict[str, Any]) -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=True, default=str)
 
     async def _run_single_task(
         self,
@@ -171,31 +188,17 @@ class StartTask(Tool):
         os.makedirs(run_dir, exist_ok=True)
 
         assets_dir = os.path.join(task_dir, "assets")
-        if os.path.exists(assets_dir):
-            for item in os.listdir(assets_dir):
-                src = os.path.join(assets_dir, item)
-                dst = os.path.join(run_dir, item)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
+        if os.path.isdir(assets_dir):
+            shutil.copytree(assets_dir, run_dir, dirs_exist_ok=True)
 
-        # Initialize state
         state: dict[str, Any] = {
             "task_name": task_name,
             "run_number": run_no,
             "run_dir": run_dir,
             "started_at": datetime.now().isoformat(),
-            "parameters": {
-                "score_multiplier": score_multiplier,
-                "agent_profile": agent_profile or self.agent.config.profile,
-                "chat_model_provider": model_config["provider"],
-                "chat_model_name": model_config["name"],
-                "chat_model_api_endpoint": model_config["api_endpoint"],
-                "chat_model_context_size": model_config["ctx_length"],
-                "chat_model_vision_enabled": model_config["vision"],
-                "chat_model_kwargs": model_config["kwargs"],
-            },
+            "parameters": self._make_parameters(
+                model_config, agent_profile, score_multiplier=score_multiplier,
+            ),
             "instructions": "",
             "initialize_output": None,
             "subordinate_response": None,
@@ -209,37 +212,31 @@ class StartTask(Tool):
             },
         }
 
-        # Set state in context for extensions to access
         self.agent.context.set_data("benchmark_project_state", state)
 
         try:
-            # Load instructions
             instructions_path = os.path.join(task_dir, "instructions.md")
             if os.path.exists(instructions_path):
                 state["instructions"] = files.read_prompt_file(instructions_path)
             else:
                 state["instructions"] = f"Complete the task in directory: {run_dir}"
 
-            # Run initialize.py if exists
-            init_script = os.path.join(task_dir, "initialize.py")
             state["initialize_output"] = await self._execute_task_script(
-                script_path=init_script,
+                script_path=os.path.join(task_dir, "initialize.py"),
                 runtime_path=run_dir,
                 state=state,
                 optional=True,
             )
 
-            subordinate_response = await self._call_subordinate(
+            state["subordinate_response"] = await self._call_subordinate(
                 instructions=state["instructions"],
                 model_config=model_config,
                 run_dir=run_dir,
                 agent_profile=agent_profile,
             )
-            state["subordinate_response"] = subordinate_response
 
-            eval_script = os.path.join(task_dir, "evaluate.py")
             evaluation = await self._execute_task_script(
-                script_path=eval_script,
+                script_path=os.path.join(task_dir, "evaluate.py"),
                 runtime_path=run_dir,
                 state=state,
                 optional=False,
@@ -247,22 +244,15 @@ class StartTask(Tool):
             if not isinstance(evaluation, dict):
                 evaluation = {"score": 0, "error": "evaluate.py returned non-dict output"}
 
-            raw_score = evaluation.get("score", 0)
-            try:
-                score = float(raw_score)
-            except Exception:
-                score = 0.0
-            score = max(0.0, min(100.0, score))
+            score = max(0.0, min(100.0, _safe_score(evaluation.get("score", 0))))
             evaluation["score"] = score
-            evaluation["weighted_score"] = score * float(score_multiplier)
+            evaluation["weighted_score"] = score * score_multiplier
             state["evaluation"] = evaluation
-
             state["completed_at"] = datetime.now().isoformat()
 
             task_no = self._get_next_exec_number("task")
             result_path = os.path.join(project_dir, "results", f"task-{task_no}.json")
-            with open(result_path, "w", encoding="utf-8") as f:
-                json.dump(state, f, indent=2, ensure_ascii=True, default=str)
+            self._save_json(result_path, state)
             state["result_file"] = result_path
 
             return state
@@ -284,17 +274,9 @@ class StartTask(Tool):
         results: dict[str, Any] = {
             "set_number": set_no,
             "started_at": datetime.now().isoformat(),
-            "parameters": {
-                "agent_profile": agent_profile or self.agent.config.profile,
-                "chat_model_provider": model_config["provider"],
-                "chat_model_name": model_config["name"],
-                "chat_model_api_endpoint": model_config["api_endpoint"],
-                "chat_model_context_size": model_config["ctx_length"],
-                "chat_model_vision_enabled": model_config["vision"],
-                "chat_model_kwargs": model_config["kwargs"],
-            },
-            "tasks": [],  # summaries
-            "task_states": [],  # full states
+            "parameters": self._make_parameters(model_config, agent_profile),
+            "tasks": [],
+            "task_states": [],
             "total_weighted_score": 0.0,
             "max_possible_weighted_score": 0.0,
             "weighted_average": 0.0,
@@ -310,11 +292,11 @@ class StartTask(Tool):
             )
             results["task_states"].append(task_state)
 
-            eval_data = task_state.get("evaluation", {}) if isinstance(task_state, dict) else {}
-            score = float(eval_data.get("score", 0) or 0)
-            weighted = float(eval_data.get("weighted_score", score * multiplier))
+            eval_data = task_state.get("evaluation") or {}
+            score = _safe_score(eval_data.get("score", 0))
+            weighted = _safe_score(eval_data.get("weighted_score", score * multiplier))
 
-            summary = {
+            results["tasks"].append({
                 "task_name": task_name,
                 "score_multiplier": multiplier,
                 "score": score,
@@ -323,25 +305,19 @@ class StartTask(Tool):
                 "comment": eval_data.get("comment"),
                 "result_file": task_state.get("result_file"),
                 "stats": task_state.get("stats", {}),
-            }
-            results["tasks"].append(summary)
+            })
 
             results["total_weighted_score"] += weighted
             results["max_possible_weighted_score"] += 100.0 * multiplier
-            if results["max_possible_weighted_score"] > 0:
-                results["weighted_average"] = (
-                    results["total_weighted_score"] / results["max_possible_weighted_score"]
-                ) * 100.0
+            results["weighted_average"] = (
+                results["total_weighted_score"] / results["max_possible_weighted_score"]
+            ) * 100.0
 
-            # periodic checkpoint save
-            with open(result_path, "w", encoding="utf-8") as f:
-                json.dump(results, f, indent=2, ensure_ascii=True, default=str)
+            self._save_json(result_path, results)
 
         results["completed_at"] = datetime.now().isoformat()
         results["result_file"] = result_path
-
-        with open(result_path, "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2, ensure_ascii=True, default=str)
+        self._save_json(result_path, results)
 
         return results
 
@@ -430,9 +406,9 @@ class StartTask(Tool):
         if result.get("error") and not result.get("evaluation"):
             return f"Task failed: {result['error']}"
 
-        eval_data = result.get("evaluation", {}) or {}
-        score = float(eval_data.get("score", 0) or 0)
-        stats = result.get("stats", {}) or {}
+        eval_data = result.get("evaluation") or {}
+        score = _safe_score(eval_data.get("score", 0))
+        stats = result.get("stats") or {}
 
         lines = [
             f"## Task Complete: {result.get('task_name', 'Unknown')}",
@@ -449,42 +425,36 @@ class StartTask(Tool):
         ]
 
         for key, value in eval_data.items():
-            if key in ("score", "weighted_score"):
-                continue
-            lines.append(f"- {key}: {value}")
+            if key not in ("score", "weighted_score"):
+                lines.append(f"- {key}: {value}")
 
-        lines.extend(
-            [
-                "",
-                f"Full results: {result.get('result_file', 'N/A')}",
-            ]
-        )
+        lines.append("")
+        lines.append(f"Full results: {result.get('result_file', 'N/A')}")
         return "\n".join(lines)
 
     def _format_set_results(self, results: dict[str, Any]) -> str:
+        avg = _safe_score(results.get("weighted_average", 0))
+        total = _safe_score(results.get("total_weighted_score", 0))
+        maximum = _safe_score(results.get("max_possible_weighted_score", 0))
+
         lines = [
             "## Task Set Complete",
             "",
-            f"**Overall Score: {float(results.get('weighted_average', 0)):.1f}/100**",
-            f"**Total Weighted: {float(results.get('total_weighted_score', 0)):.1f}/{float(results.get('max_possible_weighted_score', 0)):.1f}**",
+            f"**Overall Score: {avg:.1f}/100**",
+            f"**Total Weighted: {total:.1f}/{maximum:.1f}**",
             "",
             "### Individual Results",
         ]
 
         for task in results.get("tasks", []):
-            status = "✓" if not task.get("error") else "✗"
-            lines.append(
-                f"- {status} **{task['task_name']}**: "
-                f"{float(task.get('score', 0)):.1f} "
-                f"(x{float(task.get('score_multiplier', 1.0)):.2f} = {float(task.get('weighted_score', 0)):.1f})"
-            )
+            status = "✗" if task.get("error") else "✓"
+            s = _safe_score(task.get("score", 0))
+            m = _safe_score(task.get("score_multiplier", 1.0))
+            w = _safe_score(task.get("weighted_score", 0))
+            lines.append(f"- {status} **{task['task_name']}**: {s:.1f} (x{m:.2f} = {w:.1f})")
             if task.get("error"):
                 lines.append(f"  error: {task['error']}")
 
-        lines.extend(
-            [
-                "",
-                f"Full results: {results.get('result_file', 'N/A')}",
-            ]
-        )
+        lines.append("")
+        lines.append(f"Full results: {results.get('result_file', 'N/A')}")
         return "\n".join(lines)
