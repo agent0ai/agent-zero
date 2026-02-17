@@ -40,3 +40,4 @@ agent_history.gif
 
 .agent/**
 .claude/**
+agents/*/elevenlabs_voice.json
