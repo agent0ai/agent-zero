@@ -1,0 +1,6 @@
+[
+    {"task_name": "simple_math", "score_multiplier": 1.0},
+    {"task_name": "stock_prices", "score_multiplier": 1.5},
+    {"task_name": "git_project", "score_multiplier": 2.0},
+    {"task_name": "eth_balance", "score_multiplier": 1.5}
+]
