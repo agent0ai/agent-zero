@@ -32,7 +32,7 @@ class El11Tts(ApiHandler):
             return {"error": "EL11_API_KEY missing", "success": False}
         url = f'https://api.elevenlabs.io/v1/text-to-speech/{voice_id}'
         headers = {'xi-api-key': api_key, 'Content-Type': 'application/json'}
-                data = {
+        data = {
             'text': text,
             'model_id': model_id,
             'voice_settings': {
@@ -41,8 +41,6 @@ class El11Tts(ApiHandler):
                 'style': style,
                 'clarity_boost': clarity_boost
             }
-        }
-            'clarity_boost': clarity_boost
         }
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, headers=headers, json=data, stream=True)
