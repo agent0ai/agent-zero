@@ -23,6 +23,8 @@ class El11Tts(ApiHandler):
             model_id = config.get("model", "eleven_turbo_v2_5")
             stability = config.get("stability", 0.3)
             similarity_boost = config.get("similarity_boost", 0.75)
+            style = config.get("style", 0.3)
+            clarity_boost = config.get("clarity_boost", 0.2)
         except Exception as e:
             return {"error": f"Config error for {profile}: {str(e)}", "success": False}
         api_key = os.getenv("EL11_API_KEY")
@@ -30,10 +32,17 @@ class El11Tts(ApiHandler):
             return {"error": "EL11_API_KEY missing", "success": False}
         url = f'https://api.elevenlabs.io/v1/text-to-speech/{voice_id}'
         headers = {'xi-api-key': api_key, 'Content-Type': 'application/json'}
-        data = {
+                data = {
             'text': text,
             'model_id': model_id,
-            'voice_settings': {'stability': stability, 'similarity_boost': similarity_boost}
+            'voice_settings': {
+                'stability': stability,
+                'similarity_boost': similarity_boost,
+                'style': style,
+                'clarity_boost': clarity_boost
+            }
+        }
+            'clarity_boost': clarity_boost
         }
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, headers=headers, json=data, stream=True)
