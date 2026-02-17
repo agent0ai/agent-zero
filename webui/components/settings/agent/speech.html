@@ -91,6 +91,20 @@
               </label>
             </div>
           </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Enable ElevenLabs TTS Proxy</div>
+              <div class="field-description">Use ElevenLabs server proxy for sultry, high-fidelity voice synthesis (requires EL11_API_KEY in .env).</div>
+            </div>
+            <div class="field-control" x-data="{ el11Server: localStorage.getItem('speech.el11Server') === 'true' }" x-init="$watch('el11Server', value => localStorage.setItem('speech.el11Server', value))">
+              <label class="toggle">
+                <input type="checkbox" x-model="el11Server" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
         </div>
       </template>
     </div>
