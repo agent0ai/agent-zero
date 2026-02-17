@@ -27,6 +27,7 @@ const model = {
 
   // TTS Settings
   tts_kokoro: false,
+el11Server: localStorage.getItem("speech.el11Server") === "true",
 
   // TTS State
   isSpeaking: false,
@@ -109,6 +110,11 @@ const model = {
 
   // Load settings from server
   async loadSettings() {
+    this.toggleEl11Server = () => {
+      this.el11Server = !this.el11Server;
+      localStorage.setItem("speech.el11Server", this.el11Server);
+    };
+   {
     try {
       const response = await fetchApi("/settings_get", { method: "POST" });
       const data = await response.json();
@@ -124,6 +130,7 @@ const model = {
         this.stt_waiting_timeout =
           settings.stt_waiting_timeout ?? this.stt_waiting_timeout;
         this.tts_kokoro = settings.tts_kokoro ?? this.tts_kokoro;
+        this.el11Server = settings.el11_server ?? localStorage.getItem("speech.el11Server") === "true";
       }
     } catch (error) {
       window.toastFetchError("Failed to load speech settings", error);
@@ -265,6 +272,14 @@ const model = {
 
   // speak wrapper
   async _speak(text, waitForPrevious, terminator) {
+    if (this.el11Server) {
+      try {
+        await this.speakWithEl11(text, waitForPrevious, terminator);
+        return;
+      } catch (e) {
+        console.error("EL11 error:", e);
+      }
+    }
     // default browser speech
     if (!this.tts_kokoro)
       return await this.speakWithBrowser(text, waitForPrevious, terminator);
@@ -960,3 +975,80 @@ export const store = createStore("speech", model);
 // Event listeners
 document.addEventListener("settings-updated", () => store.loadSettings());
 // document.addEventListener("DOMContentLoaded", () => speechStore.init());
+
+  // EL11 Server TTS
+  async speakWithEl11(text, waitForPrevious = false, terminator = null) {
+    // wait for previous
+    while (waitForPrevious && this.isSpeaking) await sleep(25);
+    if (terminator && terminator()) return;
+
+    if (!waitForPrevious) this.stopAudio();
+
+    const profile = "evetz";
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const response = await fetch("/api/el11_tts", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text, profile}),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok || !response.body) {
+        throw new Error(`EL11 fetch failed: ${response.status}`);
+      }
+
+      const audio = new Audio();
+      this.currentAudio = audio;
+
+      if (MediaSource && MediaSource.isTypeSupported('audio/mpeg')) {
+        // MSE streaming
+        const ms = new MediaSource();
+        audio.src = URL.createObjectURL(ms);
+        ms.addEventListener('sourceopen', () => {
+          const sb = ms.addSourceBuffer('audio/mpeg');
+          const reader = response.body.getReader();
+          const pump = () => {
+            reader.read().then(({done, value}) => {
+              if (done) {
+                ms.endOfStream();
+                return;
+              }
+              if (sb.updating || sb.buffered.length > 10) {
+                setTimeout(pump, 50);
+                return;
+              }
+              sb.appendBuffer(value);
+              pump();
+            }).catch(e => console.error('MSE pump error:', e));
+          };
+          pump();
+        }, {once: true});
+      } else {
+        // Blob fallback
+        const blob = await response.blob();
+        audio.src = URL.createObjectURL(blob);
+      }
+
+      audio.onplay = () => this.isSpeaking = true;
+      audio.onended = () => {
+        this.isSpeaking = false;
+        this.currentAudio = null;
+      };
+      audio.onerror = (e) => {
+        this.isSpeaking = false;
+        this.currentAudio = null;
+        console.error('Audio error:', e);
+      };
+
+      await audio.play();
+    } catch (e) {
+      this.isSpeaking = false;
+      this.currentAudio = null;
+      throw e;
+    }
+  },
