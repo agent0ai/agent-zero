@@ -1,19 +1,20 @@
-from python.helpers.api import ApiHandler, Request, Response
+from helpers.api import ApiHandler, Request, Response
 from fastapi.responses import StreamingResponse
 import httpx
 import os
 import json
-from python.helpers import runtime
+from helpers import runtime
 
 class El11Tts(ApiHandler):
-    async def process(self, input: dict, request: Request) -> Response:
-        text = input.get("text", "")
+    async def post(self, request: Request) -> Response:
+        data = await request.json()
+        text = data.get("text", "")
         if not text:
             return {"error": "No text provided", "success": False}
-        profile = input.get("profile")
+        profile = data.get("profile")
         if not profile:
             return {"error": "No profile provided", "success": False}
-        json_path = f'agents/{profile}/elevenlabs_voice.json'
+        json_path = f'/a0/agents/{profile}/elevenlabs_voice.json'
         try:
             config_str = await runtime.read_file(json_path)
             config = json.loads(config_str)
@@ -26,25 +27,25 @@ class El11Tts(ApiHandler):
             style = config.get("style", 0.3)
             clarity_boost = config.get("clarity_boost", 0.2)
         except Exception as e:
-            return {"error": f"Config error for {profile}: {str(e)}", "success": False}
+            return {"error": f'Config error for {profile}: {{str(e)}}', "success": False}
         api_key = os.getenv("EL11_API_KEY")
         if not api_key:
             return {"error": "EL11_API_KEY missing", "success": False}
-        url = f'https://api.elevenlabs.io/v1/text-to-speech/{voice_id}'
-        headers = {'xi-api-key': api_key, 'Content-Type': 'application/json'}
-        data = {
+        url = f'https://api.elevenlabs.io/v1/text-to-speech/{{voice_id}}'
+        headers = {{'xi-api-key': api_key, 'Content-Type': 'application/json'}}
+        payload = {{
             'text': text,
             'model_id': model_id,
-            'voice_settings': {
+            'voice_settings': {{
                 'stability': stability,
                 'similarity_boost': similarity_boost,
                 'style': style,
                 'clarity_boost': clarity_boost
-            }
-        }
+            }}
+        }}
         async with httpx.AsyncClient() as client:
-            resp = await client.post(url, headers=headers, json=data, stream=True)
+            resp = await client.post(url, headers=headers, json=payload, stream=True)
             if resp.status_code != 200:
                 error_body = await resp.aread()
-                return {"error": f'EL11 API error {resp.status_code}: {error_body[:500]}', "success": False}
+                return {"error": f'EL11 API error {{resp.status_code}}: {{error_body[:500]}}', "success": False}
             return StreamingResponse(resp.aiter_bytes(), media_type='audio/mpeg')
