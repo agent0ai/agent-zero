@@ -79,7 +79,7 @@ def _get_agents_list_from_dir(dir: str, origin: Origin) -> dict[str, SubAgentLis
 
     for subdir in subdirs:
         try:
-            agent_json = files.read_file(files.get_abs_path(dir, subdir, "agent.json"))
+            agent_json = files.read_file(files.get_abs_path(dir, subdir, "agent-card.json"))
             agent_data = SubAgentListItem.model_validate_json(agent_json)
             name = agent_data.name or subdir
             agent_data.name = name
@@ -128,7 +128,7 @@ def load_agent_data(name: str, project_name: str | None = None) -> SubAgent:
 
 
 def save_agent_data(name: str, subagent: SubAgent) -> None:
-    # write agent.json in custom directory
+    # write agent-card.json in custom directory
     agent_dir = f"{USER_AGENTS_DIR}/{name}"
     agent_json = {
         "title": subagent.title,
@@ -136,7 +136,7 @@ def save_agent_data(name: str, subagent: SubAgent) -> None:
         "context": subagent.context,
         "enabled": subagent.enabled,
     }
-    files.write_file(f"{agent_dir}/agent.json", json.dumps(agent_json, indent=2))
+    files.write_file(f"{agent_dir}/agent-card.json", json.dumps(agent_json, indent=2))
 
     # replace prompts in custom directory
     prompts_dir = f"{agent_dir}/prompts"
@@ -157,10 +157,10 @@ def delete_agent_data(name: str) -> None:
 
 def _load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent | None:
     try:
-        subagent_json = files.read_file(files.get_abs_path(dir, name, "agent.json"))
+        subagent_json = files.read_file(files.get_abs_path(dir, name, "agent-card.json"))
         subagent = SubAgent.model_validate_json(subagent_json)
     except Exception:
-        # backward compatibility (before agent.json existed)
+        # backward compatibility (before agent-card.json existed)
         try:
             context_file = files.read_file(files.get_abs_path(dir, name, "_context.md"))
         except Exception:
@@ -300,7 +300,7 @@ def get_available_agents_dict(
 def get_paths(
     agent: "Agent|None",
     *subpaths,
-    must_exist_completely: bool = True, 
+    must_exist_completely: bool = True,
     include_project: bool = True,
     include_user: bool = True,
     include_default: bool = True,

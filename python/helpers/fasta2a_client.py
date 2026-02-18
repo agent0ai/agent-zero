@@ -50,7 +50,7 @@ class AgentConnection:
         """Retrieve the agent card from the remote agent."""
         if self._agent_card is None:
             try:
-                response = await self._http_client.get(f"{self.agent_url}/.well-known/agent.json")
+                response = await self._http_client.get(f"{self.agent_url}/.well-known/agent-card.json")
                 response.raise_for_status()
                 self._agent_card = response.json()
                 _PRINTER.print(f"Retrieved agent card from {self.agent_url}")
@@ -61,7 +61,7 @@ class AgentConnection:
                 if "/a2a" in self.agent_url:
                     root_url = self.agent_url.split("/a2a", 1)[0]
                     try:
-                        response = await self._http_client.get(f"{root_url}/.well-known/agent.json")
+                        response = await self._http_client.get(f"{root_url}/.well-known/agent-card.json")
                         response.raise_for_status()
                         self._agent_card = response.json()
                         _PRINTER.print(f"Retrieved agent card from {root_url}")
@@ -100,11 +100,11 @@ class AgentConnection:
             'role': 'user',
             'parts': parts,
             'kind': 'message',
-            'message_id': str(uuid.uuid4())
+            'messageId': str(uuid.uuid4())
         }
 
         if context_id is not None:
-            a2a_message['context_id'] = context_id
+            a2a_message['contextId'] = context_id  # A2A wire format uses camelCase
 
         # Send using the message/send method (not send_task)
         try:
@@ -116,7 +116,8 @@ class AgentConnection:
 
             # Persist context id for subsequent calls
             try:
-                ctx = response.get('result', {}).get('context_id')  # type: ignore[index]
+                result = response.get('result', {})  # type: ignore[index]
+                ctx = result.get('contextId') or result.get('context_id')
                 if isinstance(ctx, str):
                     self._context_id = ctx
             except Exception:

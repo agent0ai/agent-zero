@@ -179,6 +179,13 @@ def get_tunnel_api_port():
     return tunnel_api_port
 
 
+def get_a2a_server_url(token: str):
+    a2a_server_url = (
+        str(dotenv.get_dotenv_value("A2A_SERVER_URL", 'localhost'))
+    )
+
+    return f"{a2a_server_url}/a2a/t-{token}"
+
 def get_platform():
     return sys.platform
 

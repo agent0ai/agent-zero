@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
 import pytest
-from python.helpers import settings
+from python.helpers import settings, fasta2a_server
 
 
 def get_test_urls():
@@ -25,10 +25,10 @@ def get_test_urls():
         base_url = "http://localhost:50101"
 
         urls = {
-            "token_based": f"{base_url}/a2a/t-{token}/.well-known/agent.json",
-            "bearer_auth": f"{base_url}/a2a/.well-known/agent.json",
-            "api_key_header": f"{base_url}/a2a/.well-known/agent.json",
-            "api_key_query": f"{base_url}/a2a/.well-known/agent.json?api_key={token}"
+            "token_based": f"{base_url}/a2a/t-{token}/.well-known/agent-card.json",
+            "bearer_auth": f"{base_url}/a2a/.well-known/agent-card.json",
+            "api_key_header": f"{base_url}/a2a/.well-known/agent-card.json",
+            "api_key_query": f"{base_url}/a2a/.well-known/agent-card.json?api_key={token}"
         }
 
         return {"token": token, "urls": urls}
@@ -145,32 +145,144 @@ def validate_token_format():
 
 
 @pytest.mark.asyncio
-async def test_server_connectivity():
-    """Test basic server connectivity."""
-    try:
-        import httpx
+async def test_server_connectivity(monkeypatch):
+    """Fail if configured agent endpoint is not a valid in-process A2A endpoint."""
+    token = "testtoken1234567"
+    monkeypatch.setattr(settings, "get_settings", lambda: {"mcp_server_token": token, "a2a_server_enabled": True})
 
-        print("🌐 Server Connectivity Test")
-        print("=" * 30)
+    data = get_test_urls()
+    assert data is not None
 
-        async with httpx.AsyncClient() as client:
-            try:
-                # Test basic server
-                await client.get("http://localhost:50101/", timeout=5.0)
-                print("✅ Agent Zero server is running")
-                return True
-            except httpx.ConnectError:
-                print("❌ Cannot connect to Agent Zero server")
-                print("   Make sure the server is running: python run_ui.py")
-                return False
-            except Exception as e:
-                print(f"❌ Server connectivity error: {e}")
-                return False
+    import httpx
 
-    except ImportError:
-        print("ℹ️  httpx not available, skipping connectivity test")
-        print("   Install with: pip install httpx")
-        return None
+    proxy = fasta2a_server.DynamicA2AProxy.get_instance()
+    proxy.reconfigure(token)
+    transport = httpx.ASGITransport(app=proxy)
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.get(data["urls"]["token_based"], timeout=5.0)
+        response.raise_for_status()
+
+
+@pytest.mark.asyncio
+async def test_official_a2a_python_client_card_fetch(monkeypatch):
+    """Verify compatibility with the official a2a-python client stack."""
+    a2a_client = pytest.importorskip("a2a.client")
+
+    token = "testtoken1234567"
+    monkeypatch.setattr(settings, "get_settings", lambda: {"mcp_server_token": token, "a2a_server_enabled": True})
+
+    import httpx
+
+    proxy = fasta2a_server.DynamicA2AProxy.get_instance()
+    proxy.reconfigure(token)
+    transport = httpx.ASGITransport(app=proxy)
+    base_url = f"http://localhost:50101/a2a/t-{token}"
+
+    async with httpx.AsyncClient(transport=transport) as httpx_client:
+        resolver = a2a_client.A2ACardResolver(
+            httpx_client=httpx_client,
+            base_url=base_url,
+        )
+        card = await resolver.get_agent_card()
+        assert getattr(card, "url", "")
+
+
+@pytest.mark.asyncio
+async def test_official_a2a_python_client_send_message_non_blocking(monkeypatch):
+    """Verify message/send compatibility with the official a2a-python client."""
+    a2a_client = pytest.importorskip("a2a.client")
+
+    token = "testtoken1234567"
+    monkeypatch.setattr(settings, "get_settings", lambda: {"mcp_server_token": token, "a2a_server_enabled": True})
+
+    import httpx
+
+    proxy = fasta2a_server.DynamicA2AProxy.get_instance()
+    proxy.reconfigure(token)
+    transport = httpx.ASGITransport(app=proxy)
+    base_url = f"http://localhost:50101/a2a/t-{token}"
+
+    async with httpx.AsyncClient(transport=transport) as httpx_client:
+        config = a2a_client.ClientConfig(
+            httpx_client=httpx_client,
+            polling=True,  # non-blocking request path
+            streaming=False,
+            accepted_output_modes=["application/json"],
+        )
+        client = await a2a_client.ClientFactory.connect(base_url, client_config=config)
+        try:
+            message = a2a_client.create_text_message_object(content="ping")
+            first_event = None
+            async for event in client.send_message(message):
+                first_event = event
+                break
+
+            assert first_event is not None
+            assert isinstance(first_event, tuple)
+
+            task, update = first_event
+            assert update is None
+            assert task.status.state in {
+                "submitted",
+                "working",
+                "completed",
+                "failed",
+                "canceled",
+                "rejected",
+                "auth-required",
+                "input-required",
+                "unknown",
+            }
+        finally:
+            close = getattr(client, "close", None)
+            if callable(close):
+                await close()
+
+
+@pytest.mark.asyncio
+async def test_message_send_without_accepted_output_modes(monkeypatch):
+    """Ensure server accepts message/send when configuration omits acceptedOutputModes."""
+    token = "testtoken1234567"
+    monkeypatch.setattr(settings, "get_settings", lambda: {"mcp_server_token": token, "a2a_server_enabled": True})
+
+    import httpx
+
+    proxy = fasta2a_server.DynamicA2AProxy.get_instance()
+    proxy.reconfigure(token)
+    transport = httpx.ASGITransport(app=proxy)
+    endpoint = f"http://localhost:50101/a2a/t-{token}"
+
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "message/send",
+        "params": {
+            "message": {
+                "kind": "message",
+                "messageId": "msg-1",
+                "role": "user",
+                "parts": [{"kind": "text", "text": "ping"}],
+            },
+            "configuration": {"blocking": False},
+        },
+    }
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.post(endpoint, json=payload, timeout=5.0)
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data.get("result", {}).get("kind") == "task"
+        assert data.get("result", {}).get("status", {}).get("state") in {
+            "submitted",
+            "working",
+            "completed",
+            "failed",
+            "canceled",
+            "rejected",
+            "auth-required",
+            "input-required",
+            "unknown",
+        }
 
 
 def main():
