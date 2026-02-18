@@ -770,13 +770,12 @@ def _get_litellm_embedding(
     model_config: Optional[ModelConfig] = None,
     **kwargs: Any,
 ):
-    # Check if this is a local sentence-transformers model
-    if provider_name == "huggingface" and model_name.startswith(
-        "sentence-transformers/"
-    ):
-        # Use local sentence-transformers instead of LiteLLM for local models
+    # Local sentence-transformers models are **not** compatible with LiteLLM remote providers
+    # (e.g. openrouter). If the model name is `sentence-transformers/...`, always route to the
+    # local SentenceTransformer implementation to avoid first-run memory init crashes.
+    if model_name.startswith("sentence-transformers/"):
         provider_name, model_name, kwargs = _adjust_call_args(
-            provider_name, model_name, kwargs
+            "huggingface", model_name, kwargs
         )
         return LocalSentenceTransformerWrapper(
             provider=provider_name,
