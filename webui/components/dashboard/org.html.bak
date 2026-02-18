@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Zero Org Chart Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        #org-chart { border: 1px solid #ddd; height: 80vh; overflow: auto; }
+        .node circle { fill: #fff; stroke: steelblue; stroke-width: 3px; }
+        .node.active circle { stroke: green; fill: lightgreen; }
+        .node text { font: 12px sans-serif; }
+        .link { fill: none; stroke: #ccc; stroke-width: 2px; }
+    </style>
+</head>
+<body>
+    <h1>Empire Org Chart - Live Tasks & Profiles</h1>
+    <div id="org-chart"></div>
+    <script>
+        const svg = d3.select("#org-chart").append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", "0 0 1200 800");
+        const g = svg.append("g").attr("transform", "translate(40,40)");
+
+        const socket = io();
+        let treeData = { name: "Empire", children: [] };
+
+        function buildTree(state) {
+            // Parse WS state: agents -> profiles, chats -> tasks/comms, tokens
+            const profiles = state?.agents || [];
+            treeData.children = profiles.map(profile => ({
+                name: `${profile.profile || 'Unknown'} (#${profile.agent_number || ''})`,
+                status: profile.status || 'idle',
+                tokens: profile.tokens_used || 0,
+                children: (state.chats || []).filter(chat => chat.agent_number === profile.agent_number).map(chat => ({
+                    name: `Task: ${chat.headline || 'Chat'}`,
+                    comms: chat.steps?.length || 0,
+                    tokens: chat.tokens_used || 0
+                }))
+            }));
+            updateChart();
+        }
+
+        socket.on('connect', () => console.log('WS connected'));
+        socket.on('snapshot', buildTree);
+        socket.on('state_update', (update) => { /* Merge update */ buildTree({...treeData, ...update}); });
+
+        // Initial mock
+        buildTree({agents: [{profile:'developer', agent_number:2, status:'running', tokens_used:1000}], chats: [{agent_number:2, headline:'P2 Org Chart', steps:5, tokens_used:500}]});
+
+        function updateChart() {
+            g.selectAll('*').remove();
+            const treeLayout = d3.tree().size([1000, 600]);
+            const root = d3.hierarchy(treeData);
+            treeLayout(root);
+
+            const links = g.selectAll('.link')
+                .data(root.links())
+                .enter().append('path')
+                .attr('class', 'link')
+                .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x));
+
+            const nodes = g.selectAll('.node')
+                .data(root.descendants())
+                .enter().append('g')
+                .attr('class', 'node')
+                .attr('transform', d => `translate(${d.y},${d.x})`);
+
+            nodes.append('circle').attr('r', 5);
+            nodes.append('text')
+                .attr('dy', '.35em')
+                .attr('x', d => d.children ? -10 : 10)
+                .attr('text-anchor', d => d.children ? 'end' : 'start')
+                .text(d => d.data.name)
+                .append('tspan').attr('dy', '1.2em').attr('x', d => d.children ? -10 : 10).text(d => `Tokens: ${d.data.tokens}, Comms: ${d.data.comms || 0}`);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Zero Org Chart Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        #metrics { background: white; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        #org-chart { border: 1px solid #ddd; height: 80vh; overflow: auto; }
+        .node circle { fill: #fff; stroke: steelblue; stroke-width: 3px; cursor: pointer; }
+        .node.active circle { stroke: green; fill: lightgreen; }
+        .node text { font: 12px sans-serif; }
+        .link { fill: none; stroke: #ccc; stroke-width: 2px; }
+        .metrics { font-weight: bold; color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Empire Org Chart - Live Tasks & Profiles</h1>
+    <div id="metrics">
+        <span class="metrics">Total Tokens: <span id="total-tokens">0</span></span> |
+        <span class="metrics">Queue Length: <span id="queue-len">0</span></span> |
+        <span class="metrics">Velocity: <span id="velocity">0</span> msgs/h</span>
+    </div>
+    <div id="org-chart"></div>
+    <script>
+        const svg = d3.select("#org-chart").append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", "0 0 1400 800");
+        const g = svg.append("g").attr("transform", "translate(40,40)");
+
+        const socket = io();
+        let treeData = { name: "Empire", children: [] };
+        let metrics = { total_tokens: 0, queue_len: 0, velocity: 0 };
+
+        function updateMetrics() {
+            document.getElementById('total-tokens').textContent = metrics.total_tokens;
+            document.getElementById('queue-len').textContent = metrics.queue_len;
+            document.getElementById('velocity').textContent = metrics.velocity;
+        }
+
+        function buildTree(state) {
+            const profiles = state?.agents || [];
+            const chats = state?.chats || [];
+            treeData.children = profiles.map(profile => ({
+                id: `agent-${profile.agent_number}`,
+                profile: profile.profile,
+                name: `${profile.profile || 'Unknown'} (#${profile.agent_number})`,
+                status: profile.status || 'idle',
+                tokens: profile.tokens_used || 0,
+                children: chats.filter(chat => chat.agent_number === profile.agent_number).map(chat => ({
+                    id: `chat-${chat.id}`,
+                    name: `Task: ${chat.headline || 'Chat'}`,
+                    backlog: chat.steps || 0,
+                    tokens: chat.tokens_used || 0
+                }))
+            }));
+            // Compute metrics
+            metrics.total_tokens = profiles.reduce((sum, p) => sum + (p.tokens_used || 0), 0) + chats.reduce((sum, c) => sum + (c.tokens_used || 0), 0);
+            metrics.queue_len = chats.filter(c => c.status === 'idle').length;
+            metrics.velocity = chats.length > 0 ? (chats.reduce((sum, c) => sum + c.steps, 0) / chats.length * 10).toFixed(1) : 0; // mock
+            updateMetrics();
+            updateChart();
+        }
+
+        socket.on('connect', () => console.log('WS connected'));
+        socket.on('snapshot', buildTree);
+        socket.on('state_update', buildTree);
+
+        // Initial real data expected, remove mock
+        // buildTree({agents: [...], chats: [...]});
+
+        function updateChart() {
+            g.selectAll('*').remove();
+            const treeLayout = d3.tree().size([1000, 600]);
+            const root = d3.hierarchy(treeData);
+            treeLayout(root);
+
+            const links = g.selectAll('.link')
+                .data(root.links())
+                .enter().append('path')
+                .attr('class', 'link')
+                .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x));
+
+            const nodes = g.selectAll('.node')
+                .data(root.descendants())
+                .enter().append('g')
+                .attr('class', 'node')
+                .attr('transform', d => `translate(${d.y},${d.x})`)
+                .on('click', function(event, d) {
+                    const namespace = `/team/${d.data.profile || d.data.name.split(' ')[0].toLowerCase()}`;
+                    const teamSocket = io(namespace);
+                    teamSocket.on('connect', () => {
+                        console.log('Drop-in chat connected:', namespace);
+                        teamSocket.emit('user_message', {user_message: 'Org chart drop-in: status update?'});
+                    });
+                    teamSocket.on('response', (msg) => console.log('Team response:', msg));
+                });
+
+            nodes.append('circle').attr('r', 6);
+            nodes.append('text')
+                .attr('dy', '.35em')
+                .attr('x', d => d.children ? -15 : 15)
+                .attr('text-anchor', d => d.children ? 'end' : 'start')
+                .text(d => d.data.name)
+                .append('tspan').attr('dy', '1.5em').attr('x', d => d.children ? -15 : 15).text(d => `Tokens: ${d.data.tokens || 0} | Backlog: ${d.data.backlog || 0}`)
+                .append('tspan').attr('dy', '1.2em').attr('x', d => d.children ? -15 : 15).text(d => `Status: ${d.data.status}`);
+        }
+    </script>
+</body>
+</html>

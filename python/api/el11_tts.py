@@ -1,65 +1,65 @@
-import sys
+from __future__ import annotations
+
+import json
 import os
-sys.path.insert(0, "/a0/python")
+from pathlib import Path
 
-import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-log = logging.getLogger(__name__ )
+import httpx
+from flask import Request, Response
 
-try:
-    from helpers.api import ApiHandler, Request, Response
-    from flask import Response
-    import httpx
-    import json
-except ImportError as e:
-    log.error(f"Import failed: {e}")
-    class ApiHandler(object): pass
-    class Request(object):
-        def json(self):
-            return {}
-    class Response(object): pass
-    class El11Tts(ApiHandler): pass
-    raise
+from python.helpers.api import ApiHandler
+from python.helpers import settings
+
 
 class El11Tts(ApiHandler):
-    def post(self, request):
-        try:
-            data = request.json()
-            log.info("EL11 TTS post received")
-        except Exception as e:
-            log.error(f"JSON parse error: {e}")
-            return {"error": "Invalid JSON", "success": False}
+    """Proxy TTS requests to ElevenLabs and stream back audio."""
 
-        text = data.get("text", "")
+    @classmethod
+    def get_methods(cls) -> list[str]:
+        return ["POST"]
+
+    async def process(self, input: dict, request: Request) -> dict | Response:
+        text = (input.get("text") or "").strip()
         if not text:
-            return {"error": "No text provided", "success": False}
+            return {"success": False, "error": "No text provided"}
 
-        profile = data.get("profile", "agent0")
-        json_path = f"/a0/agents/{profile}/elevenlabs_voice.json"
+        # Prefer explicit profile in request; fall back to active agent profile.
+        profile = (
+            (input.get("profile") or "").strip()
+            or settings.get_settings().get("agent_profile", "agent0")
+        )
+
+        cfg_path = Path(f"/a0/agents/{profile}/elevenlabs_voice.json")
+        if not cfg_path.exists():
+            cfg_path = Path("/a0/agents/agent0/elevenlabs_voice.json")
+
         try:
-            with open(json_path, "r") as f:
-                config_str = f.read()
-            config = json.loads(config_str)
-            voice_id = config.get("voice_id")
-            if not voice_id:
-                raise ValueError("voice_id missing in config")
-            model_id = config.get("model", "eleven_turbo_v2_5")
-            stability = config.get("stability", 0.3)
-            similarity_boost = config.get("similarity_boost", 0.75)
-            style = config.get("style", 0.3)
-            clarity_boost = config.get("clarity_boost", 0.2)
-            log.info(f"Loaded config for {profile}: voice_id={voice_id}")
+            config = json.loads(cfg_path.read_text(encoding="utf-8"))
         except Exception as e:
-            log.error(f"Config error for {profile}: {str(e)}")
-            return {"error": f"Config error for {profile}: {str(e)}", "success": False}
+            return {
+                "success": False,
+                "error": f"Failed to read ElevenLabs config from {cfg_path}: {e}",
+            }
 
-        api_key = os.getenv("EL11_API_KEY") or "sk_d97720987169e8b8ea1cc13a6dbc2fb1a16aae6268663882"
+        voice_id = (config.get("voice_id") or "").strip()
+        model_id = (config.get("model") or "eleven_turbo_v2_5").strip()
+        stability = float(config.get("stability", 0.3))
+        similarity_boost = float(config.get("similarity_boost", 0.75))
+        style = float(config.get("style", 0.3))
+
+        if not voice_id:
+            return {"success": False, "error": "voice_id missing in elevenlabs_voice.json"}
+
+        api_key = (os.getenv("EL11_API_KEY") or "").strip()
         if not api_key:
-            log.error("EL11_API_KEY missing")
-            return {"error": "EL11_API_KEY missing", "success": False}
+            return {"success": False, "error": "EL11_API_KEY missing"}
 
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        }
         payload = {
             "text": text,
             "model_id": model_id,
@@ -67,21 +67,21 @@ class El11Tts(ApiHandler):
                 "stability": stability,
                 "similarity_boost": similarity_boost,
                 "style": style,
-                "clarity_boost": clarity_boost
-            }
+            },
         }
-        try:
-            resp = httpx.post(url, headers=headers, json=payload, stream=True)
-            if resp.status_code != 200:
-                error_body = resp.text[:500]
-                log.error(f"EL11 API error {resp.status_code}: {error_body}")
-                return {"error": f"EL11 API error {resp.status_code}: {error_body}", "success": False}
-            log.info("EL11 TTS stream success")
 
-            def generate():
-                for chunk in resp.iter_bytes(chunk_size=8192):
-                    yield chunk
-            return Response(generate(), mimetype="audio/mpeg")
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                resp = client.post(url, headers=headers, json=payload)
+
+            if resp.status_code != 200:
+                err = resp.text[:1000]
+                return {
+                    "success": False,
+                    "error": f"ElevenLabs API error {resp.status_code}: {err}",
+                }
+
+            return Response(resp.content, mimetype="audio/mpeg", status=200)
+
         except Exception as e:
-            log.error(f"TTS request error: {e}")
-            return {"error": f"TTS request error: {str(e)}", "success": False}
+            return {"success": False, "error": f"ElevenLabs request failed: {e}"}
