@@ -259,7 +259,12 @@ class SecretsManager:
         return StreamingSecretsFilter(self.load_secrets())
 
     def replace_placeholders(self, text: str) -> str:
-        """Replace secret placeholders with actual values"""
+        """Replace secret placeholders with actual values.
+
+        Handles both literal §§secret(KEY) and JSON-escaped variants
+        (\\u00a7\\u00a7secret(KEY)) that appear when the placeholder is
+        inside a JSON-encoded string value stored in settings.
+        """
         if not text:
             return text
 
@@ -277,7 +282,14 @@ class SecretsManager:
 
                 raise RepairableException(error_msg)
 
-        return re.sub(self.PLACEHOLDER_PATTERN, replacer, text)
+        # First try the standard pattern with literal § characters
+        result = re.sub(self.PLACEHOLDER_PATTERN, replacer, text)
+        # Also handle JSON-escaped Unicode variants: \u00a7\u00a7secret(KEY)
+        # This occurs when §§secret() placeholders are inside JSON string values
+        # that are themselves stored as a JSON-encoded string in settings.
+        escaped_pattern = r"\\u00a7\\u00a7secret\(([A-Za-z_][A-Za-z0-9_]*)\)"
+        result = re.sub(escaped_pattern, replacer, result)
+        return result
 
     def change_placeholders(self, text: str, new_format: str) -> str:
         """Substitute secret placeholders with a different placeholder format"""

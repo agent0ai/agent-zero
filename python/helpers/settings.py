@@ -651,6 +651,11 @@ def _apply_settings(previous: Settings | None):
 
                 mcp_config = MCPConfig.get_instance()
                 try:
+                    # Resolve §§secret(KEY) placeholders in MCP server config before parsing.
+                    # This allows API keys for external MCP servers to be stored securely
+                    # in secrets.env rather than hardcoded in the MCP config JSON.
+                    from python.helpers.secrets import get_default_secrets_manager
+                    mcp_servers = get_default_secrets_manager().replace_placeholders(mcp_servers)
                     MCPConfig.update(mcp_servers)
                 except Exception as e:
                     
