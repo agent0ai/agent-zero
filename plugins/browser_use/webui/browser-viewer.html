@@ -6,9 +6,9 @@
   </script>
 </head>
 <body>
-  <div x-data x-create="$store.browserViewer.open($refs.screenCanvas)" x-destroy="$store.browserViewer.destroy()">
+  <div x-data x-destroy="$store.browserViewer.destroy()">
     <template x-if="$store.browserViewer">
-      <div class="browser-viewer">
+      <div class="browser-viewer" x-create="$store.browserViewer.open($refs.screenCanvas)">
 
         <!-- Error Banner -->
         <div class="bv-error" x-show="$store.browserViewer.error" x-cloak>

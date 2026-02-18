@@ -70,10 +70,13 @@ class SessionManager:
     # -- Lifecycle ----------------------------------------------------------
 
     async def ensure_started(self) -> None:
-        """Start the browser if not already running."""
+        """Start the browser if not already running (double-checked locking)."""
         if self.browser_session and not self._closed:
             return
-        await self._start_browser()
+        async with self.lock:
+            if self.browser_session and not self._closed:
+                return
+            await self._start_browser()
 
     async def _start_browser(self) -> None:
         """Launch Chromium via browser-use and let it handle CDP setup."""
@@ -165,12 +168,6 @@ class SessionManager:
             / f"plugin_{self.agent.context.id}"
         )
 
-    def __del__(self):
-        if self.browser_session and not self._closed:
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(self.close())
-                loop.close()
-            except Exception:
-                pass
+    # No __del__: cleanup is handled by the agent_init extension
+    # and explicit close() calls. Creating a new event loop in __del__
+    # can replace the running application loop and corrupt async state.

@@ -22,8 +22,9 @@ const model = {
         this._initialized = true;
     },
 
-    // Called when modal opens (via x-create)
+    // Called when modal opens (via x-create on inner container)
     async open(canvasEl) {
+        if (!canvasEl) return;
         this._canvas = canvasEl;
         this._ctx = canvasEl.getContext("2d");
         this.error = null;
