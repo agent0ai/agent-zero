@@ -123,6 +123,16 @@ class SkillsTool(Tool):
             return f"Error: skill not found: {skill_name!r}. Try skills_tool method=list or method=search."
 
         # Store skill name for fresh loading each turn
-        self.agent.data[DATA_NAME_LOADED_SKILLS] = [skill.name]
+        if not self.agent.data[DATA_NAME_LOADED_SKILLS]:
+            self.agent.data[DATA_NAME_LOADED_SKILLS] = []
+        loaded = self.agent.data[DATA_NAME_LOADED_SKILLS]
+        if skill.name in loaded:
+            loaded.remove(skill.name)
+        loaded.append(skill.name)
+        self.agent.data[DATA_NAME_LOADED_SKILLS] = loaded[-max_loaded_skills():]
 
         return f"Loaded skill '{skill.name}' into EXTRAS."
+
+
+def max_loaded_skills() -> int:
+    return 5 # TODO move to settings

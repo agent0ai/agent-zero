@@ -10,13 +10,16 @@ from enum import Enum
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 
 BULK_MERGE_COUNT = 3
-TOPICS_KEEP_COUNT = 3
+TOPICS_MERGE_COUNT = 3
 CURRENT_TOPIC_RATIO = 0.5
 HISTORY_TOPIC_RATIO = 0.3
 HISTORY_BULK_RATIO = 0.2
-TOPIC_COMPRESS_RATIO = 0.65
-LARGE_MESSAGE_TO_TOPIC_RATIO = 0.5
+CURRENT_TOPIC_ATTENTION_COMPRESSION = 0.65 # compress current topic's attention window to 65% of size
+HISTORY_TOPIC_ATTENTION_COMPRESSION = 0 # compress history topic's attention window to 0% of size - only request and response remain intact
+LARGE_MESSAGE_TO_CURRENT_TOPIC_RATIO = 0.5
+LARGE_MESSAGE_TO_HISTORY_TOPIC_RATIO = 0.2
 RAW_MESSAGE_OUTPUT_TEXT_TRIM = 100
+COMPRESSION_TARGET_RATIO = 0.8
 
 
 class RawMessage(TypedDict):
@@ -155,13 +158,12 @@ class Topic(Record):
         self.summary = await self.summarize_messages(self.messages)
         return self.summary
 
-    async def compress_large_messages(self) -> bool:
+    def compress_large_messages(self, message_ratio: float = CURRENT_TOPIC_RATIO * LARGE_MESSAGE_TO_CURRENT_TOPIC_RATIO) -> bool:
         set = settings.get_settings()
         msg_max_size = (
             set["chat_model_ctx_length"]
             * set["chat_model_ctx_history"]
-            * CURRENT_TOPIC_RATIO
-            * LARGE_MESSAGE_TO_TOPIC_RATIO
+            * message_ratio
         )
         large_msgs = []
         for m in (m for m in self.messages if not m.summary):
@@ -195,27 +197,29 @@ class Topic(Record):
         return False
 
     async def compress(self) -> bool:
-        compress = await self.compress_large_messages()
+        compress = self.compress_large_messages()
         if not compress:
             compress = await self.compress_attention()
         return compress
 
-    async def compress_attention(self) -> bool:
+    async def compress_attention(self, ratio: float = CURRENT_TOPIC_ATTENTION_COMPRESSION) -> bool:
 
-        if len(self.messages) > 2:
-            cnt_to_sum = math.ceil((len(self.messages) - 2) * TOPIC_COMPRESS_RATIO)
-            msg_to_sum = self.messages[1 : cnt_to_sum + 1]
-            summary = await self.summarize_messages(msg_to_sum)
-            sum_msg_content = self.history.agent.parse_prompt(
-                "fw.msg_summary.md", summary=summary
-            )
-            sum_msg = Message(False, sum_msg_content)
-            self.messages[1 : cnt_to_sum + 1] = [sum_msg]
-            return True
-        return False
+        middle = len(self.messages) - 2
+        if middle < 2:
+            return False
+        cnt_to_sum = middle - math.floor(middle * ratio)
+        if cnt_to_sum < 1:
+            return False
+        msg_to_sum = self.messages[1 : cnt_to_sum + 1]
+        summary = await self.summarize_messages(msg_to_sum)
+        sum_msg_content = self.history.agent.parse_prompt(
+            "fw.msg_summary.md", summary=summary
+        )
+        sum_msg = Message(False, sum_msg_content)
+        self.messages[1 : cnt_to_sum + 1] = [sum_msg]
+        return True
 
     async def summarize_messages(self, messages: list[Message]):
-        # FIXME: vision bytes are sent to utility LLM, send summary instead
         msg_txt = [m.output_text() for m in messages]
         summary = await self.history.agent.call_utility_model(
             system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
@@ -363,22 +367,38 @@ class History(Record):
 
     async def compress(self):
         compressed = False
+        total = _get_ctx_size_for_history()
+        curr, hist, bulk = (
+            self.get_current_topic_tokens(),
+            self.get_topics_tokens(),
+            self.get_bulks_tokens(),
+        )
+        if (curr + hist + bulk) <= total:
+            return False
+
+        target = total * COMPRESSION_TARGET_RATIO
+        prev_total = curr + hist + bulk + 1
         while True:
             curr, hist, bulk = (
                 self.get_current_topic_tokens(),
                 self.get_topics_tokens(),
                 self.get_bulks_tokens(),
             )
-            total = _get_ctx_size_for_history()
+
+            # safeguard against infinite loop in case LLM bloats the summary for some reason
+            if (curr + hist + bulk) >= prev_total:
+                break
+            prev_total = curr + hist + bulk
+
             ratios = [
                 (curr, CURRENT_TOPIC_RATIO, "current_topic"),
                 (hist, HISTORY_TOPIC_RATIO, "history_topic"),
                 (bulk, HISTORY_BULK_RATIO, "history_bulk"),
             ]
-            ratios = sorted(ratios, key=lambda x: (x[0] / total) / x[1], reverse=True)
+            ratios = sorted(ratios, key=lambda x: (x[0] / target) / x[1], reverse=True)
             compressed_part = False
             for ratio in ratios:
-                if ratio[0] > ratio[1] * total:
+                if ratio[0] > ratio[1] * target:
                     over_part = ratio[2]
                     if over_part == "current_topic":
                         compressed_part = await self.current.compress()
@@ -394,24 +414,29 @@ class History(Record):
                 continue
             else:
                 return compressed
+        return compressed
 
     async def compress_topics(self) -> bool:
-        # summarize topics one by one
+
+        # 1. first identify large messages and compress them cheaply
         for topic in self.topics:
-            if not topic.summary:
-                await topic.summarize()
+            if topic.compress_large_messages(HISTORY_TOPIC_RATIO*LARGE_MESSAGE_TO_HISTORY_TOPIC_RATIO):
                 return True
 
-        # move oldest topic to bulks and summarize
+        # 2. summarize topics attention window one by one
         for topic in self.topics:
+            if await topic.compress_attention(HISTORY_TOPIC_ATTENTION_COMPRESSION):
+                return True
+
+        # 3. move oldest topics to bulks in chunks
+        if self.topics:
+            count = TOPICS_MERGE_COUNT if len(self.topics) >= TOPICS_MERGE_COUNT else 1
+            chunk = self.topics[:count]
             bulk = Bulk(history=self)
-            bulk.records.append(topic)
-            if topic.summary:
-                bulk.summary = topic.summary
-            else:
-                await bulk.summarize()
+            bulk.records.extend(chunk)
+            await bulk.summarize()
             self.bulks.append(bulk)
-            self.topics.remove(topic)
+            self.topics[:count] = []
             return True
         return False
 
