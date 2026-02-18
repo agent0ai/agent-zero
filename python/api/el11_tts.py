@@ -1,87 +1,46 @@
-from __future__ import annotations
-
-import json
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 import os
-from pathlib import Path
+import requests
 
-import httpx
-from flask import Request, Response
+router = APIRouter()
 
-from python.helpers.api import ApiHandler
-from python.helpers import settings
+@router.post('/')
+def el11_tts(request: dict):
+    profile = request.get('profile', 'evetz')
+    text = request.get('text')
+    if not text or len(text.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Missing or empty 'text'")
 
-
-class El11Tts(ApiHandler):
-    """Proxy TTS requests to ElevenLabs and stream back audio."""
-
-    @classmethod
-    def get_methods(cls) -> list[str]:
-        return ["POST"]
-
-    async def process(self, input: dict, request: Request) -> dict | Response:
-        text = (input.get("text") or "").strip()
-        if not text:
-            return {"success": False, "error": "No text provided"}
-
-        # Prefer explicit profile in request; fall back to active agent profile.
-        profile = (
-            (input.get("profile") or "").strip()
-            or settings.get_settings().get("agent_profile", "agent0")
-        )
-
-        cfg_path = Path(f"/a0/agents/{profile}/elevenlabs_voice.json")
-        if not cfg_path.exists():
-            cfg_path = Path("/a0/agents/agent0/elevenlabs_voice.json")
-
-        try:
-            config = json.loads(cfg_path.read_text(encoding="utf-8"))
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to read ElevenLabs config from {cfg_path}: {e}",
-            }
-
-        voice_id = (config.get("voice_id") or "").strip()
-        model_id = (config.get("model") or "eleven_turbo_v2_5").strip()
-        stability = float(config.get("stability", 0.3))
-        similarity_boost = float(config.get("similarity_boost", 0.75))
-        style = float(config.get("style", 0.3))
-
+    voice_id_path = os.path.join(os.path.dirname(__file__), '..', '..', 'agents', profile, 'voice_id.txt')
+    try:
+        with open(voice_id_path, 'r') as f:
+            voice_id = f.read().strip()
         if not voice_id:
-            return {"success": False, "error": "voice_id missing in elevenlabs_voice.json"}
+            raise ValueError('Empty voice_id')
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Voice ID config error for {profile}: {{str(exc)}}")
 
-        api_key = (os.getenv("EL11_API_KEY") or "").strip()
-        if not api_key:
-            return {"success": False, "error": "EL11_API_KEY missing"}
+    api_key = os.getenv('EL11_API_KEY')
+    if not api_key:
+        raise HTTPException(status_code=500, detail='EL11_API_KEY not configured')
 
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        headers = {
-            "xi-api-key": api_key,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
+    url = f'https://api.elevenlabs.io/v1/text-to-speech/{{voice_id}}/stream'
+    data = {
+        'text': text,
+        'model_id': 'eleven_monolingual_v1',
+        'voice_settings': {
+            'stability': 0.5,
+            'similarity_boost': 0.5,
         }
-        payload = {
-            "text": text,
-            "model_id": model_id,
-            "voice_settings": {
-                "stability": stability,
-                "similarity_boost": similarity_boost,
-                "style": style,
-            },
-        }
+    }
 
-        try:
-            with httpx.Client(timeout=60.0) as client:
-                resp = client.post(url, headers=headers, json=payload)
+    resp = requests.post(url, headers={'xi-api-key': api_key, 'Content-Type': 'application/json'}, json=data, stream=True)
+    resp.raise_for_status()
 
-            if resp.status_code != 200:
-                err = resp.text[:1000]
-                return {
-                    "success": False,
-                    "error": f"ElevenLabs API error {resp.status_code}: {err}",
-                }
+    def generate():
+        for chunk in resp.iter_content(chunk_size=1024):
+            if chunk:
+                yield chunk
 
-            return Response(resp.content, mimetype="audio/mpeg", status=200)
-
-        except Exception as e:
-            return {"success": False, "error": f"ElevenLabs request failed: {e}"}
+    return StreamingResponse(generate(), media_type='audio/mpeg')
