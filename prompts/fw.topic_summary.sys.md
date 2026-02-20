@@ -6,7 +6,8 @@ You must return a single summary of all records
 
 # Expected output
 Your output will be a text of the summary
-Length of the text should be one paragraph, approximately 100 words
+Summary must be shorter than original messages
+Length of the text should be maximum one paragraph, approximately 100 words, shorter if original is shorter
 No intro
 No conclusion
 No formatting

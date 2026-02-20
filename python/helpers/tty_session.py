@@ -22,7 +22,7 @@ class TTYSession:
         self.encoding = encoding
         self.echo = echo  # ← store preference
         self._proc = None
-        self._buf = asyncio.Queue()
+        self._buf = None
 
     def __del__(self):
         # Simple cleanup on object destruction
@@ -37,6 +37,7 @@ class TTYSession:
 
     # ── user-facing coroutines ────────────────────────────────────────
     async def start(self):
+        self._buf = asyncio.Queue()
         if _IS_WIN:
             self._proc = await _spawn_winpty(
                 self.cmd, self.cwd, self.env, self.echo

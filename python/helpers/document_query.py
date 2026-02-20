@@ -433,7 +433,8 @@ class DocumentQueryHelper:
             messages=[
                 SystemMessage(content=qa_system_message),
                 HumanMessage(content=qa_user_message),
-            ]
+            ],
+            explicit_caching=False,
         )
 
         self.progress_callback(f"Q&A process completed")

@@ -82,7 +82,7 @@ class MemoryConsolidator:
 
         Args:
             new_memory: The new memory content to process
-            area: Memory area (MAIN, FRAGMENTS, SOLUTIONS, INSTRUMENTS)
+            area: Memory area (MAIN, FRAGMENTS, SOLUTIONS)
             metadata: Initial metadata for the memory
             log_item: Optional log item for progress tracking
 

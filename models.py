@@ -316,7 +316,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
     def _llm_type(self) -> str:
         return "litellm-chat"
 
-    def _convert_messages(self, messages: List[BaseMessage]) -> List[dict]:
+    def _convert_messages(self, messages: List[BaseMessage], explicit_caching: bool = False) -> List[dict]:
         result = []
         # Map LangChain message types to LiteLLM roles
         role_mapping = {
@@ -362,6 +362,15 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 message_dict["tool_call_id"] = tool_call_id
 
             result.append(message_dict)
+
+        if explicit_caching and result:
+            if result[0]["role"] == "system":
+                result[0]["cache_control"] = {"type": "ephemeral"}
+            for i in range(len(result) - 1, -1, -1):
+                if result[i]["role"] == "assistant":
+                    result[i]["cache_control"] = {"type": "ephemeral"}
+                    break
+
         return result
 
     def _call(
@@ -464,6 +473,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
         rate_limiter_callback: (
             Callable[[str, str, int, int], Awaitable[bool]] | None
         ) = None,
+        explicit_caching: bool = False,
         **kwargs: Any,
     ) -> Tuple[str, str]:
 
@@ -478,7 +488,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
             messages.append(HumanMessage(content=user_message))
 
         # convert to litellm format
-        msgs_conv = self._convert_messages(messages)
+        msgs_conv = self._convert_messages(messages, explicit_caching=explicit_caching)
 
         # Apply rate limiting if configured
         limiter = await apply_rate_limiter(
