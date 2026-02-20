@@ -60,6 +60,11 @@ class Delegation(Tool):
 
         # run subordinate monologue
         max_runtime_seconds = int(set.get("subordinate_max_runtime_seconds", 300))
+        runtime_budget_seconds = int(set.get("runtime_subordinate_budget_seconds", 0))
+        if max_runtime_seconds > 0 and runtime_budget_seconds > 0:
+            max_runtime_seconds = min(max_runtime_seconds, runtime_budget_seconds)
+        elif runtime_budget_seconds > 0:
+            max_runtime_seconds = runtime_budget_seconds
         if max_runtime_seconds > 0:
             try:
                 result = await asyncio.wait_for(

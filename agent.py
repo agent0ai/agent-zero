@@ -387,6 +387,7 @@ class Agent:
         error_retries = 0  # counter for critical error retries
         set = settings.get_settings()
         monologue_started_at = time.monotonic()
+        last_iteration_started_at: float | None = None
         consecutive_misformats = 0
         consecutive_repairable_errors = 0
         while True:
@@ -402,6 +403,13 @@ class Agent:
                 while True:
 
                     self.context.streaming_agent = self  # mark self as current streamer
+                    now = time.monotonic()
+                    previous_iteration_seconds = (
+                        int(now - last_iteration_started_at)
+                        if last_iteration_started_at is not None
+                        else 0
+                    )
+                    last_iteration_started_at = now
                     self.loop_data.iteration += 1
                     self.loop_data.params_temporary = {}  # clear temporary params
 
@@ -409,6 +417,7 @@ class Agent:
                     guardrail_message = self._check_monologue_guardrails(
                         set=set,
                         monologue_started_at=monologue_started_at,
+                        previous_iteration_seconds=previous_iteration_seconds,
                         consecutive_misformats=consecutive_misformats,
                         consecutive_repairable_errors=consecutive_repairable_errors,
                     )
@@ -569,6 +578,7 @@ class Agent:
         self,
         set: settings.Settings,
         monologue_started_at: float,
+        previous_iteration_seconds: int,
         consecutive_misformats: int,
         consecutive_repairable_errors: int,
     ) -> str | None:
@@ -580,6 +590,8 @@ class Agent:
         max_consecutive_repairable_errors = int(
             set.get("agent_max_consecutive_repairable_errors", 6)
         )
+        runtime_turn_budget_seconds = int(set.get("runtime_turn_budget_seconds", 0))
+        runtime_task_budget_seconds = int(set.get("runtime_task_budget_seconds", 0))
 
         if max_iterations > 0 and self.loop_data.iteration >= max_iterations:
             return self._terminate_for_guardrail(
@@ -592,6 +604,24 @@ class Agent:
             return self._terminate_for_guardrail(
                 reason="maximum monologue runtime reached",
                 detail=f"elapsed_seconds={elapsed_seconds}, limit={max_runtime_seconds}",
+            )
+
+        if (
+            runtime_task_budget_seconds > 0
+            and elapsed_seconds >= runtime_task_budget_seconds
+        ):
+            return self._terminate_for_guardrail(
+                reason="runtime task budget reached",
+                detail=f"elapsed_seconds={elapsed_seconds}, limit={runtime_task_budget_seconds}",
+            )
+
+        if (
+            runtime_turn_budget_seconds > 0
+            and previous_iteration_seconds >= runtime_turn_budget_seconds
+        ):
+            return self._terminate_for_guardrail(
+                reason="runtime turn budget reached",
+                detail=f"previous_iteration_seconds={previous_iteration_seconds}, limit={runtime_turn_budget_seconds}",
             )
 
         if (

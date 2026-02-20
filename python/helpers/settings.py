@@ -119,6 +119,16 @@ class Settings(TypedDict):
     queue_max_total_chars: int
     queue_drop_policy: str
     queue_send_all_max_items: int
+    history_compression_target_ratio: float
+    history_current_topic_ratio: float
+    history_topic_ratio: float
+    history_bulk_ratio: float
+    history_attention_current_ratio: float
+    history_attention_past_ratio: float
+    history_compress_max_passes: int
+    runtime_turn_budget_seconds: int
+    runtime_task_budget_seconds: int
+    runtime_subordinate_budget_seconds: int
 
     workdir_path: str
     workdir_show: bool
@@ -618,6 +628,16 @@ def get_default_settings() -> Settings:
         queue_max_total_chars=get_default_value("queue_max_total_chars", 200000),
         queue_drop_policy=get_default_value("queue_drop_policy", "drop_oldest"),
         queue_send_all_max_items=get_default_value("queue_send_all_max_items", 20),
+        history_compression_target_ratio=get_default_value("history_compression_target_ratio", 0.8),
+        history_current_topic_ratio=get_default_value("history_current_topic_ratio", 0.5),
+        history_topic_ratio=get_default_value("history_topic_ratio", 0.3),
+        history_bulk_ratio=get_default_value("history_bulk_ratio", 0.2),
+        history_attention_current_ratio=get_default_value("history_attention_current_ratio", 0.65),
+        history_attention_past_ratio=get_default_value("history_attention_past_ratio", 0.0),
+        history_compress_max_passes=get_default_value("history_compress_max_passes", 12),
+        runtime_turn_budget_seconds=get_default_value("runtime_turn_budget_seconds", 0),
+        runtime_task_budget_seconds=get_default_value("runtime_task_budget_seconds", 0),
+        runtime_subordinate_budget_seconds=get_default_value("runtime_subordinate_budget_seconds", 0),
         workdir_path=get_default_value("workdir_path", files.get_abs_path_dockerized("usr/workdir")),
         workdir_show=get_default_value("workdir_show", True),
         workdir_max_depth=get_default_value("workdir_max_depth", 5),
