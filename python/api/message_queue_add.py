@@ -20,5 +20,8 @@ class MessageQueueAdd(ApiHandler):
             return Response("Empty message", status=400)
 
         item = mq.add(context, text, attachments, item_id)
+        if item.get("rejected"):
+            reason = item.get("reason", "queue_rejected")
+            return Response(f"Message queue rejected new item ({reason})", status=429)
         mark_dirty_for_context(context.id, reason="message_queue_add")
         return {"ok": True, "item_id": item["id"], "queue_length": len(mq.get_queue(context))}

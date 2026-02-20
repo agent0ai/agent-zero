@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 import shlex
 import time
+import os
 from python.helpers.tool import Tool, Response
 from python.helpers import files, rfc_exchange, projects, runtime, settings
 from python.helpers.print_style import PrintStyle
@@ -60,6 +61,8 @@ class CodeExecution(Tool):
     async def execute(self, **kwargs) -> Response:
 
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
+        self._output_dump_marker = ""
+        self._output_dumped = False
 
         runtime = self.args.get("runtime", "").lower().strip()
         session = int(self.args.get("session", 0))
@@ -80,7 +83,7 @@ class CodeExecution(Tool):
             )
         elif runtime == "output":
             response = await self.get_terminal_output(
-                session=session, timeouts=OUTPUT_TIMEOUTS
+                session=session, timeouts=self._get_timeouts(output_runtime=True)
             )
         elif runtime == "reset":
             response = await self.reset_terminal(session=session)
@@ -211,7 +214,11 @@ class CodeExecution(Tool):
                 PrintStyle(
                     background_color="white", font_color="#1B4F72", bold=True
                 ).print(f"{self.agent.agent_name} code execution output{locl}")
-                return await self.get_terminal_output(session=session, prefix=prefix, timeouts=(timeouts or CODE_EXEC_TIMEOUTS))
+                return await self.get_terminal_output(
+                    session=session,
+                    prefix=prefix,
+                    timeouts=(timeouts or self._get_timeouts(output_runtime=False)),
+                )
 
             except Exception as e:
                 if i == 1:
@@ -470,8 +477,47 @@ class CodeExecution(Tool):
         output = re.sub(r"(?<!\\)\\x[0-9A-Fa-f]{2}", "", output)
         # Strip every line of output before truncation
         # output = "\n".join(line.strip() for line in output.splitlines())
-        output = truncate_text_agent(agent=self.agent, output=output, threshold=1000000) # ~1MB, larger outputs should be dumped to file, not read from terminal
+        set = settings.get_settings()
+        max_chars = int(set.get("code_exec_output_max_chars", 1000000))
+        auto_dump = bool(set.get("code_exec_auto_dump_large_output", True))
+        dump_dir = str(set.get("code_exec_dump_dir", "usr/tmp/code_exec"))
+
+        if max_chars > 0 and len(output) > max_chars and auto_dump and not self._output_dumped:
+            timestamp = int(time.time() * 1000)
+            session = self.args.get("session", 0)
+            filename = f"code_exec_output_s{session}_{timestamp}.log"
+            rel_path = os.path.join(dump_dir, filename)
+            files.write_file(rel_path, output)
+            self._output_dump_marker = (
+                f"\n\n[Large output saved to: {files.get_abs_path(rel_path)}]"
+            )
+            self._output_dumped = True
+
+        output = truncate_text_agent(agent=self.agent, output=output, threshold=max_chars)
+        if self._output_dump_marker:
+            output += self._output_dump_marker
         return output
+
+    def _get_timeouts(self, output_runtime: bool = False) -> dict[str, int]:
+        defaults = OUTPUT_TIMEOUTS if output_runtime else CODE_EXEC_TIMEOUTS
+        set = settings.get_settings()
+        return {
+            "first_output_timeout": int(
+                set.get("code_exec_first_output_timeout", defaults["first_output_timeout"])
+            ),
+            "between_output_timeout": int(
+                set.get(
+                    "code_exec_between_output_timeout",
+                    defaults["between_output_timeout"],
+                )
+            ),
+            "max_exec_timeout": int(
+                set.get("code_exec_max_exec_timeout", defaults["max_exec_timeout"])
+            ),
+            "dialog_timeout": int(
+                set.get("code_exec_dialog_timeout", defaults["dialog_timeout"])
+            ),
+        }
 
     async def ensure_cwd(self) -> str | None:
         project_name = projects.get_context_project_name(self.agent.context)

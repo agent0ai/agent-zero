@@ -98,6 +98,27 @@ class Settings(TypedDict):
     agent_max_runtime_seconds: int
     agent_max_consecutive_misformats: int
     agent_max_consecutive_repairable_errors: int
+    tool_args_max_chars: int
+    tool_args_spill_threshold_chars: int
+    tool_args_spill_dir: str
+    tool_args_autorewrite_enabled: bool
+    code_exec_first_output_timeout: int
+    code_exec_between_output_timeout: int
+    code_exec_max_exec_timeout: int
+    code_exec_dialog_timeout: int
+    code_exec_output_max_chars: int
+    code_exec_auto_dump_large_output: bool
+    code_exec_dump_dir: str
+    subordinate_max_depth: int
+    subordinate_max_calls_per_turn: int
+    subordinate_max_runtime_seconds: int
+    memory_load_limit_max: int
+    memory_load_query_max_chars: int
+    memory_load_response_max_chars: int
+    queue_max_items: int
+    queue_max_total_chars: int
+    queue_drop_policy: str
+    queue_send_all_max_items: int
 
     workdir_path: str
     workdir_show: bool
@@ -576,6 +597,27 @@ def get_default_settings() -> Settings:
         agent_max_runtime_seconds=get_default_value("agent_max_runtime_seconds", 900),
         agent_max_consecutive_misformats=get_default_value("agent_max_consecutive_misformats", 6),
         agent_max_consecutive_repairable_errors=get_default_value("agent_max_consecutive_repairable_errors", 6),
+        tool_args_max_chars=get_default_value("tool_args_max_chars", 120000),
+        tool_args_spill_threshold_chars=get_default_value("tool_args_spill_threshold_chars", 20000),
+        tool_args_spill_dir=get_default_value("tool_args_spill_dir", "usr/tmp/tool_args"),
+        tool_args_autorewrite_enabled=get_default_value("tool_args_autorewrite_enabled", True),
+        code_exec_first_output_timeout=get_default_value("code_exec_first_output_timeout", 30),
+        code_exec_between_output_timeout=get_default_value("code_exec_between_output_timeout", 15),
+        code_exec_max_exec_timeout=get_default_value("code_exec_max_exec_timeout", 180),
+        code_exec_dialog_timeout=get_default_value("code_exec_dialog_timeout", 5),
+        code_exec_output_max_chars=get_default_value("code_exec_output_max_chars", 1000000),
+        code_exec_auto_dump_large_output=get_default_value("code_exec_auto_dump_large_output", True),
+        code_exec_dump_dir=get_default_value("code_exec_dump_dir", "usr/tmp/code_exec"),
+        subordinate_max_depth=get_default_value("subordinate_max_depth", 2),
+        subordinate_max_calls_per_turn=get_default_value("subordinate_max_calls_per_turn", 4),
+        subordinate_max_runtime_seconds=get_default_value("subordinate_max_runtime_seconds", 300),
+        memory_load_limit_max=get_default_value("memory_load_limit_max", 25),
+        memory_load_query_max_chars=get_default_value("memory_load_query_max_chars", 12000),
+        memory_load_response_max_chars=get_default_value("memory_load_response_max_chars", 24000),
+        queue_max_items=get_default_value("queue_max_items", 50),
+        queue_max_total_chars=get_default_value("queue_max_total_chars", 200000),
+        queue_drop_policy=get_default_value("queue_drop_policy", "drop_oldest"),
+        queue_send_all_max_items=get_default_value("queue_send_all_max_items", 20),
         workdir_path=get_default_value("workdir_path", files.get_abs_path_dockerized("usr/workdir")),
         workdir_show=get_default_value("workdir_show", True),
         workdir_max_depth=get_default_value("workdir_max_depth", 5),

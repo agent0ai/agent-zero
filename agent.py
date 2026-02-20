@@ -1,5 +1,6 @@
 import asyncio, random, string, threading, time
 import nest_asyncio
+import os
 
 nest_asyncio.apply()
 
@@ -20,6 +21,7 @@ from python.helpers import (
     dirty_json,
     subagents,
     settings,
+    strings,
 )
 from python.helpers.print_style import PrintStyle
 
@@ -946,12 +948,20 @@ class Agent:
 
     async def process_tools(self, msg: str):
         self.loop_data.params_temporary["guardrail_misformat"] = False
+        set = settings.get_settings()
         # search for tool usage requests in agent message
         tool_request = extract_tools.json_parse_dirty(msg)
 
         if tool_request is not None:
             raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
             tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
+            if not isinstance(tool_args, dict):
+                tool_args = {}
+
+            tool_args, execute_tool_args = self._normalize_tool_args(
+                tool_args=tool_args,
+                set=set,
+            )
 
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
@@ -1002,11 +1012,11 @@ class Agent:
                     # Allow extensions to preprocess tool arguments
                     await self.call_extensions(
                         "tool_execute_before",
-                        tool_args=tool_args or {},
+                        tool_args=execute_tool_args or {},
                         tool_name=tool_name,
                     )
 
-                    response = await tool.execute(**tool_args)
+                    response = await tool.execute(**execute_tool_args)
                     await self.handle_intervention()
 
                     # Allow extensions to postprocess tool response
@@ -1039,6 +1049,117 @@ class Agent:
                 type="warning",
                 content=f"{self.agent_name}: Message misformat, no valid tool request found.",
             )
+
+    def _normalize_tool_args(
+        self,
+        tool_args: dict[str, Any],
+        set: settings.Settings,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        max_chars = int(set.get("tool_args_max_chars", 120000))
+        spill_threshold_chars = int(set.get("tool_args_spill_threshold_chars", 20000))
+        spill_dir = str(set.get("tool_args_spill_dir", "usr/tmp/tool_args"))
+        autorewrite_enabled = bool(set.get("tool_args_autorewrite_enabled", True))
+
+        payload_chars = extract_tools.json_chars(tool_args)
+        if max_chars > 0 and payload_chars > max_chars:
+            msg = self.read_prompt(
+                "fw.msg_tool_args_too_large.md",
+                payload_chars=payload_chars,
+                max_chars=max_chars,
+            )
+            raise RepairableException(msg)
+
+        if not autorewrite_enabled or spill_threshold_chars <= 0:
+            return tool_args, tool_args
+
+        display_args, spill_count = self._spill_large_tool_args_values(
+            value=tool_args,
+            threshold_chars=spill_threshold_chars,
+            spill_dir=spill_dir,
+        )
+        if spill_count <= 0:
+            return display_args, display_args
+
+        execute_args = self._resolve_spilled_tool_args(display_args)
+        warning = self.read_prompt(
+            "fw.msg_tool_args_spilled.md",
+            spill_count=spill_count,
+            payload_chars=payload_chars,
+            threshold_chars=spill_threshold_chars,
+        )
+        self.hist_add_warning(warning)
+        self.context.log.log(
+            type="warning",
+            content=f"{self.agent_name}: {warning}",
+        )
+        PrintStyle(font_color="orange", padding=True).print(warning)
+
+        return display_args, execute_args
+
+    def _spill_large_tool_args_values(
+        self,
+        value: Any,
+        threshold_chars: int,
+        spill_dir: str,
+    ) -> tuple[Any, int]:
+        spill_count = 0
+
+        if isinstance(value, str):
+            if len(value) <= threshold_chars:
+                return value, spill_count
+            spill_path = self._write_tool_arg_spill(value, spill_dir)
+            return f"§§include({spill_path})", 1
+
+        if isinstance(value, dict):
+            out: dict[str, Any] = {}
+            for key, nested in value.items():
+                new_value, nested_count = self._spill_large_tool_args_values(
+                    nested, threshold_chars, spill_dir
+                )
+                out[key] = new_value
+                spill_count += nested_count
+            return out, spill_count
+
+        if isinstance(value, list):
+            out_list: list[Any] = []
+            for nested in value:
+                new_value, nested_count = self._spill_large_tool_args_values(
+                    nested, threshold_chars, spill_dir
+                )
+                out_list.append(new_value)
+                spill_count += nested_count
+            return out_list, spill_count
+
+        if isinstance(value, tuple):
+            out_tuple: list[Any] = []
+            for nested in value:
+                new_value, nested_count = self._spill_large_tool_args_values(
+                    nested, threshold_chars, spill_dir
+                )
+                out_tuple.append(new_value)
+                spill_count += nested_count
+            return tuple(out_tuple), spill_count
+
+        return value, spill_count
+
+    def _write_tool_arg_spill(self, content: str, spill_dir: str) -> str:
+        timestamp = int(time.time() * 1000)
+        suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        filename = f"tool_args_{timestamp}_{suffix}.txt"
+        rel_path = os.path.join(spill_dir, filename)
+        files.write_file(rel_path, content)
+        return files.get_abs_path(rel_path)
+
+    def _resolve_spilled_tool_args(self, value: Any) -> Any:
+        if isinstance(value, str):
+            return strings.replace_file_includes(value)
+        if isinstance(value, dict):
+            return {k: self._resolve_spilled_tool_args(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._resolve_spilled_tool_args(v) for v in value]
+        if isinstance(value, tuple):
+            return tuple(self._resolve_spilled_tool_args(v) for v in value)
+        return value
 
     async def handle_reasoning_stream(self, stream: str):
         await self.handle_intervention()
