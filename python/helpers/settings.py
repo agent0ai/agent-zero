@@ -94,6 +94,10 @@ class Settings(TypedDict):
     agent_profile: str
     agent_memory_subdir: str
     agent_knowledge_subdir: str
+    agent_max_iterations: int
+    agent_max_runtime_seconds: int
+    agent_max_consecutive_misformats: int
+    agent_max_consecutive_repairable_errors: int
 
     workdir_path: str
     workdir_show: bool
@@ -568,6 +572,10 @@ def get_default_settings() -> Settings:
         agent_profile=get_default_value("agent_profile", "agent0"),
         agent_memory_subdir=get_default_value("agent_memory_subdir", "default"),
         agent_knowledge_subdir=get_default_value("agent_knowledge_subdir", "custom"),
+        agent_max_iterations=get_default_value("agent_max_iterations", 80),
+        agent_max_runtime_seconds=get_default_value("agent_max_runtime_seconds", 900),
+        agent_max_consecutive_misformats=get_default_value("agent_max_consecutive_misformats", 6),
+        agent_max_consecutive_repairable_errors=get_default_value("agent_max_consecutive_repairable_errors", 6),
         workdir_path=get_default_value("workdir_path", files.get_abs_path_dockerized("usr/workdir")),
         workdir_show=get_default_value("workdir_show", True),
         workdir_max_depth=get_default_value("workdir_max_depth", 5),

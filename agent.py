@@ -1,4 +1,4 @@
-import asyncio, random, string, threading
+import asyncio, random, string, threading, time
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -18,7 +18,8 @@ from python.helpers import (
     tokens,
     context as context_helper,
     dirty_json,
-    subagents
+    subagents,
+    settings,
 )
 from python.helpers.print_style import PrintStyle
 
@@ -382,6 +383,10 @@ class Agent:
 
     async def monologue(self):
         error_retries = 0  # counter for critical error retries
+        set = settings.get_settings()
+        monologue_started_at = time.monotonic()
+        consecutive_misformats = 0
+        consecutive_repairable_errors = 0
         while True:
             try:
                 # loop data dictionary to pass to extensions
@@ -397,6 +402,16 @@ class Agent:
                     self.context.streaming_agent = self  # mark self as current streamer
                     self.loop_data.iteration += 1
                     self.loop_data.params_temporary = {}  # clear temporary params
+
+                    # Guardrails to prevent runaway monologues and self-repair loops.
+                    guardrail_message = self._check_monologue_guardrails(
+                        set=set,
+                        monologue_started_at=monologue_started_at,
+                        consecutive_misformats=consecutive_misformats,
+                        consecutive_repairable_errors=consecutive_repairable_errors,
+                    )
+                    if guardrail_message:
+                        return guardrail_message
 
                     # call message_loop_start extensions
                     await self.call_extensions(
@@ -488,6 +503,16 @@ class Agent:
                             self.hist_add_ai_response(agent_response)
                             # process tools requested in agent message
                             tools_result = await self.process_tools(agent_response)
+                            if self.loop_data.params_temporary.get(
+                                "guardrail_misformat", False
+                            ):
+                                consecutive_misformats += 1
+                            else:
+                                consecutive_misformats = 0
+
+                            # Successful parse/tool processing resets repairable error streak.
+                            consecutive_repairable_errors = 0
+
                             if tools_result:  # final response of message loop available
                                 return tools_result  # break the execution if the task is done
 
@@ -496,6 +521,8 @@ class Agent:
                     # exceptions inside message loop:
                     except InterventionException as e:
                         error_retries = 0  # reset retry counter on user intervention
+                        consecutive_misformats = 0
+                        consecutive_repairable_errors = 0
                         pass  # intervention message has been handled in handle_intervention(), proceed with conversation loop
                     except RepairableException as e:
                         # Forward repairable errors to the LLM, maybe it can fix them
@@ -504,11 +531,15 @@ class Agent:
                         self.hist_add_warning(msg["message"])
                         PrintStyle(font_color="red", padding=True).print(msg["message"])
                         self.context.log.log(type="warning", content=msg["message"])
+                        consecutive_repairable_errors += 1
+                        consecutive_misformats = 0
                     except Exception as e:
                         # Retry critical exceptions before failing
                         error_retries = await self.retry_critical_exception(
                             e, error_retries
                         )
+                        consecutive_misformats = 0
+                        consecutive_repairable_errors = 0
 
                     finally:
                         # call message_loop_end extensions
@@ -531,6 +562,67 @@ class Agent:
                 # call monologue_end extensions
                 if self.context.task and self.context.task.is_alive(): # don't call extensions post mortem
                     await self.call_extensions("monologue_end", loop_data=self.loop_data)  # type: ignore
+
+    def _check_monologue_guardrails(
+        self,
+        set: settings.Settings,
+        monologue_started_at: float,
+        consecutive_misformats: int,
+        consecutive_repairable_errors: int,
+    ) -> str | None:
+        max_iterations = int(set.get("agent_max_iterations", 80))
+        max_runtime_seconds = int(set.get("agent_max_runtime_seconds", 900))
+        max_consecutive_misformats = int(
+            set.get("agent_max_consecutive_misformats", 6)
+        )
+        max_consecutive_repairable_errors = int(
+            set.get("agent_max_consecutive_repairable_errors", 6)
+        )
+
+        if max_iterations > 0 and self.loop_data.iteration >= max_iterations:
+            return self._terminate_for_guardrail(
+                reason="maximum loop iterations reached",
+                detail=f"iteration={self.loop_data.iteration}, limit={max_iterations}",
+            )
+
+        elapsed_seconds = int(time.monotonic() - monologue_started_at)
+        if max_runtime_seconds > 0 and elapsed_seconds >= max_runtime_seconds:
+            return self._terminate_for_guardrail(
+                reason="maximum monologue runtime reached",
+                detail=f"elapsed_seconds={elapsed_seconds}, limit={max_runtime_seconds}",
+            )
+
+        if (
+            max_consecutive_misformats > 0
+            and consecutive_misformats >= max_consecutive_misformats
+        ):
+            return self._terminate_for_guardrail(
+                reason="too many consecutive message misformats",
+                detail=f"misformats={consecutive_misformats}, limit={max_consecutive_misformats}",
+            )
+
+        if (
+            max_consecutive_repairable_errors > 0
+            and consecutive_repairable_errors >= max_consecutive_repairable_errors
+        ):
+            return self._terminate_for_guardrail(
+                reason="too many consecutive repairable errors",
+                detail=f"errors={consecutive_repairable_errors}, limit={max_consecutive_repairable_errors}",
+            )
+        return None
+
+    def _terminate_for_guardrail(self, reason: str, detail: str) -> str:
+        warning = self.read_prompt(
+            "fw.msg_guardrail_terminate.md", reason=reason, detail=detail
+        )
+        self.hist_add_warning(warning)
+        PrintStyle(font_color="orange", padding=True).print(warning)
+        self.context.log.log(
+            type="warning",
+            heading="Monologue guardrail triggered",
+            content=f"{self.agent_name}: {warning}",
+        )
+        return warning
 
     async def prepare_prompt(self, loop_data: LoopData) -> list[BaseMessage]:
         self.context.log.set_progress("Building prompt")
@@ -853,6 +945,7 @@ class Agent:
             await asyncio.sleep(0.1)
 
     async def process_tools(self, msg: str):
+        self.loop_data.params_temporary["guardrail_misformat"] = False
         # search for tool usage requests in agent message
         tool_request = extract_tools.json_parse_dirty(msg)
 
@@ -938,6 +1031,7 @@ class Agent:
                     type="warning", content=f"{self.agent_name}: {error_detail}"
                 )
         else:
+            self.loop_data.params_temporary["guardrail_misformat"] = True
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
             self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
