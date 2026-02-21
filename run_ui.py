@@ -73,7 +73,7 @@ socketio_server = socketio.AsyncServer(
     logger=False,
     engineio_logger=False,
     ping_interval=25,  # explicit default to avoid future lib changes
-    ping_timeout=60,  # FIX: Increased from 20 to prevent disconnect during long-running tasks
+    ping_timeout=120,  # keep sockets alive through long-running coding tasks
     max_http_buffer_size=50 * 1024 * 1024,
 )
 
