@@ -109,6 +109,7 @@ class Settings(TypedDict):
     code_exec_output_max_chars: int
     code_exec_auto_dump_large_output: bool
     code_exec_dump_dir: str
+    code_exec_prefer_python_file_write: bool
     subordinate_max_depth: int
     subordinate_max_calls_per_turn: int
     subordinate_max_runtime_seconds: int
@@ -618,6 +619,7 @@ def get_default_settings() -> Settings:
         code_exec_output_max_chars=get_default_value("code_exec_output_max_chars", 1000000),
         code_exec_auto_dump_large_output=get_default_value("code_exec_auto_dump_large_output", True),
         code_exec_dump_dir=get_default_value("code_exec_dump_dir", "usr/tmp/code_exec"),
+        code_exec_prefer_python_file_write=get_default_value("code_exec_prefer_python_file_write", False),
         subordinate_max_depth=get_default_value("subordinate_max_depth", 2),
         subordinate_max_calls_per_turn=get_default_value("subordinate_max_calls_per_turn", 4),
         subordinate_max_runtime_seconds=get_default_value("subordinate_max_runtime_seconds", 300),
