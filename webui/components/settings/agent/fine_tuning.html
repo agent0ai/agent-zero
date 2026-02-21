@@ -1,0 +1,446 @@
+<html>
+  <head>
+    <title>Fine-Tuning</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settings.settings">
+        <div>
+          <div class="section-title">Fine-Tuning</div>
+          <div class="section-description">
+            Structured controls for autonomy and execution knobs. These settings define how the agent behaves under long-running workloads.
+          </div>
+
+          <div class="subsection-title">Monologue Guardrails</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Max iterations per monologue</div>
+              <div class="field-description">Hard cap on turns in one monologue cycle.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.agent_max_iterations" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Max runtime per monologue (seconds)</div>
+              <div class="field-description">Stops a single monologue when runtime exceeds this limit.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.agent_max_runtime_seconds" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Max consecutive misformats</div>
+              <div class="field-description">Terminates if tool-call formatting fails repeatedly.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.agent_max_consecutive_misformats" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Max consecutive repairable errors</div>
+              <div class="field-description">Terminates when recoverable failures loop too many times.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.agent_max_consecutive_repairable_errors" />
+            </div>
+          </div>
+
+          <div class="subsection-title">Tool Argument Controls</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Tool args max chars</div>
+              <div class="field-description">Rejects tool payloads larger than this size.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="100" step="100" x-model.number="$store.settings.settings.tool_args_max_chars" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Tool args spill threshold chars</div>
+              <div class="field-description">Large string fields above this threshold are spilled to temp files.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="100" step="100" x-model.number="$store.settings.settings.tool_args_spill_threshold_chars" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Tool args spill directory</div>
+              <div class="field-description">Relative path where spilled tool arg files are stored.</div>
+            </div>
+            <div class="field-control">
+              <input type="text" x-model="$store.settings.settings.tool_args_spill_dir" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Tool args auto rewrite</div>
+              <div class="field-description">Enable automatic spill/rewrite behavior for oversized fields.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settings.settings.tool_args_autorewrite_enabled" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="subsection-title">Code Execution Reliability</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">First output timeout (seconds)</div>
+              <div class="field-description">How long to wait for the first output chunk from runtime command.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.code_exec_first_output_timeout" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Between output timeout (seconds)</div>
+              <div class="field-description">How long to wait between output chunks before returning control.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.code_exec_between_output_timeout" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Max execution timeout (seconds)</div>
+              <div class="field-description">Hard runtime cap for code execution calls.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.code_exec_max_exec_timeout" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Dialog timeout (seconds)</div>
+              <div class="field-description">Pause early when command appears to wait for interactive input.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.code_exec_dialog_timeout" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Output max chars</div>
+              <div class="field-description">Truncates very large command output after this size.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1000" step="1000" x-model.number="$store.settings.settings.code_exec_output_max_chars" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Auto-dump large output</div>
+              <div class="field-description">Saves full output to file when truncation occurs.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settings.settings.code_exec_auto_dump_large_output" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Code execution dump directory</div>
+              <div class="field-description">Relative path where large output dump files are stored.</div>
+            </div>
+            <div class="field-control">
+              <input type="text" x-model="$store.settings.settings.code_exec_dump_dir" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Prefer Python file writes</div>
+              <div class="field-description">Blocks terminal heredoc file writes and uses Python file writing policy.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settings.settings.code_exec_prefer_python_file_write" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="subsection-title">Subordinate Guardrails</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Subordinate max depth</div>
+              <div class="field-description">Maximum nested subordinate call depth.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.subordinate_max_depth" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Subordinate max calls per turn</div>
+              <div class="field-description">Limits subordinate invocations in one parent turn.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.subordinate_max_calls_per_turn" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Subordinate max runtime (seconds)</div>
+              <div class="field-description">Maximum runtime allowed for subordinate execution.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.subordinate_max_runtime_seconds" />
+            </div>
+          </div>
+
+          <div class="subsection-title">Queue / Backpressure</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Queue max items</div>
+              <div class="field-description">Maximum queued messages before policy is applied.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.queue_max_items" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Queue max total chars</div>
+              <div class="field-description">Maximum total text chars held in queue.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="100" step="100" x-model.number="$store.settings.settings.queue_max_total_chars" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Queue drop policy</div>
+              <div class="field-description">How queue handles overflow conditions.</div>
+            </div>
+            <div class="field-control">
+              <select x-model="$store.settings.settings.queue_drop_policy">
+                <option value="drop_oldest">drop_oldest</option>
+                <option value="drop_newest">drop_newest</option>
+                <option value="reject">reject</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Queue send-all max items</div>
+              <div class="field-description">Max items to aggregate in one send-all operation.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.queue_send_all_max_items" />
+            </div>
+          </div>
+
+          <div class="subsection-title">Memory Load Limits</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory load max records</div>
+              <div class="field-description">Maximum memory entries loaded in one call.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="1" step="1" x-model.number="$store.settings.settings.memory_load_limit_max" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory load query max chars</div>
+              <div class="field-description">Maximum query text size accepted for memory loading.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="100" step="100" x-model.number="$store.settings.settings.memory_load_query_max_chars" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Memory load response max chars</div>
+              <div class="field-description">Maximum response text size returned from memory load.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="100" step="100" x-model.number="$store.settings.settings.memory_load_response_max_chars" />
+            </div>
+          </div>
+
+          <div class="subsection-title">History Compression</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Compression target ratio</div>
+              <div class="field-description">Target retained size of compressed history.</div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0.4" max="1" step="0.01" x-model.number="$store.settings.settings.history_compression_target_ratio" />
+              <span class="range-value" x-text="$store.settings.settings.history_compression_target_ratio"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Current topic ratio</div>
+              <div class="field-description">Portion reserved for most recent topic details.</div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.history_current_topic_ratio" />
+              <span class="range-value" x-text="$store.settings.settings.history_current_topic_ratio"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Topic ratio</div>
+              <div class="field-description">Portion reserved for topic-level summaries.</div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.history_topic_ratio" />
+              <span class="range-value" x-text="$store.settings.settings.history_topic_ratio"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Bulk ratio</div>
+              <div class="field-description">Portion reserved for coarse bulk history summaries.</div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.history_bulk_ratio" />
+              <span class="range-value" x-text="$store.settings.settings.history_bulk_ratio"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Attention current ratio</div>
+              <div class="field-description">Weight of current context for compression decisions.</div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.history_attention_current_ratio" />
+              <span class="range-value" x-text="$store.settings.settings.history_attention_current_ratio"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Attention past ratio</div>
+              <div class="field-description">Weight of older context for compression decisions.</div>
+            </div>
+            <div class="field-control">
+              <input type="range" min="0" max="1" step="0.01" x-model.number="$store.settings.settings.history_attention_past_ratio" />
+              <span class="range-value" x-text="$store.settings.settings.history_attention_past_ratio"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Compression max passes</div>
+              <div class="field-description">Maximum number of compression passes per cycle.</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="0" step="1" x-model.number="$store.settings.settings.history_compress_max_passes" />
+            </div>
+          </div>
+
+          <div class="subsection-title">Runtime Budgets</div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Turn budget (seconds)</div>
+              <div class="field-description">Optional per-turn runtime budget (0 disables).</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="0" step="1" x-model.number="$store.settings.settings.runtime_turn_budget_seconds" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Task budget (seconds)</div>
+              <div class="field-description">Optional task runtime budget (0 disables).</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="0" step="1" x-model.number="$store.settings.settings.runtime_task_budget_seconds" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Subordinate budget (seconds)</div>
+              <div class="field-description">Optional subordinate runtime budget (0 disables).</div>
+            </div>
+            <div class="field-control">
+              <input type="number" min="0" step="1" x-model.number="$store.settings.settings.runtime_subordinate_budget_seconds" />
+            </div>
+          </div>
+
+          <div class="subsection-title">Model Call Parameters</div>
+
+          <div class="field field-full">
+            <div class="field-label">
+              <div class="field-title">Chat model kwargs</div>
+              <div class="field-description">Extra parameters passed to chat model calls (KEY=VALUE lines).</div>
+            </div>
+            <div class="field-control">
+              <textarea rows="4" x-model="$store.settings.settings.chat_model_kwargs"></textarea>
+            </div>
+          </div>
+
+          <div class="field field-full">
+            <div class="field-label">
+              <div class="field-title">LiteLLM global kwargs</div>
+              <div class="field-description">Global call parameters applied across providers (timeouts, retries, etc.).</div>
+            </div>
+            <div class="field-control">
+              <textarea rows="4" x-model="$store.settings.settings.litellm_global_kwargs"></textarea>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>
+
+<style>
+  .subsection-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.5rem;
+    color: var(--color-text, #ddd);
+    border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.12));
+    padding-top: 0.75rem;
+  }
+</style>
