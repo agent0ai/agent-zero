@@ -16,6 +16,12 @@ Profiles included:
 - `profile_high_throughput.env`
 - `profile_intentionally_tight.env`
 
+Related docs:
+
+- `../../guides/autonomy-overview.md`
+- `../../guides/autonomy-knobs-reference.md`
+- `../../guides/autonomy-testing.md`
+
 Use from repo root:
 
 ```bash

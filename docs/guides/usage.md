@@ -74,6 +74,25 @@ Access the chat history in JSON format
 > [!TIP]
 > Use the Context and History buttons to understand how the agent interprets your instructions and debug any unexpected behavior.
 
+### Fine-Tuning Autonomy
+
+Autonomy and runtime guardrails are available in **Settings -> Agent Settings -> Fine-Tuning**.
+
+This panel exposes structured editors for:
+
+- monologue safety caps
+- tool payload controls
+- code execution time/output controls
+- subordinate and queue guardrails
+- history compression and runtime budgets
+- model/global call kwargs
+
+For full knob-by-knob documentation, see:
+
+- [Autonomy Guardrails Overview](autonomy-overview.md)
+- [Autonomy Knobs Reference](autonomy-knobs-reference.md)
+- [Autonomy Testing Guide](autonomy-testing.md)
+
 ### File Attachments
 Agent Zero supports direct file attachments in the chat interface for seamless file operations:
 
