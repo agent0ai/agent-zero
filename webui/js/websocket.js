@@ -562,6 +562,10 @@ class WebSocketClient {
       reconnection: true,
       transports: ["websocket", "polling"],
       withCredentials: true,
+      // FIX: Added explicit ping configuration to prevent disconnection during long-running tasks
+      pingInterval: 25000,    // 25 seconds (matches server)
+      pingTimeout: 60000,     // 60 seconds client tolerance
+      upgradeTimeout: 30000,  // 30 seconds for transport upgrade
       auth: (cb) => {
         getCsrfToken()
           .then((token) => cb({ csrf_token: token }))
