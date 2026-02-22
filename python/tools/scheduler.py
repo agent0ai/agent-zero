@@ -6,7 +6,8 @@ import re
 from python.helpers.tool import Tool, Response
 from python.helpers.task_scheduler import (
     TaskScheduler, ScheduledTask, AdHocTask, PlannedTask,
-    serialize_task, TaskState, TaskSchedule, TaskPlan, parse_datetime, serialize_datetime
+    serialize_task, TaskState, TaskSchedule, TaskPlan, parse_datetime, serialize_datetime,
+    parse_task_schedule, parse_task_plan
 )
 from agent import AgentContext
 from python.helpers import persist_chat
@@ -26,6 +27,8 @@ class SchedulerTool(Tool):
             return await self.show_task(**kwargs)
         elif self.method == "run_task":
             return await self.run_task(**kwargs)
+        elif self.method == "update_task":
+            return await self.update_task(**kwargs)
         elif self.method == "delete_task":
             return await self.delete_task(**kwargs)
         elif self.method == "create_scheduled_task":
@@ -106,6 +109,61 @@ class SchedulerTool(Tool):
         else:
             break_loop = False
         return Response(message=f"Task started: {task_uuid}", break_loop=break_loop)
+
+    async def update_task(self, **kwargs) -> Response:
+        task_uuid: str = kwargs.get("task_id", "")
+        if not task_uuid:
+            return Response(message="Task ID is required", break_loop=False)
+
+        scheduler = TaskScheduler.get()
+        task: ScheduledTask | AdHocTask | PlannedTask | None = scheduler.get_task_by_uuid(task_uuid)
+        if not task:
+            return Response(message=f"Task not found: {task_uuid}", break_loop=False)
+
+        update_params: dict = {}
+
+        if "name" in kwargs:
+            update_params["name"] = kwargs["name"]
+
+        if "state" in kwargs:
+            update_params["state"] = TaskState(kwargs["state"])
+
+        if "system_prompt" in kwargs:
+            update_params["system_prompt"] = kwargs["system_prompt"]
+
+        if "prompt" in kwargs:
+            update_params["prompt"] = kwargs["prompt"]
+
+        if "attachments" in kwargs:
+            update_params["attachments"] = kwargs["attachments"]
+
+        if isinstance(task, ScheduledTask) and "schedule" in kwargs:
+            schedule_data: dict = kwargs["schedule"]
+            try:
+                task_schedule = parse_task_schedule(schedule_data)
+                # Apply top-level timezone if schedule doesn't specify its own
+                timezone_override: str | None = kwargs.get("timezone", None)
+                if not schedule_data.get("timezone") and timezone_override:
+                    task_schedule.timezone = timezone_override
+                update_params["schedule"] = task_schedule
+            except ValueError as e:
+                return Response(message=f"Invalid schedule format: {e}", break_loop=False)
+        elif isinstance(task, AdHocTask) and "token" in kwargs:
+            token_value: str = kwargs["token"]
+            if token_value:
+                update_params["token"] = token_value
+        elif isinstance(task, PlannedTask) and "plan" in kwargs:
+            plan_data: dict = kwargs["plan"]
+            try:
+                update_params["plan"] = parse_task_plan(plan_data)
+            except ValueError as e:
+                return Response(message=f"Invalid plan format: {e}", break_loop=False)
+
+        updated_task = await scheduler.update_task(task_uuid, **update_params)
+        if not updated_task:
+            return Response(message=f"Task could not be updated: {task_uuid}", break_loop=False)
+
+        return Response(message=json.dumps(serialize_task(updated_task), indent=4), break_loop=False)
 
     async def delete_task(self, **kwargs) -> Response:
         task_uuid: str = kwargs.get("uuid", "")
