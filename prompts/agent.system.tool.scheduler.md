@@ -104,6 +104,38 @@ Show task details for scheduler task with the given uuid.
 ~~~
 
 
+#### scheduler:update_task
+Update an existing task's configuration. Any provided fields will be overwritten; omitted fields remain unchanged. For scheduled tasks you can update the cron schedule, for adhoc tasks the webhook token, and for planned tasks the execution plan object.
+
+##### Arguments:
+* task_id: string (Required) - The uuid of the task to update
+* name: str (Optional) - New name for the task
+* state: str (Optional) - New state for the task, either "idle" (re-enable) or "disabled" (pause). Do not set "running" or "error" as these are managed by the scheduler automatically.
+* system_prompt: str (Optional) - New system prompt to be used when executing the task
+* prompt: str (Optional) - New task prompt
+* attachments: list[str] (Optional) - New list of attachments (filesystem paths or URLs)
+* timezone: str (Optional) - Timezone used for schedule handling when schedule.timezone is not provided
+* schedule: dict[str,str] (Optional, ScheduledTask only) - New cron schedule, same format as scheduler:create_scheduled_task, supports optional "timezone"
+* token: str (Optional, AdHocTask only) - New webhook token for the task
+* plan: dict (Optional, PlannedTask only) - Plan update object. Provide a "todo" key with a list of upcoming ISO datetime strings in the format "%Y-%m-%dT%H:%M:%S". The "in_progress" and "done" keys are scheduler-managed and should not be set manually.
+
+##### Usage (update the prompt and disable task "xyz-123"):
+~~~json
+{
+    "thoughts": [
+        "I need to update the prompt of task xyz-123 and disable it"
+    ],
+    "headline": "Updating task configuration",
+    "tool_name": "scheduler:update_task",
+    "tool_args": {
+        "task_id": "xyz-123",
+        "state": "disabled",
+        "prompt": "New updated task instructions go here"
+    }
+}
+~~~
+
+
 #### scheduler:run_task
 Execute a task manually which is not in "running" state
 This can be used to trigger tasks manually.
