@@ -14,6 +14,9 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 
 - **[Usage Guide](guides/usage.md):** Comprehensive guide to Agent Zero's features and capabilities.
 - **[Projects Tutorial](guides/projects.md):** Learn to create isolated workspaces with dedicated context and memory.
+- **[Autonomy Guardrails Overview](guides/autonomy-overview.md):** What autonomy hardening was added and how to operate it.
+- **[Autonomy Knobs Reference](guides/autonomy-knobs-reference.md):** Detailed reference for all autonomy settings.
+- **[Autonomy Testing Guide](guides/autonomy-testing.md):** Practical validation flow for guardrails and tuning.
 - **[API Integration](guides/api-integration.md):** Add external APIs without writing code.
 - **[MCP Setup](guides/mcp-setup.md):** Configure Model Context Protocol servers.
 - **[A2A Setup](guides/a2a-setup.md):** Enable agent-to-agent communication.
@@ -68,6 +71,9 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 
 - [User Guides](#user-guides)
   - [Usage Guide](guides/usage.md)
+  - [Autonomy Guardrails Overview](guides/autonomy-overview.md)
+  - [Autonomy Knobs Reference](guides/autonomy-knobs-reference.md)
+  - [Autonomy Testing Guide](guides/autonomy-testing.md)
     - [Basic Operations](guides/usage.md#basic-operations)
     - [Tool Usage](guides/usage.md#tool-usage)
     - [Projects](guides/usage.md#projects)

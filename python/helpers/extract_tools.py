@@ -20,6 +20,14 @@ def json_parse_dirty(json:str) -> dict[str,Any] | None:
             return None
     return None
 
+def json_chars(data: Any) -> int:
+    try:
+        from . import dirty_json
+
+        return len(dirty_json.stringify(data))
+    except Exception:
+        return len(str(data))
+
 def extract_json_object_string(content):
     start = content.find('{')
     if start == -1:
