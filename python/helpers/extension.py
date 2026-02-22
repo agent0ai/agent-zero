@@ -17,6 +17,8 @@ USER_EXTENSIONS_FOLDER = "usr/extensions"
 _CACHE_AREA = "extension_folder_classes(extensions)(plugins)"
 cache.toggle_area(_CACHE_AREA, False) # cache off for now
 
+_guard_cache: list | None = None
+
 
 class _Unset:
     pass
@@ -147,10 +149,32 @@ class Extension:
         pass
 
 
+def _get_guard_handlers() -> list:
+    global _guard_cache
+    if _guard_cache is not None:
+        return _guard_cache
+    from importlib.metadata import entry_points
+
+    eps = entry_points(group="agent_zero.guards")
+    _guard_cache = []
+    for ep in eps:
+        try:
+            _guard_cache.append(ep.load())
+        except Exception:
+            from python.helpers.print_style import PrintStyle
+            PrintStyle.warning(f"Failed to load guard entry_point: {ep.name}")
+    return _guard_cache
+
+
 async def call_extensions(
     extension_point: str, agent: "Agent|None" = None, **kwargs
 ) -> Any:
     from python.helpers import projects, subagents, plugins
+
+    # build mutable event dict from kwargs
+    event: dict[str, Any] = dict(**kwargs)
+    event.setdefault("extension_point", extension_point)
+    event.setdefault("agent", agent)
 
     # search for extension folders in all agent's paths
     paths = subagents.get_paths(
@@ -175,9 +199,19 @@ async def call_extensions(
         unique.values(), key=lambda cls: _get_file_from_module(cls.__module__)
     )
 
-    # execute unique extensions
+    # execute unique file-based extensions (no fault isolation — preserve existing behavior)
     for cls in classes:
-        await cls(agent=agent).execute(**kwargs)
+        await cls(agent=agent).execute(_event=event, **kwargs)
+
+    # execute entry_point guard handlers (with fault isolation per handler)
+    for handler in _get_guard_handlers():
+        try:
+            await handler(event, agent=agent)
+        except Exception:
+            from python.helpers.print_style import PrintStyle
+            PrintStyle.error(f"Guard handler {handler!r} failed for '{extension_point}'")
+
+    return event
 
 
 def _get_file_from_module(module_name: str) -> str:
