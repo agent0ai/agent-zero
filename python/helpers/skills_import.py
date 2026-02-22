@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import shutil
 import tempfile
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Iterable, List, Literal, Optional, Tuple
 
 from python.helpers import files
+from python.helpers.extension import call_extensions
 from python.helpers.skills import discover_skill_md_files
 
 
@@ -253,6 +255,15 @@ def import_skills(
         final_dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(item.src_skill_dir, final_dest)
         imported.append(final_dest)
+
+        asyncio.run(
+            call_extensions(
+                "skill_install",
+                agent=None,
+                skill_name=final_dest.name,
+                skill_path=str(final_dest),
+            )
+        )
 
     return ImportResult(
         imported=imported,
