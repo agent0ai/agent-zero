@@ -2,6 +2,7 @@
 import asyncio
 import uuid
 import atexit
+import json
 from typing import Any, List
 import contextlib
 import threading
@@ -80,14 +81,15 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
             # Convert A2A message to Agent Zero format
             agent_message = self._convert_message(message)
 
-            # Always create new temporary context for this A2A conversation
+            # Always create a fresh temporary context; do not reuse by contextId.
+            # This avoids cross-task interference on parallel requests.
             cfg = initialize_agent()
             context = AgentContext(cfg, type=AgentContextType.BACKGROUND)
 
             # Retrieve project from message.metadata (standard A2A pattern)
             metadata = message.get('metadata', {}) or {}
             project_name = metadata.get('project')
-         
+
             # Activate project if specified
             if project_name:
                 projects.activate_project(context.id, project_name)
@@ -109,7 +111,7 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
                 'role': 'agent',
                 'parts': [{'kind': 'text', 'text': str(result_text)}],
                 'kind': 'message',
-                'message_id': str(uuid.uuid4())
+                'messageId': str(uuid.uuid4())
             }
 
             await self.storage.update_task(  # type: ignore[attr-defined]
@@ -126,10 +128,24 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
             _PRINTER.print(f"[A2A] Completed task {task_id} and cleaned up context")
 
         except Exception as e:
-            _PRINTER.print(f"[A2A] Error processing task {params.get('id', 'unknown')}: {e}")
+            task_id = params.get('id', 'unknown')
+            _PRINTER.print(f"[A2A] Error processing task {task_id}: {e}")
+            error_text = str(e).strip() or type(e).__name__
+            # Keep client-visible error concise and safe.
+            if len(error_text) > 500:
+                error_text = f"{error_text[:497]}..."
+
+            error_message: Message = {  # type: ignore
+                'role': 'agent',
+                'parts': [{'kind': 'text', 'text': f"Request failed: {error_text}"}],
+                'kind': 'message',
+                'messageId': str(uuid.uuid4()),
+                'metadata': {'error': {'code': 'TASK_FAILED', 'retryable': False}}
+            }
             await self.storage.update_task(
-                task_id=params.get('id', 'unknown'),
-                state='failed'
+                task_id=task_id,
+                state='failed',
+                new_messages=[error_message]
             )
 
             # Clean up context even on failure to prevent resource leaks
@@ -241,6 +257,14 @@ class DynamicA2AProxy:
                 "url": "https://github.com/frdel/agent-zero"
             }
 
+            # Determine public URL from runtime
+            from python.helpers import dotenv
+
+            a2a_server_url = (
+                str(dotenv.get_dotenv_value("A2A_SERVER_URL", 'localhost'))
+            )
+            a2a_url = f"{a2a_server_url}/a2a/t-{self.token}"
+
             # Create new FastA2A app with proper thread safety
             new_app = FastA2A(  # type: ignore
                 storage=storage,
@@ -255,6 +279,7 @@ class DynamicA2AProxy:
                 skills=skills,
                 lifespan=None,  # We manage lifespan manually
                 middleware=[],  # No middleware - we handle auth in wrapper
+                url=a2a_url,
             )
 
             # Store for later lazy startup (needs active event-loop)
@@ -488,7 +513,6 @@ class DynamicA2AProxy:
                     if message['type'] == 'http.request' and not message.get('more_body', False) and not body_modified:
                         body_modified = True
                         try:
-                            import json
                             # Reconstruct full body from all buffered messages
                             body_parts = [msg.get('body', b'') for msg in received_messages if msg['type'] == 'http.request']
                             full_body = b''.join(body_parts)
@@ -551,6 +575,53 @@ class DynamicA2AProxy:
                     return
             else:
                 _PRINTER.print("[A2A] No expected token found in settings")
+
+        # A2A allows message/send.configuration.acceptedOutputModes to be optional.
+        # fasta2a 0.6.0 rejects configuration without it, so default to ["application/json"].
+        original_receive = receive
+        request_buffered = False
+
+        async def receive_wrapper():
+            nonlocal request_buffered
+            if request_buffered:
+                return await original_receive()
+
+            body_parts: list[bytes] = []
+            while True:
+                message = await original_receive()
+                if message['type'] != 'http.request':
+                    return message
+                body_parts.append(message.get('body', b''))
+                if not message.get('more_body', False):
+                    break
+
+            request_buffered = True
+            full_body = b''.join(body_parts)
+            if not full_body:
+                return {'type': 'http.request', 'body': b'', 'more_body': False}
+
+            try:
+                data = json.loads(full_body)
+                changed = False
+                if isinstance(data, dict) and data.get('method') == 'message/send':
+                    params = data.get('params')
+                    if isinstance(params, dict):
+                        configuration = params.get('configuration')
+                        if (
+                            isinstance(configuration, dict)
+                            and not configuration.get('acceptedOutputModes')
+                        ):
+                            configuration['acceptedOutputModes'] = ['application/json']
+                            changed = True
+
+                if changed:
+                    full_body = json.dumps(data).encode('utf-8')
+            except Exception as e:
+                _PRINTER.print(f"[A2A] Failed to normalize request payload: {e}")
+
+            return {'type': 'http.request', 'body': full_body, 'more_body': False}
+
+        receive = receive_wrapper
 
         # Delegate to FastA2A app with cleaned scope
         with self._lock:
