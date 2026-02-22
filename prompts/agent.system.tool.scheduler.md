@@ -108,7 +108,7 @@ Show task details for scheduler task with the given uuid.
 Update an existing task's configuration. Any provided fields will be overwritten; omitted fields remain unchanged. For scheduled tasks you can update the cron schedule, for adhoc tasks the webhook token, and for planned tasks the execution plan object.
 
 ##### Arguments:
-* task_id: string (Required) - The uuid of the task to update
+* uuid: string (Required) - The uuid of the task to update
 * name: str (Optional) - New name for the task
 * state: str (Optional) - New state for the task, either "idle" (re-enable) or "disabled" (pause). Do not set "running" or "error" as these are managed by the scheduler automatically.
 * system_prompt: str (Optional) - New system prompt to be used when executing the task
@@ -128,7 +128,7 @@ Update an existing task's configuration. Any provided fields will be overwritten
     "headline": "Updating task configuration",
     "tool_name": "scheduler:update_task",
     "tool_args": {
-        "task_id": "xyz-123",
+        "uuid": "xyz-123",
         "state": "disabled",
         "prompt": "New updated task instructions go here"
     }
