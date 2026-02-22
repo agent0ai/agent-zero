@@ -415,6 +415,18 @@ class Agent:
                         # prepare LLM chain (model, system, history)
                         prompt = await self.prepare_prompt(loop_data=self.loop_data)
 
+                        if self.loop_data.params_temporary.get("prompt_blocked"):
+                            block_reason = self.loop_data.params_temporary.get(
+                                "prompt_block_reason", ""
+                            )
+                            self.hist_add_warning(
+                                f"Prompt blocked by security guard: {block_reason}"
+                            )
+                            PrintStyle(font_color="red", padding=True).print(
+                                f"Prompt blocked: {block_reason}"
+                            )
+                            continue
+
                         # call before_main_llm_call extensions
                         await self.call_extensions(
                             "before_main_llm_call", loop_data=self.loop_data
@@ -553,7 +565,13 @@ class Agent:
         loop_data.history_output = self.history.output()
 
         # and allow extensions to edit them
-        await self.call_extensions("message_loop_prompts_after", loop_data=loop_data)
+        event = await self.call_extensions("message_loop_prompts_after", loop_data=loop_data)
+
+        if event.get("blocked"):
+            self.loop_data.params_temporary["prompt_blocked"] = True
+            self.loop_data.params_temporary["prompt_block_reason"] = event.get(
+                "block_reason", ""
+            )
 
         # concatenate system prompt
         system_text = "\n\n".join(loop_data.system)
@@ -938,22 +956,38 @@ class Agent:
                     await self.handle_intervention()
 
                     # Allow extensions to preprocess tool arguments
-                    await self.call_extensions(
+                    event = await self.call_extensions(
                         "tool_execute_before",
                         tool_args=tool_args or {},
                         tool_name=tool_name,
                     )
 
-                    response = await tool.execute(**tool_args)
-                    await self.handle_intervention()
+                    # Check if a guard blocked this tool
+                    if event.get("blocked"):
+                        from python.helpers.tool import Response
+                        block_reason = event.get("block_reason", "unspecified")
+                        response = Response(
+                            message=f"Security guard blocked tool '{tool_name}': {block_reason}",
+                            break_loop=False,
+                        )
+                        self.hist_add_tool_result(
+                            tool_name=tool_name,
+                            tool_result=response.message,
+                        )
+                        PrintStyle(font_color="red", padding=True).print(
+                            f"Tool '{tool_name}' blocked: {block_reason}"
+                        )
+                    else:
+                        response = await tool.execute(**tool_args)
+                        await self.handle_intervention()
 
-                    # Allow extensions to postprocess tool response
-                    await self.call_extensions(
-                        "tool_execute_after", response=response, tool_name=tool_name
-                    )
+                        # Allow extensions to postprocess tool response
+                        await self.call_extensions(
+                            "tool_execute_after", response=response, tool_name=tool_name
+                        )
 
-                    await tool.after_execution(response)
-                    await self.handle_intervention()
+                        await tool.after_execution(response)
+                        await self.handle_intervention()
 
                     if response.break_loop:
                         return response.message
