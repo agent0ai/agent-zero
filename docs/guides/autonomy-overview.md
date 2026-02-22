@@ -36,6 +36,10 @@ A dedicated **Fine-Tuning** panel is available in Settings with sectioned contro
 
 This is the recommended path for interactive tuning and validation.
 
+Fine-Tuning panel preview:
+
+![Fine-Tuning Settings Panel](../res/usage/autonomy-fine-tuning-panel.png)
+
 ## Important behavior notes
 
 ### Tool payload spill is not chunking
