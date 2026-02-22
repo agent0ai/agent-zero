@@ -1,0 +1,7 @@
+{
+    "agent_profile": "hacker",
+    "agent_memory_subdir": "hacker",
+    "workdir_path": "usr/workdir",
+    "memory_recall_enabled": true,
+    "memory_memorize_enabled": true
+}

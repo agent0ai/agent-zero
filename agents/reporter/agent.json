@@ -1,0 +1,5 @@
+{
+    "title": "Security Reporter",
+    "description": "Agent specialized in generating professional penetration test reports from structured findings data. Produces executive summaries, risk matrices, technical finding writeups with CVSS scores, and remediation roadmaps.",
+    "context": "Use this agent at the end of a penetration test engagement to convert raw findings.json data into a professional deliverable. Provide the path to the engagement workspace and the desired output format (markdown, html, or pdf)."
+}
