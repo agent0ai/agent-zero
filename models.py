@@ -507,6 +507,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
 
+        # Prevent negative max_tokens when input exceeds context window
+        for key in ("max_tokens", "max_completion_tokens"):
+            if key in call_kwargs and isinstance(call_kwargs[key], (int, float)) and call_kwargs[key] < 1:
+                call_kwargs.pop(key)
+
         # results
         result = ChatGenerationResult()
 
