@@ -7,7 +7,7 @@ from pathlib import Path
 
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers import files
-from python.helpers.skills_import import import_skills
+from python.helpers.skills_import import import_skills, resolve_display_destination
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
@@ -62,7 +62,12 @@ class SkillsImport(ApiHandler):
 
             imported = [files.deabsolute_path(str(p)) for p in result.imported]
             skipped = [files.deabsolute_path(str(p)) for p in result.skipped]
-            dest_root = files.deabsolute_path(str(result.destination_root / result.namespace))
+
+            display_destination = resolve_display_destination(
+                result.destination_root,
+                result.namespace,
+            )
+            dest_root = files.deabsolute_path(str(display_destination))
 
             return {
                 "success": True,
