@@ -43,6 +43,83 @@ print_info()  { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
 print_warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
 print_error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; }
 
+select_from_menu() {
+    # Check for header parameter (starts with --header=)
+    MENU_HEADER=""
+    if [ $# -gt 0 ] && [ "${1#--header=}" != "$1" ]; then
+        MENU_HEADER="${1#--header=}"
+        shift
+    fi
+
+    # Validate at least one option provided
+    if [ $# -eq 0 ]; then
+        print_error "select_from_menu requires at least one menu option"
+        exit 1
+    fi
+
+    ITEM_COUNT=$#
+    SELECTED_INDEX=0
+
+    while :; do
+        # Clear screen
+        clear >/dev/tty 2>&1
+
+        # Display header if provided
+        if [ -n "$MENU_HEADER" ]; then
+            echo "$MENU_HEADER" >/dev/tty
+            echo "" >/dev/tty
+        fi
+
+        # Render menu items
+        CURRENT_INDEX=0
+        for item in "$@"; do
+            if [ "$CURRENT_INDEX" -eq "$SELECTED_INDEX" ]; then
+                printf "  ${GREEN}> %s${NC}\n" "$item" >/dev/tty
+            else
+                printf "    %s\n" "$item" >/dev/tty
+            fi
+            CURRENT_INDEX=$((CURRENT_INDEX + 1))
+        done
+
+        # Show help text
+        echo "" >/dev/tty
+        printf "Use ↑/↓ arrows to navigate, Enter to select\n" >/dev/tty
+
+        # Read single character from terminal
+        IFS= read -rsn1 key </dev/tty
+
+        # Handle Enter key (empty read or newline)
+        if [ -z "$key" ] || [ "$key" = $'\n' ]; then
+            printf "%d\n" "$SELECTED_INDEX"
+            return 0
+        fi
+
+        # Handle escape sequences (arrow keys)
+        if [ "$key" = $'\x1b' ]; then
+            # Read next character
+            IFS= read -rsn1 key2 </dev/tty
+            if [ "$key2" = "[" ]; then
+                # Read arrow key identifier
+                IFS= read -rsn1 key3 </dev/tty
+                case "$key3" in
+                    A) # Up arrow
+                        SELECTED_INDEX=$((SELECTED_INDEX - 1))
+                        if [ "$SELECTED_INDEX" -lt 0 ]; then
+                            SELECTED_INDEX=$((ITEM_COUNT - 1))
+                        fi
+                        ;;
+                    B) # Down arrow
+                        SELECTED_INDEX=$((SELECTED_INDEX + 1))
+                        if [ "$SELECTED_INDEX" -ge "$ITEM_COUNT" ]; then
+                            SELECTED_INDEX=0
+                        fi
+                        ;;
+                esac
+            fi
+        fi
+    done
+}
+
 check_docker_daemon_running() {
     if docker info >/dev/null 2>&1; then
         return 0
@@ -216,7 +293,7 @@ open_browser() {
 }
 
 fetch_available_tags() {
-    TAGS_URL="https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=15&ordering=last_updated"
+    TAGS_URL="https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=5&ordering=last_updated"
     RAW_TAGS_JSON="$(curl -fsSL "$TAGS_URL" 2>/dev/null || true)"
     PARSED_TAGS=""
 
@@ -257,44 +334,26 @@ select_image_tag() {
     SELECTED_TAG="latest"
     AVAILABLE_TAGS="$(fetch_available_tags || true)"
 
-    echo "Step A - Select image tag:"
     if [ -z "$AVAILABLE_TAGS" ]; then
+        echo "Step A - Select image tag:"
         print_warn "Could not fetch tags from Docker Hub. Falling back to latest."
         print_info "Image tag: $SELECTED_TAG"
+        echo ""
         return 0
     fi
 
-    printf "%s\n" "$AVAILABLE_TAGS" | awk '{printf "  %d) %s\n", NR, $0}'
-    printf "Select image tag number [latest]: "
-    IFS= read -r TAG_SELECTION
+    # Build menu with "latest" as first option
+    SELECTED_INDEX=$(select_from_menu "--header=Step A - Select image tag:" "latest" $AVAILABLE_TAGS)
 
-    if [ -z "$TAG_SELECTION" ]; then
-        print_info "No tag selected. Using latest."
-        print_info "Image tag: $SELECTED_TAG"
-        return 0
+    # Extract the selected tag
+    if [ "$SELECTED_INDEX" -eq 0 ]; then
+        SELECTED_TAG="latest"
+    else
+        SELECTED_TAG=$(printf "%s\n" "$AVAILABLE_TAGS" | awk -v n="$SELECTED_INDEX" 'NR == n {print; exit}')
     fi
-
-    case "$TAG_SELECTION" in
-        *[!0-9]*)
-            if printf "%s\n" "$AVAILABLE_TAGS" | awk -v selected="$TAG_SELECTION" '$0 == selected {found=1} END {exit found ? 0 : 1}'; then
-                SELECTED_TAG="$TAG_SELECTION"
-            else
-                print_warn "Invalid selection '$TAG_SELECTION'. Falling back to latest."
-                SELECTED_TAG="latest"
-            fi
-            ;;
-        *)
-            RESOLVED_TAG="$(printf "%s\n" "$AVAILABLE_TAGS" | awk -v n="$TAG_SELECTION" 'NR == n {print; exit}')"
-            if [ -z "$RESOLVED_TAG" ]; then
-                print_warn "Invalid selection '$TAG_SELECTION'. Falling back to latest."
-                SELECTED_TAG="latest"
-            else
-                SELECTED_TAG="$RESOLVED_TAG"
-            fi
-            ;;
-    esac
 
     print_info "Image tag: $SELECTED_TAG"
+    echo ""
 }
 
 create_instance() {
@@ -442,8 +501,20 @@ manage_instances() {
     fi
 
     while :; do
-        echo "Step M - Select existing instance:"
-        printf "%s\n" "$CONTAINER_ROWS" | awk -F'|' '
+        # Build menu by manually rendering and handling arrow keys inline
+        ITEM_COUNT=$(printf "%s\n" "$CONTAINER_ROWS" | awk 'END {print NR}')
+        SELECTED_INDEX=0
+
+        while :; do
+            # Clear screen
+            clear
+
+            # Display header
+            echo "Step M - Select existing instance:" >/dev/tty
+            echo "" >/dev/tty
+
+            # Render menu items
+            printf "%s\n" "$CONTAINER_ROWS" | awk -F'|' -v sel="$SELECTED_INDEX" '
             {
                 tag=$2
                 if (index($2, ":") > 0) {
@@ -451,42 +522,62 @@ manage_instances() {
                 } else {
                     tag="latest"
                 }
-                printf "  %d) %s  [tag: %s]  [status: %s]\n", NR, $1, tag, $3
-            }
-        '
-        printf "Select container number [1]: "
-        IFS= read -r CONTAINER_SELECTION
-        CONTAINER_SELECTION="${CONTAINER_SELECTION:-1}"
+                option = sprintf("%s [tag: %s] [status: %s]", $1, tag, $3)
+                if (NR - 1 == sel) {
+                    printf "  \033[0;32m> %s\033[0m\n", option
+                } else {
+                    printf "    %s\n", option
+                }
+            }' >/dev/tty
 
-        case "$CONTAINER_SELECTION" in
-            ''|*[!0-9]*)
-                print_warn "Invalid selection '$CONTAINER_SELECTION'. Please enter a number."
-                continue
-                ;;
-        esac
+            # Show help text
+            echo "" >/dev/tty
+            printf "Use ↑/↓ arrows to navigate, Enter to select\n" >/dev/tty
 
-        SELECTED_ROW="$(printf "%s\n" "$CONTAINER_ROWS" | awk -F'|' -v n="$CONTAINER_SELECTION" 'NR == n {print; exit}')"
-        if [ -z "$SELECTED_ROW" ]; then
-            print_warn "Selection '$CONTAINER_SELECTION' is out of range."
-            continue
-        fi
+            # Read single character from terminal
+            IFS= read -rsn1 key </dev/tty
 
+            # Handle Enter key
+            if [ -z "$key" ] || [ "$key" = $'\n' ]; then
+                break
+            fi
+
+            # Handle escape sequences (arrow keys)
+            if [ "$key" = $'\x1b' ]; then
+                IFS= read -rsn1 key2 </dev/tty
+                if [ "$key2" = "[" ]; then
+                    IFS= read -rsn1 key3 </dev/tty
+                    case "$key3" in
+                        A) # Up arrow
+                            SELECTED_INDEX=$((SELECTED_INDEX - 1))
+                            if [ "$SELECTED_INDEX" -lt 0 ]; then
+                                SELECTED_INDEX=$((ITEM_COUNT - 1))
+                            fi
+                            ;;
+                        B) # Down arrow
+                            SELECTED_INDEX=$((SELECTED_INDEX + 1))
+                            if [ "$SELECTED_INDEX" -ge "$ITEM_COUNT" ]; then
+                                SELECTED_INDEX=0
+                            fi
+                            ;;
+                    esac
+                fi
+            fi
+        done
+
+        # Extract container details using selected index
+        SELECTED_ROW="$(printf "%s\n" "$CONTAINER_ROWS" | awk -v n="$((SELECTED_INDEX + 1))" 'NR == n {print; exit}')"
         SELECTED_NAME="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f1)"
         SELECTED_IMAGE="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f2)"
         SELECTED_STATUS="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f3-)"
-        print_info "Selected instance: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
+
+        INSTANCE_HEADER="Selected: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
 
         while :; do
-            echo "1) Open in browser"
-            echo "2) Start"
-            echo "3) Stop"
-            echo "4) Back/Exit manage menu"
-            printf "Choose an option [4]: "
-            IFS= read -r ACTION_OPTION
-            ACTION_OPTION="${ACTION_OPTION:-4}"
+            ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Start" "Stop" "Back/Exit manage menu")
 
-            case "$ACTION_OPTION" in
-                1)
+            case "$ACTION_INDEX" in
+                0)
                     PORT_OUTPUT="$(docker port "$SELECTED_NAME" 80/tcp 2>/dev/null || true)"
                     HOST_PORT="$(printf "%s\n" "$PORT_OUTPUT" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
 
@@ -497,28 +588,32 @@ manage_instances() {
                         print_info "Opening $TARGET_URL"
                         open_browser "$TARGET_URL"
                     fi
+                    echo ""
                     ;;
-                2)
+                1)
                     print_info "Starting '$SELECTED_NAME'..."
                     if docker start "$SELECTED_NAME" >/dev/null 2>&1; then
                         print_ok "Started '$SELECTED_NAME'."
                     else
                         print_error "Failed to start '$SELECTED_NAME'."
                     fi
+                    echo ""
                     ;;
-                3)
+                2)
                     print_info "Stopping '$SELECTED_NAME'..."
                     if docker stop "$SELECTED_NAME" >/dev/null 2>&1; then
                         print_ok "Stopped '$SELECTED_NAME'."
                     else
                         print_error "Failed to stop '$SELECTED_NAME'."
                     fi
+                    echo ""
                     ;;
-                4)
+                3)
                     return 0
                     ;;
                 *)
-                    print_warn "Invalid action '$ACTION_OPTION'. Choose 1, 2, 3, or 4."
+                    print_warn "Invalid action. Please try again."
+                    echo ""
                     ;;
             esac
         done
@@ -527,15 +622,13 @@ manage_instances() {
 
 main_menu_for_existing() {
     RUNNING_COUNT="$1"
-    print_info "Detected ${RUNNING_COUNT} running Agent Zero container(s)."
-    echo "1) Install new instance"
-    echo "2) Manage existing instances"
-    printf "Choose an option [1]: "
-    IFS= read -r MENU_OPTION
-    MENU_OPTION="${MENU_OPTION:-1}"
+    HEADER="Detected ${RUNNING_COUNT} running Agent Zero container(s). What would you like to do?"
 
-    case "$MENU_OPTION" in
-        2) manage_instances ;;
+    SELECTED_INDEX=$(select_from_menu "--header=$HEADER" "Install new instance" "Manage existing instances")
+
+    case "$SELECTED_INDEX" in
+        0) create_instance ;;
+        1) manage_instances ;;
         *) create_instance ;;
     esac
 }
