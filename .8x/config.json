@@ -1,0 +1,5 @@
+{
+    "plan_command": "codex --model gpt-5.3-codex exec --full-auto",
+    "implement_command": "codex --model gpt-5.3-codex exec --full-auto",
+    "review_command": "codex --model gpt-5.3-codex exec --full-auto"
+}

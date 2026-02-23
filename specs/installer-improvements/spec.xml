@@ -1,0 +1,282 @@
+<plan>
+  <title>installer-menu-manage-and-tag-selection</title>
+  <goal>Enhance install.sh so it branches to install or manage when Agent Zero containers are already running, supports container management actions (start, stop, open in browser), and lets new installs choose a Docker Hub tag with latest as the default.</goal>
+  <steps>
+    <step>
+      <title>refactor-entrypoint-and-running-container-menu</title>
+      <goal>Convert the linear installer into function-based flow control and add the install/manage branch that appears only when running Agent Zero containers are detected.</goal>
+      <context><![CDATA[
+Repository root: /Users/nicolas/Code/agent-zero-fork
+Primary file to modify: install.sh
+
+Current install.sh is a single linear script. Reuse these existing conventions:
+- Keep banner output and color constants at the top.
+- Keep helper output functions print_ok/print_info/print_warn/print_error.
+- Keep prompt style: printf + `IFS= read -r` + default assignment `${VAR:-default}`.
+- Keep POSIX sh compatibility (script shebang is `#!/bin/sh`, avoid bash-specific syntax).
+
+Current Docker checks are in install.sh lines ~49-67:
+- docker existence check and Linux auto-install fallback
+- docker compose plugin presence check
+
+New behavior required by product request:
+- After Docker checks pass, detect running Agent Zero containers.
+- If running containers exist, show two options: Install and Manage.
+- If no running Agent Zero containers exist, continue directly to install flow.
+
+Use image family: `agent0ai/agent-zero`.
+Use a running-container detector command equivalent to:
+`docker ps --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}'`
+
+This step should only scaffold flow and menu branching. Installation internals and management actions are implemented in later steps.
+      ]]></context>
+      <instructions><![CDATA[
+Edit `install.sh` only.
+
+1. Extract top-level logic into functions:
+- `check_docker()` for existing Docker + compose checks.
+- `count_running_agent_zero_containers()` that returns a numeric count.
+- `main_menu_for_existing()` that prompts when count > 0.
+- `main()` as entrypoint.
+
+2. Implement branching behavior after `check_docker()`:
+- If running Agent Zero container count is greater than zero, print a short menu:
+  1) Install new instance
+  2) Manage existing instances
+- Route option 1 to `create_instance` and option 2 to `manage_instances`.
+- If input is empty or invalid, default to option 1.
+- If count is zero, call `create_instance` without showing the install/manage menu.
+
+3. Add placeholder function stubs only if not yet implemented:
+- `create_instance()`
+- `manage_instances()`
+The stubs must print a clear temporary message and return success so the script remains executable.
+
+4. Keep existing banner, colors, and logging style unchanged.
+5. Do not modify any file except `install.sh`.
+      ]]></instructions>
+      <verification><![CDATA[
+Run syntax check:
+`sh -n install.sh`
+
+Check function and menu presence:
+`rg -n "check_docker|count_running_agent_zero_containers|main_menu_for_existing|create_instance\(|manage_instances\(" install.sh`
+`rg -n "Install new instance|Manage existing instances" install.sh`
+
+Behavior check with mocked docker reporting one running container (menu must appear):
+- Put a mock `docker` executable first in PATH that returns success for `docker compose version` and emits one name for `docker ps --filter ancestor=agent0ai/agent-zero`.
+- Run `printf '2\n' | PATH="<mock_path>:$PATH" sh install.sh` and verify output contains manage-branch text.
+      ]]></verification>
+    </step>
+    <step>
+      <title>implement-install-flow-with-dockerhub-tag-selection</title>
+      <goal>Implement the install path so users can pick an image tag from Docker Hub, with default latest when no selection is provided.</goal>
+      <context><![CDATA[
+Prerequisite output from previous step:
+- `install.sh` has `main()`, `check_docker()`, and branch routing to `create_instance()`.
+- `create_instance()` currently exists and is safe to replace from placeholder to full implementation.
+
+User-requested behavior for install path:
+- Install always creates a new Agent Zero instance.
+- Include a tag-selection step before other install prompts.
+- Tags must be listed from Docker Hub API.
+- If user makes no tag selection, default to `latest`.
+
+Docker Hub endpoint from install-plan.md:
+`https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=15&ordering=last_updated`
+
+Existing install prompts in install.sh should be preserved in style:
+- data directory
+- web UI port
+- auth login/password
+
+Current compose generation block in install.sh writes:
+- service name `agent-zero`
+- container_name `agent-zero`
+- image `agent0ai/agent-zero`
+
+To support "create new instance" safely when one already exists, install flow needs unique instance naming and per-instance compose file location. Follow install-plan.md pattern:
+- Instance directory: `~/.agentzero/<container_name>/`
+- Compose path: `~/.agentzero/<container_name>/docker-compose.yml`
+- Default data dir: `~/.agentzero/<container_name>/usr`
+
+Do not add jq as a dependency. Use curl + python3 parsing fallback to lightweight text parsing if needed.
+      ]]></context>
+      <instructions><![CDATA[
+Edit `install.sh` only.
+
+1. Replace `create_instance()` placeholder with full flow:
+- Step A: tag selection.
+- Step B: container name (default `agent-zero`, auto-suggest next free name if taken, e.g. `agent-zero-2`).
+- Step C: data directory prompt defaulting to `~/.agentzero/<name>/usr`.
+- Step D: web UI port prompt (existing numeric validation style).
+- Step E: optional auth username/password prompts (existing behavior).
+
+2. Add helper functions:
+- `fetch_available_tags()` to call Docker Hub API and emit tag list.
+- `select_image_tag()` to show numbered tags and resolve final tag.
+  - Empty input must resolve to `latest`.
+  - Invalid numeric input must fall back to `latest` with a warning.
+  - API/network failure must still allow install and use `latest`.
+
+3. Generate compose YAML per instance directory:
+- `container_name` must match chosen instance name.
+- `image` must be `agent0ai/agent-zero:<selected_tag>`.
+- Keep volume mapping to `/a0/usr` and auth env vars when provided.
+
+4. Run install commands using explicit compose file path:
+- `docker compose -f "$COMPOSE_FILE" pull`
+- `docker compose -f "$COMPOSE_FILE" up -d`
+
+5. Update final success summary to print selected tag, instance name, compose file path, and URL.
+
+6. Do not modify files outside `install.sh`.
+      ]]></instructions>
+      <verification><![CDATA[
+Run syntax check:
+`sh -n install.sh`
+
+Confirm tag API and selected-tag compose usage in code:
+`rg -n "registry\.hub\.docker\.com.*/agent0ai/agent-zero/tags|fetch_available_tags|select_image_tag|agent0ai/agent-zero:\$" install.sh`
+
+Smoke-test default tag behavior with mocks:
+- Mock `curl` to return a Docker Hub tags JSON containing at least `latest` and one version tag.
+- Mock `docker` to succeed for compose commands.
+- Run installer with empty tag choice and inspect generated compose file under a temporary HOME.
+- Verify compose contains `image: agent0ai/agent-zero:latest` when tag prompt is left blank.
+      ]]></verification>
+    </step>
+    <step>
+      <title>implement-manage-flow-start-stop-open-actions</title>
+      <goal>Implement the manage path so users can select an existing Agent Zero container and run start, stop, or open-in-browser actions.</goal>
+      <context><![CDATA[
+Prerequisite output from previous steps:
+- `main()` routes option 2 to `manage_instances()`.
+- Install flow is fully implemented and supports multiple instance names.
+
+Scope for management in this task (per user request):
+- User selects a container from Agent Zero containers.
+- Actions supported: Start, Stop, Open in browser.
+- Start/Stop should map directly to docker commands.
+- Open in browser should work for running containers by resolving host port and opening `http://localhost:<port>`.
+
+Container list source:
+- Detect existing containers from image family `agent0ai/agent-zero`.
+- Prefer listing from `docker ps -a --filter "ancestor=agent0ai/agent-zero" --format ...` so stopped containers can be started.
+
+Port resolution pattern:
+- `docker port <container_name> 80/tcp` returns host binding (example `0.0.0.0:5080`).
+
+Cross-platform browser open helper in POSIX sh:
+- macOS: `open`
+- Linux: `xdg-open` (fallback to printing URL if unavailable)
+
+Keep management UI prompt style consistent with existing installer prompts.
+Do not implement delete/restart/update/log actions in this task.
+      ]]></context>
+      <instructions><![CDATA[
+Edit `install.sh` only.
+
+1. Replace `manage_instances()` placeholder with full interactive flow:
+- List Agent Zero containers with index, name, image tag, and status.
+- Prompt for container selection by index.
+- Validate selection and handle empty/invalid input gracefully.
+
+2. After selecting a container, show action menu:
+- 1) Open in browser
+- 2) Start
+- 3) Stop
+- 4) Back/Exit manage menu
+
+3. Implement action handlers:
+- Open: resolve host port from `docker port <name> 80/tcp`, extract numeric host port, then call `open_browser "http://localhost:<port>"`.
+- Start: `docker start <name>`.
+- Stop: `docker stop <name>`.
+- If open is requested for a container with no resolvable port mapping, show warning and do not fail script.
+
+4. Add `open_browser()` helper for Darwin/Linux fallback output.
+5. Keep logs user-friendly with existing print_* helpers.
+6. Do not modify files outside `install.sh`.
+      ]]></instructions>
+      <verification><![CDATA[
+Run syntax check:
+`sh -n install.sh`
+
+Confirm management commands are present:
+`rg -n "manage_instances|docker ps -a --filter \"ancestor=agent0ai/agent-zero\"|docker start|docker stop|docker port|open_browser" install.sh`
+
+Behavior check with mocked docker/open commands:
+- Mock `docker ps -a` to return one running and one stopped Agent Zero container.
+- Mock `docker port` to return `0.0.0.0:5080` for the running container.
+- Run installer, choose manage path, select container, then run each action in separate runs.
+- Verify mocked command logs show expected calls (`docker start`, `docker stop`, and browser opener command or URL output).
+      ]]></verification>
+    </step>
+    <step>
+      <title>final-regression-pass-and-user-flow-validation</title>
+      <goal>Verify the integrated script satisfies the requested UX and does not regress existing installer behavior.</goal>
+      <context><![CDATA[
+Prerequisite output from previous steps:
+- `install.sh` now includes install/manage branching, Docker Hub tag selection, and manage actions.
+
+This final step is verification and polish only.
+Keep scope limited to `install.sh` messaging, defaults, and guardrails.
+No new features should be added here.
+
+Requested UX requirements to validate end-to-end:
+- After Docker checks, if running Agent Zero containers exist, user sees Install vs Manage options.
+- Install path creates a new instance and includes tag selection from Docker Hub with default latest.
+- Manage path allows selecting an existing container and running start/stop/open.
+
+The script should remain POSIX sh compatible and continue to work when Docker Hub is unreachable.
+      ]]></context>
+      <instructions><![CDATA[
+Edit `install.sh` only if needed to fix issues found during verification.
+
+1. Run end-to-end smoke tests for both branches using mocked commands and temporary HOME directories.
+2. Fix any prompt-flow issues (invalid input loops, empty input defaults, branch routing errors).
+3. Ensure fallback behavior is robust:
+- tag API failure -> latest
+- no containers in manage flow -> clear message and return to install or exit cleanly
+4. Ensure the final summary for install flow reports instance name, selected tag, URL, and auth state.
+5. Keep style consistent with existing print_* helpers and avoid introducing bashisms.
+      ]]></instructions>
+      <verification><![CDATA[
+Required checks:
+1) `sh -n install.sh`
+2) `dash -n install.sh` (if dash is available) to catch non-POSIX syntax.
+3) Branch smoke test (mock running container exists): menu offers Install and Manage.
+4) Install smoke test with blank tag choice: generated compose file uses `agent0ai/agent-zero:latest`.
+5) Manage smoke test: selecting start/stop/open executes expected docker/browser commands.
+
+All checks must pass without modifying files outside `install.sh`.
+      ]]></verification>
+    </step>
+  </steps>
+  <acceptance_criteria>
+    <criterion>
+      <title>Running-container menu appears only when applicable</title>
+      <requirement>When `docker ps --filter ancestor=agent0ai/agent-zero` returns at least one running container, the script shows Install and Manage options; when none are running, the script skips that menu and goes directly into install flow.</requirement>
+    </criterion>
+    <criterion>
+      <title>Install flow includes Docker Hub tag selection with latest default</title>
+      <requirement>The install flow queries Docker Hub tags, presents a selectable list, and uses `latest` when the user leaves the tag prompt empty or when tag fetch/parse fails.</requirement>
+    </criterion>
+    <criterion>
+      <title>New installs create isolated instances</title>
+      <requirement>Each install writes compose config to `~/.agentzero/&lt;container_name&gt;/docker-compose.yml` and uses `agent0ai/agent-zero:&lt;selected_tag&gt;` plus the configured port, data directory, and optional auth variables.</requirement>
+    </criterion>
+    <criterion>
+      <title>Manage flow supports required actions</title>
+      <requirement>The manage path lists Agent Zero containers, allows selecting one, and supports Open in browser, Start, and Stop actions with correct docker/browser command execution.</requirement>
+    </criterion>
+    <criterion>
+      <title>Installer remains POSIX-safe and executable</title>
+      <requirement>`sh -n install.sh` passes, and `dash -n install.sh` passes when dash is installed, confirming no bash-specific syntax was introduced.</requirement>
+    </criterion>
+    <criterion>
+      <title>No unrelated code changes</title>
+      <requirement>Only `install.sh` is modified during implementation of this plan; no backend/frontend runtime files are changed.</requirement>
+    </criterion>
+  </acceptance_criteria>
+</plan>
