@@ -43,6 +43,71 @@ print_info()  { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
 print_warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
 print_error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; }
 
+check_docker_daemon_running() {
+    if docker info >/dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+start_docker_daemon() {
+    OS_NAME="$(uname -s 2>/dev/null || true)"
+
+    case "$OS_NAME" in
+        Darwin)
+            print_info "Starting Docker Desktop..."
+            if command -v open >/dev/null 2>&1; then
+                open -a Docker
+                return 0
+            else
+                print_error "Cannot start Docker Desktop automatically."
+                return 1
+            fi
+            ;;
+        Linux)
+            print_info "Starting Docker daemon..."
+            # Try systemctl first
+            if command -v systemctl >/dev/null 2>&1; then
+                if sudo systemctl start docker >/dev/null 2>&1; then
+                    return 0
+                fi
+            fi
+            # Fallback to service command
+            if command -v service >/dev/null 2>&1; then
+                if sudo service docker start >/dev/null 2>&1; then
+                    return 0
+                fi
+            fi
+            print_error "Could not start Docker daemon."
+            return 1
+            ;;
+        *)
+            print_error "Automatic Docker daemon start not supported on this OS."
+            return 1
+            ;;
+    esac
+}
+
+wait_for_docker_daemon() {
+    MAX_WAIT=30
+    WAITED=0
+
+    print_info "Waiting for Docker daemon to be ready..."
+    while [ $WAITED -lt $MAX_WAIT ]; do
+        if docker info >/dev/null 2>&1; then
+            print_ok "Docker daemon is ready"
+            return 0
+        fi
+        sleep 1
+        WAITED=$((WAITED + 1))
+        printf "."
+    done
+    echo ""
+    print_error "Docker daemon did not become ready within ${MAX_WAIT} seconds."
+    return 1
+}
+
 check_docker() {
     # -----------------------------------------------------------
     # 1. Ensure Docker is installed
@@ -65,6 +130,24 @@ check_docker() {
     else
         print_error "Docker Compose plugin not found. Please install Docker Compose."
         exit 1
+    fi
+
+    # -----------------------------------------------------------
+    # 2. Ensure Docker daemon is running
+    # -----------------------------------------------------------
+    if ! check_docker_daemon_running; then
+        print_warn "Docker daemon is not running"
+        if start_docker_daemon; then
+            if ! wait_for_docker_daemon; then
+                print_error "Failed to start Docker daemon. Please start Docker manually and try again."
+                exit 1
+            fi
+        else
+            print_error "Please start Docker manually and try again."
+            exit 1
+        fi
+    else
+        print_ok "Docker daemon is running"
     fi
 }
 
