@@ -72,15 +72,145 @@ count_running_agent_zero_containers() {
     docker ps --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}' 2>/dev/null | awk 'NF {count++} END {print count+0}'
 }
 
+instance_name_taken() {
+    NAME_TO_CHECK="$1"
+
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | awk -v target="$NAME_TO_CHECK" '$0 == target {found=1} END {exit found ? 0 : 1}'; then
+        return 0
+    fi
+
+    if [ -e "$HOME/.agentzero/$NAME_TO_CHECK" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+suggest_next_instance_name() {
+    BASE_NAME="${1:-agent-zero}"
+    CANDIDATE_NAME="$BASE_NAME"
+    INDEX=2
+
+    while instance_name_taken "$CANDIDATE_NAME"; do
+        CANDIDATE_NAME="${BASE_NAME}-${INDEX}"
+        INDEX=$((INDEX + 1))
+    done
+
+    printf "%s\n" "$CANDIDATE_NAME"
+}
+
+fetch_available_tags() {
+    TAGS_URL="https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=15&ordering=last_updated"
+    RAW_TAGS_JSON="$(curl -fsSL "$TAGS_URL" 2>/dev/null || true)"
+    PARSED_TAGS=""
+
+    if [ -z "$RAW_TAGS_JSON" ]; then
+        return 1
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+        PARSED_TAGS="$(printf "%s" "$RAW_TAGS_JSON" | python3 -c 'import json,sys
+try:
+    payload=json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+seen=set()
+for item in payload.get("results", []):
+    name=item.get("name")
+    if not name or name in seen:
+        continue
+    seen.add(name)
+    print(name)
+' 2>/dev/null || true)"
+    fi
+
+    if [ -z "$PARSED_TAGS" ]; then
+        PARSED_TAGS="$(printf "%s\n" "$RAW_TAGS_JSON" | tr ',' '\n' | sed -n 's/^[[:space:]]*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+    fi
+
+    PARSED_TAGS="$(printf "%s\n" "$PARSED_TAGS" | awk 'NF && !seen[$0]++')"
+
+    if [ -z "$PARSED_TAGS" ]; then
+        return 1
+    fi
+
+    printf "%s\n" "$PARSED_TAGS"
+}
+
+select_image_tag() {
+    SELECTED_TAG="latest"
+    AVAILABLE_TAGS="$(fetch_available_tags || true)"
+
+    echo "Step A - Select image tag:"
+    if [ -z "$AVAILABLE_TAGS" ]; then
+        print_warn "Could not fetch tags from Docker Hub. Falling back to latest."
+        print_info "Image tag: $SELECTED_TAG"
+        return 0
+    fi
+
+    printf "%s\n" "$AVAILABLE_TAGS" | awk '{printf "  %d) %s\n", NR, $0}'
+    printf "Select image tag number [latest]: "
+    IFS= read -r TAG_SELECTION
+
+    if [ -z "$TAG_SELECTION" ]; then
+        print_info "No tag selected. Using latest."
+        print_info "Image tag: $SELECTED_TAG"
+        return 0
+    fi
+
+    case "$TAG_SELECTION" in
+        *[!0-9]*)
+            if printf "%s\n" "$AVAILABLE_TAGS" | awk -v selected="$TAG_SELECTION" '$0 == selected {found=1} END {exit found ? 0 : 1}'; then
+                SELECTED_TAG="$TAG_SELECTION"
+            else
+                print_warn "Invalid selection '$TAG_SELECTION'. Falling back to latest."
+                SELECTED_TAG="latest"
+            fi
+            ;;
+        *)
+            RESOLVED_TAG="$(printf "%s\n" "$AVAILABLE_TAGS" | awk -v n="$TAG_SELECTION" 'NR == n {print; exit}')"
+            if [ -z "$RESOLVED_TAG" ]; then
+                print_warn "Invalid selection '$TAG_SELECTION'. Falling back to latest."
+                SELECTED_TAG="latest"
+            else
+                SELECTED_TAG="$RESOLVED_TAG"
+            fi
+            ;;
+    esac
+
+    print_info "Image tag: $SELECTED_TAG"
+}
+
 create_instance() {
     # -----------------------------------------------------------
     # 2. Gather configuration from user
     # -----------------------------------------------------------
-    INSTALL_DIR="$HOME/.agentzero"
-    DEFAULT_DATA_DIR="$INSTALL_DIR/usr"
+    INSTALL_ROOT="$HOME/.agentzero"
     DEFAULT_PORT="5080"
+    DEFAULT_NAME="$(suggest_next_instance_name "agent-zero")"
+
+    # Tag selection
+    select_image_tag
+    echo ""
+
+    # Container / instance name
+    echo "Step B - Container name:"
+    printf "Name [%s]: " "$DEFAULT_NAME"
+    IFS= read -r CONTAINER_NAME
+    CONTAINER_NAME="${CONTAINER_NAME:-$DEFAULT_NAME}"
+
+    if instance_name_taken "$CONTAINER_NAME"; then
+        SUGGESTED_NAME="$(suggest_next_instance_name "$CONTAINER_NAME")"
+        print_warn "Instance name '$CONTAINER_NAME' is already taken. Using '$SUGGESTED_NAME'."
+        CONTAINER_NAME="$SUGGESTED_NAME"
+    fi
+    print_info "Instance name: $CONTAINER_NAME"
+
+    INSTANCE_DIR="$INSTALL_ROOT/$CONTAINER_NAME"
+    DEFAULT_DATA_DIR="$INSTANCE_DIR/usr"
 
     # Data directory
+    echo "Step C - Data directory:"
     printf "Where to store Agent Zero user data? [%s]: " "$DEFAULT_DATA_DIR"
     IFS= read -r DATA_DIR
     DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
@@ -92,6 +222,7 @@ create_instance() {
     print_info "Data directory: $DATA_DIR"
 
     # Port
+    echo "Step D - Web UI port:"
     printf "Web UI port? [%s]: " "$DEFAULT_PORT"
     IFS= read -r PORT
     PORT="${PORT:-$DEFAULT_PORT}"
@@ -104,6 +235,7 @@ create_instance() {
     print_info "Web UI port: $PORT"
 
     # Authentication
+    echo "Step E - Authentication:"
     printf "Web UI login username (leave empty for no auth): "
     IFS= read -r AUTH_LOGIN
     AUTH_PASSWORD=""
@@ -123,20 +255,20 @@ create_instance() {
     # -----------------------------------------------------------
     # 3. Generate docker-compose.yml
     # -----------------------------------------------------------
-    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$INSTANCE_DIR"
 
-    COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
+    COMPOSE_FILE="$INSTANCE_DIR/docker-compose.yml"
 
     {
         echo "services:"
         echo "  agent-zero:"
-        echo "    image: agent0ai/agent-zero"
-        echo "    container_name: agent-zero"
+        echo "    image: agent0ai/agent-zero:$SELECTED_TAG"
+        echo "    container_name: $CONTAINER_NAME"
         echo "    restart: unless-stopped"
         echo "    ports:"
         echo "      - \"${PORT}:80\""
         echo "    volumes:"
-        echo "      - ${DATA_DIR}:/a0/usr"
+        echo "      - \"${DATA_DIR}:/a0/usr\""
         if [ -n "$AUTH_LOGIN" ]; then
             echo "    environment:"
             echo "      - AUTH_LOGIN=${AUTH_LOGIN}"
@@ -149,12 +281,11 @@ create_instance() {
     # -----------------------------------------------------------
     # 4. Pull image & start container
     # -----------------------------------------------------------
-    cd "$INSTALL_DIR"
     print_info "Pulling Agent Zero image (this may take a moment)..."
-    docker compose pull
+    docker compose -f "$COMPOSE_FILE" pull
 
     print_info "Starting Agent Zero..."
-    docker compose up -d
+    docker compose -f "$COMPOSE_FILE" up -d
 
     # -----------------------------------------------------------
     # 5. Done!
@@ -164,6 +295,9 @@ create_instance() {
     printf "  ${GREEN}${BOLD}Installation Complete!${NC}\n"
     echo "=========================================="
     echo ""
+    echo "  🏷️ Image tag      : $SELECTED_TAG"
+    echo "  📦 Instance name  : $CONTAINER_NAME"
+    echo "  🧩 Compose file   : $COMPOSE_FILE"
     echo "  📁 Data directory : $DATA_DIR"
     echo "  🌐 Web UI         : http://localhost:$PORT"
     if [ -n "$AUTH_LOGIN" ]; then
@@ -174,10 +308,10 @@ create_instance() {
     fi
     echo ""
     echo "  Useful commands:"
-    echo "    cd $INSTALL_DIR && docker compose logs -f   # View logs"
-    echo "    cd $INSTALL_DIR && docker compose down      # Stop"
-    echo "    cd $INSTALL_DIR && docker compose up -d     # Start"
-    echo "    cd $INSTALL_DIR && docker compose pull      # Update image"
+    echo "    docker compose -f $COMPOSE_FILE logs -f   # View logs"
+    echo "    docker compose -f $COMPOSE_FILE down      # Stop"
+    echo "    docker compose -f $COMPOSE_FILE up -d     # Start"
+    echo "    docker compose -f $COMPOSE_FILE pull      # Update image"
     echo ""
     print_info "Happy automating with Agent Zero! 🤖"
 }
