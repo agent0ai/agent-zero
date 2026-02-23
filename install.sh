@@ -99,6 +99,39 @@ suggest_next_instance_name() {
     printf "%s\n" "$CANDIDATE_NAME"
 }
 
+open_browser() {
+    URL="$1"
+    OS_NAME="$(uname -s 2>/dev/null || true)"
+
+    case "$OS_NAME" in
+        Darwin)
+            if command -v open >/dev/null 2>&1; then
+                if open "$URL" >/dev/null 2>&1; then
+                    print_ok "Opened browser: $URL"
+                else
+                    print_warn "Could not open browser automatically. Open this URL manually: $URL"
+                fi
+            else
+                print_warn "open command not found. Open this URL manually: $URL"
+            fi
+            ;;
+        Linux)
+            if command -v xdg-open >/dev/null 2>&1; then
+                if xdg-open "$URL" >/dev/null 2>&1; then
+                    print_ok "Opened browser: $URL"
+                else
+                    print_warn "Could not open browser automatically. Open this URL manually: $URL"
+                fi
+            else
+                print_warn "xdg-open not found. Open this URL manually: $URL"
+            fi
+            ;;
+        *)
+            print_warn "Automatic browser open is not supported on this OS. Open this URL manually: $URL"
+            ;;
+    esac
+}
+
 fetch_available_tags() {
     TAGS_URL="https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=15&ordering=last_updated"
     RAW_TAGS_JSON="$(curl -fsSL "$TAGS_URL" 2>/dev/null || true)"
@@ -317,8 +350,95 @@ create_instance() {
 }
 
 manage_instances() {
-    print_warn "Manage existing instances flow is not implemented yet (temporary placeholder)."
-    return 0
+    CONTAINER_ROWS="$(docker ps -a --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}|{{.Image}}|{{.Status}}' 2>/dev/null || true)"
+
+    if [ -z "$CONTAINER_ROWS" ]; then
+        print_warn "No Agent Zero containers found to manage."
+        return 0
+    fi
+
+    while :; do
+        echo "Step M - Select existing instance:"
+        printf "%s\n" "$CONTAINER_ROWS" | awk -F'|' '
+            {
+                tag=$2
+                if (index($2, ":") > 0) {
+                    sub(/^.*:/, "", tag)
+                } else {
+                    tag="latest"
+                }
+                printf "  %d) %s  [tag: %s]  [status: %s]\n", NR, $1, tag, $3
+            }
+        '
+        printf "Select container number [1]: "
+        IFS= read -r CONTAINER_SELECTION
+        CONTAINER_SELECTION="${CONTAINER_SELECTION:-1}"
+
+        case "$CONTAINER_SELECTION" in
+            ''|*[!0-9]*)
+                print_warn "Invalid selection '$CONTAINER_SELECTION'. Please enter a number."
+                continue
+                ;;
+        esac
+
+        SELECTED_ROW="$(printf "%s\n" "$CONTAINER_ROWS" | awk -F'|' -v n="$CONTAINER_SELECTION" 'NR == n {print; exit}')"
+        if [ -z "$SELECTED_ROW" ]; then
+            print_warn "Selection '$CONTAINER_SELECTION' is out of range."
+            continue
+        fi
+
+        SELECTED_NAME="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f1)"
+        SELECTED_IMAGE="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f2)"
+        SELECTED_STATUS="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f3-)"
+        print_info "Selected instance: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
+
+        while :; do
+            echo "1) Open in browser"
+            echo "2) Start"
+            echo "3) Stop"
+            echo "4) Back/Exit manage menu"
+            printf "Choose an option [4]: "
+            IFS= read -r ACTION_OPTION
+            ACTION_OPTION="${ACTION_OPTION:-4}"
+
+            case "$ACTION_OPTION" in
+                1)
+                    PORT_OUTPUT="$(docker port "$SELECTED_NAME" 80/tcp 2>/dev/null || true)"
+                    HOST_PORT="$(printf "%s\n" "$PORT_OUTPUT" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
+
+                    if [ -z "$HOST_PORT" ]; then
+                        print_warn "Could not resolve a host port for '$SELECTED_NAME' on 80/tcp. Ensure it is running with a published port."
+                    else
+                        TARGET_URL="http://localhost:$HOST_PORT"
+                        print_info "Opening $TARGET_URL"
+                        open_browser "$TARGET_URL"
+                    fi
+                    ;;
+                2)
+                    print_info "Starting '$SELECTED_NAME'..."
+                    if docker start "$SELECTED_NAME" >/dev/null 2>&1; then
+                        print_ok "Started '$SELECTED_NAME'."
+                    else
+                        print_error "Failed to start '$SELECTED_NAME'."
+                    fi
+                    ;;
+                3)
+                    print_info "Stopping '$SELECTED_NAME'..."
+                    if docker stop "$SELECTED_NAME" >/dev/null 2>&1; then
+                        print_ok "Stopped '$SELECTED_NAME'."
+                    else
+                        print_error "Failed to stop '$SELECTED_NAME'."
+                    fi
+                    ;;
+                4)
+                    return 0
+                    ;;
+                *)
+                    print_warn "Invalid action '$ACTION_OPTION'. Choose 1, 2, 3, or 4."
+                    ;;
+            esac
+        done
+    done
 }
 
 main_menu_for_existing() {
