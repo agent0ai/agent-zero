@@ -334,6 +334,7 @@ create_instance() {
     echo "  📁 Data directory : $DATA_DIR"
     echo "  🌐 Web UI         : http://localhost:$PORT"
     if [ -n "$AUTH_LOGIN" ]; then
+        echo "  🔐 Authentication : enabled"
         echo "  👤 Login          : $AUTH_LOGIN"
         echo "  🔑 Password       : $AUTH_PASSWORD"
     else
