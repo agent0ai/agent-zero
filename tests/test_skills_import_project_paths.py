@@ -106,3 +106,10 @@ def test_resolve_display_destination_does_not_duplicate_terminal_namespace(tmp_p
 def test_resolve_display_destination_appends_distinct_namespace(tmp_path: Path):
     destination_root = tmp_path / "usr" / "skills"
     assert resolve_display_destination(destination_root, "my-pack") == destination_root / "my-pack"
+
+
+def test_resolve_display_destination_is_case_insensitive_for_terminal_namespace(tmp_path: Path):
+    # destination_root ends with "Skills" (capital S), but namespace is "skills" (lowercase)
+    # The deduplication logic should treat these as equal and not append another "skills" segment.
+    destination_root = tmp_path / "usr" / "projects" / "demo" / ".a0proj" / "Skills"
+    assert resolve_display_destination(destination_root, "skills") == destination_root
