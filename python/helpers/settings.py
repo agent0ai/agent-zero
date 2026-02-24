@@ -374,9 +374,46 @@ def set_runtime_settings_snapshot(settings: Settings) -> None:
     _runtime_settings_snapshot = settings.copy()
 
 
+def get_profile_settings(profile_name: str) -> dict | None:
+    """Load settings.json from an agent profile directory.
+    
+    Searches in order: usr/agents/{profile}/settings.json, agents/{profile}/settings.json
+    Returns merged settings dict or None if no settings file found.
+    """
+    if not profile_name:
+        return None
+    
+    settings_override: dict = {}
+    
+    profile_paths = [
+        files.get_abs_path("usr/agents", profile_name, "settings.json"),
+        files.get_abs_path("agents", profile_name, "settings.json"),
+    ]
+    
+    for settings_path in profile_paths:
+        if files.exists(settings_path):
+            try:
+                override_settings_str = files.read_file(settings_path)
+                override_settings = dirty_json.try_parse(override_settings_str)
+                if isinstance(override_settings, dict):
+                    settings_override.update(override_settings)
+            except Exception:
+                pass
+    
+    return settings_override if settings_override else None
+
+
 def set_settings(settings: Settings, apply: bool = True):
     global _settings
     previous = _settings
+    
+    if previous and settings.get("agent_profile") != previous.get("agent_profile"):
+        profile_settings = get_profile_settings(settings.get("agent_profile", ""))
+        if profile_settings:
+            for key, value in profile_settings.items():
+                if key in settings or key in previous:
+                    settings[key] = value
+    
     _settings = normalize_settings(settings)
     _write_settings_file(_settings)
     if apply:
