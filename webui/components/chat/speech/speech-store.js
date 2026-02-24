@@ -27,6 +27,7 @@ const model = {
 
   // TTS Settings
   tts_kokoro: false,
+  agent_profile: "agent0",
 
   // TTS State
   isSpeaking: false,
@@ -124,6 +125,7 @@ const model = {
         this.stt_waiting_timeout =
           settings.stt_waiting_timeout ?? this.stt_waiting_timeout;
         this.tts_kokoro = settings.tts_kokoro ?? this.tts_kokoro;
+        this.agent_profile = settings.agent_profile ?? this.agent_profile;
       }
     } catch (error) {
       window.toastFetchError("Failed to load speech settings", error);
@@ -265,17 +267,28 @@ const model = {
 
   // speak wrapper
   async _speak(text, waitForPrevious, terminator) {
-    // default browser speech
-    if (!this.tts_kokoro)
-      return await this.speakWithBrowser(text, waitForPrevious, terminator);
+    if (this.isEl11Enabled()) {
+      try {
+        return await this.speakWithEl11(text, waitForPrevious, terminator);
+      } catch (error) {
+        console.error("ElevenLabs TTS error:", error);
+      }
+    }
 
-    // kokoro tts
+    if (!this.tts_kokoro) {
+      return await this.speakWithBrowser(text, waitForPrevious, terminator);
+    }
+
     try {
-      await await this.speakWithKokoro(text, waitForPrevious, terminator);
+      return await this.speakWithKokoro(text, waitForPrevious, terminator);
     } catch (error) {
       console.error(error);
       return await this.speakWithBrowser(text, waitForPrevious, terminator);
     }
+  },
+
+  isEl11Enabled() {
+    return localStorage.getItem("speech.el11Server") === "true";
   },
 
   chunkText(text, { maxChunkLength = 135, lineSeparator = "..." } = {}) {
@@ -421,6 +434,38 @@ const model = {
     this.synth.speak(this.browserUtterance);
   },
 
+  // ElevenLabs TTS via backend proxy
+  async speakWithEl11(text, waitForPrevious = false, terminator = null) {
+    const response = await fetchApi("/el11_tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        profile: this.agent_profile || "agent0",
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || `HTTP ${response.status}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("audio/")) {
+      const maybeErr = await response.text();
+      throw new Error(maybeErr || "ElevenLabs returned non-audio response");
+    }
+
+    const audioBlob = await response.blob();
+
+    while (waitForPrevious && this.isSpeaking) await sleep(25);
+    if (terminator && terminator()) return;
+
+    if (!waitForPrevious) this.stopAudio();
+
+    return await this.playAudioBlob(audioBlob);
+  },
+
   // Kokoro TTS
   async speakWithKokoro(text, waitForPrevious = false, terminator = null) {
     try {
@@ -452,6 +497,48 @@ const model = {
     } catch (error) {
       throw new Error("Kokoro TTS error:", error);
     }
+  },
+
+  // Play audio Blob (used by ElevenLabs proxy endpoint)
+  async playAudioBlob(audioBlob) {
+    return new Promise((resolve, reject) => {
+      const audio = this.audioEl ? this.audioEl : (this.audioEl = new Audio());
+
+      audio.pause();
+      audio.currentTime = 0;
+
+      const objectUrl = URL.createObjectURL(audioBlob);
+
+      audio.onplay = () => {
+        this.isSpeaking = true;
+      };
+      audio.onended = () => {
+        this.isSpeaking = false;
+        this.currentAudio = null;
+        URL.revokeObjectURL(objectUrl);
+        resolve();
+      };
+      audio.onerror = (error) => {
+        this.isSpeaking = false;
+        this.currentAudio = null;
+        URL.revokeObjectURL(objectUrl);
+        reject(error);
+      };
+
+      audio.src = objectUrl;
+      this.currentAudio = audio;
+
+      audio.play().catch((error) => {
+        this.isSpeaking = false;
+        this.currentAudio = null;
+        URL.revokeObjectURL(objectUrl);
+        if (error.name === "NotAllowedError") {
+          this.showAudioPermissionPrompt();
+          this.userHasInteracted = false;
+        }
+        reject(error);
+      });
+    });
   },
 
   // Play base64 audio

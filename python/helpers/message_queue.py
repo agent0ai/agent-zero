@@ -1,7 +1,7 @@
 import os
 import uuid
 from typing import TYPE_CHECKING
-from python.helpers import guids
+from python.helpers import guids, settings
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -42,6 +42,21 @@ def _sync_output(context: "AgentContext"):
     context.set_output_data(QUEUE_KEY, truncated)
 
 
+def _queue_total_chars(queue: list[dict]) -> int:
+    return sum(len(item.get("text", "")) for item in queue)
+
+
+def _get_queue_limits() -> tuple[int, int, str, int]:
+    set = settings.get_settings()
+    max_items = int(set.get("queue_max_items", 50))
+    max_total_chars = int(set.get("queue_max_total_chars", 200000))
+    drop_policy = str(set.get("queue_drop_policy", "drop_oldest")).strip().lower()
+    send_all_max_items = int(set.get("queue_send_all_max_items", 20))
+    if drop_policy not in {"drop_oldest", "drop_newest", "reject"}:
+        drop_policy = "drop_oldest"
+    return max_items, max_total_chars, drop_policy, send_all_max_items
+
+
 def add(
     context: "AgentContext",
     text: str,
@@ -50,6 +65,7 @@ def add(
 ) -> dict:
     """Add message to queue. Attachments should be filenames, will be converted to full paths."""
     queue = get_queue(context)
+    max_items, max_total_chars, drop_policy, _send_all_max_items = _get_queue_limits()
     
     # Convert filenames to full paths
     full_paths = []
@@ -65,6 +81,36 @@ def add(
         "text": text,
         "attachments": full_paths,
     }
+
+    if max_items > 0 and len(queue) >= max_items:
+        if drop_policy == "drop_oldest":
+            while max_items > 0 and len(queue) >= max_items:
+                queue.pop(0)
+        else:
+            rejected = item.copy()
+            rejected["rejected"] = True
+            rejected["reason"] = "queue_max_items"
+            return rejected
+
+    if max_total_chars > 0:
+        projected_chars = _queue_total_chars(queue) + len(text)
+        if projected_chars > max_total_chars:
+            if drop_policy == "drop_oldest":
+                while queue and (_queue_total_chars(queue) + len(text)) > max_total_chars:
+                    queue.pop(0)
+            else:
+                rejected = item.copy()
+                rejected["rejected"] = True
+                rejected["reason"] = "queue_max_total_chars"
+                return rejected
+
+        # still too large after dropping older items -> reject this one
+        if (_queue_total_chars(queue) + len(text)) > max_total_chars:
+            rejected = item.copy()
+            rejected["rejected"] = True
+            rejected["reason"] = "message_too_large"
+            return rejected
+
     queue.append(item)
     context.set_data(QUEUE_KEY, queue)
     _sync_output(context)
@@ -174,9 +220,12 @@ def send_all_aggregated(context: "AgentContext") -> int:
     
     if not has_queue(context):
         return 0
-    
+
+    _max_items, _max_total_chars, _drop_policy, send_all_max_items = _get_queue_limits()
     items = []
     while has_queue(context):
+        if send_all_max_items > 0 and len(items) >= send_all_max_items:
+            break
         items.append(pop_first(context))
     
     # Combine texts with separator

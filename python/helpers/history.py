@@ -158,7 +158,10 @@ class Topic(Record):
         self.summary = await self.summarize_messages(self.messages)
         return self.summary
 
-    def compress_large_messages(self, message_ratio: float = CURRENT_TOPIC_RATIO * LARGE_MESSAGE_TO_CURRENT_TOPIC_RATIO) -> bool:
+    def compress_large_messages(self, message_ratio: float | None = None) -> bool:
+        if message_ratio is None:
+            cfg = _history_config()
+            message_ratio = cfg["current_topic_ratio"] * LARGE_MESSAGE_TO_CURRENT_TOPIC_RATIO
         set = settings.get_settings()
         msg_max_size = (
             set["chat_model_ctx_length"]
@@ -202,7 +205,10 @@ class Topic(Record):
             compress = await self.compress_attention()
         return compress
 
-    async def compress_attention(self, ratio: float = CURRENT_TOPIC_ATTENTION_COMPRESSION) -> bool:
+    async def compress_attention(self, ratio: float | None = None) -> bool:
+        if ratio is None:
+            cfg = _history_config()
+            ratio = cfg["attention_current_ratio"]
 
         middle = len(self.messages) - 2
         if middle < 2:
@@ -367,6 +373,7 @@ class History(Record):
 
     async def compress(self):
         compressed = False
+        cfg = _history_config()
         total = _get_ctx_size_for_history()
         curr, hist, bulk = (
             self.get_current_topic_tokens(),
@@ -376,9 +383,13 @@ class History(Record):
         if (curr + hist + bulk) <= total:
             return False
 
-        target = total * COMPRESSION_TARGET_RATIO
+        target = total * cfg["compression_target_ratio"]
         prev_total = curr + hist + bulk + 1
+        passes = 0
         while True:
+            if cfg["compress_max_passes"] > 0 and passes >= cfg["compress_max_passes"]:
+                break
+            passes += 1
             curr, hist, bulk = (
                 self.get_current_topic_tokens(),
                 self.get_topics_tokens(),
@@ -391,11 +402,15 @@ class History(Record):
             prev_total = curr + hist + bulk
 
             ratios = [
-                (curr, CURRENT_TOPIC_RATIO, "current_topic"),
-                (hist, HISTORY_TOPIC_RATIO, "history_topic"),
-                (bulk, HISTORY_BULK_RATIO, "history_bulk"),
+                (curr, cfg["current_topic_ratio"], "current_topic"),
+                (hist, cfg["history_topic_ratio"], "history_topic"),
+                (bulk, cfg["history_bulk_ratio"], "history_bulk"),
             ]
-            ratios = sorted(ratios, key=lambda x: (x[0] / target) / x[1], reverse=True)
+            ratios = sorted(
+                ratios,
+                key=lambda x: (x[0] / target) / max(float(x[1]), 1e-6),
+                reverse=True,
+            )
             compressed_part = False
             for ratio in ratios:
                 if ratio[0] > ratio[1] * target:
@@ -417,15 +432,16 @@ class History(Record):
         return compressed
 
     async def compress_topics(self) -> bool:
+        cfg = _history_config()
 
         # 1. first identify large messages and compress them cheaply
         for topic in self.topics:
-            if topic.compress_large_messages(HISTORY_TOPIC_RATIO*LARGE_MESSAGE_TO_HISTORY_TOPIC_RATIO):
+            if topic.compress_large_messages(cfg["history_topic_ratio"] * LARGE_MESSAGE_TO_HISTORY_TOPIC_RATIO):
                 return True
 
         # 2. summarize topics attention window one by one
         for topic in self.topics:
-            if await topic.compress_attention(HISTORY_TOPIC_ATTENTION_COMPRESSION):
+            if await topic.compress_attention(cfg["attention_past_ratio"]):
                 return True
 
         # 3. move oldest topics to bulks in chunks
@@ -481,6 +497,47 @@ def deserialize_history(json_data: str, agent) -> History:
 def _get_ctx_size_for_history() -> int:
     set = settings.get_settings()
     return int(set["chat_model_ctx_length"] * set["chat_model_ctx_history"])
+
+
+def _clamp_ratio(value: float, fallback: float) -> float:
+    try:
+        return max(0.0, min(1.0, float(value)))
+    except Exception:
+        return fallback
+
+
+def _history_config() -> dict[str, float | int]:
+    set = settings.get_settings()
+    return {
+        "compression_target_ratio": _clamp_ratio(
+            set.get("history_compression_target_ratio", COMPRESSION_TARGET_RATIO),
+            COMPRESSION_TARGET_RATIO,
+        ),
+        "current_topic_ratio": _clamp_ratio(
+            set.get("history_current_topic_ratio", CURRENT_TOPIC_RATIO),
+            CURRENT_TOPIC_RATIO,
+        ),
+        "history_topic_ratio": _clamp_ratio(
+            set.get("history_topic_ratio", HISTORY_TOPIC_RATIO),
+            HISTORY_TOPIC_RATIO,
+        ),
+        "history_bulk_ratio": _clamp_ratio(
+            set.get("history_bulk_ratio", HISTORY_BULK_RATIO),
+            HISTORY_BULK_RATIO,
+        ),
+        "attention_current_ratio": _clamp_ratio(
+            set.get(
+                "history_attention_current_ratio",
+                CURRENT_TOPIC_ATTENTION_COMPRESSION,
+            ),
+            CURRENT_TOPIC_ATTENTION_COMPRESSION,
+        ),
+        "attention_past_ratio": _clamp_ratio(
+            set.get("history_attention_past_ratio", HISTORY_TOPIC_ATTENTION_COMPRESSION),
+            HISTORY_TOPIC_ATTENTION_COMPRESSION,
+        ),
+        "compress_max_passes": max(0, int(set.get("history_compress_max_passes", 12))),
+    }
 
 
 def _stringify_output(output: OutputMessage, ai_label="ai", human_label="human"):

@@ -1,0 +1,5 @@
+{
+  "title": "Health Advisor",
+  "description": "Expert in daily health logs, health research, bloodwork analysis, exercise programming, supplement optimization, and personalized health recommendations aligned with your goals and preferences.",
+  "context": "Use this agent for health tracking, lab result interpretation (optimal ranges), exercise routines, form guidance, supplement efficacy/value, and optimization recommendations. Understands specific muscle targeting, crafts routines, and optimizes toward user-defined health goals."
+}

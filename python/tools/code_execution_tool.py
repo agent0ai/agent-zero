@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 import shlex
 import time
+import os
 from python.helpers.tool import Tool, Response
 from python.helpers import files, rfc_exchange, projects, runtime, settings
 from python.helpers.print_style import PrintStyle
@@ -60,27 +61,33 @@ class CodeExecution(Tool):
     async def execute(self, **kwargs) -> Response:
 
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
+        self._output_dump_marker = ""
+        self._output_dumped = False
+        # Tool args may be rewritten for display (e.g., §§include spill placeholders).
+        # Always execute with resolved runtime kwargs when provided.
+        exec_args = dict(self.args)
+        exec_args.update(kwargs)
 
-        runtime = self.args.get("runtime", "").lower().strip()
-        session = int(self.args.get("session", 0))
-        self.allow_running = bool(self.args.get("allow_running", False))
-        reset = bool(self.args.get("reset", False) or runtime == "reset")
+        runtime = str(exec_args.get("runtime", "")).lower().strip()
+        session = int(exec_args.get("session", 0))
+        self.allow_running = bool(exec_args.get("allow_running", False))
+        reset = bool(exec_args.get("reset", False) or runtime == "reset")
 
         if runtime == "python":
             response = await self.execute_python_code(
-                code=self.args["code"], session=session, reset=reset
+                code=str(exec_args["code"]), session=session, reset=reset
             )
         elif runtime == "nodejs":
             response = await self.execute_nodejs_code(
-                code=self.args["code"], session=session, reset=reset
+                code=str(exec_args["code"]), session=session, reset=reset
             )
         elif runtime == "terminal":
             response = await self.execute_terminal_command(
-                command=self.args["code"], session=session, reset=reset
+                command=str(exec_args["code"]), session=session, reset=reset
             )
         elif runtime == "output":
             response = await self.get_terminal_output(
-                session=session, timeouts=OUTPUT_TIMEOUTS
+                session=session, timeouts=self._get_timeouts(output_runtime=True)
             )
         elif runtime == "reset":
             response = await self.reset_terminal(session=session)
@@ -175,6 +182,49 @@ class CodeExecution(Tool):
     async def execute_terminal_command(
         self, session: int, command: str, reset: bool = False
     ):
+        set = settings.get_settings()
+        prefer_python_file_write = bool(
+            set.get("code_exec_prefer_python_file_write", False)
+        )
+        if prefer_python_file_write and self._has_heredoc(command):
+            unterminated_marker = self._find_unterminated_heredoc_marker(command)
+            if unterminated_marker:
+                info = (
+                    "Detected an unterminated heredoc in terminal command "
+                    f"(missing closing marker `{unterminated_marker}` on its own line). "
+                    "The command appears truncated and was not executed. "
+                    "Retry with smaller chunks, or use runtime='python' with shorter content chunks."
+                )
+                PrintStyle.warning(info)
+                return self.agent.read_prompt("fw.code.info.md", info=info)
+
+            converted_python = self._convert_simple_cat_heredoc_to_python(command)
+            if converted_python:
+                PrintStyle.info(
+                    "Converted terminal heredoc write to python file write due to policy."
+                )
+                return await self.execute_python_code(
+                    session=session, code=converted_python, reset=reset
+                )
+
+            info = (
+                "Heredoc terminal writes are disabled by policy "
+                "(A0_SET_code_exec_prefer_python_file_write=true). "
+                "Use runtime='python' to write file content instead of terminal heredoc."
+            )
+            PrintStyle.warning(info)
+            return self.agent.read_prompt("fw.code.info.md", info=info)
+
+        unterminated_marker = self._find_unterminated_heredoc_marker(command)
+        if unterminated_marker:
+            info = (
+                "Detected an unterminated heredoc in terminal command "
+                f"(missing closing marker `{unterminated_marker}` on its own line). "
+                "The command appears truncated and was not executed. "
+                "Retry with smaller chunks, or use python runtime to write file content safely."
+            )
+            PrintStyle.warning(info)
+            return self.agent.read_prompt("fw.code.info.md", info=info)
         prefix = ("bash>" if not runtime.is_windows() or self.agent.config.code_exec_ssh_enabled else "PS>") + self.format_command_for_output(command) + "\n\n"
         return await self.terminal_session(session, command, reset, prefix)
 
@@ -211,7 +261,11 @@ class CodeExecution(Tool):
                 PrintStyle(
                     background_color="white", font_color="#1B4F72", bold=True
                 ).print(f"{self.agent.agent_name} code execution output{locl}")
-                return await self.get_terminal_output(session=session, prefix=prefix, timeouts=(timeouts or CODE_EXEC_TIMEOUTS))
+                return await self.get_terminal_output(
+                    session=session,
+                    prefix=prefix,
+                    timeouts=(timeouts or self._get_timeouts(output_runtime=False)),
+                )
 
             except Exception as e:
                 if i == 1:
@@ -470,8 +524,117 @@ class CodeExecution(Tool):
         output = re.sub(r"(?<!\\)\\x[0-9A-Fa-f]{2}", "", output)
         # Strip every line of output before truncation
         # output = "\n".join(line.strip() for line in output.splitlines())
-        output = truncate_text_agent(agent=self.agent, output=output, threshold=1000000) # ~1MB, larger outputs should be dumped to file, not read from terminal
+        set = settings.get_settings()
+        max_chars = int(set.get("code_exec_output_max_chars", 1000000))
+        auto_dump = bool(set.get("code_exec_auto_dump_large_output", True))
+        dump_dir = str(set.get("code_exec_dump_dir", "usr/tmp/code_exec"))
+
+        if max_chars > 0 and len(output) > max_chars and auto_dump and not self._output_dumped:
+            timestamp = int(time.time() * 1000)
+            session = self.args.get("session", 0)
+            filename = f"code_exec_output_s{session}_{timestamp}.log"
+            rel_path = os.path.join(dump_dir, filename)
+            files.write_file(rel_path, output)
+            self._output_dump_marker = (
+                f"\n\n[Large output saved to: {files.get_abs_path(rel_path)}]"
+            )
+            self._output_dumped = True
+
+        output = truncate_text_agent(agent=self.agent, output=output, threshold=max_chars)
+        if self._output_dump_marker:
+            output += self._output_dump_marker
         return output
+
+    def _has_heredoc(self, command: str) -> bool:
+        return re.search(r"<<-?\s*(['\"]?)[A-Za-z_][A-Za-z0-9_]*\1", command) is not None
+
+    def _convert_simple_cat_heredoc_to_python(self, command: str) -> str | None:
+        """
+        Convert a simple single heredoc write command to Python.
+        Supported forms:
+          cat > /path/file << 'EOF'
+          ...
+          EOF
+          cat >> /path/file << EOF
+          ...
+          EOF
+        """
+        lines = command.splitlines()
+        if len(lines) < 2:
+            return None
+
+        opener = re.match(
+            r"^\s*cat\s*(>>|>)\s*(\S+)\s*<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\3\s*$",
+            lines[0],
+        )
+        if not opener:
+            return None
+
+        op = opener.group(1)
+        file_path = opener.group(2)
+        marker = opener.group(4)
+        marker_pattern = re.compile(rf"^[ \t]*{re.escape(marker)}[ \t]*$")
+
+        closing_idx = None
+        for idx in range(1, len(lines)):
+            if marker_pattern.match(lines[idx]):
+                closing_idx = idx
+                break
+        if closing_idx is None:
+            return None
+
+        content = "\n".join(lines[1:closing_idx])
+        mode = "a" if op == ">>" else "w"
+        return (
+            "from pathlib import Path\n"
+            f"path = Path({file_path!r})\n"
+            "path.parent.mkdir(parents=True, exist_ok=True)\n"
+            f"with path.open({mode!r}, encoding='utf-8') as f:\n"
+            f"    f.write({content!r})\n"
+        )
+
+    def _find_unterminated_heredoc_marker(self, command: str) -> str | None:
+        # Guard against truncated heredocs (e.g., "... << 'EOF'" without a closing EOF line).
+        opener_pattern = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+        lines = command.splitlines()
+        if not lines:
+            return None
+
+        openers: list[tuple[str, int]] = []
+        for idx, line in enumerate(lines):
+            for match in opener_pattern.finditer(line):
+                openers.append((match.group(2), idx))
+
+        if not openers:
+            return None
+
+        for marker, start_idx in openers:
+            marker_pattern = re.compile(rf"^[ \t]*{re.escape(marker)}[ \t]*$")
+            closed = any(marker_pattern.match(line) for line in lines[start_idx + 1 :])
+            if not closed:
+                return marker
+        return None
+
+    def _get_timeouts(self, output_runtime: bool = False) -> dict[str, int]:
+        defaults = OUTPUT_TIMEOUTS if output_runtime else CODE_EXEC_TIMEOUTS
+        set = settings.get_settings()
+        return {
+            "first_output_timeout": int(
+                set.get("code_exec_first_output_timeout", defaults["first_output_timeout"])
+            ),
+            "between_output_timeout": int(
+                set.get(
+                    "code_exec_between_output_timeout",
+                    defaults["between_output_timeout"],
+                )
+            ),
+            "max_exec_timeout": int(
+                set.get("code_exec_max_exec_timeout", defaults["max_exec_timeout"])
+            ),
+            "dialog_timeout": int(
+                set.get("code_exec_dialog_timeout", defaults["dialog_timeout"])
+            ),
+        }
 
     async def ensure_cwd(self) -> str | None:
         project_name = projects.get_context_project_name(self.agent.context)
