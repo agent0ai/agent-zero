@@ -1,0 +1,6 @@
+{
+  "agent_memory_subdir": "health_advisor",
+  "agent_knowledge_subdir": "health_advisor",
+  "memory_recall_memories_max_search": 15,
+  "memory_recall_memories_max_result": 8
+}
