@@ -239,10 +239,6 @@ instance_name_taken() {
         return 0
     fi
 
-    if [ -e "$HOME/.agentzero/$NAME_TO_CHECK" ]; then
-        return 0
-    fi
-
     return 1
 }
 
