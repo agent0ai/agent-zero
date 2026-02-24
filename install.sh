@@ -228,8 +228,8 @@ check_docker() {
     fi
 }
 
-count_running_agent_zero_containers() {
-    docker ps --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}' 2>/dev/null | awk 'NF {count++} END {print count+0}'
+count_existing_agent_zero_containers() {
+    docker ps -a --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}' 2>/dev/null | awk 'NF {count++} END {print count+0}'
 }
 
 instance_name_taken() {
@@ -329,17 +329,18 @@ for item in payload.get("results", []):
 select_image_tag() {
     SELECTED_TAG="latest"
     AVAILABLE_TAGS="$(fetch_available_tags || true)"
+    AVAILABLE_TAGS="$(printf "%s\n" "$AVAILABLE_TAGS" | awk 'tolower($0) != "latest"')"
 
     if [ -z "$AVAILABLE_TAGS" ]; then
-        echo "Step A - Select image tag:"
-        print_warn "Could not fetch tags from Docker Hub. Falling back to latest."
+        echo "Select image tag:"
+        print_warn "No additional tags found. Using latest."
         print_info "Image tag: $SELECTED_TAG"
         echo ""
         return 0
     fi
 
     # Build menu with "latest" as first option
-    SELECTED_INDEX=$(select_from_menu "--header=Step A - Select image tag:" "latest" $AVAILABLE_TAGS)
+    SELECTED_INDEX=$(select_from_menu "--header=Select image tag:" "latest" $AVAILABLE_TAGS)
 
     # Extract the selected tag
     if [ "$SELECTED_INDEX" -eq 0 ]; then
@@ -365,7 +366,7 @@ create_instance() {
     echo ""
 
     # Container / instance name
-    echo "Step B - Container name:"
+    echo "Container name:"
     printf "Name [%s]: " "$DEFAULT_NAME"
     IFS= read -r CONTAINER_NAME
     CONTAINER_NAME="${CONTAINER_NAME:-$DEFAULT_NAME}"
@@ -381,7 +382,7 @@ create_instance() {
     DEFAULT_DATA_DIR="$INSTANCE_DIR/usr"
 
     # Data directory
-    echo "Step C - Data directory:"
+    echo "Data directory:"
     printf "Where to store Agent Zero user data? [%s]: " "$DEFAULT_DATA_DIR"
     IFS= read -r DATA_DIR
     DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
@@ -393,7 +394,7 @@ create_instance() {
     print_info "Data directory: $DATA_DIR"
 
     # Port
-    echo "Step D - Web UI port:"
+    echo "Web UI port:"
     printf "Web UI port? [%s]: " "$DEFAULT_PORT"
     IFS= read -r PORT
     PORT="${PORT:-$DEFAULT_PORT}"
@@ -406,7 +407,7 @@ create_instance() {
     print_info "Web UI port: $PORT"
 
     # Authentication
-    echo "Step E - Authentication:"
+    echo "Authentication:"
     printf "Web UI login username (leave empty for no auth): "
     IFS= read -r AUTH_LOGIN
     AUTH_PASSWORD=""
@@ -489,14 +490,14 @@ create_instance() {
 }
 
 manage_instances() {
-    CONTAINER_ROWS="$(docker ps -a --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}|{{.Image}}|{{.Status}}' 2>/dev/null || true)"
-
-    if [ -z "$CONTAINER_ROWS" ]; then
-        print_warn "No Agent Zero containers found to manage."
-        return 0
-    fi
-
     while :; do
+        CONTAINER_ROWS="$(docker ps -a --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}|{{.Image}}|{{.Status}}' 2>/dev/null || true)"
+
+        if [ -z "$CONTAINER_ROWS" ]; then
+            print_warn "No Agent Zero containers found to manage."
+            return 0
+        fi
+
         # Build menu by manually rendering and handling arrow keys inline
         ITEM_COUNT=$(printf "%s\n" "$CONTAINER_ROWS" | awk 'END {print NR}')
         SELECTED_INDEX=0
@@ -506,7 +507,7 @@ manage_instances() {
             clear
 
             # Display header
-            echo "Step M - Select existing instance:" >/dev/tty
+            echo "Select existing instance:" >/dev/tty
             echo "" >/dev/tty
 
             # Render menu items
@@ -567,13 +568,34 @@ manage_instances() {
         SELECTED_IMAGE="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f2)"
         SELECTED_STATUS="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f3-)"
 
-        INSTANCE_HEADER="Selected: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
-
         while :; do
-            ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Start" "Stop" "Back/Exit manage menu")
+            SELECTED_STATUS="$(docker ps -a --filter "name=^/${SELECTED_NAME}$" --format '{{.Status}}' 2>/dev/null | head -n 1)"
+            case "$SELECTED_STATUS" in
+                Up*) IS_RUNNING=1 ;;
+                *) IS_RUNNING=0 ;;
+            esac
 
-            case "$ACTION_INDEX" in
-                0)
+            INSTANCE_HEADER="Selected: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
+
+            if [ "$IS_RUNNING" -eq 1 ]; then
+                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Stop" "Back/Exit manage menu")
+                case "$ACTION_INDEX" in
+                    0) ACTION_KEY="open" ;;
+                    1) ACTION_KEY="stop" ;;
+                    2) ACTION_KEY="back" ;;
+                    *) ACTION_KEY="invalid" ;;
+                esac
+            else
+                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Start" "Back/Exit manage menu")
+                case "$ACTION_INDEX" in
+                    0) ACTION_KEY="start" ;;
+                    1) ACTION_KEY="back" ;;
+                    *) ACTION_KEY="invalid" ;;
+                esac
+            fi
+
+            case "$ACTION_KEY" in
+                open)
                     PORT_OUTPUT="$(docker port "$SELECTED_NAME" 80/tcp 2>/dev/null || true)"
                     HOST_PORT="$(printf "%s\n" "$PORT_OUTPUT" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
 
@@ -586,7 +608,7 @@ manage_instances() {
                     fi
                     echo ""
                     ;;
-                1)
+                start)
                     print_info "Starting '$SELECTED_NAME'..."
                     if docker start "$SELECTED_NAME" >/dev/null 2>&1; then
                         print_ok "Started '$SELECTED_NAME'."
@@ -595,7 +617,7 @@ manage_instances() {
                     fi
                     echo ""
                     ;;
-                2)
+                stop)
                     print_info "Stopping '$SELECTED_NAME'..."
                     if docker stop "$SELECTED_NAME" >/dev/null 2>&1; then
                         print_ok "Stopped '$SELECTED_NAME'."
@@ -604,7 +626,7 @@ manage_instances() {
                     fi
                     echo ""
                     ;;
-                3)
+                back)
                     return 0
                     ;;
                 *)
@@ -617,8 +639,8 @@ manage_instances() {
 }
 
 main_menu_for_existing() {
-    RUNNING_COUNT="$1"
-    HEADER="Detected ${RUNNING_COUNT} running Agent Zero container(s). What would you like to do?"
+    EXISTING_COUNT="$1"
+    HEADER="Detected ${EXISTING_COUNT} Agent Zero container(s). What would you like to do?"
 
     SELECTED_INDEX=$(select_from_menu "--header=$HEADER" "Install new instance" "Manage existing instances")
 
@@ -633,13 +655,13 @@ main() {
     check_docker
     echo ""
 
-    RUNNING_COUNT="$(count_running_agent_zero_containers)"
-    case "$RUNNING_COUNT" in
-        ''|*[!0-9]*) RUNNING_COUNT="0" ;;
+    EXISTING_COUNT="$(count_existing_agent_zero_containers)"
+    case "$EXISTING_COUNT" in
+        ''|*[!0-9]*) EXISTING_COUNT="0" ;;
     esac
 
-    if [ "$RUNNING_COUNT" -gt 0 ]; then
-        main_menu_for_existing "$RUNNING_COUNT"
+    if [ "$EXISTING_COUNT" -gt 0 ]; then
+        main_menu_for_existing "$EXISTING_COUNT"
     else
         create_instance
     fi
