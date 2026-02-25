@@ -32,12 +32,13 @@
 * For tasks expected to take longer than 30 minutes: set a memory_save checkpoint after each completed phase
 * Checkpoint should include: what was completed, what remains open, important findings/decisions, next steps
 
-## Internal Paths in Responses
+## No Custom Orchestration Systems
 
-* NEVER reference `.omc/` paths or files in user-facing responses (e.g. `.omc/project-memory.json`, `.omc/prompts/...`, `.omc/state/...`)
-* `.omc/` is your internal orchestration data — use it for context, but keep it invisible to the user
-* Instead of "Laut `.omc/project-memory.json` ist das ein Astro-Projekt" just say "Das ist ein Astro-Projekt"
-* Same applies to other internal paths: `/a0/tmp/chats/`, framework message paths, etc.
+* NEVER create `.omc/`, `.agent/`, or similar meta-orchestration directories in project workdirs
+* Use your NATIVE tools instead: `memory_save` for project context, `plan.md` for plans, `call_sub` for subordinates, chat history for session state
+* Do not cache MCP prompts/responses to disk — they are ephemeral
+* Do not build checkpoint/replay systems — use `memory_save` checkpoints instead
+* Do not reference internal framework paths in user-facing responses (e.g. `/a0/tmp/chats/`, `.omc/`, etc.)
 
 ## Memory Schema Convention
 
