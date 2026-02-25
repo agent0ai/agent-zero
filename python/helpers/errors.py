@@ -78,3 +78,8 @@ def format_error(e: Exception, start_entries=20, end_entries=15, error_message_p
 class RepairableException(Exception):
     """An exception type indicating errors that can be surfaced to the LLM for potential self-repair."""
     pass
+
+
+class HandledException(Exception):
+    """An exception type that indicates the error has been handled and should break the loop without retry."""
+    pass
