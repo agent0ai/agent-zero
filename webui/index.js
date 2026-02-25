@@ -323,11 +323,14 @@ export async function applySnapshot(snapshot, options = {}) {
       if (typeof onLogGuidReset === "function") {
         await onLogGuidReset();
       }
-      return { updated: false, resynced: true };
+      // Fall through to render the current snapshot immediately instead of
+      // waiting for the next push. The snapshot already contains the correct
+      // post-reset/post-edit log data.
+    } else {
+      // First guid observed for this context: accept it and continue applying snapshot.
+      lastLogVersion = 0;
+      lastLogGuid = snapshot.log_guid;
     }
-    // First guid observed for this context: accept it and continue applying snapshot.
-    lastLogVersion = 0;
-    lastLogGuid = snapshot.log_guid;
   }
 
   if (lastLogVersion != snapshot.log_version) {
