@@ -383,6 +383,13 @@ class BrowserAgent(Tool):
         self.agent.set_data("_browser_agent_state", self.state)
 
     def update_progress(self, text):
+        import time
+        now = time.time()
+        # Debounce: Only emit progress every 500ms to prevent WebSocket overwhelm
+        if now - self._last_progress_time < self._progress_debounce:
+            return  # Skip this update - too soon
+        self._last_progress_time = now
+
         text = self._mask(text)
         short = text.split("\n")[-1]
         if len(short) > 50:

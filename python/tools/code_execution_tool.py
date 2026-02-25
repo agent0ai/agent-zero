@@ -241,7 +241,7 @@ class CodeExecution(Tool):
         between_output_timeout=15,  # Wait up to x seconds between outputs
         dialog_timeout=5,  # potential dialog detection timeout
         max_exec_timeout=180,  # hard cap on total runtime
-        sleep_time=0.1,
+        sleep_time=0.5,  # Increased from 0.1 to prevent WebSocket overwhelm
         prefix="",
         timeouts: dict | None = None,
     ):
@@ -278,7 +278,7 @@ class CodeExecution(Tool):
             now = time.time()
             if partial_output:
                 PrintStyle(font_color="#85C1E9").stream(partial_output)
-                # full_output += partial_output # Append new output
+                # Simplified: emit progress directly (sleep_time throttles frequency)
                 truncated_output = self.fix_full_output(full_output)
                 self.set_progress(truncated_output)
                 heading = self.get_heading_from_output(truncated_output, 0)
