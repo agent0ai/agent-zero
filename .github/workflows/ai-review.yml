@@ -26,5 +26,6 @@ jobs:
 
       - uses: brandfusion-cmd/ai-review-action@v1
         with:
-          cliproxy_api_key: ${{ secrets.CLIPROXY_APIKEY }}
+          api_key: ${{ secrets.CLIPROXY_APIKEY }}
+          api_url: http://localhost:8317/v1
           github_token: ${{ secrets.GITHUB_TOKEN }}
