@@ -33,3 +33,5 @@ jobs:
           api_key: ${{ secrets.CLIPROXY_APIKEY }}
           api_url: http://localhost:8317/v1
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          agent_api_url: http://localhost:50080/api_message
+          agent_api_key: ${{ secrets.A0_API_KEY }}

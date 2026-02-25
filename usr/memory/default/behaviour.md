@@ -68,3 +68,29 @@
 * Open PR with a clear summary: What changed, Why, How to test
 * PRs from `feature/az-*` and `fix/az-*` branches trigger automatic AI code review
 * If AI review finds CRITICAL/BUG issues, fix them before requesting human merge
+
+## Pre-Push Self-Review
+
+* Before pushing to a feature/fix branch, review your own changes:
+  1. Run `git diff main...HEAD` to see all changes
+  2. Use Gemini MCP (`gemini.ask-gemini`) to review the diff for CRITICAL/BUG issues
+  3. If Gemini finds CRITICAL or BUG issues, fix them BEFORE pushing
+  4. Run tests (`pytest tests/ -v` or check `.ai-review.yml` test_command) before pushing
+* This self-review catches ~80% of issues before the GitHub Action runs
+* The GitHub Action review is the safety net, not the primary gate
+
+## Automatic PR Review Response
+
+* When you receive a message about "AI review findings" for a PR:
+  1. Parse the findings (severity, file, line, description, suggestion)
+  2. Checkout the PR branch: `git checkout <branch> && git pull`
+  3. For each CRITICAL/BUG finding:
+     - Read the file and understand the issue
+     - Use Codex CLI to generate a fix: `codex exec ... "Fix: <description>"`
+     - Verify the fix makes sense
+  4. Run tests (check `.ai-review.yml` test_command)
+  5. Commit fixes: `git commit -m "fix: address AI review findings"`
+  6. Push to the same branch (triggers re-review automatically)
+  7. If all findings are fixed and tests pass, comment on the PR: "Fixes applied, ready for re-review"
+* Do NOT attempt to fix WARNING/INFO/STYLE findings automatically — only CRITICAL and BUG
+* If a fix seems too complex or risky, skip it and note why in the PR comment
