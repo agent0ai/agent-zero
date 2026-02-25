@@ -31,5 +31,5 @@ jobs:
       - uses: brandfusion-cmd/ai-review-action@v1
         with:
           api_key: ${{ secrets.CLIPROXY_APIKEY }}
-          api_url: http://localhost:8317/v1
+          api_url: ${{ secrets.CLIPROXY_API_URL }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
