@@ -575,13 +575,59 @@ class Agent:
         return self.hist_add_message(False, content=content)
 
     def concat_messages(
-        self, messages, human_label="user", ai_label="assistant"
-    ):  # TODO add param for message range, topic, history
-        if hasattr(messages, "output_text"):
-            return messages.output_text(human_label=human_label, ai_label=ai_label)
-        if isinstance(messages, list):
-            return history.output_text(messages, human_label=human_label, ai_label=ai_label)
-        return self.history.output_text(human_label=human_label, ai_label=ai_label)
+        self,
+        messages=None,
+        human_label="user",
+        ai_label="assistant",
+        start_index: int = 0,
+        limit: int | None = None,
+        topic_index: int | None = None,
+    ):
+        target = messages if messages is not None else self.history
+        output_msgs = []
+
+        # Handle Topic Selection if target is History-like
+        if (
+            topic_index is not None
+            and hasattr(target, "topics")
+            and hasattr(target, "current")
+        ):
+            try:
+                all_topics = target.topics + [target.current]
+                output_msgs = all_topics[topic_index].output()
+            except IndexError:
+                output_msgs = []
+
+            # Apply slicing with normalization
+            n = len(output_msgs)
+            eff_start = start_index if start_index >= 0 else max(0, n + start_index)
+            stop = eff_start + limit if limit is not None else None
+            return history.output_text(
+                output_msgs[eff_start:stop],
+                human_label=human_label,
+                ai_label=ai_label,
+            )
+
+        # Handle regular extraction
+        if hasattr(target, "output"):
+            output_msgs = target.output()
+        elif isinstance(target, list):
+            output_msgs = target
+        else:
+            # Fallback if we can't get list to slice
+            if hasattr(target, "output_text"):
+                return target.output_text(human_label=human_label, ai_label=ai_label)
+            return ""
+
+        # Apply slicing with normalization
+        n = len(output_msgs)
+        eff_start = start_index if start_index >= 0 else max(0, n + start_index)
+        stop = eff_start + limit if limit is not None else None
+        output_msgs = output_msgs[eff_start:stop]
+
+        return history.output_text(
+            output_msgs, human_label=human_label, ai_label=ai_label
+        )
 
     def get_chat_model(self):
         return models.get_chat_model(
