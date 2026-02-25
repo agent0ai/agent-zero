@@ -42,12 +42,13 @@ const model = {
   diagramMode: "tree", // "tree" or "sequence"
   diagramSvg: "",
   selectedObsId: null,
-  _initialized: false,
 
   init() {
-    if (this._initialized) return;
-    this._initialized = true;
-    // Check for pending trace request (set before modal opens)
+    // Alpine init - runs once on store registration.
+    // Pending traces are handled by checkPending(), called via x-init on each modal open.
+  },
+
+  checkPending() {
     const pending = globalThis._pendingTrace;
     if (pending) {
       globalThis._pendingTrace = null;

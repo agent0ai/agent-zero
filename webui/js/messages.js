@@ -863,6 +863,19 @@ export function drawMessageResponse({
         createActionButton("copy", "", () => copyToClipboard(responseText)),
       ].filter(Boolean)
     : [];
+
+  // Add trace-viewer button when Langfuse trace data is available
+  if (kvps?.trace_id) {
+    const traceId = kvps.trace_id;
+    const traceUrl = kvps.trace_url || "";
+    responseActionButtons.push(
+      createActionButton("monitoring", "View Trace", () => {
+        globalThis._pendingTrace = { id: traceId, url: traceUrl };
+        globalThis.openModal("modals/trace-viewer/trace-viewer.html");
+      }),
+    );
+  }
+
   setupCollapsible(
     messageDiv,
     ":scope > .step-action-buttons",

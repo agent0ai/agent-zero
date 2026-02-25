@@ -9,6 +9,7 @@
     <div x-data>
         <template x-if="$store.traceViewer">
             <div class="trace-viewer"
+                 x-init="$store.traceViewer.checkPending()"
                  x-destroy="$store.traceViewer.cleanup()">
 
                 <!-- Loading -->
