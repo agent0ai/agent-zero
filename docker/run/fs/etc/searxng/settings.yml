@@ -24,6 +24,15 @@ server:
   port: 55510
   limiter: false
   image_proxy: false
+
+# Outgoing request limits — prevent overwhelming external search engines
+# and reduce disk I/O from cached responses
+outgoing:
+  request_timeout: 5.0        # Timeout pro Engine (default: 3.0) — etwas großzügiger
+  max_request_timeout: 15.0   # Max erlaubter Timeout
+  pool_connections: 20         # Max gleichzeitige Verbindungen (default: 100)
+  pool_maxsize: 10             # Max Verbindungen pro Host (default: 10)
+  # Weniger parallel = weniger Disk-Writes + weniger CAPTCHA-Risiko
   # public URL of the instance, to ensure correct inbound links. Is overwritten
   # by ${SEARXNG_URL}.
   # base_url: http://example.com/location
@@ -75,6 +84,22 @@ engines:
   - name: torch
     disabled: true
     inactive: true
+
+  # --- Anti-CAPTCHA: Engines die schnell blocken deaktivieren ---
+  # DuckDuckGo und Brave haben Agent Zero nach wenigen Queries geblockt (CAPTCHA/429).
+  # Google und Bing sind robuster mit automatisierten Anfragen.
+  - name: duckduckgo
+    disabled: true
+
+  - name: brave
+    disabled: true
+
+  # Weitere CAPTCHA-anfällige Engines reduzieren
+  - name: startpage
+    disabled: true
+
+  # Google und Bing bleiben aktiv — die sind am stabilsten für API-artige Nutzung.
+  # Wikipedia, Wikidata ebenfalls (kein CAPTCHA-Risiko).
 # TODO enable radio_browser when it works again
 # currently it crashes on x86 on gethostbyaddr
 
