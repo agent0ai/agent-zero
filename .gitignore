@@ -29,6 +29,7 @@ tmp/**
 !tmp/**/
 usr/**
 !usr/**/
+!usr/memory/default/behaviour.md
 
 # Handle knowledge directory
 
