@@ -1,0 +1,124 @@
+<html>
+<head>
+    <title>Observability</title>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.settings.settings">
+            <div>
+                <div class="section">
+                    <div class="section-title">Langfuse</div>
+                    <div class="section-description">
+                        Trace LLM calls, tool executions, and agent interactions.
+                        Credentials can also be set via LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY,
+                        and LANGFUSE_HOST environment variables.
+                    </div>
+
+                    <div class="field">
+                        <div class="field-label">
+                            <div class="field-title">Enable Langfuse Tracing</div>
+                            <div class="field-description">Send traces to your Langfuse instance</div>
+                        </div>
+                        <div class="field-control">
+                            <label class="toggle">
+                                <input type="checkbox"
+                                       x-model="$store.settings.settings.langfuse_enabled" />
+                                <span class="toggler"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <div class="field-label">
+                            <div class="field-title">Public Key</div>
+                            <div class="field-description">Langfuse project public key (pk-lf-...)</div>
+                        </div>
+                        <div class="field-control">
+                            <input type="text"
+                                   x-model="$store.settings.settings.langfuse_public_key"
+                                   placeholder="pk-lf-..."
+                                   autocomplete="off" />
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <div class="field-label">
+                            <div class="field-title">Secret Key</div>
+                            <div class="field-description">Langfuse project secret key (sk-lf-...)</div>
+                        </div>
+                        <div class="field-control">
+                            <input type="password"
+                                   x-model="$store.settings.settings.langfuse_secret_key"
+                                   placeholder="sk-lf-..."
+                                   autocomplete="off" />
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <div class="field-label">
+                            <div class="field-title">Host URL</div>
+                            <div class="field-description">Langfuse instance URL (default: cloud.langfuse.com)</div>
+                        </div>
+                        <div class="field-control">
+                            <input type="text"
+                                   x-model="$store.settings.settings.langfuse_host"
+                                   placeholder="https://cloud.langfuse.com"
+                                   autocomplete="off" />
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <div class="field-label">
+                            <div class="field-title">Sample Rate</div>
+                            <div class="field-description">Fraction of interactions to trace (1.0 = all, 0.1 = 10%)</div>
+                        </div>
+                        <div class="field-control">
+                            <input type="range" min="0" max="1" step="0.1"
+                                   x-model.number="$store.settings.settings.langfuse_sample_rate" />
+                            <span class="range-value"
+                                  x-text="$store.settings.settings.langfuse_sample_rate"></span>
+                        </div>
+                    </div>
+
+                    <div class="field" x-data="{ testing: false, result: null }">
+                        <div class="field-label">
+                            <div class="field-title">Test Connection</div>
+                            <div class="field-description">
+                                Verify your Langfuse credentials
+                                <template x-if="result !== null">
+                                    <span :style="result.success ? 'color: #4caf50' : 'color: #f44336'"
+                                          x-text="result.success ? ' Connected!' : ' ' + result.error">
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="field-control">
+                            <button class="btn btn-field"
+                                    :disabled="testing"
+                                    @click="
+                                        testing = true;
+                                        result = null;
+                                        globalThis.fetchApi('/langfuse_test', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                public_key: $store.settings.settings.langfuse_public_key,
+                                                secret_key: $store.settings.settings.langfuse_secret_key,
+                                                host: $store.settings.settings.langfuse_host
+                                            })
+                                        })
+                                        .then(r => r.json())
+                                        .then(r => { result = r; testing = false; })
+                                        .catch(e => { result = { success: false, error: e.message }; testing = false; });
+                                    "
+                                    x-text="testing ? 'Testing...' : 'Test Connection'">
+                                Test Connection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+</html>

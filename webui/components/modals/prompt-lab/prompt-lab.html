@@ -1,0 +1,473 @@
+<html>
+
+<head>
+  <title>Prompt Lab</title>
+  <script type="module">
+    import { store } from "/components/modals/prompt-lab/prompt-lab-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.promptLab">
+      <div class="prompt-lab"
+        x-create="$store.promptLab.init()"
+        x-destroy="$store.promptLab.cleanup()">
+
+        <!-- Three-panel layout -->
+        <div class="prompt-lab-panels">
+
+          <!-- Left: Original Prompt (read-only) -->
+          <div class="prompt-lab-panel panel-original">
+            <div class="panel-header">
+              <h4>Original Prompt</h4>
+            </div>
+            <div class="panel-meta">
+              <span class="meta-item" x-show="$store.promptLab.observationModel">
+                <span class="meta-label">Model:</span>
+                <span x-text="$store.promptLab.observationModel"></span>
+              </span>
+              <span class="meta-item" x-show="$store.promptLab.tokenCount">
+                <span class="meta-label">Tokens:</span>
+                <span x-text="$store.promptLab.tokenCount.toLocaleString()"></span>
+              </span>
+              <span class="meta-item" x-show="$store.promptLab.cost">
+                <span class="meta-label">Cost:</span>
+                <span x-text="'$' + $store.promptLab.cost.toFixed(4)"></span>
+              </span>
+            </div>
+            <div class="panel-content">
+              <pre class="prompt-text" x-text="$store.promptLab.originalPrompt"></pre>
+            </div>
+          </div>
+
+          <!-- Center: Editor -->
+          <div class="prompt-lab-panel panel-editor">
+            <div class="panel-header">
+              <h4>Editor</h4>
+              <div class="panel-actions">
+                <button class="btn-sm" @click="$store.promptLab.undo()"
+                  :disabled="$store.promptLab.undoStack.length === 0"
+                  title="Undo">
+                  <span class="material-symbols-outlined">undo</span>
+                </button>
+                <button class="btn-sm" @click="$store.promptLab.resetEditor()"
+                  title="Reset to original">
+                  <span class="material-symbols-outlined">restart_alt</span>
+                </button>
+              </div>
+            </div>
+            <div class="panel-content">
+              <textarea class="prompt-editor"
+                x-model="$store.promptLab.editorPrompt"
+                placeholder="Edit the prompt here..."></textarea>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="editor-actions">
+              <button class="btn btn-ok"
+                @click="$store.promptLab.suggestImprovements()"
+                :disabled="$store.promptLab.refining || $store.promptLab.judging">
+                <span class="material-symbols-outlined">auto_awesome</span>
+                <span x-text="$store.promptLab.refining ? 'Refining...' : ($store.promptLab.judging ? 'Judging...' : 'Suggest Improvements')"></span>
+              </button>
+              <button class="btn btn-cancel"
+                @click="$store.promptLab.testPrompt()"
+                :disabled="$store.promptLab.testing">
+                <span class="material-symbols-outlined">science</span>
+                <span x-text="$store.promptLab.testing ? 'Forking...' : 'Test'"></span>
+              </button>
+            </div>
+
+            <!-- Variants cards -->
+            <div class="variants-list" x-show="$store.promptLab.variants.length > 0">
+              <h5>Suggestions</h5>
+              <template x-for="(variant, idx) in $store.promptLab.variants" :key="idx">
+                <div :class="{'variant-card': true, 'variant-rejected': !variant.approved}"
+                  @click="variant.approved && $store.promptLab.selectVariant(idx)">
+                  <div class="variant-header">
+                    <span class="variant-status">
+                      <span class="material-symbols-outlined"
+                        x-text="variant.approved ? 'check_circle' : 'cancel'"></span>
+                    </span>
+                    <span class="variant-targets" x-show="variant.targets">
+                      <template x-for="target in (variant.targets || [])" :key="target">
+                        <span class="target-badge" x-text="target"></span>
+                      </template>
+                    </span>
+                  </div>
+                  <p class="variant-explanation" x-text="variant.explanation"></p>
+                  <div class="variant-scores" x-show="variant.scores">
+                    <template x-for="[key, val] in Object.entries(variant.scores || {})" :key="key">
+                      <span class="score-badge" :class="{'score-low': val < 3}">
+                        <span x-text="key"></span>: <span x-text="val"></span>/5
+                      </span>
+                    </template>
+                  </div>
+                  <p class="variant-reasoning" x-show="variant.reasoning" x-text="variant.reasoning"></p>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Right: Results -->
+          <div class="prompt-lab-panel panel-results">
+            <div class="panel-header">
+              <h4>Results</h4>
+            </div>
+            <div class="panel-content">
+              <!-- Empty state -->
+              <div class="results-empty"
+                x-show="!$store.promptLab.testResult && !$store.promptLab.testing">
+                <span class="material-symbols-outlined">science</span>
+                <p>Run a test to see results</p>
+              </div>
+
+              <!-- Loading state -->
+              <div class="results-loading" x-show="$store.promptLab.testing">
+                <div class="loading"></div>
+                <p>Creating test fork...</p>
+              </div>
+
+              <!-- Test result -->
+              <div class="results-content" x-show="$store.promptLab.testResult">
+                <p x-text="$store.promptLab.testResult"></p>
+                <div class="results-actions" x-show="$store.promptLab.testForkedContextId">
+                  <button class="btn btn-ok" @click="$store.promptLab.goToTestFork()">
+                    <span class="material-symbols-outlined">open_in_new</span>
+                    Go to Forked Chat
+                  </button>
+                  <button class="btn btn-cancel" @click="$store.promptLab.compareInSplitView()">
+                    <span class="material-symbols-outlined">compare</span>
+                    Compare in Split View
+                  </button>
+                </div>
+              </div>
+
+              <!-- Original response for comparison -->
+              <div class="results-original" x-show="$store.promptLab.originalResponse">
+                <h5>Original Response</h5>
+                <pre class="response-text" x-text="$store.promptLab.originalResponse"></pre>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .prompt-lab {
+      display: flex;
+      flex-direction: column;
+      height: 70vh;
+      min-height: 400px;
+    }
+
+    .prompt-lab-panels {
+      display: flex;
+      gap: 1rem;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .prompt-lab-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-panel);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--color-border);
+      flex-shrink: 0;
+    }
+
+    .panel-header h4 {
+      margin: 0;
+      font-size: var(--font-size-normal);
+      font-weight: 600;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .btn-sm {
+      background: none;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      color: var(--color-text);
+      padding: 2px 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    .btn-sm:hover {
+      background: var(--color-background-hover);
+    }
+
+    .btn-sm:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .btn-sm .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .panel-meta {
+      display: flex;
+      gap: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: var(--font-size-small);
+      color: var(--color-secondary);
+      border-bottom: 1px solid var(--color-border);
+      flex-shrink: 0;
+    }
+
+    .meta-label {
+      opacity: 0.7;
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem 1rem;
+    }
+
+    .prompt-text {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: var(--font-size-small);
+      line-height: 1.5;
+      margin: 0;
+      font-family: inherit;
+    }
+
+    .prompt-editor {
+      width: 100%;
+      height: 100%;
+      min-height: 200px;
+      background: var(--color-input);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 0.75rem;
+      font-size: var(--font-size-small);
+      line-height: 1.5;
+      resize: none;
+      font-family: inherit;
+    }
+
+    .prompt-editor:focus {
+      outline: none;
+      border-color: var(--color-accent);
+    }
+
+    .editor-actions {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--color-border);
+      flex-shrink: 0;
+    }
+
+    .editor-actions .btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: var(--font-size-small);
+    }
+
+    .editor-actions .btn .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .variants-list {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--color-border);
+      overflow-y: auto;
+      max-height: 250px;
+      flex-shrink: 0;
+    }
+
+    .variants-list h5 {
+      margin: 0 0 0.5rem 0;
+      font-size: var(--font-size-small);
+      color: var(--color-secondary);
+    }
+
+    .variant-card {
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: border-color var(--transition-speed) ease;
+    }
+
+    .variant-card:hover {
+      border-color: var(--color-accent);
+    }
+
+    .variant-rejected {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .variant-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .variant-status .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .variant-card:not(.variant-rejected) .variant-status {
+      color: #4caf50;
+    }
+
+    .variant-rejected .variant-status {
+      color: #f44336;
+    }
+
+    .target-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: var(--color-background);
+      color: var(--color-secondary);
+    }
+
+    .variant-explanation {
+      margin: 0.25rem 0;
+      font-size: var(--font-size-small);
+    }
+
+    .variant-scores {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.25rem;
+    }
+
+    .score-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: var(--color-background);
+    }
+
+    .score-low {
+      color: #f44336;
+    }
+
+    .variant-reasoning {
+      margin: 0.25rem 0 0 0;
+      font-size: 12px;
+      color: var(--color-secondary);
+      font-style: italic;
+    }
+
+    /* Results panel */
+    .results-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--color-secondary);
+      opacity: 0.5;
+    }
+
+    .results-empty .material-symbols-outlined {
+      font-size: 48px;
+      margin-bottom: 0.5rem;
+    }
+
+    .results-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 1rem;
+    }
+
+    .results-content {
+      padding: 0.5rem 0;
+    }
+
+    .results-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .results-actions .btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: var(--font-size-small);
+    }
+
+    .results-actions .btn .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .results-original {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .results-original h5 {
+      margin: 0 0 0.5rem 0;
+      font-size: var(--font-size-small);
+      color: var(--color-secondary);
+    }
+
+    .response-text {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: var(--font-size-small);
+      line-height: 1.5;
+      margin: 0;
+      font-family: inherit;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    /* Responsive: stack panels on narrow screens */
+    @media (max-width: 900px) {
+      .prompt-lab-panels {
+        flex-direction: column;
+      }
+
+      .prompt-lab {
+        height: auto;
+      }
+
+      .prompt-lab-panel {
+        min-height: 200px;
+      }
+    }
+  </style>
+</body>
+
+</html>
