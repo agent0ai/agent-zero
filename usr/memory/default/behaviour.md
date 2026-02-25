@@ -73,9 +73,11 @@
 
 * Before pushing to a feature/fix branch, review your own changes:
   1. Run `git diff main...HEAD` to see all changes
-  2. Use Gemini MCP (`gemini.ask-gemini`) to review the diff for CRITICAL/BUG issues
-  3. If Gemini finds CRITICAL or BUG issues, fix them BEFORE pushing
-  4. Run tests (`pytest tests/ -v` or check `.ai-review.yml` test_command) before pushing
+  2. **Secret scan**: Check the diff for hardcoded secrets, API keys, tokens, passwords, localhost URLs with ports, and internal endpoint paths. Run: `git diff main...HEAD | grep -iE '(sk-|ghp_|ghs_|AKIA|localhost:[0-9]{4,5}|127\.0\.0\.1:[0-9]|password|api_key|secret)'` — if anything matches, remove it before pushing
+  3. Use Gemini MCP (`gemini.ask-gemini`) to review the diff for CRITICAL/BUG issues AND sensitive information exposure
+  4. If Gemini finds CRITICAL or BUG issues, fix them BEFORE pushing
+  5. Run tests (`pytest tests/ -v` or check `.ai-review.yml` test_command) before pushing
+* **NEVER commit**: API keys, tokens, passwords, internal URLs with ports, SSH keys, .env files with real values
 * This self-review catches ~80% of issues before the GitHub Action runs
 * The GitHub Action review is the safety net, not the primary gate
 
