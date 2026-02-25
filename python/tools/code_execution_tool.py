@@ -241,7 +241,7 @@ class CodeExecution(Tool):
         between_output_timeout=15,  # Wait up to x seconds between outputs
         dialog_timeout=5,  # potential dialog detection timeout
         max_exec_timeout=180,  # hard cap on total runtime
-        sleep_time=0.1,
+        sleep_time=0.5,  # Increased from 0.1 to prevent WebSocket overwhelm
         prefix="",
         timeouts: dict | None = None,
     ):
@@ -258,10 +258,6 @@ class CodeExecution(Tool):
 
         start_time = time.time()
         last_output_time = start_time
-        # FIX: Debouncing for WebSocket emits to prevent disconnection
-        last_emit_time = start_time
-        emit_interval = 0.5  # Only emit progress every 500ms minimum
-        pending_output = ""
         full_output = ""
         truncated_output = ""
         got_output = False
@@ -282,15 +278,11 @@ class CodeExecution(Tool):
             now = time.time()
             if partial_output:
                 PrintStyle(font_color="#85C1E9").stream(partial_output)
-                pending_output += partial_output  # Buffer output
-                # FIX: Only emit progress updates at interval to prevent WebSocket overwhelm
-                if (now - last_emit_time >= emit_interval) or not got_output:
-                    truncated_output = self.fix_full_output(full_output + pending_output)
-                    pending_output = ""  # Clear buffer after emit
-                    self.set_progress(truncated_output)
-                    heading = self.get_heading_from_output(truncated_output, 0)
-                    self.log.update(content=prefix + truncated_output, heading=heading)
-                    last_emit_time = now
+                # Simplified: emit progress directly (sleep_time throttles frequency)
+                truncated_output = self.fix_full_output(full_output)
+                self.set_progress(truncated_output)
+                heading = self.get_heading_from_output(truncated_output, 0)
+                self.log.update(content=prefix + truncated_output, heading=heading)
                 last_output_time = now
                 got_output = True
 
