@@ -12,6 +12,98 @@ import { store as stepDetailStore } from "/components/modals/process-step-detail
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { formatDuration } from "./time-utils.js";
 import { Scroller } from "./scroller.js";
+import { sendJsonData, getContext } from "/index.js";
+
+function enterEditMode(container, logIndex, currentText) {
+  const messageDiv = container.querySelector(".message-user");
+  if (!messageDiv || messageDiv.classList.contains("editing")) return;
+  messageDiv.classList.add("editing");
+
+  const textDiv = messageDiv.querySelector(".message-text");
+  if (!textDiv) return;
+
+  // Hide action buttons
+  const actionButtons = messageDiv.querySelector(".step-action-buttons");
+  if (actionButtons) actionButtons.style.display = "none";
+
+  // Store original content as plain text (avoid XSS via innerHTML)
+  const originalPre = textDiv.querySelector("pre");
+  const originalText = originalPre ? originalPre.textContent : "";
+
+  // Replace with textarea
+  textDiv.innerHTML = "";
+  const textarea = document.createElement("textarea");
+  textarea.className = "edit-textarea";
+  textarea.value = currentText;
+  textDiv.appendChild(textarea);
+
+  // Auto-resize textarea
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
+  textarea.addEventListener("input", () => {
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+  });
+
+  // Add save/cancel buttons
+  const editActions = document.createElement("div");
+  editActions.className = "edit-actions";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "edit-save-btn";
+  saveBtn.textContent = "Save & Resend";
+  saveBtn.addEventListener("click", async () => {
+    const newText = textarea.value.trim();
+    if (!newText) return;
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    try {
+      await sendJsonData("/message_edit", {
+        context: getContext(),
+        log_index: logIndex,
+        text: newText,
+      });
+      // Show saving indicator while waiting for snapshot re-render
+      saveBtn.textContent = "Saving...";
+    } catch (err) {
+      console.error("Edit failed:", err);
+      exitEditMode(messageDiv, textDiv, originalText, actionButtons);
+    }
+  });
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "edit-cancel-btn";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => {
+    exitEditMode(messageDiv, textDiv, originalText, actionButtons);
+  });
+
+  // Handle keyboard shortcuts
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      exitEditMode(messageDiv, textDiv, originalText, actionButtons);
+    } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      saveBtn.click();
+    }
+  });
+
+  editActions.appendChild(saveBtn);
+  editActions.appendChild(cancelBtn);
+  textDiv.appendChild(editActions);
+
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function exitEditMode(messageDiv, textDiv, originalText, actionButtons) {
+  messageDiv.classList.remove("editing");
+  textDiv.innerHTML = "";
+  const pre = document.createElement("pre");
+  pre.textContent = originalText;
+  textDiv.appendChild(pre);
+  if (actionButtons) actionButtons.style.display = "";
+}
 
 // Delay before collapsing previous steps when a new step is added
 const STEP_COLLAPSE_DELAY = {
@@ -126,6 +218,7 @@ export function setMessage({
   const handler = getMessageHandler(type);
   // prefer log ID if set to match user message created on frontend with backend updates
   return handler({
+    no,
     id: id || no,
     type,
     heading,
@@ -876,6 +969,7 @@ export function drawMessageResponse({
 }
 
 export function drawMessageUser({
+  no,
   id,
   heading,
   content,
@@ -997,6 +1091,7 @@ export function drawMessageUser({
   const userText = String(content ?? "");
   const userActionButtons = userText.trim()
     ? [
+        createActionButton("edit", "", () => enterEditMode(messageContainer, no, userText)),
         createActionButton("speak", "", () => speechStore.speak(userText)),
         createActionButton("copy", "", () => copyToClipboard(userText)),
       ].filter(Boolean)

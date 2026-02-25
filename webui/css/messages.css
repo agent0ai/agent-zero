@@ -772,3 +772,72 @@
     opacity: 0;
   }
 }
+
+/* ===========================================
+   Message Edit Mode
+   =========================================== */
+
+.message-user.editing .message-text {
+  border-color: var(--color-primary);
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 3em;
+  max-height: 20em;
+  padding: var(--spacing-sm);
+  font-family: var(--font-family-main);
+  font-size: var(--font-size-smaller);
+  background: var(--color-chat-background);
+  color: var(--color-text);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--border-radius);
+  resize: none;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.edit-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.edit-save-btn,
+.edit-cancel-btn {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.edit-save-btn {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.edit-save-btn:hover {
+  opacity: 0.9;
+}
+
+.edit-cancel-btn:hover {
+  border-color: var(--color-text-muted);
+}
+
+.edit-save-btn:disabled,
+.edit-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
