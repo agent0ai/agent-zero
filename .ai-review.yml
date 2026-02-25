@@ -1,0 +1,15 @@
+stack: python
+conventions: |
+  - PEP 8 + ruff for linting
+  - pytest for tests
+  - snake_case everywhere (variables, functions, files)
+  - logging module instead of print()
+  - Type hints for function signatures
+  - Extensions in python/extensions/<hook_name>/ loaded dynamically
+  - Settings via environment variables (A0_SET_*) or usr/settings.json
+test_command: "pytest tests/ -v"
+review_focus:
+  - security
+  - error-handling
+  - tests
+  - prompt-injection

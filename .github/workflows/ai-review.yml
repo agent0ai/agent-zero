@@ -1,0 +1,30 @@
+name: AI Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled]
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >
+      startsWith(github.head_ref, 'feature/az-') ||
+      startsWith(github.head_ref, 'fix/az-') ||
+      contains(github.event.pull_request.labels.*.name, 'ai-review')
+    runs-on: self-hosted
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: brandfusion-cmd/ai-review-action@v1
+        with:
+          cliproxy_api_key: ${{ secrets.CLIPROXY_APIKEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}

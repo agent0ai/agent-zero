@@ -6,7 +6,10 @@
 
 * Default model is claude-sonnet-4-6 for general tasks, simple questions, and tool calls
 * Use claude-opus-4-6 for tasks requiring deeper reasoning, complex problem solving, advanced coding architecture, multi-step planning, or high-stakes decisions
-* Route complex tasks by delegating to a subordinate with claude-opus-4-6 or noting the model preference
+* Use **Codex CLI (gpt-5.3-codex)** for writing new code files, scaffolding, boilerplate generation >50 lines, test generation, and build/test verification. Access via: `codex exec --skip-git-repo-check -s read-only --dangerously-bypass-approvals-and-sandbox -o /tmp/output.md '<prompt>'`
+* Use **Gemini 2.5 Pro** for reading/understanding large codebases, code reviews, architecture analysis, large document analysis (1M token context), PRD analysis, and brainstorming. Access via `gemini.ask-gemini` MCP tool with `model: 'gemini-2.5-pro'`
+* **Quick routing rule:** Code reading → Gemini · Code writing (>50 lines) → Codex · Quality-critical/Architecture/Security → Opus · General/Code <50 lines → Sonnet · Utility/Parsing/Memory → Haiku
+* Route complex tasks by delegating to a subordinate with claude-opus-4-6 via the call_subordinate tool, or noting the model preference in the task description
 
 ## Configuration Changes
 
@@ -35,7 +38,7 @@
 ## No Custom Orchestration Systems
 
 * NEVER create `.omc/`, `.agent/`, or similar meta-orchestration directories in project workdirs
-* Use your NATIVE tools instead: `memory_save` for project context, `plan.md` for plans, `call_sub` for subordinates, chat history for session state
+* Use native tools instead: `memory_save` for project context, `plan.md` for plans, `call_sub` for subordinates, chat history for session state
 * Do not cache MCP prompts/responses to disk — they are ephemeral
 * Do not build checkpoint/replay systems — use `memory_save` checkpoints instead
 * Do not reference internal framework paths in user-facing responses (e.g. `/a0/tmp/chats/`, `.omc/`, etc.)
@@ -48,3 +51,20 @@
   * `project`: project name (if project-related)
   * `content`: actual content
 * This enables targeted filtering via memory_load
+
+## Parallel Model Execution
+
+* For independent subtasks that can run simultaneously, use parallel terminal sessions: start long-running processes (Codex, heavy scripts) in session 1 while using session 0 or MCP tools concurrently — do not wait sequentially if tasks are independent
+* Pattern for parallel Gemini + Codex: (1) start Codex in session 1 via terminal background or separate session, (2) call gemini.ask-gemini MCP immediately after without waiting, (3) then collect session 1 output with runtime:output
+* When to parallelize: multiple files need analysis + generation simultaneously, or when one task does not depend on the output of another
+* When NOT to parallelize: when Codex output is needed as input for Gemini review, or when tasks share the same files (write conflicts)
+
+## Git Workflow & PR Convention
+
+* Always create a feature branch — never commit directly to main
+* Branch naming: `feature/az-<name>` for features, `fix/az-<name>` for bugfixes
+* Always write tests for new code (pytest, use existing test patterns)
+* Run tests locally before pushing: check test_command in `.ai-review.yml` if present
+* Open PR with a clear summary: What changed, Why, How to test
+* PRs from `feature/az-*` and `fix/az-*` branches trigger automatic AI code review
+* If AI review finds CRITICAL/BUG issues, fix them before requesting human merge
