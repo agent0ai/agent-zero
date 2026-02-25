@@ -10,10 +10,14 @@ concurrency:
 
 jobs:
   review:
+    # Only run for PRs from the same repo (reject forks to protect self-hosted runner)
     if: >
-      startsWith(github.head_ref, 'feature/az-') ||
-      startsWith(github.head_ref, 'fix/az-') ||
-      contains(github.event.pull_request.labels.*.name, 'ai-review')
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        startsWith(github.head_ref, 'feature/az-') ||
+        startsWith(github.head_ref, 'fix/az-') ||
+        contains(github.event.pull_request.labels.*.name, 'ai-review')
+      )
     runs-on: self-hosted
     timeout-minutes: 15
     permissions:
