@@ -34,6 +34,53 @@ print_info()  { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
 print_warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
 print_error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; }
 
+# Escape-aware text input. Reads one line with support for:
+#   - Normal character input and Backspace for editing
+#   - Escape key to abort (prints nothing, returns 1)
+#   - Enter to submit (prints the entered text, returns 0)
+# Usage: VALUE=$(read_input) || return 1
+read_input() {
+    INPUT_BUF=""
+
+    while :; do
+        # Read a single character (raw, no echo)
+        IFS= read -rsn1 INPUT_CHAR </dev/tty
+
+        # Handle Enter key (empty read)
+        if [ -z "$INPUT_CHAR" ]; then
+            printf "\n" >/dev/tty
+            printf "%s\n" "$INPUT_BUF"
+            return 0
+        fi
+
+        # Handle Escape key
+        if [ "$INPUT_CHAR" = $'\x1b' ]; then
+            # Consume any trailing escape sequence chars (arrow keys etc.)
+            # Note: -t only supports integer seconds in /bin/sh, so we use -t 1.
+            IFS= read -rsn1 -t 1 _discard </dev/tty 2>/dev/null || true
+            if [ "$_discard" = "[" ]; then
+                IFS= read -rsn1 -t 1 _discard2 </dev/tty 2>/dev/null || true
+            fi
+            printf "\n" >/dev/tty
+            return 1
+        fi
+
+        # Handle Backspace (0x7f or 0x08)
+        if [ "$INPUT_CHAR" = $'\x7f' ] || [ "$INPUT_CHAR" = $'\x08' ]; then
+            if [ -n "$INPUT_BUF" ]; then
+                INPUT_BUF="${INPUT_BUF%?}"
+                # Move cursor back, overwrite with space, move back again
+                printf "\b \b" >/dev/tty
+            fi
+            continue
+        fi
+
+        # Regular printable character — append to buffer and echo
+        INPUT_BUF="${INPUT_BUF}${INPUT_CHAR}"
+        printf "%s" "$INPUT_CHAR" >/dev/tty
+    done
+}
+
 select_from_menu() {
     # Check for header parameter (starts with --header=)
     MENU_HEADER=""
@@ -75,7 +122,7 @@ select_from_menu() {
 
         # Show help text
         echo "" >/dev/tty
-        printf "Use ↑/↓ arrows to navigate, Enter to select\n" >/dev/tty
+        printf "Use ↑/↓ to navigate, Enter to select, Esc to go back\n" >/dev/tty
 
         # Read single character from terminal
         IFS= read -rsn1 key </dev/tty
@@ -86,11 +133,23 @@ select_from_menu() {
             return 0
         fi
 
-        # Handle escape sequences (arrow keys)
+        # Handle Backspace key (go back)
+        if [ "$key" = $'\x7f' ] || [ "$key" = $'\x08' ]; then
+            printf "%s\n" "-1"
+            return 1
+        fi
+
+        # Handle escape sequences (arrow keys) and bare Escape (go back)
         if [ "$key" = $'\x1b' ]; then
-            # Read next character
-            IFS= read -rsn1 key2 </dev/tty
-            if [ "$key2" = "[" ]; then
+            # Read next character with timeout to distinguish bare Escape from arrow keys.
+            # Arrow key sequences (\x1b[A) arrive instantly; bare Escape has no follow-up.
+            # Note: -t only supports integer seconds in /bin/sh, so we use -t 1.
+            IFS= read -rsn1 -t 1 key2 </dev/tty 2>/dev/null || true
+            if [ -z "$key2" ]; then
+                # Bare Escape pressed (no follow-up char within timeout) — go back
+                printf "%s\n" "-1"
+                return 1
+            elif [ "$key2" = "[" ]; then
                 # Read arrow key identifier
                 IFS= read -rsn1 key3 </dev/tty
                 case "$key3" in
@@ -281,7 +340,7 @@ open_browser() {
 }
 
 fetch_available_tags() {
-    TAGS_URL="https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=5&ordering=last_updated"
+    TAGS_URL="https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=20&ordering=last_updated"
     RAW_TAGS_JSON="$(curl -fsSL "$TAGS_URL" 2>/dev/null || true)"
     PARSED_TAGS=""
 
@@ -320,28 +379,68 @@ for item in payload.get("results", []):
 
 select_image_tag() {
     SELECTED_TAG="latest"
-    AVAILABLE_TAGS="$(fetch_available_tags || true)"
-    AVAILABLE_TAGS="$(printf "%s\n" "$AVAILABLE_TAGS" | awk 'tolower($0) != "latest"')"
+    ALL_TAGS="$(fetch_available_tags || true)"
 
-    if [ -z "$AVAILABLE_TAGS" ]; then
-        echo "Select image tag:"
+    if [ -z "$ALL_TAGS" ]; then
+        echo "Select version:"
         print_warn "No additional tags found. Using latest."
-        print_info "Image tag: $SELECTED_TAG"
+        print_info "Selected version: $SELECTED_TAG"
         echo ""
         return 0
     fi
 
-    # Build menu with "latest" as first option
-    SELECTED_INDEX=$(select_from_menu "--header=Select image tag:" "latest" $AVAILABLE_TAGS)
+    # Build ordered tag list:
+    #   1. Pinned tags (latest, testing, development) — only if they exist
+    #   2. Up to 5 additional tags from newest, excluding pinned ones
+    PINNED_TAGS=""
+    for PIN_TAG in latest testing development; do
+        if printf "%s\n" "$ALL_TAGS" | awk -v tag="$PIN_TAG" '$0 == tag {found=1; exit} END {exit found ? 0 : 1}'; then
+            PINNED_TAGS="${PINNED_TAGS:+${PINNED_TAGS}
+}${PIN_TAG}"
+        fi
+    done
 
-    # Extract the selected tag
-    if [ "$SELECTED_INDEX" -eq 0 ]; then
-        SELECTED_TAG="latest"
-    else
-        SELECTED_TAG=$(printf "%s\n" "$AVAILABLE_TAGS" | awk -v n="$SELECTED_INDEX" 'NR == n {print; exit}')
+    # Get remaining tags (exclude pinned), take first 5 (already sorted newest-first from API)
+    OTHER_TAGS="$(printf "%s\n" "$ALL_TAGS" | awk '
+        $0 == "latest" || $0 == "testing" || $0 == "development" { next }
+        count < 5 { print; count++ }
+    ')"
+
+    # Combine pinned + other into final menu list
+    MENU_TAGS=""
+    if [ -n "$PINNED_TAGS" ]; then
+        MENU_TAGS="$PINNED_TAGS"
+    fi
+    if [ -n "$OTHER_TAGS" ]; then
+        MENU_TAGS="${MENU_TAGS:+${MENU_TAGS}
+}${OTHER_TAGS}"
     fi
 
-    print_info "Image tag: $SELECTED_TAG"
+    if [ -z "$MENU_TAGS" ]; then
+        echo "Select version:"
+        print_warn "No tags found. Using latest."
+        print_info "Selected version: $SELECTED_TAG"
+        echo ""
+        return 0
+    fi
+
+    # Build menu from the tag list
+    # shellcheck disable=SC2086
+    SELECTED_INDEX=$(select_from_menu "--header=Select version:" $MENU_TAGS) || true
+
+    # Handle go-back
+    if [ "$SELECTED_INDEX" = "-1" ]; then
+        return 1
+    fi
+
+    # Extract the selected tag (0-indexed)
+    SELECTED_TAG="$(printf "%s\n" "$MENU_TAGS" | awk -v n="$((SELECTED_INDEX + 1))" 'NR == n {print; exit}')"
+
+    if [ -z "$SELECTED_TAG" ]; then
+        SELECTED_TAG="latest"
+    fi
+
+    print_info "Selected version: $SELECTED_TAG"
     echo ""
 }
 
@@ -353,14 +452,16 @@ create_instance() {
     DEFAULT_PORT="5080"
     DEFAULT_NAME="$(suggest_next_instance_name "agent-zero")"
 
-    # Tag selection
-    select_image_tag
-    echo ""
+    # Tag selection (Escape aborts create_instance)
+    if ! select_image_tag; then
+        return 1
+    fi
 
     # Container / instance name
-    echo "Container name:"
+    echo ""
+    echo "Container name (Esc to go back):"
     printf "Name [%s]: " "$DEFAULT_NAME"
-    IFS= read -r CONTAINER_NAME
+    CONTAINER_NAME=$(read_input) || return 1
     CONTAINER_NAME="${CONTAINER_NAME:-$DEFAULT_NAME}"
 
     if instance_name_taken "$CONTAINER_NAME"; then
@@ -374,9 +475,10 @@ create_instance() {
     DEFAULT_DATA_DIR="$INSTANCE_DIR/usr"
 
     # Data directory
-    echo "Data directory:"
+    echo ""
+    echo "Data directory (Esc to go back):"
     printf "Where to store Agent Zero user data? [%s]: " "$DEFAULT_DATA_DIR"
-    IFS= read -r DATA_DIR
+    DATA_DIR=$(read_input) || return 1
     DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
     case "$DATA_DIR" in
         ~/*) DATA_DIR="$HOME/${DATA_DIR#~/}" ;;
@@ -386,9 +488,10 @@ create_instance() {
     print_info "Data directory: $DATA_DIR"
 
     # Port
-    echo "Web UI port:"
+    echo ""
+    echo "Web UI port (Esc to go back):"
     printf "Web UI port? [%s]: " "$DEFAULT_PORT"
-    IFS= read -r PORT
+    PORT=$(read_input) || return 1
     PORT="${PORT:-$DEFAULT_PORT}"
     case "$PORT" in
         ''|*[!0-9]*)
@@ -399,13 +502,14 @@ create_instance() {
     print_info "Web UI port: $PORT"
 
     # Authentication
-    echo "Authentication:"
+    echo ""
+    echo "Authentication (Esc to go back):"
     printf "Web UI login username (leave empty for no auth): "
-    IFS= read -r AUTH_LOGIN
+    AUTH_LOGIN=$(read_input) || return 1
     AUTH_PASSWORD=""
     if [ -n "$AUTH_LOGIN" ]; then
         printf "Web UI password [12345678]: "
-        IFS= read -r AUTH_PASSWORD
+        AUTH_PASSWORD=$(read_input) || return 1
         AUTH_PASSWORD="${AUTH_PASSWORD:-12345678}"
         print_info "Auth configured for user: $AUTH_LOGIN"
     else
@@ -522,7 +626,7 @@ manage_instances() {
 
             # Show help text
             echo "" >/dev/tty
-            printf "Use ↑/↓ arrows to navigate, Enter to select\n" >/dev/tty
+            printf "Use ↑/↓ to navigate, Enter to select, Esc to go back\n" >/dev/tty
 
             # Read single character from terminal
             IFS= read -rsn1 key </dev/tty
@@ -532,10 +636,18 @@ manage_instances() {
                 break
             fi
 
-            # Handle escape sequences (arrow keys)
+            # Handle Backspace key (go back)
+            if [ "$key" = $'\x7f' ] || [ "$key" = $'\x08' ]; then
+                return 0
+            fi
+
+            # Handle escape sequences (arrow keys) and bare Escape (go back)
             if [ "$key" = $'\x1b' ]; then
-                IFS= read -rsn1 key2 </dev/tty
-                if [ "$key2" = "[" ]; then
+                IFS= read -rsn1 -t 1 key2 </dev/tty 2>/dev/null || true
+                if [ -z "$key2" ]; then
+                    # Bare Escape pressed — go back to main menu
+                    return 0
+                elif [ "$key2" = "[" ]; then
                     IFS= read -rsn1 key3 </dev/tty
                     case "$key3" in
                         A) # Up arrow
@@ -571,16 +683,18 @@ manage_instances() {
             INSTANCE_HEADER="Selected: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
 
             if [ "$IS_RUNNING" -eq 1 ]; then
-                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Stop" "Back/Exit manage menu")
+                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Stop" "Back") || true
                 case "$ACTION_INDEX" in
+                    -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back to instance list
                     0) ACTION_KEY="open" ;;
                     1) ACTION_KEY="stop" ;;
                     2) ACTION_KEY="back" ;;
                     *) ACTION_KEY="invalid" ;;
                 esac
             else
-                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Start" "Back/Exit manage menu")
+                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Start" "Back") || true
                 case "$ACTION_INDEX" in
+                    -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back to instance list
                     0) ACTION_KEY="start" ;;
                     1) ACTION_KEY="back" ;;
                     *) ACTION_KEY="invalid" ;;
@@ -620,7 +734,7 @@ manage_instances() {
                     echo ""
                     ;;
                 back)
-                    return 0
+                    break  # Break inner loop, go back to instance selection
                     ;;
                 *)
                     print_warn "Invalid action. Please try again."
@@ -635,13 +749,22 @@ main_menu_for_existing() {
     EXISTING_COUNT="$1"
     HEADER="Detected ${EXISTING_COUNT} Agent Zero container(s). What would you like to do?"
 
-    SELECTED_INDEX=$(select_from_menu "--header=$HEADER" "Install new instance" "Manage existing instances")
+    while :; do
+        SELECTED_INDEX=$(select_from_menu "--header=$HEADER" "Install new instance" "Manage existing instances" "Exit") || true
 
-    case "$SELECTED_INDEX" in
-        0) create_instance ;;
-        1) manage_instances ;;
-        *) create_instance ;;
-    esac
+        case "$SELECTED_INDEX" in
+            -1) exit 0 ;;    # Escape/Backspace — exit
+            0)
+                if create_instance; then
+                    return 0  # Install completed successfully
+                fi
+                # Escape pressed during create — loop back to menu
+                ;;
+            1) manage_instances ;;  # loops back to this menu after returning
+            2) exit 0 ;;     # Exit option
+            *) exit 0 ;;
+        esac
+    done
 }
 
 main() {
@@ -656,7 +779,11 @@ main() {
     if [ "$EXISTING_COUNT" -gt 0 ]; then
         main_menu_for_existing "$EXISTING_COUNT"
     else
-        create_instance
+        # No existing containers — go straight to install.
+        # If Escape pressed during create, exit gracefully.
+        if ! create_instance; then
+            exit 0
+        fi
     fi
 }
 
