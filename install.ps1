@@ -51,6 +51,105 @@ function print_error {
     Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
+function Wait-ForKeypress {
+    Write-Host ''
+    Write-Host 'Press any key to continue...' -NoNewline
+    $null = [Console]::ReadKey($true)
+    Write-Host ''
+}
+
+# Check whether a TCP port is in use on localhost.
+# Checks Docker container port mappings and system listeners.
+# Returns $true if in use, $false if free.
+function Is-PortInUse {
+    param([int]$Port)
+
+    # Check Docker-published ports
+    try {
+        $dockerPorts = & docker ps -a --format '{{.Ports}}' 2>$null
+        if ($LASTEXITCODE -eq 0 -and $dockerPorts) {
+            $portsText = ($dockerPorts | Out-String)
+            if ($portsText -match "(^|[\s,])0\.0\.0\.0:${Port}->" -or $portsText -match "(^|[\s,]):::${Port}->") {
+                return $true
+            }
+        }
+    }
+    catch { }
+
+    # System-level check via Test-NetConnection or .NET TcpClient
+    try {
+        $listener = New-Object System.Net.Sockets.TcpClient
+        $listener.Connect('127.0.0.1', $Port)
+        $listener.Close()
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+# Find the first free port starting from a given base.
+function Find-FreePort {
+    param([int]$BasePort = 5080)
+
+    $candidate = $BasePort
+    $maxAttempts = 100
+    $attempt = 0
+
+    while ($attempt -lt $maxAttempts) {
+        if (-not (Is-PortInUse -Port $candidate)) {
+            return $candidate
+        }
+        $candidate++
+        $attempt++
+    }
+
+    # If exhausted, return base port and let Docker report the conflict
+    return $BasePort
+}
+
+# Escape-aware text input. Reads character by character with support for:
+#   - Normal character input and Backspace for editing
+#   - Escape key to abort (returns $null)
+#   - Enter to submit (returns the entered text)
+function Read-InputWithEscape {
+    $buffer = ''
+
+    while ($true) {
+        $keyInfo = [Console]::ReadKey($true)
+
+        # Handle Enter key
+        if ($keyInfo.Key -eq 'Enter') {
+            Write-Host ''
+            return $buffer
+        }
+
+        # Handle Escape key
+        if ($keyInfo.Key -eq 'Escape') {
+            Write-Host ''
+            return $null
+        }
+
+        # Handle Backspace
+        if ($keyInfo.Key -eq 'Backspace') {
+            if ($buffer.Length -gt 0) {
+                $buffer = $buffer.Substring(0, $buffer.Length - 1)
+                # Move cursor back, overwrite with space, move back again
+                Write-Host "`b `b" -NoNewline
+            }
+            continue
+        }
+
+        # Regular printable character
+        $ch = $keyInfo.KeyChar
+        if ($ch -and [char]::IsControl($ch) -eq $false) {
+            $buffer += $ch
+            Write-Host $ch -NoNewline
+        }
+    }
+}
+
+# Legacy wrapper kept for compatibility - no longer used by main flow
 function Read-HostWithDefault {
     param(
         [string]$Prompt,
@@ -69,6 +168,8 @@ function Read-HostWithDefault {
     return $value
 }
 
+# Returns selected index (0-based) on Enter, or -1 on Escape/Backspace (go back).
+# Throws "GO_BACK" is NOT used; callers check for -1 return value.
 function select_from_menu {
     param(
         [string]$Header = '',
@@ -84,6 +185,7 @@ function select_from_menu {
 
     while ($true) {
         Clear-Host
+        Show-Banner
 
         if (-not [string]::IsNullOrWhiteSpace($Header)) {
             Write-Host $Header
@@ -100,12 +202,18 @@ function select_from_menu {
         }
 
         Write-Host ''
-        Write-Host "Use ↑/↓ arrows to navigate, Enter to select"
+        Write-Host 'Use arrow keys to navigate, Enter to select, Esc to go back'
 
         $keyInfo = [Console]::ReadKey($true)
         switch ($keyInfo.Key) {
             'Enter' {
                 return $selectedIndex
+            }
+            'Escape' {
+                return -1
+            }
+            'Backspace' {
+                return -1
             }
             'UpArrow' {
                 $selectedIndex--
@@ -232,13 +340,31 @@ function Get-NonEmptyLines {
     return @($lines | ForEach-Object { "$($_)".Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 }
 
+# Uses image name string matching instead of ancestor filter.
+# The ancestor filter matches by image ID, not name, so containers created
+# from a previous version of a tag become invisible after pulling a newer version.
 function count_existing_agent_zero_containers {
-    $rows = & docker ps -a --filter 'ancestor=agent0ai/agent-zero' --format '{{.Names}}' 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    try {
+        $rows = & docker ps -a --format '{{.Names}}|{{.Image}}' 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            return 0
+        }
+
+        $count = 0
+        foreach ($row in (Get-NonEmptyLines $rows)) {
+            $parts = $row -split '\|', 2
+            if ($parts.Count -ge 2) {
+                $image = $parts[1]
+                if ($image -match '^agent0ai/agent-zero(:|$)') {
+                    $count++
+                }
+            }
+        }
+        return $count
+    }
+    catch {
         return 0
     }
-
-    return (Get-NonEmptyLines $rows).Count
 }
 
 function instance_name_taken {
@@ -285,7 +411,7 @@ function open_browser {
 }
 
 function fetch_available_tags {
-    $tagsUrl = 'https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=5&ordering=last_updated'
+    $tagsUrl = 'https://registry.hub.docker.com/v2/repositories/agent0ai/agent-zero/tags/?page_size=20&ordering=last_updated'
 
     try {
         $payload = Invoke-RestMethod -Uri $tagsUrl -Method Get
@@ -315,23 +441,66 @@ function fetch_available_tags {
 function select_image_tag {
     $script:SelectedTag = 'latest'
 
-    $availableTags = @(fetch_available_tags)
-    $availableTags = @($availableTags | Where-Object { $_.ToLowerInvariant() -ne 'latest' })
+    $allTags = @(fetch_available_tags)
 
-    if ($availableTags.Count -eq 0) {
-        Write-Host 'Select image tag:'
+    if ($allTags.Count -eq 0) {
+        Write-Host 'Select version:'
         print_warn 'No additional tags found. Using latest.'
-        print_info "Image tag: $script:SelectedTag"
+        print_info "Selected version: $script:SelectedTag"
         Write-Host ''
-        return
+        return $true
     }
 
-    $options = @('latest') + $availableTags
-    $selectedIndex = select_from_menu -Header 'Select image tag:' -Options $options
-    $script:SelectedTag = $options[$selectedIndex]
+    # Build ordered tag list:
+    #   1. Pinned tags (latest, testing, development) - only if they exist
+    #   2. Up to 5 additional tags from newest, excluding pinned ones
+    $pinnedNames = @('latest', 'testing', 'development')
+    $pinnedTags = New-Object System.Collections.Generic.List[string]
+    foreach ($pin in $pinnedNames) {
+        if ($allTags -contains $pin) {
+            $pinnedTags.Add($pin)
+        }
+    }
 
-    print_info "Image tag: $script:SelectedTag"
+    $otherTags = New-Object System.Collections.Generic.List[string]
+    foreach ($tag in $allTags) {
+        if ($pinnedNames -contains $tag) {
+            continue
+        }
+        if ($otherTags.Count -ge 5) {
+            break
+        }
+        $otherTags.Add($tag)
+    }
+
+    # Combine pinned + other into final menu list
+    $menuTags = New-Object System.Collections.Generic.List[string]
+    foreach ($t in $pinnedTags) { $menuTags.Add($t) }
+    foreach ($t in $otherTags) { $menuTags.Add($t) }
+
+    if ($menuTags.Count -eq 0) {
+        Write-Host 'Select version:'
+        print_warn 'No tags found. Using latest.'
+        print_info "Selected version: $script:SelectedTag"
+        Write-Host ''
+        return $true
+    }
+
+    $selectedIndex = select_from_menu -Header 'Select version:' -Options $menuTags.ToArray()
+
+    # Handle go-back
+    if ($selectedIndex -eq -1) {
+        return $false
+    }
+
+    $script:SelectedTag = $menuTags[$selectedIndex]
+    if ([string]::IsNullOrWhiteSpace($script:SelectedTag)) {
+        $script:SelectedTag = 'latest'
+    }
+
+    print_info "Selected version: $script:SelectedTag"
     Write-Host ''
+    return $true
 }
 
 function Expand-UserPath {
@@ -386,16 +555,27 @@ function New-ComposeFileContent {
     return $lines.ToArray()
 }
 
+# Returns $true on success, $false if user pressed Escape to go back.
 function create_instance {
     $installRoot = Join-Path $script:HomeDir '.agentzero'
-    $defaultPort = '5080'
+    $defaultPort = Find-FreePort -BasePort 5080
     $defaultName = suggest_next_instance_name -BaseName 'agent-zero'
 
-    select_image_tag
-    Write-Host ''
+    # Tag selection (Escape aborts create_instance)
+    if (-not (select_image_tag)) {
+        return $false
+    }
 
-    Write-Host 'Container name:'
-    $containerName = Read-HostWithDefault -Prompt 'Name' -Default $defaultName
+    # Container / instance name
+    Write-Host ''
+    Write-Host 'What should this instance be called?' -ForegroundColor White -NoNewline
+    Write-Host ' (Esc to go back)'
+    Write-Host "Leave empty to use default [$defaultName]: " -NoNewline
+    $containerName = Read-InputWithEscape
+    if ($null -eq $containerName) { return $false }
+    if ([string]::IsNullOrWhiteSpace($containerName)) {
+        $containerName = $defaultName
+    }
 
     if (instance_name_taken -NameToCheck $containerName) {
         $suggestedName = suggest_next_instance_name -BaseName $containerName
@@ -407,25 +587,54 @@ function create_instance {
     $instanceDir = Join-Path $installRoot $containerName
     $defaultDataDir = Join-Path $instanceDir 'usr'
 
-    Write-Host 'Data directory:'
-    $dataDir = Read-HostWithDefault -Prompt 'Where to store Agent Zero user data?' -Default $defaultDataDir
+    # Data directory
+    Write-Host ''
+    Write-Host 'Where should Agent Zero store user data?' -ForegroundColor White -NoNewline
+    Write-Host ' (Esc to go back)'
+    Write-Host "Leave empty to use default [$defaultDataDir]: " -NoNewline
+    $dataDir = Read-InputWithEscape
+    if ($null -eq $dataDir) { return $false }
+    if ([string]::IsNullOrWhiteSpace($dataDir)) {
+        $dataDir = $defaultDataDir
+    }
     $dataDir = Expand-UserPath -PathValue $dataDir
     New-Item -ItemType Directory -Force -Path $dataDir *> $null
     print_info "Data directory: $dataDir"
 
-    Write-Host 'Web UI port:'
-    $port = Read-HostWithDefault -Prompt 'Web UI port?' -Default $defaultPort
+    # Port
+    Write-Host ''
+    Write-Host 'What port should Agent Zero Web UI run on?' -ForegroundColor White -NoNewline
+    Write-Host ' (Esc to go back)'
+    Write-Host "Leave empty to use default [$defaultPort]: " -NoNewline
+    $port = Read-InputWithEscape
+    if ($null -eq $port) { return $false }
+    if ([string]::IsNullOrWhiteSpace($port)) {
+        $port = "$defaultPort"
+    }
     if ($port -notmatch '^[0-9]+$') {
         print_error "Invalid port. Falling back to $defaultPort."
-        $port = $defaultPort
+        $port = "$defaultPort"
     }
     print_info "Web UI port: $port"
 
-    Write-Host 'Authentication:'
-    $authLogin = Read-Host 'Web UI login username (leave empty for no auth)'
+    # Authentication
+    Write-Host ''
+    Write-Host 'What login username should be used for the Web UI?' -ForegroundColor White -NoNewline
+    Write-Host ' (Esc to go back)'
+    Write-Host 'Leave empty for no authentication: ' -NoNewline
+    $authLogin = Read-InputWithEscape
+    if ($null -eq $authLogin) { return $false }
     $authPassword = ''
     if (-not [string]::IsNullOrWhiteSpace($authLogin)) {
-        $authPassword = Read-HostWithDefault -Prompt 'Web UI password' -Default '12345678'
+        Write-Host ''
+        Write-Host 'What password should be used?' -ForegroundColor White -NoNewline
+        Write-Host ' (Esc to go back)'
+        Write-Host 'Leave empty to use default [12345678]: ' -NoNewline
+        $authPassword = Read-InputWithEscape
+        if ($null -eq $authPassword) { return $false }
+        if ([string]::IsNullOrWhiteSpace($authPassword)) {
+            $authPassword = '12345678'
+        }
         print_info "Auth configured for user: $authLogin"
     }
     else {
@@ -482,15 +691,33 @@ function create_instance {
     Write-Host "    docker compose -f `"$composeFile`" pull      # Update image"
     Write-Host ''
     print_info 'Happy automating with Agent Zero!'
+
+    return $true
 }
 
+# Uses image name string matching instead of ancestor filter.
 function Get-AgentZeroContainerRows {
-    $rows = & docker ps -a --filter 'ancestor=agent0ai/agent-zero' --format '{{.Names}}|{{.Image}}|{{.Status}}' 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    try {
+        $rows = & docker ps -a --format '{{.Names}}|{{.Image}}|{{.Status}}' 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            return @()
+        }
+
+        $matched = New-Object System.Collections.Generic.List[string]
+        foreach ($row in (Get-NonEmptyLines $rows)) {
+            $parts = $row -split '\|', 3
+            if ($parts.Count -ge 2) {
+                $image = $parts[1]
+                if ($image -match '^agent0ai/agent-zero(:|$)') {
+                    $matched.Add($row)
+                }
+            }
+        }
+        return $matched.ToArray()
+    }
+    catch {
         return @()
     }
-
-    return (Get-NonEmptyLines $rows)
 }
 
 function manage_instances {
@@ -502,6 +729,7 @@ function manage_instances {
             return
         }
 
+        # Build instance selection menu
         $instanceOptions = New-Object System.Collections.Generic.List[string]
         foreach ($row in $containerRows) {
             $parts = $row -split '\|', 3
@@ -519,36 +747,51 @@ function manage_instances {
 
         $selectedIndex = select_from_menu -Header 'Select existing instance:' -Options $instanceOptions.ToArray()
 
+        # Handle go-back (Escape/Backspace)
+        if ($selectedIndex -eq -1) {
+            return
+        }
+
         $selectedRow = $containerRows[$selectedIndex]
         $selectedParts = $selectedRow -split '\|', 3
         $selectedName = if ($selectedParts.Count -ge 1) { $selectedParts[0] } else { '' }
         $selectedImage = if ($selectedParts.Count -ge 2) { $selectedParts[1] } else { '' }
 
+        # Inner action loop for the selected container
         while ($true) {
             $statusOutput = & docker ps -a --filter "name=^/$selectedName$" --format '{{.Status}}' 2>$null
             $selectedStatus = ((Get-NonEmptyLines $statusOutput) | Select-Object -First 1)
+
+            # If container no longer exists (e.g. after delete), go back to instance list
             if ([string]::IsNullOrWhiteSpace($selectedStatus)) {
-                $selectedStatus = 'Unknown'
+                break
             }
 
             $isRunning = $selectedStatus -like 'Up*'
             $instanceHeader = "Selected: $selectedName ($selectedImage, $selectedStatus)"
 
             if ($isRunning) {
-                $actionOptions = @('Open in browser', 'Stop', 'Back/Exit manage menu')
+                $actionOptions = @('Open in browser', 'Restart', 'Stop', 'Delete', 'Back')
                 $actionIndex = select_from_menu -Header $instanceHeader -Options $actionOptions
                 switch ($actionIndex) {
-                    0 { $actionKey = 'open' }
-                    1 { $actionKey = 'stop' }
-                    default { $actionKey = 'back' }
+                    -1 { $actionKey = 'back' }   # Escape/Backspace
+                    0  { $actionKey = 'open' }
+                    1  { $actionKey = 'restart' }
+                    2  { $actionKey = 'stop' }
+                    3  { $actionKey = 'delete' }
+                    4  { $actionKey = 'back' }
+                    default { $actionKey = 'invalid' }
                 }
             }
             else {
-                $actionOptions = @('Start', 'Back/Exit manage menu')
+                $actionOptions = @('Start', 'Delete', 'Back')
                 $actionIndex = select_from_menu -Header $instanceHeader -Options $actionOptions
                 switch ($actionIndex) {
-                    0 { $actionKey = 'start' }
-                    default { $actionKey = 'back' }
+                    -1 { $actionKey = 'back' }   # Escape/Backspace
+                    0  { $actionKey = 'start' }
+                    1  { $actionKey = 'delete' }
+                    2  { $actionKey = 'back' }
+                    default { $actionKey = 'invalid' }
                 }
             }
 
@@ -572,18 +815,23 @@ function manage_instances {
                         print_info "Opening $targetUrl"
                         open_browser -Url $targetUrl
                     }
-                    Write-Host ''
+                    Wait-ForKeypress
                 }
                 'start' {
                     print_info "Starting '$selectedName'..."
-                    & docker start $selectedName *> $null
-                    if ($LASTEXITCODE -eq 0) {
+                    $startOutput = & docker start $selectedName 2>&1
+                    # Verify actual container state
+                    $runCheck = & docker ps --filter "name=^/$selectedName$" --filter 'status=running' --format '{{.Names}}' 2>$null
+                    if ((Get-NonEmptyLines $runCheck) -contains $selectedName) {
                         print_ok "Started '$selectedName'."
                     }
                     else {
                         print_error "Failed to start '$selectedName'."
+                        if ($startOutput) {
+                            Write-Host "  $startOutput"
+                        }
                     }
-                    Write-Host ''
+                    Wait-ForKeypress
                 }
                 'stop' {
                     print_info "Stopping '$selectedName'..."
@@ -594,14 +842,52 @@ function manage_instances {
                     else {
                         print_error "Failed to stop '$selectedName'."
                     }
+                    Wait-ForKeypress
+                }
+                'restart' {
+                    print_info "Restarting '$selectedName'..."
+                    $restartOutput = & docker restart $selectedName 2>&1
+                    # Verify actual container state
+                    $runCheck = & docker ps --filter "name=^/$selectedName$" --filter 'status=running' --format '{{.Names}}' 2>$null
+                    if ((Get-NonEmptyLines $runCheck) -contains $selectedName) {
+                        print_ok "Restarted '$selectedName'."
+                    }
+                    else {
+                        print_error "Failed to restart '$selectedName'."
+                        if ($restartOutput) {
+                            Write-Host "  $restartOutput"
+                        }
+                    }
+                    Wait-ForKeypress
+                }
+                'delete' {
+                    Write-Host "Are you sure you want to delete '$selectedName'? [y/N]: " -NoNewline
+                    $confirmKey = [Console]::ReadKey($true)
                     Write-Host ''
+                    if ($confirmKey.KeyChar -eq 'y' -or $confirmKey.KeyChar -eq 'Y') {
+                        # Stop first if running
+                        & docker stop $selectedName *> $null
+                        & docker rm $selectedName *> $null
+                        if ($LASTEXITCODE -eq 0) {
+                            print_ok "Deleted '$selectedName'."
+                        }
+                        else {
+                            print_error "Failed to delete '$selectedName'."
+                        }
+                        Wait-ForKeypress
+                        break  # Back to instance list (container no longer exists)
+                    }
+                    else {
+                        print_info 'Delete cancelled.'
+                        Wait-ForKeypress
+                    }
                 }
                 'back' {
-                    return
+                    break  # Break inner loop, go back to instance selection
                 }
                 default {
                     print_warn 'Invalid action. Please try again.'
-                    Write-Host ''
+                    Wait-ForKeypress
                 }
             }
         }
@@ -609,15 +895,37 @@ function manage_instances {
 }
 
 function main_menu_for_existing {
-    param([int]$ExistingCount)
+    while ($true) {
+        # Re-count containers each iteration (may change after delete/create)
+        $menuCount = count_existing_agent_zero_containers
+        if ($menuCount -lt 0) { $menuCount = 0 }
 
-    $header = "Detected $ExistingCount Agent Zero container(s). What would you like to do?"
-    $selectedIndex = select_from_menu -Header $header -Options @('Install new instance', 'Manage existing instances')
+        if ($menuCount -gt 0) {
+            $header = "Detected $menuCount Agent Zero container(s). What would you like to do?"
+            $selectedIndex = select_from_menu -Header $header -Options @('Install new instance', 'Manage existing instances', 'Exit')
 
-    switch ($selectedIndex) {
-        0 { create_instance }
-        1 { manage_instances }
-        default { create_instance }
+            switch ($selectedIndex) {
+                -1 { exit 0 }    # Escape/Backspace - exit
+                0 {
+                    $result = create_instance
+                    if ($result) {
+                        return  # Install completed successfully
+                    }
+                    # Escape pressed during create - loop back to menu
+                }
+                1 { manage_instances }  # loops back to this menu after returning
+                2 { exit 0 }     # Exit option
+                default { exit 0 }
+            }
+        }
+        else {
+            # All containers were deleted - go straight to install
+            $result = create_instance
+            if (-not $result) {
+                exit 0
+            }
+            return
+        }
     }
 }
 
@@ -631,10 +939,15 @@ function main {
     }
 
     if ($existingCount -gt 0) {
-        main_menu_for_existing -ExistingCount $existingCount
+        main_menu_for_existing
     }
     else {
-        create_instance
+        # No existing containers - go straight to install.
+        # If Escape pressed during create, exit gracefully.
+        $result = create_instance
+        if (-not $result) {
+            exit 0
+        }
     }
 }
 
