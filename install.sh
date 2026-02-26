@@ -34,6 +34,69 @@ print_info()  { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
 print_warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
 print_error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; }
 
+wait_for_keypress() {
+    printf "\nPress any key to continue..."
+    IFS= read -rsn1 _key </dev/tty
+}
+
+# Check whether a TCP port is in use on localhost.
+# Uses a fallback chain: lsof → nc → /dev/tcp (for broad OS compatibility).
+# Also checks Docker container port mappings directly.
+# Returns 0 if in use, 1 if free.
+is_port_in_use() {
+    CHECK_PORT="$1"
+
+    # Check Docker-published ports (covers stopped containers with port reservations too)
+    DOCKER_PORTS="$(docker ps -a --format '{{.Ports}}' 2>/dev/null || true)"
+    if [ -n "$DOCKER_PORTS" ]; then
+        if printf "%s\n" "$DOCKER_PORTS" | grep -qE "(^|[ ,])0\.0\.0\.0:${CHECK_PORT}->" 2>/dev/null; then
+            return 0
+        fi
+        if printf "%s\n" "$DOCKER_PORTS" | grep -qE "(^|[ ,]):::${CHECK_PORT}->" 2>/dev/null; then
+            return 0
+        fi
+    fi
+
+    # System-level check via lsof (macOS + Linux)
+    if command -v lsof >/dev/null 2>&1; then
+        if lsof -i ":${CHECK_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+            return 0
+        fi
+        return 1
+    fi
+
+    # Fallback: nc (netcat)
+    if command -v nc >/dev/null 2>&1; then
+        if nc -z localhost "$CHECK_PORT" >/dev/null 2>&1; then
+            return 0
+        fi
+        return 1
+    fi
+
+    # Last resort: assume free
+    return 1
+}
+
+# Find the first free port starting from a given base.
+find_free_port() {
+    BASE_PORT="${1:-5080}"
+    CANDIDATE_PORT="$BASE_PORT"
+    MAX_ATTEMPTS=100
+
+    ATTEMPT=0
+    while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
+        if ! is_port_in_use "$CANDIDATE_PORT"; then
+            printf "%d\n" "$CANDIDATE_PORT"
+            return 0
+        fi
+        CANDIDATE_PORT=$((CANDIDATE_PORT + 1))
+        ATTEMPT=$((ATTEMPT + 1))
+    done
+
+    # If we exhausted attempts, return the base port and let Docker report the conflict
+    printf "%d\n" "$BASE_PORT"
+}
+
 # Escape-aware text input. Reads one line with support for:
 #   - Normal character input and Backspace for editing
 #   - Escape key to abort (prints nothing, returns 1)
@@ -449,7 +512,7 @@ create_instance() {
     # 2. Gather configuration from user
     # -----------------------------------------------------------
     INSTALL_ROOT="$HOME/.agentzero"
-    DEFAULT_PORT="5080"
+    DEFAULT_PORT="$(find_free_port 5080)"
     DEFAULT_NAME="$(suggest_next_instance_name "agent-zero")"
 
     # Tag selection (Escape aborts create_instance)
@@ -459,8 +522,8 @@ create_instance() {
 
     # Container / instance name
     echo ""
-    echo "Container name (Esc to go back):"
-    printf "Name [%s]: " "$DEFAULT_NAME"
+    printf "${BOLD}What should this instance be called?${NC} (Esc to go back)\n"
+    printf "Leave empty to use default [%s]: " "$DEFAULT_NAME"
     CONTAINER_NAME=$(read_input) || return 1
     CONTAINER_NAME="${CONTAINER_NAME:-$DEFAULT_NAME}"
 
@@ -476,8 +539,8 @@ create_instance() {
 
     # Data directory
     echo ""
-    echo "Data directory (Esc to go back):"
-    printf "Where to store Agent Zero user data? [%s]: " "$DEFAULT_DATA_DIR"
+    printf "${BOLD}Where should Agent Zero store user data?${NC} (Esc to go back)\n"
+    printf "Leave empty to use default [%s]: " "$DEFAULT_DATA_DIR"
     DATA_DIR=$(read_input) || return 1
     DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
     case "$DATA_DIR" in
@@ -489,8 +552,8 @@ create_instance() {
 
     # Port
     echo ""
-    echo "Web UI port (Esc to go back):"
-    printf "Web UI port? [%s]: " "$DEFAULT_PORT"
+    printf "${BOLD}What port should Agent Zero Web UI run on?${NC} (Esc to go back)\n"
+    printf "Leave empty to use default [%s]: " "$DEFAULT_PORT"
     PORT=$(read_input) || return 1
     PORT="${PORT:-$DEFAULT_PORT}"
     case "$PORT" in
@@ -503,12 +566,14 @@ create_instance() {
 
     # Authentication
     echo ""
-    echo "Authentication (Esc to go back):"
-    printf "Web UI login username (leave empty for no auth): "
+    printf "${BOLD}What login username should be used for the Web UI?${NC} (Esc to go back)\n"
+    printf "Leave empty for no authentication: "
     AUTH_LOGIN=$(read_input) || return 1
     AUTH_PASSWORD=""
     if [ -n "$AUTH_LOGIN" ]; then
-        printf "Web UI password [12345678]: "
+        echo ""
+        printf "${BOLD}What password should be used?${NC} (Esc to go back)\n"
+        printf "Leave empty to use default [12345678]: "
         AUTH_PASSWORD=$(read_input) || return 1
         AUTH_PASSWORD="${AUTH_PASSWORD:-12345678}"
         print_info "Auth configured for user: $AUTH_LOGIN"
@@ -675,6 +740,12 @@ manage_instances() {
 
         while :; do
             SELECTED_STATUS="$(docker ps -a --filter "name=^/${SELECTED_NAME}$" --format '{{.Status}}' 2>/dev/null | head -n 1)"
+
+            # If container no longer exists (e.g. after delete), go back to instance list
+            if [ -z "$SELECTED_STATUS" ]; then
+                break
+            fi
+
             case "$SELECTED_STATUS" in
                 Up*) IS_RUNNING=1 ;;
                 *) IS_RUNNING=0 ;;
@@ -683,20 +754,23 @@ manage_instances() {
             INSTANCE_HEADER="Selected: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
 
             if [ "$IS_RUNNING" -eq 1 ]; then
-                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Stop" "Back") || true
+                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Restart" "Stop" "Delete" "Back") || true
                 case "$ACTION_INDEX" in
                     -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back to instance list
                     0) ACTION_KEY="open" ;;
-                    1) ACTION_KEY="stop" ;;
-                    2) ACTION_KEY="back" ;;
+                    1) ACTION_KEY="restart" ;;
+                    2) ACTION_KEY="stop" ;;
+                    3) ACTION_KEY="delete" ;;
+                    4) ACTION_KEY="back" ;;
                     *) ACTION_KEY="invalid" ;;
                 esac
             else
-                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Start" "Back") || true
+                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Start" "Delete" "Back") || true
                 case "$ACTION_INDEX" in
                     -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back to instance list
                     0) ACTION_KEY="start" ;;
-                    1) ACTION_KEY="back" ;;
+                    1) ACTION_KEY="delete" ;;
+                    2) ACTION_KEY="back" ;;
                     *) ACTION_KEY="invalid" ;;
                 esac
             fi
@@ -713,16 +787,20 @@ manage_instances() {
                         print_info "Opening $TARGET_URL"
                         open_browser "$TARGET_URL"
                     fi
-                    echo ""
+                    wait_for_keypress
                     ;;
                 start)
                     print_info "Starting '$SELECTED_NAME'..."
-                    if docker start "$SELECTED_NAME" >/dev/null 2>&1; then
+                    START_OUTPUT="$(docker start "$SELECTED_NAME" 2>&1)" || true
+                    if docker ps --filter "name=^/${SELECTED_NAME}$" --filter "status=running" --format '{{.Names}}' 2>/dev/null | grep -q "^${SELECTED_NAME}$"; then
                         print_ok "Started '$SELECTED_NAME'."
                     else
                         print_error "Failed to start '$SELECTED_NAME'."
+                        if [ -n "$START_OUTPUT" ]; then
+                            printf "  %s\n" "$START_OUTPUT"
+                        fi
                     fi
-                    echo ""
+                    wait_for_keypress
                     ;;
                 stop)
                     print_info "Stopping '$SELECTED_NAME'..."
@@ -731,14 +809,46 @@ manage_instances() {
                     else
                         print_error "Failed to stop '$SELECTED_NAME'."
                     fi
-                    echo ""
+                    wait_for_keypress
+                    ;;
+                restart)
+                    print_info "Restarting '$SELECTED_NAME'..."
+                    RESTART_OUTPUT="$(docker restart "$SELECTED_NAME" 2>&1)" || true
+                    if docker ps --filter "name=^/${SELECTED_NAME}$" --filter "status=running" --format '{{.Names}}' 2>/dev/null | grep -q "^${SELECTED_NAME}$"; then
+                        print_ok "Restarted '$SELECTED_NAME'."
+                    else
+                        print_error "Failed to restart '$SELECTED_NAME'."
+                        if [ -n "$RESTART_OUTPUT" ]; then
+                            printf "  %s\n" "$RESTART_OUTPUT"
+                        fi
+                    fi
+                    wait_for_keypress
+                    ;;
+                delete)
+                    printf "Are you sure you want to delete '%s'? [y/N]: " "$SELECTED_NAME"
+                    IFS= read -rsn1 CONFIRM </dev/tty
+                    printf "\n"
+                    if [ "$CONFIRM" = "y" ] || [ "$CONFIRM" = "Y" ]; then
+                        # Stop first if running
+                        docker stop "$SELECTED_NAME" >/dev/null 2>&1 || true
+                        if docker rm "$SELECTED_NAME" >/dev/null 2>&1; then
+                            print_ok "Deleted '$SELECTED_NAME'."
+                        else
+                            print_error "Failed to delete '$SELECTED_NAME'."
+                        fi
+                        wait_for_keypress
+                        break  # Back to instance list (container no longer exists)
+                    else
+                        print_info "Delete cancelled."
+                        wait_for_keypress
+                    fi
                     ;;
                 back)
                     break  # Break inner loop, go back to instance selection
                     ;;
                 *)
                     print_warn "Invalid action. Please try again."
-                    echo ""
+                    wait_for_keypress
                     ;;
             esac
         done
@@ -746,24 +856,36 @@ manage_instances() {
 }
 
 main_menu_for_existing() {
-    EXISTING_COUNT="$1"
-    HEADER="Detected ${EXISTING_COUNT} Agent Zero container(s). What would you like to do?"
-
     while :; do
-        SELECTED_INDEX=$(select_from_menu "--header=$HEADER" "Install new instance" "Manage existing instances" "Exit") || true
-
-        case "$SELECTED_INDEX" in
-            -1) exit 0 ;;    # Escape/Backspace — exit
-            0)
-                if create_instance; then
-                    return 0  # Install completed successfully
-                fi
-                # Escape pressed during create — loop back to menu
-                ;;
-            1) manage_instances ;;  # loops back to this menu after returning
-            2) exit 0 ;;     # Exit option
-            *) exit 0 ;;
+        # Re-count containers each iteration (may change after delete/create)
+        MENU_COUNT="$(count_existing_agent_zero_containers)"
+        case "$MENU_COUNT" in
+            ''|*[!0-9]*) MENU_COUNT="0" ;;
         esac
+
+        if [ "$MENU_COUNT" -gt 0 ]; then
+            HEADER="Detected ${MENU_COUNT} Agent Zero container(s). What would you like to do?"
+            SELECTED_INDEX=$(select_from_menu "--header=$HEADER" "Install new instance" "Manage existing instances" "Exit") || true
+
+            case "$SELECTED_INDEX" in
+                -1) exit 0 ;;    # Escape/Backspace — exit
+                0)
+                    if create_instance; then
+                        return 0  # Install completed successfully
+                    fi
+                    # Escape pressed during create — loop back to menu
+                    ;;
+                1) manage_instances ;;  # loops back to this menu after returning
+                2) exit 0 ;;     # Exit option
+                *) exit 0 ;;
+            esac
+        else
+            # All containers were deleted — go straight to install
+            if ! create_instance; then
+                exit 0
+            fi
+            return 0
+        fi
     done
 }
 
@@ -777,7 +899,7 @@ main() {
     esac
 
     if [ "$EXISTING_COUNT" -gt 0 ]; then
-        main_menu_for_existing "$EXISTING_COUNT"
+        main_menu_for_existing
     else
         # No existing containers — go straight to install.
         # If Escape pressed during create, exit gracefully.
