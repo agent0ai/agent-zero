@@ -343,7 +343,7 @@ check_docker() {
 }
 
 count_existing_agent_zero_containers() {
-    docker ps -a --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}' 2>/dev/null | awk 'NF {count++} END {print count+0}'
+    docker ps -a --format '{{.Names}}|{{.Image}}' 2>/dev/null | awk -F'|' '$2 ~ /^agent0ai\/agent-zero(:|$)/ {count++} END {print count+0}'
 }
 
 instance_name_taken() {
@@ -652,7 +652,7 @@ create_instance() {
 
 manage_instances() {
     while :; do
-        CONTAINER_ROWS="$(docker ps -a --filter "ancestor=agent0ai/agent-zero" --format '{{.Names}}|{{.Image}}|{{.Status}}' 2>/dev/null || true)"
+        CONTAINER_ROWS="$(docker ps -a --format '{{.Names}}|{{.Image}}|{{.Status}}' 2>/dev/null | awk -F'|' '$2 ~ /^agent0ai\/agent-zero(:|$)/' || true)"
 
         if [ -z "$CONTAINER_ROWS" ]; then
             print_warn "No Agent Zero containers found to manage."
