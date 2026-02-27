@@ -118,6 +118,14 @@ class MCPTool(Tool):
             message = "\n\n".join(
                 [item.text for item in response.content if item.type == "text"]
             )
+            # Include structuredContent if available (some MCP servers
+            # return their actual payload here, e.g. Splunk MCP)
+            if getattr(response, "structuredContent", None):
+                structured_str = json.dumps(response.structuredContent, indent=2)
+                if message:
+                    message = message + "\n\n" + structured_str
+                else:
+                    message = structured_str
             if response.isError:
                 error = message
         except Exception as e:
