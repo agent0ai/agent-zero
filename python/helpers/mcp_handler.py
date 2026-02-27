@@ -1026,7 +1026,7 @@ class MCPClientLocal(MCPClientBase):
         if not which(server.command):
             raise ValueError(f"Command '{server.command}' not found")
 
-        # Resolve §§secret() placeholders in env vars
+        # Resolve §§secret() placeholders in env vars and args
         from python.helpers.secrets import get_default_secrets_manager
         secrets_mgr = get_default_secrets_manager()
         resolved_env = None
@@ -1035,10 +1035,14 @@ class MCPClientLocal(MCPClientBase):
                 k: secrets_mgr.replace_placeholders(v) if isinstance(v, str) else v
                 for k, v in server.env.items()
             }
+        resolved_args = [
+            secrets_mgr.replace_placeholders(a) if isinstance(a, str) else a
+            for a in server.args
+        ] if server.args else server.args
 
         server_params = StdioServerParameters(
             command=server.command,
-            args=server.args,
+            args=resolved_args,
             env=resolved_env,
             encoding=server.encoding,
             encoding_error_handler=server.encoding_error_handler,
