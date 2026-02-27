@@ -1026,10 +1026,24 @@ class MCPClientLocal(MCPClientBase):
         if not which(server.command):
             raise ValueError(f"Command '{server.command}' not found")
 
+        # Resolve §§secret() placeholders in env vars and args
+        from python.helpers.secrets import get_default_secrets_manager
+        secrets_mgr = get_default_secrets_manager()
+        resolved_env = None
+        if server.env:
+            resolved_env = {
+                k: secrets_mgr.replace_placeholders(v) if isinstance(v, str) else v
+                for k, v in server.env.items()
+            }
+        resolved_args = [
+            secrets_mgr.replace_placeholders(a) if isinstance(a, str) else a
+            for a in server.args
+        ] if server.args else server.args
+
         server_params = StdioServerParameters(
             command=server.command,
-            args=server.args,
-            env=server.env,
+            args=resolved_args,
+            env=resolved_env,
             encoding=server.encoding,
             encoding_error_handler=server.encoding_error_handler,
         )
@@ -1095,6 +1109,17 @@ class MCPClientRemote(MCPClientBase):
         server: MCPServerRemote = cast(MCPServerRemote, self.server)
         set = settings.get_settings()
 
+        # Resolve §§secret() placeholders in url and headers
+        from python.helpers.secrets import get_default_secrets_manager
+        secrets_mgr = get_default_secrets_manager()
+        resolved_url = secrets_mgr.replace_placeholders(server.url) if server.url else server.url
+        resolved_headers = None
+        if server.headers:
+            resolved_headers = {
+                k: secrets_mgr.replace_placeholders(v) if isinstance(v, str) else v
+                for k, v in server.headers.items()
+            }
+
         # Resolve timeout: check server config first, then settings, defaulting to 5s/10s
         init_timeout = server.init_timeout or set["mcp_client_init_timeout"] or 5
         tool_timeout = server.tool_timeout or set["mcp_client_tool_timeout"] or 10
@@ -1105,8 +1130,8 @@ class MCPClientRemote(MCPClientBase):
             # Use streamable HTTP client
             transport_result = await current_exit_stack.enter_async_context(
                 streamablehttp_client(
-                    url=server.url,
-                    headers=server.headers,
+                    url=resolved_url,
+                    headers=resolved_headers,
                     timeout=timedelta(seconds=init_timeout),
                     sse_read_timeout=timedelta(seconds=tool_timeout),
                     httpx_client_factory=client_factory,
@@ -1123,8 +1148,8 @@ class MCPClientRemote(MCPClientBase):
             # Use traditional SSE client (default behavior)
             stdio_transport = await current_exit_stack.enter_async_context(
                 sse_client(
-                    url=server.url,
-                    headers=server.headers,
+                    url=resolved_url,
+                    headers=resolved_headers,
                     timeout=init_timeout,
                     sse_read_timeout=tool_timeout,
                     httpx_client_factory=client_factory,
