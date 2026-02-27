@@ -470,7 +470,13 @@ class CodeExecution(Tool):
         output = re.sub(r"(?<!\\)\\x[0-9A-Fa-f]{2}", "", output)
         # Strip every line of output before truncation
         # output = "\n".join(line.strip() for line in output.splitlines())
-        output = truncate_text_agent(agent=self.agent, output=output, threshold=1000000) # ~1MB, larger outputs should be dumped to file, not read from terminal
+
+        # Dynamic threshold to prevent ContextWindowExceededError (#833)
+        set = settings.get_settings()
+        max_tokens = set["chat_model_ctx_length"] * set["chat_model_ctx_history"] * 0.125
+        threshold = max(50000, int(max_tokens * 3))
+
+        output = truncate_text_agent(agent=self.agent, output=output, threshold=threshold)
         return output
 
     async def ensure_cwd(self) -> str | None:
