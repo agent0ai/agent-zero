@@ -729,11 +729,11 @@ class MemoryConsolidator:
                 # Validate that the memory exists before attempting to delete it
                 existing_docs = await db.db.aget_by_ids([memory_id])
                 if not existing_docs:
-                    PrintStyle().warning(f"Memory ID {memory_id} not found during update, skipping")
-                    continue
-
-                # Delete old version and insert updated version
-                await db.delete_documents_by_ids([memory_id])
+                    PrintStyle().warning(f"Memory ID {memory_id} not found during update, inserting as new memory to prevent data loss")
+                    # Original was likely deleted by a concurrent consolidation.
+                    # Do NOT skip — still insert the updated content below.
+                else:
+                    await db.delete_documents_by_ids([memory_id])
 
                 # LLM metadata takes precedence over original metadata when there are conflicts
                 updated_metadata = {
