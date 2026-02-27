@@ -1,6 +1,9 @@
 import base64
 import warnings
-import whisper
+try:
+    import whisper
+except ImportError:
+    whisper = None  # type: ignore[assignment]
 import tempfile
 import asyncio
 from helpers import runtime, rfc, settings, files
@@ -24,6 +27,10 @@ async def preload(model_name:str):
         
 async def _preload(model_name:str):
     global _model, _model_name, is_updating_model
+
+    if whisper is None:
+        PrintStyle.warning("Whisper is not installed. Speech-to-text is disabled.")
+        return
 
     while is_updating_model:
         await asyncio.sleep(0.1)
@@ -75,6 +82,8 @@ async def transcribe(model_name:str, audio_bytes_b64: str):
 
 
 async def _transcribe(model_name:str, audio_bytes_b64: str):
+    if whisper is None:
+        raise RuntimeError("Whisper is not installed. Install openai-whisper to use speech-to-text.")
     await _preload(model_name)
     
     # Decode audio bytes if encoded as a base64 string
