@@ -1,4 +1,5 @@
 # python/tools/deployment_strategies/aws.py
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from python.tools.deployment_strategies.base import DeploymentStrategy
@@ -16,6 +17,9 @@ class AWSStrategy(DeploymentStrategy):
 
     VALID_SERVICES = ["ecs", "lambda", "codedeploy"]
 
+    def __init__(self):
+        super().__init__()
+
     async def validate_config(self, config: dict[str, Any]) -> bool:
         """Validate AWS-specific configuration"""
         if "service" not in config:
@@ -26,14 +30,16 @@ class AWSStrategy(DeploymentStrategy):
 
         return True
 
-    async def execute_deployment(self, config: dict[str, Any]) -> dict[str, Any]:
+    async def execute_deployment(
+        self, config: dict[str, Any], deployment_mode: str = "rolling"
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Execute AWS deployment.
 
         POC Implementation: Returns simulated deployment ID.
         Full implementation will use boto3 to deploy via AWS APIs.
         """
-        return {
+        yield {
             "status": "success",
             "deployment_id": "aws-deploy-123",
             "service": config["service"],
@@ -44,6 +50,6 @@ class AWSStrategy(DeploymentStrategy):
         """Run smoke tests after AWS deployment"""
         return True, {"deployment_status": "active"}
 
-    async def rollback(self) -> dict[str, Any]:
+    async def rollback(self) -> AsyncGenerator[dict[str, Any], None]:
         """Rollback AWS deployment"""
-        return {"rollback_successful": True, "message": "AWS rollback triggered"}
+        yield {"rollback_successful": True, "message": "AWS rollback triggered"}

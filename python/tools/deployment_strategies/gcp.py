@@ -1,4 +1,5 @@
 # python/tools/deployment_strategies/gcp.py
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from python.tools.deployment_strategies.base import DeploymentStrategy
@@ -16,6 +17,9 @@ class GCPStrategy(DeploymentStrategy):
 
     VALID_SERVICES = ["cloudrun", "gke", "cloudbuild"]
 
+    def __init__(self):
+        super().__init__()
+
     async def validate_config(self, config: dict[str, Any]) -> bool:
         """Validate GCP-specific configuration"""
         if "service" not in config:
@@ -26,14 +30,16 @@ class GCPStrategy(DeploymentStrategy):
 
         return True
 
-    async def execute_deployment(self, config: dict[str, Any]) -> dict[str, Any]:
+    async def execute_deployment(
+        self, config: dict[str, Any], deployment_mode: str = "rolling"
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Execute GCP deployment.
 
         POC Implementation: Returns simulated deployment ID.
         Full implementation will use google-cloud SDK to deploy.
         """
-        return {
+        yield {
             "status": "success",
             "deployment_id": "gcp-deploy-456",
             "service": config["service"],
@@ -44,6 +50,6 @@ class GCPStrategy(DeploymentStrategy):
         """Run smoke tests after GCP deployment"""
         return True, {"service_status": "ready"}
 
-    async def rollback(self) -> dict[str, Any]:
+    async def rollback(self) -> AsyncGenerator[dict[str, Any], None]:
         """Rollback GCP deployment"""
-        return {"rollback_successful": True, "message": "GCP rollback triggered"}
+        yield {"rollback_successful": True, "message": "GCP rollback triggered"}

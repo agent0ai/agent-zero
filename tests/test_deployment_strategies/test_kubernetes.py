@@ -2,6 +2,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from kubernetes.client.exceptions import ApiException
 
 from python.tools.deployment_strategies.kubernetes import KubernetesStrategy
 

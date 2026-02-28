@@ -44,7 +44,9 @@ async def test_ssh_execute_deployment_returns_success():
 
     config = {"host": "test.example.com", "deploy_script": "deploy.sh", "environment": "staging"}
 
-    result = await strategy.execute_deployment(config)
+    result = None
+    async for item in strategy.execute_deployment(config):
+        result = item
 
     assert result["status"] == "success"
     assert result["host"] == "test.example.com"
@@ -69,6 +71,8 @@ async def test_ssh_rollback_restarts_previous_version():
     strategy = SSHStrategy()
     strategy.last_host = "example.com"
 
-    result = await strategy.rollback()
+    result = None
+    async for item in strategy.rollback():
+        result = item
 
     assert result["rollback_successful"]

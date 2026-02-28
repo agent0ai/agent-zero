@@ -49,13 +49,10 @@ class DeploymentStrategy(ABC):
         Validate platform-specific configuration.
 
         Args:
-            config: Platform-specific configuration dictionary
+            config: Configuration dictionary
 
         Returns:
-            True if config is valid, False otherwise
-
-        Raises:
-            ValueError: If config is invalid with specific error message
+            True if valid, raises ValueError if invalid
         """
         pass
 
@@ -64,7 +61,7 @@ class DeploymentStrategy(ABC):
         self, config: dict[str, Any], deployment_mode: str = "rolling"
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Execute the actual deployment.
+        Execute deployment with progress streaming.
 
         Args:
             config: Platform-specific configuration
@@ -83,20 +80,20 @@ class DeploymentStrategy(ABC):
     @abstractmethod
     async def run_smoke_tests(self, config: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         """
-        Run immediate smoke tests after deployment.
+        Run health checks after deployment.
 
         Args:
-            config: Platform-specific configuration with health check settings
+            config: Configuration including optional health_endpoint
 
         Returns:
-            Tuple of (all_passed: bool, results: dict)
+            (all_passed, detailed_results) tuple
         """
         pass
 
     @abstractmethod
     async def rollback(self) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Rollback to previous version.
+        Rollback to previous deployment.
 
         Yields:
             Progress updates and final rollback result:
