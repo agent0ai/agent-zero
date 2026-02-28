@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections import deque
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal
 
 from pathspec import PathSpec
@@ -76,7 +76,7 @@ def file_tree(
           while traversal and limit calculations remain breadth-first by depth. When ``max_lines`` is set, the number
           of non-comment entries (excluding the root banner) never exceeds that limit; informational summary comments
           are emitted in addition when necessary.
-        * ``created`` and ``modified`` values in structured outputs are timezone-aware timezone.utc
+        * ``created`` and ``modified`` values in structured outputs are timezone-aware UTC
           :class:`datetime.datetime` objects::
 
                 item = flat_items[0]
@@ -111,8 +111,8 @@ def file_tree(
         name=root_name,
         level=0,
         item_type="folder",
-        created=datetime.fromtimestamp(root_stat.st_ctime, tz=UTC),
-        modified=datetime.fromtimestamp(root_stat.st_mtime, tz=UTC),
+        created=datetime.fromtimestamp(root_stat.st_ctime, tz=timezone.utc),
+        modified=datetime.fromtimestamp(root_stat.st_mtime, tz=timezone.utc),
         parent=None,
         items=[],
         rel_path="",
@@ -134,8 +134,8 @@ def file_tree(
             name=entry.name,
             level=level,
             item_type=item_type,
-            created=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
-            modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+            created=datetime.fromtimestamp(stat.st_ctime, tz=timezone.utc),
+            modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
             parent=parent,
             items=[] if item_type == "folder" else None,
             rel_path=rel_posix,
@@ -405,8 +405,8 @@ def _create_folder_unprocessed_comment(
                 name=entry.name,
                 level=folder_node.level + 1,
                 item_type="folder",
-                created=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
-                modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                created=datetime.fromtimestamp(stat.st_ctime, tz=timezone.utc),
+                modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
                 parent=folder_node,
                 items=None,
                 rel_path=os.path.join(folder_node.rel_path, entry.name),
@@ -419,8 +419,8 @@ def _create_folder_unprocessed_comment(
                 name=entry.name,
                 level=folder_node.level + 1,
                 item_type="file",
-                created=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
-                modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                created=datetime.fromtimestamp(stat.st_ctime, tz=timezone.utc),
+                modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
                 parent=folder_node,
                 items=None,
                 rel_path=os.path.join(folder_node.rel_path, entry.name),

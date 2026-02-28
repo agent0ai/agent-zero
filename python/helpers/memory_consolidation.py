@@ -1,7 +1,7 @@
 import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -746,7 +746,7 @@ class MemoryConsolidator:
 
     def _get_timestamp(self) -> str:
         """Get current timestamp in standard format."""
-        return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 # Factory function for easy instantiation

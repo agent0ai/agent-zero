@@ -1,5 +1,5 @@
 import hashlib
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from instruments.custom.google_voice.google_voice_adapter import get_google_voice_session
@@ -97,7 +97,7 @@ class GoogleVoiceManager:
         return self.db.list_inbound(limit=limit)
 
     async def _create_followup_task(self, payload: dict[str, Any]) -> None:
-        plan = TaskPlan.create(todo=[datetime.now(UTC)])
+        plan = TaskPlan.create(todo=[datetime.now(timezone.utc)])
         context = payload.get("thread_context") or payload.get("body")
         task = PlannedTask.create(
             name=f"Reply to SMS from {payload['from_number']}",

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from agent import LoopData
 from python.helpers.extension import Extension
@@ -8,7 +8,7 @@ from python.helpers.localization import Localization
 class IncludeCurrentDatetime(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
         # get current datetime
-        current_datetime = Localization.get().utc_dt_to_localtime_str(datetime.now(UTC), sep=" ", timespec="seconds")
+        current_datetime = Localization.get().utc_dt_to_localtime_str(datetime.now(timezone.utc), sep=" ", timespec="seconds")
         # remove timezone offset
         if current_datetime and "+" in current_datetime:
             current_datetime = current_datetime.split("+")[0]

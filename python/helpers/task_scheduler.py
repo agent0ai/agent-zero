@@ -4,7 +4,7 @@ import random
 import threading
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from os.path import exists
 from typing import Any, ClassVar, Literal, Optional, TypeVar, Union, cast
@@ -125,7 +125,7 @@ class TaskPlan(BaseModel):
         if next_launch_time is None:
             return None
         # return next launch time if current datetime utc is later than next launch time
-        if datetime.now(UTC) > next_launch_time:
+        if datetime.now(timezone.utc) > next_launch_time:
             return next_launch_time
         return None
 
@@ -140,8 +140,8 @@ class BaseTask(BaseModel):
     attachments: list[str] = Field(default_factory=list)
     project_name: str | None = Field(default=None)
     project_color: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_run: datetime | None = None
     last_result: str | None = None
 
@@ -166,32 +166,32 @@ class BaseTask(BaseModel):
         with self._lock:
             if name is not None:
                 self.name = name
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             if state is not None:
                 self.state = state
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             if system_prompt is not None:
                 self.system_prompt = system_prompt
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             if prompt is not None:
                 self.prompt = prompt
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             if attachments is not None:
                 self.attachments = attachments
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             if last_run is not None:
                 self.last_run = last_run
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             if last_result is not None:
                 self.last_result = last_result
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             if context_id is not None:
                 self.context_id = context_id
-                self.updated_at = datetime.now(UTC)
+                self.updated_at = datetime.now(timezone.utc)
             for key, value in kwargs.items():
                 if value is not None:
                     setattr(self, key, value)
-                    self.updated_at = datetime.now(UTC)
+                    self.updated_at = datetime.now(timezone.utc)
 
     def check_schedule(self, frequency_seconds: float = 60.0) -> bool:
         return False
@@ -206,7 +206,7 @@ class BaseTask(BaseModel):
         next_run = self.get_next_run()
         if next_run is None:
             return None
-        return int((next_run - datetime.now(UTC)).total_seconds() / 60)
+        return int((next_run - datetime.now(timezone.utc)).total_seconds() / 60)
 
     async def on_run(self):
         pass
@@ -214,14 +214,14 @@ class BaseTask(BaseModel):
     async def on_finish(self):
         # Ensure that updated_at is refreshed to reflect completion time
         # This helps track when the task actually finished, regardless of success/error
-        await TaskScheduler.get().update_task(self.uuid, updated_at=datetime.now(UTC))
+        await TaskScheduler.get().update_task(self.uuid, updated_at=datetime.now(timezone.utc))
 
     async def on_error(self, error: str):
         # Update task state to ERROR and set last result
         scheduler = TaskScheduler.get()
         await scheduler.reload()  # Ensure we have the latest state
         updated_task = await scheduler.update_task(
-            self.uuid, state=TaskState.ERROR, last_run=datetime.now(UTC), last_result=f"ERROR: {error}"
+            self.uuid, state=TaskState.ERROR, last_run=datetime.now(timezone.utc), last_result=f"ERROR: {error}"
         )
         if not updated_task:
             PrintStyle(italic=True, font_color="red", padding=False).print(
@@ -234,7 +234,7 @@ class BaseTask(BaseModel):
         scheduler = TaskScheduler.get()
         await scheduler.reload()  # Ensure we have the latest state
         updated_task = await scheduler.update_task(
-            self.uuid, state=TaskState.IDLE, last_run=datetime.now(UTC), last_result=result
+            self.uuid, state=TaskState.IDLE, last_run=datetime.now(timezone.utc), last_result=result
         )
         if not updated_task:
             PrintStyle(italic=True, font_color="red", padding=False).print(
@@ -371,7 +371,7 @@ class ScheduledTask(BaseTask):
             task_timezone = pytz.timezone(self.schedule.timezone or Localization.get().get_timezone())
 
             # Get reference time in task's timezone (by default now - frequency_seconds)
-            reference_time = datetime.now(UTC) - timedelta(seconds=frequency_seconds)
+            reference_time = datetime.now(timezone.utc) - timedelta(seconds=frequency_seconds)
             reference_time = reference_time.astimezone(task_timezone)
 
             # Get next run time as seconds until next execution
@@ -389,7 +389,7 @@ class ScheduledTask(BaseTask):
             if CronTab is None:
                 return None
             crontab = CronTab(crontab=self.schedule.to_crontab())  # type: ignore
-            return crontab.next(now=datetime.now(UTC), return_datetime=True)  # type: ignore
+            return crontab.next(now=datetime.now(timezone.utc), return_datetime=True)  # type: ignore
 
 
 class PlannedTask(BaseTask):
@@ -1047,7 +1047,7 @@ def parse_task_plan(plan_data: dict[str, Any]) -> TaskPlan:
                 if parsed_dt:
                     # Ensure datetime is timezone-aware (use timezone.utc if not specified)
                     if parsed_dt.tzinfo is None:
-                        parsed_dt = parsed_dt.replace(tzinfo=UTC)
+                        parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
                     todo_dates.append(parsed_dt)
 
         # Parse in_progress with validation
@@ -1056,7 +1056,7 @@ def parse_task_plan(plan_data: dict[str, Any]) -> TaskPlan:
             in_progress = parse_datetime(plan_data.get("in_progress"))
             # Ensure datetime is timezone-aware
             if in_progress and in_progress.tzinfo is None:
-                in_progress = in_progress.replace(tzinfo=UTC)
+                in_progress = in_progress.replace(tzinfo=timezone.utc)
 
         # Parse done items with validation
         done_dates = []
@@ -1066,7 +1066,7 @@ def parse_task_plan(plan_data: dict[str, Any]) -> TaskPlan:
                 if parsed_dt:
                     # Ensure datetime is timezone-aware
                     if parsed_dt.tzinfo is None:
-                        parsed_dt = parsed_dt.replace(tzinfo=UTC)
+                        parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
                     done_dates.append(parsed_dt)
 
         # Sort dates for better usability
