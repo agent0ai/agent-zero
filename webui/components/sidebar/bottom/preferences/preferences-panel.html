@@ -58,6 +58,22 @@
                 </template>
               </div>
             </li>
+            <li x-data class="font-size-setting">
+              <span class="font-size-label">Text</span>
+              <div class="font-size-buttons">
+                <template x-for="(opt, idx) in $store.preferences.fontSizeOptions" :key="opt.value">
+                  <span class="font-size-btn-wrapper">
+                    <button type="button"
+                            class="font-size-btn"
+                            :class="{ 'active': $store.preferences.fontSize === opt.value }"
+                            @click="$store.preferences.fontSize = opt.value"
+                            :title="opt.title"
+                            x-text="opt.label"></button>
+                    <span class="font-size-sep" x-show="idx < $store.preferences.fontSizeOptions.length - 1">·</span>
+                  </span>
+                </template>
+              </div>
+            </li>
             <li x-data>
               <span class="switch-label">Speech</span>
               <label class="switch">
@@ -204,6 +220,24 @@
       font-size: 0.6rem;
       margin: 0 0.1rem;
       opacity: 0.5;
+    }
+    .font-size-setting { align-items: center; }
+    .font-size-buttons { display: flex; align-items: center; gap: 0; }
+    .font-size-btn-wrapper { display: flex; align-items: center; }
+    .font-size-btn {
+      background: none; border: none;
+      color: var(--color-primary);
+      font-size: 0.7rem; font-weight: 500;
+      letter-spacing: 0.02em;
+      padding: 0.15rem 0.1rem;
+      cursor: pointer; opacity: 0.7;
+      transition: opacity 0.15s ease;
+    }
+    .font-size-btn:hover { opacity: 0.85; }
+    .font-size-btn.active { opacity: 1; color: var(--color-text); }
+    .font-size-sep {
+      color: var(--color-text-secondary, #666);
+      font-size: 0.6rem; margin: 0 0.1rem; opacity: 0.5;
     }
   </style>
 </body>
