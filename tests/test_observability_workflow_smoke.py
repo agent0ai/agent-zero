@@ -1,3 +1,7 @@
+import threading
+from unittest.mock import patch
+
+import pytest
 
 from python.helpers import master_orchestrator
 
@@ -53,3 +57,59 @@ def test_workflow_run_capture_smoke():
     cleared = master_orchestrator.clear_store(context)
     assert cleared["runs"] == []
     assert cleared["saved_runs"] == []
+
+
+class _DummyRequest:
+    pass
+
+
+@pytest.mark.asyncio
+async def test_workflow_get_contract_includes_deployment_telemetry():
+    from python.api.workflow_get import WorkflowGet
+
+    context = DummyContext()
+    run = master_orchestrator.start_run(context, "Contract Run")
+    step_id = master_orchestrator.record_tool_start(
+        context,
+        tool_name="devops_deploy",
+        trace_id="trace-contract",
+        agent_name="Agent 0",
+        agent_number=0,
+        tool_args={"environment": "staging"},
+        auto_store=True,
+    )
+    assert step_id is not None
+
+    master_orchestrator.record_tool_end(
+        context,
+        step_id=step_id,
+        status="success",
+        duration_ms=50.0,
+        output={
+            "deployment": {
+                "environment": "staging",
+                "status": "success",
+                "telemetry": {
+                    "failed_stage": None,
+                    "stages": [
+                        {"name": "checks", "status": "passed", "duration_ms": 5},
+                        {"name": "execute", "status": "passed", "duration_ms": 12},
+                        {"name": "record", "status": "passed", "duration_ms": 3},
+                    ],
+                },
+            }
+        },
+    )
+    assert run["run_id"]
+
+    handler = WorkflowGet(app=None, thread_lock=threading.Lock())
+    with patch.object(handler, "use_context", return_value=context):
+        result = await handler.process({"context": "test-context"}, _DummyRequest())
+
+    assert "runs" in result
+    assert result["active_run_id"] == run["run_id"]
+    step = result["runs"][0]["steps"][0]
+    assert step["deployment_environment"] == "staging"
+    assert step["deployment_status"] == "success"
+    assert step["deployment_telemetry"]["failed_stage"] is None
+    assert len(step["deployment_telemetry"]["stages"]) == 3

@@ -96,6 +96,30 @@ const model = {
     const active = this.workflowRuns.find((run) => run.run_id === this.activeRunId);
     return active || this.workflowRuns[0];
   },
+
+  hasDeploymentTelemetry(step) {
+    return !!step?.deployment_telemetry || !!step?.deployment_status;
+  },
+
+  deploymentStages(step) {
+    const stages = step?.deployment_telemetry?.stages;
+    return Array.isArray(stages) ? stages : [];
+  },
+
+  deploymentFailedStage(step) {
+    return step?.deployment_telemetry?.failed_stage || "";
+  },
+
+  deploymentStatus(step) {
+    return step?.deployment_status || step?.deployment_telemetry?.status || "";
+  },
+
+  formatMs(value) {
+    if (value === null || value === undefined || value === "") return "";
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return "";
+    return `${Math.round(parsed)}ms`;
+  },
 };
 
 export const store = createStore("observabilityStore", model);

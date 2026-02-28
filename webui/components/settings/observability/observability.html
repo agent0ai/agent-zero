@@ -80,6 +80,31 @@
                       <span x-text="step.duration_ms ? step.duration_ms + 'ms' : ''"></span>
                     </div>
                     <div class="workflow-step-error" x-show="step.error" x-text="step.error"></div>
+                    <template x-if="$store.observabilityStore.hasDeploymentTelemetry(step)">
+                      <div class="workflow-deployment">
+                        <div class="workflow-deployment-header">
+                          <span class="workflow-deployment-title">Deployment</span>
+                          <span class="workflow-deployment-status"
+                            x-text="$store.observabilityStore.deploymentStatus(step) || 'unknown'"></span>
+                        </div>
+                        <div class="workflow-deployment-meta">
+                          <span x-show="step.deployment_environment" x-text="'Env: ' + step.deployment_environment"></span>
+                          <span x-show="$store.observabilityStore.deploymentFailedStage(step)"
+                            x-text="'Failed stage: ' + $store.observabilityStore.deploymentFailedStage(step)"></span>
+                        </div>
+                        <template x-if="$store.observabilityStore.deploymentStages(step).length">
+                          <div class="workflow-deployment-stages">
+                            <template x-for="stage in $store.observabilityStore.deploymentStages(step)" :key="stage.name + (stage.started_at || '')">
+                              <div class="workflow-deployment-stage">
+                                <span class="stage-name" x-text="stage.name"></span>
+                                <span class="stage-status" x-text="stage.status"></span>
+                                <span class="stage-duration" x-text="$store.observabilityStore.formatMs(stage.duration_ms)"></span>
+                              </div>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
                   </div>
                 </template>
               </div>
@@ -282,6 +307,65 @@
       margin-top: 4px;
       color: #f7c9c9;
       font-size: 0.8rem;
+    }
+
+    .workflow-deployment {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--color-border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .workflow-deployment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+
+    .workflow-deployment-title {
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .workflow-deployment-status {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .workflow-deployment-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 0.78rem;
+      color: var(--color-text-secondary);
+    }
+
+    .workflow-deployment-stages {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .workflow-deployment-stage {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: 8px;
+      font-size: 0.78rem;
+      align-items: center;
+      color: var(--color-text-secondary);
+    }
+
+    .workflow-deployment-stage .stage-name {
+      color: var(--color-text);
+    }
+
+    .workflow-deployment-stage .stage-status {
+      text-transform: lowercase;
     }
 
     .workflow-saved {
