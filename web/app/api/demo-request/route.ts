@@ -1,9 +1,9 @@
+import { appendDemoRequest, listDemoRequests } from '@/lib/demo-request-store'
+
 export async function POST(request: Request) {
   try {
     const data = await request.json()
-
-    // Log demo request
-    console.log('Demo request received:', {
+    const record = await appendDemoRequest({
       company: data.company,
       email: data.email,
       industry: data.industry,
@@ -16,25 +16,39 @@ export async function POST(request: Request) {
       complexity: data.complexity,
       budget: data.budget,
       timeline: data.timeline,
-      timestamp: new Date().toISOString(),
+      source: 'web-demo-form',
     })
-
-    // In production, you would:
-    // 1. Send email to sales team
-    // 2. Create record in CRM
-    // 3. Add to mailing list
-    // 4. Trigger follow-up workflow
-
-    // For now, just return success
     return Response.json({
       success: true,
       message: 'Demo request submitted successfully',
-      timestamp: new Date().toISOString(),
+      requestId: record.id,
+      timestamp: record.created_at,
     })
   } catch (error) {
     console.error('Error processing demo request:', error)
     return Response.json(
       { error: 'Failed to process demo request' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const limitParam = Number(searchParams.get('limit') ?? '25')
+    const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 25
+
+    const rows = await listDemoRequests(limit)
+    return Response.json({
+      success: true,
+      count: rows.length,
+      requests: rows,
+    })
+  } catch (error) {
+    console.error('Error listing demo requests:', error)
+    return Response.json(
+      { error: 'Failed to list demo requests' },
       { status: 500 }
     )
   }

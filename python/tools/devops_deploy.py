@@ -69,12 +69,19 @@ class DevOpsDeploy(Tool):
                 break_loop=False,
             )
 
-        # Step 2: Generate POC deployment report
-        report = self._generate_deployment_poc(
-            environment=normalized_env, skip_tests=skip_tests, skip_backup=skip_backup
+        # Step 2: Build structured step results and human-readable report
+        result = self._build_deployment_result(
+            environment=normalized_env,
+            skip_tests=skip_tests,
+            skip_backup=skip_backup,
         )
+        report = self._generate_deployment_poc(result)
 
-        return Response(message=report, break_loop=False)
+        return Response(
+            message=report,
+            break_loop=False,
+            additional={"deployment": result},
+        )
 
     def _select_strategy(self):
         """
@@ -130,7 +137,32 @@ class DevOpsDeploy(Tool):
 
         return env_map.get(env_lower, "")
 
-    def _generate_deployment_poc(self, environment: str, skip_tests: bool, skip_backup: bool) -> str:
+    def _build_deployment_result(self, environment: str, skip_tests: bool, skip_backup: bool) -> dict:
+        return {
+            "environment": environment,
+            "skip_tests": bool(skip_tests),
+            "skip_backup": bool(skip_backup),
+            "status": "success",
+            "steps": {
+                "input_validation": {"status": "passed"},
+                "pre_deployment_checks": {"status": "passed"},
+                "backup": {"status": "skipped" if skip_backup else "passed"},
+                "tests": {"status": "skipped" if skip_tests else "passed"},
+                "build_package": {"status": "passed"},
+                "deployment": {"status": "passed"},
+                "health_checks": {"status": "passed"},
+                "smoke_tests": {"status": "passed"},
+                "post_deployment": {"status": "passed"},
+            },
+            "checks": {
+                "health_checks_passed": True,
+                "smoke_tests_passed": True,
+                "backup_created": not skip_backup,
+                "tests_run": not skip_tests,
+            },
+        }
+
+    def _generate_deployment_poc(self, result: dict) -> str:
         """
         Generate POC deployment report.
 
@@ -145,6 +177,10 @@ class DevOpsDeploy(Tool):
         Returns:
             Formatted deployment report
         """
+
+        environment = str(result.get("environment", "unknown"))
+        skip_tests = bool(result.get("skip_tests", False))
+        skip_backup = bool(result.get("skip_backup", False))
 
         # Production requires extra confirmation
         production_warning = ""
@@ -210,12 +246,12 @@ DEPLOYMENT WORKFLOW (POC):
 DEPLOYMENT STATUS: SUCCESS ✓
 
 Deployment Report:
-  Environment: {environment}
-  Status: success
-  Health Checks: passed
-  Smoke Tests: passed
-  Backup Created: {not skip_backup}
-  Tests Run: {not skip_tests}
+  Environment: {result["environment"]}
+  Status: {result["status"]}
+  Health Checks: {'passed' if result["checks"]["health_checks_passed"] else 'failed'}
+  Smoke Tests: {'passed' if result["checks"]["smoke_tests_passed"] else 'failed'}
+  Backup Created: {result["checks"]["backup_created"]}
+  Tests Run: {result["checks"]["tests_run"]}
 
 ═══════════════════════════════════════════════════
 

@@ -3,6 +3,7 @@
 import DashboardLayout from '@/components/DashboardLayout'
 import QuickStats from '@/components/QuickStats'
 import DeploymentStatus from '@/components/DeploymentStatus'
+import RecentDemoRequests from '@/components/RecentDemoRequests'
 
 export default function Dashboard() {
   return (
@@ -19,6 +20,7 @@ export default function Dashboard() {
 
         <QuickStats />
         <DeploymentStatus />
+        <RecentDemoRequests />
       </div>
     </DashboardLayout>
   )

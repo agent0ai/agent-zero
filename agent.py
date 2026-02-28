@@ -10,7 +10,7 @@ import contextlib
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -77,11 +77,11 @@ class AgentContext:
         self.paused = paused
         self.streaming_agent = streaming_agent
         self.task: DeferredTask | None = None
-        self.created_at = created_at or datetime.now(UTC)
+        self.created_at = created_at or datetime.now(timezone.utc)
         self.type = type
         AgentContext._counter += 1
         self.no = AgentContext._counter
-        self.last_message = last_message or datetime.now(UTC)
+        self.last_message = last_message or datetime.now(timezone.utc)
         self.data = data or {}
         self.output_data = output_data or {}
 
@@ -600,7 +600,7 @@ class Agent:
         self.data[field] = value
 
     def hist_add_message(self, ai: bool, content: history.MessageContent, tokens: int = 0):
-        self.last_message = datetime.now(UTC)
+        self.last_message = datetime.now(timezone.utc)
         # Allow extensions to process content before adding to history
         content_data = {"content": content}
         asyncio.run(self.call_extensions("hist_add_before", content_data=content_data, ai=ai))
