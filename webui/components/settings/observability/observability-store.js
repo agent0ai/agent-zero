@@ -120,6 +120,20 @@ const model = {
     if (Number.isNaN(parsed)) return "";
     return `${Math.round(parsed)}ms`;
   },
+
+  statusClass(status) {
+    const normalized = String(status || "").toLowerCase();
+    if (["success", "passed", "ok", "completed"].includes(normalized)) {
+      return "status-badge success";
+    }
+    if (["failed", "error"].includes(normalized)) {
+      return "status-badge failed";
+    }
+    if (["running", "in_progress", "started"].includes(normalized)) {
+      return "status-badge running";
+    }
+    return "status-badge neutral";
+  },
 };
 
 export const store = createStore("observabilityStore", model);

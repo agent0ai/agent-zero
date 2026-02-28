@@ -76,7 +76,7 @@
                   <div class="workflow-step">
                     <div class="workflow-step-name" x-text="step.name"></div>
                     <div class="workflow-step-meta">
-                      <span x-text="step.status"></span>
+                      <span :class="$store.observabilityStore.statusClass(step.status)" x-text="step.status"></span>
                       <span x-text="step.duration_ms ? step.duration_ms + 'ms' : ''"></span>
                     </div>
                     <div class="workflow-step-error" x-show="step.error" x-text="step.error"></div>
@@ -85,6 +85,7 @@
                         <div class="workflow-deployment-header">
                           <span class="workflow-deployment-title">Deployment</span>
                           <span class="workflow-deployment-status"
+                            :class="$store.observabilityStore.statusClass($store.observabilityStore.deploymentStatus(step))"
                             x-text="$store.observabilityStore.deploymentStatus(step) || 'unknown'"></span>
                         </div>
                         <div class="workflow-deployment-meta">
@@ -97,7 +98,7 @@
                             <template x-for="stage in $store.observabilityStore.deploymentStages(step)" :key="stage.name + (stage.started_at || '')">
                               <div class="workflow-deployment-stage">
                                 <span class="stage-name" x-text="stage.name"></span>
-                                <span class="stage-status" x-text="stage.status"></span>
+                                <span class="stage-status" :class="$store.observabilityStore.statusClass(stage.status)" x-text="stage.status"></span>
                                 <span class="stage-duration" x-text="$store.observabilityStore.formatMs(stage.duration_ms)"></span>
                               </div>
                             </template>
@@ -331,7 +332,6 @@
     }
 
     .workflow-deployment-status {
-      text-transform: uppercase;
       font-size: 0.75rem;
       font-weight: 600;
       letter-spacing: 0.02em;
@@ -365,7 +365,41 @@
     }
 
     .workflow-deployment-stage .stage-status {
-      text-transform: lowercase;
+      justify-self: start;
+    }
+
+    .status-badge {
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+    }
+
+    .status-badge.success {
+      color: #9fe8b3;
+      background: rgba(34, 120, 64, 0.2);
+      border-color: rgba(34, 120, 64, 0.4);
+    }
+
+    .status-badge.failed {
+      color: #f7c9c9;
+      background: rgba(132, 41, 41, 0.22);
+      border-color: rgba(132, 41, 41, 0.5);
+    }
+
+    .status-badge.running {
+      color: #f7dfad;
+      background: rgba(130, 98, 24, 0.24);
+      border-color: rgba(130, 98, 24, 0.5);
+    }
+
+    .status-badge.neutral {
+      color: var(--color-text-secondary);
+      background: rgba(120, 130, 150, 0.16);
+      border-color: rgba(120, 130, 150, 0.32);
     }
 
     .workflow-saved {
