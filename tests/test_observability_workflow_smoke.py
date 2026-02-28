@@ -31,12 +31,24 @@ def test_workflow_run_capture_smoke():
         step_id=step_id,
         status="success",
         duration_ms=123.4,
+        output={
+            "deployment": {
+                "environment": "staging",
+                "status": "success",
+                "telemetry": {"failed_stage": None, "stages": [{"name": "checks", "status": "passed"}]},
+            }
+        },
     )
 
     saved = master_orchestrator.save_active_run(context, label="Snapshot")
     assert saved is not None
     assert saved["label"] == "Snapshot"
     assert len(saved["steps"]) == 1
+    step = saved["steps"][0]
+    assert step["deployment_environment"] == "staging"
+    assert step["deployment_status"] == "success"
+    assert step["deployment_telemetry"]["failed_stage"] is None
+    assert "output" in step
 
     cleared = master_orchestrator.clear_store(context)
     assert cleared["runs"] == []

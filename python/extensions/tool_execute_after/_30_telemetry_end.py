@@ -1,4 +1,4 @@
-
+from typing import Any
 from python.helpers import master_orchestrator, observability_adapters, telemetry
 from python.helpers.extension import Extension
 from python.helpers.settings import get_settings
@@ -42,6 +42,14 @@ class TelemetryToolEnd(Extension):
             step_id=step_id,
             status="success",
             duration_ms=duration_ms,
+            output=self._extract_output(response),
         )
 
         observability_adapters.dispatch_event(self.agent.context, event)
+
+    @staticmethod
+    def _extract_output(response: Any) -> dict[str, Any] | None:
+        additional = getattr(response, "additional", None)
+        if not isinstance(additional, dict):
+            return None
+        return additional

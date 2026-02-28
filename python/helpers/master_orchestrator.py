@@ -101,6 +101,7 @@ def record_tool_end(
     status: str,
     duration_ms: float | None,
     error: str | None = None,
+    output: dict[str, Any] | None = None,
 ) -> None:
     if not step_id:
         return
@@ -116,6 +117,18 @@ def record_tool_end(
                 step["duration_ms"] = round(duration_ms, 2)
             if error:
                 step["error"] = error
+            if output:
+                safe_output = copy.deepcopy(output)
+                step["output"] = safe_output
+                deployment = safe_output.get("deployment", {})
+                if isinstance(deployment, dict):
+                    telemetry = deployment.get("telemetry")
+                    if isinstance(telemetry, dict):
+                        step["deployment_telemetry"] = telemetry
+                    if deployment.get("status") is not None:
+                        step["deployment_status"] = deployment.get("status")
+                    if deployment.get("environment") is not None:
+                        step["deployment_environment"] = deployment.get("environment")
             break
 
 
