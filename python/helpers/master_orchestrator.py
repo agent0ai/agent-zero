@@ -1,11 +1,24 @@
 from __future__ import annotations
 
 import copy
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 WORKFLOW_KEY = "workflow_runs"
+MAX_WORKFLOW_OUTPUT_CHARS = 12000
+SENSITIVE_KEY_MARKERS = (
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "authorization",
+    "auth_header",
+    "private_key",
+    "access_key",
+)
 
 
 def _now_iso() -> str:
@@ -14,6 +27,53 @@ def _now_iso() -> str:
 
 def _default_store() -> dict[str, Any]:
     return {"runs": [], "saved_runs": [], "active_run_id": None}
+
+
+def _is_sensitive_key(key: str) -> bool:
+    key_lower = key.strip().lower()
+    return any(marker in key_lower for marker in SENSITIVE_KEY_MARKERS)
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        redacted: dict[str, Any] = {}
+        for key, val in value.items():
+            if _is_sensitive_key(str(key)):
+                redacted[str(key)] = "***REDACTED***"
+            else:
+                redacted[str(key)] = _redact_value(val)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    return value
+
+
+def _compact_deployment_output(payload: dict[str, Any]) -> dict[str, Any]:
+    deployment = payload.get("deployment")
+    compact: dict[str, Any] = {}
+    if isinstance(deployment, dict):
+        compact["deployment"] = {
+            "environment": deployment.get("environment"),
+            "status": deployment.get("status"),
+            "platform": deployment.get("platform"),
+            "telemetry": deployment.get("telemetry"),
+        }
+    return compact
+
+
+def _prepare_output(output: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    safe_output = _redact_value(copy.deepcopy(output))
+    serialized = json.dumps(safe_output, ensure_ascii=False, default=str)
+    if len(serialized) <= MAX_WORKFLOW_OUTPUT_CHARS:
+        return safe_output, False
+
+    compact = _compact_deployment_output(safe_output)
+    compact["_truncated"] = {
+        "reason": "size_limit",
+        "max_chars": MAX_WORKFLOW_OUTPUT_CHARS,
+        "original_chars": len(serialized),
+    }
+    return compact, True
 
 
 def ensure_store(context) -> dict[str, Any]:
@@ -118,8 +178,10 @@ def record_tool_end(
             if error:
                 step["error"] = error
             if output:
-                safe_output = copy.deepcopy(output)
+                safe_output, truncated = _prepare_output(output)
                 step["output"] = safe_output
+                if truncated:
+                    step["output_truncated"] = True
                 deployment = safe_output.get("deployment", {})
                 if isinstance(deployment, dict):
                     telemetry = deployment.get("telemetry")
