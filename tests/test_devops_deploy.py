@@ -113,6 +113,76 @@ class TestDevOpsDeployExecution:
         assert all(stage["status"] == "passed" for stage in telemetry["stages"])
         assert all(isinstance(stage["duration_ms"], int) for stage in telemetry["stages"])
 
+    @pytest.mark.unit
+    async def test_deployment_marks_failed_stage_when_checks_raise(self, mock_agent, monkeypatch):
+        def _raise_checks(*args, **kwargs):
+            raise RuntimeError("checks failed")
+
+        monkeypatch.setattr("python.tools.devops_deploy.run_predeployment_checks", _raise_checks)
+        tool = create_tool(mock_agent, {"environment": "staging"})
+
+        response = await tool.execute()
+        deployment = response.additional["deployment"]
+
+        assert deployment["status"] == "failed"
+        assert deployment["telemetry"]["failed_stage"] == "checks"
+        assert deployment["telemetry"]["stages"][-1]["name"] == "checks"
+        assert deployment["telemetry"]["stages"][-1]["status"] == "failed"
+
+    @pytest.mark.unit
+    async def test_deployment_marks_failed_stage_when_execute_raise(self, mock_agent, monkeypatch):
+        def _ok_checks(*args, **kwargs):
+            return {"status": "passed", "checks": {"backup": True, "tests": True}}
+
+        def _raise_execute(*args, **kwargs):
+            raise RuntimeError("execute failed")
+
+        monkeypatch.setattr("python.tools.devops_deploy.run_predeployment_checks", _ok_checks)
+        monkeypatch.setattr("python.tools.devops_deploy.execute_deployment", _raise_execute)
+        tool = create_tool(mock_agent, {"environment": "staging"})
+
+        response = await tool.execute()
+        deployment = response.additional["deployment"]
+
+        assert deployment["status"] == "failed"
+        assert deployment["telemetry"]["failed_stage"] == "execute"
+        assert deployment["telemetry"]["stages"][0]["name"] == "checks"
+        assert deployment["telemetry"]["stages"][0]["status"] == "passed"
+        assert deployment["telemetry"]["stages"][-1]["name"] == "execute"
+        assert deployment["telemetry"]["stages"][-1]["status"] == "failed"
+
+    @pytest.mark.unit
+    async def test_deployment_marks_failed_stage_when_record_raise(self, mock_agent, monkeypatch):
+        def _ok_checks(*args, **kwargs):
+            return {"status": "passed", "checks": {"backup": True, "tests": True}}
+
+        def _ok_execute(*args, **kwargs):
+            return {
+                "environment": "staging",
+                "platform": "default",
+                "status": "success",
+                "health_checks_passed": True,
+                "smoke_tests_passed": True,
+            }
+
+        def _raise_record(*args, **kwargs):
+            raise RuntimeError("record failed")
+
+        monkeypatch.setattr("python.tools.devops_deploy.run_predeployment_checks", _ok_checks)
+        monkeypatch.setattr("python.tools.devops_deploy.execute_deployment", _ok_execute)
+        monkeypatch.setattr("python.tools.devops_deploy.record_deployment_result", _raise_record)
+        tool = create_tool(mock_agent, {"environment": "staging"})
+
+        response = await tool.execute()
+        deployment = response.additional["deployment"]
+
+        assert deployment["status"] == "failed"
+        assert deployment["telemetry"]["failed_stage"] == "record"
+        assert deployment["telemetry"]["stages"][0]["name"] == "checks"
+        assert deployment["telemetry"]["stages"][1]["name"] == "execute"
+        assert deployment["telemetry"]["stages"][-1]["name"] == "record"
+        assert deployment["telemetry"]["stages"][-1]["status"] == "failed"
+
 
 class TestDevOpsDeployPOC:
     """Tests for POC implementation that returns simulated deployment"""

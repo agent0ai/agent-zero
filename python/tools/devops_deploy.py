@@ -196,7 +196,7 @@ class DevOpsDeploy(Tool):
         finished_at = self._utc_now_iso()
         health_checks_passed = bool(execution.get("health_checks_passed", False))
         smoke_tests_passed = bool(execution.get("smoke_tests_passed", False))
-        status = execution.get("status", "failed" if failed_stage else "success")
+        status = "failed" if failed_stage else str(execution.get("status", "success"))
 
         return {
             "environment": environment,
@@ -332,7 +332,7 @@ DEPLOYMENT WORKFLOW (POC):
   - Git commit tagged
   - Team notified
 
-DEPLOYMENT STATUS: SUCCESS ✓
+DEPLOYMENT STATUS: {'SUCCESS ✓' if result.get('status') == 'success' else 'FAILED ✗'}
 
 Deployment Report:
   Environment: {result["environment"]}
