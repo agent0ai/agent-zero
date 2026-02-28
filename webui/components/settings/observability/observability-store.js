@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getCurrentContextId } from "/js/shortcuts.js";
+import { readObservabilityFixture } from "/components/settings/observability/observability-fixture.js";
 
 const model = {
   contextId: "",
@@ -24,6 +25,16 @@ const model = {
     this.workflowError = null;
     this.loading = true;
     try {
+      const fixture = readObservabilityFixture(window);
+      if (fixture) {
+        this.events = fixture.events;
+        this.stats = fixture.stats;
+        this.workflowRuns = fixture.runs;
+        this.savedRuns = fixture.saved_runs;
+        this.activeRunId = fixture.active_run_id;
+        return;
+      }
+
       const [telemetryResp, workflowResp] = await Promise.all([
         callJsonApi("/telemetry_get", { context: this.contextId }),
         callJsonApi("/workflow_get", { context: this.contextId }),
@@ -45,6 +56,14 @@ const model = {
     this.workflowError = null;
     this.workflowLoading = true;
     try {
+      const fixture = readObservabilityFixture(window);
+      if (fixture) {
+        this.workflowRuns = fixture.runs;
+        this.savedRuns = fixture.saved_runs;
+        this.activeRunId = fixture.active_run_id;
+        return;
+      }
+
       const resp = await callJsonApi("/workflow_get", {
         context: this.contextId,
       });
