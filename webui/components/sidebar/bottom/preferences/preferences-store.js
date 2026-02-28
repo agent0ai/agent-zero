@@ -42,6 +42,23 @@ const model = {
   },
   _showUtils: false,
 
+  // UI font-size scale preference
+  get fontSize() {
+    return this._fontSize;
+  },
+  set fontSize(value) {
+    this._fontSize = value;
+    this._applyFontSize(value);
+  },
+  _fontSize: "100",
+
+  fontSizeOptions: [
+    { label: "S", value: "90", title: "Small text" },
+    { label: "M", value: "100", title: "Normal text (default)" },
+    { label: "L", value: "112", title: "Large text" },
+    { label: "XL", value: "125", title: "Extra large text" },
+  ],
+
   // Chat container width preference for HiDPI/large screens
   get chatWidth() {
     return this._chatWidth;
@@ -124,6 +141,16 @@ const model = {
         this._showUtils = false; // Default to speech off if localStorage is unavailable
       }
 
+      // Load font size preference
+      try {
+        const storedFontSize = localStorage.getItem("fontSize");
+        if (storedFontSize && this.fontSizeOptions.some(opt => opt.value === storedFontSize)) {
+          this._fontSize = storedFontSize;
+        }
+      } catch {
+        this._fontSize = "100";
+      }
+
       // Apply all preferences
       this._applyDarkMode(this._darkMode);
       this._applyAutoScroll(this._autoScroll);
@@ -131,6 +158,7 @@ const model = {
       this._applyShowUtils(this._showUtils);
       this._applyChatWidth(this._chatWidth);
       this._applyDetailMode(this._detailMode);
+      this._applyFontSize(this._fontSize);
     } catch (e) {
       console.error("Failed to initialize preferences store", e);
     }
@@ -138,6 +166,11 @@ const model = {
 
   _applyAutoScroll(value) {
     // nothing for now
+  },
+
+  _applyFontSize(value) {
+    localStorage.setItem("fontSize", value);
+    document.documentElement.style.setProperty("font-size", `${value}%`);
   },
 
   _applyDarkMode(value) {

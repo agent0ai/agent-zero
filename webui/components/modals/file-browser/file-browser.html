@@ -6,9 +6,11 @@
   </script>
 </head>
 <body>
-  <div x-data>
+  <div x-data="{ fileSearch: '' }">
     <template x-if="$store.fileBrowser">
-      <div class="file-browser-root">
+      <div class="file-browser-root"
+           x-effect="$store.fileBrowser.browser.currentPath && (fileSearch = '')"
+      >
         
         <!-- Loading State -->
         <div x-show="$store.fileBrowser.isLoading" class="loading-state">
@@ -39,6 +41,24 @@
                 </button>
               </div>
 
+              <!-- File search -->
+              <div class="fb-search-wrapper">
+                <span class="material-symbols-outlined fb-search-icon">search</span>
+                <input
+                  type="text"
+                  class="fb-search-input"
+                  placeholder="Filter files…"
+                  x-model="fileSearch"
+                  @keydown.escape="fileSearch = ''"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="Filter files by name"
+                />
+                <button class="fb-search-clear" x-show="fileSearch.length > 0" @click="fileSearch = ''" title="Clear filter">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
               <!-- Files list -->
               <div class="files-list">
                 <div class="file-header">
@@ -49,7 +69,7 @@
 
                 <!-- File list entries -->
                 <template x-if="$store.fileBrowser.browser.entries.length">
-                  <template x-for="file in $store.fileBrowser.sortFiles($store.fileBrowser.browser.entries)" :key="file.path">
+                  <template x-for="file in $store.fileBrowser.sortFiles($store.fileBrowser.browser.entries).filter(f => !fileSearch || f.name.toLowerCase().includes(fileSearch.toLowerCase()))" :key="file.path">
                     <div class="file-item" :data-is-dir="file.is_dir">
                       <div class="file-name" @click="file.is_dir && $store.fileBrowser.navigateToFolder(file.path)">
                         <img :src="'/public/' + (file.type === 'unknown' ? 'file' : ($store.fileBrowser.isArchive(file.name) ? 'archive' : file.type)) + '.svg'" class="file-icon" :alt="file.type" />
@@ -114,10 +134,16 @@
                   </template>
                 </template>
 
-                <!-- Empty state -->
+                <!-- Empty state (no entries at all) -->
                 <template x-if="!$store.fileBrowser.browser.entries.length">
                   <div class="no-files">No files found</div>
                 </template>
+
+                <!-- Filter produced no results -->
+                <div class="no-files"
+                     x-show="fileSearch && $store.fileBrowser.browser.entries.length > 0 && $store.fileBrowser.browser.entries.filter(f => f.name.toLowerCase().includes(fileSearch.toLowerCase())).length === 0">
+                  No files match "<span x-text="fileSearch"></span>"
+                </div>
               </div>
             </div>
         </div>
@@ -376,6 +402,59 @@
     .btn-secondary:active {
     filter: brightness(0.95);
     }
+    /* File Browser Search Bar */
+    .fb-search-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--spacing-sm);
+    }
+    .fb-search-icon {
+      position: absolute;
+      left: 8px;
+      font-size: 18px;
+      color: var(--color-text);
+      opacity: 0.4;
+      pointer-events: none;
+      user-select: none;
+    }
+    .fb-search-input {
+      width: 100%;
+      background-color: var(--color-input);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      color: var(--color-text);
+      font-family: var(--font-family-main);
+      font-size: var(--font-size-small);
+      padding: 7px 30px 7px 34px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .fb-search-input:focus {
+      border-color: var(--color-primary);
+      background-color: var(--color-input-focus);
+    }
+    .fb-search-input::placeholder {
+      color: var(--color-text);
+      opacity: 0.4;
+    }
+    .fb-search-clear {
+      position: absolute;
+      right: 6px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--color-text);
+      opacity: 0.4;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      border-radius: 4px;
+      transition: opacity 0.2s ease;
+    }
+    .fb-search-clear:hover { opacity: 0.8; }
+    .fb-search-clear .material-symbols-outlined { font-size: 16px; }
+
     /* Responsive Design */
     @media (max-width: 768px) {
     .file-header {

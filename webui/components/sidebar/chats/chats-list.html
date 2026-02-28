@@ -9,7 +9,7 @@
 <body>
   <div x-data>
     <template x-if="$store.chats">
-      <div class="chats-list-container" x-data>
+      <div class="chats-list-container" x-data="{ chatSearch: '' }">
         <div class="section-header-row">
           <h3 class="section-header">Chats</h3>
           <!-- New Chat Button -->
@@ -18,10 +18,26 @@
           </button>
         </div>
 
-
+        <!-- Chat Search Input -->
+        <div class="chat-search-wrapper" x-show="$store.chats.contexts.length > 0">
+          <span class="material-symbols-outlined chat-search-icon">search</span>
+          <input
+            type="text"
+            class="chat-search-input"
+            placeholder="Filter chats..."
+            x-model="chatSearch"
+            @keydown.escape="chatSearch = ''"
+            aria-label="Filter chats"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="chat-search-clear" x-show="chatSearch.length > 0" @click="chatSearch = ''" title="Clear search" aria-label="Clear search">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
 
         <ul class="config-list chats-config-list no-scrollbar" x-show="$store.chats.contexts.length > 0">
-          <template x-for="context in $store.chats.contexts" :key="context.id">
+          <template x-for="context in $store.chats.contexts.filter(c => !chatSearch || (c.name || ('Chat #' + c.no)).toLowerCase().includes(chatSearch.toLowerCase()))" :key="context.id">
             <li>
               <div :class="{'chat-container': true, 'chat-selected': context.id === $store.chats.selected}"
                 @click="$store.chats.selectChat(context.id)">
@@ -37,6 +53,10 @@
               </div>
             </li>
           </template>
+          <!-- No results message -->
+          <li x-show="chatSearch && $store.chats.contexts.filter(c => (c.name || ('Chat #' + c.no)).toLowerCase().includes(chatSearch.toLowerCase())).length === 0">
+            <div class="chat-search-no-results">No chats match "<span x-text="chatSearch"></span>"</div>
+          </li>
         </ul>
         <div class="empty-list-message" x-show="$store.chats.contexts.length === 0">
           <p><i>No chats to list.</i></p>
@@ -162,6 +182,80 @@
     .chat-selected .chat-name {
       font-size: var(--font-size-normal);
       font-weight: bold;
+    }
+
+    /* Chat Search */
+    .chat-search-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--spacing-xs);
+      flex-shrink: 0;
+    }
+
+    .chat-search-icon {
+      position: absolute;
+      left: 8px;
+      font-size: 16px;
+      color: var(--color-text);
+      opacity: 0.4;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .chat-search-input {
+      width: 100%;
+      background-color: var(--color-input);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      color: var(--color-text);
+      font-family: var(--font-family-main);
+      font-size: var(--font-size-small);
+      padding: 6px 28px 6px 30px;
+      outline: none;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .chat-search-input:focus {
+      border-color: var(--color-primary);
+      background-color: var(--color-input-focus);
+    }
+
+    .chat-search-input::placeholder {
+      color: var(--color-text);
+      opacity: 0.4;
+    }
+
+    .chat-search-clear {
+      position: absolute;
+      right: 4px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--color-text);
+      opacity: 0.4;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      border-radius: 4px;
+      transition: opacity 0.2s ease;
+    }
+
+    .chat-search-clear:hover {
+      opacity: 0.8;
+    }
+
+    .chat-search-clear .material-symbols-outlined {
+      font-size: 14px;
+    }
+
+    .chat-search-no-results {
+      padding: 12px 8px;
+      font-size: var(--font-size-small);
+      color: var(--color-text);
+      opacity: 0.5;
+      text-align: center;
+      font-style: italic;
     }
 
     /* .chat-list-button.font-bold { position: relative; background-color: var(--color-border) 0.05; } */

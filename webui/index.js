@@ -733,6 +733,49 @@ document.addEventListener("DOMContentLoaded", function () {
   autoScrollSwitch = document.getElementById("auto-scroll-switch");
   timeDate = document.getElementById("time-date-container");
 
+  // ── Global keyboard shortcuts ──────────────────────────────────────────────
+  //  /        → focus the chat input (when cursor is not already in a field)
+  //  Alt+N    → start a new chat
+  //  Alt+K    → focus the chat search / filter box in the sidebar
+  // ─────────────────────────────────────────────────────────────────────────
+  document.addEventListener("keydown", (e) => {
+    const active = document.activeElement;
+    const tag = active?.tagName?.toLowerCase();
+    const inEditable =
+      tag === "input" ||
+      tag === "textarea" ||
+      tag === "select" ||
+      active?.isContentEditable;
+
+    // `/` → focus chat input
+    if (e.key === "/" && !inEditable && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const input = document.getElementById("chat-input");
+      if (input) {
+        e.preventDefault();
+        input.focus();
+        input.selectionStart = input.selectionEnd = input.value.length;
+      }
+      return;
+    }
+
+    // Alt+N → new chat
+    if (e.key === "n" && e.altKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      window.Alpine?.store("chats")?.newChat?.();
+      return;
+    }
+
+    // Alt+K → focus chat search in sidebar
+    if (e.key === "k" && e.altKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const searchInput = document.querySelector(".chat-search-input");
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+      return;
+    }
+  });
 
   // Start polling for updates
   startPolling();
