@@ -175,7 +175,14 @@ class CodeExecution(Tool):
     async def execute_terminal_command(
         self, session: int, command: str, reset: bool = False
     ):
-        prefix = ("bash>" if not runtime.is_windows() or self.agent.config.code_exec_ssh_enabled else "PS>") + self.format_command_for_output(command) + "\n\n"
+        if self.args.get("source") == "input":
+            label = "input>"
+        elif not runtime.is_windows() or self.agent.config.code_exec_ssh_enabled:
+            label = "bash>"
+        else:
+            label = "PS>"
+        display_command = self.args.get("display_code", command)
+        prefix = label + self.format_command_for_output(display_command) + "\n\n"
         return await self.terminal_session(session, command, reset, prefix)
 
     async def terminal_session(

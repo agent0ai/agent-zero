@@ -160,6 +160,13 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
         attrs[3] &= ~termios.ECHO  # lflag
         termios.tcsetattr(slave, termios.TCSANOW, attrs)
 
+    slave_name = os.ttyname(slave)
+
+    def _child_preexec():
+        os.setsid()
+        fd = os.open(slave_name, os.O_RDWR)
+        os.close(fd)
+
     proc = await asyncio.create_subprocess_shell(
         cmd,
         stdin=slave,
@@ -168,6 +175,7 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
         cwd=cwd,
         env=env,
         close_fds=True,
+        preexec_fn=_child_preexec,
     )
     os.close(slave)
 
