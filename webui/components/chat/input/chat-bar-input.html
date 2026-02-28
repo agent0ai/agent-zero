@@ -31,6 +31,12 @@
                     <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
                 </svg>
             </button>
+            <!-- Character counter: only visible when message is non-empty -->
+            <div id="char-counter"
+                 x-show="$store.chatInput && $store.chatInput.message.length > 0"
+                 x-text="$store.chatInput.message.length"
+                 :title="$store.chatInput.message.length + ' characters'">
+            </div>
         </div>
 
         <div id="chat-buttons-wrapper">
@@ -106,6 +112,23 @@
     #expand-button:hover { opacity: 0.7; }
     #expand-button:active { opacity: 1; }
     #expand-button svg { width: 1.3rem; height: 1.3rem; }
+
+    /* Character counter */
+    #char-counter {
+      position: absolute;
+      bottom: 5px;
+      right: 10px;
+      font-size: 0.65rem;
+      font-family: var(--font-family-code);
+      color: var(--color-text);
+      opacity: 0.35;
+      pointer-events: none;
+      user-select: none;
+      transition: opacity 0.2s ease;
+      line-height: 1;
+    }
+    #chat-input:focus ~ #char-counter,
+    #chat-input-container:focus-within #char-counter { opacity: 0.55; }
 
     /* Chat buttons (Send/Mic) */
     #chat-buttons-wrapper { gap: var(--spacing-xs); padding-left: var(--spacing-xs); line-height: 0.5rem; display: -webkit-flex; display: flex; }
