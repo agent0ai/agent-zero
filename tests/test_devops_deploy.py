@@ -48,6 +48,9 @@ class TestDevOpsDeployValidation:
 
         assert "ERROR" in response.message
         assert "invalid environment" in response.message.lower()
+        deployment = response.additional["deployment"]
+        assert deployment["status"] == "failed"
+        assert deployment["telemetry"]["failed_stage"] == "validate"
 
     @pytest.mark.unit
     async def test_valid_environment_accepted(self, mock_agent):
@@ -103,6 +106,12 @@ class TestDevOpsDeployExecution:
         assert primitives["record"]["recorded"] is True
         assert primitives["record"]["summary"]["environment"] == "staging"
         assert primitives["record"]["summary"]["platform"] == "kubernetes"
+        telemetry = deployment["telemetry"]
+        assert telemetry["failed_stage"] is None
+        assert len(telemetry["stages"]) == 3
+        assert [stage["name"] for stage in telemetry["stages"]] == ["checks", "execute", "record"]
+        assert all(stage["status"] == "passed" for stage in telemetry["stages"])
+        assert all(isinstance(stage["duration_ms"], int) for stage in telemetry["stages"])
 
 
 class TestDevOpsDeployPOC:

@@ -13,6 +13,9 @@ Enhanced with multi-platform deployment strategies:
 - GCP (Cloud Run, GKE, Cloud Build)
 """
 
+from datetime import datetime, timezone
+from time import perf_counter
+
 from python.helpers.deployment_primitives import (
     execute_deployment,
     normalize_environment,
@@ -71,12 +74,32 @@ class DevOpsDeploy(Tool):
             platform = str(self.args.get("platform", "")).strip()
 
         # Step 1: Validate environment
+        started_at = self._utc_now_iso()
         normalized_env = self._validate_environment(environment)
         if not normalized_env:
+            finished_at = self._utc_now_iso()
             return Response(
                 message=f"❌ ERROR: Invalid environment: '{environment}'\n"
                 f"Valid environments: production, staging, development (or prod, stage, dev)",
                 break_loop=False,
+                additional={
+                    "deployment": {
+                        "environment": environment,
+                        "status": "failed",
+                        "telemetry": {
+                            "started_at": started_at,
+                            "finished_at": finished_at,
+                            "failed_stage": "validate",
+                            "stages": [
+                                {
+                                    "name": "validate",
+                                    "status": "failed",
+                                    "error": "invalid_environment",
+                                }
+                            ],
+                        },
+                    }
+                },
             )
 
         # Step 2: Build structured step results and human-readable report
@@ -134,30 +157,67 @@ class DevOpsDeploy(Tool):
         return normalize_environment(environment)
 
     def _build_deployment_result(self, environment: str, skip_tests: bool, skip_backup: bool, platform: str = "") -> dict:
-        checks = run_predeployment_checks(environment, skip_tests=skip_tests, skip_backup=skip_backup)
-        execution = execute_deployment(environment, platform=platform or None)
-        record = record_deployment_result(execution)
+        started_at = self._utc_now_iso()
+        stage_runs: list[dict] = []
+        failed_stage = ""
+
+        checks = {}
+        execution = {}
+        record = {}
+
+        current_stage = "checks"
+        try:
+            checks, stage_meta = self._run_stage(
+                "checks",
+                lambda: run_predeployment_checks(environment, skip_tests=skip_tests, skip_backup=skip_backup),
+            )
+            stage_runs.append(stage_meta)
+
+            current_stage = "execute"
+            execution, stage_meta = self._run_stage(
+                "execute",
+                lambda: execute_deployment(environment, platform=platform or None),
+            )
+            stage_runs.append(stage_meta)
+
+            current_stage = "record"
+            record, stage_meta = self._run_stage("record", lambda: record_deployment_result(execution))
+            stage_runs.append(stage_meta)
+        except Exception as exc:
+            failed_stage = current_stage
+            stage_runs.append(
+                {
+                    "name": current_stage,
+                    "status": "failed",
+                    "error": type(exc).__name__,
+                }
+            )
+
+        finished_at = self._utc_now_iso()
+        health_checks_passed = bool(execution.get("health_checks_passed", False))
+        smoke_tests_passed = bool(execution.get("smoke_tests_passed", False))
+        status = execution.get("status", "failed" if failed_stage else "success")
 
         return {
             "environment": environment,
             "platform": execution.get("platform", "default"),
             "skip_tests": bool(skip_tests),
             "skip_backup": bool(skip_backup),
-            "status": execution.get("status", "success"),
+            "status": status,
             "steps": {
                 "input_validation": {"status": "passed"},
                 "pre_deployment_checks": {"status": "passed"},
                 "backup": {"status": "skipped" if skip_backup else "passed"},
                 "tests": {"status": "skipped" if skip_tests else "passed"},
                 "build_package": {"status": "passed"},
-                "deployment": {"status": execution.get("status", "success")},
-                "health_checks": {"status": "passed" if execution.get("health_checks_passed") else "failed"},
-                "smoke_tests": {"status": "passed" if execution.get("smoke_tests_passed") else "failed"},
+                "deployment": {"status": status},
+                "health_checks": {"status": "passed" if health_checks_passed else "failed"},
+                "smoke_tests": {"status": "passed" if smoke_tests_passed else "failed"},
                 "post_deployment": {"status": "passed"},
             },
             "checks": {
-                "health_checks_passed": bool(execution.get("health_checks_passed", False)),
-                "smoke_tests_passed": bool(execution.get("smoke_tests_passed", False)),
+                "health_checks_passed": health_checks_passed,
+                "smoke_tests_passed": smoke_tests_passed,
                 "backup_created": bool(checks.get("checks", {}).get("backup", False)),
                 "tests_run": bool(checks.get("checks", {}).get("tests", False)),
             },
@@ -166,7 +226,30 @@ class DevOpsDeploy(Tool):
                 "execution": execution,
                 "record": record,
             },
+            "telemetry": {
+                "started_at": started_at,
+                "finished_at": finished_at,
+                "failed_stage": failed_stage or None,
+                "stages": stage_runs,
+            },
         }
+
+    def _run_stage(self, name: str, fn):
+        started_at = self._utc_now_iso()
+        t0 = perf_counter()
+        value = fn()
+        duration_ms = int((perf_counter() - t0) * 1000)
+        return value, {
+            "name": name,
+            "status": "passed",
+            "started_at": started_at,
+            "finished_at": self._utc_now_iso(),
+            "duration_ms": duration_ms,
+        }
+
+    @staticmethod
+    def _utc_now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat()
 
     def _generate_deployment_poc(self, result: dict) -> str:
         """
