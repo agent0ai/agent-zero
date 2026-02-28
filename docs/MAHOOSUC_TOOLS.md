@@ -645,18 +645,21 @@ await agent.use_tool(
 **Metrics Monitored**:
 
 Infrastructure:
+
 - CPU usage (per instance, aggregate, trends)
 - Memory (used, available, swap, leak detection)
 - Disk I/O (read/write ops, throughput, queue depth)
 - Network (bandwidth, connections, errors)
 
 Application:
+
 - Request rate (requests/second)
 - Latency (p50, p95, p99 percentiles)
 - Error rate (4xx/5xx errors)
 - Throughput (successful requests)
 
 Database:
+
 - Connections (active, idle, max)
 - Query performance (slow queries, avg time)
 - Replication (lag, status, health)
@@ -672,6 +675,7 @@ Database:
 **Platform Support**:
 
 **Grafana + Prometheus**:
+
 - Grafana server configuration
 - Prometheus datasource integration
 - Node exporter deployment
@@ -679,6 +683,7 @@ Database:
 - Alert rules in Prometheus
 
 **Datadog**:
+
 - Agent installation on all instances
 - Infrastructure and APM monitoring
 - Log collection and analysis
@@ -686,6 +691,7 @@ Database:
 - AWS/GCP/Azure integrations
 
 **AWS CloudWatch**:
+
 - EC2 detailed monitoring (1-min intervals)
 - Custom application metrics
 - CloudWatch dashboards
