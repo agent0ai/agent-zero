@@ -13,6 +13,12 @@ Enhanced with multi-platform deployment strategies:
 - GCP (Cloud Run, GKE, Cloud Build)
 """
 
+from python.helpers.deployment_primitives import (
+    execute_deployment,
+    normalize_environment,
+    record_deployment_result,
+    run_predeployment_checks,
+)
 from python.helpers.tool import Response, Tool
 from python.tools.deployment_strategies.aws import AWSStrategy
 from python.tools.deployment_strategies.gcp import GCPStrategy
@@ -60,6 +66,10 @@ class DevOpsDeploy(Tool):
             if isinstance(skip_backup, str):
                 skip_backup = skip_backup.lower() in ["true", "1", "yes"]
 
+        platform = ""
+        if self.args:
+            platform = str(self.args.get("platform", "")).strip()
+
         # Step 1: Validate environment
         normalized_env = self._validate_environment(environment)
         if not normalized_env:
@@ -74,6 +84,7 @@ class DevOpsDeploy(Tool):
             environment=normalized_env,
             skip_tests=skip_tests,
             skip_backup=skip_backup,
+            platform=platform,
         )
         report = self._generate_deployment_poc(result)
 
@@ -120,45 +131,40 @@ class DevOpsDeploy(Tool):
         Returns:
             Normalized environment name or empty string if invalid
         """
-        if not environment:
-            return ""
+        return normalize_environment(environment)
 
-        env_lower = environment.lower().strip()
+    def _build_deployment_result(self, environment: str, skip_tests: bool, skip_backup: bool, platform: str = "") -> dict:
+        checks = run_predeployment_checks(environment, skip_tests=skip_tests, skip_backup=skip_backup)
+        execution = execute_deployment(environment, platform=platform or None)
+        record = record_deployment_result(execution)
 
-        # Map aliases to canonical names
-        env_map = {
-            "production": "production",
-            "prod": "production",
-            "staging": "staging",
-            "stage": "staging",
-            "development": "development",
-            "dev": "development",
-        }
-
-        return env_map.get(env_lower, "")
-
-    def _build_deployment_result(self, environment: str, skip_tests: bool, skip_backup: bool) -> dict:
         return {
             "environment": environment,
+            "platform": execution.get("platform", "default"),
             "skip_tests": bool(skip_tests),
             "skip_backup": bool(skip_backup),
-            "status": "success",
+            "status": execution.get("status", "success"),
             "steps": {
                 "input_validation": {"status": "passed"},
                 "pre_deployment_checks": {"status": "passed"},
                 "backup": {"status": "skipped" if skip_backup else "passed"},
                 "tests": {"status": "skipped" if skip_tests else "passed"},
                 "build_package": {"status": "passed"},
-                "deployment": {"status": "passed"},
-                "health_checks": {"status": "passed"},
-                "smoke_tests": {"status": "passed"},
+                "deployment": {"status": execution.get("status", "success")},
+                "health_checks": {"status": "passed" if execution.get("health_checks_passed") else "failed"},
+                "smoke_tests": {"status": "passed" if execution.get("smoke_tests_passed") else "failed"},
                 "post_deployment": {"status": "passed"},
             },
             "checks": {
-                "health_checks_passed": True,
-                "smoke_tests_passed": True,
-                "backup_created": not skip_backup,
-                "tests_run": not skip_tests,
+                "health_checks_passed": bool(execution.get("health_checks_passed", False)),
+                "smoke_tests_passed": bool(execution.get("smoke_tests_passed", False)),
+                "backup_created": bool(checks.get("checks", {}).get("backup", False)),
+                "tests_run": bool(checks.get("checks", {}).get("tests", False)),
+            },
+            "primitives": {
+                "checks": checks,
+                "execution": execution,
+                "record": record,
             },
         }
 

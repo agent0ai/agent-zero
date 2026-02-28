@@ -84,6 +84,26 @@ class TestDevOpsDeployExecution:
         # Production deployment should mention approval/confirmation
         assert any(word in response.message.lower() for word in ["production", "deploy"])
 
+    @pytest.mark.unit
+    async def test_deployment_runs_primitives_chain(self, mock_agent):
+        """Test that deployment result includes validate/checks/execute/record primitive outputs."""
+        tool = create_tool(mock_agent, {"environment": "staging", "platform": "kubernetes"})
+
+        response = await tool.execute()
+
+        deployment = response.additional["deployment"]
+        primitives = deployment["primitives"]
+
+        assert deployment["environment"] == "staging"
+        assert deployment["platform"] == "kubernetes"
+        assert deployment["status"] == "success"
+
+        assert primitives["checks"]["status"] == "passed"
+        assert primitives["execution"]["status"] == "success"
+        assert primitives["record"]["recorded"] is True
+        assert primitives["record"]["summary"]["environment"] == "staging"
+        assert primitives["record"]["summary"]["platform"] == "kubernetes"
+
 
 class TestDevOpsDeployPOC:
     """Tests for POC implementation that returns simulated deployment"""
