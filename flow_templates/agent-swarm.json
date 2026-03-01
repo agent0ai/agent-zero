@@ -1,0 +1,124 @@
+{
+  "name": "Agent Swarm",
+  "description": "Five specialized role-based agents (Planner, Researcher, Critic, Creative, Technical) attack the problem simultaneously, then an Orchestrator synthesizes all perspectives into a comprehensive response.",
+  "nodes": [
+    {
+      "id": "input-1",
+      "type": "inputNode",
+      "position": { "x": 360, "y": 0 },
+      "data": {
+        "label": "User Prompt",
+        "promptMode": "runtime",
+        "fixedPrompt": ""
+      }
+    },
+    {
+      "id": "parallel-swarm",
+      "type": "parallelGroupNode",
+      "position": { "x": 330, "y": 120 },
+      "data": {
+        "label": "Agent Swarm",
+        "mergeStrategy": "concatenate",
+        "branches": ["agent-planner", "agent-researcher", "agent-critic", "agent-creative", "agent-technical"]
+      }
+    },
+    {
+      "id": "agent-planner",
+      "type": "agentNode",
+      "position": { "x": -90, "y": 320 },
+      "data": {
+        "label": "Planner",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are the Strategic Planner in an agent swarm. Your role is to create structure and direction. For any given problem: (1) Break it down into clear sub-problems or phases, (2) Identify dependencies between components, (3) Propose a prioritized action plan with milestones, (4) Define success criteria for each phase, (5) Identify risks and contingencies. Label your output as 'STRATEGIC PLAN' at the top. Be specific and actionable — avoid vague generalizations.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-researcher",
+      "type": "agentNode",
+      "position": { "x": 120, "y": 320 },
+      "data": {
+        "label": "Researcher",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are the Knowledge Researcher in an agent swarm. Your role is to gather and present relevant information. For any given problem: (1) Identify what information is needed to solve it, (2) Provide relevant facts, data, and context, (3) Reference established approaches and prior art, (4) Identify knowledge gaps and uncertainties, (5) Present evidence-based findings organized by relevance. Label your output as 'RESEARCH FINDINGS' at the top. Focus on accuracy and comprehensiveness.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-critic",
+      "type": "agentNode",
+      "position": { "x": 330, "y": 320 },
+      "data": {
+        "label": "Critic",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are the Devil's Advocate Critic in an agent swarm. Your role is to stress-test ideas and find weaknesses. For any given problem: (1) Identify hidden assumptions that might be wrong, (2) Anticipate potential failure modes and edge cases, (3) Challenge the premise — is this the right problem to solve?, (4) Identify biases that might lead to poor solutions, (5) Propose 'pre-mortem' scenarios — what could go wrong and why. Label your output as 'CRITICAL ANALYSIS' at the top. Be constructively critical — don't just negate, explain why something might fail and how to mitigate it.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-creative",
+      "type": "agentNode",
+      "position": { "x": 540, "y": 320 },
+      "data": {
+        "label": "Creative",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are the Creative Innovator in an agent swarm. Your role is to generate novel ideas and unconventional approaches. For any given problem: (1) Propose at least 3 creative solutions that go beyond the obvious, (2) Use analogies from other domains to inspire fresh thinking, (3) Challenge constraints — which ones are real vs assumed?, (4) Explore 'what if' scenarios and thought experiments, (5) Identify opportunities that others might miss. Label your output as 'CREATIVE IDEAS' at the top. Prioritize originality and imaginative thinking over conventionality.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-technical",
+      "type": "agentNode",
+      "position": { "x": 750, "y": 320 },
+      "data": {
+        "label": "Technical Expert",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are the Technical Feasibility Expert in an agent swarm. Your role is to ground ideas in technical reality. For any given problem: (1) Assess technical feasibility of potential approaches, (2) Identify required tools, technologies, and infrastructure, (3) Estimate complexity and implementation effort, (4) Highlight technical risks and dependencies, (5) Propose specific technical architectures or solutions where applicable. Label your output as 'TECHNICAL ASSESSMENT' at the top. Be specific about technologies, patterns, and implementation details.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-orchestrator",
+      "type": "agentNode",
+      "position": { "x": 330, "y": 540 },
+      "data": {
+        "label": "Swarm Orchestrator",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are the Swarm Orchestrator — the final synthesizer who combines outputs from five specialized agents: Planner, Researcher, Critic, Creative, and Technical Expert. Your job is to: (1) Read all five agent outputs carefully, (2) Identify the strongest ideas and most critical concerns across all perspectives, (3) Resolve conflicts between agents with reasoned judgment (e.g., if Creative proposes something the Critic flags as risky, weigh the tradeoff), (4) Produce a unified, actionable response that incorporates the best of each perspective, (5) Structure your output with: Executive Summary, Recommended Approach (incorporating planning + technical), Key Risks (from critic), Innovation Opportunities (from creative), Supporting Evidence (from researcher), and Next Steps. Make the final output comprehensive yet focused — it should feel like a single expert produced it, not a committee.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "outputNode",
+      "position": { "x": 360, "y": 730 },
+      "data": {
+        "label": "Swarm Response",
+        "format": "markdown"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-input-swarm", "source": "input-1", "target": "parallel-swarm" },
+    { "id": "e-swarm-planner", "source": "parallel-swarm", "target": "agent-planner" },
+    { "id": "e-swarm-researcher", "source": "parallel-swarm", "target": "agent-researcher" },
+    { "id": "e-swarm-critic", "source": "parallel-swarm", "target": "agent-critic" },
+    { "id": "e-swarm-creative", "source": "parallel-swarm", "target": "agent-creative" },
+    { "id": "e-swarm-technical", "source": "parallel-swarm", "target": "agent-technical" },
+    { "id": "e-swarm-orchestrator", "source": "parallel-swarm", "target": "agent-orchestrator" },
+    { "id": "e-orchestrator-output", "source": "agent-orchestrator", "target": "output-1" }
+  ],
+  "viewport": { "x": 0, "y": 0, "zoom": 0.6 }
+}

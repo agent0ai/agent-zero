@@ -13,8 +13,13 @@ import { store as notificationStore } from "/components/notifications/notificati
 import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js";
 
+const FLOW_GROUP_COLLAPSED_KEY = "flowGroupCollapsed";
+
 const model = {
   contexts: [],
+  regularContexts: [],
+  flowGroups: [],
+  _flowGroupCollapsed: {},
   selected: "",
   selectedContext: null,
   loggedIn: false,
@@ -30,6 +35,13 @@ const model = {
 
   init() {
     this.loggedIn = Boolean(window.runtimeInfo && window.runtimeInfo.loggedIn);
+
+    // Restore flow group collapse state from localStorage
+    try {
+      const saved = localStorage.getItem(FLOW_GROUP_COLLAPSED_KEY);
+      if (saved) this._flowGroupCollapsed = JSON.parse(saved);
+    } catch (_e) { /* ignore */ }
+
     // Initialize from sessionStorage
     const lastSelectedChat = sessionStorage.getItem("lastSelectedChat");
     if (lastSelectedChat) {
@@ -44,6 +56,32 @@ const model = {
       (a, b) => (b.created_at || 0) - (a.created_at || 0)
     );
 
+    // Partition into regular contexts and flow groups
+    const regular = [];
+    const groupMap = {};
+
+    for (const ctx of this.contexts) {
+      const flowRunId = ctx.flow_run_id;
+      if (flowRunId) {
+        if (!groupMap[flowRunId]) {
+          groupMap[flowRunId] = {
+            flow_run_id: flowRunId,
+            flow_name: ctx.flow_name || "Flow",
+            flow_running: false,
+            contexts: [],
+            collapsed: this._getFlowGroupCollapsed(flowRunId),
+          };
+        }
+        groupMap[flowRunId].contexts.push(ctx);
+        if (ctx.flow_running) groupMap[flowRunId].flow_running = true;
+      } else {
+        regular.push(ctx);
+      }
+    }
+
+    this.regularContexts = regular;
+    this.flowGroups = Object.values(groupMap);
+
     // Keep selectedContext in sync when the currently selected context's
     // metadata changes (e.g. project activation/deactivation).
     if (this.selected) {
@@ -52,6 +90,49 @@ const model = {
       if (updated) {
         this.selectedContext = updated;
       }
+    }
+  },
+
+  // ─── Flow Group Methods ───
+
+  _getFlowGroupCollapsed(flowRunId) {
+    return this._flowGroupCollapsed[flowRunId] !== false; // default: true (collapsed)
+  },
+
+  toggleFlowGroup(flowRunId) {
+    const newCollapsed = !this._getFlowGroupCollapsed(flowRunId);
+    // Immutable replace of the collapsed map — ensures Alpine's proxy detects the change
+    this._flowGroupCollapsed = { ...this._flowGroupCollapsed, [flowRunId]: newCollapsed };
+    // Immutable update of the array — new array + new object forces Alpine to re-render x-for
+    this.flowGroups = this.flowGroups.map((g) =>
+      g.flow_run_id === flowRunId ? { ...g, collapsed: newCollapsed } : g
+    );
+    try {
+      localStorage.setItem(FLOW_GROUP_COLLAPSED_KEY, JSON.stringify(this._flowGroupCollapsed));
+    } catch (_e) { /* ignore */ }
+  },
+
+  async killFlowGroup(flowRunId) {
+    if (!flowRunId) return;
+    try {
+      // Find contexts to remove for optimistic UI and selection handling
+      const group = this.flowGroups.find((g) => g.flow_run_id === flowRunId);
+      const contextIds = group ? group.contexts.map((c) => c.id) : [];
+
+      // If the selected chat is in this group, switch away first
+      if (contextIds.includes(this.selected)) {
+        await this.switchFromContext(this.selected);
+      }
+
+      await sendJsonData("/flow_group_remove", { flow_run_id: flowRunId });
+
+      // Optimistic UI update — remove these contexts
+      this.contexts = this.contexts.filter((ctx) => !contextIds.includes(ctx.id));
+      this.applyContexts(this.contexts);
+
+      justToast("Flow group removed", "success", 1000, "flow-group-removal");
+    } catch (e) {
+      toastFetchError("Error removing flow group", e);
     }
   },
 
@@ -97,15 +178,15 @@ const model = {
       // Delete the chat on the server
       await sendJsonData("/chat_remove", { context: id });
 
-      // Update the UI - remove from contexts
+      // Update the UI - remove from contexts and re-derive groups
       const updatedContexts = this.contexts.filter((ctx) => ctx.id !== id);
       console.log(
         "Updated contexts after deletion:",
         JSON.stringify(updatedContexts.map((c) => ({ id: c.id, name: c.name })))
       );
 
-      // Force UI update by creating a new array
-      this.contexts = [...updatedContexts];
+      // Re-run applyContexts to update regularContexts/flowGroups
+      this.applyContexts(updatedContexts);
 
       // Show success notification
       justToast("Chat deleted successfully", "success", 1000, "chat-removal");

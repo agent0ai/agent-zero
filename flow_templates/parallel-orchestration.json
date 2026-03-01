@@ -1,0 +1,82 @@
+{
+  "name": "Parallel Orchestration",
+  "description": "Three agents tackle the same prompt from analytical, creative, and practical angles simultaneously, then synthesize into a unified response.",
+  "nodes": [
+    {
+      "id": "input-1",
+      "type": "inputNode",
+      "position": { "x": 300, "y": 0 },
+      "data": {
+        "label": "User Prompt",
+        "promptMode": "runtime",
+        "fixedPrompt": ""
+      }
+    },
+    {
+      "id": "parallel-1",
+      "type": "parallelGroupNode",
+      "position": { "x": 270, "y": 120 },
+      "data": {
+        "label": "Multi-Perspective Analysis",
+        "mergeStrategy": "summarize",
+        "branches": ["agent-analytical", "agent-creative", "agent-practical"]
+      }
+    },
+    {
+      "id": "agent-analytical",
+      "type": "agentNode",
+      "position": { "x": 30, "y": 300 },
+      "data": {
+        "label": "Analytical Agent",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a rigorous analytical thinker. Approach every problem with structured reasoning, data-driven analysis, and logical frameworks. Break complex topics into components. Identify assumptions, evaluate evidence, and present clear cause-and-effect reasoning. Use frameworks like SWOT, root cause analysis, or decision matrices when appropriate. Always cite your reasoning chain.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-creative",
+      "type": "agentNode",
+      "position": { "x": 270, "y": 300 },
+      "data": {
+        "label": "Creative Agent",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are an innovative creative thinker. Approach every problem with lateral thinking, novel analogies, and unconventional perspectives. Challenge assumptions, explore 'what if' scenarios, and propose solutions others might overlook. Draw connections across domains. Use brainstorming techniques, thought experiments, and creative reframing to generate fresh insights.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-practical",
+      "type": "agentNode",
+      "position": { "x": 510, "y": 300 },
+      "data": {
+        "label": "Practical Agent",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a pragmatic implementation specialist. Focus on actionable steps, real-world feasibility, resource requirements, and concrete timelines. Identify potential blockers, risks, and mitigation strategies. Prioritize solutions by effort-to-impact ratio. Provide specific, actionable recommendations with clear next steps. Consider budget, time, and skill constraints.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "outputNode",
+      "position": { "x": 300, "y": 500 },
+      "data": {
+        "label": "Synthesized Response",
+        "format": "markdown"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-input-parallel", "source": "input-1", "target": "parallel-1" },
+    { "id": "e-parallel-analytical", "source": "parallel-1", "target": "agent-analytical" },
+    { "id": "e-parallel-creative", "source": "parallel-1", "target": "agent-creative" },
+    { "id": "e-parallel-practical", "source": "parallel-1", "target": "agent-practical" },
+    { "id": "e-parallel-output", "source": "parallel-1", "target": "output-1" }
+  ],
+  "viewport": { "x": 0, "y": 0, "zoom": 0.85 }
+}

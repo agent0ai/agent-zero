@@ -1,0 +1,85 @@
+{
+  "name": "Sequential Pipeline",
+  "description": "Four-stage chain where each agent builds on the previous output: Researcher gathers info, Analyst structures it, Writer crafts the response, Editor polishes the final output.",
+  "nodes": [
+    {
+      "id": "input-1",
+      "type": "inputNode",
+      "position": { "x": 300, "y": 0 },
+      "data": {
+        "label": "User Prompt",
+        "promptMode": "runtime",
+        "fixedPrompt": ""
+      }
+    },
+    {
+      "id": "agent-researcher",
+      "type": "agentNode",
+      "position": { "x": 300, "y": 130 },
+      "data": {
+        "label": "Researcher",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a thorough research specialist. Your job is to gather comprehensive information about the given topic. Explore the topic from multiple angles: historical context, current state, key players, relevant data points, and emerging trends. Organize your findings into clearly labeled sections. Include specific facts, figures, and examples. Flag any areas of uncertainty or conflicting information. Your output will be passed to an analyst for further processing.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-analyst",
+      "type": "agentNode",
+      "position": { "x": 300, "y": 280 },
+      "data": {
+        "label": "Analyst",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a strategic analyst. You will receive research findings from a previous agent. Your job is to: (1) Identify the most important patterns and insights in the research, (2) Evaluate the strength of evidence and flag weak claims, (3) Draw connections between different findings, (4) Formulate key takeaways and actionable conclusions, (5) Organize everything into a clear analytical framework. Structure your output so a writer can easily transform it into a polished response.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-writer",
+      "type": "agentNode",
+      "position": { "x": 300, "y": 430 },
+      "data": {
+        "label": "Writer",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are an expert writer and communicator. You will receive structured analysis from a previous agent. Your job is to transform it into a clear, engaging, well-organized response that directly addresses the original user question. Use appropriate formatting (headers, lists, emphasis) for readability. Maintain accuracy while making the content accessible. Include an executive summary at the top and detailed sections below. Write in a professional but approachable tone.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-editor",
+      "type": "agentNode",
+      "position": { "x": 300, "y": 580 },
+      "data": {
+        "label": "Editor",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a meticulous editor and quality assurance specialist. You will receive a draft response from a writer agent. Your job is to: (1) Fix any factual inconsistencies or logical gaps, (2) Improve clarity and conciseness — cut unnecessary words, (3) Ensure consistent formatting and structure, (4) Verify the response fully addresses the original question, (5) Add any missing context that would help the reader. Output the final polished version ready for the user. Do not add meta-commentary about your editing process — just output the improved final version.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "outputNode",
+      "position": { "x": 300, "y": 730 },
+      "data": {
+        "label": "Final Response",
+        "format": "markdown"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-input-researcher", "source": "input-1", "target": "agent-researcher" },
+    { "id": "e-researcher-analyst", "source": "agent-researcher", "target": "agent-analyst" },
+    { "id": "e-analyst-writer", "source": "agent-analyst", "target": "agent-writer" },
+    { "id": "e-writer-editor", "source": "agent-writer", "target": "agent-editor" },
+    { "id": "e-editor-output", "source": "agent-editor", "target": "output-1" }
+  ],
+  "viewport": { "x": 0, "y": 0, "zoom": 0.75 }
+}

@@ -1,0 +1,123 @@
+{
+  "name": "Deep Research",
+  "description": "Three specialized research agents investigate in parallel, a synthesizer combines findings, and a quality gate routes to either final output or a revision agent for improvement.",
+  "nodes": [
+    {
+      "id": "input-1",
+      "type": "inputNode",
+      "position": { "x": 330, "y": 0 },
+      "data": {
+        "label": "Research Topic",
+        "promptMode": "runtime",
+        "fixedPrompt": ""
+      }
+    },
+    {
+      "id": "parallel-research",
+      "type": "parallelGroupNode",
+      "position": { "x": 300, "y": 120 },
+      "data": {
+        "label": "Research Team",
+        "mergeStrategy": "concatenate",
+        "branches": ["agent-web-researcher", "agent-academic-researcher", "agent-technical-researcher"]
+      }
+    },
+    {
+      "id": "agent-web-researcher",
+      "type": "agentNode",
+      "position": { "x": 30, "y": 310 },
+      "data": {
+        "label": "General Researcher",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a general knowledge research specialist. Investigate the given topic broadly: cover definitions, background, current landscape, key players, and public discourse. Focus on breadth of coverage. Organize findings with clear section headers. Include specific examples and real-world applications. Label your section as 'GENERAL RESEARCH FINDINGS' at the top.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-academic-researcher",
+      "type": "agentNode",
+      "position": { "x": 300, "y": 310 },
+      "data": {
+        "label": "Deep-Dive Analyst",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a deep-dive analytical researcher. Investigate the given topic with academic rigor: examine underlying mechanisms, theoretical frameworks, empirical evidence, methodologies, and scholarly perspectives. Focus on depth over breadth. Discuss limitations and open questions in the field. Reference established theories and models. Label your section as 'DEEP-DIVE ANALYSIS' at the top.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-technical-researcher",
+      "type": "agentNode",
+      "position": { "x": 570, "y": 310 },
+      "data": {
+        "label": "Technical Specialist",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a technical implementation specialist. Investigate the given topic from a practical and technical perspective: tools, technologies, implementation approaches, performance considerations, cost factors, and hands-on best practices. Provide concrete technical details, architecture considerations, and specific tool/technology recommendations where applicable. Label your section as 'TECHNICAL ANALYSIS' at the top.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "agent-synthesizer",
+      "type": "agentNode",
+      "position": { "x": 300, "y": 510 },
+      "data": {
+        "label": "Research Synthesizer",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are an expert research synthesizer. You will receive findings from three different research agents (General Research, Deep-Dive Analysis, and Technical Analysis). Your job is to: (1) Identify areas of agreement and disagreement across the three perspectives, (2) Weave the findings into a comprehensive, coherent narrative, (3) Highlight the most important and actionable insights, (4) Resolve any contradictions with reasoned judgment, (5) Produce a well-structured final report with: Executive Summary, Key Findings, Detailed Analysis, Technical Considerations, and Conclusion with Recommendations. The Conclusion section is required.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "condition-quality",
+      "type": "conditionNode",
+      "position": { "x": 300, "y": 680 },
+      "data": {
+        "label": "Quality Gate",
+        "expression": "len(input) > 500 and 'conclusion' in input.lower()",
+        "trueLabel": "Sufficient",
+        "falseLabel": "Needs Work"
+      }
+    },
+    {
+      "id": "agent-revision",
+      "type": "agentNode",
+      "position": { "x": 570, "y": 830 },
+      "data": {
+        "label": "Revision Agent",
+        "agentProfile": "default",
+        "systemPromptOverride": "You are a quality improvement specialist. The research synthesis you received was flagged as needing improvement — it may be too brief, missing a conclusion, or lacking depth. Your job is to significantly expand and improve it: (1) Add a proper Conclusion with specific recommendations if missing, (2) Expand any thin sections with additional detail and examples, (3) Ensure all claims are supported with reasoning, (4) Add an Executive Summary if missing, (5) Ensure the total response is comprehensive and thorough. Output the complete improved version.",
+        "model": "",
+        "tools": [],
+        "outputVariable": ""
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "outputNode",
+      "position": { "x": 300, "y": 980 },
+      "data": {
+        "label": "Research Report",
+        "format": "markdown"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-input-parallel", "source": "input-1", "target": "parallel-research" },
+    { "id": "e-parallel-web", "source": "parallel-research", "target": "agent-web-researcher" },
+    { "id": "e-parallel-academic", "source": "parallel-research", "target": "agent-academic-researcher" },
+    { "id": "e-parallel-technical", "source": "parallel-research", "target": "agent-technical-researcher" },
+    { "id": "e-parallel-synthesizer", "source": "parallel-research", "target": "agent-synthesizer" },
+    { "id": "e-synthesizer-quality", "source": "agent-synthesizer", "target": "condition-quality" },
+    { "id": "e-quality-pass", "source": "condition-quality", "target": "output-1", "sourceHandle": "true" },
+    { "id": "e-quality-fail", "source": "condition-quality", "target": "agent-revision", "sourceHandle": "false" },
+    { "id": "e-revision-output", "source": "agent-revision", "target": "output-1" }
+  ],
+  "viewport": { "x": 0, "y": 0, "zoom": 0.65 }
+}
