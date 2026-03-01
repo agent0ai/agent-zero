@@ -31,7 +31,7 @@ async def preload():
 
         # preload kokoro tts model if enabled
         async def preload_kokoro():
-            if set["tts_kokoro"]:
+            if set["tts_enabled"] and set["tts_engine"] == "kokoro":
                 try:
                     return await kokoro_tts.preload()
                 except Exception as e:

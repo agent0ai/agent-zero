@@ -79,18 +79,65 @@
 
           <div class="field">
             <div class="field-label">
-              <div class="field-title">Enable Kokoro TTS</div>
+              <div class="field-title">Enable TTS</div>
               <div class="field-description">
-                Enable higher quality server-side AI (Kokoro) instead of browser-based text-to-speech.
+                Enable server-side AI text-to-speech. When disabled, uses browser-based TTS.
               </div>
             </div>
             <div class="field-control">
               <label class="toggle">
-                <input type="checkbox" x-model="$store.settings.settings.tts_kokoro" />
+                <input type="checkbox" x-model="$store.settings.settings.tts_enabled" />
                 <span class="toggler"></span>
               </label>
             </div>
           </div>
+
+          <template x-if="$store.settings.settings.tts_enabled">
+            <div x-init="$store.speech.loadVoiceList($store.settings.settings.tts_engine)">
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">TTS Engine</div>
+                  <div class="field-description">Select the text-to-speech engine.</div>
+                </div>
+                <div class="field-control">
+                  <select x-model="$store.settings.settings.tts_engine"
+                    @change="$store.speech.onEngineChanged($store.settings.settings.tts_engine); $store.settings.settings.tts_voice = ''">
+                    <option value="kokoro">Kokoro (Local)</option>
+                    <option value="edge">Edge TTS (Online)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">TTS Voice</div>
+                  <div class="field-description">Select the voice for the current engine.</div>
+                </div>
+                <div class="field-control">
+                  <select x-model="$store.settings.settings.tts_voice"
+                    x-effect="$store.speech.voiceList; $nextTick(() => { $el.value = $store.settings.settings.tts_voice || '' })">
+                    <option value="">Default</option>
+                    <template x-for="v in $store.speech.voiceList" :key="v.id">
+                      <option :value="v.id" x-text="`${v.name} (${v.language})`"></option>
+                    </template>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">TTS Speed</div>
+                  <div class="field-description">Adjust speech rate.</div>
+                </div>
+                <div class="field-control">
+                  <input type="range" min="-50" max="100" step="10"
+                    x-model.number="$store.speech._ratePercent"
+                    @input="$store.settings.settings.tts_rate = ($store.speech._ratePercent >= 0 ? '+' : '') + $store.speech._ratePercent + '%'" />
+                  <span class="range-value" x-text="($store.speech._ratePercent >= 0 ? '+' : '') + $store.speech._ratePercent + '%'"></span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </template>
     </div>

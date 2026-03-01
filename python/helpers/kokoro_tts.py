@@ -13,8 +13,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 _pipeline = None
-_voice = "am_puck,am_onyx"
-_speed = 1.1
+_default_voice = "am_puck,am_onyx"
+_default_speed = 1.1
 is_updating_model = False
 
 
@@ -86,27 +86,29 @@ def _is_downloaded():
     return _pipeline is not None
 
 
-async def synthesize_sentences(sentences: list[str]):
+async def synthesize_sentences(sentences: list[str], voice: str = "", speed: float = 0):
     """Generate audio for multiple sentences and return concatenated base64 audio"""
     try:
-        # return await runtime.call_development_function(_synthesize_sentences, sentences)
-        return await _synthesize_sentences(sentences)
+        # return await runtime.call_development_function(_synthesize_sentences, sentences, voice, speed)
+        return await _synthesize_sentences(sentences, voice, speed)
     except Exception as e:
         # if not runtime.is_development():
         raise e
         # Fallback to direct execution if RFC fails in development
-        # return await _synthesize_sentences(sentences)
+        # return await _synthesize_sentences(sentences, voice, speed)
 
 
-async def _synthesize_sentences(sentences: list[str]):
+async def _synthesize_sentences(sentences: list[str], voice: str = "", speed: float = 0):
     await _preload()
 
+    tts_voice = voice or _default_voice
+    tts_speed = speed or _default_speed
     combined_audio = []
 
     try:
         for sentence in sentences:
             if sentence.strip():
-                segments = _pipeline(sentence.strip(), voice=_voice, speed=_speed) # type: ignore
+                segments = _pipeline(sentence.strip(), voice=tts_voice, speed=tts_speed) # type: ignore
                 segment_list = list(segments)
 
                 for segment in segment_list:
