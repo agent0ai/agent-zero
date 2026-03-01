@@ -968,11 +968,13 @@ class MCPClientBase(ABC):
 
         async def call_tool_op(current_session: ClientSession):
             set = settings.get_settings()
+            # Resolve timeout: per-server override takes precedence over global default
+            tool_timeout = self.server.tool_timeout or set["mcp_client_tool_timeout"]
             # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Executing 'call_tool' for '{tool_name}' via MCP session...")
             response: CallToolResult = await current_session.call_tool(
                 tool_name,
                 input_data,
-                read_timeout_seconds=timedelta(seconds=set["mcp_client_tool_timeout"]),
+                read_timeout_seconds=timedelta(seconds=tool_timeout),
             )
             # PrintStyle(font_color="green").print(f"MCPClientBase ({self.server.name}): Tool '{tool_name}' call successful via session.")
             return response
