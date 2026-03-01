@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 from enum import Enum
 import logging
 import os
@@ -48,7 +48,7 @@ from pydantic import ConfigDict
 def turn_off_logging():
     os.environ["LITELLM_LOG"] = "ERROR"  # only errors
     litellm.suppress_debug_info = True
-    # Silence **all** LiteLLM sub-loggers (utils, cost_calculator…)
+    # Silence **all** LiteLLM sub-loggers (utils, cost_calculatorâ€¦)
     for name in logging.Logger.manager.loggerDict:
         if name.lower().startswith("litellm"):
             logging.getLogger(name).setLevel(logging.ERROR)
@@ -927,3 +927,4 @@ def get_embedding_model(
     orig = provider.lower()
     provider_name, kwargs = _merge_provider_defaults("embedding", orig, kwargs)
     return _get_litellm_embedding(name, provider_name, model_config, **kwargs)
+
