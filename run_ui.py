@@ -436,6 +436,7 @@ def run():
         log_level="info",
         access_log=_settings.get("uvicorn_access_logs_enabled", False),
         ws="wsproto",
+        loop="asyncio",
     )
     server = uvicorn.Server(config)
 
