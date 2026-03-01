@@ -131,7 +131,14 @@ def extensible(func):
 
     @wraps(func)
     def _inner_sync(*args, **kwargs):
-        return asyncio.run(_inner_async(*args, **kwargs))
+        try:
+            asyncio.get_running_loop()
+            # Already inside an async event loop (e.g. uvloop) —
+            # asyncio.run() would raise "this event loop is already running".
+            # Fall back to calling the original function directly.
+            return func(*args, **kwargs)
+        except RuntimeError:
+            return asyncio.run(_inner_async(*args, **kwargs))
 
     return _inner_sync
 
