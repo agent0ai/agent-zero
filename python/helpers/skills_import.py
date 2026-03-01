@@ -118,7 +118,11 @@ def build_import_plan(
     roots = _candidate_skill_roots(source_dir)
     plan: List[ImportPlanItem] = []
     ns = (namespace or _derive_namespace(source)).strip()
-    dest_ns_root = dest_root / ns
+    # Avoid duplicating the same trailing folder segment, e.g. "/skills/skills".
+    if ns and dest_root.name.lower() == ns.lower():
+        dest_ns_root = dest_root
+    else:
+        dest_ns_root = dest_root / ns
 
     for root in roots:
         for skill_md in discover_skill_md_files(root):
@@ -196,6 +200,13 @@ def resolve_skills_destination_root(
     if agent_profile:
         return get_agent_profile_skills_folder(agent_profile)
     return Path(files.get_abs_path("usr", "skills"))
+
+
+def resolve_display_destination(destination_root: Path, namespace: str) -> Path:
+    """Build display path for API responses without duplicating terminal folder segment."""
+    if namespace and destination_root.name.lower() != namespace.lower():
+        return destination_root / namespace
+    return destination_root
 
 
 def import_skills(
