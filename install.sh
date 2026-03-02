@@ -1,10 +1,16 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # Agent Zero Install Script v1
 # Simplified Docker-based installation
 # https://github.com/agent0ai/agent-zero
 
 set -e
+
+# Ensure we are running under bash (not dash, sh, etc.)
+if [ -z "$BASH_VERSION" ]; then
+    echo "[ERROR] This script requires bash. Please run it with: bash install.sh" >&2
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
