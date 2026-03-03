@@ -127,3 +127,80 @@ def test_ingest_cli_writes_audit_log(tmp_path, monkeypatch) -> None:
     assert len(entries) == 1
     _assert_required_fields(entries[0])
     assert entries[0]["user_action"] == "cli:legalflow.ingest_public_corpus"
+
+
+def test_chat_export_writes_audit_log(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("A0_AUDIT_LOG_PATH", str(tmp_path / "audit.jsonl"))
+
+    from python.api.chat_export import ExportChat
+    from python.helpers import persist_chat
+
+    monkeypatch.setattr(persist_chat, "export_json_chat", lambda context: '{"url":"https://example.com"}')
+    monkeypatch.setattr(ExportChat, "use_context", lambda self, ctxid, create_if_not_exists=True: type("Ctx", (), {"id": ctxid})())
+
+    app = Flask("test_chat_export_audit")
+    handler = ExportChat(app, threading.RLock())
+
+    with app.test_request_context("/chat_export", method="POST", json={"ctxid": "ctx-99"}):
+        result = asyncio.run(handler.process({"ctxid": "ctx-99"}, request))
+        assert result["ctxid"] == "ctx-99"
+
+    entries = _read_jsonl(tmp_path / "audit.jsonl")
+    assert len(entries) == 1
+    _assert_required_fields(entries[0])
+    assert entries[0]["user_action"] == "api:/chat_export"
+    assert "https://example.com" in entries[0]["sources"]
+    assert "usr/chats/ctx-99/chat.json" in entries[0]["file_paths_touched"]
+
+
+def test_gatekeeper_draft_and_review_write_audit_log(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("A0_AUDIT_LOG_PATH", str(tmp_path / "audit.jsonl"))
+
+    from agent import LoopData
+    from python.helpers.tool import Response
+    from python.tools.call_subordinate import Delegation
+    from agents.gatekeeper.extensions.message_loop_start._10_legalflow_gatekeeper_router import (
+        LegalFlowGatekeeperRouter,
+    )
+
+    async def _fake_execute(self, **kwargs):  # noqa: ANN001,ANN003
+        return Response(message="ok", break_loop=False)
+
+    monkeypatch.setattr(Delegation, "execute", _fake_execute)
+
+    class _DummyAgent:
+        agent_name = "gatekeeper"
+
+        def __init__(self) -> None:
+            self._data: dict = {}
+
+        def get_data(self, key: str):  # noqa: ANN001
+            return self._data.get(key)
+
+        def set_data(self, key: str, value):  # noqa: ANN001,ANN002
+            self._data[key] = value
+
+    class _Msg:
+        ai = False
+        content = {"user_message": ""}
+
+    router = LegalFlowGatekeeperRouter(agent=_DummyAgent())
+
+    msg = _Msg()
+    msg.content = {
+        "user_message": "intent: draft\njurisdiction: CA, USA\ndocument_type: demand letter\nfacts: test\n"
+    }
+    asyncio.run(router.execute(loop_data=LoopData(user_message=msg)))
+
+    msg2 = _Msg()
+    msg2.content = {
+        "user_message": "intent: review\njurisdiction: CA, USA\nreview_focus: risks\ndocument_text: ```\nThis is a contract.\n```\n"
+    }
+    asyncio.run(router.execute(loop_data=LoopData(user_message=msg2)))
+
+    entries = _read_jsonl(tmp_path / "audit.jsonl")
+    assert len(entries) == 2
+    for entry in entries:
+        _assert_required_fields(entry)
+    assert entries[0]["user_action"] == "intent:draft"
+    assert entries[1]["user_action"] == "intent:review"

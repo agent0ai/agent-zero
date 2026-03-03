@@ -27,7 +27,9 @@ Optional:
 ## Hooked actions (Issue #9)
 
 - **User message intake**: `user_action="api:/message_async:intake"`
+- **Chat export**: `user_action="api:/chat_export"`
 - **Research tool invocation**: `user_action="tool:search_engine"` (and `tool:knowledge` / `tool:knowledge_tool` when used)
+- **LegalFlow intent routing**: `user_action="intent:draft"` and `user_action="intent:review"`
 - **Public corpus ingestion CLI**: `user_action="cli:legalflow.ingest_public_corpus"`
 
 ## Example entry
