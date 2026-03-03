@@ -45,6 +45,79 @@ async def test_e2e_happy_intent_parses_and_routes_to_review(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_happy_intent_parses_and_routes_to_draft(monkeypatch):
+    from python.helpers.tool import Response
+    from python.tools import call_subordinate
+
+    called = {}
+
+    async def fake_execute(self, message="", reset="", **kwargs):
+        called["kwargs"] = kwargs
+        return Response(message="ok-draft", break_loop=False)
+
+    monkeypatch.setattr(call_subordinate.Delegation, "execute", fake_execute, raising=True)
+
+    config = initialize_agent(override_settings={"agent_profile": "gatekeeper"})
+    agent = Agent(0, config)
+    try:
+        agent.hist_add_user_message(
+            UserMessage(
+                message=(
+                    "intent: draft\n"
+                    "jurisdiction: CA, USA\n"
+                    "document_type: demand letter\n"
+                    "facts: Customer failed to pay two invoices totaling $12,500.\n"
+                ),
+                attachments=[],
+            )
+        )
+        result = await agent.monologue()
+        assert "profile: legalflow_draft" in result
+        assert "ok-draft" in result
+        assert called["kwargs"]["profile"] == "legalflow_draft"
+        assert called["kwargs"]["slot"] == "draft"
+    finally:
+        AgentContext.remove(agent.context.id)
+
+
+@pytest.mark.asyncio
+async def test_e2e_happy_intent_parses_and_routes_to_docs(monkeypatch):
+    from python.helpers.tool import Response
+    from python.tools import call_subordinate
+
+    called = {}
+
+    async def fake_execute(self, message="", reset="", **kwargs):
+        called["kwargs"] = kwargs
+        return Response(message="ok-docs", break_loop=False)
+
+    monkeypatch.setattr(call_subordinate.Delegation, "execute", fake_execute, raising=True)
+
+    config = initialize_agent(override_settings={"agent_profile": "gatekeeper"})
+    agent = Agent(0, config)
+    try:
+        agent.hist_add_user_message(
+            UserMessage(
+                message=(
+                    "intent: docs\n"
+                    "jurisdiction: CA, USA\n"
+                    "topic: client intake checklist\n"
+                    "audience: paralegals\n"
+                    "format: checklist\n"
+                ),
+                attachments=[],
+            )
+        )
+        result = await agent.monologue()
+        assert "profile: legalflow_docs" in result
+        assert "ok-docs" in result
+        assert called["kwargs"]["profile"] == "legalflow_docs"
+        assert called["kwargs"]["slot"] == "docs"
+    finally:
+        AgentContext.remove(agent.context.id)
+
+
+@pytest.mark.asyncio
 async def test_e2e_negative_missing_intent_triggers_structured_questions(monkeypatch):
     from python.tools import call_subordinate
 
@@ -116,4 +189,3 @@ async def test_e2e_negative_docs_missing_format_triggers_structured_questions(mo
         assert "format" in result
     finally:
         AgentContext.remove(agent.context.id)
-
