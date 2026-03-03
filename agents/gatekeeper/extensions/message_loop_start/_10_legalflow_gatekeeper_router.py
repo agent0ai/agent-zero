@@ -4,6 +4,10 @@ from agent import LoopData
 from python.helpers.extension import Extension
 from python.helpers.audit_log import extract_urls, log_event
 from python.helpers.disclaimers import ensure_legal_disclaimer
+from python.helpers.legalflow_draft_templates import (
+    is_supported_draft_document_type,
+    supported_draft_document_types_markdown,
+)
 from python.helpers.legalflow_gatekeeper import (
     decide,
     build_intake_questions,
@@ -73,6 +77,25 @@ class LegalFlowGatekeeperRouter(Extension):
             return
 
         assert decision.intent is not None
+
+        if decision.intent == LegalFlowIntent.DRAFT:
+            raw_doc_type = (
+                decision.fields.get("document_type")
+                or decision.fields.get("doc_type")
+                or ""
+            )
+            if not is_supported_draft_document_type(raw_doc_type):
+                loop_data.params_temporary["force_response"] = (
+                    "LegalFlow Gatekeeper — unsupported `document_type` for drafting.\n\n"
+                    "Supported `document_type` values (choose exactly one):\n"
+                    f"{supported_draft_document_types_markdown()}\n\n"
+                    "Reply using `key: value` lines, for example:\n"
+                    "intent: draft\n"
+                    "jurisdiction: SP, Brasil\n"
+                    "document_type: petição inicial\n"
+                    "facts: <resumo dos fatos>\n"
+                )
+                return
 
         if decision.intent in {LegalFlowIntent.DRAFT, LegalFlowIntent.REVIEW}:
             try:

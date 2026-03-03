@@ -65,8 +65,8 @@ async def test_e2e_happy_intent_parses_and_routes_to_draft(monkeypatch):
                 message=(
                     "intent: draft\n"
                     "jurisdiction: CA, USA\n"
-                    "document_type: demand letter\n"
-                    "facts: Customer failed to pay two invoices totaling $12,500.\n"
+                    "document_type: petição inicial\n"
+                    "facts: Resumo: inadimplemento de obrigação contratual e prejuízos.\n"
                 ),
                 attachments=[],
             )
@@ -76,6 +76,39 @@ async def test_e2e_happy_intent_parses_and_routes_to_draft(monkeypatch):
         assert "ok-draft" in result
         assert called["kwargs"]["profile"] == "legalflow_draft"
         assert called["kwargs"]["slot"] == "draft"
+    finally:
+        AgentContext.remove(agent.context.id)
+
+
+@pytest.mark.asyncio
+async def test_e2e_negative_draft_rejects_unsupported_document_type(monkeypatch):
+    from python.tools import call_subordinate
+
+    async def should_not_run(*args, **kwargs):
+        raise AssertionError("Subagent should not be called when document_type is unsupported")
+
+    monkeypatch.setattr(call_subordinate.Delegation, "execute", should_not_run, raising=True)
+
+    config = initialize_agent(override_settings={"agent_profile": "gatekeeper"})
+    agent = Agent(0, config)
+    try:
+        agent.hist_add_user_message(
+            UserMessage(
+                message=(
+                    "intent: draft\n"
+                    "jurisdiction: SP, Brasil\n"
+                    "document_type: demand letter\n"
+                    "facts: Resumo: cobrança de fatura.\n"
+                ),
+                attachments=[],
+            )
+        )
+        result = await agent.monologue()
+        assert "unsupported `document_type`" in result
+        assert "petição inicial" in result
+        assert "contestação" in result
+        assert "apelação" in result
+        assert "contrato prestação de serviços" in result
     finally:
         AgentContext.remove(agent.context.id)
 
