@@ -43,6 +43,21 @@
               </select>
             </div>
           </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">New Matter default mode</div>
+              <div class="field-description">
+                Default preset applied when creating new Projects (Matters). This does not modify existing Projects.
+              </div>
+            </div>
+            <div class="field-control">
+              <select x-model="$store.settings.settings.projects_default_preset">
+                <option value="legalflow">LegalFlow (recommended)</option>
+                <option value="generic">Generic Agent Zero</option>
+              </select>
+            </div>
+          </div>
         </div>
       </template>
     </div>
