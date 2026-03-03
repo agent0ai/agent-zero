@@ -621,7 +621,7 @@ create_instance() {
     # 4. Pull image & start container
     # -----------------------------------------------------------
     print_info "Pulling Agent Zero image (this may take a moment)..."
-    docker compose -f "$COMPOSE_FILE" pull
+    docker compose -f "$COMPOSE_FILE" pull --quiet
 
     print_info "Starting Agent Zero..."
     docker compose -f "$COMPOSE_FILE" up -d
