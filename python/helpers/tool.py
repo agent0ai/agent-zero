@@ -5,6 +5,7 @@ from typing import Any
 from agent import Agent, LoopData
 from python.helpers.print_style import PrintStyle
 from python.helpers.strings import sanitize_string
+from python.helpers.audit_log import extract_urls, log_event
 
 
 @dataclass
@@ -47,6 +48,27 @@ class Tool:
 
     async def after_execution(self, response: Response, **kwargs):
         text = sanitize_string(response.message.strip())
+
+        if self.name in {"search_engine", "knowledge", "knowledge_tool"}:
+            try:
+                urls = extract_urls(text)
+                sources: list[str] = urls
+                if not sources and isinstance(self.args, dict):
+                    q = self.args.get("query") or self.args.get("question")
+                    if q:
+                        sources = [q]
+                log_event(
+                    agent_role=str(getattr(self.agent, "agent_name", "agent")),
+                    user_action=f"tool:{self.name}",
+                    sources=sources,
+                    output=text,
+                    file_paths_touched=[],
+                    extra={"tool_args": dict(self.args or {})},
+                )
+            except Exception:
+                # Audit logging must never break the tool flow.
+                pass
+
         self.agent.hist_add_tool_result(self.name, text, **(response.additional or {}))
         PrintStyle(font_color="#1B4F72", background_color="white", padding=True, bold=True).print(f"{self.agent.agent_name}: Response from tool '{self.name}'")
         PrintStyle(font_color="#85C1E9").print(text)
