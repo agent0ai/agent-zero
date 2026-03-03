@@ -167,6 +167,10 @@ def decide(text: str, existing_fields: dict[str, str] | None = None) -> Gatekeep
 
 
 def build_intake_questions(missing: list[str]) -> str:
+    from python.helpers.legalflow_draft_templates import (
+        supported_draft_document_types_markdown,
+    )
+
     questions: list[str] = []
     for key in missing:
         if key == "intent":
@@ -176,7 +180,10 @@ def build_intake_questions(missing: list[str]) -> str:
         elif key == "question":
             questions.append("- question (what do you need answered?)")
         elif key == "document_type":
-            questions.append("- document_type (e.g., demand letter, MSA, motion)")
+            questions.append(
+                "- document_type (choose exactly one):\n"
+                f"{supported_draft_document_types_markdown()}"
+            )
         elif key == "facts":
             questions.append("- facts (key facts / timeline; what happened?)")
         elif key == "document_text":
