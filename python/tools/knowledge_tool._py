@@ -4,6 +4,10 @@ from python.helpers.tool import Tool, Response
 from python.helpers.print_style import PrintStyle
 from python.helpers.errors import handle_error
 from python.helpers.searxng import search as searxng
+from python.helpers.citations_br import (
+    format_brazil_citations_markdown,
+    select_sources_official_first,
+)
 from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 from python.helpers.document_query import DocumentQueryHelper
 
@@ -76,7 +80,8 @@ class Knowledge(Tool):
         if isinstance(result, Exception) or not query or not result or not result["results"]:
             return result
 
-        result["results"] = result["results"][:SEARCH_ENGINE_RESULTS]
+        selected = select_sources_official_first(result["results"], limit=SEARCH_ENGINE_RESULTS)
+        result["results"] = selected
 
         tasks = []
         helper = DocumentQueryHelper(self.agent)
@@ -246,22 +251,5 @@ class Knowledge(Tool):
         if not result or "results" not in result:
             return ""
 
-        outputs = []
-        for item in result["results"]:
-            if "qa" in item:
-                outputs.append(
-                    f"## Next Result\n"
-                    f"*Title*: {item['title'].strip()}\n"
-                    f"*URL*: {item['url'].strip()}\n"
-                    f"*Search Engine Summary*:\n{item['content'].strip()}\n"
-                    f"*Query Result*:\n{item['qa'].strip()}"
-                )
-            else:
-                outputs.append(
-                    f"## Next Result\n"
-                    f"*Title*: {item['title'].strip()}\n"
-                    f"*URL*: {item['url'].strip()}\n"
-                    f"*Search Engine Summary*:\n{item['content'].strip()}"
-                )
-
-        return "\n\n".join(outputs[:SEARCH_ENGINE_RESULTS]).strip()
+        selected = select_sources_official_first(result.get("results", []), limit=SEARCH_ENGINE_RESULTS)
+        return format_brazil_citations_markdown(selected, heading="Fontes (priorizando oficiais)")
