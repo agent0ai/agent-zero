@@ -72,6 +72,14 @@ playwright install chromium
 These will install all the python packages and browser binaries for playwright (browser agent).
 Errors in the code editor caused by missing packages should now be gone. If not, try reloading the window.
 
+## QA smoke checks (LegalFlow)
+To run a stable subset of offline/fixture-driven regression checks (LegalFlow preset + citations + review/export gate + public corpus fixtures):
+
+```bash
+pip install -r requirements.txt -r requirements.dev.txt
+python -m legalflow.qa_smoke
+```
+
 
 ## Step 4: Run Agent Zero in the IDE
 Great work! Now you should be able to run Agent Zero from your IDE including real-time debugging.

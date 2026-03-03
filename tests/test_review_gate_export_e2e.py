@@ -34,7 +34,7 @@ async def test_e2e_export_blocked_until_review_passes(monkeypatch):
                 message=(
                     "intent: draft\n"
                     "jurisdiction: CA, USA\n"
-                    "document_type: demand letter\n"
+                    "document_type: petição inicial\n"
                     "facts: Customer failed to pay two invoices totaling $12,500.\n"
                 ),
                 attachments=[],
@@ -129,7 +129,7 @@ async def test_e2e_failed_review_then_corrected_review_unblocks_export(monkeypat
                 message=(
                     "intent: draft\n"
                     "jurisdiction: CA, USA\n"
-                    "document_type: demand letter\n"
+                    "document_type: petição inicial\n"
                     "facts: Customer failed to pay two invoices totaling $12,500.\n"
                 ),
                 attachments=[],

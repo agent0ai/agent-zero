@@ -14,10 +14,38 @@ from typing import (
     TypedDict,
 )
 
-from litellm import completion, acompletion, embedding
-import litellm
 import openai
-from litellm.types.utils import ModelResponse
+
+_LITELLM_IMPORT_ERROR: Exception | None = None
+try:
+    from litellm import completion, acompletion, embedding
+    import litellm
+    from litellm.types.utils import ModelResponse
+except Exception as e:  # pragma: no cover
+    # LiteLLM is required for full Agent Zero functionality, but a subset of the
+    # codebase (tests, offline utilities) should remain importable without it.
+    _LITELLM_IMPORT_ERROR = e
+
+    def _missing_completion(*args, **kwargs):
+        raise ModuleNotFoundError(
+            "LiteLLM is required for model calls. Install full deps (see requirements2.txt)."
+        ) from _LITELLM_IMPORT_ERROR
+
+    async def _missing_acompletion(*args, **kwargs):
+        raise ModuleNotFoundError(
+            "LiteLLM is required for model calls. Install full deps (see requirements2.txt)."
+        ) from _LITELLM_IMPORT_ERROR
+
+    def _missing_embedding(*args, **kwargs):
+        raise ModuleNotFoundError(
+            "LiteLLM is required for embeddings. Install full deps (see requirements2.txt)."
+        ) from _LITELLM_IMPORT_ERROR
+
+    completion = _missing_completion  # type: ignore[assignment]
+    acompletion = _missing_acompletion  # type: ignore[assignment]
+    embedding = _missing_embedding  # type: ignore[assignment]
+    litellm = None  # type: ignore[assignment]
+    ModelResponse = Any  # type: ignore[misc,assignment]
 
 from python.helpers import dotenv
 from python.helpers import settings, dirty_json
@@ -46,6 +74,8 @@ from pydantic import ConfigDict
 
 # disable extra logging, must be done repeatedly, otherwise browser-use will turn it back on for some reason
 def turn_off_logging():
+    if litellm is None:
+        return
     os.environ["LITELLM_LOG"] = "ERROR"  # only errors
     litellm.suppress_debug_info = True
     # Silence **all** LiteLLM sub-loggers (utils, cost_calculator…)
@@ -59,7 +89,8 @@ load_dotenv()
 turn_off_logging()
 browser_use_monkeypatch.apply()
 
-litellm.modify_params = True # helps fix anthropic tool calls by browser-use
+if litellm is not None:
+    litellm.modify_params = True  # helps fix anthropic tool calls by browser-use
 
 class ModelType(Enum):
     CHAT = "Chat"
