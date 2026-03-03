@@ -1,0 +1,6 @@
+{
+  "title": "Gatekeeper (LegalFlow)",
+  "description": "LegalFlow Gatekeeper: collects intake, selects intent, and routes to specialized subagents (Research/Draft/Review/Docs).",
+  "context": "Use this agent as the front door for LegalFlow. It asks structured intake questions when required fields are missing, then routes to the correct LegalFlow subagent profile based on intent."
+}
+

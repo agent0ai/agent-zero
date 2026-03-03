@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio, os
+import asyncio
 import time
 import threading
 from collections import defaultdict, deque
@@ -80,9 +80,9 @@ class WebSocketManager:
 
     # Internal: development-only debug logging to avoid noise in production
     def _debug(self, message: str) -> None:
-        value = os.getenv("A0_WS_DEBUG", "").strip().lower()
-        if value in {"1", "true", "yes", "on"}:
-            PrintStyle.debug(message)
+        if not runtime.is_development():
+            return
+        PrintStyle.debug(message)
 
     def _ensure_dispatcher_loop(self) -> None:
         if self._dispatcher_loop is None:

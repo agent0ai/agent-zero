@@ -1,0 +1,6 @@
+{
+  "title": "LegalFlow Research",
+  "description": "Legal research and analysis subagent for LegalFlow matters.",
+  "context": "Use for legal research tasks: finding authorities, summarizing rules, comparing jurisdictions, and providing structured research memos (with clear assumptions and open questions)."
+}
+

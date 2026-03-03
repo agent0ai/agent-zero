@@ -50,6 +50,9 @@ The wizard includes:
 - **Color tag**: Visual identifier for quick recognition (choose from the color palette)
 - **Git Repository** (optional): URL to clone a repository (see next section)
 
+> [!NOTE]
+> New Projects (Matters) can be created with a default preset (LegalFlow or Generic). You can change this under **Settings → Agent Settings → Agent Config → New Matter default mode**.
+
 > [!TIP]
 > Choose meaningful titles and distinct colors, especially if you plan to work with multiple projects. This helps you quickly identify which project is active.
 
