@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 
 from legalflow.public_corpus import IngestConfig, ingest_public_corpus
+from legalflow.public_corpus.sources import STFSumulasSource
 from legalflow.public_corpus.fetchers import FetchResult
+from python.helpers.audit_log import log_event
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -78,6 +80,38 @@ def main(argv: list[str] | None = None) -> int:
         stf_vinculantes_url=args.stf_vinculantes_url,
     )
     summary = ingest_public_corpus(cfg)
+
+    stf_sumulas_url = args.stf_sumulas_url or STFSumulasSource.sumulas_url
+    stf_vinculantes_url = args.stf_vinculantes_url or STFSumulasSource.vinculantes_url
+    sources = [stf_sumulas_url, stf_vinculantes_url]
+
+    file_paths: list[str] = []
+    if summary.output_dir:
+        file_paths.append(summary.output_dir)
+    if summary.manifest_path:
+        file_paths.append(summary.manifest_path)
+    if summary.examples and summary.output_dir:
+        for rel in summary.examples.values():
+            file_paths.append(str(Path(summary.output_dir) / rel))
+
+    try:
+        log_event(
+            agent_role="cli",
+            user_action="cli:legalflow.ingest_public_corpus",
+            sources=sources,
+            output=summary.to_dict(),
+            file_paths_touched=file_paths,
+            extra={
+                "dry_run": bool(args.dry_run),
+                "full_run": bool(args.full_run),
+                "limit": args.limit,
+                "output_dir": args.output_dir,
+            },
+        )
+    except Exception:
+        # Audit logging must never break the CLI flow.
+        pass
+
     if args.json:
         print(json.dumps(summary.to_dict(), ensure_ascii=False, indent=2))
     else:

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from agent import LoopData
 from python.helpers.extension import Extension
+from python.helpers.audit_log import extract_urls, log_event
 from python.helpers.legalflow_gatekeeper import (
     decide,
     build_intake_questions,
     intent_to_profile,
     format_fields_for_downstream,
+    LegalFlowIntent,
 )
 from python.tools.call_subordinate import Delegation
 
@@ -67,6 +69,27 @@ class LegalFlowGatekeeperRouter(Extension):
             return
 
         assert decision.intent is not None
+
+        if decision.intent in {LegalFlowIntent.DRAFT, LegalFlowIntent.REVIEW}:
+            try:
+                sources: list[str] = []
+                sources.extend(extract_urls(text))
+                for val in decision.fields.values():
+                    if isinstance(val, str):
+                        sources.extend(extract_urls(val))
+                # Deduplicate while preserving order
+                sources = list(dict.fromkeys(sources))[:50]
+                log_event(
+                    agent_role=str(getattr(self.agent, "agent_name", "gatekeeper")),
+                    user_action=f"intent:{decision.intent.value}",
+                    sources=sources,
+                    output={"intent": decision.intent.value, "fields": decision.fields},
+                    file_paths_touched=[],
+                )
+            except Exception:
+                # Audit logging must never break routing.
+                pass
+
         profile = intent_to_profile(decision.intent)
         intake_block = format_fields_for_downstream(decision.fields)
         downstream_message = (
@@ -97,4 +120,3 @@ class LegalFlowGatekeeperRouter(Extension):
         loop_data.params_temporary["force_response"] = (
             f"(Intent: {decision.intent.value} → profile: {profile})\n\n{result.message}"
         )
-
