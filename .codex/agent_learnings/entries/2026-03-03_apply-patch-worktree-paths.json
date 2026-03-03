@@ -1,0 +1,12 @@
+{
+  "ts_utc": "2026-03-03T12:20:35Z",
+  "category": "technical-gotcha",
+  "text": "When working across multiple git worktrees, `apply_patch` writes relative paths against the harness CWD, not the last `cd` used in shell commands.\nTo avoid accidentally editing the wrong worktree, use absolute paths in patches (or ensure the harness CWD is the intended worktree) before applying file edits.",
+  "issue": "#10",
+  "pointers": [
+    "legalflow/qa_smoke.py",
+    "docs/setup/dev-setup.md",
+    "models.py"
+  ]
+}
+
