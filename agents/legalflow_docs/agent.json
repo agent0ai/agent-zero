@@ -1,0 +1,6 @@
+{
+  "title": "LegalFlow Docs",
+  "description": "Documentation subagent for LegalFlow (process docs, SOPs, checklists, templates).",
+  "context": "Use for internal documentation: SOPs, checklists, playbooks, templates. Focus on clarity, repeatability, and explicit inputs/outputs."
+}
+

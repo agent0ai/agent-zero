@@ -2,11 +2,18 @@ from python.helpers import persist_chat, tokens
 from python.helpers.extension import Extension
 from agent import LoopData
 import asyncio
+import os
 
 
 class RenameChat(Extension):
 
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
+        # Avoid spawning background LLM calls during pytest runs.
+        # These can leak un-awaited coroutines from downstream dependencies and
+        # add nondeterministic side effects to unit tests.
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+
         asyncio.create_task(self.change_name())
 
     async def change_name(self):

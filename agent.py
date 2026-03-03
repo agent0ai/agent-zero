@@ -404,6 +404,12 @@ class Agent:
                     )
                     await self.handle_intervention()
 
+                    # Allow extensions to short-circuit the message loop with a direct response
+                    forced_response = self.loop_data.params_temporary.get("force_response")
+                    if isinstance(forced_response, str) and forced_response.strip():
+                        self.hist_add_ai_response(forced_response)
+                        return forced_response
+
                     try:
                         # prepare LLM chain (model, system, history)
                         prompt = await self.prepare_prompt(loop_data=self.loop_data)

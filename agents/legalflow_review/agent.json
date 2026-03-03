@@ -1,0 +1,6 @@
+{
+  "title": "LegalFlow Review",
+  "description": "Review and risk-spotting subagent for LegalFlow matters (issue-spot, redlines, compliance).",
+  "context": "Use for reviewing documents: identify issues and risks, propose concrete edits, and present findings as a prioritized list with rationale."
+}
+
