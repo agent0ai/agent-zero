@@ -1,0 +1,10 @@
+{
+  "ts_utc": "2026-03-03T04:31:04Z",
+  "category": "technical-gotcha",
+  "text": "When validating multipart (FormData) requests in Playwright, Request.post_data and post_data_buffer may be empty even though the request was sent. For QA evidence, instrument FormData.prototype.append to record keys appended (e.g., workflow, attachments) without altering behavior; preserve the original append signature to avoid breaking file uploads.",
+  "issue": "#4",
+  "pointers": [
+    "tmp/qa/workflow_capture_final.json",
+    "webui/index.js"
+  ]
+}

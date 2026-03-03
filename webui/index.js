@@ -41,6 +41,8 @@ export async function sendMessage() {
     const message = inputStore.message.trim();
     const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
+    const workflowRaw = chatTopStore?.getWorkflowPayload?.() || null;
+    const workflow = workflowRaw ? JSON.parse(JSON.stringify(workflowRaw)) : null;
 
     // If empty input but has queued messages, send all queued
     if (!message && !hasAttachments && messageQueueStore.hasQueue) {
@@ -50,7 +52,8 @@ export async function sendMessage() {
 
     if (message || hasAttachments) {
       // Check if agent is busy - queue instead of sending
-      if (chatsStore.selectedContext.running || messageQueueStore.hasQueue) {
+      const isRunning = Boolean(chatsStore?.selectedContext?.running);
+      if (isRunning || messageQueueStore.hasQueue) {
         const success = messageQueueStore.addToQueue(message, attachmentsWithUrls);
         // no await for the queue
         // if (success) {
@@ -88,6 +91,9 @@ export async function sendMessage() {
         formData.append("text", message);
         formData.append("context", context);
         formData.append("message_id", messageId);
+        if (workflow) {
+          formData.append("workflow", JSON.stringify(workflow));
+        }
 
         for (let i = 0; i < attachmentsWithUrls.length; i++) {
           formData.append("attachments", attachmentsWithUrls[i].file);
@@ -104,6 +110,9 @@ export async function sendMessage() {
           context,
           message_id: messageId,
         };
+        if (workflow) {
+          data.workflow = workflow;
+        }
         response = await api.fetchApi("/message_async", {
           method: "POST",
           headers: {
