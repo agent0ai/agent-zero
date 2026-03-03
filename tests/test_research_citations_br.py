@@ -9,6 +9,7 @@ from python.helpers.citations_br import (
     format_brazil_citations_markdown,
     select_sources_official_first,
     source_identifier,
+    validate_brazil_citation_block,
 )
 
 
@@ -96,3 +97,30 @@ def test_source_identifier_extracts_common_query_identifiers():
     }
     assert source_identifier(item).endswith("?incidente=1234567")
 
+
+def test_validate_brazil_citation_block_missing_heading():
+    res = validate_brazil_citation_block("Sem fontes aqui.")
+    assert res.status == "missing"
+    assert not res.ok
+
+
+def test_validate_brazil_citation_block_accepts_missing_section_as_warning_not_invalid():
+    text = "## Fontes\n\n"
+    res = validate_brazil_citation_block(text)
+    assert res.status == "invalid"
+    assert "empty 'Fontes' section" in " ".join(res.errors)
+
+
+def test_validate_brazil_citation_block_happy_path_extracts_urls():
+    text = (
+        "## Fontes\n"
+        "[1] Tipo: Oficial (Planalto)\n"
+        "Identificador: urn:lex:br:federal:lei:1990-09-11;8078\n"
+        "Data: 1990-09-11\n"
+        "URL: https://www.planalto.gov.br/ccivil_03/leis/l8078.htm\n"
+        "Trecho: \"Texto\"\n"
+    )
+    res = validate_brazil_citation_block(text)
+    assert res.status == "ok"
+    assert res.entry_count == 1
+    assert res.urls == ["https://www.planalto.gov.br/ccivil_03/leis/l8078.htm"]

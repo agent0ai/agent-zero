@@ -2,6 +2,7 @@ from python.helpers.api import ApiHandler, Input, Output, Request, Response
 
 from python.helpers import persist_chat
 from python.helpers.audit_log import extract_urls, log_event
+from python.helpers.review_gate import get_gate
 
 class ExportChat(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
@@ -10,6 +11,20 @@ class ExportChat(ApiHandler):
             raise Exception("No context id provided")
 
         context = self.use_context(ctxid)
+
+        gate = get_gate(context)
+        if gate and gate.get("status") in {"required", "failed", "stale"}:
+            status = gate.get("status", "required")
+            return Response(
+                response=(
+                    "Export blocked: review not completed.\n"
+                    f"review_status={status}\n"
+                    "Run a LegalFlow review and ensure it passes before exporting."
+                ),
+                status=409,
+                mimetype="text/plain",
+            )
+
         content = persist_chat.export_json_chat(context)
 
         try:

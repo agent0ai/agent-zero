@@ -3,6 +3,7 @@ from __future__ import annotations
 from agent import LoopData
 from python.helpers.extension import Extension
 from python.helpers.audit_log import extract_urls, log_event
+from python.helpers.disclaimers import ensure_legal_disclaimer
 from python.helpers.legalflow_gatekeeper import (
     decide,
     build_intake_questions,
@@ -10,10 +11,13 @@ from python.helpers.legalflow_gatekeeper import (
     format_fields_for_downstream,
     LegalFlowIntent,
 )
+from python.helpers.legalflow_review import build_review_report
+from python.helpers.review_gate import record_review_result, require_review
 from python.tools.call_subordinate import Delegation
 
 
 _DATA_KEY = "legalflow_gatekeeper_state"
+_DRAFT_REV_KEY = "legalflow_draft_revision"
 
 
 def _extract_user_text(loop_data: LoopData) -> str:
@@ -117,6 +121,46 @@ class LegalFlowGatekeeperRouter(Extension):
             profile=profile,
             slot=decision.intent.value,
         )
+
+        response_text = str(getattr(result, "message", "") or "")
+
+        # Server-side workflow metadata for export gating.
+        # Minimal model: every new draft requires a passing review before export.
+        ctx = getattr(self.agent, "context", None)
+        if ctx is not None and decision.intent == LegalFlowIntent.DRAFT:
+            current_rev = ctx.get_data(_DRAFT_REV_KEY) or 0
+            try:
+                current_rev = int(current_rev)
+            except Exception:
+                current_rev = 0
+            current_rev += 1
+            ctx.set_data(_DRAFT_REV_KEY, current_rev)
+            ctx.set_output_data(_DRAFT_REV_KEY, current_rev)
+            require_review(ctx, revision=current_rev, reason="draft updated")
+
+        review_report_md = ""
+        if ctx is not None and decision.intent == LegalFlowIntent.REVIEW:
+            doc_text = str(decision.fields.get("document_text", "") or "")
+            report = build_review_report(doc_text)
+            current_rev = ctx.get_data(_DRAFT_REV_KEY) or 0
+            try:
+                current_rev = int(current_rev)
+            except Exception:
+                current_rev = 0
+            record_review_result(
+                ctx,
+                revision=current_rev,
+                passed=report.passed,
+                report=report.to_dict(),
+            )
+            review_report_md = report.to_markdown().strip()
+
+        if review_report_md:
+            response_text = f"{review_report_md}\n\n{response_text}".strip()
+
+        # Enforce disclaimers in assistant-facing outputs.
+        response_text = ensure_legal_disclaimer(response_text)
+
         loop_data.params_temporary["force_response"] = (
-            f"(Intent: {decision.intent.value} → profile: {profile})\n\n{result.message}"
+            f"(Intent: {decision.intent.value} → profile: {profile})\n\n{response_text}"
         )

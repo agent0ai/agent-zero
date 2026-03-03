@@ -146,12 +146,15 @@ def decide(text: str, existing_fields: dict[str, str] | None = None) -> Gatekeep
 
     fields.update(parsed)
 
-    if "document_text" not in fields:
-        fenced = extract_fenced_block(text)
-        if fenced:
-            fields["document_text"] = fenced
-
     intent = parse_intent(fields.get("intent")) or infer_intent(text)
+    fenced = extract_fenced_block(text)
+    if fenced:
+        # A new fenced document should override any previous captured document,
+        # especially for review flows where users iteratively fix issues.
+        if intent in {LegalFlowIntent.REVIEW, LegalFlowIntent.DRAFT}:
+            fields["document_text"] = fenced
+        elif "document_text" not in fields:
+            fields["document_text"] = fenced
     missing: list[str] = []
     if intent is None:
         missing = ["intent"]
