@@ -12,7 +12,7 @@
   scroll-behavior: auto !important; /* avoid infinite scrolling! */
   padding-left: var(--spacing-sm) !important;
   padding-right: var(--spacing-md) !important;
-  padding-top: 4rem !important;
+  padding-top: var(--spacing-md) !important;
   padding-bottom: 4rem !important;
   -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
@@ -465,7 +465,7 @@
   #chat-history {
     padding-left: var(--spacing-sm) !important;
     padding-right: var(--spacing-md) !important;
-    padding-top: 4rem !important;
+    padding-top: var(--spacing-md) !important;
     padding-bottom: 3rem !important;
   }
 }

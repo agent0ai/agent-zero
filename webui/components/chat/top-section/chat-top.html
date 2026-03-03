@@ -15,18 +15,398 @@
     <div x-data>
         <template x-if="$store.chatTop">
 
-            <!-- Time and Date -->
-            <div id="time-date-container">
-                <div id="time-date"></div>
-                <x-component path="sync/sync-status.html"></x-component>
-                <!-- Notification Toggle positioned next to time-date -->
-                <x-component path="notifications/notification-icons.html"></x-component>
-                <!-- Project Selector -->
-                <x-component path="projects/project-selector.html"></x-component>
+            <div id="chat-topbar" role="region" aria-label="Chat workflow bar">
+                <div id="chat-topbar-row">
+                    <div class="chat-topbar-left">
+                        <div class="workflow-intents" role="group" aria-label="Intent">
+                            <template x-for="intentOpt in $store.chatTop.intents" :key="intentOpt.value">
+                                <button
+                                    type="button"
+                                    class="workflow-pill"
+                                    :class="{ 'is-active': $store.chatTop.intent === intentOpt.value }"
+                                    @click="$store.chatTop.setIntent(intentOpt.value)"
+                                    :aria-pressed="$store.chatTop.intent === intentOpt.value"
+                                    x-text="intentOpt.label"
+                                ></button>
+                            </template>
+                            <button
+                                type="button"
+                                class="workflow-pill is-muted"
+                                x-show="$store.chatTop.intent"
+                                @click="$store.chatTop.clearIntent()"
+                                aria-label="Clear intent"
+                                title="Clear intent"
+                            >
+                                Clear
+                            </button>
+                        </div>
+
+                        <div class="workflow-stages" aria-label="Workflow stages">
+                            <template x-for="stageOpt in $store.chatTop.stages" :key="stageOpt.value">
+                                <button
+                                    type="button"
+                                    class="workflow-step"
+                                    :class="{ 'is-active': $store.chatTop.stage === stageOpt.value }"
+                                    :disabled="!$store.chatTop.intent"
+                                    @click="$store.chatTop.setStage(stageOpt.value)"
+                                    :aria-current="$store.chatTop.stage === stageOpt.value ? 'step' : null"
+                                    x-text="stageOpt.label"
+                                ></button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Time, status, notifications, projects -->
+                    <div id="time-date-container" class="chat-topbar-right">
+                        <div id="time-date"></div>
+                        <x-component path="sync/sync-status.html"></x-component>
+                        <x-component path="notifications/notification-icons.html"></x-component>
+                        <x-component path="projects/project-selector.html"></x-component>
+                    </div>
+                </div>
+
+                <div
+                    id="chat-workflow-panel"
+                    x-cloak
+                    x-show="$store.chatTop.intent"
+                >
+                    <div class="workflow-panel-head">
+                        <div class="workflow-panel-title">
+                            <span class="workflow-chip" x-text="$store.chatTop.intentLabel"></span>
+                            <span class="workflow-sep">•</span>
+                            <span class="workflow-chip" x-text="$store.chatTop.stageLabel"></span>
+                        </div>
+                        <button
+                            type="button"
+                            class="workflow-link"
+                            @click="$store.chatTop.clearWorkflow()"
+                            title="Reset workflow inputs"
+                        >
+                            Reset
+                        </button>
+                    </div>
+
+                    <!-- Intake -->
+                    <div x-cloak x-show="$store.chatTop.stage === 'intake'" class="workflow-fields">
+                        <div class="workflow-grid">
+                            <div class="workflow-field">
+                                <label class="workflow-label" for="workflow-intake-parties">Parties</label>
+                                <textarea id="workflow-intake-parties" class="workflow-textarea" rows="2" x-model="$store.chatTop.inputs.intake.parties"></textarea>
+                            </div>
+                            <div class="workflow-field">
+                                <label class="workflow-label" for="workflow-intake-jurisdiction">Jurisdiction / Court</label>
+                                <input id="workflow-intake-jurisdiction" class="workflow-input" type="text" x-model="$store.chatTop.inputs.intake.jurisdiction" />
+                            </div>
+                            <div class="workflow-field workflow-span-2">
+                                <label class="workflow-label" for="workflow-intake-facts">Facts</label>
+                                <textarea id="workflow-intake-facts" class="workflow-textarea" rows="3" x-model="$store.chatTop.inputs.intake.facts"></textarea>
+                            </div>
+                            <div class="workflow-field workflow-span-2">
+                                <label class="workflow-label" for="workflow-intake-relief">Relief sought</label>
+                                <textarea id="workflow-intake-relief" class="workflow-textarea" rows="2" x-model="$store.chatTop.inputs.intake.reliefSought"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Draft -->
+                    <div x-cloak x-show="$store.chatTop.stage === 'draft'" class="workflow-fields">
+                        <div class="workflow-grid">
+                            <div class="workflow-field">
+                                <label class="workflow-label" for="workflow-draft-docType">Doc type</label>
+                                <select id="workflow-draft-docType" class="workflow-input" x-model="$store.chatTop.inputs.draft.docType">
+                                    <option value="pleading">Pleading</option>
+                                    <option value="motion">Motion</option>
+                                    <option value="brief">Brief</option>
+                                    <option value="letter">Letter</option>
+                                </select>
+                            </div>
+                            <div class="workflow-field workflow-span-2">
+                                <label class="workflow-label" for="workflow-draft-notes">Notes</label>
+                                <textarea id="workflow-draft-notes" class="workflow-textarea" rows="3" x-model="$store.chatTop.inputs.draft.notes"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Review -->
+                    <div x-cloak x-show="$store.chatTop.stage === 'review'" class="workflow-fields">
+                        <div class="workflow-grid">
+                            <div class="workflow-field workflow-span-2">
+                                <div class="workflow-checks" role="group" aria-label="Review checklist">
+                                    <label class="workflow-check">
+                                        <input type="checkbox" x-model="$store.chatTop.inputs.review.checks.completeness" />
+                                        Completeness
+                                    </label>
+                                    <label class="workflow-check">
+                                        <input type="checkbox" x-model="$store.chatTop.inputs.review.checks.citations" />
+                                        Citations
+                                    </label>
+                                    <label class="workflow-check">
+                                        <input type="checkbox" x-model="$store.chatTop.inputs.review.checks.formatting" />
+                                        Formatting
+                                    </label>
+                                    <label class="workflow-check">
+                                        <input type="checkbox" x-model="$store.chatTop.inputs.review.checks.consistency" />
+                                        Consistency
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="workflow-field workflow-span-2">
+                                <label class="workflow-label" for="workflow-review-notes">Notes</label>
+                                <textarea id="workflow-review-notes" class="workflow-textarea" rows="3" x-model="$store.chatTop.inputs.review.notes"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export -->
+                    <div x-cloak x-show="$store.chatTop.stage === 'export'" class="workflow-fields">
+                        <div class="workflow-grid">
+                            <div class="workflow-field">
+                                <label class="workflow-label" for="workflow-export-format">Output format</label>
+                                <select id="workflow-export-format" class="workflow-input" x-model="$store.chatTop.inputs.export.format">
+                                    <option value="docx">DOCX</option>
+                                    <option value="pdf">PDF</option>
+                                    <option value="markdown">Markdown</option>
+                                    <option value="text">Text</option>
+                                </select>
+                            </div>
+                            <div class="workflow-field">
+                                <label class="workflow-label" for="workflow-export-name">Output name</label>
+                                <input id="workflow-export-name" class="workflow-input" type="text" placeholder="e.g., motion-to-dismiss" x-model="$store.chatTop.inputs.export.name" />
+                            </div>
+                            <div class="workflow-field workflow-span-2">
+                                <label class="workflow-check">
+                                    <input type="checkbox" x-model="$store.chatTop.inputs.export.requireReviewComplete" />
+                                    Require review complete (UI only)
+                                </label>
+                                <div class="workflow-hint" x-show="$store.chatTop.inputs.export.requireReviewComplete && !$store.chatTop.isReviewComplete">
+                                    Review checklist not complete yet.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </template>
     </div>
+
+<style>
+      #chat-topbar {
+        background: var(--color-panel);
+        border-bottom: 1px solid var(--color-border);
+        padding: var(--spacing-sm) var(--spacing-md);
+        position: sticky;
+        top: 0;
+        z-index: 1001;
+      }
+
+  #chat-topbar-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+  }
+
+  .chat-topbar-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    flex: 1 1 28rem;
+    min-width: 16rem;
+  }
+
+  .chat-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 0 1 auto;
+    justify-content: flex-end;
+  }
+
+  /* Override legacy fixed positioning for the time/status cluster within the new topbar. */
+  #chat-topbar #time-date-container {
+    position: static;
+    right: auto;
+    margin-top: 0;
+    z-index: auto;
+  }
+
+  .workflow-intents {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+  }
+
+  .workflow-pill {
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: var(--font-size-small);
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .workflow-pill.is-active {
+    border-color: var(--color-highlight);
+    background: color-mix(in srgb, var(--color-highlight) 20%, transparent);
+  }
+
+  .workflow-pill.is-muted {
+    opacity: 0.75;
+  }
+
+  .workflow-stages {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+
+  .workflow-step {
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text);
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+  }
+
+  .workflow-step.is-active {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  }
+
+  .workflow-step:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  #chat-workflow-panel {
+    margin-top: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-sm);
+    background: color-mix(in srgb, var(--color-panel) 70%, transparent);
+  }
+
+  .workflow-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .workflow-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--font-size-small);
+    color: var(--color-text-muted);
+  }
+
+  .workflow-chip {
+    color: var(--color-text);
+  }
+
+  .workflow-sep {
+    opacity: 0.55;
+  }
+
+  .workflow-link {
+    border: none;
+    background: transparent;
+    color: var(--color-highlight);
+    font-size: var(--font-size-small);
+    cursor: pointer;
+    padding: 0.1rem 0.2rem;
+  }
+
+  .workflow-fields {
+    width: 100%;
+  }
+
+  .workflow-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+  }
+
+  @media (max-width: 768px) {
+    .workflow-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .workflow-span-2 {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 768px) {
+    .workflow-span-2 {
+      grid-column: span 1;
+    }
+  }
+
+  .workflow-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .workflow-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  .workflow-input,
+  .workflow-textarea {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-input);
+    color: var(--color-text);
+    padding: 0.45rem 0.55rem;
+    outline: none;
+  }
+
+  .workflow-textarea {
+    resize: vertical;
+    min-height: 2.2rem;
+  }
+
+  .workflow-input:focus,
+  .workflow-textarea:focus {
+    border-color: var(--color-highlight);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-highlight) 25%, transparent);
+  }
+
+  .workflow-checks {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .workflow-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--font-size-small);
+    color: var(--color-text);
+  }
+
+  .workflow-hint {
+    margin-top: 0.25rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-warning-text);
+  }
+</style>
 
 </body>
 

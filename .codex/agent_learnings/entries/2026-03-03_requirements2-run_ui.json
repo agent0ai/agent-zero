@@ -1,0 +1,13 @@
+{
+  "ts_utc": "2026-03-03T03:49:39Z",
+  "category": "technical-gotcha",
+  "text": "`run_ui.py` (and many tests) import `litellm` via `models.py`, but `requirements.txt` alone doesn't include it.\nFor local dev + smoke runs, install both `requirements.txt` and `requirements2.txt` (and `pytest-asyncio` for asyncio-marked tests).",
+  "issue": "#4",
+  "pointers": [
+    "requirements.txt",
+    "requirements2.txt",
+    "run_ui.py",
+    "models.py",
+    "tests/test_run_ui_config.py"
+  ]
+}
