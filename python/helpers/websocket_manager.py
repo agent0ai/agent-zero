@@ -82,6 +82,8 @@ class WebSocketManager:
     def _debug(self, message: str) -> None:
         if not runtime.is_development():
             return
+        if not _ws_debug_enabled():
+            return
         PrintStyle.debug(message)
 
     def _ensure_dispatcher_loop(self) -> None:

@@ -30,7 +30,7 @@ def ensure_playwright_binary():
         env = os.environ.copy()
         env["PLAYWRIGHT_BROWSERS_PATH"] = cache
         subprocess.check_call(
-            ["playwright", "install", "chromium", "--only-shell"],
+            [sys.executable, "-m", "playwright", "install", "chromium", "--only-shell"],
             env=env
         )
     bin = get_playwright_binary()
