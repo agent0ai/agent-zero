@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 from urllib.parse import parse_qs, urlparse
 
 
@@ -232,3 +232,113 @@ def format_brazil_citations_markdown(
     body = "\n\n".join(c.to_markdown() for c in citations)
     return f"## {heading}\n{body}" if include_heading else body
 
+
+BrazilCitationBlockStatus = Literal["ok", "missing", "invalid"]
+
+
+@dataclass(frozen=True)
+class BrazilCitationBlockValidation:
+    status: BrazilCitationBlockStatus
+    entry_count: int
+    urls: list[str]
+    errors: list[str]
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "ok"
+
+
+_FONTES_HEADING_RE = re.compile(r"(?im)^(#{2,3})\s*Fontes\s*$")
+_NEXT_HEADING_RE = re.compile(r"(?im)^#{1,6}\s+\S+")
+_ENTRY_START_RE = re.compile(r"(?im)^\[(\d+)\]\s*Tipo\s*:\s*(.+)$")
+_FIELD_RE = {
+    "identificador": re.compile(r"(?im)^Identificador\s*:\s*(.+)$"),
+    "data": re.compile(r"(?im)^Data\s*:\s*(.+)$"),
+    "url": re.compile(r"(?im)^URL\s*:\s*(.+)$"),
+    "trecho": re.compile(r"(?im)^Trecho\s*:\s*(.+)$"),
+}
+_URL_RE = re.compile(r"https?://[^\s]+")
+
+
+def _clean_url(url: str) -> str:
+    return (url or "").strip().rstrip(").,;\"'>]}")  # common trailing punctuation
+
+
+def validate_brazil_citation_block(text: str) -> BrazilCitationBlockValidation:
+    """
+    Syntactic validation for the Brazil (PT-BR) citation block format.
+
+    This is intentionally offline-only (no live URL fetch).
+    """
+    content = (text or "").strip()
+    if not content:
+        return BrazilCitationBlockValidation(
+            status="missing", entry_count=0, urls=[], errors=["empty text"]
+        )
+
+    heading_match = _FONTES_HEADING_RE.search(content)
+    if not heading_match:
+        return BrazilCitationBlockValidation(
+            status="missing",
+            entry_count=0,
+            urls=[],
+            errors=["missing 'Fontes' heading"],
+        )
+
+    start = heading_match.end()
+    after = content[start:]
+    next_heading = _NEXT_HEADING_RE.search(after)
+    section = after[: next_heading.start()] if next_heading else after
+    section = section.strip()
+    if not section:
+        return BrazilCitationBlockValidation(
+            status="invalid",
+            entry_count=0,
+            urls=[],
+            errors=["empty 'Fontes' section"],
+        )
+
+    entries = list(_ENTRY_START_RE.finditer(section))
+    if not entries:
+        return BrazilCitationBlockValidation(
+            status="invalid",
+            entry_count=0,
+            urls=[],
+            errors=["no numbered entries found"],
+        )
+
+    errors: list[str] = []
+    urls: list[str] = []
+    for i, match in enumerate(entries):
+        entry_no = match.group(1)
+        entry_start = match.start()
+        entry_end = entries[i + 1].start() if i + 1 < len(entries) else len(section)
+        entry_text = section[entry_start:entry_end].strip()
+
+        for field_name, field_re in _FIELD_RE.items():
+            if not field_re.search(entry_text):
+                errors.append(f"entry [{entry_no}] missing field: {field_name}")
+
+        url_line = _FIELD_RE["url"].search(entry_text)
+        url_value = (url_line.group(1).strip() if url_line else "").strip()
+        extracted = [_clean_url(u) for u in _URL_RE.findall(url_value)]
+        extracted = [u for u in extracted if u.startswith("http://") or u.startswith("https://")]
+        if not extracted:
+            errors.append(f"entry [{entry_no}] URL missing or invalid")
+        else:
+            urls.extend(extracted)
+
+    # Deduplicate while preserving order
+    urls = list(dict.fromkeys(urls))
+
+    if errors:
+        return BrazilCitationBlockValidation(
+            status="invalid",
+            entry_count=len(entries),
+            urls=urls,
+            errors=errors,
+        )
+
+    return BrazilCitationBlockValidation(
+        status="ok", entry_count=len(entries), urls=urls, errors=[]
+    )
