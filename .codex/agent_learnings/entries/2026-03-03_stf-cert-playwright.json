@@ -1,0 +1,11 @@
+{
+  "ts_utc": "2026-03-03T06:04:47Z",
+  "category": "technical-gotcha",
+  "text": "From this environment, `portal.stf.jus.br` TLS verification can fail because the site doesn't provide a complete intermediate chain, causing Python/requests `CERTIFICATE_VERIFY_FAILED`.\nPrefer a browser-based fallback (Playwright/Chromium) for STF ingestion, and avoid relying on plain HTTP clients alone.\nWhen installing Playwright binaries programmatically, use `sys.executable -m playwright ...` (not a bare `playwright` binary) to work reliably across environments/venvs.",
+  "issue": "#6",
+  "pointers": [
+    "legalflow/public_corpus/fetchers.py",
+    "python/helpers/playwright.py"
+  ]
+}
+
