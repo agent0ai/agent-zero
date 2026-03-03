@@ -348,6 +348,28 @@ check_docker() {
     fi
 }
 
+wait_for_ready() {
+    URL="$1"
+    MAX_WAIT=60
+    WAITED=0
+
+    printf "${GREEN}[INFO]${NC} Launching Agent Zero..."
+    while [ "$WAITED" -lt "$MAX_WAIT" ]; do
+        HTTP_CODE="$(curl -s -o /dev/null -w '%{http_code}' "$URL" 2>/dev/null || true)"
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+            printf "\n"
+            print_ok "Agent Zero is ready at $URL"
+            return 0
+        fi
+        sleep 1
+        WAITED=$((WAITED + 1))
+        printf "."
+    done
+    printf "\n"
+    print_warn "Agent Zero did not respond within ${MAX_WAIT} seconds. It may still be starting up."
+    return 1
+}
+
 count_existing_agent_zero_containers() {
     docker ps -a --format '{{.Names}}|{{.Image}}' 2>/dev/null | awk -F'|' '$2 ~ /^agent0ai\/agent-zero(:|$)/ {count++} END {print count+0}'
 }
@@ -627,33 +649,12 @@ create_instance() {
     docker compose -f "$COMPOSE_FILE" up -d
 
     # -----------------------------------------------------------
-    # 5. Done!
+    # 5. Wait for the service to become ready
     # -----------------------------------------------------------
-    echo ""
-    echo "=========================================="
-    printf "  ${GREEN}${BOLD}Installation Complete!${NC}\n"
-    echo "=========================================="
-    echo ""
-    echo "  🏷️ Image tag      : $SELECTED_TAG"
-    echo "  📦 Instance name  : $CONTAINER_NAME"
-    echo "  🧩 Compose file   : $COMPOSE_FILE"
-    echo "  📁 Data directory : $DATA_DIR"
-    echo "  🌐 Web UI         : http://localhost:$PORT"
-    if [ -n "$AUTH_LOGIN" ]; then
-        echo "  🔐 Authentication : enabled"
-        echo "  👤 Login          : $AUTH_LOGIN"
-        echo "  🔑 Password       : $AUTH_PASSWORD"
-    else
-        echo "  🔓 Authentication : none"
-    fi
-    echo ""
-    echo "  Useful commands:"
-    echo "    docker compose -f $COMPOSE_FILE logs -f   # View logs"
-    echo "    docker compose -f $COMPOSE_FILE down      # Stop"
-    echo "    docker compose -f $COMPOSE_FILE up -d     # Start"
-    echo "    docker compose -f $COMPOSE_FILE pull      # Update image"
-    echo ""
-    print_info "Happy automating with Agent Zero! 🤖"
+    wait_for_ready "http://localhost:$PORT"
+
+    # Store the created container name for the caller
+    CREATED_CONTAINER_NAME="$CONTAINER_NAME"
 }
 
 manage_instances() {
@@ -744,120 +745,131 @@ manage_instances() {
         SELECTED_IMAGE="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f2)"
         SELECTED_STATUS="$(printf "%s\n" "$SELECTED_ROW" | cut -d'|' -f3-)"
 
-        while :; do
-            SELECTED_STATUS="$(docker ps -a --filter "name=^/${SELECTED_NAME}$" --format '{{.Status}}' 2>/dev/null | head -n 1)"
+        manage_single_instance "$SELECTED_NAME"
+    done
+}
 
-            # If container no longer exists (e.g. after delete), go back to instance list
-            if [ -z "$SELECTED_STATUS" ]; then
+# Show the action menu for a single container (open, start, stop, restart, delete).
+# Can be called from manage_instances or directly after create_instance.
+manage_single_instance() {
+    SELECTED_NAME="$1"
+
+    # Look up the image for display
+    SELECTED_IMAGE="$(docker ps -a --filter "name=^/${SELECTED_NAME}$" --format '{{.Image}}' 2>/dev/null | head -n 1)"
+
+    while :; do
+        SELECTED_STATUS="$(docker ps -a --filter "name=^/${SELECTED_NAME}$" --format '{{.Status}}' 2>/dev/null | head -n 1)"
+
+        # If container no longer exists (e.g. after delete), return
+        if [ -z "$SELECTED_STATUS" ]; then
+            break
+        fi
+
+        case "$SELECTED_STATUS" in
+            Up*) IS_RUNNING=1 ;;
+            *) IS_RUNNING=0 ;;
+        esac
+
+        INSTANCE_HEADER="Selected: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
+
+        if [ "$IS_RUNNING" -eq 1 ]; then
+            ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Restart" "Stop" "Delete" "Back") || true
+            case "$ACTION_INDEX" in
+                -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back
+                0) ACTION_KEY="open" ;;
+                1) ACTION_KEY="restart" ;;
+                2) ACTION_KEY="stop" ;;
+                3) ACTION_KEY="delete" ;;
+                4) ACTION_KEY="back" ;;
+                *) ACTION_KEY="invalid" ;;
+            esac
+        else
+            ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Start" "Delete" "Back") || true
+            case "$ACTION_INDEX" in
+                -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back
+                0) ACTION_KEY="start" ;;
+                1) ACTION_KEY="delete" ;;
+                2) ACTION_KEY="back" ;;
+                *) ACTION_KEY="invalid" ;;
+            esac
+        fi
+
+        case "$ACTION_KEY" in
+            open)
+                PORT_OUTPUT="$(docker port "$SELECTED_NAME" 80/tcp 2>/dev/null || true)"
+                HOST_PORT="$(printf "%s\n" "$PORT_OUTPUT" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
+
+                if [ -z "$HOST_PORT" ]; then
+                    print_warn "Could not resolve a host port for '$SELECTED_NAME' on 80/tcp. Ensure it is running with a published port."
+                else
+                    TARGET_URL="http://localhost:$HOST_PORT"
+                    print_info "Opening $TARGET_URL"
+                    open_browser "$TARGET_URL"
+                fi
+                wait_for_keypress
+                ;;
+            start)
+                print_info "Starting '$SELECTED_NAME'..."
+                START_OUTPUT="$(docker start "$SELECTED_NAME" 2>&1)" || true
+                if docker ps --filter "name=^/${SELECTED_NAME}$" --filter "status=running" --format '{{.Names}}' 2>/dev/null | grep -q "^${SELECTED_NAME}$"; then
+                    print_ok "Started '$SELECTED_NAME'."
+                else
+                    print_error "Failed to start '$SELECTED_NAME'."
+                    if [ -n "$START_OUTPUT" ]; then
+                        printf "  %s\n" "$START_OUTPUT"
+                    fi
+                fi
+                wait_for_keypress
+                ;;
+            stop)
+                print_info "Stopping '$SELECTED_NAME'..."
+                if docker stop "$SELECTED_NAME" >/dev/null 2>&1; then
+                    print_ok "Stopped '$SELECTED_NAME'."
+                else
+                    print_error "Failed to stop '$SELECTED_NAME'."
+                fi
+                wait_for_keypress
+                ;;
+            restart)
+                print_info "Restarting '$SELECTED_NAME'..."
+                RESTART_OUTPUT="$(docker restart "$SELECTED_NAME" 2>&1)" || true
+                if docker ps --filter "name=^/${SELECTED_NAME}$" --filter "status=running" --format '{{.Names}}' 2>/dev/null | grep -q "^${SELECTED_NAME}$"; then
+                    print_ok "Restarted '$SELECTED_NAME'."
+                else
+                    print_error "Failed to restart '$SELECTED_NAME'."
+                    if [ -n "$RESTART_OUTPUT" ]; then
+                        printf "  %s\n" "$RESTART_OUTPUT"
+                    fi
+                fi
+                wait_for_keypress
+                ;;
+            delete)
+                printf "Are you sure you want to delete '%s'? [y/N]: " "$SELECTED_NAME"
+                IFS= read -rsn1 CONFIRM </dev/tty
+                printf "\n"
+                if [ "$CONFIRM" = "y" ] || [ "$CONFIRM" = "Y" ]; then
+                    # Stop first if running
+                    docker stop "$SELECTED_NAME" >/dev/null 2>&1 || true
+                    if docker rm "$SELECTED_NAME" >/dev/null 2>&1; then
+                        print_ok "Deleted '$SELECTED_NAME'."
+                    else
+                        print_error "Failed to delete '$SELECTED_NAME'."
+                    fi
+                    wait_for_keypress
+                    break  # Container no longer exists
+                else
+                    print_info "Delete cancelled."
+                    wait_for_keypress
+                fi
+                ;;
+            back)
                 break
-            fi
-
-            case "$SELECTED_STATUS" in
-                Up*) IS_RUNNING=1 ;;
-                *) IS_RUNNING=0 ;;
-            esac
-
-            INSTANCE_HEADER="Selected: $SELECTED_NAME ($SELECTED_IMAGE, $SELECTED_STATUS)"
-
-            if [ "$IS_RUNNING" -eq 1 ]; then
-                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Open in browser" "Restart" "Stop" "Delete" "Back") || true
-                case "$ACTION_INDEX" in
-                    -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back to instance list
-                    0) ACTION_KEY="open" ;;
-                    1) ACTION_KEY="restart" ;;
-                    2) ACTION_KEY="stop" ;;
-                    3) ACTION_KEY="delete" ;;
-                    4) ACTION_KEY="back" ;;
-                    *) ACTION_KEY="invalid" ;;
-                esac
-            else
-                ACTION_INDEX=$(select_from_menu "--header=$INSTANCE_HEADER" "Start" "Delete" "Back") || true
-                case "$ACTION_INDEX" in
-                    -1) ACTION_KEY="back" ;;  # Escape/Backspace — go back to instance list
-                    0) ACTION_KEY="start" ;;
-                    1) ACTION_KEY="delete" ;;
-                    2) ACTION_KEY="back" ;;
-                    *) ACTION_KEY="invalid" ;;
-                esac
-            fi
-
-            case "$ACTION_KEY" in
-                open)
-                    PORT_OUTPUT="$(docker port "$SELECTED_NAME" 80/tcp 2>/dev/null || true)"
-                    HOST_PORT="$(printf "%s\n" "$PORT_OUTPUT" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
-
-                    if [ -z "$HOST_PORT" ]; then
-                        print_warn "Could not resolve a host port for '$SELECTED_NAME' on 80/tcp. Ensure it is running with a published port."
-                    else
-                        TARGET_URL="http://localhost:$HOST_PORT"
-                        print_info "Opening $TARGET_URL"
-                        open_browser "$TARGET_URL"
-                    fi
-                    wait_for_keypress
-                    ;;
-                start)
-                    print_info "Starting '$SELECTED_NAME'..."
-                    START_OUTPUT="$(docker start "$SELECTED_NAME" 2>&1)" || true
-                    if docker ps --filter "name=^/${SELECTED_NAME}$" --filter "status=running" --format '{{.Names}}' 2>/dev/null | grep -q "^${SELECTED_NAME}$"; then
-                        print_ok "Started '$SELECTED_NAME'."
-                    else
-                        print_error "Failed to start '$SELECTED_NAME'."
-                        if [ -n "$START_OUTPUT" ]; then
-                            printf "  %s\n" "$START_OUTPUT"
-                        fi
-                    fi
-                    wait_for_keypress
-                    ;;
-                stop)
-                    print_info "Stopping '$SELECTED_NAME'..."
-                    if docker stop "$SELECTED_NAME" >/dev/null 2>&1; then
-                        print_ok "Stopped '$SELECTED_NAME'."
-                    else
-                        print_error "Failed to stop '$SELECTED_NAME'."
-                    fi
-                    wait_for_keypress
-                    ;;
-                restart)
-                    print_info "Restarting '$SELECTED_NAME'..."
-                    RESTART_OUTPUT="$(docker restart "$SELECTED_NAME" 2>&1)" || true
-                    if docker ps --filter "name=^/${SELECTED_NAME}$" --filter "status=running" --format '{{.Names}}' 2>/dev/null | grep -q "^${SELECTED_NAME}$"; then
-                        print_ok "Restarted '$SELECTED_NAME'."
-                    else
-                        print_error "Failed to restart '$SELECTED_NAME'."
-                        if [ -n "$RESTART_OUTPUT" ]; then
-                            printf "  %s\n" "$RESTART_OUTPUT"
-                        fi
-                    fi
-                    wait_for_keypress
-                    ;;
-                delete)
-                    printf "Are you sure you want to delete '%s'? [y/N]: " "$SELECTED_NAME"
-                    IFS= read -rsn1 CONFIRM </dev/tty
-                    printf "\n"
-                    if [ "$CONFIRM" = "y" ] || [ "$CONFIRM" = "Y" ]; then
-                        # Stop first if running
-                        docker stop "$SELECTED_NAME" >/dev/null 2>&1 || true
-                        if docker rm "$SELECTED_NAME" >/dev/null 2>&1; then
-                            print_ok "Deleted '$SELECTED_NAME'."
-                        else
-                            print_error "Failed to delete '$SELECTED_NAME'."
-                        fi
-                        wait_for_keypress
-                        break  # Back to instance list (container no longer exists)
-                    else
-                        print_info "Delete cancelled."
-                        wait_for_keypress
-                    fi
-                    ;;
-                back)
-                    break  # Break inner loop, go back to instance selection
-                    ;;
-                *)
-                    print_warn "Invalid action. Please try again."
-                    wait_for_keypress
-                    ;;
-            esac
-        done
+                ;;
+            *)
+                print_warn "Invalid action. Please try again."
+                wait_for_keypress
+                ;;
+        esac
     done
 }
 
@@ -876,10 +888,11 @@ main_menu_for_existing() {
             case "$SELECTED_INDEX" in
                 -1) exit 0 ;;    # Escape/Backspace — exit
                 0)
+                    CREATED_CONTAINER_NAME=""
                     if create_instance; then
-                        return 0  # Install completed successfully
+                        manage_single_instance "$CREATED_CONTAINER_NAME"
                     fi
-                    # Escape pressed during create — loop back to menu
+                    # Escape pressed during create or back from detail — loop back to menu
                     ;;
                 1) manage_instances ;;  # loops back to this menu after returning
                 2) exit 0 ;;     # Exit option
@@ -887,10 +900,11 @@ main_menu_for_existing() {
             esac
         else
             # All containers were deleted — go straight to install
+            CREATED_CONTAINER_NAME=""
             if ! create_instance; then
                 exit 0
             fi
-            return 0
+            manage_single_instance "$CREATED_CONTAINER_NAME"
         fi
     done
 }
@@ -909,9 +923,11 @@ main() {
     else
         # No existing containers — go straight to install.
         # If Escape pressed during create, exit gracefully.
+        CREATED_CONTAINER_NAME=""
         if ! create_instance; then
             exit 0
         fi
+        manage_single_instance "$CREATED_CONTAINER_NAME"
     fi
 }
 

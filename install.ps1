@@ -327,6 +327,34 @@ function Get-NonEmptyLines {
     return @($lines | ForEach-Object { "$($_)".Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 }
 
+function Wait-ForReady {
+    param([string]$Url)
+
+    $maxWait = 60
+    $waited = 0
+
+    Write-Host "[INFO] Launching Agent Zero..." -ForegroundColor Green -NoNewline
+    while ($waited -lt $maxWait) {
+        try {
+            $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) {
+                Write-Host ''
+                print_ok "Agent Zero is ready at $Url"
+                return $true
+            }
+        }
+        catch { }
+
+        Start-Sleep -Seconds 1
+        $waited++
+        Write-Host '.' -NoNewline
+    }
+
+    Write-Host ''
+    print_warn "Agent Zero did not respond within $maxWait seconds. It may still be starting up."
+    return $false
+}
+
 # Uses image name string matching instead of ancestor filter.
 # The ancestor filter matches by image ID, not name, so containers created
 # from a previous version of a tag become invisible after pulling a newer version.
@@ -652,32 +680,11 @@ function create_instance {
         throw 'Failed to start Agent Zero.'
     }
 
-    Write-Host ''
-    Write-Host '=========================================='
-    Write-Host '  Installation Complete!' -ForegroundColor Green
-    Write-Host '=========================================='
-    Write-Host ''
-    Write-Host "  Image tag      : $script:SelectedTag"
-    Write-Host "  Instance name  : $containerName"
-    Write-Host "  Compose file   : $composeFile"
-    Write-Host "  Data directory : $dataDir"
-    Write-Host "  Web UI         : http://localhost:$port"
-    if (-not [string]::IsNullOrWhiteSpace($authLogin)) {
-        Write-Host '  Authentication : enabled'
-        Write-Host "  Login          : $authLogin"
-        Write-Host "  Password       : $authPassword"
-    }
-    else {
-        Write-Host '  Authentication : none'
-    }
-    Write-Host ''
-    Write-Host '  Useful commands:'
-    Write-Host "    docker compose -f `"$composeFile`" logs -f   # View logs"
-    Write-Host "    docker compose -f `"$composeFile`" down      # Stop"
-    Write-Host "    docker compose -f `"$composeFile`" up -d     # Start"
-    Write-Host "    docker compose -f `"$composeFile`" pull      # Update image"
-    Write-Host ''
-    print_info 'Happy automating with Agent Zero!'
+    # Wait for the service to become ready
+    Wait-ForReady -Url "http://localhost:$port"
+
+    # Store the created container name for the caller
+    $script:CreatedContainerName = $containerName
 
     return $true
 }
@@ -742,140 +749,149 @@ function manage_instances {
         $selectedRow = $containerRows[$selectedIndex]
         $selectedParts = $selectedRow -split '\|', 3
         $selectedName = if ($selectedParts.Count -ge 1) { $selectedParts[0] } else { '' }
-        $selectedImage = if ($selectedParts.Count -ge 2) { $selectedParts[1] } else { '' }
 
-        # Inner action loop for the selected container
-        while ($true) {
-            $statusOutput = & docker ps -a --filter "name=^/$selectedName$" --format '{{.Status}}' 2>$null
-            $selectedStatus = ((Get-NonEmptyLines $statusOutput) | Select-Object -First 1)
+        manage_single_instance -ContainerName $selectedName
+    }
+}
 
-            # If container no longer exists (e.g. after delete), go back to instance list
-            if ([string]::IsNullOrWhiteSpace($selectedStatus)) {
+# Show the action menu for a single container (open, start, stop, restart, delete).
+# Can be called from manage_instances or directly after create_instance.
+function manage_single_instance {
+    param([string]$ContainerName)
+
+    # Look up the image for display
+    $selectedImage = ((Get-NonEmptyLines (& docker ps -a --filter "name=^/$ContainerName$" --format '{{.Image}}' 2>$null)) | Select-Object -First 1)
+
+    while ($true) {
+        $statusOutput = & docker ps -a --filter "name=^/$ContainerName$" --format '{{.Status}}' 2>$null
+        $selectedStatus = ((Get-NonEmptyLines $statusOutput) | Select-Object -First 1)
+
+        # If container no longer exists (e.g. after delete), return
+        if ([string]::IsNullOrWhiteSpace($selectedStatus)) {
+            break
+        }
+
+        $isRunning = $selectedStatus -like 'Up*'
+        $instanceHeader = "Selected: $ContainerName ($selectedImage, $selectedStatus)"
+
+        if ($isRunning) {
+            $actionOptions = @('Open in browser', 'Restart', 'Stop', 'Delete', 'Back')
+            $actionIndex = select_from_menu -Header $instanceHeader -Options $actionOptions
+            switch ($actionIndex) {
+                -1 { $actionKey = 'back' }   # Escape/Backspace
+                0  { $actionKey = 'open' }
+                1  { $actionKey = 'restart' }
+                2  { $actionKey = 'stop' }
+                3  { $actionKey = 'delete' }
+                4  { $actionKey = 'back' }
+                default { $actionKey = 'invalid' }
+            }
+        }
+        else {
+            $actionOptions = @('Start', 'Delete', 'Back')
+            $actionIndex = select_from_menu -Header $instanceHeader -Options $actionOptions
+            switch ($actionIndex) {
+                -1 { $actionKey = 'back' }   # Escape/Backspace
+                0  { $actionKey = 'start' }
+                1  { $actionKey = 'delete' }
+                2  { $actionKey = 'back' }
+                default { $actionKey = 'invalid' }
+            }
+        }
+
+        switch ($actionKey) {
+            'open' {
+                $portOutput = & docker port $ContainerName '80/tcp' 2>$null
+                $hostPort = ''
+
+                foreach ($line in (Get-NonEmptyLines $portOutput)) {
+                    if ($line -match ':(\d+)\s*$') {
+                        $hostPort = $Matches[1]
+                        break
+                    }
+                }
+
+                if ([string]::IsNullOrWhiteSpace($hostPort)) {
+                    print_warn "Could not resolve a host port for '$ContainerName' on 80/tcp. Ensure it is running with a published port."
+                }
+                else {
+                    $targetUrl = "http://localhost:$hostPort"
+                    print_info "Opening $targetUrl"
+                    open_browser -Url $targetUrl
+                }
+                Wait-ForKeypress
+            }
+            'start' {
+                print_info "Starting '$ContainerName'..."
+                $startOutput = & docker start $ContainerName 2>&1
+                # Verify actual container state
+                $runCheck = & docker ps --filter "name=^/$ContainerName$" --filter 'status=running' --format '{{.Names}}' 2>$null
+                if ((Get-NonEmptyLines $runCheck) -contains $ContainerName) {
+                    print_ok "Started '$ContainerName'."
+                }
+                else {
+                    print_error "Failed to start '$ContainerName'."
+                    if ($startOutput) {
+                        Write-Host "  $startOutput"
+                    }
+                }
+                Wait-ForKeypress
+            }
+            'stop' {
+                print_info "Stopping '$ContainerName'..."
+                & docker stop $ContainerName *> $null
+                if ($LASTEXITCODE -eq 0) {
+                    print_ok "Stopped '$ContainerName'."
+                }
+                else {
+                    print_error "Failed to stop '$ContainerName'."
+                }
+                Wait-ForKeypress
+            }
+            'restart' {
+                print_info "Restarting '$ContainerName'..."
+                $restartOutput = & docker restart $ContainerName 2>&1
+                # Verify actual container state
+                $runCheck = & docker ps --filter "name=^/$ContainerName$" --filter 'status=running' --format '{{.Names}}' 2>$null
+                if ((Get-NonEmptyLines $runCheck) -contains $ContainerName) {
+                    print_ok "Restarted '$ContainerName'."
+                }
+                else {
+                    print_error "Failed to restart '$ContainerName'."
+                    if ($restartOutput) {
+                        Write-Host "  $restartOutput"
+                    }
+                }
+                Wait-ForKeypress
+            }
+            'delete' {
+                Write-Host "Are you sure you want to delete '$ContainerName'? [y/N]: " -NoNewline
+                $confirmKey = [Console]::ReadKey($true)
+                Write-Host ''
+                if ($confirmKey.KeyChar -eq 'y' -or $confirmKey.KeyChar -eq 'Y') {
+                    # Stop first if running
+                    & docker stop $ContainerName *> $null
+                    & docker rm $ContainerName *> $null
+                    if ($LASTEXITCODE -eq 0) {
+                        print_ok "Deleted '$ContainerName'."
+                    }
+                    else {
+                        print_error "Failed to delete '$ContainerName'."
+                    }
+                    Wait-ForKeypress
+                    break  # Container no longer exists
+                }
+                else {
+                    print_info 'Delete cancelled.'
+                    Wait-ForKeypress
+                }
+            }
+            'back' {
                 break
             }
-
-            $isRunning = $selectedStatus -like 'Up*'
-            $instanceHeader = "Selected: $selectedName ($selectedImage, $selectedStatus)"
-
-            if ($isRunning) {
-                $actionOptions = @('Open in browser', 'Restart', 'Stop', 'Delete', 'Back')
-                $actionIndex = select_from_menu -Header $instanceHeader -Options $actionOptions
-                switch ($actionIndex) {
-                    -1 { $actionKey = 'back' }   # Escape/Backspace
-                    0  { $actionKey = 'open' }
-                    1  { $actionKey = 'restart' }
-                    2  { $actionKey = 'stop' }
-                    3  { $actionKey = 'delete' }
-                    4  { $actionKey = 'back' }
-                    default { $actionKey = 'invalid' }
-                }
-            }
-            else {
-                $actionOptions = @('Start', 'Delete', 'Back')
-                $actionIndex = select_from_menu -Header $instanceHeader -Options $actionOptions
-                switch ($actionIndex) {
-                    -1 { $actionKey = 'back' }   # Escape/Backspace
-                    0  { $actionKey = 'start' }
-                    1  { $actionKey = 'delete' }
-                    2  { $actionKey = 'back' }
-                    default { $actionKey = 'invalid' }
-                }
-            }
-
-            switch ($actionKey) {
-                'open' {
-                    $portOutput = & docker port $selectedName '80/tcp' 2>$null
-                    $hostPort = ''
-
-                    foreach ($line in (Get-NonEmptyLines $portOutput)) {
-                        if ($line -match ':(\d+)\s*$') {
-                            $hostPort = $Matches[1]
-                            break
-                        }
-                    }
-
-                    if ([string]::IsNullOrWhiteSpace($hostPort)) {
-                        print_warn "Could not resolve a host port for '$selectedName' on 80/tcp. Ensure it is running with a published port."
-                    }
-                    else {
-                        $targetUrl = "http://localhost:$hostPort"
-                        print_info "Opening $targetUrl"
-                        open_browser -Url $targetUrl
-                    }
-                    Wait-ForKeypress
-                }
-                'start' {
-                    print_info "Starting '$selectedName'..."
-                    $startOutput = & docker start $selectedName 2>&1
-                    # Verify actual container state
-                    $runCheck = & docker ps --filter "name=^/$selectedName$" --filter 'status=running' --format '{{.Names}}' 2>$null
-                    if ((Get-NonEmptyLines $runCheck) -contains $selectedName) {
-                        print_ok "Started '$selectedName'."
-                    }
-                    else {
-                        print_error "Failed to start '$selectedName'."
-                        if ($startOutput) {
-                            Write-Host "  $startOutput"
-                        }
-                    }
-                    Wait-ForKeypress
-                }
-                'stop' {
-                    print_info "Stopping '$selectedName'..."
-                    & docker stop $selectedName *> $null
-                    if ($LASTEXITCODE -eq 0) {
-                        print_ok "Stopped '$selectedName'."
-                    }
-                    else {
-                        print_error "Failed to stop '$selectedName'."
-                    }
-                    Wait-ForKeypress
-                }
-                'restart' {
-                    print_info "Restarting '$selectedName'..."
-                    $restartOutput = & docker restart $selectedName 2>&1
-                    # Verify actual container state
-                    $runCheck = & docker ps --filter "name=^/$selectedName$" --filter 'status=running' --format '{{.Names}}' 2>$null
-                    if ((Get-NonEmptyLines $runCheck) -contains $selectedName) {
-                        print_ok "Restarted '$selectedName'."
-                    }
-                    else {
-                        print_error "Failed to restart '$selectedName'."
-                        if ($restartOutput) {
-                            Write-Host "  $restartOutput"
-                        }
-                    }
-                    Wait-ForKeypress
-                }
-                'delete' {
-                    Write-Host "Are you sure you want to delete '$selectedName'? [y/N]: " -NoNewline
-                    $confirmKey = [Console]::ReadKey($true)
-                    Write-Host ''
-                    if ($confirmKey.KeyChar -eq 'y' -or $confirmKey.KeyChar -eq 'Y') {
-                        # Stop first if running
-                        & docker stop $selectedName *> $null
-                        & docker rm $selectedName *> $null
-                        if ($LASTEXITCODE -eq 0) {
-                            print_ok "Deleted '$selectedName'."
-                        }
-                        else {
-                            print_error "Failed to delete '$selectedName'."
-                        }
-                        Wait-ForKeypress
-                        break  # Back to instance list (container no longer exists)
-                    }
-                    else {
-                        print_info 'Delete cancelled.'
-                        Wait-ForKeypress
-                    }
-                }
-                'back' {
-                    break  # Break inner loop, go back to instance selection
-                }
-                default {
-                    print_warn 'Invalid action. Please try again.'
-                    Wait-ForKeypress
-                }
+            default {
+                print_warn 'Invalid action. Please try again.'
+                Wait-ForKeypress
             }
         }
     }
@@ -894,11 +910,12 @@ function main_menu_for_existing {
             switch ($selectedIndex) {
                 -1 { exit 0 }    # Escape/Backspace - exit
                 0 {
+                    $script:CreatedContainerName = ''
                     $result = create_instance
                     if ($result) {
-                        return  # Install completed successfully
+                        manage_single_instance -ContainerName $script:CreatedContainerName
                     }
-                    # Escape pressed during create - loop back to menu
+                    # Escape pressed during create or back from detail - loop back to menu
                 }
                 1 { manage_instances }  # loops back to this menu after returning
                 2 { exit 0 }     # Exit option
@@ -907,11 +924,12 @@ function main_menu_for_existing {
         }
         else {
             # All containers were deleted - go straight to install
+            $script:CreatedContainerName = ''
             $result = create_instance
             if (-not $result) {
                 exit 0
             }
-            return
+            manage_single_instance -ContainerName $script:CreatedContainerName
         }
     }
 }
@@ -931,10 +949,12 @@ function main {
     else {
         # No existing containers - go straight to install.
         # If Escape pressed during create, exit gracefully.
+        $script:CreatedContainerName = ''
         $result = create_instance
         if (-not $result) {
             exit 0
         }
+        manage_single_instance -ContainerName $script:CreatedContainerName
     }
 }
 
