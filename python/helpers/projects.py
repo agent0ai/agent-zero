@@ -14,6 +14,9 @@ PROJECT_INSTRUCTIONS_DIR = "instructions"
 PROJECT_KNOWLEDGE_DIR = "knowledge"
 PROJECT_HEADER_FILE = "project.json"
 
+PROJECT_PRESET_GENERIC = "generic"
+PROJECT_PRESET_LEGALFLOW = "legalflow"
+
 CONTEXT_DATA_KEY_PROJECT = "project"
 
 
@@ -34,6 +37,7 @@ class BasicProjectData(TypedDict):
     instructions: str
     color: str
     git_url: str
+    preset: Literal["generic", "legalflow"]
     memory: Literal[
         "own", "global"
     ]  # in the future we can add cutom and point to another existing folder
@@ -82,10 +86,13 @@ def create_project(name: str, data: BasicProjectData):
     abs_path = files.create_dir_safe(
         files.get_abs_path(PROJECTS_PARENT_DIR, name), rename_format="{name}_{number}"
     )
-    create_project_meta_folders(name)
+    actual_name = files.basename(abs_path)
+    create_project_meta_folders(actual_name)
+    data = _apply_preset_defaults(data)
     data = _normalizeBasicData(data)
-    save_project_header(name, data)
-    return name
+    save_project_header(actual_name, data)
+    _apply_project_template(actual_name, data)
+    return actual_name
 
 
 def clone_git_project(name: str, git_url: str, git_token: str, data: BasicProjectData):
@@ -114,6 +121,7 @@ def clone_git_project(name: str, git_url: str, git_token: str, data: BasicProjec
         else:
             # New project: create meta folders and save header
             create_project_meta_folders(actual_name)
+            data = _apply_preset_defaults(data)
             data = _normalizeBasicData(data)
             data["git_url"] = clean_url
             save_project_header(actual_name, data)
@@ -158,6 +166,7 @@ def _normalizeBasicData(data: BasicProjectData) -> BasicProjectData:
         "instructions": data.get("instructions", ""),
         "color": data.get("color", ""),
         "git_url": data.get("git_url", ""),
+        "preset": _normalize_preset(data.get("preset", PROJECT_PRESET_GENERIC)),
         "memory": data.get("memory", "own"),
         "file_structure": data.get(
             "file_structure",
@@ -175,6 +184,7 @@ def _normalizeEditData(data: EditProjectData) -> EditProjectData:
         "variables": data.get("variables", ""),
         "color": data.get("color", ""),
         "git_url": data.get("git_url", ""),
+        "preset": _normalize_preset(data.get("preset", PROJECT_PRESET_GENERIC)),
         "git_status": data.get("git_status", {"is_git_repo": False}),
         "instruction_files_count": data.get("instruction_files_count", 0),
         "knowledge_files_count": data.get("knowledge_files_count", 0),
@@ -187,6 +197,115 @@ def _normalizeEditData(data: EditProjectData) -> EditProjectData:
         "subagents": data.get("subagents", {}),
     }
     return normalized
+
+
+def _normalize_preset(preset: str | None) -> Literal["generic", "legalflow"]:
+    val = (preset or "").strip().lower()
+    if val == PROJECT_PRESET_LEGALFLOW:
+        return PROJECT_PRESET_LEGALFLOW
+    return PROJECT_PRESET_GENERIC
+
+
+def _get_default_preset() -> Literal["generic", "legalflow"]:
+    """
+    Default preset for *new* projects.
+
+    Note: existing projects that predate presets will default to generic at load time
+    (see _normalizeBasicData/_normalizeEditData) to avoid unexpected behavior changes.
+    """
+    try:
+        from python.helpers import settings
+
+        configured = settings.get_settings().get("projects_default_preset", PROJECT_PRESET_LEGALFLOW)
+        return _normalize_preset(str(configured))
+    except Exception:
+        return PROJECT_PRESET_LEGALFLOW
+
+
+def _load_legalflow_instructions_template() -> str:
+    try:
+        return files.read_file("conf/projects.preset.legalflow.instructions.md").strip()
+    except Exception:
+        return (
+            "## LegalFlow (Matter)\n"
+            "- Treat this Project as a legal matter workspace.\n"
+            "- Ask for jurisdiction, forum, deadlines, and the exact objective.\n"
+            "- Keep drafts, research, and source notes in this Project folder.\n"
+            "- Do not provide legal advice; provide information and drafting assistance with clear assumptions.\n"
+        ).strip()
+
+
+def _load_legalflow_project_readme() -> str:
+    try:
+        return files.read_file("conf/projects.preset.legalflow.readme.md").strip() + "\n"
+    except Exception:
+        return (
+            "# Matter\n\n"
+            "This project is a Matter workspace (LegalFlow).\n\n"
+            "## Suggested folders\n"
+            "- `00-intake/` (intake, engagement scope, checklist)\n"
+            "- `01-facts/` (chronology, exhibits list, notes)\n"
+            "- `02-research/` (jurisdictional research, citations, authorities)\n"
+            "- `03-drafts/` (pleadings, letters, contracts, memos)\n"
+            "- `04-filings/` (final PDFs, filed versions)\n"
+            "- `05-correspondence/` (emails, letters, call notes)\n"
+            "- `06-billing/` (time entries, invoices)\n"
+            "- `99-archive/` (closed matter)\n"
+        )
+
+
+def _apply_preset_defaults(data: BasicProjectData) -> BasicProjectData:
+    preset_raw = data.get("preset", None)
+    if preset_raw is None or not str(preset_raw).strip():
+        preset = _get_default_preset()
+    else:
+        preset = _normalize_preset(str(preset_raw))
+    merged = dict(data)
+    merged["preset"] = preset  # type: ignore[assignment]
+
+    if preset == PROJECT_PRESET_LEGALFLOW:
+        if not (merged.get("instructions") or "").strip():
+            merged["instructions"] = _load_legalflow_instructions_template()  # type: ignore[assignment]
+        if not (merged.get("description") or "").strip():
+            merged["description"] = "Legal matter workspace (LegalFlow)."  # type: ignore[assignment]
+    return merged  # type: ignore[return-value]
+
+
+def _apply_project_template(project_name: str, basic_data: BasicProjectData) -> None:
+    preset = _normalize_preset(basic_data.get("preset", None))
+    if preset != PROJECT_PRESET_LEGALFLOW:
+        return
+
+    # Avoid modifying git-cloned projects beyond metadata.
+    git_url = (basic_data.get("git_url") or "").strip()
+    if git_url:
+        return
+
+    project_folder = get_project_folder(project_name)
+
+    # Matter template folders (kept outside .a0proj).
+    for folder in (
+        "00-intake",
+        "01-facts",
+        "02-research",
+        "03-drafts",
+        "04-filings",
+        "05-correspondence",
+        "06-billing",
+        "99-archive",
+    ):
+        try:
+            files.create_dir(os.path.join(project_folder, folder))
+        except Exception:
+            pass
+
+    # A simple README to make the template discoverable in the file browser.
+    try:
+        readme_path = os.path.join(project_folder, "README.md")
+        if not os.path.exists(readme_path):
+            files.write_file(readme_path, _load_legalflow_project_readme())
+    except Exception:
+        pass
 
 
 def _edit_data_to_basic_data(data: EditProjectData):

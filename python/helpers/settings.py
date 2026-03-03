@@ -94,6 +94,7 @@ class Settings(TypedDict):
     agent_profile: str
     agent_memory_subdir: str
     agent_knowledge_subdir: str
+    projects_default_preset: Literal["generic", "legalflow"]
 
     workdir_path: str
     workdir_show: bool
@@ -568,6 +569,7 @@ def get_default_settings() -> Settings:
         agent_profile=get_default_value("agent_profile", "agent0"),
         agent_memory_subdir=get_default_value("agent_memory_subdir", "default"),
         agent_knowledge_subdir=get_default_value("agent_knowledge_subdir", "custom"),
+        projects_default_preset=get_default_value("projects_default_preset", "legalflow"),
         workdir_path=get_default_value("workdir_path", files.get_abs_path_dockerized("usr/workdir")),
         workdir_show=get_default_value("workdir_show", True),
         workdir_max_depth=get_default_value("workdir_max_depth", 5),
@@ -813,4 +815,3 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
-
