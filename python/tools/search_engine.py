@@ -5,6 +5,10 @@ from python.helpers.tool import Tool, Response
 from python.helpers.print_style import PrintStyle
 from python.helpers.errors import handle_error
 from python.helpers.searxng import search as searxng
+from python.helpers.citations_br import (
+    format_brazil_citations_markdown,
+    select_sources_official_first,
+)
 
 SEARCH_ENGINE_RESULTS = 10
 
@@ -31,8 +35,12 @@ class SearchEngine(Tool):
             handle_error(result)
             return f"{source} search failed: {str(result)}"
 
-        outputs = []
-        for item in result["results"]:
-            outputs.append(f"{item['title']}\n{item['url']}\n{item['content']}")
+        if not result or "results" not in result:
+            return ""
 
-        return "\n\n".join(outputs[:SEARCH_ENGINE_RESULTS]).strip()
+        selected = select_sources_official_first(
+            result.get("results", []), limit=SEARCH_ENGINE_RESULTS
+        )
+        return format_brazil_citations_markdown(
+            selected, heading="Fontes (priorizando oficiais)"
+        )
