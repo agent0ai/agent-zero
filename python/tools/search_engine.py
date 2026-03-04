@@ -12,19 +12,26 @@ SEARCH_ENGINE_RESULTS = 10
 class SearchEngine(Tool):
     async def execute(self, query="", **kwargs):
 
-
-        searxng_result = await self.searxng_search(query)
+        # Try SearXNG first, fall back to DuckDuckGo if it fails (e.g. no Docker/RFC)
+        try:
+            search_result = await self.searxng_search(query)
+        except Exception:
+            search_result = await self.duckduckgo_search(query)
 
         await self.agent.handle_intervention(
-            searxng_result
+            search_result
         )  # wait for intervention and handle it, if paused
 
-        return Response(message=searxng_result, break_loop=False)
+        return Response(message=search_result, break_loop=False)
 
 
     async def searxng_search(self, question):
         results = await searxng(question)
         return self.format_result_searxng(results, "Search Engine")
+
+    async def duckduckgo_search(self, question):
+        results = await asyncio.to_thread(duckduckgo_search.search, question, results=SEARCH_ENGINE_RESULTS)
+        return self.format_result_duckduckgo(results, "DuckDuckGo")
 
     def format_result_searxng(self, result, source):
         if isinstance(result, Exception):
@@ -34,5 +41,16 @@ class SearchEngine(Tool):
         outputs = []
         for item in result["results"]:
             outputs.append(f"{item['title']}\n{item['url']}\n{item['content']}")
+
+        return "\n\n".join(outputs[:SEARCH_ENGINE_RESULTS]).strip()
+
+    def format_result_duckduckgo(self, result, source):
+        if isinstance(result, Exception):
+            handle_error(result)
+            return f"{source} search failed: {str(result)}"
+
+        outputs = []
+        for item in result:
+            outputs.append(str(item))
 
         return "\n\n".join(outputs[:SEARCH_ENGINE_RESULTS]).strip()
