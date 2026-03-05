@@ -1,0 +1,8 @@
+django
+djangorestframework
+channels
+channels-redis
+django-cors-headers
+redis
+web3
+requests

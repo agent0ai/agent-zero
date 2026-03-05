@@ -1,0 +1,25 @@
+{
+  "name": "contracts",
+  "version": "1.0.0",
+  "description": "Rock Paper Scissors wager contract for Polygon USDC",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:mumbai": "hardhat run scripts/deploy.js --network mumbai"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "dotenv": "^17.3.1",
+    "hardhat": "^2.28.6"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0"
+  }
+}

@@ -12,6 +12,11 @@
 
 # Ignore all contents of the virtual environment directory
 .venv/
+**/node_modules/
+**/dist/
+**/artifacts/
+**/cache/
+**/db.sqlite3
 
 # Handle bundle directory
 bundle/*/
