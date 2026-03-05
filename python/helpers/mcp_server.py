@@ -28,12 +28,12 @@ _PRINTER = PrintStyle(italic=True, font_color="green", padding=False)
 _mcp_project_name: contextvars.ContextVar[str | None] = contextvars.ContextVar('mcp_project_name', default=None)
 
 mcp_server: FastMCP = FastMCP(
-    name="Agent Zero integrated MCP Server",
+    name="Agent 007 integrated MCP Server",
     instructions="""
-    Connect to remote Agent Zero instance.
-    Agent Zero is a general AI assistant controlling it's linux environment.
-    Agent Zero can install software, manage files, execute commands, code, use internet, etc.
-    Agent Zero's environment is isolated unless configured otherwise.
+    Connect to remote Agent 007 instance.
+    Agent 007 is a general AI assistant controlling it's linux environment.
+    Agent 007 can install software, manage files, execute commands, code, use internet, etc.
+    Agent 007's environment is isolated unless configured otherwise.
     """,
 )
 
@@ -43,7 +43,7 @@ class ToolResponse(BaseModel):
         description="The status of the response", default="success"
     )
     response: str = Field(
-        description="The response from the remote Agent Zero Instance"
+        description="The response from the remote Agent 007 Instance"
     )
     chat_id: str = Field(description="The id of the chat this message belongs to.")
 
@@ -53,14 +53,14 @@ class ToolError(BaseModel):
         description="The status of the response", default="error"
     )
     error: str = Field(
-        description="The error message from the remote Agent Zero Instance"
+        description="The error message from the remote Agent 007 Instance"
     )
     chat_id: str = Field(description="The id of the chat this message belongs to.")
 
 
 SEND_MESSAGE_DESCRIPTION = """
-Send a message to the remote Agent Zero Instance.
-This tool is used to send a message to the remote Agent Zero Instance connected remotely via MCP.
+Send a message to the remote Agent 007 Instance.
+This tool is used to send a message to the remote Agent 007 Instance connected remotely via MCP.
 """
 
 
@@ -68,7 +68,7 @@ This tool is used to send a message to the remote Agent Zero Instance connected 
     name="send_message",
     description=SEND_MESSAGE_DESCRIPTION,
     tags={
-        "agent_zero",
+        "agent_007",
         "chat",
         "remote",
         "communication",
@@ -93,7 +93,7 @@ async def send_message(
     message: Annotated[
         str,
         Field(
-            description="The message to send to the remote Agent Zero Instance",
+            description="The message to send to the remote Agent 007 Instance",
             title="message",
         ),
     ],
@@ -101,7 +101,7 @@ async def send_message(
         Annotated[
             list[str],
             Field(
-                description="Optional: A list of attachments (file paths or web urls) to send to the remote Agent Zero Instance with the message. Default: Empty list",
+                description="Optional: A list of attachments (file paths or web urls) to send to the remote Agent 007 Instance with the message. Default: Empty list",
                 title="attachments",
             ),
         ]
@@ -130,7 +130,7 @@ async def send_message(
 ) -> Annotated[
     Union[ToolResponse, ToolError],
     Field(
-        description="The response from the remote Agent Zero Instance", title="response"
+        description="The response from the remote Agent 007 Instance", title="response"
     ),
 ]:
     # Get project name from context variable (set in proxy __call__)
@@ -185,10 +185,10 @@ async def send_message(
 
 
 FINISH_CHAT_DESCRIPTION = """
-Finish a chat with the remote Agent Zero Instance.
-This tool is used to finish a persistent chat (send_message with persistent_chat=True) with the remote Agent Zero Instance connected remotely via MCP.
+Finish a chat with the remote Agent 007 Instance.
+This tool is used to finish a persistent chat (send_message with persistent_chat=True) with the remote Agent 007 Instance connected remotely via MCP.
 If you want to continue the chat, use the send_message tool instead.
-Always use this tool to finish persistent chat conversations with remote Agent Zero.
+Always use this tool to finish persistent chat conversations with remote Agent 007.
 """
 
 
@@ -196,7 +196,7 @@ Always use this tool to finish persistent chat conversations with remote Agent Z
     name="finish_chat",
     description=FINISH_CHAT_DESCRIPTION,
     tags={
-        "agent_zero",
+        "agent_007",
         "chat",
         "remote",
         "communication",
@@ -227,7 +227,7 @@ async def finish_chat(
 ) -> Annotated[
     Union[ToolResponse, ToolError],
     Field(
-        description="The response from the remote Agent Zero Instance", title="response"
+        description="The response from the remote Agent 007 Instance", title="response"
     ),
 ]:
     if not chat_id:

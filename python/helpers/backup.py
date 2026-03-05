@@ -15,7 +15,7 @@ from python.helpers.print_style import PrintStyle
 
 class BackupService:
     """
-    Core backup and restore service for Agent Zero.
+    Core backup and restore service for Agent 007.
 
     Features:
     - JSON-based metadata with user-editable path specifications
@@ -27,7 +27,7 @@ class BackupService:
 
     def __init__(self):
         self.agent_zero_version = self._get_agent_zero_version()
-        self.agent_zero_root = files.get_abs_path("")  # Resolved Agent Zero root
+        self.agent_zero_root = files.get_abs_path("")  # Resolved Agent 007 root
 
         # Build base paths map for pattern resolution
         self.base_paths = {
@@ -42,7 +42,7 @@ class BackupService:
         include_patterns, exclude_patterns = self._parse_patterns(default_patterns)
 
         return {
-            "backup_name": f"agent-zero-backup-{timestamp[:10]}",
+            "backup_name": f"agent-007-backup-{timestamp[:10]}",
             "include_hidden": True,
             "include_patterns": include_patterns,
             "exclude_patterns": exclude_patterns,
@@ -55,7 +55,7 @@ class BackupService:
     def _get_default_patterns(self) -> str:
         """Get default backup patterns with resolved absolute paths.
 
-        Only includes Agent Zero project directory patterns.
+        Only includes Agent 007 project directory patterns.
         """
         # Ensure paths don't have double slashes
         agent_root = self.agent_zero_root.rstrip('/')
@@ -66,7 +66,7 @@ class BackupService:
 """
 
     def _get_agent_zero_version(self) -> str:
-        """Get current Agent Zero version"""
+        """Get current Agent 007 version"""
         try:
             # Get version from git info (same as run_ui.py)
             gitinfo = git.get_git_info()
@@ -198,7 +198,7 @@ class BackupService:
     def _translate_patterns(self, patterns: List[str], backup_metadata: Dict[str, Any]) -> List[str]:
         """Translate patterns from backed up system to current system.
 
-        Replaces the backed up Agent Zero root path with the current Agent Zero root path
+        Replaces the backed up Agent 007 root path with the current Agent 007 root path
         in all patterns if there's an exact match at the beginning of the pattern.
 
         Args:
@@ -330,7 +330,7 @@ class BackupService:
         include_patterns: List[str],
         exclude_patterns: List[str],
         include_hidden: bool = True,
-        backup_name: str = "agent-zero-backup"
+        backup_name: str = "agent-007-backup"
     ) -> str:
         """Create backup archive and return path to created file"""
 
@@ -755,7 +755,7 @@ class BackupService:
     def _translate_restore_path(self, archive_path: str, backup_metadata: Dict[str, Any]) -> str:
         """Translate file path from backed up system to current system.
 
-        Replaces the backed up Agent Zero root path with the current Agent Zero root path
+        Replaces the backed up Agent 007 root path with the current Agent 007 root path
         if there's an exact match at the beginning of the path.
 
         Args:

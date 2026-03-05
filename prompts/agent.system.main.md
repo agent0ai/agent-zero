@@ -1,4 +1,4 @@
-# Agent Zero System Manual
+# Agent 007 System Manual
 
 {{ include "agent.system.main.role.md" }}
 

@@ -23,7 +23,7 @@ class UnsecuredConnectionCheck(Extension):
                 "type": "warning",
                 "priority": 80,
                 "title": "Unsecured Connection",
-                "html": """You are accessing Agent Zero from a non-local address without authentication. 
+                "html": """You are accessing Agent 007 from a non-local address without authentication. 
                          <a href="#" onclick="document.getElementById('settings').click(); return false;">
                          Configure credentials</a> in Settings → External Services → Authentication.""",
                 "dismissible": True,

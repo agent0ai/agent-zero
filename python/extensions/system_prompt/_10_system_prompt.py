@@ -22,6 +22,8 @@ class SystemPrompt(Extension):
         secrets_prompt = get_secrets_prompt(self.agent)
         project_prompt = get_project_prompt(self.agent)
 
+        compliance_prompt = get_compliance_prompt(self.agent)
+
         system_prompt.append(main)
         system_prompt.append(tools)
         if mcp_tools:
@@ -32,6 +34,8 @@ class SystemPrompt(Extension):
             system_prompt.append(secrets_prompt)
         if project_prompt:
             system_prompt.append(project_prompt)
+        if compliance_prompt:
+            system_prompt.append(compliance_prompt)
        
 
 def get_main_prompt(agent: Agent):
@@ -83,6 +87,13 @@ def get_project_prompt(agent: Agent):
     else:
         result += "\n\n" + agent.read_prompt("agent.system.projects.inactive.md")
     return result
+
+def get_compliance_prompt(agent: Agent):
+    try:
+        return agent.read_prompt("agent.system.compliance.md")
+    except Exception:
+        return ""
+
 
 def get_skills_prompt(agent: Agent):
     available = skills.list_skills(agent=agent)

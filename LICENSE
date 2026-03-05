@@ -1,8 +1,11 @@
 MIT License
 
-Copyright (c) 2025 Agent Zero, s.r.o
-Contact: pr@agent-zero.ai
-Repository: https://github.com/agent0ai/agent-zero
+Original work Copyright (c) 2025 Agent Zero, s.r.o (https://github.com/agent0ai/agent-zero)
+Modified work Copyright (c) 2026 Agent 007 Contributors
+Repository: https://github.com/gitsanity009/agent007
+
+This project is a fork of Agent Zero, adapted for use in classified environments
+with JSIG/RMF compliance controls.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

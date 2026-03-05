@@ -532,7 +532,7 @@ def wait_for_health(host: str, port: int):
         try:
             with urllib.request.urlopen(url, timeout=2) as resp:
                 if resp.status == 200:
-                    PrintStyle().print("Agent Zero is running.")
+                    PrintStyle().print("Agent 007 is running.")
                     return
         except Exception:
             pass

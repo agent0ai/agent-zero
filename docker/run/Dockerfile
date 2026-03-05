@@ -1,7 +1,7 @@
-# Use the pre-built base image for A0
-# FROM agent-zero-base:local
-# FROM agent0ai/agent-zero-base:testing
-FROM agent0ai/agent-zero-base:latest
+# Use the pre-built base image for Agent 007 (forked from Agent Zero)
+# FROM agent-007-base:local
+# FROM agent007/agent-007-base:testing
+FROM agent007/agent-007-base:latest
 
 # Check if the argument is provided, else throw an error
 ARG BRANCH
