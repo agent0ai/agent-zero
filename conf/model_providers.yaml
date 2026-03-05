@@ -27,6 +27,11 @@ chat:
   anthropic:
     name: Anthropic
     litellm_provider: anthropic
+  avian:
+    name: Avian
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.avian.io/v1
   cometapi:
     name: CometAPI
     litellm_provider: cometapi
