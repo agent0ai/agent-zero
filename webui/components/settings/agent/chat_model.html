@@ -144,6 +144,18 @@
             </div>
           </div>
 
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Concurrent requests limit</div>
+              <div class="field-description">
+                Maximum number of simultaneous in-flight requests. Additional requests will wait until a slot is available. Set to 0 to disable.
+              </div>
+            </div>
+            <div class="field-control">
+              <input type="number" x-model.number="$store.settings.settings.chat_model_rl_concurrent" />
+            </div>
+          </div>
+
           <div class="field field-full">
             <div class="field-label">
               <div class="field-title">Chat model additional parameters</div>

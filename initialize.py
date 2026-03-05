@@ -39,6 +39,7 @@ def initialize_agent(override_settings: dict | None = None):
         limit_requests=current_settings["chat_model_rl_requests"],
         limit_input=current_settings["chat_model_rl_input"],
         limit_output=current_settings["chat_model_rl_output"],
+        limit_concurrent=current_settings["chat_model_rl_concurrent"],
         kwargs=_normalize_model_kwargs(current_settings["chat_model_kwargs"]),
     )
 
@@ -52,6 +53,7 @@ def initialize_agent(override_settings: dict | None = None):
         limit_requests=current_settings["util_model_rl_requests"],
         limit_input=current_settings["util_model_rl_input"],
         limit_output=current_settings["util_model_rl_output"],
+        limit_concurrent=current_settings["util_model_rl_concurrent"],
         kwargs=_normalize_model_kwargs(current_settings["util_model_kwargs"]),
     )
     # embedding model from user settings
@@ -61,6 +63,8 @@ def initialize_agent(override_settings: dict | None = None):
         name=current_settings["embed_model_name"],
         api_base=current_settings["embed_model_api_base"],
         limit_requests=current_settings["embed_model_rl_requests"],
+        limit_input=current_settings["embed_model_rl_input"],
+        limit_concurrent=current_settings["embed_model_rl_concurrent"],
         kwargs=_normalize_model_kwargs(current_settings["embed_model_kwargs"]),
     )
     # browser model from user settings
@@ -70,6 +74,10 @@ def initialize_agent(override_settings: dict | None = None):
         name=current_settings["browser_model_name"],
         api_base=current_settings["browser_model_api_base"],
         vision=current_settings["browser_model_vision"],
+        limit_requests=current_settings["browser_model_rl_requests"],
+        limit_input=current_settings["browser_model_rl_input"],
+        limit_output=current_settings["browser_model_rl_output"],
+        limit_concurrent=current_settings["browser_model_rl_concurrent"],
         kwargs=_normalize_model_kwargs(current_settings["browser_model_kwargs"]),
     )
     # agent configuration
