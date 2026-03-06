@@ -254,6 +254,11 @@ def run():
         register_api_handler(webapp, handler)
     PrintStyle(font_color="green").print(f"[✓] API handlers loaded ({len(all_handlers)} handlers)")
 
+    # Initialize messaging gateway with channel adapters
+    from python.helpers.gateway_init import initialize_gateway
+
+    initialize_gateway()
+
     # add the webapp, mcp, and a2a to the app
     middleware_routes = {
         "/mcp": ASGIMiddleware(app=mcp_server.DynamicMcpProxy.get_instance()),  # type: ignore
