@@ -116,3 +116,5 @@ firebase-debug.log
 *.tmp
 *.temp
 .tmp/
+web/.next/
+node_modules/

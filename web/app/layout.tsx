@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
 import AnalyticsClient from '@/components/AnalyticsClient'
+import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: 'Agent Zero - Intelligent Application Operating System',
@@ -46,11 +45,11 @@ export default function RootLayout({
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className="bg-white dark:bg-slate-950">
-        <AnalyticsClient />
-        <Header />
-        <main className="min-h-screen">{children}</main>
-        <Footer />
+      <body className="bg-[var(--surface-primary)] text-[var(--text-primary)]">
+        <Providers>
+          <AnalyticsClient />
+          {children}
+        </Providers>
       </body>
     </html>
   )

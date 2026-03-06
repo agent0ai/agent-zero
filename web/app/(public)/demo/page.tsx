@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
 
 export default function DemoPage() {
   const [submitted, setSubmitted] = useState(false)
@@ -72,7 +70,6 @@ export default function DemoPage() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-        <Header />
         <main className="max-w-4xl mx-auto px-4 py-20 text-center">
           <h1 className="text-4xl font-bold text-white mb-6">
             Thank You! Your Demo Request Has Been Received
@@ -86,11 +83,11 @@ export default function DemoPage() {
               <strong>What happens next:</strong>
             </p>
             <ul className="text-left text-slate-300 space-y-2 max-w-2xl mx-auto">
-              <li>✓ Our team reviews your requirements</li>
-              <li>✓ We customize a demo for your use case</li>
-              <li>✓ Schedule a 30-min personalized walkthrough</li>
-              <li>✓ Discuss integration with your systems</li>
-              <li>✓ Answer any questions about pricing and implementation</li>
+              <li>&#10003; Our team reviews your requirements</li>
+              <li>&#10003; We customize a demo for your use case</li>
+              <li>&#10003; Schedule a 30-min personalized walkthrough</li>
+              <li>&#10003; Discuss integration with your systems</li>
+              <li>&#10003; Answer any questions about pricing and implementation</li>
             </ul>
           </div>
           <a
@@ -100,14 +97,12 @@ export default function DemoPage() {
             Back to Home
           </a>
         </main>
-        <Footer />
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-      <Header />
       <main className="max-w-2xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-white mb-4">
@@ -277,7 +272,7 @@ export default function DemoPage() {
           {/* Primary Use Case */}
           <div>
             <label className="block text-white font-semibold mb-3">
-              What\'s your primary need? *
+              What&apos;s your primary need? *
             </label>
             <div className="space-y-2 bg-slate-700 rounded p-4">
               {[
@@ -366,10 +361,10 @@ export default function DemoPage() {
                 className="w-full px-4 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-blue-500 focus:outline-none"
               >
                 <option value="">Select budget</option>
-                <option value="50-100k">\$50K-\$100K</option>
-                <option value="100-250k">\$100K-\$250K</option>
-                <option value="250-500k">\$250K-\$500K</option>
-                <option value="500k+">\$500K+</option>
+                <option value="50-100k">$50K-$100K</option>
+                <option value="100-250k">$100K-$250K</option>
+                <option value="250-500k">$250K-$500K</option>
+                <option value="500k+">$500K+</option>
               </select>
             </div>
             <div>
@@ -405,7 +400,6 @@ export default function DemoPage() {
           </p>
         </form>
       </main>
-      <Footer />
     </div>
   )
 }
