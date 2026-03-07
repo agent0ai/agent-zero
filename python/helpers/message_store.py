@@ -44,6 +44,10 @@ class MessageStore:
     def __init__(self, db_path: str | None = None) -> None:
         self._db_path = db_path or _DEFAULT_DB_PATH
         self._lock = threading.Lock()
+        self._persistent_conn: sqlite3.Connection | None = None
+        if self._db_path == ":memory:":
+            self._persistent_conn = sqlite3.connect(":memory:")
+            self._persistent_conn.row_factory = sqlite3.Row
         self._ensure_tables()
 
     # ------------------------------------------------------------------
@@ -131,11 +135,14 @@ class MessageStore:
     # ------------------------------------------------------------------
 
     def _ensure_tables(self) -> None:
-        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
+        if self._db_path != ":memory:":
+            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.executescript(_CREATE_TABLE_SQL + _CREATE_INDEX_SQL)
 
     def _connect(self) -> sqlite3.Connection:
+        if self._persistent_conn is not None:
+            return self._persistent_conn
         conn = sqlite3.connect(self._db_path)
         conn.row_factory = sqlite3.Row
         return conn

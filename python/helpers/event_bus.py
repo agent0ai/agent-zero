@@ -13,9 +13,14 @@ EventHandler = Callable[[dict[str, Any]], Awaitable[None] | None]
 class EventStore:
     def __init__(self, db_path: str):
         self.db_path = db_path
+        self._persistent_conn: sqlite3.Connection | None = None
+        if self.db_path == ":memory:":
+            self._persistent_conn = sqlite3.connect(":memory:")
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
+        if self._persistent_conn is not None:
+            return self._persistent_conn
         return sqlite3.connect(self.db_path)
 
     def _ensure_schema(self) -> None:

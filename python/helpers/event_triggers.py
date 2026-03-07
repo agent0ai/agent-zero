@@ -89,9 +89,17 @@ class TriggerStore:
 
     def __init__(self, db_path: str | None = None):
         self.db_path = db_path or files.get_abs_path(_DEFAULT_DB)
+        # For in-memory databases, reuse a single connection so the schema
+        # persists across calls.  File-backed databases create connections
+        # on demand (the on-disk state is shared automatically).
+        self._persistent_conn: sqlite3.Connection | None = None
+        if self.db_path == ":memory:":
+            self._persistent_conn = sqlite3.connect(":memory:")
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
+        if self._persistent_conn is not None:
+            return self._persistent_conn
         return sqlite3.connect(self.db_path)
 
     def _ensure_schema(self) -> None:

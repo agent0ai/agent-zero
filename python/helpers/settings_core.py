@@ -17,8 +17,6 @@ import os
 import subprocess
 from typing import Any, Literal, TypedDict
 
-from python.helpers import git, runtime
-
 from . import dotenv, files
 
 # ---------------------------------------------------------------------------
@@ -228,6 +226,8 @@ SETTINGS_FILE = files.get_abs_path("tmp/settings.json")
 
 
 def _get_version():
+    from python.helpers import git
+
     return git.get_version()
 
 
@@ -237,6 +237,8 @@ def _get_version():
 
 
 def create_auth_token() -> str:
+    from python.helpers import runtime
+
     runtime_id = runtime.get_persistent_id()
     username = dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) or ""
     password = dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD) or ""
@@ -290,7 +292,7 @@ def _dict_to_env(data_dict):
             lines.append(f'{key}="{escaped_value}"')
         elif isinstance(value, dict | list | bool) or value is None:
             # Serialize as unquoted JSON
-            lines.append(f'{key}={json.dumps(value, separators=(",", ":"))}')
+            lines.append(f"{key}={json.dumps(value, separators=(',', ':'))}")
         else:
             # Numbers and other types as unquoted strings
             lines.append(f"{key}={value}")
@@ -304,6 +306,8 @@ def _dict_to_env(data_dict):
 
 
 def set_root_password(password: str):
+    from python.helpers import runtime
+
     if not runtime.is_dockerized():
         raise Exception("root password can only be set in dockerized environments")
     _result = subprocess.run(
@@ -321,6 +325,8 @@ def set_root_password(password: str):
 
 
 def get_runtime_config(set: Settings):
+    from python.helpers import runtime
+
     if runtime.is_dockerized():
         return {
             "code_exec_ssh_enabled": set["shell_interface"] == "ssh",
@@ -350,6 +356,8 @@ def get_runtime_config(set: Settings):
 
 
 def get_default_settings() -> Settings:
+    from python.helpers import runtime
+
     # Use Ollama URL from environment or default to localhost
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 

@@ -10,11 +10,6 @@ from __future__ import annotations
 
 from typing import cast
 
-import models
-from python.helpers import runtime
-from python.helpers.providers import get_providers
-from python.helpers.secrets import get_default_secrets_manager
-
 from . import dotenv, files
 from .settings_core import (
     API_KEY_PLACEHOLDER,
@@ -30,6 +25,8 @@ from .settings_core import (
 
 
 def _get_api_key_field(settings: Settings, provider: str, title: str) -> SettingsField:
+    import models
+
     key = settings["api_keys"].get(provider, models.get_api_key(provider))
     # For API keys, use simple asterisk placeholder for existing keys
     return {
@@ -41,6 +38,10 @@ def _get_api_key_field(settings: Settings, provider: str, title: str) -> Setting
 
 
 def convert_out(settings: Settings) -> SettingsOutput:
+    from python.helpers import runtime
+    from python.helpers.providers import get_providers
+    from python.helpers.secrets import get_default_secrets_manager
+
     default_settings = get_default_settings()
 
     # main model section
@@ -1443,8 +1444,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "backup_create",
             "title": "Create Backup",
-            "description": "Create a backup archive of selected files and configurations "
-            "using customizable patterns.",
+            "description": "Create a backup archive of selected files and configurations using customizable patterns.",
             "type": "button",
             "value": "Create Backup",
         }
@@ -1454,7 +1454,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
         {
             "id": "backup_restore",
             "title": "Restore from Backup",
-            "description": "Restore files and configurations from a backup archive " "with pattern-based selection.",
+            "description": "Restore files and configurations from a backup archive with pattern-based selection.",
             "type": "button",
             "value": "Restore Backup",
         }
@@ -1463,8 +1463,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     backup_section: SettingsSection = {
         "id": "backup_restore",
         "title": "Backup & Restore",
-        "description": "Backup and restore Agent Zero data and configurations "
-        "using glob pattern-based file selection.",
+        "description": "Backup and restore Agent Zero data and configurations using glob pattern-based file selection.",
         "fields": backup_fields,
         "tab": "backup",
     }
