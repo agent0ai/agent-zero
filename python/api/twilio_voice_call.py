@@ -16,7 +16,13 @@ class TwilioVoiceCall(ApiHandler):
         if not to_number:
             return {"success": False, "error": "to_number is required"}
 
-        from instruments.custom.twilio_voice.twilio_voice_manager import TwilioVoiceManager
+        try:
+            from instruments.custom.twilio_voice.twilio_voice_manager import TwilioVoiceManager
+        except ModuleNotFoundError:
+            return {
+                "success": False,
+                "error": "Twilio Voice integration is not installed (missing instruments.custom.twilio_voice).",
+            }
 
         db_path = files.get_abs_path("./instruments/custom/twilio_voice/data/twilio_voice.db")
         manager = TwilioVoiceManager(db_path)

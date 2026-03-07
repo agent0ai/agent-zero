@@ -16,7 +16,13 @@ class GoogleVoiceOutboundCreate(ApiHandler):
         if not to_number or not body:
             return {"success": False, "error": "to_number and body are required"}
 
-        from instruments.custom.google_voice.google_voice_manager import GoogleVoiceManager
+        try:
+            from instruments.custom.google_voice.google_voice_manager import GoogleVoiceManager
+        except ModuleNotFoundError:
+            return {
+                "success": False,
+                "error": "Google Voice integration is not installed (missing instruments.custom.google_voice).",
+            }
         from python.helpers import settings as settings_helper
 
         db_path = files.get_abs_path("./instruments/custom/google_voice/data/google_voice.db")
