@@ -20,4 +20,4 @@ chmod 444 /root/.profile
 apt-get update > /dev/null 2>&1 &
 
 # let supervisord handle the services
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
