@@ -1,0 +1,4 @@
+
+# TypeScript build artifacts
+*.tsbuildinfo
+next-env.d.ts
