@@ -19,3 +19,11 @@ export function getWorkflow(id: string): Promise<Workflow> {
 export function saveWorkflow(workflow: Partial<Workflow>): Promise<{ ok: boolean }> {
   return api('workflow_save', { body: workflow })
 }
+
+export function deleteWorkflow(id: string): Promise<{ ok: boolean }> {
+  return api('workflow_delete', { body: { id } })
+}
+
+export function runWorkflow(id: string): Promise<{ ok: boolean }> {
+  return api('workflow_run', { body: { id } })
+}

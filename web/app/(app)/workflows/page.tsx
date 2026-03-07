@@ -1,14 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { StatusDot } from '@/components/ui/StatusDot'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table'
-import { Workflow, Plus } from 'lucide-react'
-import { useWorkflows } from '@/hooks/useWorkflows'
+import { Workflow, Plus, Play, Trash2 } from 'lucide-react'
+import { useWorkflows, useSaveWorkflow, useDeleteWorkflow, useRunWorkflow } from '@/hooks/useWorkflows'
 
 const statusVariant: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   running: 'info',
@@ -22,6 +25,25 @@ export default function WorkflowsPage() {
   const { data, isLoading } = useWorkflows()
   const workflows = data?.workflows ?? []
 
+  const [modalOpen, setModalOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+
+  const saveWorkflow = useSaveWorkflow()
+  const deleteWorkflow = useDeleteWorkflow()
+  const runWorkflow = useRunWorkflow()
+
+  function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    const name = newName.trim()
+    if (!name) return
+    saveWorkflow.mutate({ name }, {
+      onSuccess: () => {
+        setNewName('')
+        setModalOpen(false)
+      },
+    })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -29,8 +51,28 @@ export default function WorkflowsPage() {
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Workflows</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">Build and monitor intelligent workflows</p>
         </div>
-        <Button size="sm"><Plus className="h-4 w-4" /> New Workflow</Button>
+        <Button size="sm" onClick={() => setModalOpen(true)}><Plus className="h-4 w-4" /> New Workflow</Button>
       </div>
+
+      <Modal open={modalOpen} onOpenChange={setModalOpen} title="New Workflow" description="Create a new workflow.">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <Input
+            label="Name"
+            placeholder="My workflow"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="secondary" type="button" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" disabled={saveWorkflow.isPending}>
+              {saveWorkflow.isPending ? 'Creating...' : 'Create'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -87,6 +129,7 @@ export default function WorkflowsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Steps</TableHead>
                   <TableHead>Progress</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -121,6 +164,31 @@ export default function WorkflowsPage() {
                             />
                           </div>
                           <span className="text-xs text-[var(--text-tertiary)]">{pct}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => runWorkflow.mutate(wf.id)}
+                            disabled={runWorkflow.isPending}
+                          >
+                            <Play className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-danger"
+                            onClick={() => {
+                              if (confirm(`Delete workflow "${wf.name}"?`)) {
+                                deleteWorkflow.mutate(wf.id)
+                              }
+                            }}
+                            disabled={deleteWorkflow.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
