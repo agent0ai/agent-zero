@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { Card, CardBody } from '@/components/ui/Card'
-import { Settings, Shield, Plug, Key, Globe } from 'lucide-react'
+import { Settings, Shield, Plug, Key, Globe, Heart } from 'lucide-react'
 
 const sections = [
   { label: 'General', href: '/settings/general', icon: Settings, description: 'Agent configuration, model settings, preferences' },
   { label: 'Security', href: '/settings/security', icon: Shield, description: 'Authentication, API keys, audit logs' },
+  { label: 'Heartbeat', href: '/settings/heartbeat', icon: Heart, description: 'Proactive daemon — auto-execute HEARTBEAT.md checklist' },
   { label: 'MCP Servers', href: '/settings/mcp', icon: Plug, description: 'Model Context Protocol server connections' },
   { label: 'OAuth', href: '/settings/oauth', icon: Key, description: 'OAuth2 integrations (Gmail, Calendar, etc.)' },
   { label: 'Tunnels', href: '/settings/tunnels', icon: Globe, description: 'Tunnel configuration for external access' },
