@@ -97,6 +97,8 @@ class Settings(TypedDict):
 
     llm_router_enabled: bool
     llm_router_auto_configure: bool
+    llm_local_only_mode: bool
+    llm_cloud_fallback_enabled: bool
 
     api_keys: dict[str, str]
 
@@ -435,8 +437,10 @@ def get_default_settings() -> Settings:
         memory_memorize_replace_threshold=0.9,
         prompt_enhance_enabled=False,
         prompt_enhance_max_chars=4000,
-        llm_router_enabled=False,
-        llm_router_auto_configure=False,
+        llm_router_enabled=True,
+        llm_router_auto_configure=True,
+        llm_local_only_mode=True,
+        llm_cloud_fallback_enabled=False,
         api_keys={},
         auth_login="",
         auth_password="",

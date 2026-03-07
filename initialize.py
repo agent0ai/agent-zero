@@ -3,6 +3,8 @@ from agent import AgentConfig
 from python.helpers import defer, runtime, settings
 from python.helpers.print_style import PrintStyle
 
+_llm_router_bootstrap_started = False
+
 
 def initialize_agent(override_settings: dict | None = None):
     current_settings = settings.get_settings()
@@ -92,9 +94,13 @@ def initialize_agent(override_settings: dict | None = None):
     # update config with runtime args
     _args_override(config)
 
+    # Initialize local-first LLM router once per process (non-blocking)
+    _initialize_llm_router_once(current_settings)
+
     # Initialize Security Vault & Passkey/VAPID keys
     try:
         from python.helpers.security import SecurityVaultManager
+
         SecurityVaultManager.initialize_keys()
     except Exception as e:
         PrintStyle(font_color="red").print(f"Failed to initialize security vault: {e}")
@@ -126,36 +132,69 @@ def initialize_agent(override_settings: dict | None = None):
     # return config object
     return config
 
+
+def _initialize_llm_router_once(current_settings: settings.Settings):
+    global _llm_router_bootstrap_started
+    if _llm_router_bootstrap_started:
+        return
+
+    if not current_settings.get("llm_router_enabled", False):
+        return
+
+    if not current_settings.get("llm_router_auto_configure", False):
+        return
+
+    async def _bootstrap():
+        from python.helpers.llm_router import auto_configure_models
+
+        await auto_configure_models()
+
+    _llm_router_bootstrap_started = True
+    defer.DeferredTask(thread_name="llm-router-bootstrap").start_task(_bootstrap)
+
+
 def initialize_chats():
     from python.helpers import persist_chat
+
     async def initialize_chats_async():
         persist_chat.load_tmp_chats()
+
     return defer.DeferredTask().start_task(initialize_chats_async)
+
 
 def initialize_mcp():
     set = settings.get_settings()
+
     async def initialize_mcp_async():
         from python.helpers.mcp_handler import initialize_mcp as _initialize_mcp
+
         return _initialize_mcp(set["mcp_servers"])
+
     return defer.DeferredTask().start_task(initialize_mcp_async)
+
 
 def initialize_job_loop():
     try:
         from python.helpers.job_loop import run_loop
+
         return defer.DeferredTask("JobLoop").start_task(run_loop)
     except ImportError as e:
         # crontab module may not be installed - scheduler is optional
         from python.helpers.print_style import PrintStyle
+
         PrintStyle(font_color="yellow").print(f"[!] Job loop disabled: {e}")
         return None
+
 
 def initialize_preload():
     try:
         import preload
+
         return defer.DeferredTask().start_task(preload.preload)
     except ImportError as e:
         # Optional dependencies like soundfile, kokoro_tts may not be installed
         from python.helpers.print_style import PrintStyle
+
         PrintStyle(font_color="yellow").print(f"[!] Preload disabled: {e}")
         return None
 
@@ -174,9 +213,7 @@ def _args_override(config):
             elif isinstance(getattr(config, key), str):
                 value = str(value)
             else:
-                raise Exception(
-                    f"Unsupported argument type of '{key}': {type(getattr(config, key))}"
-                )
+                raise Exception(f"Unsupported argument type of '{key}': {type(getattr(config, key))}")
 
             setattr(config, key, value)
 

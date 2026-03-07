@@ -844,6 +844,24 @@ def convert_out(settings: Settings) -> SettingsOutput:
     )
     llm_router_fields.append(
         {
+            "id": "llm_local_only_mode",
+            "title": "Local-only mode",
+            "description": "Restrict routing and discovery to local interfaces (Ollama/Hugging Face local embeddings).",
+            "type": "switch",
+            "value": settings.get("llm_local_only_mode", True),
+        }
+    )
+    llm_router_fields.append(
+        {
+            "id": "llm_cloud_fallback_enabled",
+            "title": "Allow cloud fallback",
+            "description": "Allow cloud model fallback when local routing cannot satisfy a request.",
+            "type": "switch",
+            "value": settings.get("llm_cloud_fallback_enabled", False),
+        }
+    )
+    llm_router_fields.append(
+        {
             "id": "llm_router_discover",
             "title": "Discover models",
             "description": "Scan all providers for available models and update the router registry.",

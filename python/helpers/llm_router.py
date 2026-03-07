@@ -619,6 +619,9 @@ class LLMRouter:
 
     def _get_available_cloud_models(self) -> list[ModelInfo]:
         """Get cloud models based on available API keys"""
+        if self._is_local_only_mode():
+            return []
+
         models = []
 
         # Check OpenAI
@@ -677,6 +680,43 @@ class LLMRouter:
                     )
 
         return models
+
+    @staticmethod
+    def _parse_bool(value: Any, default: bool) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(value)
+
+    def _is_local_only_mode(self) -> bool:
+        # Environment variable has highest priority
+        env_value = os.getenv("LOCAL_LLM_ONLY")
+        if env_value is not None:
+            return self._parse_bool(env_value, True)
+
+        try:
+            from python.helpers import settings as settings_helper
+
+            current = settings_helper.get_settings()
+            return self._parse_bool(current.get("llm_local_only_mode", True), True)
+        except Exception:
+            return True
+
+    def _cloud_fallback_enabled(self) -> bool:
+        env_value = os.getenv("ALLOW_CLOUD_LLM_FALLBACK")
+        if env_value is not None:
+            return self._parse_bool(env_value, False)
+
+        try:
+            from python.helpers import settings as settings_helper
+
+            current = settings_helper.get_settings()
+            return self._parse_bool(current.get("llm_cloud_fallback_enabled", False), False)
+        except Exception:
+            return False
 
     def select_model(
         self,
@@ -1055,7 +1095,7 @@ async def auto_configure_models():
 
     # Set cloud fallbacks if available
     cloud_models = [m for m in models if not m.is_local]
-    if cloud_models:
+    if cloud_models and not router._is_local_only_mode() and router._cloud_fallback_enabled():
         # Prefer cheap models for fallback
         cloud_models.sort(key=lambda m: m.cost_per_1k_output)
         router.set_default_model("fallback", cloud_models[0].provider, cloud_models[0].name)

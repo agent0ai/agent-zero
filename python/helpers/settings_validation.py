@@ -128,6 +128,14 @@ if _HAS_PYDANTIC:
                 raise ValueError("max_concurrent_sessions must be >= 1")
             return v
 
+    class LlmRoutingConfigValidator(BaseModel):
+        """Validates LLM routing and local/cloud policy flags."""
+
+        llm_router_enabled: bool = True
+        llm_router_auto_configure: bool = True
+        llm_local_only_mode: bool = True
+        llm_cloud_fallback_enabled: bool = False
+
 
 # ---------------------------------------------------------------------------
 # Unified validator
@@ -238,5 +246,20 @@ class SettingsValidator:
             validated["max_concurrent_sessions"] = tier.max_concurrent_sessions
         except Exception as exc:
             warnings.append(f"tier: {exc}")
+
+        # --- llm routing profile ---
+        try:
+            llm = LlmRoutingConfigValidator(
+                llm_router_enabled=raw.get("llm_router_enabled", True),
+                llm_router_auto_configure=raw.get("llm_router_auto_configure", True),
+                llm_local_only_mode=raw.get("llm_local_only_mode", True),
+                llm_cloud_fallback_enabled=raw.get("llm_cloud_fallback_enabled", False),
+            )
+            validated["llm_router_enabled"] = llm.llm_router_enabled
+            validated["llm_router_auto_configure"] = llm.llm_router_auto_configure
+            validated["llm_local_only_mode"] = llm.llm_local_only_mode
+            validated["llm_cloud_fallback_enabled"] = llm.llm_cloud_fallback_enabled
+        except Exception as exc:
+            warnings.append(f"llm-routing: {exc}")
 
         return validated, warnings
