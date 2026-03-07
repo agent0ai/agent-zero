@@ -1,8 +1,9 @@
 import asyncio
 import json
 import sqlite3
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from python.helpers.audit import hash_event
 
@@ -83,10 +84,15 @@ class EventBus:
     def subscribe(self, event_type: str, handler: EventHandler) -> None:
         self._handlers.setdefault(event_type, []).append(handler)
 
+    # Convenience aliases matching the specification interface
+    on = subscribe
+
     def unsubscribe(self, event_type: str, handler: EventHandler) -> None:
         handlers = self._handlers.get(event_type, [])
         if handler in handlers:
             handlers.remove(handler)
+
+    off = unsubscribe
 
     async def emit(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
         event = self.store.add_event(event_type, payload)
@@ -96,3 +102,26 @@ class EventBus:
             if asyncio.iscoroutine(result):
                 await result
         return event
+
+    def list_events(self) -> list[str]:
+        """Return all event types that currently have registered handlers."""
+        return sorted(self._handlers.keys())
+
+
+# ---------------------------------------------------------------------------
+# Well-known system events
+# ---------------------------------------------------------------------------
+
+SYSTEM_EVENTS: list[str] = [
+    "message.received",
+    "message.error",
+    "tool.executed",
+    "tool.failed",
+    "memory.threshold",
+    "deployment.completed",
+    "deployment.failed",
+    "schedule.fired",
+    "health.degraded",
+    "channel.connected",
+    "channel.disconnected",
+]
