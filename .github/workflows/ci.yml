@@ -82,6 +82,45 @@ jobs:
         run: |
           pytest tests/test_workflow_*.py tests/test_virtual_team.py tests/test_customer_lifecycle.py -v
 
+  performance-gate-free:
+    name: Performance Gate (Free Tier)
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      TIER: free
+      PERF_SLO_PROFILE: free
+      ENABLE_PERSONA_SYSTEMS: "false"
+      MAX_CONCURRENT_SESSIONS: "25"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Verify tier defaults
+        run: |
+          python - <<'PY'
+          from python.helpers.settings_core import get_default_settings
+          s = get_default_settings()
+          assert s["deployment_tier"] == "free", s["deployment_tier"]
+          assert s["perf_slo_profile"] == "free", s["perf_slo_profile"]
+          assert s["enable_persona_systems"] is False, s["enable_persona_systems"]
+          assert s["max_concurrent_sessions"] == 25, s["max_concurrent_sessions"]
+          print("Tier defaults OK:", s["deployment_tier"], s["perf_slo_profile"], s["max_concurrent_sessions"])
+          PY
+
+      - name: Run performance marker suite
+        run: |
+          pytest tests -m performance -q --durations=25
+
   type-check:
     name: Type Checking
     runs-on: ubuntu-latest
@@ -127,7 +166,7 @@ jobs:
   docker-build:
     name: Docker Build Test
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, performance-gate-free]
     steps:
       - uses: actions/checkout@v4
 

@@ -1468,6 +1468,64 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "backup",
     }
 
+    tier_perf_fields: list[SettingsField] = []
+
+    tier_perf_fields.append(
+        {
+            "id": "deployment_tier",
+            "title": "Deployment tier",
+            "description": "Select active runtime tier profile for feature and performance defaults.",
+            "type": "select",
+            "value": settings.get("deployment_tier", "free"),
+            "options": [
+                {"value": "free", "label": "Free tier"},
+                {"value": "pro", "label": "Pro tier"},
+            ],
+        }
+    )
+
+    tier_perf_fields.append(
+        {
+            "id": "perf_slo_profile",
+            "title": "Performance SLO profile",
+            "description": "Target performance envelope used for release gating and runtime policy.",
+            "type": "select",
+            "value": settings.get("perf_slo_profile", "free"),
+            "options": [
+                {"value": "free", "label": "Free profile"},
+                {"value": "pro", "label": "Pro profile"},
+            ],
+        }
+    )
+
+    tier_perf_fields.append(
+        {
+            "id": "enable_persona_systems",
+            "title": "Enable persona systems",
+            "description": "Enable advanced persona-trained business system flows (typically Pro).",
+            "type": "switch",
+            "value": settings.get("enable_persona_systems", False),
+        }
+    )
+
+    tier_perf_fields.append(
+        {
+            "id": "max_concurrent_sessions",
+            "title": "Max concurrent sessions",
+            "description": "Soft concurrency target used by tier profile and capacity planning.",
+            "type": "number",
+            "value": settings.get("max_concurrent_sessions", 25),
+        }
+    )
+
+    tier_perf_section: SettingsSection = {
+        "id": "tier_performance",
+        "title": "Tier & Performance",
+        "description": "Tier selection and performance profile controls for free/pro release tracks.",
+        "fields": tier_perf_fields,
+        "tab": "developer",
+    }
+
     observability_fields: list[SettingsField] = []
 
     observability_fields.append(
@@ -1629,6 +1687,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             update_checker_section,
             backup_section,
             dev_section,
+            tier_perf_section,
             observability_section,
             # code_exec_section,
         ]

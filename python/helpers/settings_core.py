@@ -164,6 +164,12 @@ class Settings(TypedDict):
     langfuse_secret_key: str
     langfuse_host: str
 
+    # Tier / performance profile controls
+    deployment_tier: str
+    enable_persona_systems: bool
+    max_concurrent_sessions: int
+    perf_slo_profile: str
+
 
 class PartialSettings(Settings, total=False):
     pass
@@ -360,6 +366,22 @@ def get_default_settings() -> Settings:
 
     # Use Ollama URL from environment or default to localhost
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    env_tier = os.getenv("TIER", "free").strip().lower()
+    tier = env_tier if env_tier in {"free", "pro"} else "free"
+    env_profile = os.getenv("PERF_SLO_PROFILE", "").strip().lower()
+    perf_profile = env_profile if env_profile in {"free", "pro"} else tier
+    persona_default = "true" if tier == "pro" else "false"
+    enable_persona = os.getenv("ENABLE_PERSONA_SYSTEMS", persona_default).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    max_sessions_default = 100 if tier == "pro" else 25
+    try:
+        max_concurrent_sessions = int(os.getenv("MAX_CONCURRENT_SESSIONS", str(max_sessions_default)))
+    except ValueError:
+        max_concurrent_sessions = max_sessions_default
 
     return Settings(
         version=_get_version(),
@@ -466,4 +488,8 @@ def get_default_settings() -> Settings:
         langfuse_public_key=dotenv.get_dotenv_value("LANGFUSE_PUBLIC_KEY", ""),
         langfuse_secret_key=dotenv.get_dotenv_value("LANGFUSE_SECRET_KEY", ""),
         langfuse_host=dotenv.get_dotenv_value("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+        deployment_tier=tier,
+        enable_persona_systems=enable_persona,
+        max_concurrent_sessions=max_concurrent_sessions,
+        perf_slo_profile=perf_profile,
     )

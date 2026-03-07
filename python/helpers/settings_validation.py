@@ -106,6 +106,28 @@ if _HAS_PYDANTIC:
                 raise ValueError("memory_recall_similarity_threshold must be between 0 and 1")
             return v
 
+    class TierConfigValidator(BaseModel):
+        """Validates free/pro tier performance config."""
+
+        deployment_tier: str = "free"
+        perf_slo_profile: str = "free"
+        max_concurrent_sessions: int = 25
+
+        @field_validator("deployment_tier", "perf_slo_profile")
+        @classmethod
+        def valid_profile(cls, v: str) -> str:
+            normalized = v.strip().lower()
+            if normalized not in {"free", "pro"}:
+                raise ValueError("must be one of: free, pro")
+            return normalized
+
+        @field_validator("max_concurrent_sessions")
+        @classmethod
+        def positive_sessions(cls, v: int) -> int:
+            if v < 1:
+                raise ValueError("max_concurrent_sessions must be >= 1")
+            return v
+
 
 # ---------------------------------------------------------------------------
 # Unified validator
@@ -203,5 +225,18 @@ class SettingsValidator:
             val = validated.get(field)
             if not val or (isinstance(val, str) and not val.strip()):
                 warnings.append(f"required field '{field}' is missing or empty")
+
+        # --- tier/perf profile ---
+        try:
+            tier = TierConfigValidator(
+                deployment_tier=raw.get("deployment_tier", "free"),
+                perf_slo_profile=raw.get("perf_slo_profile", "free"),
+                max_concurrent_sessions=raw.get("max_concurrent_sessions", 25),
+            )
+            validated["deployment_tier"] = tier.deployment_tier
+            validated["perf_slo_profile"] = tier.perf_slo_profile
+            validated["max_concurrent_sessions"] = tier.max_concurrent_sessions
+        except Exception as exc:
+            warnings.append(f"tier: {exc}")
 
         return validated, warnings
