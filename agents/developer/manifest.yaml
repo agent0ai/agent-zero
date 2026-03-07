@@ -1,0 +1,56 @@
+name: developer
+version: 1.0.0
+description: Software development specialist.
+inherits: default
+
+capabilities:
+  - code_execution
+  - file_management
+  - git_operations
+  - deployment
+  - browser_automation
+  - code_review
+  - api_design
+  - project_scaffolding
+
+tools:
+  include:
+    - code_execution_tool
+    - code_review
+    - api_design
+    - project_scaffold
+    - deployment_*
+    - browser_agent
+    - memory_*
+    - knowledge_*
+    - search_engine
+    - response
+    - call_subordinate
+    - document_query
+    - diagram_tool
+    - diagram_architect
+    - claude_sdk_bridge
+    - opencode_bridge
+  exclude:
+    - portfolio_manager_tool
+    - business_xray_tool
+    - brand_voice
+    - customer_lifecycle
+    - sales_generator
+
+memory:
+  areas:
+    - MAIN
+    - SOLUTIONS
+    - INSTRUMENTS
+  shared_with:
+    - researcher
+
+behavior:
+  max_iterations: 50
+  tool_confirmation:
+    - deployment_*
+    - delete_*
+  auto_delegate:
+    research_tasks: researcher
+    content_tasks: ghost-writer

@@ -1,0 +1,46 @@
+name: actor-ops
+version: 1.0.0
+description: >
+  DevOps, deployment, monitoring, and infrastructure operations actor.
+inherits: base
+
+capabilities:
+  - devops
+  - deployment
+  - monitoring
+  - scheduling
+  - code_execution
+  - file_management
+
+tools:
+  include:
+    - code_execution_tool
+    - deployment_*
+    - devops_*
+    - scheduler
+    - response
+    - memory_*
+    - knowledge_*
+    - call_subordinate
+    - search_engine
+    - document_query
+  exclude:
+    - brand_voice
+    - customer_lifecycle
+    - sales_generator
+    - portfolio_manager_tool
+    - business_xray_tool
+
+memory:
+  areas:
+    - MAIN
+    - INSTRUMENTS
+  shared_with: []
+
+behavior:
+  max_iterations: 40
+  tool_confirmation:
+    - deployment_*
+    - delete_*
+  auto_delegate:
+    research_tasks: actor-research

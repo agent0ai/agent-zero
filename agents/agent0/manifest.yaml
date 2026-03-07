@@ -1,0 +1,55 @@
+name: agent0
+version: 1.0.0
+description: >
+  Root orchestrator agent. Full capabilities, no exclusions.
+  Communicates with users, delegates to subordinates, general purpose.
+
+capabilities:
+  - code_execution
+  - file_management
+  - git_operations
+  - deployment
+  - browser_automation
+  - web_search
+  - data_analysis
+  - content_creation
+  - writing
+  - formatting
+  - security_analysis
+  - conversation
+  - agent_configuration
+  - devops
+  - monitoring
+  - scheduling
+  - research
+  - reporting
+  - email
+  - telephony
+  - orchestration
+
+tools:
+  include:
+    - "*"
+  exclude: []
+
+memory:
+  areas:
+    - MAIN
+    - SOLUTIONS
+    - INSTRUMENTS
+    - FRAGMENTS
+  shared_with: []
+
+behavior:
+  max_iterations: 50
+  tool_confirmation:
+    - deployment_*
+    - delete_*
+    - email*
+    - twilio_*
+  auto_delegate:
+    research_tasks: researcher
+    content_tasks: ghost-writer
+    security_tasks: hacker
+    devops_tasks: actor-ops
+    development_tasks: developer

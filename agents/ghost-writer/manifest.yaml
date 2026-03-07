@@ -1,0 +1,49 @@
+name: ghost-writer
+version: 1.0.0
+description: >
+  Content creation, executive-ready updates, thought capture,
+  and concise storytelling across business, product, and technical domains.
+inherits: default
+
+capabilities:
+  - content_creation
+  - writing
+  - formatting
+  - brand_voice
+  - reporting
+
+tools:
+  include:
+    - response
+    - call_subordinate
+    - memory_*
+    - knowledge_*
+    - document_query
+    - search_engine
+    - browser_agent
+    - brand_voice
+    - digest_builder
+    - vision_load
+    - diagram_tool
+  exclude:
+    - code_execution_tool
+    - deployment_*
+    - devops_*
+    - security_audit
+    - email*
+    - telegram_send
+    - twilio_*
+
+memory:
+  areas:
+    - MAIN
+    - FRAGMENTS
+  shared_with:
+    - researcher
+
+behavior:
+  max_iterations: 30
+  tool_confirmation: []
+  auto_delegate:
+    research_tasks: researcher
+    development_tasks: developer

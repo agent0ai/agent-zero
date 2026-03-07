@@ -1,0 +1,31 @@
+name: base
+version: 1.0.0
+description: >
+  Minimal base profile for modular orchestration. Routes tasks to
+  specialized actor agents, composes outputs, enforces shared standards.
+
+capabilities:
+  - orchestration
+  - conversation
+  - file_management
+
+tools:
+  include:
+    - call_subordinate
+    - response
+    - memory_*
+    - knowledge_*
+  exclude: []
+
+memory:
+  areas:
+    - MAIN
+  shared_with: []
+
+behavior:
+  max_iterations: 25
+  tool_confirmation: []
+  auto_delegate:
+    research_tasks: actor-research
+    content_tasks: actor-writer
+    operations_tasks: actor-ops

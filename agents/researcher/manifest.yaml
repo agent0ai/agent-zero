@@ -1,0 +1,50 @@
+name: researcher
+version: 1.0.0
+description: Research, data analysis, and reporting specialist.
+inherits: default
+
+capabilities:
+  - web_search
+  - data_analysis
+  - file_management
+  - research
+  - reporting
+  - formatting
+
+tools:
+  include:
+    - search_engine
+    - browser_agent
+    - document_query
+    - research_organize
+    - knowledge_*
+    - memory_*
+    - vision_load
+    - response
+    - call_subordinate
+    - diagram_tool
+    - analytics_roi_calculator
+  exclude:
+    - code_execution_tool
+    - deployment_*
+    - devops_*
+    - security_audit
+    - email*
+    - telegram_send
+    - twilio_*
+
+memory:
+  areas:
+    - MAIN
+    - SOLUTIONS
+    - FRAGMENTS
+  shared_with:
+    - developer
+    - ghost-writer
+
+behavior:
+  max_iterations: 40
+  tool_confirmation: []
+  auto_delegate:
+    content_tasks: ghost-writer
+    development_tasks: developer

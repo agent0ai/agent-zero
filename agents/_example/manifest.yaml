@@ -1,0 +1,55 @@
+# Agent Profile Manifest
+# This file declares the capabilities, tool access, memory areas,
+# and behavioral rules for this agent profile.
+
+# Profile identity
+name: _example                  # Must match the directory name
+version: 1.0.0                  # Semantic version for the profile
+description: >
+  Template manifest with comments explaining each field.
+  Copy this file when creating a new agent profile.
+
+# Optional: inherit all settings from another profile.
+# Inherited values are merged; this profile's values take precedence.
+# inherits: default
+
+# Capabilities advertise what this profile can do.
+# Used by the delegation router to match tasks to profiles.
+capabilities:
+  - example_capability
+  # Common capabilities:
+  #   code_execution, file_management, git_operations, deployment,
+  #   browser_automation, web_search, data_analysis, content_creation,
+  #   writing, formatting, security_analysis, penetration_testing,
+  #   conversation, personality_mirroring, agent_configuration,
+  #   devops, monitoring, scheduling, research, reporting
+
+# Tool access control
+tools:
+  # include: list of tool name patterns this profile may use.
+  # Supports trailing wildcards: deployment_* matches deployment_execute, etc.
+  include:
+    - example_tool
+    - response
+  # exclude: tool patterns explicitly denied even if inherited.
+  exclude: []
+
+# Memory configuration
+memory:
+  # Named memory areas this profile reads/writes.
+  areas:
+    - MAIN
+  # Profiles whose memory areas this profile can also read.
+  shared_with: []
+
+# Behavioral rules
+behavior:
+  # Hard cap on reasoning loop iterations.
+  max_iterations: 25
+  # Tool name patterns that require user confirmation before execution.
+  tool_confirmation: []
+  # Auto-delegation rules: mapping of task category -> target profile.
+  # When the agent detects a task matching the category, it delegates.
+  auto_delegate: {}
+  #   research_tasks: researcher
+  #   content_tasks: ghost-writer

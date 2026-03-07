@@ -341,6 +341,16 @@ class Agent:
         self.intervention: UserMessage | None = None
         self.data: dict[str, Any] = {}  # free data object all the tools can use
 
+        # Load capability manifest for the active profile (if available)
+        self.manifest: dict[str, Any] = {}
+        if self.config.profile:
+            try:
+                from python.helpers.agent_composer import get_composer
+
+                self.manifest = get_composer().load_manifest(self.config.profile)
+            except Exception:
+                pass  # gracefully skip if manifest missing or yaml unavailable
+
         asyncio.run(self.call_extensions("agent_init"))
 
     async def monologue(self):

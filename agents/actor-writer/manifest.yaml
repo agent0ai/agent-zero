@@ -1,0 +1,48 @@
+name: actor-writer
+version: 1.0.0
+description: >
+  Writing, content creation, and marketing actor. Drafting, editing,
+  and tone adaptation for executive-ready messaging.
+inherits: base
+
+capabilities:
+  - content_creation
+  - writing
+  - formatting
+  - brand_voice
+  - reporting
+
+tools:
+  include:
+    - response
+    - call_subordinate
+    - memory_*
+    - knowledge_*
+    - document_query
+    - search_engine
+    - brand_voice
+    - digest_builder
+    - sales_generator
+    - customer_lifecycle
+    - vision_load
+  exclude:
+    - code_execution_tool
+    - deployment_*
+    - devops_*
+    - security_audit
+    - email*
+    - telegram_send
+    - twilio_*
+
+memory:
+  areas:
+    - MAIN
+    - FRAGMENTS
+  shared_with:
+    - actor-research
+
+behavior:
+  max_iterations: 30
+  tool_confirmation: []
+  auto_delegate:
+    research_tasks: actor-research

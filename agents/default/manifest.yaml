@@ -1,0 +1,43 @@
+name: default
+version: 1.0.0
+description: >
+  Standard user-facing agent with general capabilities.
+  Default prompt templates; inherited and overridden by specialized profiles.
+
+capabilities:
+  - code_execution
+  - file_management
+  - web_search
+  - data_analysis
+  - conversation
+  - writing
+  - formatting
+  - research
+
+tools:
+  include:
+    - code_execution_tool
+    - browser_agent
+    - memory_*
+    - knowledge_*
+    - search_engine
+    - response
+    - call_subordinate
+    - document_query
+    - vision_load
+    - wait
+    - input
+  exclude: []
+
+memory:
+  areas:
+    - MAIN
+    - SOLUTIONS
+  shared_with: []
+
+behavior:
+  max_iterations: 25
+  tool_confirmation:
+    - deployment_*
+    - delete_*
+  auto_delegate: {}

@@ -1,0 +1,43 @@
+name: agent-builder
+version: 1.0.0
+description: >
+  Creates and configures new agent profiles. Meta-level: onboarding,
+  scoping, and assembling customized profiles with modular skills.
+
+capabilities:
+  - agent_configuration
+  - file_management
+  - code_execution
+  - writing
+  - formatting
+
+tools:
+  include:
+    - code_execution_tool
+    - response
+    - memory_*
+    - knowledge_*
+    - document_query
+    - search_engine
+    - skill_importer
+    - plugin_marketplace
+    - call_subordinate
+  exclude:
+    - deployment_*
+    - devops_*
+    - security_audit
+    - email*
+    - telegram_send
+    - twilio_*
+
+memory:
+  areas:
+    - MAIN
+    - INSTRUMENTS
+  shared_with: []
+
+behavior:
+  max_iterations: 30
+  tool_confirmation: []
+  auto_delegate:
+    research_tasks: researcher

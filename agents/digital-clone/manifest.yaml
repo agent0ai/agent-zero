@@ -1,0 +1,42 @@
+name: digital-clone
+version: 1.0.0
+description: >
+  Digital clone for solution architecture review, continuous knowledge
+  aggregation, and actionable tech/business digests via Telegram.
+
+capabilities:
+  - conversation
+  - personality_mirroring
+  - content_creation
+  - writing
+  - reporting
+
+tools:
+  include:
+    - response
+    - memory_*
+    - knowledge_*
+    - document_query
+    - digest_builder
+    - telegram_send
+    - search_engine
+    - vision_load
+  exclude:
+    - code_execution_tool
+    - deployment_*
+    - devops_*
+    - security_audit
+    - call_subordinate
+    - browser_agent
+
+memory:
+  areas:
+    - MAIN
+    - FRAGMENTS
+  shared_with: []
+
+behavior:
+  max_iterations: 20
+  tool_confirmation:
+    - telegram_send
+  auto_delegate: {}

@@ -1,0 +1,47 @@
+name: actor-research
+version: 1.0.0
+description: >
+  Research and analysis hybrid actor. Source validation, concise
+  evidence summaries.
+inherits: base
+
+capabilities:
+  - research
+  - data_analysis
+  - web_search
+  - reporting
+  - formatting
+
+tools:
+  include:
+    - search_engine
+    - browser_agent
+    - document_query
+    - research_organize
+    - knowledge_*
+    - memory_*
+    - vision_load
+    - response
+    - call_subordinate
+    - analytics_roi_calculator
+  exclude:
+    - code_execution_tool
+    - deployment_*
+    - devops_*
+    - security_audit
+    - email*
+    - telegram_send
+    - twilio_*
+
+memory:
+  areas:
+    - MAIN
+    - FRAGMENTS
+  shared_with:
+    - actor-writer
+
+behavior:
+  max_iterations: 35
+  tool_confirmation: []
+  auto_delegate:
+    content_tasks: actor-writer

@@ -1,0 +1,52 @@
+name: hacker
+version: 1.0.0
+description: Cybersecurity and penetration testing specialist. High trust level.
+inherits: default
+
+capabilities:
+  - security_analysis
+  - penetration_testing
+  - code_execution
+  - file_management
+  - web_search
+  - browser_automation
+  - git_operations
+
+tools:
+  include:
+    - code_execution_tool
+    - security_audit
+    - auth_test
+    - browser_agent
+    - search_engine
+    - memory_*
+    - knowledge_*
+    - document_query
+    - response
+    - call_subordinate
+    - deployment_validate_env
+  exclude:
+    - portfolio_manager_tool
+    - business_xray_tool
+    - brand_voice
+    - customer_lifecycle
+    - sales_generator
+    - email*
+    - telegram_send
+
+memory:
+  areas:
+    - MAIN
+    - SOLUTIONS
+    - INSTRUMENTS
+  shared_with:
+    - developer
+
+behavior:
+  max_iterations: 50
+  tool_confirmation:
+    - deployment_*
+    - delete_*
+  auto_delegate:
+    research_tasks: researcher
+    content_tasks: ghost-writer
