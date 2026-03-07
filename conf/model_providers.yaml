@@ -81,6 +81,11 @@ chat:
   sambanova:
     name: Sambanova
     litellm_provider: sambanova
+  tensorix:
+    name: Tensorix
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.tensorix.ai/v1
   venice:
     name: Venice.ai
     litellm_provider: openai
@@ -139,6 +144,11 @@ embedding:
       extra_headers:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
+  tensorix:
+    name: Tensorix
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.tensorix.ai/v1
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
