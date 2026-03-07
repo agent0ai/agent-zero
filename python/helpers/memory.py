@@ -1,10 +1,10 @@
 import json
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 import faiss
 import numpy as np
@@ -38,7 +38,9 @@ class MyFaiss(FAISS):
     # override aget_by_ids
     def get_by_ids(self, ids: Sequence[str], /) -> list[Document]:
         # return all self.docstore._dict[id] in ids
-        return [self.docstore._dict[id] for id in (ids if isinstance(ids, list) else [ids]) if id in self.docstore._dict]  # type: ignore
+        return [
+            self.docstore._dict[id] for id in (ids if isinstance(ids, list) else [ids]) if id in self.docstore._dict
+        ]  # type: ignore
 
     async def aget_by_ids(self, ids: Sequence[str], /) -> list[Document]:
         return self.get_by_ids(ids)
@@ -48,7 +50,6 @@ class MyFaiss(FAISS):
 
 
 class Memory:
-
     class Area(Enum):
         MAIN = "main"
         FRAGMENTS = "fragments"
@@ -65,18 +66,20 @@ class Memory:
         if memory_subdir.startswith("secure_") or memory_subdir == "vault":
             try:
                 from python.helpers.security import SecurityManager
+
                 if not SecurityManager.is_tool_authorized("memory_access"):
                     from python.helpers.notification import NotificationManager, NotificationPriority, NotificationType
+
                     NotificationManager.send_notification(
                         type=NotificationType.AUTH_REQUIRED,
                         priority=NotificationPriority.HIGH,
                         message=f"Agent is trying to access secure memory partition '{memory_subdir}'.",
                         title="🔒 Memory Authorization Needed",
-                        group="auth-gate"
+                        group="auth-gate",
                     )
                     # Note: Passive enforcement for now per user request
                     if SecurityManager.ENFORCE_PASSKEY:
-                         raise Exception(f"ACCESS_DENIED: Memory partition '{memory_subdir}' is locked.")
+                        raise Exception(f"ACCESS_DENIED: Memory partition '{memory_subdir}' is locked.")
             except ImportError:
                 pass
 
@@ -128,9 +131,7 @@ class Memory:
                     memory_subdir, agent_config.knowledge_subdirs or []
                 )
                 if knowledge_subdirs:
-                    await wrap.preload_knowledge(
-                        log_item, knowledge_subdirs, memory_subdir
-                    )
+                    await wrap.preload_knowledge(log_item, knowledge_subdirs, memory_subdir)
             Memory.index[memory_subdir] = db
         return Memory(db=Memory.index[memory_subdir], memory_subdir=memory_subdir)
 
@@ -148,15 +149,12 @@ class Memory:
         memory_subdir: str,
         in_memory=False,
     ) -> tuple[MyFaiss, bool]:
-
         PrintStyle.standard("Initializing VectorDB...")
 
         if log_item:
             log_item.stream(progress="\nInitializing VectorDB")
 
-        em_dir = files.get_abs_path(
-            "memory/embeddings"
-        )  # just caching, no need to parameterize
+        em_dir = files.get_abs_path("memory/embeddings")  # just caching, no need to parameterize
         db_dir = abs_db_dir(memory_subdir)
 
         # make sure embeddings and database directories exist
@@ -173,14 +171,10 @@ class Memory:
             model_config.name,
             **model_config.build_kwargs(),
         )
-        embeddings_model_id = files.safe_file_name(
-            model_config.provider + "_" + model_config.name
-        )
+        embeddings_model_id = files.safe_file_name(model_config.provider + "_" + model_config.name)
 
         # here we setup the embeddings model with the chosen cache storage
-        embedder = CacheBackedEmbeddings.from_bytes_store(
-            embeddings_model, store, namespace=embeddings_model_id
-        )
+        embedder = CacheBackedEmbeddings.from_bytes_store(embeddings_model, store, namespace=embeddings_model_id)
 
         # initial DB and docs variables
         db: MyFaiss | None = None
@@ -259,13 +253,15 @@ class Memory:
         self,
         db: MyFaiss,
         memory_subdir: str,
+        on_save: Optional[Callable] = None,
+        on_recall: Optional[Callable] = None,
     ):
         self.db = db
         self.memory_subdir = memory_subdir
+        self.on_save = on_save
+        self.on_recall = on_recall
 
-    async def preload_knowledge(
-        self, log_item: LogItem | None, kn_dirs: list[str], memory_subdir: str
-    ):
+    async def preload_knowledge(self, log_item: LogItem | None, kn_dirs: list[str], memory_subdir: str):
         if log_item:
             log_item.update(heading="Preloading knowledge...")
 
@@ -291,13 +287,9 @@ class Memory:
             if index[file]["state"] in ["changed", "removed"] and index[file].get(
                 "ids", []
             ):  # for knowledge files that have been changed or removed and have IDs
-                await self.delete_documents_by_ids(
-                    index[file]["ids"]
-                )  # remove original version
+                await self.delete_documents_by_ids(index[file]["ids"])  # remove original version
             if index[file]["state"] == "changed":
-                index[file]["ids"] = await self.insert_documents(
-                    index[file]["documents"]
-                )  # insert new version
+                index[file]["ids"] = await self.insert_documents(index[file]["documents"])  # insert new version
 
         # remove index where state="removed"
         index = {k: v for k, v in index.items() if v["state"] != "removed"}
@@ -354,31 +346,31 @@ class Memory:
     def get_document_by_id(self, id: str) -> Document | None:
         return self.db.get_by_ids(id)[0]
 
-    async def search_similarity_threshold(
-        self, query: str, limit: int, threshold: float, filter: str = ""
-    ):
+    async def search_similarity_threshold(self, query: str, limit: int, threshold: float, filter: str = ""):
         comparator = Memory._get_comparator(filter) if filter else None
 
-        return await self.db.asearch(
+        results = await self.db.asearch(
             query,
             search_type="similarity_score_threshold",
             k=limit,
             score_threshold=threshold,
             filter=comparator,
         )
+        if self.on_recall and results:
+            try:
+                self.on_recall(query, results)
+            except Exception:
+                pass  # callbacks must not break core recall flow
+        return results
 
-    async def delete_documents_by_query(
-        self, query: str, threshold: float, filter: str = ""
-    ):
+    async def delete_documents_by_query(self, query: str, threshold: float, filter: str = ""):
         k = 100
         tot = 0
         removed = []
 
         while True:
             # Perform similarity search with score
-            docs = await self.search_similarity_threshold(
-                query, limit=k, threshold=threshold, filter=filter
-            )
+            docs = await self.search_similarity_threshold(query, limit=k, threshold=threshold, filter=filter)
             removed += docs
 
             # Extract document IDs and filter based on score
@@ -403,9 +395,7 @@ class Memory:
 
     async def delete_documents_by_ids(self, ids: list[str]):
         # aget_by_ids is not yet implemented in faiss, need to do a workaround
-        rem_docs = await self.db.aget_by_ids(
-            ids
-        )  # existing docs to remove (prevents error)
+        rem_docs = await self.db.aget_by_ids(ids)  # existing docs to remove (prevents error)
         if rem_docs:
             rem_ids = [doc.metadata["id"] for doc in rem_docs]  # ids to remove
             await self.db.adelete(ids=rem_ids)
@@ -419,7 +409,13 @@ class Memory:
             metadata = {}
         doc = Document(text, metadata=metadata)
         ids = await self.insert_documents([doc])
-        return ids[0]
+        doc_id = ids[0]
+        if self.on_save:
+            try:
+                self.on_save(doc_id, text, metadata)
+            except Exception:
+                pass  # callbacks must not break core save flow
+        return doc_id
 
     async def insert_documents(self, docs: list[Document]):
         ids = [self._generate_doc_id() for _ in range(len(docs))]
@@ -477,9 +473,7 @@ class Memory:
     @staticmethod
     def _cosine_normalizer(val: float) -> float:
         res = (1 + val) / 2
-        res = max(
-            0, min(1, res)
-        )  # float precision can cause values like 1.0000000596046448
+        res = max(0, min(1, res))  # float precision can cause values like 1.0000000596046448
         return res
 
     @staticmethod
@@ -525,9 +519,7 @@ def abs_knowledge_dir(knowledge_subdir: str, *sub_dirs: str) -> str:
     if knowledge_subdir.startswith("projects/"):
         from python.helpers.projects import get_project_meta_folder
 
-        return files.get_abs_path(
-            get_project_meta_folder(knowledge_subdir[9:]), "knowledge", *sub_dirs
-        )
+        return files.get_abs_path(get_project_meta_folder(knowledge_subdir[9:]), "knowledge", *sub_dirs)
     # standard subdirs
     return files.get_abs_path("knowledge", knowledge_subdir, *sub_dirs)
 
@@ -568,9 +560,7 @@ def get_existing_memory_subdirs() -> list[str]:
 
         project_subdirs = files.get_subdirectories(get_projects_parent_folder())
         for project_subdir in project_subdirs:
-            if files.exists(
-                get_project_meta_folder(project_subdir), "memory", "index.faiss"
-            ):
+            if files.exists(get_project_meta_folder(project_subdir), "memory", "index.faiss"):
                 subdirs.append(f"projects/{project_subdir}")
 
         # Ensure 'default' is always available
@@ -583,9 +573,7 @@ def get_existing_memory_subdirs() -> list[str]:
         return ["default"]
 
 
-def get_knowledge_subdirs_by_memory_subdir(
-    memory_subdir: str, default: list[str]
-) -> list[str]:
+def get_knowledge_subdirs_by_memory_subdir(memory_subdir: str, default: list[str]) -> list[str]:
     if memory_subdir.startswith("projects/"):
         from python.helpers.projects import get_project_meta_folder
 
