@@ -2,8 +2,17 @@
 
 . "/ins/setup_venv.sh" "$@"
 . "/ins/copy_A0.sh" "$@"
+if [ -n "${PYTHONWARNINGS:-}" ]; then
+    export PYTHONWARNINGS="${PYTHONWARNINGS},ignore:.*doesn't match a supported version.*:Warning"
+else
+    export PYTHONWARNINGS="ignore:.*doesn't match a supported version.*:Warning"
+fi
 
-python /a0/prepare.py --dockerized=true
+if [ "${A0_SKIP_PREPARE:-1}" != "1" ]; then
+    python /a0/prepare.py --dockerized=true
+else
+    echo "Skipping prepare.py (A0_SKIP_PREPARE=1)"
+fi
 # python /a0/preload.py --dockerized=true # no need to run preload if it's done during container build
 
 echo "Starting A0..."

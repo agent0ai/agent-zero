@@ -1,4 +1,5 @@
 # disable logging
+import contextlib
 import logging
 import os
 import secrets
@@ -6,11 +7,18 @@ import socket
 import struct
 import threading
 import time
+import warnings
 from datetime import timedelta
 from functools import wraps
 
 from flask import Flask, Response, redirect, render_template_string, request, session, url_for
 from werkzeug.wrappers.response import Response as BaseResponse
+
+logging.getLogger().setLevel(logging.WARNING)
+with contextlib.suppress(Exception):
+    from requests import RequestsDependencyWarning
+
+    warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
 
 import initialize
 from python.helpers import dotenv, fasta2a_server, files, git, login, mcp_server, process, runtime
@@ -18,9 +26,6 @@ from python.helpers.api import ApiHandler
 from python.helpers.extract_tools import load_classes_from_folder
 from python.helpers.files import get_abs_path
 from python.helpers.print_style import PrintStyle
-
-logging.getLogger().setLevel(logging.WARNING)
-
 
 # Set the new timezone to 'UTC'
 os.environ["TZ"] = "UTC"
@@ -42,6 +47,8 @@ webapp.config.update(
 )
 
 lock = threading.Lock()
+_mcp_token_lock = threading.Lock()
+_active_mcp_token: str | None = None
 
 # Set up basic authentication for UI and API but not MCP
 # basic_auth = BasicAuth(webapp)
@@ -202,7 +209,49 @@ async def serve_index():
     index = files.replace_placeholders_text(
         _content=index, version_no=gitinfo["version"], version_time=gitinfo["commit_time"]
     )
-    return index
+    # Auto-provision MCP token details on main page load.
+    # Use explicit refresh to rotate safely without invalidating active sessions unexpectedly.
+    refresh_requested = request.args.get("refresh_mcp_token", "").lower() in {"1", "true", "yes"}
+    token = _ensure_active_mcp_token(force_rotate=refresh_requested)
+    sse_url = f"/mcp/t-{token}/sse"
+    streamable_http_url = f"/mcp/t-{token}/http/"
+    base_url = request.host_url.rstrip("/")
+
+    response = Response(response=index, status=200, mimetype="text/html")
+    response.headers["X-Agent-Zero-MCP-Token"] = token
+    response.headers["X-Agent-Zero-MCP-SSE"] = sse_url
+    response.headers["X-Agent-Zero-MCP-HTTP"] = streamable_http_url
+    response.headers["X-Agent-Zero-MCP-SSE-URL"] = f"{base_url}{sse_url}"
+    response.headers["X-Agent-Zero-MCP-HTTP-URL"] = f"{base_url}{streamable_http_url}"
+    response.set_cookie(
+        f"mcp_token_{runtime.get_runtime_id()}",
+        token,
+        httponly=False,
+        samesite="Strict",
+    )
+    return response
+
+
+def _ensure_active_mcp_token(force_rotate: bool = False) -> str:
+    global _active_mcp_token
+    with _mcp_token_lock:
+        if _active_mcp_token and not force_rotate:
+            return _active_mcp_token
+
+        # Generate an ephemeral token for MCP clients.
+        token = secrets.token_urlsafe(18)
+        _active_mcp_token = token
+
+        try:
+            mcp_server.DynamicMcpProxy.get_instance().reconfigure(token=token)
+        except Exception as e:
+            PrintStyle(font_color="yellow").print(f"[!] MCP token reconfigure failed: {e}")
+        try:
+            fasta2a_server.DynamicA2AProxy.get_instance().reconfigure(token=token)
+        except Exception as e:
+            PrintStyle(font_color="yellow").print(f"[!] A2A token reconfigure failed: {e}")
+
+        return token
 
 
 def run():
@@ -249,24 +298,41 @@ def run():
 
     # Load ALL API handlers at startup (Flask 3.x requires all routes registered before first request)
     # Note: Expensive imports should be made lazy INSIDE handlers via try/except ImportError
+    PrintStyle(font_color="yellow").print("[boot] Loading API handlers...")
     all_handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)
+    PrintStyle(font_color="yellow").print("[boot] Registering API handlers...")
     for handler in all_handlers:
         register_api_handler(webapp, handler)
     PrintStyle(font_color="green").print(f"[✓] API handlers loaded ({len(all_handlers)} handlers)")
 
-    # Initialize messaging gateway with channel adapters
-    from python.helpers.gateway_init import initialize_gateway
+    # Initialize messaging gateway with channel adapters.
+    # Keep UI boot resilient if gateway dependencies are mid-refactor.
+    try:
+        from python.helpers.gateway_init import initialize_gateway
 
-    initialize_gateway()
+        initialize_gateway()
+    except Exception as e:
+        PrintStyle(font_color="yellow").print(f"[!] Gateway init skipped: {e}")
 
-    # add the webapp, mcp, and a2a to the app
-    middleware_routes = {
-        "/mcp": ASGIMiddleware(app=mcp_server.DynamicMcpProxy.get_instance()),  # type: ignore
-        "/a2a": ASGIMiddleware(app=fasta2a_server.DynamicA2AProxy.get_instance()),  # type: ignore
-    }
+    # Add the webapp, mcp, and a2a to the app.
+    # Protect startup from blocking proxy initialization.
+    middleware_routes = {}
 
+    def _init_route(path: str, factory):
+        try:
+            app_obj = factory()
+            middleware_routes[path] = ASGIMiddleware(app=app_obj)  # type: ignore
+            PrintStyle(font_color="green").print(f"[✓] Mounted {path} route")
+        except Exception as e:
+            PrintStyle(font_color="yellow").print(f"[!] Skipping {path} route: {e}")
+
+    _init_route("/mcp", mcp_server.DynamicMcpProxy.get_instance)
+    _init_route("/a2a", fasta2a_server.DynamicA2AProxy.get_instance)
+
+    PrintStyle(font_color="yellow").print("[boot] Building WSGI dispatcher...")
     app = DispatcherMiddleware(webapp, middleware_routes)  # type: ignore
 
+    PrintStyle(font_color="yellow").print(f"[boot] Binding HTTP server on {host}:{port}...")
     PrintStyle().debug(f"Starting server at http://{host}:{port} ...")
 
     server = make_server(

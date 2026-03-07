@@ -4,11 +4,21 @@
 
 # Large / generated data
 memory/**
+ollama_models/**
+*.gguf
+*.bin
 
 # Logs, tmp, usr
 logs/*
 tmp/*
 usr/*
+
+# Build outputs / generated artifacts
+scripts/training/output/**
+docs/diagrams/generated/**
+.buildx-cache/**
+dist/**
+build/**
 
 # Knowledge directory – keep only default/
 knowledge/**
@@ -31,6 +41,19 @@ instruments/**
 .cursor/
 .venv/
 .git/
+.worktrees/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+
+# Keep dependency manifests and optional lock/wheelhouse metadata.
+!requirements.txt
+!requirements2.txt
+!requirements.lock.txt
+!pyproject.toml
+!docker/wheelhouse/
+!docker/wheelhouse/**
 
 
 ###############################################################################

@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from python.helpers import gateway
 from python.helpers.api import ApiHandler
+from python.helpers.channel_factory import ChannelFactory
 
 if TYPE_CHECKING:
     from flask import Request
-from python.helpers.gateway import Gateway
 
 
 class GatewayStatus(ApiHandler):
@@ -23,15 +24,17 @@ class GatewayStatus(ApiHandler):
         return ["GET", "POST"]
 
     async def process(self, input: dict, request: Request):
-        gateway = Gateway.get()
-
         # Optional: filter to a single channel
         channel = request.args.get("channel", "") or input.get("channel", "")
+        available = ChannelFactory.available()
+        stats = gateway.stats()
 
         if channel:
-            status = gateway.get_channel_status(channel)
-            if status is None:
+            if channel not in available:
                 return {"error": f"Unknown channel: {channel}"}
-            return {"channels": [status]}
+            return {"channels": [{"name": channel, "registered": True}], "gateway": stats}
 
-        return {"channels": gateway.get_all_status()}
+        return {
+            "channels": [{"name": name, "registered": True} for name in available],
+            "gateway": stats,
+        }

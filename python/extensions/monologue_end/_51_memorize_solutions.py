@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 
 from agent import LoopData
 from python.helpers import settings
@@ -10,7 +11,6 @@ from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHO
 
 
 class MemorizeSolutions(Extension):
-
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
         # try:
 
@@ -30,7 +30,6 @@ class MemorizeSolutions(Extension):
         return task
 
     async def memorize(self, loop_data: LoopData, log_item: LogItem, **kwargs):
-
         set = settings.get_settings()
 
         db = await Memory.get(self.agent)
@@ -43,13 +42,20 @@ class MemorizeSolutions(Extension):
         async def log_callback(content):
             log_item.stream(content=content)
 
-        # call util llm to find solutions in history
-        solutions_json = await self.agent.call_utility_model(
-            system=system,
-            message=msgs_text,
-            callback=log_callback,
-            background=True,
-        )
+        try:
+            # Fail fast when utility model is unavailable to avoid blocking chat completion.
+            solutions_json = await asyncio.wait_for(
+                self.agent.call_utility_model(
+                    system=system,
+                    message=msgs_text,
+                    callback=log_callback,
+                    background=True,
+                ),
+                timeout=12,
+            )
+        except Exception as e:
+            log_item.update(heading=f"Skipping solution extraction (utility model unavailable): {e!s}")
+            return
 
         # Add validation and error handling for solutions_json
         if not solutions_json or not isinstance(solutions_json, str):
@@ -76,7 +82,7 @@ class MemorizeSolutions(Extension):
 
         # If solutions is not a list, try to make it one
         if not isinstance(solutions, list):
-            if isinstance(solutions, (str, dict)):
+            if isinstance(solutions, str | dict):
                 solutions = [solutions]
             else:
                 log_item.update(heading="Invalid solutions format received.")
@@ -87,9 +93,7 @@ class MemorizeSolutions(Extension):
             return
         else:
             solutions_txt = "\n\n".join([str(solution) for solution in solutions]).strip()
-            log_item.update(
-                heading=f"{len(solutions)} successful solutions to memorize.", solutions=solutions_txt
-            )
+            log_item.update(heading=f"{len(solutions)} successful solutions to memorize.", solutions=solutions_txt)
 
         # Process solutions with intelligent consolidation
         total_processed = 0
@@ -99,8 +103,8 @@ class MemorizeSolutions(Extension):
         for solution in solutions:
             # Convert solution to structured text
             if isinstance(solution, dict):
-                problem = solution.get('problem', 'Unknown problem')
-                solution_text = solution.get('solution', 'Unknown solution')
+                problem = solution.get("problem", "Unknown problem")
+                solution_text = solution.get("solution", "Unknown solution")
                 txt = f"# Problem\n {problem}\n# Solution\n {solution_text}"
             else:
                 # If solution is not a dict, convert it to string
@@ -110,15 +114,16 @@ class MemorizeSolutions(Extension):
                 try:
                     # Use intelligent consolidation system
                     from python.helpers.memory_consolidation import create_memory_consolidator
+
                     consolidator = create_memory_consolidator(
                         self.agent,
                         similarity_threshold=DEFAULT_MEMORY_THRESHOLD,  # More permissive for discovery
-                        max_similar_memories=6,    # Fewer for solutions (more complex)
-                        max_llm_context_memories=3
+                        max_similar_memories=6,  # Fewer for solutions (more complex)
+                        max_llm_context_memories=3,
                     )
 
                     # Create solution-specific log for detailed tracking
-                    solution_log = None # too many utility messages, skip log for now
+                    solution_log = None  # too many utility messages, skip log for now
                     # solution_log = self.agent.context.log.log(
                     #     type="util",
                     #     heading=f"Processing solution: {txt[:50]}...",
@@ -127,12 +132,17 @@ class MemorizeSolutions(Extension):
                     # )
 
                     # Process with intelligent consolidation
-                    result_obj = await consolidator.process_new_memory(
-                        new_memory=txt,
-                        area=Memory.Area.SOLUTIONS.value,
-                        metadata={"area": Memory.Area.SOLUTIONS.value},
-                        log_item=solution_log
-                    )
+                    result_obj = {"success": False}
+                    with suppress(Exception):
+                        result_obj = await asyncio.wait_for(
+                            consolidator.process_new_memory(
+                                new_memory=txt,
+                                area=Memory.Area.SOLUTIONS.value,
+                                metadata={"area": Memory.Area.SOLUTIONS.value},
+                                log_item=solution_log,
+                            ),
+                            timeout=10,
+                        )
 
                     # Update the individual log item with completion status but keep it temporary
                     if result_obj.get("success"):
@@ -142,7 +152,7 @@ class MemorizeSolutions(Extension):
                                 result="Solution processed successfully",
                                 heading=f"Solution completed: {txt[:50]}...",
                                 temp=False,  # Show completion message
-                                update_progress="none"  # Show briefly then disappear
+                                update_progress="none",  # Show briefly then disappear
                             )
                     else:
                         if solution_log:
@@ -150,7 +160,7 @@ class MemorizeSolutions(Extension):
                                 result="Solution processing failed",
                                 heading=f"Solution failed: {txt[:50]}...",
                                 temp=False,  # Show completion message
-                                update_progress="none"  # Show briefly then disappear
+                                update_progress="none",  # Show briefly then disappear
                             )
                     total_processed += 1
 
@@ -166,7 +176,7 @@ class MemorizeSolutions(Extension):
                     result=f"{total_processed} solutions processed, {total_consolidated} intelligently consolidated",
                     solutions_processed=total_processed,
                     solutions_consolidated=total_consolidated,
-                    update_progress="none"
+                    update_progress="none",
                 )
             else:
                 # remove previous solutions too similiar to this one
@@ -189,7 +199,6 @@ class MemorizeSolutions(Extension):
                 )
                 if rem:
                     log_item.stream(result=f"\nReplaced {len(rem)} previous solutions.")
-
 
     # except Exception as e:
     #     err = errors.format_error(e)

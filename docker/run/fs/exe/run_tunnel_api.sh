@@ -8,10 +8,22 @@ while [ ! -f /a0/run_tunnel.py ]; do
     echo "Waiting for /a0/run_tunnel.py to be available..."
     sleep 1
 done
+while [ ! -f /a0/python/api/tunnel.py ]; do
+    echo "Waiting for /a0/python/api/tunnel.py to be available..."
+    sleep 1
+done
 
 . "/ins/setup_venv.sh" "$@"
+if [ -n "${PYTHONWARNINGS:-}" ]; then
+    export PYTHONWARNINGS="${PYTHONWARNINGS},ignore:.*doesn't match a supported version.*:Warning"
+else
+    export PYTHONWARNINGS="ignore:.*doesn't match a supported version.*:Warning"
+fi
 
-exec python /a0/run_tunnel.py \
+cd /a0 || exit 1
+export PYTHONPATH=/a0:${PYTHONPATH}
+
+exec python run_tunnel.py \
     --dockerized=true \
     --port=80 \
     --tunnel_api_port=55520 \

@@ -19,5 +19,10 @@ chmod 444 /root/.profile
 # update package list to save time later
 apt-get update > /dev/null 2>&1 &
 
+# ensure searxng runtime config is present before services start
+if [ -f /etc/searxng/settings.yml ] && [ -f /etc/searxng/limiter.toml ]; then
+    chmod 644 /etc/searxng/settings.yml /etc/searxng/limiter.toml || true
+fi
+
 # let supervisord handle the services
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

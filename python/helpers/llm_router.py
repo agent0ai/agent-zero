@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from python.helpers.datetime_utils import isoformat_z, utc_now
+from python.helpers.settings_core import get_default_ollama_base_url
 
 
 class ModelCapability(Enum):
@@ -473,6 +474,23 @@ class LLMRouter:
             "cost_per_1k_output": 0.0015,
             "avg_latency_ms": 500,
         },
+        # Google Gemini models
+        "google/gemini-2.0-flash": {
+            "display_name": "Gemini 2.0 Flash",
+            "context_length": 1048576,
+            "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "fast", "long_context"],
+            "cost_per_1k_input": 0.0001,
+            "cost_per_1k_output": 0.0004,
+            "avg_latency_ms": 600,
+        },
+        "google/gemini-1.5-pro": {
+            "display_name": "Gemini 1.5 Pro",
+            "context_length": 2000000,
+            "capabilities": ["chat", "code", "vision", "reasoning", "function_calling", "long_context"],
+            "cost_per_1k_input": 0.00125,
+            "cost_per_1k_output": 0.005,
+            "avg_latency_ms": 1300,
+        },
         # Anthropic models
         "anthropic/claude-opus-4-5-20251101": {
             "display_name": "Claude Opus 4.5",
@@ -544,7 +562,7 @@ class LLMRouter:
 
     def __init__(self, db_path: str | None = None):
         self.db = LLMRouterDatabase(db_path)
-        self._ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self._ollama_base_url = get_default_ollama_base_url()
         self._last_discovery = None
         self._discovery_interval = 300  # 5 minutes
 
@@ -649,7 +667,13 @@ class LLMRouter:
         # Check Anthropic
         anthropic_key = os.getenv("API_KEY_ANTHROPIC") or os.getenv("ANTHROPIC_API_KEY")
         anthropic_caching_enabled = os.getenv("ANTHROPIC_ENABLE_CACHING", "true").lower() == "true"
-        anthropic_cache_ttl = int(os.getenv("ANTHROPIC_CACHE_TTL_SECONDS", "300"))
+        ttl_raw = (os.getenv("ANTHROPIC_CACHE_TTL_SECONDS", "300") or "300").strip()
+        # Allow env values with inline comments, e.g. "3600  # one hour"
+        ttl_token = ttl_raw.split()[0]
+        try:
+            anthropic_cache_ttl = int(ttl_token)
+        except ValueError:
+            anthropic_cache_ttl = 300
 
         if anthropic_key:
             for key, info in self.MODEL_CATALOG.items():
@@ -676,6 +700,28 @@ class LLMRouter:
                             supports_ptc=info.get("supports_ptc", False),
                             supports_batch=info.get("supports_batch", False),
                             effort_levels=info.get("effort_levels", []),
+                        )
+                    )
+
+        # Check Google Gemini
+        google_key = os.getenv("API_KEY_GOOGLE") or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if google_key:
+            for key, info in self.MODEL_CATALOG.items():
+                if key.startswith("google/"):
+                    model_name = key.split("/")[1]
+                    models.append(
+                        ModelInfo(
+                            provider="google",
+                            name=model_name,
+                            display_name=info["display_name"],
+                            context_length=info["context_length"],
+                            capabilities=info["capabilities"],
+                            cost_per_1k_input=info["cost_per_1k_input"],
+                            cost_per_1k_output=info["cost_per_1k_output"],
+                            avg_latency_ms=info["avg_latency_ms"],
+                            is_local=False,
+                            is_available=True,
+                            last_checked=isoformat_z(utc_now()),
                         )
                     )
 

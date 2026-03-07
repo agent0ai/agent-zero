@@ -35,9 +35,22 @@ fi
 # pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 # Install remaining A0 python packages
-uv pip install -r /git/agent-zero/requirements.txt
-# override for packages that have unnecessarily strict dependencies
-uv pip install -r /git/agent-zero/requirements2.txt
+if [ "${SKIP_A0_DEPS:-0}" = "1" ]; then
+    echo "Skipping dependency installation (SKIP_A0_DEPS=1)"
+else
+    if [ -f /git/agent-zero/requirements.lock.txt ]; then
+        echo "Using pinned lockfile requirements.lock.txt"
+        uv pip install -r /git/agent-zero/requirements.lock.txt
+    elif [ -d /git/agent-zero/docker/wheelhouse ] && [ "$(find /git/agent-zero/docker/wheelhouse -maxdepth 1 -name '*.whl' | wc -l)" -gt 0 ]; then
+        echo "Installing from local wheelhouse"
+        uv pip install --no-index --find-links /git/agent-zero/docker/wheelhouse -r /git/agent-zero/requirements.txt
+    else
+        uv pip install -r /git/agent-zero/requirements.txt
+    fi
+
+    # override for packages that have unnecessarily strict dependencies
+    uv pip install -r /git/agent-zero/requirements2.txt
+fi
 
 # install playwright
 bash /ins/install_playwright.sh "$@"

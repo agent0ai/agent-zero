@@ -1,3 +1,5 @@
+import contextlib
+
 from agent import AgentContext, AgentContextType
 from python.helpers import cowork
 from python.helpers.api import ApiHandler, Request, Response
@@ -7,11 +9,14 @@ from python.helpers.settings import get_settings
 
 # Lazy import - TaskScheduler requires crontab which may not be installed
 _scheduler_available = None
+
+
 def _get_scheduler():
     global _scheduler_available
     if _scheduler_available is None:
         try:
             from python.helpers.task_scheduler import TaskScheduler
+
             _scheduler_available = TaskScheduler
         except ImportError:
             _scheduler_available = False
@@ -19,7 +24,6 @@ def _get_scheduler():
 
 
 class Poll(ApiHandler):
-
     async def process(self, input: dict, request: Request) -> dict | Response:
         ctxid = input.get("context", "")
         from_no = input.get("log_from", 0)
@@ -66,8 +70,13 @@ class Poll(ApiHandler):
             if ctx.id in processed_contexts:
                 continue
 
-            # Skip BACKGROUND contexts as they should be invisible to users
-            if ctx.type == AgentContextType.BACKGROUND:
+            # Skip BACKGROUND contexts as they should be invisible to users.
+            # Legacy/persisted contexts may not have `type` set.
+            ctx_type = getattr(ctx, "type", AgentContextType.USER)
+            if not isinstance(ctx_type, AgentContextType):
+                with contextlib.suppress(Exception):
+                    ctx_type = AgentContextType(str(ctx_type))
+            if ctx_type == AgentContextType.BACKGROUND:
                 processed_contexts.add(ctx.id)
                 continue
 
@@ -77,9 +86,7 @@ class Poll(ApiHandler):
             # Only check scheduler if available
             context_task = scheduler.get_task_by_uuid(ctx.id) if scheduler else None
             # Determine if this is a task-dedicated context by checking if a task with this UUID exists
-            is_task_context = (
-                context_task is not None and context_task.context_id == ctx.id
-            )
+            is_task_context = context_task is not None and context_task.context_id == ctx.id
 
             if not is_task_context:
                 ctxs.append(context_data)
@@ -89,18 +96,20 @@ class Poll(ApiHandler):
                 if task_details:
                     # Add task details to context_data with the same field names
                     # as used in scheduler endpoints to maintain UI compatibility
-                    context_data.update({
-                        "task_name": task_details.get("name"),  # name is for context, task_name for the task name
-                        "uuid": task_details.get("uuid"),
-                        "state": task_details.get("state"),
-                        "type": task_details.get("type"),
-                        "system_prompt": task_details.get("system_prompt"),
-                        "prompt": task_details.get("prompt"),
-                        "last_run": task_details.get("last_run"),
-                        "last_result": task_details.get("last_result"),
-                        "attachments": task_details.get("attachments", []),
-                        "context_id": task_details.get("context_id"),
-                    })
+                    context_data.update(
+                        {
+                            "task_name": task_details.get("name"),  # name is for context, task_name for the task name
+                            "uuid": task_details.get("uuid"),
+                            "state": task_details.get("state"),
+                            "type": task_details.get("type"),
+                            "system_prompt": task_details.get("system_prompt"),
+                            "prompt": task_details.get("prompt"),
+                            "last_run": task_details.get("last_run"),
+                            "last_result": task_details.get("last_result"),
+                            "attachments": task_details.get("attachments", []),
+                            "context_id": task_details.get("context_id"),
+                        }
+                    )
 
                     # Add type-specific fields
                     if task_details.get("type") == "scheduled":

@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 
 from agent import LoopData
 from python.helpers import settings
@@ -10,7 +11,6 @@ from python.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHO
 
 
 class MemorizeMemories(Extension):
-
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
         # try:
 
@@ -30,7 +30,6 @@ class MemorizeMemories(Extension):
         return task
 
     async def memorize(self, loop_data: LoopData, log_item: LogItem, **kwargs):
-
         set = settings.get_settings()
 
         db = await Memory.get(self.agent)
@@ -43,13 +42,20 @@ class MemorizeMemories(Extension):
         async def log_callback(content):
             log_item.stream(content=content)
 
-        # call util llm to find info in history
-        memories_json = await self.agent.call_utility_model(
-            system=system,
-            message=msgs_text,
-            callback=log_callback,
-            background=True,
-        )
+        try:
+            # Fail fast when utility model is unavailable to avoid blocking chat completion.
+            memories_json = await asyncio.wait_for(
+                self.agent.call_utility_model(
+                    system=system,
+                    message=msgs_text,
+                    callback=log_callback,
+                    background=True,
+                ),
+                timeout=12,
+            )
+        except Exception as e:
+            log_item.update(heading=f"Skipping memory extraction (utility model unavailable): {e!s}")
+            return
 
         # Add validation and error handling for memories_json
         if not memories_json or not isinstance(memories_json, str):
@@ -76,7 +82,7 @@ class MemorizeMemories(Extension):
 
         # If memories is not a list, try to make it one
         if not isinstance(memories, list):
-            if isinstance(memories, (str, dict)):
+            if isinstance(memories, str | dict):
                 memories = [memories]
             else:
                 log_item.update(heading="Invalid memories format received.")
@@ -99,19 +105,19 @@ class MemorizeMemories(Extension):
             txt = f"{memory}"
 
             if set["memory_memorize_consolidation"]:
-
                 try:
                     # Use intelligent consolidation system
                     from python.helpers.memory_consolidation import create_memory_consolidator
+
                     consolidator = create_memory_consolidator(
                         self.agent,
                         similarity_threshold=DEFAULT_MEMORY_THRESHOLD,  # More permissive for discovery
                         max_similar_memories=8,
-                        max_llm_context_memories=4
+                        max_llm_context_memories=4,
                     )
 
                     # Create memory item-specific log for detailed tracking
-                    memory_log = None # too many utility messages, skip log for now
+                    memory_log = None  # too many utility messages, skip log for now
                     # memory_log = self.agent.context.log.log(
                     #     type="util",
                     #     heading=f"Processing memory fragment: {txt[:50]}...",
@@ -120,12 +126,17 @@ class MemorizeMemories(Extension):
                     # )
 
                     # Process with intelligent consolidation
-                    result_obj = await consolidator.process_new_memory(
-                        new_memory=txt,
-                        area=Memory.Area.FRAGMENTS.value,
-                        metadata={"area": Memory.Area.FRAGMENTS.value},
-                        log_item=memory_log
-                    )
+                    result_obj = {"success": False}
+                    with suppress(Exception):
+                        result_obj = await asyncio.wait_for(
+                            consolidator.process_new_memory(
+                                new_memory=txt,
+                                area=Memory.Area.FRAGMENTS.value,
+                                metadata={"area": Memory.Area.FRAGMENTS.value},
+                                log_item=memory_log,
+                            ),
+                            timeout=10,
+                        )
 
                     # Update the individual log item with completion status but keep it temporary
                     if result_obj.get("success"):
@@ -135,7 +146,7 @@ class MemorizeMemories(Extension):
                                 result="Fragment processed successfully",
                                 heading=f"Memory fragment completed: {txt[:50]}...",
                                 temp=False,  # Show completion message
-                                update_progress="none"  # Show briefly then disappear
+                                update_progress="none",  # Show briefly then disappear
                             )
                     else:
                         if memory_log:
@@ -143,7 +154,7 @@ class MemorizeMemories(Extension):
                                 result="Fragment processing failed",
                                 heading=f"Memory fragment failed: {txt[:50]}...",
                                 temp=False,  # Show completion message
-                                update_progress="none"  # Show briefly then disappear
+                                update_progress="none",  # Show briefly then disappear
                             )
                     total_processed += 1
 
@@ -159,11 +170,10 @@ class MemorizeMemories(Extension):
                     result=f"{total_processed} memories processed, {total_consolidated} intelligently consolidated",
                     memories_processed=total_processed,
                     memories_consolidated=total_consolidated,
-                    update_progress="none"
+                    update_progress="none",
                 )
 
             else:
-
                 # remove previous fragments too similiar to this one
                 if set["memory_memorize_replace_threshold"] > 0:
                     rem += await db.delete_documents_by_query(
@@ -184,9 +194,6 @@ class MemorizeMemories(Extension):
                 )
                 if rem:
                     log_item.stream(result=f"\nReplaced {len(rem)} previous memories.")
-
-
-
 
     # except Exception as e:
     #     err = errors.format_error(e)

@@ -1,7 +1,7 @@
 a2wsgi==1.10.8
 aiosmtplib>=5.0.0
 ansio==0.0.1
-browser-use==0.5.11
+browser-use>=0.5.11
 google-auth-oauthlib>=1.2.0
 google-auth-httplib2>=0.2.0
 google-api-python-client>=2.110.0
@@ -43,6 +43,7 @@ nest-asyncio==1.6.0
 crontab==1.0.1
 markdownify==1.1.0
 pydantic==2.11.7
+setuptools>=68.0.0
 pymupdf==1.25.3
 pytesseract==0.3.13
 pdf2image==1.17.0

@@ -1,6 +1,11 @@
 # SearXNG settings
 
-use_default_settings: true
+use_default_settings:
+  engines:
+    remove:
+      - radio browser
+      - ahmia
+      - torch
 
 general:
   debug: false
@@ -15,7 +20,7 @@ search:
 
 server:
   # Is overwritten by ${SEARXNG_SECRET}
-  secret_key: "dummy"
+  secret_key: "dummy"  # pragma: allowlist secret
   port: 55510
   limiter: false
   image_proxy: false
@@ -39,7 +44,6 @@ enabled_plugins:
   - 'Hash plugin'
   - 'Self Informations'
   - 'Tracker URL remover'
-  - 'Ahmia blacklist'
   # - 'Hostnames plugin'  # see 'hostnames' configuration below
   # - 'Open Access DOI rewrite'
 
@@ -58,6 +62,16 @@ enabled_plugins:
 #     - '(.*\.)?wikipedia.org$'
 
 engines:
+  - name: radio browser
+    engine: radio_browser
+    disabled: true
+    inactive: true
+  - name: ahmia
+    disabled: true
+    inactive: true
+  - name: torch
+    disabled: true
+    inactive: true
 
 #   - name: fdroid
 #     disabled: false

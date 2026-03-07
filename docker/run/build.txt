@@ -2,8 +2,11 @@
 # LOCAL BUILDS
 # Run these commands from the project root folder
 
+# preferred fast build (BuildKit cache + reusable base)
+./docker/build-fast.sh
+
 # local development image based on local files with smart cache
-docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .
+docker build -f DockerfileLocal -t agent-zero-local .
 
 # local development image based on local files without cache
 docker build -f DockerfileLocal -t agent-zero-local --no-cache .

@@ -1,66 +1,20 @@
-"""Initialize the messaging gateway with all available channel adapters.
-
-Called once at application startup. Channels that lack required env vars
-are still registered but will report ``connected=False`` in status.
-"""
+"""Initialize the messaging gateway using registered channel adapters."""
 
 from __future__ import annotations
 
-from python.helpers.gateway import Gateway
+from python.helpers import gateway
+from python.helpers.channel_factory import ChannelFactory
 from python.helpers.print_style import PrintStyle
 
 
-def initialize_gateway() -> Gateway:
-    """Register all channel adapters and return the gateway singleton."""
-    gateway = Gateway.get()
+def initialize_gateway():
+    """Load adapters, init queue/store, and report available channels."""
+    # Import side-effects register adapters into ChannelFactory.
+    from python.helpers import channels  # noqa: F401
 
-    # -- Telegram -----------------------------------------------------------
-    try:
-        from python.helpers.channels.telegram_adapter import (
-            TelegramBridge,
-            TelegramClient,
-        )
-
-        gateway.register_channel("telegram", TelegramBridge(), TelegramClient())
-    except Exception as exc:
-        PrintStyle.error(f"[Gateway] Failed to register telegram: {exc}")
-
-    # -- Slack --------------------------------------------------------------
-    try:
-        from python.helpers.channels.slack_adapter import SlackBridge, SlackClient
-
-        gateway.register_channel("slack", SlackBridge(), SlackClient())
-    except Exception as exc:
-        PrintStyle.error(f"[Gateway] Failed to register slack: {exc}")
-
-    # -- Discord ------------------------------------------------------------
-    try:
-        from python.helpers.channels.discord_adapter import (
-            DiscordBridge,
-            DiscordClient,
-        )
-
-        gateway.register_channel("discord", DiscordBridge(), DiscordClient())
-    except Exception as exc:
-        PrintStyle.error(f"[Gateway] Failed to register discord: {exc}")
-
-    # -- WhatsApp -----------------------------------------------------------
-    try:
-        from python.helpers.channels.whatsapp_adapter import (
-            WhatsAppBridge,
-            WhatsAppClient,
-        )
-
-        gateway.register_channel("whatsapp", WhatsAppBridge(), WhatsAppClient())
-    except Exception as exc:
-        PrintStyle.error(f"[Gateway] Failed to register whatsapp: {exc}")
-
-    configured = [
-        name for name in gateway.channel_names() if (pair := gateway.get_channel(name)) and pair[0].is_configured()
-    ]
+    gateway.init()
+    available = ChannelFactory.available()
     PrintStyle(font_color="green").print(
-        f"[✓] Gateway initialized — "
-        f"{len(gateway.channel_names())} channels registered, "
-        f"{len(configured)} configured: {configured or 'none'}"
+        f"[✓] Gateway initialized — {len(available)} adapters available: {available or 'none'}"
     )
     return gateway

@@ -1,6 +1,6 @@
-# Use the pre-built base image for A0
-# FROM agent-zero-base:local
-FROM agent0ai/agent-zero-base:latest
+# Prefer a reusable local base image when available.
+ARG BASE_IMAGE=agent0ai/agent-zero-base:latest
+FROM ${BASE_IMAGE}
 
 # Set BRANCH to "local" if not provided
 ARG BRANCH=local
@@ -8,21 +8,39 @@ ENV BRANCH=$BRANCH
 
 # Copy filesystem files to root
 COPY ./docker/run/fs/ /
-# Copy current development files to git, they will only be used in "local" branch
-COPY ./ /git/agent-zero
 
 # pre installation steps
-RUN bash /ins/pre_install.sh $BRANCH
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    bash /ins/pre_install.sh $BRANCH
+
+# Copy only dependency manifests first to maximize layer reuse.
+COPY ./requirements.txt /git/agent-zero/requirements.txt
+COPY ./requirements2.txt /git/agent-zero/requirements2.txt
+COPY ./pyproject.toml /git/agent-zero/pyproject.toml
+COPY ./requirements.lock.txt /git/agent-zero/requirements.lock.txt
+COPY ./docker/wheelhouse /git/agent-zero/docker/wheelhouse
+
+# Dependency layer (cached unless manifests change).
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/root/.cache/uv \
+    bash -lc 'source /ins/setup_venv.sh "$BRANCH" && uv pip install setuptools wheel && if [ -f /git/agent-zero/requirements.lock.txt ]; then uv pip install --no-build-isolation -r /git/agent-zero/requirements.lock.txt; elif [ -d /git/agent-zero/docker/wheelhouse ] && [ "$(find /git/agent-zero/docker/wheelhouse -maxdepth 1 -name "*.whl" | wc -l)" -gt 0 ]; then uv pip install --no-build-isolation --no-index --find-links /git/agent-zero/docker/wheelhouse -r /git/agent-zero/requirements.txt; else uv pip install --no-build-isolation -r /git/agent-zero/requirements.txt; fi && uv pip install --no-build-isolation -r /git/agent-zero/requirements2.txt'
+
+# Copy current development files after deps, so code changes don't invalidate deps.
+COPY ./ /git/agent-zero
 
 # install A0
-RUN bash /ins/install_A0.sh $BRANCH
+ENV SKIP_A0_DEPS=1
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/root/.cache/uv \
+    bash /ins/install_A0.sh $BRANCH
 
 # install additional software
 RUN bash /ins/install_additional.sh $BRANCH
 
-# cleanup repo and install A0 without caching, this speeds up builds
-ARG CACHE_DATE=none
-RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
+# Optional cache-buster only when explicitly set.
+ARG CACHE_BUSTER=
+RUN if [ -n "$CACHE_BUSTER" ]; then echo "cache buster $CACHE_BUSTER"; fi && bash /ins/install_A02.sh $BRANCH
 
 # post installation steps
 RUN bash /ins/post_install.sh $BRANCH

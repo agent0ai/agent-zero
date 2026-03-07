@@ -257,6 +257,16 @@ def create_auth_token() -> str:
     return b64_token[:16]
 
 
+def get_default_ollama_base_url() -> str:
+    """Resolve Ollama base URL with Docker-aware defaults."""
+    if configured := os.getenv("OLLAMA_BASE_URL"):
+        return configured
+    if os.path.exists("/.dockerenv"):
+        # In containers, localhost points to the container itself.
+        return "http://host.docker.internal:11434"
+    return "http://localhost:11434"
+
+
 # ---------------------------------------------------------------------------
 # Env <-> dict helpers
 # ---------------------------------------------------------------------------
@@ -366,8 +376,8 @@ def get_runtime_config(set: Settings):
 def get_default_settings() -> Settings:
     from python.helpers import runtime
 
-    # Use Ollama URL from environment or default to localhost
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    # Use Docker-aware Ollama URL defaults.
+    ollama_base_url = get_default_ollama_base_url()
     env_tier = os.getenv("TIER", "free").strip().lower()
     tier = env_tier if env_tier in {"free", "pro"} else "free"
     env_profile = os.getenv("PERF_SLO_PROFILE", "").strip().lower()
@@ -387,9 +397,9 @@ def get_default_settings() -> Settings:
 
     return Settings(
         version=_get_version(),
-        chat_model_provider="ollama",
-        chat_model_name="qwen2.5-coder:3b",
-        chat_model_api_base=ollama_base_url,
+        chat_model_provider="google",
+        chat_model_name="gemini-2.0-flash",
+        chat_model_api_base="",
         chat_model_kwargs={"temperature": "0"},
         chat_model_ctx_length=32768,
         chat_model_ctx_history=0.7,
@@ -397,9 +407,9 @@ def get_default_settings() -> Settings:
         chat_model_rl_requests=0,
         chat_model_rl_input=0,
         chat_model_rl_output=0,
-        util_model_provider="ollama",
-        util_model_name="qwen2.5-coder:3b",
-        util_model_api_base=ollama_base_url,
+        util_model_provider="google",
+        util_model_name="gemini-2.0-flash",
+        util_model_api_base="",
         util_model_ctx_length=32768,
         util_model_ctx_input=0.7,
         util_model_kwargs={"temperature": "0"},
@@ -439,8 +449,8 @@ def get_default_settings() -> Settings:
         prompt_enhance_max_chars=4000,
         llm_router_enabled=True,
         llm_router_auto_configure=True,
-        llm_local_only_mode=True,
-        llm_cloud_fallback_enabled=False,
+        llm_local_only_mode=False,
+        llm_cloud_fallback_enabled=True,
         api_keys={},
         auth_login="",
         auth_password="",
@@ -463,7 +473,7 @@ def get_default_settings() -> Settings:
         mcp_servers='{\n    "mcpServers": {}\n}',
         mcp_client_init_timeout=10,
         mcp_client_tool_timeout=120,
-        mcp_server_enabled=False,
+        mcp_server_enabled=True,
         mcp_server_token=create_auth_token(),
         a2a_server_enabled=False,
         variables="",

@@ -118,3 +118,10 @@ firebase-debug.log
 .tmp/
 web/.next/
 node_modules/
+
+# Local build cache and generated training artifacts
+.buildx-cache/
+scripts/training/output/
+
+# Local MCP server wiring (contains ephemeral tokenized URLs)
+.mcp.json

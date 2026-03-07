@@ -1,4 +1,5 @@
 import json
+import os
 
 from python.helpers import files
 
@@ -23,6 +24,7 @@ class ProactiveManager:
 
     # Toggle for feature rollout
     ENABLED = False
+    LOG_OPTIONAL_WARNINGS = os.getenv("A0_LOG_OPTIONAL_WARNINGS", "").strip().lower() in {"1", "true", "yes", "on"}
 
     # VAPID Claims
     VAPID_CLAIMS = {"sub": "mailto:admin@agent-zero.local"}
@@ -34,7 +36,8 @@ class ProactiveManager:
 
         SecurityVaultManager.initialize_keys()
         return SecurityVaultManager.get_secret(
-            "VAPID_PUBLIC_KEY", "BEl62iC769AsE_YQ-bMIn2404u2S5yTzOsVIdgYxOnvIowh-G5hV_Iq12_9E2D8y"
+            "VAPID_PUBLIC_KEY",
+            "BEl62iC769AsE_YQ-bMIn2404u2S5yTzOsVIdgYxOnvIowh-G5hV_Iq12_9E2D8y",  # pragma: allowlist secret
         )
 
     @classmethod
@@ -123,7 +126,8 @@ class ProactiveManager:
                 pass
 
         except Exception as e:
-            print(f"Nudge Check Error: {e}")
+            if cls.LOG_OPTIONAL_WARNINGS:
+                print(f"Nudge Check Error: {e}")
 
     @classmethod
     def notify_tool_usage(cls, tool_name, user_id="default_user"):
