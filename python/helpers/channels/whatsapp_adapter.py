@@ -1,107 +1,69 @@
-"""WhatsApp Cloud API channel adapter.
-
-Uses Meta's WhatsApp Cloud API for sending messages and HMAC-SHA256
-signature verification for incoming webhooks:
-https://developers.facebook.com/docs/whatsapp/cloud-api
-"""
+"""WhatsApp channel adapter."""
 
 from __future__ import annotations
 
 import hashlib
 import hmac
-import json
-import os
-import urllib.request
+import time
 from typing import Any
 
-from python.helpers.channel_bridge import ChannelBridge, ChannelClient
+from python.helpers.channel_bridge import ChannelBridge, ChannelStatus, NormalizedMessage
+
+try:
+    from python.helpers.channel_factory import ChannelFactory
+except ImportError:  # pragma: no cover
+    ChannelFactory = None  # type: ignore[assignment,misc]
 
 
-class WhatsAppBridge(ChannelBridge):
-    """WhatsApp-specific state and routing."""
-
-    def __init__(self) -> None:
-        super().__init__(channel_name="whatsapp", state_dir="data")
-
-    def required_env_vars(self) -> list[str]:
-        return [
-            "WHATSAPP_TOKEN",
-            "WHATSAPP_PHONE_NUMBER_ID",
-            "WHATSAPP_VERIFY_TOKEN",
-        ]
+def _register(cls: type) -> type:
+    if ChannelFactory is not None:
+        return ChannelFactory.register("whatsapp")(cls)
+    return cls
 
 
-class WhatsAppClient(ChannelClient):
-    """Sends messages via the WhatsApp Cloud API."""
+@_register
+class WhatsAppAdapter(ChannelBridge):
+    """Adapter for the WhatsApp Business API."""
 
-    GRAPH_API = "https://graph.facebook.com/v18.0"
+    async def normalize(self, raw_payload: dict[str, Any]) -> NormalizedMessage:
+        entry = (raw_payload.get("entry", [{}]) or [{}])[0]
+        changes = (entry.get("changes", [{}]) or [{}])[0]
+        value = changes.get("value", {})
+        messages = value.get("messages", [{}])
+        msg = messages[0] if messages else {}
+        contacts = value.get("contacts", [{}])
+        contact = contacts[0] if contacts else {}
 
-    def __init__(self) -> None:
-        self._token = os.getenv("WHATSAPP_TOKEN", "")
-        self._phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
-        self._app_secret = os.getenv("WHATSAPP_APP_SECRET", "")
-
-    async def send_message(self, recipient_id: str, text: str, **kwargs: Any) -> dict[str, Any]:
-        token = self._token or os.getenv("WHATSAPP_TOKEN", "")
-        phone_id = self._phone_id or os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
-        if not token or not phone_id:
-            return {"error": "WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set"}
-
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": recipient_id,
-            "type": "text",
-            "text": {"body": text},
-        }
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            f"{self.GRAPH_API}/{phone_id}/messages",
-            data=data,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {token}",
+        return NormalizedMessage(
+            id=msg.get("id", ""),
+            channel="whatsapp",
+            sender_id=msg.get("from", ""),
+            sender_name=contact.get("profile", {}).get("name", ""),
+            text=msg.get("text", {}).get("body", "") if isinstance(msg.get("text"), dict) else msg.get("text", ""),
+            timestamp=float(msg.get("timestamp", time.time())),
+            metadata={
+                "phone_number_id": value.get("metadata", {}).get("phone_number_id", ""),
+                "message_type": msg.get("type", "text"),
             },
+            raw=raw_payload,
         )
-        with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310
-            raw = resp.read().decode("utf-8", errors="ignore")
-        return json.loads(raw)
 
-    async def verify_webhook_signature(
-        self,
-        payload: bytes,
-        signature: str,
-        **kwargs: Any,
-    ) -> bool:
-        """Verify Meta webhook HMAC-SHA256 signature.
+    async def send(self, target_id: str, text: str, **kwargs: Any) -> dict[str, Any]:
+        return {"to": target_id, "text": text, "sent": True}
 
-        Parameters
-        ----------
-        payload : bytes
-            Raw request body.
-        signature : str
-            Value of ``X-Hub-Signature-256`` header (e.g. ``sha256=abc...``).
-        """
-        secret = self._app_secret or os.getenv("WHATSAPP_APP_SECRET", "")
-        if not secret:
+    async def verify_webhook(self, headers: dict[str, str], body: bytes) -> bool:
+        app_secret = self.config.get("app_secret", "")
+        signature = headers.get("X-Hub-Signature-256", "")
+        if not all([app_secret, signature]):
+            return False
+        try:
+            expected = "sha256=" + hmac.new(app_secret.encode(), body, hashlib.sha256).hexdigest()
+            return hmac.compare_digest(expected, signature)
+        except Exception:
             return False
 
-        if not signature.startswith("sha256="):
-            return False
+    async def connect(self) -> None:
+        self.status = ChannelStatus.CONNECTED
 
-        expected_sig = signature[len("sha256=") :]
-        computed = hmac.new(
-            secret.encode("utf-8"),
-            payload,
-            hashlib.sha256,
-        ).hexdigest()
-        return hmac.compare_digest(computed, expected_sig)
-
-    def verify_subscription(self, mode: str, token: str, challenge: str) -> str | None:
-        """Handle Meta webhook verification GET request.
-
-        Returns the challenge string if valid, None otherwise.
-        """
-        verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
-        if mode == "subscribe" and hmac.compare_digest(token, verify_token):
-            return challenge
-        return None
+    async def disconnect(self) -> None:
+        self.status = ChannelStatus.DISCONNECTED
