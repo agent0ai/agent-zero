@@ -43,3 +43,80 @@ export function triggerHeartbeat(): Promise<{ status: string; run: HeartbeatRun 
 export function getHeartbeatLog(limit = 50): Promise<{ log: HeartbeatRun[]; count: number }> {
   return api(`heartbeat_log?limit=${limit}`, { method: 'GET' })
 }
+
+// --- Heartbeat Triggers ---
+
+export type TriggerType = 'CRON' | 'EVENT' | 'WEBHOOK' | 'CONDITION' | 'MESSAGE'
+
+export interface HeartbeatTrigger {
+  id: string
+  name: string
+  type: TriggerType
+  enabled: boolean
+  config: TriggerConfig
+  created_at: string
+  updated_at: string
+  last_fired: string | null
+  fire_count: number
+}
+
+export interface CronConfig {
+  expression: string
+  timezone: string
+}
+
+export interface EventConfig {
+  event_type: string
+  filter: Record<string, string>
+}
+
+export interface WebhookConfig {
+  url: string
+  method: string
+  secret: string
+}
+
+export interface ConditionConfig {
+  metric: string
+  operator: 'gt' | 'lt' | 'eq' | 'gte' | 'lte'
+  threshold: number
+  cooldown_seconds: number
+}
+
+export interface MessageConfig {
+  channel: string
+  pattern: string
+}
+
+export type TriggerConfig = CronConfig | EventConfig | WebhookConfig | ConditionConfig | MessageConfig
+
+export interface CreateTriggerInput {
+  name: string
+  type: TriggerType
+  enabled: boolean
+  config: TriggerConfig
+}
+
+export interface UpdateTriggerInput extends Partial<CreateTriggerInput> {
+  id: string
+}
+
+export function listHeartbeatTriggers(): Promise<{ triggers: HeartbeatTrigger[] }> {
+  return api('heartbeat_triggers_list', { method: 'GET' })
+}
+
+export function createHeartbeatTrigger(input: CreateTriggerInput): Promise<{ ok: boolean; trigger: HeartbeatTrigger }> {
+  return api('heartbeat_trigger_create', { body: input })
+}
+
+export function updateHeartbeatTrigger(input: UpdateTriggerInput): Promise<{ ok: boolean; trigger: HeartbeatTrigger }> {
+  return api('heartbeat_trigger_update', { body: input })
+}
+
+export function deleteHeartbeatTrigger(id: string): Promise<{ ok: boolean }> {
+  return api('heartbeat_trigger_delete', { body: { id } })
+}
+
+export function emitHeartbeatEvent(eventType: string, payload: Record<string, unknown>): Promise<{ ok: boolean }> {
+  return api('heartbeat_event_emit', { body: { event_type: eventType, payload } })
+}

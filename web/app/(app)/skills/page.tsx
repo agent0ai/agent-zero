@@ -2,70 +2,68 @@
 
 import { useState, useMemo } from 'react'
 import { Card, CardBody } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Puzzle, Plus, Search, Code, FileText } from 'lucide-react'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { Puzzle, Plus, Search } from 'lucide-react'
+import { SkillCard } from '@/components/skills/SkillCard'
+import { SkillDetail } from '@/components/skills/SkillDetail'
+import { useSkills, useInstallSkill, useUninstallSkill, useToggleSkill } from '@/hooks/useSkills'
+import type { Skill } from '@/lib/api/endpoints/skills'
 
-interface Skill {
-  name: string
-  category: string
-  tier: 'markdown' | 'python'
-  source: 'tool' | 'instrument'
-}
-
-const KNOWN_SKILLS: Skill[] = [
-  { name: 'Code Execution', category: 'Core', tier: 'python', source: 'tool' },
-  { name: 'Memory Save', category: 'Core', tier: 'python', source: 'tool' },
-  { name: 'Memory Load', category: 'Core', tier: 'python', source: 'tool' },
-  { name: 'Search Engine', category: 'Core', tier: 'python', source: 'tool' },
-  { name: 'Browser Agent', category: 'Core', tier: 'python', source: 'tool' },
-  { name: 'Call Subordinate', category: 'Core', tier: 'python', source: 'tool' },
-  { name: 'Email', category: 'Communication', tier: 'python', source: 'tool' },
-  { name: 'Email Advanced', category: 'Communication', tier: 'python', source: 'tool' },
-  { name: 'Telegram Send', category: 'Communication', tier: 'python', source: 'tool' },
-  { name: 'Google Voice SMS', category: 'Communication', tier: 'python', source: 'tool' },
-  { name: 'Twilio Voice Call', category: 'Communication', tier: 'python', source: 'tool' },
-  { name: 'Workflow Engine', category: 'Automation', tier: 'python', source: 'tool' },
-  { name: 'Scheduler', category: 'Automation', tier: 'python', source: 'tool' },
-  { name: 'Deployment Orchestrator', category: 'DevOps', tier: 'python', source: 'tool' },
-  { name: 'DevOps Deploy', category: 'DevOps', tier: 'python', source: 'tool' },
-  { name: 'DevOps Monitor', category: 'DevOps', tier: 'python', source: 'tool' },
-  { name: 'Security Audit', category: 'Security', tier: 'python', source: 'tool' },
-  { name: 'Code Review', category: 'Development', tier: 'python', source: 'tool' },
-  { name: 'Project Scaffold', category: 'Development', tier: 'python', source: 'tool' },
-  { name: 'API Design', category: 'Development', tier: 'python', source: 'tool' },
-  { name: 'Diagram Architect', category: 'Development', tier: 'python', source: 'tool' },
-  { name: 'Analytics ROI Calculator', category: 'Analytics', tier: 'python', source: 'tool' },
-  { name: 'Portfolio Manager', category: 'Finance', tier: 'python', source: 'tool' },
-  { name: 'Finance Manager', category: 'Finance', tier: 'python', source: 'tool' },
-  { name: 'Sales Generator', category: 'Business', tier: 'python', source: 'tool' },
-  { name: 'Brand Voice', category: 'Business', tier: 'python', source: 'tool' },
-  { name: 'Customer Lifecycle', category: 'Business', tier: 'python', source: 'tool' },
-  { name: 'Knowledge Ingest', category: 'Knowledge', tier: 'python', source: 'tool' },
-  { name: 'Document Query', category: 'Knowledge', tier: 'python', source: 'tool' },
-  { name: 'Research Organize', category: 'Knowledge', tier: 'python', source: 'tool' },
-  { name: 'Calendar Hub', category: 'Productivity', tier: 'python', source: 'instrument' },
-  { name: 'Life OS', category: 'Productivity', tier: 'python', source: 'instrument' },
-  { name: 'AI Ops Agent', category: 'DevOps', tier: 'python', source: 'instrument' },
-  { name: 'PMS Hub', category: 'Business', tier: 'python', source: 'instrument' },
-  { name: 'YT Download', category: 'Media', tier: 'markdown', source: 'instrument' },
+/** Fallback data when the backend is not reachable */
+const FALLBACK_SKILLS: Skill[] = [
+  { name: 'Code Execution', category: 'Core', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Execute code in sandboxed environments', enabled: true, installed: true, capabilities: ['python', 'node', 'bash'] },
+  { name: 'Memory Save', category: 'Core', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Save context to persistent memory', enabled: true, installed: true, capabilities: ['write'] },
+  { name: 'Memory Load', category: 'Core', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Load context from persistent memory', enabled: true, installed: true, capabilities: ['read'] },
+  { name: 'Search Engine', category: 'Core', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Web search integration', enabled: true, installed: true, capabilities: ['search'] },
+  { name: 'Browser Agent', category: 'Core', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Automated browser interaction', enabled: true, installed: true, capabilities: ['browse', 'scrape'] },
+  { name: 'Call Subordinate', category: 'Core', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Delegate tasks to sub-agents', enabled: true, installed: true, capabilities: ['delegation'] },
+  { name: 'Email', category: 'Communication', tier: 'python', source: 'tool', trust_level: 'verified', version: '1.0.0', author: 'Agent Zero', description: 'Send and receive emails', enabled: true, installed: true, capabilities: ['send', 'receive'] },
+  { name: 'Telegram Send', category: 'Communication', tier: 'python', source: 'tool', trust_level: 'verified', version: '1.0.0', author: 'Agent Zero', description: 'Send Telegram messages', enabled: true, installed: true, capabilities: ['send'] },
+  { name: 'Workflow Engine', category: 'Automation', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Multi-step workflow orchestration', enabled: true, installed: true, capabilities: ['orchestrate'] },
+  { name: 'Scheduler', category: 'Automation', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Schedule recurring tasks', enabled: true, installed: true, capabilities: ['cron', 'schedule'] },
+  { name: 'Deployment Orchestrator', category: 'DevOps', tier: 'python', source: 'tool', trust_level: 'verified', version: '1.0.0', author: 'Agent Zero', description: 'Orchestrate deployments', enabled: true, installed: true, capabilities: ['deploy'] },
+  { name: 'Security Audit', category: 'Security', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Security scanning and auditing', enabled: true, installed: true, capabilities: ['scan', 'audit'] },
+  { name: 'Code Review', category: 'Development', tier: 'python', source: 'tool', trust_level: 'verified', version: '1.0.0', author: 'Agent Zero', description: 'Automated code review', enabled: true, installed: true, capabilities: ['review'] },
+  { name: 'Knowledge Ingest', category: 'Knowledge', tier: 'python', source: 'tool', trust_level: 'builtin', version: '1.0.0', author: 'Agent Zero', description: 'Ingest documents into knowledge base', enabled: true, installed: true, capabilities: ['ingest'] },
+  { name: 'Calendar Hub', category: 'Productivity', tier: 'python', source: 'instrument', trust_level: 'community', version: '0.9.0', author: 'Community', description: 'Calendar management instrument', enabled: true, installed: true, capabilities: ['calendar'] },
+  { name: 'YT Download', category: 'Media', tier: 'markdown', source: 'instrument', trust_level: 'community', version: '0.5.0', author: 'Community', description: 'YouTube video downloader', enabled: false, installed: true, capabilities: ['download'] },
 ]
-
-const CATEGORIES = [...new Set(KNOWN_SKILLS.map((s) => s.category))].sort()
 
 export default function SkillsPage() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+
+  const { data: apiSkills, isLoading } = useSkills()
+  const installMutation = useInstallSkill()
+  const uninstallMutation = useUninstallSkill()
+  const toggleMutation = useToggleSkill()
+
+  const skills = apiSkills ?? FALLBACK_SKILLS
+
+  const categories = useMemo(() => {
+    return [...new Set(skills.map((s) => s.category))].sort()
+  }, [skills])
 
   const filtered = useMemo(() => {
-    return KNOWN_SKILLS.filter((skill) => {
+    return skills.filter((skill) => {
       const matchesSearch = !search || skill.name.toLowerCase().includes(search.toLowerCase())
       const matchesCategory = !activeCategory || skill.category === activeCategory
       return matchesSearch && matchesCategory
     })
-  }, [search, activeCategory])
+  }, [skills, search, activeCategory])
+
+  const enabledCount = skills.filter((s) => s.enabled).length
+  const instrumentCount = skills.filter((s) => s.source === 'instrument').length
+
+  const handleCardClick = (skill: Skill) => {
+    setSelectedSkill(skill.name)
+    setDetailOpen(true)
+  }
 
   return (
     <div className="space-y-6">
@@ -78,25 +76,45 @@ export default function SkillsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card>
           <CardBody>
             <p className="text-xs text-[var(--text-secondary)]">Total Skills</p>
-            <p className="text-2xl font-semibold text-[var(--text-primary)]">{KNOWN_SKILLS.length}</p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-12 mt-1" />
+            ) : (
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{skills.length}</p>
+            )}
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody>
+            <p className="text-xs text-[var(--text-secondary)]">Enabled</p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-12 mt-1" />
+            ) : (
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{enabledCount}</p>
+            )}
           </CardBody>
         </Card>
         <Card>
           <CardBody>
             <p className="text-xs text-[var(--text-secondary)]">Categories</p>
-            <p className="text-2xl font-semibold text-[var(--text-primary)]">{CATEGORIES.length}</p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-12 mt-1" />
+            ) : (
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{categories.length}</p>
+            )}
           </CardBody>
         </Card>
         <Card>
           <CardBody>
             <p className="text-xs text-[var(--text-secondary)]">Instruments</p>
-            <p className="text-2xl font-semibold text-[var(--text-primary)]">
-              {KNOWN_SKILLS.filter((s) => s.source === 'instrument').length}
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-12 mt-1" />
+            ) : (
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{instrumentCount}</p>
+            )}
           </CardBody>
         </Card>
       </div>
@@ -122,7 +140,7 @@ export default function SkillsPage() {
           >
             All
           </button>
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
@@ -139,32 +157,29 @@ export default function SkillsPage() {
       </div>
 
       {/* Skill Grid */}
-      {filtered.length > 0 ? (
+      {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((skill) => (
-            <Card key={skill.name} className="hover:border-brand-500/50 transition-colors cursor-pointer">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <Card key={i}>
               <CardBody>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    {skill.tier === 'python' ? (
-                      <Code className="h-4 w-4 text-brand-500" />
-                    ) : (
-                      <FileText className="h-4 w-4 text-info" />
-                    )}
-                    <h3 className="font-medium text-sm text-[var(--text-primary)]">{skill.name}</h3>
-                  </div>
-                  <Badge variant={skill.source === 'instrument' ? 'info' : 'neutral'} className="text-[10px]">
-                    {skill.source}
-                  </Badge>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <Badge variant="neutral" className="text-[10px]">{skill.category}</Badge>
-                  <Badge variant={skill.tier === 'python' ? 'warning' : 'success'} className="text-[10px]">
-                    Tier {skill.tier === 'python' ? '2' : '1'}
-                  </Badge>
-                </div>
+                <Skeleton className="h-24 w-full" />
               </CardBody>
             </Card>
+          ))}
+        </div>
+      ) : filtered.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((skill) => (
+            <SkillCard
+              key={skill.name}
+              skill={skill}
+              onClick={() => handleCardClick(skill)}
+              onToggle={(enabled) => toggleMutation.mutate({ name: skill.name, enabled })}
+              onInstall={!skill.installed ? () => installMutation.mutate(skill.name) : undefined}
+              onUninstall={skill.installed ? () => uninstallMutation.mutate(skill.name) : undefined}
+              isToggling={toggleMutation.isPending}
+              isInstalling={installMutation.isPending}
+            />
           ))}
         </div>
       ) : (
@@ -179,6 +194,13 @@ export default function SkillsPage() {
           </CardBody>
         </Card>
       )}
+
+      {/* Skill Detail Modal */}
+      <SkillDetail
+        skillName={selectedSkill}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   )
 }
