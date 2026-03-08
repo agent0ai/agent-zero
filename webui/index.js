@@ -41,6 +41,24 @@ export async function sendMessage() {
     return;
   }
   try {
+    if (!getConnectionStatus()) {
+      const probe = await api.probeBackendStatus();
+      updateBackendConnectionState(probe.state, probe.message);
+      if (probe.state !== "ready") {
+        toast(probe.message, "warning");
+        return;
+      }
+    }
+
+    const readiness = await api.getChatReadiness();
+    if (!readiness?.ready) {
+      const msg =
+        readiness?.message ||
+        "Chat runtime is still starting up. Please wait a few seconds and retry.";
+      toast(msg, "warning");
+      return;
+    }
+
     const message = chatInputEl.value.trim();
     const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
@@ -104,6 +122,16 @@ export async function sendMessage() {
         toast("No response returned.", "error");
       } else {
         setContext(jsonResponse.context);
+        if (jsonResponse.accepted === false) {
+          toast(
+            `Queue full. Message was not accepted (depth ${jsonResponse.queue_depth || 0}).`,
+            "warning"
+          );
+        } else if (jsonResponse.queued) {
+          const position = jsonResponse.queue_position || 0;
+          const depth = jsonResponse.queue_depth || 0;
+          justToast(`Queued (#${position}/${depth})`, "info", 2500, "chat-queue");
+        }
       }
     }
   } catch (e) {
@@ -239,7 +267,7 @@ export function getConnectionStatus() {
 globalThis.getConnectionStatus = getConnectionStatus;
 
 function setConnectionStatus(connected) {
-  chatTopStore.connected = connected;
+  updateBackendConnectionState(connected ? "ready" : "offline");
   // connectionStatus = connected;
   // // Broadcast connection status without touching Alpine directly
   // try {
@@ -251,12 +279,21 @@ function setConnectionStatus(connected) {
   // }
 }
 
+function updateBackendConnectionState(state, message = "") {
+  if (chatTopStore?.setConnectionState) {
+    chatTopStore.setConnectionState(state, message);
+    return;
+  }
+  chatTopStore.connected = state === "ready";
+}
+
 let lastLogVersion = 0;
 let lastLogGuid = "";
 let lastSpokenNo = 0;
 
 export async function poll() {
   let updated = false;
+  let progressActive = false;
   try {
     // Get timezone from navigator
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -272,13 +309,28 @@ export async function poll() {
     // Check if the response is valid
     if (!response) {
       console.error("Invalid response from poll endpoint");
-      return false;
+      return { ok: false, updated: false, progressActive: false };
+    }
+
+    // Guard against startup/partial payloads while backend is still initializing.
+    const hasValidPollShape =
+      typeof response.log_version === "number" &&
+      typeof response.log_guid === "string" &&
+      Array.isArray(response.logs);
+    if (!hasValidPollShape) {
+      if (!chatTopStore.connected) {
+        updateBackendConnectionState(
+          "warming",
+          "Backend is online but still initializing..."
+        );
+      }
+      return { ok: false, updated: false, progressActive: false };
     }
 
     // deselect chat if it is requested by the backend
     if (response.deselect_chat) {
       chatsStore.deselectChat();
-      return
+      return { ok: true, updated: false, progressActive: false };
     }
 
     if (
@@ -286,7 +338,7 @@ export async function poll() {
       !(response.context === null && context === null) &&
       context !== null
     ) {
-      return;
+      return { ok: true, updated: false, progressActive: false };
     }
 
     // if the chat has been reset, restart this poll as it may have been called with incorrect log_from
@@ -295,8 +347,10 @@ export async function poll() {
       if (chatHistoryEl) chatHistoryEl.innerHTML = "";
       lastLogVersion = 0;
       lastLogGuid = response.log_guid;
-      await poll();
-      return;
+      const nested = await poll();
+      return (
+        nested || { ok: true, updated: false, progressActive: false }
+      );
     }
 
     if (lastLogVersion != response.log_version) {
@@ -319,12 +373,21 @@ export async function poll() {
     lastLogGuid = response.log_guid;
 
     updateProgress(response.log_progress, response.log_progress_active);
+    progressActive = !!response.log_progress_active;
 
     // Update notifications from response
     notificationStore.updateFromPoll(response);
 
     //set ui model vars from backend
     inputStore.paused = response.paused;
+    if (response.chat_queue_wait_warning) {
+      justToast(
+        `Queue waiting ${Math.round(response.chat_queue_oldest_age_seconds || 0)}s`,
+        "warning",
+        2500,
+        "chat-queue-warn"
+      );
+    }
     chatTopStore.updateCoworkStatus(response);
 
     // Update status icon state
@@ -384,10 +447,19 @@ export async function poll() {
     lastLogGuid = response.log_guid;
   } catch (error) {
     console.error("Error:", error);
-    setConnectionStatus(false);
+    const probe = await api.probeBackendStatus();
+    if (probe.state === "ready") {
+      updateBackendConnectionState(
+        "warming",
+        "Backend is online but still initializing..."
+      );
+    } else {
+      updateBackendConnectionState(probe.state, probe.message);
+    }
+    return { ok: false, updated: false, progressActive: false };
   }
 
-  return updated;
+  return { ok: true, updated, progressActive };
 }
 globalThis.poll = poll;
 
@@ -588,27 +660,87 @@ globalThis.updateAfterScroll = updateAfterScroll;
 // setInterval(poll, 250);
 
 async function startPolling() {
-  const shortInterval = 25;
-  const longInterval = 250;
-  const shortIntervalPeriod = 100;
-  let shortIntervalCount = 0;
+  // Keep active generation highly responsive while reducing idle load.
+  const activeIntervalMs = 70;
+  const warmupIntervalMs = 350;
+  const idleBaseIntervalMs = 1200;
+  const idleMaxIntervalMs = 5000;
+  const errorBaseIntervalMs = 1200;
+  const errorMaxIntervalMs = 10000;
+  const burstPollsAfterUpdate = 14;
+
+  let burstPollsRemaining = 0;
+  let idleStreak = 0;
+  let errorStreak = 0;
+  let jitterStep = 0;
+  let hasEverSucceeded = false;
+
+  function withDeterministicJitter(baseMs, ratio) {
+    if (ratio <= 0) return baseMs;
+    // deterministic 5-step sequence: [-1, -0.5, 0, +0.5, +1] * ratio
+    const phase = (jitterStep++ % 5) - 2;
+    const factor = 1 + (phase / 2) * ratio;
+    return Math.max(25, Math.round(baseMs * factor));
+  }
 
   async function _doPoll() {
-    let nextInterval = longInterval;
+    let nextInterval = idleBaseIntervalMs;
 
     try {
       const result = await poll();
-      if (result) shortIntervalCount = shortIntervalPeriod; // Reset the counter when the result is true
-      if (shortIntervalCount > 0) shortIntervalCount--; // Decrease the counter on each call
-      nextInterval = shortIntervalCount > 0 ? shortInterval : longInterval;
+      const ok = !!result?.ok;
+      const updated = !!result?.updated;
+      const progressActive = !!result?.progressActive;
+
+      if (ok) {
+        hasEverSucceeded = true;
+        errorStreak = 0;
+      } else {
+        errorStreak += 1;
+      }
+
+      if (updated) {
+        burstPollsRemaining = burstPollsAfterUpdate;
+        idleStreak = 0;
+      } else if (!progressActive) {
+        idleStreak += 1;
+      }
+
+      if (progressActive || burstPollsRemaining > 0) {
+        nextInterval = withDeterministicJitter(activeIntervalMs, 0.04);
+        if (!progressActive && burstPollsRemaining > 0) burstPollsRemaining -= 1;
+      } else if (!hasEverSucceeded) {
+        nextInterval = withDeterministicJitter(warmupIntervalMs, 0.08);
+      } else if (errorStreak > 0) {
+        const errorBackoff = Math.min(
+          errorMaxIntervalMs,
+          errorBaseIntervalMs * 2 ** Math.min(errorStreak - 1, 5)
+        );
+        nextInterval = withDeterministicJitter(errorBackoff, 0.15);
+      } else {
+        const idleBackoff = Math.min(
+          idleMaxIntervalMs,
+          idleBaseIntervalMs * 2 ** Math.min(Math.max(idleStreak - 1, 0), 3)
+        );
+        nextInterval = withDeterministicJitter(idleBackoff, 0.12);
+      }
     } catch (error) {
       console.error("Error:", error);
+      errorStreak += 1;
+      const errorBackoff = Math.min(
+        errorMaxIntervalMs,
+        errorBaseIntervalMs * 2 ** Math.min(errorStreak - 1, 5)
+      );
+      nextInterval = withDeterministicJitter(errorBackoff, 0.15);
     }
 
     // Call the function again after the selected interval
     setTimeout(_doPoll.bind(this), nextInterval);
   }
 
+  if (!chatTopStore.connected) {
+    updateBackendConnectionState("connecting", "Connecting to backend...");
+  }
   _doPoll();
 }
 
