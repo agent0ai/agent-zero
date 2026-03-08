@@ -6,7 +6,7 @@ services:
     container_name: agent0
     restart: unless-stopped
     ports:
-      - "192.168.1.250:8443:8443"
+      - "${HOST_IP}:8443:80"
       - "80:80"
 #      - "50022:22"
     volumes:
