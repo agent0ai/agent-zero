@@ -1,12 +1,13 @@
 from agent import Agent, UserMessage
 from helpers.tool import Tool, Response
+from helpers import skills
 from initialize import initialize_agent
 from extensions.python.hist_add_tool_result import _90_save_tool_call_file as save_tool_call_file
 
 
 class Delegation(Tool):
 
-    async def execute(self, message="", reset="", **kwargs):
+    async def execute(self, message="", reset="", skill="", **kwargs):
         # create subordinate agent using the data object on this agent and set superior agent to his data object
         if (
             self.agent.get_data(Agent.DATA_NAME_SUBORDINATE) is None
@@ -26,9 +27,18 @@ class Delegation(Tool):
             sub.set_data(Agent.DATA_NAME_SUPERIOR, self.agent)
             self.agent.set_data(Agent.DATA_NAME_SUBORDINATE, sub)
 
+        # Load skill content if provided
+        system_messages = []
+        if skill:
+            skill_data = skills.load_skill_for_agent(skill_name=skill, agent=self.agent)
+            if skill_data:
+                system_messages.append(skill_data)
+
         # add user message to subordinate agent
         subordinate: Agent = self.agent.get_data(Agent.DATA_NAME_SUBORDINATE)  # type: ignore
-        subordinate.hist_add_user_message(UserMessage(message=message, attachments=[]))
+        subordinate.hist_add_user_message(
+            UserMessage(message=message, attachments=[], system_message=system_messages)
+        )
 
         # run subordinate monologue
         result = await subordinate.monologue()

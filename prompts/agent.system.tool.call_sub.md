@@ -8,6 +8,8 @@ delegate specific subtasks not entire task
 reset arg usage:
   "true": spawn new subordinate
   "false": continue existing subordinate
+skill arg usage:
+  optional name of a skill to load for the subordinate (e.g. "python-expert", "data-analysis")  
 if superior, orchestrate
 respond to existing subordinates using call_subordinate tool with reset false
 profile arg usage: select from available profiles for specialized subordinates, leave empty for default
@@ -22,6 +24,7 @@ example usage
     "tool_name": "call_subordinate",
     "tool_args": {
         "profile": "",
+        "skill": "python-expert",
         "message": "...",
         "reset": "true"
     }
