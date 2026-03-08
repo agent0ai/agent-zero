@@ -7,8 +7,10 @@ const model = {
   editor: null,
   servers: [],
   loading: true,
+  reloadingTools: false,
   statusCheck: false,
   serverLog: "",
+  lastReloadMeta: null,
 
   async initialize() {
     // Initialize the JSON Viewer after the modal is rendered
@@ -115,6 +117,34 @@ const model = {
       console.error("Failed to apply MCP servers:", error);
     }
     this.loading = false;
+  },
+
+  async reloadToolsNow(forceReconnect = true) {
+    if (this.loading || this.reloadingTools) return;
+    this.reloadingTools = true;
+    try {
+      const resp = await API.callJsonApi("mcp_tools_reload", {
+        force_reconnect: forceReconnect,
+      });
+      if (resp && resp.status) {
+        this.servers = resp.status;
+        this.servers.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      this.lastReloadMeta = {
+        at: new Date().toISOString(),
+        success: Boolean(resp && resp.success),
+        cache: (resp && resp.cache) || null,
+      };
+    } catch (error) {
+      console.error("Failed to reload MCP tools:", error);
+      this.lastReloadMeta = {
+        at: new Date().toISOString(),
+        success: false,
+        cache: { error: String(error) },
+      };
+    } finally {
+      this.reloadingTools = false;
+    }
   },
 
   async getServerLog(serverName) {

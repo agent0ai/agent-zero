@@ -8,13 +8,7 @@ from python.helpers.settings import get_settings
 
 
 class SystemPrompt(Extension):
-
-    async def execute(
-        self,
-        system_prompt: list[str] | None = None,
-        loop_data: LoopData = LoopData(),
-        **kwargs: Any
-    ):
+    async def execute(self, system_prompt: list[str] | None = None, loop_data: LoopData = LoopData(), **kwargs: Any):
         # append main system prompt and tools
         if system_prompt is None:
             system_prompt = []
@@ -49,12 +43,16 @@ def get_mcp_tools_prompt(agent: Agent):
     mcp_config = MCPConfig.get_instance()
     if mcp_config.servers:
         pre_progress = agent.context.log.progress
-        agent.context.log.set_progress(
-            "Collecting MCP tools"
-        )  # MCP might be initializing, better inform via progress bar
-        tools = MCPConfig.get_instance().get_tools_prompt()
-        agent.context.log.set_progress(pre_progress)  # return original progress
-        return tools
+        should_show_progress = not mcp_config.is_tools_prompt_cache_hit()
+        if should_show_progress:
+            agent.context.log.set_progress(
+                "Collecting MCP tools"
+            )  # Cold cache may initialize MCP servers and discover tools.
+        try:
+            return MCPConfig.get_instance().get_tools_prompt_cached()
+        finally:
+            if should_show_progress:
+                agent.context.log.set_progress(pre_progress)  # return original progress
     return ""
 
 
@@ -77,9 +75,7 @@ def get_project_prompt(agent: Agent):
     project_name = agent.context.get_data(projects.CONTEXT_DATA_KEY_PROJECT)
     if project_name:
         project_vars = projects.build_system_prompt_vars(project_name)
-        result += "\n\n" + agent.read_prompt(
-            "agent.system.projects.active.md", **project_vars
-        )
+        result += "\n\n" + agent.read_prompt("agent.system.projects.active.md", **project_vars)
     else:
         result += "\n\n" + agent.read_prompt("agent.system.projects.inactive.md")
     return result

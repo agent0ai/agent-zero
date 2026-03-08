@@ -1,7 +1,9 @@
 import asyncio
+import hashlib
 import json
 import re
 import threading
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack, suppress
@@ -87,9 +89,9 @@ def initialize_mcp(mcp_servers_config: str):
                 temp=False,
             )
 
-            PrintStyle(
-                background_color="black", font_color="red", padding=True
-            ).print(f"Failed to update MCP settings: {e}")
+            PrintStyle(background_color="black", font_color="red", padding=True).print(
+                f"Failed to update MCP settings: {e}"
+            )
 
 
 class MCPTool(Tool):
@@ -98,12 +100,8 @@ class MCPTool(Tool):
     async def execute(self, **kwargs: Any):
         error = ""
         try:
-            response: CallToolResult = await MCPConfig.get_instance().call_tool(
-                self.name, kwargs
-            )
-            message = "\n\n".join(
-                [item.text for item in response.content if item.type == "text"]
-            )
+            response: CallToolResult = await MCPConfig.get_instance().call_tool(self.name, kwargs)
+            message = "\n\n".join([item.text for item in response.content if item.type == "text"])
             if response.isError:
                 error = message
         except Exception as e:
@@ -111,12 +109,10 @@ class MCPTool(Tool):
             message = f"ERROR: {e!s}"
 
         if error:
-            PrintStyle(
-                background_color="#CC34C3", font_color="white", bold=True, padding=True
-            ).print(f"MCPTool::Failed to call mcp tool {self.name}:")
-            PrintStyle(
-                background_color="#AA4455", font_color="white", padding=False
-            ).print(error)
+            PrintStyle(background_color="#CC34C3", font_color="white", bold=True, padding=True).print(
+                f"MCPTool::Failed to call mcp tool {self.name}:"
+            )
+            PrintStyle(background_color="#AA4455", font_color="white", padding=False).print(error)
 
             self.agent.context.log.log(
                 type="warning",
@@ -127,27 +123,21 @@ class MCPTool(Tool):
 
     async def before_execution(self, **kwargs: Any):
         (
-            PrintStyle(
-                font_color="#1B4F72", padding=True, background_color="white", bold=True
-            ).print(f"{self.agent.agent_name}: Using tool '{self.name}'")
+            PrintStyle(font_color="#1B4F72", padding=True, background_color="white", bold=True).print(
+                f"{self.agent.agent_name}: Using tool '{self.name}'"
+            )
         )
         self.log = self.get_log_object()
 
         for key, value in self.args.items():
-            PrintStyle(font_color="#85C1E9", bold=True).stream(
-                self.nice_key(key) + ": "
-            )
-            PrintStyle(
-                font_color="#85C1E9", padding=isinstance(value, str) and "\n" in value
-            ).stream(value)
+            PrintStyle(font_color="#85C1E9", bold=True).stream(self.nice_key(key) + ": ")
+            PrintStyle(font_color="#85C1E9", padding=isinstance(value, str) and "\n" in value).stream(value)
             PrintStyle().print()
 
     async def after_execution(self, response: Response, **kwargs: Any):
         raw_tool_response = response.message.strip() if response.message else ""
         if not raw_tool_response:
-            PrintStyle(font_color="red").print(
-                f"Warning: Tool '{self.name}' returned an empty message."
-            )
+            PrintStyle(font_color="red").print(f"Warning: Tool '{self.name}' returned an empty message.")
             # Even if empty, we might still want to provide context for the agent
             raw_tool_response = "[Tool returned no textual content]"
 
@@ -186,22 +176,16 @@ class MCPTool(Tool):
 
         self.agent.hist_add_tool_result(self.name, final_text_for_agent)
         (
-            PrintStyle(
-                font_color="#1B4F72", background_color="white", padding=True, bold=True
-            ).print(
+            PrintStyle(font_color="#1B4F72", background_color="white", padding=True, bold=True).print(
                 f"{self.agent.agent_name}: Response from tool '{self.name}' (plus context added)"
             )
         )
         # Print only the raw response to console for brevity, agent gets the full context.
         PrintStyle(font_color="#85C1E9").print(
-            raw_tool_response
-            if raw_tool_response
-            else "[No direct textual output from tool]"
+            raw_tool_response if raw_tool_response else "[No direct textual output from tool]"
         )
         if self.log:
-            self.log.update(
-                content=final_text_for_agent
-            )  # Log includes the full context
+            self.log.update(content=final_text_for_agent)  # Log includes the full context
 
 
 class MCPServerRemote(BaseModel):
@@ -250,15 +234,18 @@ class MCPServerRemote(BaseModel):
             self._ensure_initialized()
             return self.__client.tools  # type: ignore
 
+    def get_cached_tool_count(self) -> int:
+        """Return cached count without triggering initialization/discovery."""
+        with self.__lock:
+            return len(self.__client.tools)  # type: ignore
+
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
         with self.__lock:
             self._ensure_initialized()
             return self.__client.has_tool(tool_name)  # type: ignore
 
-    async def call_tool(
-        self, tool_name: str, input_data: dict[str, Any]
-    ) -> CallToolResult:
+    async def call_tool(self, tool_name: str, input_data: dict[str, Any]) -> CallToolResult:
         """Call a tool with the given input data"""
         with self.__lock:
             self._ensure_initialized()
@@ -294,6 +281,15 @@ class MCPServerRemote(BaseModel):
         await self.__client.update_tools()  # type: ignore
         return self
 
+    async def refresh_tools(self, force_reconnect: bool = False) -> int:
+        """Refresh tools for this server and return current tool count."""
+        with self.__lock:
+            if force_reconnect:
+                self.__initialized = False
+            await self.__client.update_tools()  # type: ignore
+            self.__initialized = True
+            return len(self.__client.tools)  # type: ignore
+
 
 class MCPServerLocal(BaseModel):
     name: str = Field(default_factory=str)
@@ -303,9 +299,7 @@ class MCPServerLocal(BaseModel):
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] | None = Field(default_factory=dict[str, str])
     encoding: str = Field(default="utf-8")
-    encoding_error_handler: Literal["strict", "ignore", "replace"] = Field(
-        default="strict"
-    )
+    encoding_error_handler: Literal["strict", "ignore", "replace"] = Field(default="strict")
     init_timeout: int = Field(default=0)
     tool_timeout: int = Field(default=0)
     verify: bool = Field(default=True, description="Verify SSL certificates")
@@ -344,15 +338,18 @@ class MCPServerLocal(BaseModel):
             self._ensure_initialized()
             return self.__client.tools  # type: ignore
 
+    def get_cached_tool_count(self) -> int:
+        """Return cached count without triggering initialization/discovery."""
+        with self.__lock:
+            return len(self.__client.tools)  # type: ignore
+
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
         with self.__lock:
             self._ensure_initialized()
             return self.__client.has_tool(tool_name)  # type: ignore
 
-    async def call_tool(
-        self, tool_name: str, input_data: dict[str, Any]
-    ) -> CallToolResult:
+    async def call_tool(self, tool_name: str, input_data: dict[str, Any]) -> CallToolResult:
         """Call a tool with the given input data"""
         with self.__lock:
             self._ensure_initialized()
@@ -386,6 +383,15 @@ class MCPServerLocal(BaseModel):
         await self.__client.update_tools()  # type: ignore
         return self
 
+    async def refresh_tools(self, force_reconnect: bool = False) -> int:
+        """Refresh tools for this server and return current tool count."""
+        with self.__lock:
+            if force_reconnect:
+                self.__initialized = False
+            await self.__client.update_tools()  # type: ignore
+            self.__initialized = True
+            return len(self.__client.tools)  # type: ignore
+
 
 MCPServer = Annotated[
     Union[
@@ -402,6 +408,10 @@ class MCPConfig(BaseModel):
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __instance: ClassVar[Any] = PrivateAttr(default=None)
     __initialized: ClassVar[bool] = PrivateAttr(default=False)
+    __tools_prompt_cache: dict[str, str] = PrivateAttr(default_factory=dict)
+    __tools_prompt_cache_stats: dict[str, Any] = PrivateAttr(default_factory=dict)
+    __tools_prompt_last_key: str = PrivateAttr(default="")
+    __tools_prompt_last_built_at: float = PrivateAttr(default=0.0)
 
     @classmethod
     def get_instance(cls) -> "MCPConfig":
@@ -420,9 +430,7 @@ class MCPConfig(BaseModel):
         with cls.__lock:
             servers_data: list[dict[str, Any]] = []  # Default to empty list
 
-            if (
-                config_str and config_str.strip()
-            ):  # Only parse if non-empty and not just whitespace
+            if config_str and config_str.strip():  # Only parse if non-empty and not just whitespace
                 try:
                     # Try with standard json.loads first, as it should handle escaped strings correctly
                     parsed_value = dirty_json.try_parse(config_str)
@@ -443,18 +451,12 @@ class MCPConfig(BaseModel):
                                 )
                         servers_data = valid_servers
                     else:
-                        PrintStyle(
-                            background_color="red", font_color="white", padding=True
-                        ).print(
+                        PrintStyle(background_color="red", font_color="white", padding=True).print(
                             f"Error: Parsed MCP config (from json.loads) top-level structure is not a list. Config string was: '{config_str}'"
                         )
                         # servers_data remains empty
-                except (
-                    Exception
-                ) as e_json:  # Catch json.JSONDecodeError specifically if possible, or general Exception
-                    PrintStyle.error(
-                        f"Error parsing MCP config string: {e_json}. Config string was: '{config_str}'"
-                    )
+                except Exception as e_json:  # Catch json.JSONDecodeError specifically if possible, or general Exception
+                    PrintStyle.error(f"Error parsing MCP config string: {e_json}. Config string was: '{config_str}'")
 
                     # # Fallback to DirtyJson or log error if standard json.loads fails
                     # PrintStyle(background_color="orange", font_color="black", padding=True).print(
@@ -533,6 +535,9 @@ class MCPConfig(BaseModel):
     def __init__(self, servers_list: list[dict[str, Any]]):
         from collections.abc import Iterable, Mapping
 
+        has_existing_cache = bool(getattr(self, "_MCPConfig__tools_prompt_cache", None))
+        has_existing_stats = bool(getattr(self, "_MCPConfig__tools_prompt_cache_stats", None))
+
         # # DEBUG: Print the received servers_list
         # if servers_list:
         #     PrintStyle(background_color="blue", font_color="white", padding=True).print(
@@ -552,9 +557,9 @@ class MCPConfig(BaseModel):
 
         if not isinstance(servers_list, Iterable):
             (
-                PrintStyle(
-                    background_color="grey", font_color="red", padding=True
-                ).print("MCPConfig::__init__::servers_list must be a list")
+                PrintStyle(background_color="grey", font_color="red", padding=True).print(
+                    "MCPConfig::__init__::servers_list must be a list"
+                )
             )
             return
 
@@ -563,18 +568,14 @@ class MCPConfig(BaseModel):
                 # log the error
                 error_msg = "server_item must be a mapping"
                 (
-                    PrintStyle(
-                        background_color="grey", font_color="red", padding=True
-                    ).print(f"MCPConfig::__init__::{error_msg}")
+                    PrintStyle(background_color="grey", font_color="red", padding=True).print(
+                        f"MCPConfig::__init__::{error_msg}"
+                    )
                 )
                 # add to failed servers with generic name
                 self.disconnected_servers.append(
                     {
-                        "config": (
-                            server_item
-                            if isinstance(server_item, dict)
-                            else {"raw": str(server_item)}
-                        ),
+                        "config": (server_item if isinstance(server_item, dict) else {"raw": str(server_item)}),
                         "error": error_msg,
                         "name": "invalid_server_config",
                     }
@@ -603,9 +604,9 @@ class MCPConfig(BaseModel):
                 # log the error
                 error_msg = "server_name is required"
                 (
-                    PrintStyle(
-                        background_color="grey", font_color="red", padding=True
-                    ).print(f"MCPConfig::__init__::{error_msg}")
+                    PrintStyle(background_color="grey", font_color="red", padding=True).print(
+                        f"MCPConfig::__init__::{error_msg}"
+                    )
                 )
                 # add to failed servers
                 self.disconnected_servers.append(
@@ -627,16 +628,95 @@ class MCPConfig(BaseModel):
                 # log the error
                 error_msg = str(e)
                 (
-                    PrintStyle(
-                        background_color="grey", font_color="red", padding=True
-                    ).print(
+                    PrintStyle(background_color="grey", font_color="red", padding=True).print(
                         f"MCPConfig::__init__: Failed to create MCPServer '{server_name}': {error_msg}"
                     )
                 )
                 # add to failed servers
-                self.disconnected_servers.append(
-                    {"config": server_item, "error": error_msg, "name": server_name}
+                self.disconnected_servers.append({"config": server_item, "error": error_msg, "name": server_name})
+
+        # MCP tool prompt cache must be invalidated on each config refresh.
+        self._reset_tools_prompt_cache(track_invalidation=has_existing_cache or has_existing_stats)
+
+    def _reset_tools_prompt_cache(self, track_invalidation: bool = True):
+        with self.__lock:
+            previous_stats = dict(getattr(self, "_MCPConfig__tools_prompt_cache_stats", {}))
+            invalidations = int(previous_stats.get("invalidations", 0)) + (1 if track_invalidation else 0)
+            self.__tools_prompt_cache = {}
+            self.__tools_prompt_last_key = ""
+            self.__tools_prompt_last_built_at = 0.0
+            self.__tools_prompt_cache_stats = {
+                "hits": int(previous_stats.get("hits", 0)),
+                "misses": int(previous_stats.get("misses", 0)),
+                "rebuilds": int(previous_stats.get("rebuilds", 0)),
+                "invalidations": invalidations,
+                "last_rebuild_ms": float(previous_stats.get("last_rebuild_ms", 0.0)),
+            }
+
+    def _build_tools_prompt_cache_key(self, server_name: str = "") -> str:
+        server_payloads: list[dict[str, Any]] = []
+        for server in self.servers:
+            if server_name and server.name != server_name:
+                continue
+            payload: dict[str, Any] = {
+                "name": server.name,
+                "description": server.description or "",
+                "type": getattr(server, "type", ""),
+                "disabled": bool(getattr(server, "disabled", False)),
+            }
+            if isinstance(server, MCPServerRemote):
+                payload.update(
+                    {
+                        "url": server.url,
+                        "headers": server.headers or {},
+                        "verify": server.verify,
+                        "init_timeout": server.init_timeout,
+                        "tool_timeout": server.tool_timeout,
+                    }
                 )
+            elif isinstance(server, MCPServerLocal):
+                payload.update(
+                    {
+                        "command": server.command,
+                        "args": server.args,
+                        "env": server.env or {},
+                        "encoding": server.encoding,
+                        "encoding_error_handler": server.encoding_error_handler,
+                        "init_timeout": server.init_timeout,
+                        "tool_timeout": server.tool_timeout,
+                    }
+                )
+            server_payloads.append(payload)
+
+        base = {
+            "server_name": server_name or "",
+            "servers": server_payloads,
+            "disconnected": sorted(
+                [{"name": d.get("name", ""), "error": d.get("error", "")} for d in self.disconnected_servers],
+                key=lambda x: x["name"],
+            ),
+        }
+        encoded = json.dumps(base, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    def is_tools_prompt_cache_hit(self, server_name: str = "") -> bool:
+        if not self.servers:
+            return False
+        with self.__lock:
+            key = self._build_tools_prompt_cache_key(server_name)
+            return key in self.__tools_prompt_cache
+
+    def get_tools_prompt_cache_stats(self) -> dict[str, Any]:
+        with self.__lock:
+            stats = dict(self.__tools_prompt_cache_stats)
+            stats.update(
+                {
+                    "entries": len(self.__tools_prompt_cache),
+                    "last_key": self.__tools_prompt_last_key,
+                    "last_built_at": self.__tools_prompt_last_built_at,
+                }
+            )
+            return stats
 
     def get_server_log(self, server_name: str) -> str:
         with self.__lock:
@@ -645,7 +725,7 @@ class MCPConfig(BaseModel):
                     return server.get_log()  # type: ignore
             return ""
 
-    def get_servers_status(self) -> list[dict[str, Any]]:
+    def get_servers_status(self, include_discovery: bool = True) -> list[dict[str, Any]]:
         """Get status of all servers"""
         result = []
         with self.__lock:
@@ -654,7 +734,7 @@ class MCPConfig(BaseModel):
                 # get server name
                 name = server.name
                 # get tool count
-                tool_count = len(server.get_tools())
+                tool_count = len(server.get_tools()) if include_discovery else server.get_cached_tool_count()
                 # check if server is connected
                 connected = True  # tool_count > 0
                 # get error message if any
@@ -686,6 +766,44 @@ class MCPConfig(BaseModel):
                 )
 
         return result
+
+    def get_servers_status_lightweight(self) -> list[dict[str, Any]]:
+        """Fast polling status that avoids triggering MCP tool discovery."""
+        return self.get_servers_status(include_discovery=False)
+
+    def get_reload_cache_key(self) -> str:
+        """Hash of current MCP config for reload response metadata."""
+        key_material = self._build_tools_prompt_cache_key()
+        return hashlib.sha256(key_material.encode("utf-8")).hexdigest()
+
+    async def reload_tools(self, force_reconnect: bool = False) -> dict[str, Any]:
+        """Refresh tool catalogs and cached MCP prompt metadata."""
+        started = time.perf_counter()
+        rebuilt = False
+        error: str | None = None
+        tool_count = 0
+
+        with self.__lock:
+            servers = list(self.servers)
+
+        try:
+            for server in servers:
+                tool_count += await server.refresh_tools(force_reconnect=force_reconnect)
+            # Rebuild cached prompt eagerly after refresh.
+            self.get_tools_prompt_cached(force_refresh=True)
+            rebuilt = True
+        except Exception as e:
+            error = str(e)
+            tool_count = sum(server.get_cached_tool_count() for server in servers)
+
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        return {
+            "rebuilt": rebuilt,
+            "cache_key": self.get_reload_cache_key(),
+            "tool_count": tool_count,
+            "duration_ms": duration_ms,
+            "error": error,
+        }
 
     def get_server_detail(self, server_name: str) -> dict[str, Any]:
         with self.__lock:
@@ -743,17 +861,14 @@ class MCPConfig(BaseModel):
 
                 for tool in tools:
                     prompt += (
-                        f"\n### {server_name}.{tool['name']}:\n"
-                        f"{tool['description']}\n\n"
+                        f"\n### {server_name}.{tool['name']}:\n" f"{tool['description']}\n\n"
                         # f"#### Categories:\n"
                         # f"* kind: MCP Server Tool\n"
                         # f'* server: "{server_name}" ({server.description})\n\n'
                         # f"#### Arguments:\n"
                     )
 
-                    input_schema = (
-                        json.dumps(tool["input_schema"]) if tool["input_schema"] else ""
-                    )
+                    input_schema = json.dumps(tool["input_schema"]) if tool["input_schema"] else ""
 
                     prompt += f"#### Input schema for tool_args:\n{input_schema}\n"
 
@@ -769,6 +884,34 @@ class MCPConfig(BaseModel):
                         f'    "tool_args": !follow schema above\n'
                         f"}}\n"
                     )
+
+        return prompt
+
+    def get_tools_prompt_cached(self, server_name: str = "", force_refresh: bool = False) -> str:
+        """Get a cached prompt for MCP tools keyed by server configuration."""
+        if not self.servers:
+            return ""
+
+        key = self._build_tools_prompt_cache_key(server_name)
+        with self.__lock:
+            if not force_refresh and key in self.__tools_prompt_cache:
+                self.__tools_prompt_cache_stats["hits"] = int(self.__tools_prompt_cache_stats.get("hits", 0)) + 1
+                return self.__tools_prompt_cache[key]
+            self.__tools_prompt_cache_stats["misses"] = int(self.__tools_prompt_cache_stats.get("misses", 0)) + 1
+
+        started = time.perf_counter()
+        prompt = self.get_tools_prompt(server_name)
+        duration_ms = (time.perf_counter() - started) * 1000.0
+
+        with self.__lock:
+            # Keep cache small and focused on recent config keys.
+            if len(self.__tools_prompt_cache) >= 8 and key not in self.__tools_prompt_cache:
+                self.__tools_prompt_cache.pop(next(iter(self.__tools_prompt_cache)))
+            self.__tools_prompt_cache[key] = prompt
+            self.__tools_prompt_last_key = key
+            self.__tools_prompt_last_built_at = time.time()
+            self.__tools_prompt_cache_stats["rebuilds"] = int(self.__tools_prompt_cache_stats.get("rebuilds", 0)) + 1
+            self.__tools_prompt_cache_stats["last_rebuild_ms"] = round(duration_ms, 3)
 
         return prompt
 
@@ -788,9 +931,7 @@ class MCPConfig(BaseModel):
             return None
         return MCPTool(agent=agent, name=tool_name, method=None, args={}, message="", loop_data=None)
 
-    async def call_tool(
-        self, tool_name: str, input_data: dict[str, Any]
-    ) -> CallToolResult:
+    async def call_tool(self, tool_name: str, input_data: dict[str, Any]) -> CallToolResult:
         """Call a tool with the given input data"""
         if "." not in tool_name:
             raise ValueError(f"Tool {tool_name} not found")
@@ -846,16 +987,13 @@ class MCPClientBase(ABC):
         try:
             async with AsyncExitStack() as temp_stack:
                 try:
-
                     stdio, write = await self._create_stdio_transport(temp_stack)
                     # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name} - {operation_name}): Transport created. Initializing session...")
                     session = await temp_stack.enter_async_context(
                         ClientSession(
                             stdio,  # type: ignore
                             write,  # type: ignore
-                            read_timeout_seconds=timedelta(
-                                seconds=read_timeout_seconds
-                            ),
+                            read_timeout_seconds=timedelta(seconds=read_timeout_seconds),
                         )
                     )
                     await session.initialize()
@@ -877,9 +1015,7 @@ class MCPClientBase(ABC):
             if original_exception is not None:
                 e = original_exception
             # We have the original exception stored
-            PrintStyle(
-                background_color="#AA4455", font_color="white", padding=False
-            ).print(
+            PrintStyle(background_color="#AA4455", font_color="white", padding=False).print(
                 f"MCPClientBase ({self.server.name} - {operation_name}): Error during operation: {type(e).__name__}: {e}"
             )
             raise e  # Re-raise the original exception
@@ -915,16 +1051,13 @@ class MCPClientBase(ABC):
             set = settings.get_settings()
             await self._execute_with_session(
                 list_tools_op,
-                read_timeout_seconds=self.server.init_timeout
-                or set["mcp_client_init_timeout"],
+                read_timeout_seconds=self.server.init_timeout or set["mcp_client_init_timeout"],
             )
         except Exception as e:
             # e = eg.exceptions[0]
             error_text = errors.format_error(e, 0, 0)
             # Error already logged by _execute_with_session, this is for specific handling if needed
-            PrintStyle(
-                background_color="#CC34C3", font_color="white", bold=True, padding=True
-            ).print(
+            PrintStyle(background_color="#CC34C3", font_color="white", bold=True, padding=True).print(
                 f"MCPClientBase ({self.server.name}): 'update_tools' operation failed: {error_text}"
             )
             with self.__lock:
@@ -945,9 +1078,7 @@ class MCPClientBase(ABC):
         with self.__lock:
             return self.tools
 
-    async def call_tool(
-        self, tool_name: str, input_data: dict[str, Any]
-    ) -> CallToolResult:
+    async def call_tool(self, tool_name: str, input_data: dict[str, Any]) -> CallToolResult:
         # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Preparing for 'call_tool' operation for tool '{tool_name}'.")
         if not self.has_tool(tool_name):
             PrintStyle(font_color="orange").print(
@@ -980,9 +1111,7 @@ class MCPClientBase(ABC):
             return await self._execute_with_session(call_tool_op)
         except Exception as e:
             # Error logged by _execute_with_session. Re-raise a specific error for the caller.
-            PrintStyle(
-                background_color="#AA4455", font_color="white", padding=True
-            ).print(
+            PrintStyle(background_color="#AA4455", font_color="white", padding=True).print(
                 f"MCPClientBase ({self.server.name}): 'call_tool' operation for '{tool_name}' failed: {type(e).__name__}: {e}"
             )
             raise ConnectionError(
@@ -1044,6 +1173,7 @@ class MCPClientLocal(MCPClientBase):
         # do not read or close the file here, as stdio is async
         return stdio_transport
 
+
 class CustomHTTPClientFactory(ABC):
     def __init__(self, verify: bool = True):
         self.verify = verify
@@ -1075,8 +1205,8 @@ class CustomHTTPClientFactory(ABC):
 
         return httpx.AsyncClient(**kwargs, verify=self.verify)
 
-class MCPClientRemote(MCPClientBase):
 
+class MCPClientRemote(MCPClientBase):
     def __init__(self, server: Union[MCPServerLocal, MCPServerRemote]):
         super().__init__(server)
         self.session_id: str | None = None  # Track session ID for streaming HTTP clients

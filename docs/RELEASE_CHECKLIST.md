@@ -37,7 +37,7 @@ Follow this checklist when preparing a release.
 
 ### GitHub Release
 
-- [ ] Go to <https://github.com/agent-zero-deploy/agent-zero-devops/releases>
+- [ ] Go to <https://github.com/agent-jumbo-deploy/agent-jumbo-devops/releases>
 - [ ] Click "Draft a new release"
 - [ ] Select tag: `v1.x.x`
 - [ ] Title: `Release v1.x.x`
@@ -50,7 +50,7 @@ Follow this checklist when preparing a release.
 - [ ] Build distribution: `python setup.py sdist bdist_wheel`
 - [ ] Verify build: `twine check dist/*`
 - [ ] Upload to PyPI: `twine upload dist/*`
-- [ ] Verify on PyPI: <https://pypi.org/project/agent-zero-devops/>
+- [ ] Verify on PyPI: <https://pypi.org/project/agent-jumbo-devops/>
 
 ### Documentation
 
@@ -66,6 +66,14 @@ Follow this checklist when preparing a release.
 - [ ] Update GitHub discussions
 - [ ] Announce on community channels
 - [ ] Thank contributors in announcement
+
+## RC Validation (Before promoting a release candidate)
+
+- [ ] Validate against RC-specific criteria document (if present)
+  - [ ] Current RC baseline: `docs/RC1_LIFECYCLE_BROWSER.md`
+  - [ ] MCP performance RC baseline: `docs/RC_MCP_TOOL_PERFORMANCE.md`
+- [ ] Complete targeted functional smoke scenarios for RC scope
+- [ ] Confirm explicit failure behavior for known misconfiguration cases
 
 ## Post-Release (24 hours after)
 
@@ -98,7 +106,7 @@ If critical issue found:
 ## Communication Template
 
 ```text
-# Release: Agent Zero DevOps v1.x.x
+# Release: Agent Jumbo DevOps v1.x.x
 
 We're excited to announce v1.x.x!
 
@@ -110,7 +118,7 @@ We're excited to announce v1.x.x!
 
 ## Upgrade Guide
 
-pip install --upgrade agent-zero-devops
+pip install --upgrade agent-jumbo-devops
 
 ## Breaking Changes
 
@@ -120,5 +128,5 @@ pip install --upgrade agent-zero-devops
 
 Thank you to: @contributor1, @contributor2
 
-[Full Changelog](https://github.com/agent-zero-deploy/agent-zero-devops/blob/main/CHANGELOG.md)
+[Full Changelog](https://github.com/agent-jumbo-deploy/agent-jumbo-devops/blob/main/CHANGELOG.md)
 ```

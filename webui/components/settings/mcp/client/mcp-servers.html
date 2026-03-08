@@ -20,8 +20,25 @@
                         @click="$store.mcpServersStore.formatJson()">Reformat</button>
                     <button class="btn slim primary" :disabled="$store.mcpServersStore.loading"
                         style="margin-left: 0.5em;" @click="$store.mcpServersStore.applyNow()">Apply now</button>
+                    <button class="btn slim" :disabled="$store.mcpServersStore.reloadingTools"
+                        style="margin-left: 0.5em;" @click="$store.mcpServersStore.reloadToolsNow(true)">
+                        <span x-show="!$store.mcpServersStore.reloadingTools">Reload MCP Tools</span>
+                        <span x-show="$store.mcpServersStore.reloadingTools">Reloading...</span>
+                    </button>
                 </h3>
                 <div id="mcp-servers-config-json"></div>
+
+                <div class="reload-status" x-show="$store.mcpServersStore.lastReloadMeta">
+                    <span x-text="'Last reload: ' + $store.mcpServersStore.lastReloadMeta.at"></span>
+                    <span x-show="$store.mcpServersStore.lastReloadMeta.success">✅ success</span>
+                    <span x-show="!$store.mcpServersStore.lastReloadMeta.success">❌ failed</span>
+                    <span x-show="$store.mcpServersStore.lastReloadMeta.cache && $store.mcpServersStore.lastReloadMeta.cache.tool_count !== undefined"
+                        x-text="' tools=' + $store.mcpServersStore.lastReloadMeta.cache.tool_count"></span>
+                    <span x-show="$store.mcpServersStore.lastReloadMeta.cache && $store.mcpServersStore.lastReloadMeta.cache.duration_ms !== undefined"
+                        x-text="' duration=' + $store.mcpServersStore.lastReloadMeta.cache.duration_ms + 'ms'"></span>
+                    <span x-show="$store.mcpServersStore.lastReloadMeta.cache && $store.mcpServersStore.lastReloadMeta.cache.error"
+                        x-text="' error=' + $store.mcpServersStore.lastReloadMeta.cache.error"></span>
+                </div>
 
                 <h3 id="mcp-servers-status">Servers status (refreshing automatically)</h3>
 
@@ -33,8 +50,8 @@
                                 <!-- Status indicator -->
                                 <div class="status-dot" x-data="{ connected: server.connected }">
                                     <svg viewBox="0 0 16 16" width="12" height="12">
-                                        <circle cx="8" cy="8" r="6" x-bind:fill="server.connected 
-                                                ? (server.error ? '#e40138' : (server.tool_count > 0 ? '#00c340' : '#e40138')) 
+                                        <circle cx="8" cy="8" r="6" x-bind:fill="server.connected
+                                                ? (server.error ? '#e40138' : (server.tool_count > 0 ? '#00c340' : '#e40138'))
                                                 : 'none'" x-bind:opacity="server.connected ? 1 : 0" />
                                         <circle cx="8" cy="8" r="6" fill="none" stroke="#e40138" stroke-width="2"
                                             x-bind:opacity="server.connected ? 0 : 1" />
@@ -88,6 +105,15 @@
         .server-list {
             margin-top: 0.5em;
             margin-bottom: 1em;
+        }
+        .reload-status {
+            margin-top: 0.5em;
+            margin-bottom: 0.8em;
+            font-size: 0.9em;
+            opacity: 0.9;
+            display: flex;
+            gap: 0.6em;
+            flex-wrap: wrap;
         }
 
         .server-item {
