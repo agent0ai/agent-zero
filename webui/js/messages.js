@@ -29,6 +29,73 @@ let _chatHistory = null;
 let _massRender = false;
 let _scrollOnNextProcessGroup = null;
 
+// Mermaid diagram rendering support
+let _mermaidInitialized = false;
+let _mermaidId = 0;
+
+function initializeMermaid() {
+    if (_mermaidInitialized || typeof mermaid === 'undefined') return false;
+    try {
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'loose',
+            fontFamily: 'inherit',
+        });
+        _mermaidInitialized = true;
+        return true;
+    } catch (e) {
+        console.warn('Mermaid initialization failed:', e);
+        return false;
+    }
+}
+
+function renderMermaidDiagrams(element) {
+    if (typeof mermaid === 'undefined') return;
+    if (!_mermaidInitialized) initializeMermaid();
+    if (!_mermaidInitialized) return;
+
+    const mermaidBlocks = element.querySelectorAll('pre > code.language-mermaid');
+
+    mermaidBlocks.forEach((code) => {
+        const pre = code.parentNode;
+        const diagramSource = code.textContent;
+        const id = `mermaid-${++_mermaidId}`;
+
+        // Create container immediately (sync) to prevent code block wrapper
+        const container = document.createElement('div');
+        container.className = 'mermaid-diagram markdown-block-wrap';
+        container.innerHTML = '<div class="mermaid-loading">Rendering diagram...</div>';
+
+        // Replace pre with container immediately
+        pre.replaceWith(container);
+
+        // Render async (fire-and-forget)
+        mermaid.render(id, diagramSource)
+            .then(({ svg }) => {
+                container.innerHTML = svg;
+                // Style SVG for responsiveness
+                const svgEl = container.querySelector('svg');
+                if (svgEl) {
+                    svgEl.style.maxWidth = '100%';
+                    svgEl.style.height = 'auto';
+                }
+            })
+            .catch((e) => {
+                // On error, show message + raw code
+                const errMsg = e.message || e.str || 'Unknown error';
+                container.innerHTML = `<div class="mermaid-error">Diagram error: ${escapeHTML(errMsg)}</div>`;
+                const errorPre = document.createElement('pre');
+                const errorCode = document.createElement('code');
+                errorCode.className = 'language-mermaid';
+                errorCode.textContent = diagramSource;
+                errorPre.appendChild(errorCode);
+                container.appendChild(errorPre);
+            });
+    });
+}
+
+
 /**
  * @typedef {object} MessageHandlerArgs
  * @property {number} [no]
@@ -1800,6 +1867,8 @@ const extractTableTSV = (table) =>
     .join("\n");
 
 function adjustMarkdownRender(element) {
+    // Render mermaid diagrams before processing code blocks
+    renderMermaidDiagrams(element);
   // find all tables in the element
   const tables = element.querySelectorAll("table");
   tables.forEach((el) => {
