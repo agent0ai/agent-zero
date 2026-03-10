@@ -592,6 +592,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
         while True:
             got_any_chunk = False
             try:
+                if stream:
+                    call_kwargs.setdefault("stream_options", {"include_usage": True})
                 # call model
                 _completion = await acompletion(
                     model=self.model_name,
