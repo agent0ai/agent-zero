@@ -342,6 +342,22 @@ def apply_rate_limiter_sync(
     )
 
 
+def _resolve_max_output_tokens(model_name: str) -> int | None:
+    """Look up the model's max output tokens from LiteLLM's registry.
+
+    Returns the value if found, or None so the caller can let LiteLLM
+    fall back to its own (often too-small) default.
+    """
+    try:
+        info = litellm.get_model_info(model=model_name)
+        value = info.get("max_output_tokens") or info.get("max_tokens")
+        if isinstance(value, int) and value > 0:
+            return value
+    except Exception:
+        pass
+    return None
+
+
 class LiteLLMChatWrapper(SimpleChatModel):
     model_name: str
     provider: str
@@ -361,6 +377,10 @@ class LiteLLMChatWrapper(SimpleChatModel):
         **kwargs: Any,
     ):
         model_value = f"{provider}/{model}"
+        if "max_tokens" not in kwargs:
+            resolved = _resolve_max_output_tokens(model_value)
+            if resolved is not None:
+                kwargs["max_tokens"] = resolved
         super().__init__(model_name=model_value, provider=provider, kwargs=kwargs)  # type: ignore
         # Set A0 model config as instance attribute after parent init
         self.a0_model_conf = model_config
