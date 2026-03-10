@@ -259,9 +259,9 @@ class MCPServerRemote(BaseModel):
         self, tool_name: str, input_data: Dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
-        with self.__lock:
-            # We already run in an event loop, dont believe Pylance
-            return await self.__client.call_tool(tool_name, input_data)  # type: ignore
+        # No lock here: each call creates its own session via _execute_with_session,
+        # holding threading.Lock across await blocks the event loop and causes deadlocks.
+        return await self.__client.call_tool(tool_name, input_data)  # type: ignore
 
     def update(self, config: dict[str, Any]) -> "MCPServerRemote":
         with self.__lock:
@@ -337,9 +337,9 @@ class MCPServerLocal(BaseModel):
         self, tool_name: str, input_data: Dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
-        with self.__lock:
-            # We already run in an event loop, dont believe Pylance
-            return await self.__client.call_tool(tool_name, input_data)  # type: ignore
+        # No lock here: each call creates its own session via _execute_with_session,
+        # holding threading.Lock across await blocks the event loop and causes deadlocks.
+        return await self.__client.call_tool(tool_name, input_data)  # type: ignore
 
     def update(self, config: dict[str, Any]) -> "MCPServerLocal":
         with self.__lock:
@@ -796,11 +796,15 @@ class MCPConfig(BaseModel):
         if "." not in tool_name:
             raise ValueError(f"Tool {tool_name} not found")
         server_name_part, tool_name_part = tool_name.split(".")
+        target_server = None
         with self.__lock:
             for server in self.servers:
                 if server.name == server_name_part and server.has_tool(tool_name_part):
-                    return await server.call_tool(tool_name_part, input_data)
+                    target_server = server
+                    break
+        if target_server is None:
             raise ValueError(f"Tool {tool_name} not found")
+        return await target_server.call_tool(tool_name_part, input_data)
 
 
 T = TypeVar("T")
@@ -978,7 +982,11 @@ class MCPClientBase(ABC):
             return response
 
         try:
-            return await self._execute_with_session(call_tool_op)
+            set = settings.get_settings()
+            return await self._execute_with_session(
+                call_tool_op,
+                read_timeout_seconds=set["mcp_client_tool_timeout"],
+            )
         except Exception as e:
             # Error logged by _execute_with_session. Re-raise a specific error for the caller.
             PrintStyle(

@@ -1,4 +1,4 @@
-import time
+import asyncio
 from python.helpers.api import ApiHandler, Request, Response
 
 from typing import Any
@@ -15,7 +15,7 @@ class McpServersApply(ApiHandler):
             set_settings_delta({"mcp_servers": "[]"}) # to force reinitialization
             set_settings_delta({"mcp_servers": mcp_servers})
 
-            time.sleep(1) # wait at least a second
+            await asyncio.sleep(1)
             # MCPConfig.wait_for_lock() # wait until config lock is released
             status = MCPConfig.get_instance().get_servers_status()
             return {"success": True, "status": status}
