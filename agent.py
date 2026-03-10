@@ -74,7 +74,7 @@ class AgentContext:
                 AgentContext._contexts.pop(self.id, None)
             AgentContext._contexts[self.id] = self
         if existing and existing.task:
-            existing.task.kill()
+            existing.task.kill(terminate_thread=True)
         if set_current:
             AgentContext.set_current(self.id)
 
@@ -158,7 +158,7 @@ class AgentContext:
         with AgentContext._contexts_lock:
             context = AgentContext._contexts.pop(id, None)
         if context and context.task:
-            context.task.kill()
+            context.task.kill(terminate_thread=True)
         return context
 
     def get_data(self, key: str, recursive: bool = True):
@@ -267,7 +267,7 @@ class AgentContext:
     ):
         if not self.task:
             self.task = DeferredTask(
-                thread_name=self.__class__.__name__,
+                thread_name=f"AgentCtx-{self.id}",
             )
         self.task.start_task(func, *args, **kwargs)
         return self.task
