@@ -62,7 +62,7 @@ browser_use_monkeypatch.apply()
 litellm.modify_params = True # helps fix anthropic tool calls by browser-use
 
 
-# --- LLM Usage Tracking Hooks ---
+# --- LLM Usage Tracking Hooks & Metrics ---
 LLMUsageCallback = Callable[[dict[str, Any]], None]
 _llm_usage_callbacks: list[LLMUsageCallback] = []
 
@@ -88,6 +88,11 @@ def _emit_usage_event(event: dict[str, Any]) -> None:
             cb(event)
         except Exception:
             pass
+
+
+# Auto-register the built-in metrics collector
+from python.helpers.metrics_collector import collector as _metrics_collector
+register_llm_callback(_metrics_collector.record)
 
 
 class ModelType(Enum):

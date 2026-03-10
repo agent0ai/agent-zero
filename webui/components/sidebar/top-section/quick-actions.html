@@ -21,6 +21,11 @@
         <span class="material-symbols-outlined">psychology</span>
       </button>
 
+      <!-- Metrics -->
+      <button class="config-button" id="metrics-dash" @click="openModal('modals/metrics/metrics-dashboard.html')" title="Metrics">
+        <span class="material-symbols-outlined">monitoring</span>
+      </button>
+
       <!-- Scheduler -->
       <button class="config-button" id="scheduler" @click="openModal('modals/scheduler/scheduler-modal.html')" title="Scheduler">
         <span class="material-symbols-outlined">schedule</span>
@@ -59,6 +64,11 @@
         <span>Memories</span>
       </button>
       
+      <button class="dropdown-item" @click="openModal('modals/metrics/metrics-dashboard.html'); dropdownOpen = false">
+        <span class="material-symbols-outlined">monitoring</span>
+        <span>Metrics</span>
+      </button>
+
       <button class="dropdown-item" @click="openModal('modals/scheduler/scheduler-modal.html'); dropdownOpen = false">
         <span class="material-symbols-outlined">schedule</span>
         <span>Scheduler</span>
