@@ -790,6 +790,7 @@ class Agent:
             rate_limiter_callback=(
                 self.rate_limiter_callback if not call_data["background"] else None
             ),
+            _metrics_context=self._build_metrics_context("utility"),
         )
 
         return response
@@ -816,9 +817,20 @@ class Agent:
                 self.rate_limiter_callback if not background else None
             ),
             explicit_caching=explicit_caching,
+            _metrics_context=self._build_metrics_context("chat"),
         )
 
         return response, reasoning
+
+    def _build_metrics_context(self, usage_type: str) -> dict:
+        project = self.context.data.get("project")
+        return {
+            "usage_type": usage_type,
+            "agent_name": self.agent_name,
+            "context_id": self.context.id,
+            "project": project,
+            "chat_name": self.context.name,
+        }
 
     async def rate_limiter_callback(
         self, message: str, key: str, total: int, limit: int

@@ -527,6 +527,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
             Callable[[str, str, int, int], Awaitable[bool]] | None
         ) = None,
         explicit_caching: bool = False,
+        _metrics_context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Tuple[str, str]:
 
@@ -563,7 +564,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
         # results
         result = ChatGenerationResult()
         _t0 = _time.monotonic()
+        _ttft: float | None = None  # time to first token (seconds)
         _last_chunk = None
+        _mctx = _metrics_context or {}
 
         attempt = 0
         while True:
@@ -580,6 +583,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 if stream:
                     # iterate over chunks
                     async for chunk in _completion:  # type: ignore
+                        if not got_any_chunk:
+                            _ttft = _time.monotonic() - _t0
                         got_any_chunk = True
                         _last_chunk = chunk
                         # parse chunk
@@ -631,18 +636,28 @@ class LiteLLMChatWrapper(SimpleChatModel):
                     else:
                         tokens_in = getattr(usage_data, "prompt_tokens", 0) or 0
                         tokens_out = getattr(usage_data, "completion_tokens", 0) or 0
+                    _elapsed_s = _time.monotonic() - _t0
+                    _elapsed_ms = int(_elapsed_s * 1000)
                     _emit_usage_event({
                         "event_type": "llm_call",
                         "model": self.model_name,
                         "provider": self.a0_model_conf.provider if self.a0_model_conf else None,
                         "tokens_in": tokens_in,
                         "tokens_out": tokens_out,
-                        "latency_ms": int((_time.monotonic() - _t0) * 1000),
+                        "latency_ms": _elapsed_ms,
+                        "ttft_ms": int(_ttft * 1000) if _ttft is not None else None,
+                        "prompt_tps": round(tokens_in / _elapsed_s, 1) if _elapsed_s > 0 else 0,
+                        "response_tps": round(tokens_out / _elapsed_s, 1) if _elapsed_s > 0 else 0,
                         "success": True,
                         "error": None,
                         "stream": stream,
                         "attempts": attempt + 1,
                         "timestamp": _dt.datetime.utcnow().isoformat() + "Z",
+                        "usage_type": _mctx.get("usage_type"),
+                        "agent_name": _mctx.get("agent_name"),
+                        "context_id": _mctx.get("context_id"),
+                        "project": _mctx.get("project"),
+                        "chat_name": _mctx.get("chat_name"),
                     })
 
                 return result.response, result.reasoning
@@ -660,11 +675,19 @@ class LiteLLMChatWrapper(SimpleChatModel):
                             "tokens_in": 0,
                             "tokens_out": 0,
                             "latency_ms": int((_time.monotonic() - _t0) * 1000),
+                            "ttft_ms": None,
+                            "prompt_tps": 0,
+                            "response_tps": 0,
                             "success": False,
                             "error": f"{type(e).__name__}: {e}",
                             "stream": stream,
                             "attempts": attempt + 1,
                             "timestamp": _dt.datetime.utcnow().isoformat() + "Z",
+                            "usage_type": _mctx.get("usage_type"),
+                            "agent_name": _mctx.get("agent_name"),
+                            "context_id": _mctx.get("context_id"),
+                            "project": _mctx.get("project"),
+                            "chat_name": _mctx.get("chat_name"),
                         })
                     raise
                 attempt += 1

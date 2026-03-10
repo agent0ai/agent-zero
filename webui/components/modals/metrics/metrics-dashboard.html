@@ -14,88 +14,87 @@
                 class="metrics-dashboard">
 
                 <!-- Tabs -->
-                <div class="metrics-tabs">
-                    <button class="metrics-tab" :class="{ active: $store.metricsDashboard.activeTab === 'overview' }"
-                        @click="$store.metricsDashboard.switchTab('overview')">
-                        <span class="material-symbols-outlined">dashboard</span> Overview
-                    </button>
-                    <button class="metrics-tab"
-                        :class="{ active: $store.metricsDashboard.activeTab === 'performance' }"
-                        @click="$store.metricsDashboard.switchTab('performance')">
-                        <span class="material-symbols-outlined">speed</span> Performance
-                    </button>
-                    <button class="metrics-tab" :class="{ active: $store.metricsDashboard.activeTab === 'models' }"
-                        @click="$store.metricsDashboard.switchTab('models')">
-                        <span class="material-symbols-outlined">model_training</span> By Model
-                    </button>
-                    <button class="metrics-tab" :class="{ active: $store.metricsDashboard.activeTab === 'feed' }"
-                        @click="$store.metricsDashboard.switchTab('feed')">
-                        <span class="material-symbols-outlined">list_alt</span> Live Feed
-                    </button>
-
-                    <div class="metrics-tabs-right">
-                        <span class="metrics-uptime" x-show="$store.metricsDashboard.uptimeSeconds > 0">
-                            Uptime: <strong x-text="$store.metricsDashboard.fmtUptime($store.metricsDashboard.uptimeSeconds)"></strong>
+                <div class="m-tabs">
+                    <template x-for="t in [
+                        {id:'overview', icon:'dashboard', label:'Overview'},
+                        {id:'performance', icon:'speed', label:'Performance'},
+                        {id:'usage_type', icon:'category', label:'Usage Type'},
+                        {id:'agents', icon:'smart_toy', label:'By Agent'},
+                        {id:'projects', icon:'snippet_folder', label:'By Project'},
+                        {id:'feed', icon:'list_alt', label:'Live Feed'},
+                    ]" :key="t.id">
+                        <button class="m-tab" :class="{ active: $store.metricsDashboard.activeTab === t.id }"
+                            @click="$store.metricsDashboard.switchTab(t.id)">
+                            <span class="material-symbols-outlined" x-text="t.icon"></span>
+                            <span class="m-tab-label" x-text="t.label"></span>
+                        </button>
+                    </template>
+                    <div class="m-tabs-right">
+                        <span class="m-uptime" x-show="$store.metricsDashboard.uptimeSeconds > 0">
+                            <span x-text="$store.metricsDashboard.fmtUptime($store.metricsDashboard.uptimeSeconds)"></span>
                         </span>
-                        <button class="btn btn-sm btn-danger" @click="$confirmClick($event, () => $store.metricsDashboard.clearMetrics())" title="Clear all metrics">
+                        <button class="btn btn-sm btn-danger"
+                            @click="$confirmClick($event, () => $store.metricsDashboard.clearMetrics())" title="Clear">
                             <span class="material-symbols-outlined" style="font-size:16px">delete</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Loading / Error -->
-                <div x-show="$store.metricsDashboard.loading && $store.metricsDashboard.totalCalls === 0"
-                    class="metrics-loading">Loading metrics...</div>
-                <div x-show="$store.metricsDashboard.error" class="metrics-error"
-                    x-text="$store.metricsDashboard.error"></div>
-
-                <!-- No data state -->
-                <div x-show="!$store.metricsDashboard.loading && $store.metricsDashboard.totalCalls === 0 && !$store.metricsDashboard.error"
-                    class="metrics-empty">
+                <!-- States -->
+                <div x-show="$store.metricsDashboard.loading && $store.metricsDashboard.totalCalls === 0" class="m-empty">Loading...</div>
+                <div x-show="$store.metricsDashboard.error" class="m-error" x-text="$store.metricsDashboard.error"></div>
+                <div x-show="!$store.metricsDashboard.loading && $store.metricsDashboard.totalCalls === 0 && !$store.metricsDashboard.error" class="m-empty">
                     <span class="material-symbols-outlined" style="font-size:48px;opacity:0.3">monitoring</span>
-                    <p>No metrics collected yet. Metrics will appear here as LLM calls are made.</p>
+                    <p>No metrics yet. Data appears as LLM calls are made.</p>
                 </div>
 
-                <!-- OVERVIEW TAB -->
-                <div x-show="$store.metricsDashboard.activeTab === 'overview' && $store.metricsDashboard.totalCalls > 0"
-                    class="metrics-content">
-
-                    <!-- KPI Cards -->
+                <!-- ═══════ OVERVIEW ═══════ -->
+                <div x-show="$store.metricsDashboard.activeTab === 'overview' && $store.metricsDashboard.totalCalls > 0" class="m-content">
                     <div class="kpi-grid">
-                        <div class="kpi-card">
-                            <div class="kpi-label">Total Calls</div>
-                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtNum($store.metricsDashboard.totalCalls)"></div>
+                        <div class="kpi-card kpi-accent">
+                            <div class="kpi-icon"><span class="material-symbols-outlined">token</span></div>
+                            <div class="kpi-label">Total Tokens</div>
+                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtNum($store.metricsDashboard.totalTokensIn + $store.metricsDashboard.totalTokensOut)"></div>
                             <div class="kpi-sub">
-                                <span class="kpi-success" x-text="$store.metricsDashboard.successCalls + ' ok'"></span> /
-                                <span class="kpi-fail" x-text="$store.metricsDashboard.failedCalls + ' err'"></span>
+                                prompt <span x-text="$store.metricsDashboard.fmtNum($store.metricsDashboard.totalTokensIn)"></span>
+                                · response <span x-text="$store.metricsDashboard.fmtNum($store.metricsDashboard.totalTokensOut)"></span>
                             </div>
                         </div>
                         <div class="kpi-card">
+                            <div class="kpi-icon"><span class="material-symbols-outlined">counter_1</span></div>
+                            <div class="kpi-label">Requests</div>
+                            <div class="kpi-value" x-text="$store.metricsDashboard.totalCalls"></div>
+                            <div class="kpi-sub">
+                                avg <span x-text="$store.metricsDashboard.totalCalls ? $store.metricsDashboard.fmtNum(Math.round(($store.metricsDashboard.totalTokensIn + $store.metricsDashboard.totalTokensOut) / $store.metricsDashboard.totalCalls)) : 0"></span> tok/req
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon"><span class="material-symbols-outlined">timer</span></div>
+                            <div class="kpi-label">Avg TTFT</div>
+                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtLatency($store.metricsDashboard.avgTtft)"></div>
+                            <div class="kpi-sub">p95 = <span x-text="$store.metricsDashboard.fmtLatency($store.metricsDashboard.p95Ttft)"></span></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon"><span class="material-symbols-outlined">arrow_upward</span></div>
+                            <div class="kpi-label">Prompt Tok/s</div>
+                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtTps($store.metricsDashboard.avgPromptTps)"></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon"><span class="material-symbols-outlined">arrow_downward</span></div>
+                            <div class="kpi-label">Response Tok/s</div>
+                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtTps($store.metricsDashboard.avgResponseTps)"></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon"><span class="material-symbols-outlined">check_circle</span></div>
                             <div class="kpi-label">Success Rate</div>
                             <div class="kpi-value" x-text="$store.metricsDashboard.successRate()"></div>
                         </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Tokens In</div>
-                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtNum($store.metricsDashboard.totalTokensIn)"></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Tokens Out</div>
-                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtNum($store.metricsDashboard.totalTokensOut)"></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Avg Latency</div>
-                            <div class="kpi-value" x-text="$store.metricsDashboard.fmtLatency($store.metricsDashboard.avgLatency)"></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Buffer</div>
-                            <div class="kpi-value" x-text="$store.metricsDashboard.bufferSize + '/' + $store.metricsDashboard.bufferCapacity"></div>
-                        </div>
                     </div>
 
-                    <!-- Timeline sparkline -->
-                    <div class="metrics-section" x-show="$store.metricsDashboard.timeline.length > 1">
+                    <!-- Timeline -->
+                    <div class="m-section" x-show="$store.metricsDashboard.timeline.length > 1">
                         <h3>Activity (last 60 min)</h3>
-                        <div class="sparkline-container">
+                        <div class="sparkline-box">
                             <svg viewBox="0 0 600 80" preserveAspectRatio="none" class="sparkline-svg">
                                 <path :d="$store.metricsDashboard.sparklinePath($store.metricsDashboard.timeline, 'calls', 600, 70)"
                                     fill="none" stroke="var(--color-accent, #60a5fa)" stroke-width="2" />
@@ -103,121 +102,223 @@
                                     fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3" />
                             </svg>
                             <div class="sparkline-legend">
-                                <span><span class="legend-line accent"></span> Calls</span>
-                                <span><span class="legend-line error"></span> Errors</span>
+                                <span><span class="leg-line accent"></span> Calls</span>
+                                <span><span class="leg-line error"></span> Errors</span>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Top models mini table -->
+                    <div class="m-section" x-show="$store.metricsDashboard.byModel.length > 0">
+                        <h3>Top Models</h3>
+                        <div class="mini-table-wrap">
+                            <table class="mini-table">
+                                <thead><tr><th>Model</th><th>Calls</th><th>Tokens</th><th>Avg Latency</th></tr></thead>
+                                <tbody>
+                                    <template x-for="m in $store.metricsDashboard.byModel.slice(0, 5)" :key="m.name">
+                                        <tr>
+                                            <td class="cell-name" x-text="m.name"></td>
+                                            <td x-text="m.calls"></td>
+                                            <td x-text="$store.metricsDashboard.fmtNum(m.tokens_in + m.tokens_out)"></td>
+                                            <td x-text="$store.metricsDashboard.fmtLatency(m.avg_latency_ms)"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- Recent errors -->
-                    <div class="metrics-section" x-show="$store.metricsDashboard.recentErrors.length > 0">
+                    <div class="m-section" x-show="$store.metricsDashboard.recentErrors.length > 0">
                         <h3>Recent Errors</h3>
                         <div class="errors-list">
                             <template x-for="err in $store.metricsDashboard.recentErrors.slice(0, 5)" :key="err.timestamp">
-                                <div class="error-item">
-                                    <span class="error-model" x-text="err.model"></span>
-                                    <span class="error-msg" x-text="err.error"></span>
-                                    <span class="error-time" x-text="$store.metricsDashboard.fmtTime(err.timestamp)"></span>
+                                <div class="err-item">
+                                    <span class="err-model" x-text="err.model"></span>
+                                    <span class="err-msg" x-text="err.error"></span>
+                                    <span class="err-time" x-text="$store.metricsDashboard.fmtTime(err.timestamp)"></span>
                                 </div>
                             </template>
                         </div>
                     </div>
                 </div>
 
-                <!-- PERFORMANCE TAB -->
-                <div x-show="$store.metricsDashboard.activeTab === 'performance' && $store.metricsDashboard.totalCalls > 0"
-                    class="metrics-content">
-                    <div class="perf-grid">
-                        <div class="perf-card">
-                            <div class="perf-label">P50 Latency</div>
-                            <div class="perf-value" x-text="$store.metricsDashboard.fmtLatency($store.metricsDashboard.p50Latency)"></div>
-                        </div>
-                        <div class="perf-card">
-                            <div class="perf-label">P95 Latency</div>
-                            <div class="perf-value" x-text="$store.metricsDashboard.fmtLatency($store.metricsDashboard.p95Latency)"></div>
-                        </div>
-                        <div class="perf-card">
-                            <div class="perf-label">P99 Latency</div>
-                            <div class="perf-value" x-text="$store.metricsDashboard.fmtLatency($store.metricsDashboard.p99Latency)"></div>
-                        </div>
-                        <div class="perf-card">
-                            <div class="perf-label">Avg Latency</div>
-                            <div class="perf-value" x-text="$store.metricsDashboard.fmtLatency($store.metricsDashboard.avgLatency)"></div>
-                        </div>
+                <!-- ═══════ PERFORMANCE ═══════ -->
+                <div x-show="$store.metricsDashboard.activeTab === 'performance' && $store.metricsDashboard.totalCalls > 0" class="m-content">
+                    <div class="kpi-grid kpi-4">
+                        <template x-for="p in [
+                            {label:'P50 Latency', val:$store.metricsDashboard.p50Latency},
+                            {label:'P95 Latency', val:$store.metricsDashboard.p95Latency},
+                            {label:'P99 Latency', val:$store.metricsDashboard.p99Latency},
+                            {label:'Avg Latency', val:$store.metricsDashboard.avgLatency},
+                        ]" :key="p.label">
+                            <div class="kpi-card">
+                                <div class="kpi-label" x-text="p.label"></div>
+                                <div class="kpi-value kpi-lg" x-text="$store.metricsDashboard.fmtLatency(p.val)"></div>
+                            </div>
+                        </template>
                     </div>
 
-                    <!-- Per-model latency breakdown -->
-                    <div class="metrics-section" x-show="$store.metricsDashboard.byModel.length > 0">
+                    <div class="m-section" x-show="$store.metricsDashboard.byModel.length > 0">
                         <h3>Latency by Model</h3>
-                        <div class="model-bars">
-                            <template x-for="m in $store.metricsDashboard.byModel" :key="m.model">
-                                <div class="model-bar-row">
-                                    <span class="model-bar-name" x-text="m.model"></span>
-                                    <div class="model-bar-track">
-                                        <div class="model-bar-fill"
-                                            :style="'width:' + Math.min(100, (m.avg_latency_ms / Math.max(...$store.metricsDashboard.byModel.map(x=>x.avg_latency_ms), 1)) * 100) + '%'">
-                                        </div>
+                        <div class="bar-rows">
+                            <template x-for="m in $store.metricsDashboard.byModel" :key="m.name">
+                                <div class="bar-row">
+                                    <span class="bar-name" x-text="m.name"></span>
+                                    <div class="bar-track">
+                                        <div class="bar-fill" :style="'width:' + (m.avg_latency_ms / $store.metricsDashboard.maxOf($store.metricsDashboard.byModel, 'avg_latency_ms') * 100) + '%'"></div>
                                     </div>
-                                    <span class="model-bar-val" x-text="$store.metricsDashboard.fmtLatency(m.avg_latency_ms)"></span>
+                                    <span class="bar-val" x-text="$store.metricsDashboard.fmtLatency(m.avg_latency_ms)"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="m-section" x-show="$store.metricsDashboard.byModel.length > 0">
+                        <h3>TTFT by Model</h3>
+                        <div class="bar-rows">
+                            <template x-for="m in $store.metricsDashboard.byModel.filter(x => x.avg_ttft_ms > 0)" :key="m.name">
+                                <div class="bar-row">
+                                    <span class="bar-name" x-text="m.name"></span>
+                                    <div class="bar-track">
+                                        <div class="bar-fill bar-fill-ttft" :style="'width:' + (m.avg_ttft_ms / $store.metricsDashboard.maxOf($store.metricsDashboard.byModel, 'avg_ttft_ms') * 100) + '%'"></div>
+                                    </div>
+                                    <span class="bar-val" x-text="$store.metricsDashboard.fmtLatency(m.avg_ttft_ms)"></span>
                                 </div>
                             </template>
                         </div>
                     </div>
                 </div>
 
-                <!-- BY MODEL TAB -->
-                <div x-show="$store.metricsDashboard.activeTab === 'models' && $store.metricsDashboard.totalCalls > 0"
-                    class="metrics-content">
-                    <div class="model-table-wrap">
-                        <table class="model-table">
-                            <thead>
-                                <tr>
-                                    <th>Model</th>
-                                    <th>Calls</th>
-                                    <th>OK</th>
-                                    <th>Err</th>
-                                    <th>Tokens In</th>
-                                    <th>Tokens Out</th>
-                                    <th>Avg Latency</th>
-                                    <th>Retries</th>
-                                </tr>
-                            </thead>
+                <!-- ═══════ USAGE TYPE ═══════ -->
+                <div x-show="$store.metricsDashboard.activeTab === 'usage_type' && $store.metricsDashboard.totalCalls > 0" class="m-content">
+                    <div class="agg-table-wrap">
+                        <table class="agg-table">
+                            <thead><tr><th>Usage Type</th><th>Calls</th><th>OK</th><th>Err</th><th>Tokens In</th><th>Tokens Out</th><th>Avg Latency</th><th>Retries</th></tr></thead>
                             <tbody>
-                                <template x-for="m in $store.metricsDashboard.byModel" :key="m.model">
+                                <template x-for="r in $store.metricsDashboard.byUsageType" :key="r.name">
                                     <tr>
-                                        <td class="model-name-cell" x-text="m.model"></td>
-                                        <td x-text="m.calls"></td>
-                                        <td class="cell-ok" x-text="m.success"></td>
-                                        <td class="cell-err" x-text="m.failed"></td>
-                                        <td x-text="$store.metricsDashboard.fmtNum(m.tokens_in)"></td>
-                                        <td x-text="$store.metricsDashboard.fmtNum(m.tokens_out)"></td>
-                                        <td x-text="$store.metricsDashboard.fmtLatency(m.avg_latency_ms)"></td>
-                                        <td x-text="m.retries"></td>
+                                        <td class="cell-name" x-text="r.name"></td>
+                                        <td x-text="r.calls"></td>
+                                        <td class="cell-ok" x-text="r.success"></td>
+                                        <td class="cell-err" x-text="r.failed"></td>
+                                        <td x-text="$store.metricsDashboard.fmtNum(r.tokens_in)"></td>
+                                        <td x-text="$store.metricsDashboard.fmtNum(r.tokens_out)"></td>
+                                        <td x-text="$store.metricsDashboard.fmtLatency(r.avg_latency_ms)"></td>
+                                        <td x-text="r.retries"></td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                     </div>
+
+                    <div class="m-section" x-show="$store.metricsDashboard.byUsageType.length > 0">
+                        <h3>Token Split by Usage Type</h3>
+                        <div class="bar-rows">
+                            <template x-for="r in $store.metricsDashboard.byUsageType" :key="r.name">
+                                <div class="bar-row">
+                                    <span class="bar-name" x-text="r.name"></span>
+                                    <div class="bar-track">
+                                        <div class="bar-fill" :style="'width:' + ((r.tokens_in + r.tokens_out) / $store.metricsDashboard.maxOf($store.metricsDashboard.byUsageType.map(x=>({v:x.tokens_in+x.tokens_out})), 'v') * 100) + '%'"></div>
+                                    </div>
+                                    <span class="bar-val" x-text="$store.metricsDashboard.fmtNum(r.tokens_in + r.tokens_out)"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- LIVE FEED TAB -->
-                <div x-show="$store.metricsDashboard.activeTab === 'feed' && $store.metricsDashboard.totalCalls > 0"
-                    class="metrics-content">
+                <!-- ═══════ BY AGENT ═══════ -->
+                <div x-show="$store.metricsDashboard.activeTab === 'agents' && $store.metricsDashboard.totalCalls > 0" class="m-content">
+                    <div class="agg-table-wrap">
+                        <table class="agg-table">
+                            <thead><tr><th>Agent</th><th>Calls</th><th>OK</th><th>Err</th><th>Tokens In</th><th>Tokens Out</th><th>Avg Latency</th><th>Avg TTFT</th></tr></thead>
+                            <tbody>
+                                <template x-for="r in $store.metricsDashboard.byAgent" :key="r.name">
+                                    <tr>
+                                        <td class="cell-name" x-text="r.name"></td>
+                                        <td x-text="r.calls"></td>
+                                        <td class="cell-ok" x-text="r.success"></td>
+                                        <td class="cell-err" x-text="r.failed"></td>
+                                        <td x-text="$store.metricsDashboard.fmtNum(r.tokens_in)"></td>
+                                        <td x-text="$store.metricsDashboard.fmtNum(r.tokens_out)"></td>
+                                        <td x-text="$store.metricsDashboard.fmtLatency(r.avg_latency_ms)"></td>
+                                        <td x-text="r.avg_ttft_ms ? $store.metricsDashboard.fmtLatency(r.avg_ttft_ms) : '—'"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="m-section" x-show="$store.metricsDashboard.byAgent.length > 0">
+                        <h3>Tokens by Agent</h3>
+                        <div class="bar-rows">
+                            <template x-for="r in $store.metricsDashboard.byAgent" :key="r.name">
+                                <div class="bar-row">
+                                    <span class="bar-name" x-text="r.name"></span>
+                                    <div class="bar-track">
+                                        <div class="bar-fill bar-fill-agent" :style="'width:' + ((r.tokens_in + r.tokens_out) / $store.metricsDashboard.maxOf($store.metricsDashboard.byAgent.map(x=>({v:x.tokens_in+x.tokens_out})), 'v') * 100) + '%'"></div>
+                                    </div>
+                                    <span class="bar-val" x-text="$store.metricsDashboard.fmtNum(r.tokens_in + r.tokens_out)"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════ BY PROJECT ═══════ -->
+                <div x-show="$store.metricsDashboard.activeTab === 'projects' && $store.metricsDashboard.totalCalls > 0" class="m-content">
+                    <template x-for="proj in $store.metricsDashboard.byProject" :key="proj.name">
+                        <div class="proj-card">
+                            <div class="proj-header" @click="$store.metricsDashboard.toggleProject(proj.name)">
+                                <span class="material-symbols-outlined proj-chevron"
+                                    :class="{ rotated: $store.metricsDashboard.isProjectExpanded(proj.name) }">chevron_right</span>
+                                <span class="proj-name" x-text="proj.name"></span>
+                                <div class="proj-stats">
+                                    <span x-text="proj.calls + ' calls'"></span>
+                                    <span>·</span>
+                                    <span x-text="$store.metricsDashboard.fmtNum(proj.tokens_in + proj.tokens_out) + ' tok'"></span>
+                                    <span>·</span>
+                                    <span x-text="$store.metricsDashboard.fmtLatency(proj.avg_latency_ms) + ' avg'"></span>
+                                    <span>·</span>
+                                    <span x-text="proj.chats.length + ' chat(s)'"></span>
+                                </div>
+                            </div>
+                            <div x-show="$store.metricsDashboard.isProjectExpanded(proj.name)" class="proj-chats">
+                                <table class="agg-table agg-table-sm">
+                                    <thead><tr><th>Chat</th><th>Calls</th><th>Tokens In</th><th>Tokens Out</th></tr></thead>
+                                    <tbody>
+                                        <template x-for="ch in proj.chats" :key="ch.context_id">
+                                            <tr>
+                                                <td class="cell-name" x-text="ch.name || ch.context_id"></td>
+                                                <td x-text="ch.calls"></td>
+                                                <td x-text="$store.metricsDashboard.fmtNum(ch.tokens_in)"></td>
+                                                <td x-text="$store.metricsDashboard.fmtNum(ch.tokens_out)"></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- ═══════ LIVE FEED ═══════ -->
+                <div x-show="$store.metricsDashboard.activeTab === 'feed' && $store.metricsDashboard.totalCalls > 0" class="m-content">
                     <div class="feed-list">
                         <template x-for="(ev, idx) in $store.metricsDashboard.recentEvents" :key="idx">
-                            <div class="feed-item" :class="{ 'feed-error': !ev.success }">
-                                <span class="feed-status">
+                            <div class="feed-item" :class="{ 'feed-err': !ev.success }">
+                                <span class="feed-icon">
                                     <span class="material-symbols-outlined" x-text="ev.success ? 'check_circle' : 'error'"
-                                        :style="'color:' + (ev.success ? 'var(--color-ok, #22c55e)' : '#ef4444') + ';font-size:16px'"></span>
+                                        :style="'color:' + (ev.success ? 'var(--color-ok,#22c55e)' : '#ef4444') + ';font-size:16px'"></span>
                                 </span>
                                 <span class="feed-model" x-text="ev.model"></span>
-                                <span class="feed-tokens">
-                                    <span x-text="$store.metricsDashboard.fmtNum(ev.tokens_in)"></span>→<span x-text="$store.metricsDashboard.fmtNum(ev.tokens_out)"></span>
-                                </span>
+                                <span class="feed-badge" x-text="ev.usage_type || '?'" :title="'Agent: ' + (ev.agent_name || '?')"></span>
+                                <span class="feed-tokens" x-text="$store.metricsDashboard.fmtNum(ev.tokens_in) + '→' + $store.metricsDashboard.fmtNum(ev.tokens_out)"></span>
                                 <span class="feed-latency" x-text="$store.metricsDashboard.fmtLatency(ev.latency_ms)"></span>
-                                <span class="feed-attempts" x-show="ev.attempts > 1" x-text="'×' + ev.attempts"></span>
+                                <span class="feed-ttft" x-show="ev.ttft_ms" x-text="'TTFT ' + $store.metricsDashboard.fmtLatency(ev.ttft_ms || 0)"></span>
+                                <span class="feed-retry" x-show="ev.attempts > 1" x-text="'×' + ev.attempts"></span>
                                 <span class="feed-time" x-text="$store.metricsDashboard.fmtTime(ev.timestamp)"></span>
-                                <span class="feed-err-msg" x-show="ev.error" x-text="ev.error" title="Error details"></span>
                             </div>
                         </template>
                     </div>
@@ -228,298 +329,102 @@
 </body>
 
 <style>
-    .metrics-dashboard {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-md, 16px);
-        min-height: 400px;
-    }
+    .metrics-dashboard { display:flex; flex-direction:column; gap:var(--spacing-md,16px); min-height:400px; }
 
     /* Tabs */
-    .metrics-tabs {
-        display: flex;
-        gap: 4px;
-        border-bottom: 1px solid var(--color-border, #333);
-        padding-bottom: 8px;
-        flex-wrap: wrap;
-        align-items: center;
-    }
-    .metrics-tab {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 14px;
-        border: none;
-        background: transparent;
-        color: var(--color-text-secondary, #888);
-        cursor: pointer;
-        border-radius: 6px 6px 0 0;
-        font-size: 13px;
-        transition: all 0.15s;
-    }
-    .metrics-tab .material-symbols-outlined { font-size: 18px; }
-    .metrics-tab:hover { background: var(--color-background-hover, #222); color: var(--color-text, #eee); }
-    .metrics-tab.active {
-        background: var(--color-panel, #1a1a2e);
-        color: var(--color-text, #eee);
-        border-bottom: 2px solid var(--color-accent, #60a5fa);
-    }
-    .metrics-tabs-right {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 12px;
-        color: var(--color-text-secondary, #888);
-    }
+    .m-tabs { display:flex; gap:2px; border-bottom:1px solid var(--color-border,#333); padding-bottom:8px; flex-wrap:wrap; align-items:center; }
+    .m-tab { display:flex; align-items:center; gap:5px; padding:6px 12px; border:none; background:transparent; color:var(--color-text-secondary,#888); cursor:pointer; border-radius:6px 6px 0 0; font-size:12px; transition:all .15s; white-space:nowrap; }
+    .m-tab .material-symbols-outlined { font-size:16px; }
+    .m-tab:hover { background:var(--color-background-hover,#222); color:var(--color-text,#eee); }
+    .m-tab.active { background:var(--color-panel,#1a1a2e); color:var(--color-text,#eee); border-bottom:2px solid var(--color-accent,#60a5fa); }
+    .m-tab-label { }
+    .m-tabs-right { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:11px; color:var(--color-text-secondary,#888); }
+    .m-uptime { opacity:0.7; }
 
     /* States */
-    .metrics-loading, .metrics-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        padding: 60px 20px;
-        color: var(--color-text-secondary, #888);
-        text-align: center;
-    }
-    .metrics-error {
-        padding: 10px 14px;
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        border-radius: 8px;
-        color: #ef4444;
-        font-size: 13px;
-    }
+    .m-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:60px 20px; color:var(--color-text-secondary,#888); text-align:center; }
+    .m-error { padding:10px 14px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); border-radius:8px; color:#ef4444; font-size:13px; }
+    .m-content { }
+    .m-section { margin-top:16px; }
+    .m-section h3 { font-size:13px; font-weight:600; color:var(--color-text,#eee); margin-bottom:8px; text-transform:uppercase; letter-spacing:.04em; }
 
     /* KPI Grid */
-    .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 12px;
-    }
-    .kpi-card {
-        background: var(--color-panel, #1a1a2e);
-        border: 1px solid var(--color-border, #333);
-        border-radius: 10px;
-        padding: 16px;
-        text-align: center;
-    }
-    .kpi-label {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--color-text-secondary, #888);
-        margin-bottom: 6px;
-    }
-    .kpi-value {
-        font-size: 28px;
-        font-weight: 700;
-        color: var(--color-text, #eee);
-        line-height: 1.1;
-    }
-    .kpi-sub {
-        font-size: 12px;
-        margin-top: 4px;
-        color: var(--color-text-secondary, #888);
-    }
-    .kpi-success { color: var(--color-ok, #22c55e); }
-    .kpi-fail { color: #ef4444; }
-
-    /* Sections */
-    .metrics-section { margin-top: 8px; }
-    .metrics-section h3 {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--color-text, #eee);
-        margin-bottom: 10px;
-    }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+    .kpi-4 { grid-template-columns:repeat(4,1fr); }
+    .kpi-card { background:var(--color-panel,#1a1a2e); border:1px solid var(--color-border,#333); border-radius:10px; padding:14px 16px; position:relative; }
+    .kpi-accent { border-left:3px solid var(--color-accent,#60a5fa); }
+    .kpi-icon { position:absolute; top:10px; right:12px; opacity:.2; }
+    .kpi-icon .material-symbols-outlined { font-size:22px; }
+    .kpi-label { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--color-text-secondary,#888); margin-bottom:4px; }
+    .kpi-value { font-size:24px; font-weight:700; color:var(--color-text,#eee); line-height:1.2; }
+    .kpi-lg { font-size:30px; }
+    .kpi-sub { font-size:11px; margin-top:3px; color:var(--color-text-secondary,#888); }
 
     /* Sparkline */
-    .sparkline-container {
-        background: var(--color-panel, #1a1a2e);
-        border: 1px solid var(--color-border, #333);
-        border-radius: 10px;
-        padding: 14px 16px 8px;
-    }
-    .sparkline-svg { width: 100%; height: 70px; }
-    .sparkline-legend {
-        display: flex;
-        gap: 16px;
-        font-size: 11px;
-        color: var(--color-text-secondary, #888);
-        padding-top: 6px;
-    }
-    .legend-line {
-        display: inline-block;
-        width: 18px;
-        height: 2px;
-        vertical-align: middle;
-        margin-right: 4px;
-    }
-    .legend-line.accent { background: var(--color-accent, #60a5fa); }
-    .legend-line.error { background: #ef4444; border-top: 1px dashed #ef4444; height: 0; }
+    .sparkline-box { background:var(--color-panel,#1a1a2e); border:1px solid var(--color-border,#333); border-radius:10px; padding:12px 14px 6px; }
+    .sparkline-svg { width:100%; height:70px; }
+    .sparkline-legend { display:flex; gap:14px; font-size:11px; color:var(--color-text-secondary,#888); padding-top:4px; }
+    .leg-line { display:inline-block; width:16px; height:2px; vertical-align:middle; margin-right:3px; }
+    .leg-line.accent { background:var(--color-accent,#60a5fa); }
+    .leg-line.error { background:#ef4444; }
 
-    /* Errors list */
-    .errors-list { display: flex; flex-direction: column; gap: 6px; }
-    .error-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 12px;
-        padding: 8px 12px;
-        background: rgba(239, 68, 68, 0.06);
-        border-radius: 6px;
-        border: 1px solid rgba(239, 68, 68, 0.15);
-    }
-    .error-model {
-        font-weight: 600;
-        color: var(--color-text, #eee);
-        white-space: nowrap;
-    }
-    .error-msg {
-        flex: 1;
-        color: #ef4444;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .error-time { color: var(--color-text-secondary, #888); white-space: nowrap; }
+    /* Bar rows */
+    .bar-rows { display:flex; flex-direction:column; gap:6px; }
+    .bar-row { display:flex; align-items:center; gap:8px; font-size:12px; }
+    .bar-name { width:180px; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--color-text,#eee); flex-shrink:0; }
+    .bar-track { flex:1; height:8px; background:var(--color-border,#333); border-radius:4px; overflow:hidden; }
+    .bar-fill { height:100%; background:var(--color-accent,#60a5fa); border-radius:4px; transition:width .3s; }
+    .bar-fill-ttft { background:#a78bfa; }
+    .bar-fill-agent { background:#34d399; }
+    .bar-val { width:55px; font-size:11px; color:var(--color-text-secondary,#888); flex-shrink:0; }
 
-    /* Performance */
-    .perf-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 12px;
-    }
-    .perf-card {
-        background: var(--color-panel, #1a1a2e);
-        border: 1px solid var(--color-border, #333);
-        border-radius: 10px;
-        padding: 20px;
-        text-align: center;
-    }
-    .perf-label {
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--color-text-secondary, #888);
-        margin-bottom: 8px;
-    }
-    .perf-value {
-        font-size: 32px;
-        font-weight: 700;
-        color: var(--color-text, #eee);
-    }
+    /* Tables */
+    .agg-table-wrap, .mini-table-wrap { overflow-x:auto; }
+    .agg-table, .mini-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .agg-table th, .mini-table th { text-align:left; padding:7px 8px; border-bottom:2px solid var(--color-border,#333); color:var(--color-text-secondary,#888); font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+    .agg-table td, .mini-table td { padding:7px 8px; border-bottom:1px solid var(--color-border,#222); color:var(--color-text,#eee); }
+    .agg-table-sm { font-size:11px; }
+    .agg-table-sm th { font-size:9px; }
+    .agg-table-sm td, .agg-table-sm th { padding:5px 8px; }
+    .cell-name { font-weight:600; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cell-ok { color:var(--color-ok,#22c55e); }
+    .cell-err { color:#ef4444; }
 
-    /* Model bars */
-    .model-bars { display: flex; flex-direction: column; gap: 8px; }
-    .model-bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-    .model-bar-name {
-        width: 200px;
-        text-align: right;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: var(--color-text, #eee);
-        flex-shrink: 0;
-    }
-    .model-bar-track {
-        flex: 1;
-        height: 8px;
-        background: var(--color-border, #333);
-        border-radius: 4px;
-        overflow: hidden;
-    }
-    .model-bar-fill {
-        height: 100%;
-        background: var(--color-accent, #60a5fa);
-        border-radius: 4px;
-        transition: width 0.3s;
-    }
-    .model-bar-val {
-        width: 60px;
-        font-size: 12px;
-        color: var(--color-text-secondary, #888);
-        flex-shrink: 0;
-    }
+    /* Errors */
+    .errors-list { display:flex; flex-direction:column; gap:5px; }
+    .err-item { display:flex; align-items:center; gap:8px; font-size:11px; padding:6px 10px; background:rgba(239,68,68,.06); border-radius:5px; border:1px solid rgba(239,68,68,.15); }
+    .err-model { font-weight:600; color:var(--color-text,#eee); white-space:nowrap; }
+    .err-msg { flex:1; color:#ef4444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .err-time { color:var(--color-text-secondary,#888); white-space:nowrap; }
 
-    /* Model table */
-    .model-table-wrap { overflow-x: auto; }
-    .model-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-    }
-    .model-table th {
-        text-align: left;
-        padding: 8px 10px;
-        border-bottom: 2px solid var(--color-border, #333);
-        color: var(--color-text-secondary, #888);
-        font-weight: 600;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .model-table td {
-        padding: 8px 10px;
-        border-bottom: 1px solid var(--color-border, #222);
-        color: var(--color-text, #eee);
-    }
-    .model-name-cell {
-        font-weight: 600;
-        max-width: 250px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .cell-ok { color: var(--color-ok, #22c55e); }
-    .cell-err { color: #ef4444; }
+    /* Projects */
+    .proj-card { background:var(--color-panel,#1a1a2e); border:1px solid var(--color-border,#333); border-radius:10px; margin-bottom:8px; overflow:hidden; }
+    .proj-header { display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; transition:background .15s; }
+    .proj-header:hover { background:var(--color-background-hover,#222); }
+    .proj-chevron { font-size:18px; transition:transform .2s; }
+    .proj-chevron.rotated { transform:rotate(90deg); }
+    .proj-name { font-weight:600; font-size:14px; color:var(--color-text,#eee); }
+    .proj-stats { margin-left:auto; display:flex; gap:6px; font-size:11px; color:var(--color-text-secondary,#888); }
+    .proj-chats { padding:0 14px 12px; }
 
-    /* Live feed */
-    .feed-list { display: flex; flex-direction: column; gap: 4px; }
-    .feed-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 7px 12px;
-        background: var(--color-panel, #1a1a2e);
-        border: 1px solid var(--color-border, #222);
-        border-radius: 6px;
-        font-size: 12px;
-    }
-    .feed-item.feed-error {
-        border-color: rgba(239, 68, 68, 0.25);
-        background: rgba(239, 68, 68, 0.04);
-    }
-    .feed-model {
-        font-weight: 600;
-        color: var(--color-text, #eee);
-        min-width: 120px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .feed-tokens { color: var(--color-text-secondary, #888); white-space: nowrap; }
-    .feed-latency { color: var(--color-accent, #60a5fa); white-space: nowrap; }
-    .feed-attempts { color: #f59e0b; font-weight: 600; }
-    .feed-time { color: var(--color-text-secondary, #666); white-space: nowrap; margin-left: auto; }
-    .feed-err-msg {
-        color: #ef4444;
-        font-size: 11px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 200px;
-    }
+    /* Feed */
+    .feed-list { display:flex; flex-direction:column; gap:3px; }
+    .feed-item { display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--color-panel,#1a1a2e); border:1px solid var(--color-border,#222); border-radius:5px; font-size:11px; }
+    .feed-item.feed-err { border-color:rgba(239,68,68,.25); background:rgba(239,68,68,.04); }
+    .feed-model { font-weight:600; color:var(--color-text,#eee); min-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .feed-badge { background:var(--color-border,#333); color:var(--color-text-secondary,#ccc); padding:1px 6px; border-radius:3px; font-size:10px; text-transform:uppercase; }
+    .feed-tokens { color:var(--color-text-secondary,#888); white-space:nowrap; }
+    .feed-latency { color:var(--color-accent,#60a5fa); white-space:nowrap; }
+    .feed-ttft { color:#a78bfa; white-space:nowrap; font-size:10px; }
+    .feed-retry { color:#f59e0b; font-weight:600; }
+    .feed-time { color:var(--color-text-secondary,#666); white-space:nowrap; margin-left:auto; }
 
-    /* Responsive */
-    @media (max-width: 600px) {
-        .kpi-grid, .perf-grid { grid-template-columns: repeat(2, 1fr); }
-        .model-bar-name { width: 100px; font-size: 11px; }
-        .feed-model { min-width: 80px; }
-        .feed-err-msg { display: none; }
+    @media (max-width:700px) {
+        .kpi-grid, .kpi-4 { grid-template-columns:repeat(2,1fr); }
+        .bar-name { width:80px; font-size:10px; }
+        .m-tab-label { display:none; }
+        .feed-ttft { display:none; }
+        .proj-stats { flex-wrap:wrap; }
     }
 </style>
 
