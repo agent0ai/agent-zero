@@ -61,6 +61,35 @@ browser_use_monkeypatch.apply()
 
 litellm.modify_params = True # helps fix anthropic tool calls by browser-use
 
+
+# --- LLM Usage Tracking Hooks ---
+LLMUsageCallback = Callable[[dict[str, Any]], None]
+_llm_usage_callbacks: list[LLMUsageCallback] = []
+
+
+def register_llm_callback(callback: LLMUsageCallback) -> None:
+    """Register a callback to receive LLM usage events."""
+    if callback not in _llm_usage_callbacks:
+        _llm_usage_callbacks.append(callback)
+
+
+def unregister_llm_callback(callback: LLMUsageCallback) -> None:
+    """Remove a previously registered callback."""
+    try:
+        _llm_usage_callbacks.remove(callback)
+    except ValueError:
+        pass
+
+
+def _emit_usage_event(event: dict[str, Any]) -> None:
+    """Emit usage event to all registered callbacks. Callback errors are silenced."""
+    for cb in _llm_usage_callbacks:
+        try:
+            cb(event)
+        except Exception:
+            pass
+
+
 class ModelType(Enum):
     CHAT = "Chat"
     EMBEDDING = "Embedding"
@@ -248,6 +277,25 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         getattr(openai, "APIStatusError", Exception),
     )
     return isinstance(exc, transient_types)
+
+
+def _extract_retry_after(exc: Exception) -> float | None:
+    """Extract Retry-After value from API error response headers if present."""
+    headers = getattr(exc, "headers", None) or {}
+    if not isinstance(headers, dict):
+        headers = dict(headers) if hasattr(headers, "__iter__") else {}
+    val = headers.get("retry-after") or headers.get("Retry-After")
+    if val is None:
+        response = getattr(exc, "response", None)
+        if response is not None:
+            resp_headers = getattr(response, "headers", {})
+            val = resp_headers.get("retry-after") or resp_headers.get("Retry-After")
+    if val is not None:
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            pass
+    return None
 
 
 async def apply_rate_limiter(
@@ -499,10 +547,18 @@ class LiteLLMChatWrapper(SimpleChatModel):
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
+        retry_exp_base: float = float(call_kwargs.pop("a0_retry_exponential_base", 2.0))
+        retry_max_delay: float = float(call_kwargs.pop("a0_retry_max_delay", 30.0))
+        retry_jitter: bool = bool(call_kwargs.pop("a0_retry_jitter", True))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
+
+        import time as _time
+        import datetime as _dt
 
         # results
         result = ChatGenerationResult()
+        _t0 = _time.monotonic()
+        _last_chunk = None
 
         attempt = 0
         while True:
@@ -520,6 +576,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
                     # iterate over chunks
                     async for chunk in _completion:  # type: ignore
                         got_any_chunk = True
+                        _last_chunk = chunk
                         # parse chunk
                         parsed = _parse_chunk(chunk)
                         output = result.add_chunk(parsed)
@@ -559,17 +616,68 @@ class LiteLLMChatWrapper(SimpleChatModel):
                         if output["reasoning_delta"]:
                             limiter.add(output=approximate_tokens(output["reasoning_delta"]))
 
-                # Successful completion of stream
+                # Emit usage tracking event
+                if _llm_usage_callbacks:
+                    usage_src = _last_chunk if stream else _completion
+                    usage_data = getattr(usage_src, "usage", None) or {}
+                    if isinstance(usage_data, dict):
+                        tokens_in = usage_data.get("prompt_tokens", 0)
+                        tokens_out = usage_data.get("completion_tokens", 0)
+                    else:
+                        tokens_in = getattr(usage_data, "prompt_tokens", 0) or 0
+                        tokens_out = getattr(usage_data, "completion_tokens", 0) or 0
+                    _emit_usage_event({
+                        "event_type": "llm_call",
+                        "model": self.model_name,
+                        "provider": self.a0_model_conf.provider if self.a0_model_conf else None,
+                        "tokens_in": tokens_in,
+                        "tokens_out": tokens_out,
+                        "latency_ms": int((_time.monotonic() - _t0) * 1000),
+                        "success": True,
+                        "error": None,
+                        "stream": stream,
+                        "attempts": attempt + 1,
+                        "timestamp": _dt.datetime.utcnow().isoformat() + "Z",
+                    })
+
                 return result.response, result.reasoning
 
             except Exception as e:
                 import asyncio
+                import random
 
-                # Retry only if no chunks received and error is transient
                 if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
+                    if _llm_usage_callbacks:
+                        _emit_usage_event({
+                            "event_type": "llm_call",
+                            "model": self.model_name,
+                            "provider": self.a0_model_conf.provider if self.a0_model_conf else None,
+                            "tokens_in": 0,
+                            "tokens_out": 0,
+                            "latency_ms": int((_time.monotonic() - _t0) * 1000),
+                            "success": False,
+                            "error": f"{type(e).__name__}: {e}",
+                            "stream": stream,
+                            "attempts": attempt + 1,
+                            "timestamp": _dt.datetime.utcnow().isoformat() + "Z",
+                        })
                     raise
                 attempt += 1
-                await asyncio.sleep(retry_delay_s)
+
+                retry_after = _extract_retry_after(e)
+                if retry_after is not None:
+                    delay = min(retry_after, retry_max_delay)
+                else:
+                    delay = min(retry_delay_s * (retry_exp_base ** (attempt - 1)), retry_max_delay)
+                if retry_jitter:
+                    delay *= 0.5 + random.random()
+
+                from python.helpers.print_style import PrintStyle
+                PrintStyle(font_color="yellow").print(
+                    f"LLM retry {attempt}/{max_retries} for {self.model_name}: "
+                    f"{type(e).__name__} (backoff {delay:.1f}s)"
+                )
+                await asyncio.sleep(delay)
 
 
 class AsyncAIChatReplacement:
