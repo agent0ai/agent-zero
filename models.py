@@ -604,9 +604,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
         retry_exp_base: float = float(call_kwargs.pop("a0_retry_exponential_base", 2.0))
         retry_max_delay: float = float(call_kwargs.pop("a0_retry_max_delay", 30.0))
         retry_jitter: bool = bool(call_kwargs.pop("a0_retry_jitter", True))
-        chunk_idle_timeout: float = float(call_kwargs.pop("a0_stream_chunk_timeout", 90.0))
+        chunk_idle_timeout: float = float(call_kwargs.pop("a0_stream_chunk_timeout", 45.0))
         call_timeout: float = float(call_kwargs.pop("a0_timeout", 600.0))
-        first_chunk_timeout: float = float(call_kwargs.pop("a0_stream_timeout", 90.0))
+        first_chunk_timeout: float = float(call_kwargs.pop("a0_stream_timeout", 60.0))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
 
         call_kwargs.setdefault("timeout", call_timeout)
