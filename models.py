@@ -687,9 +687,21 @@ class LiteLLMChatWrapper(SimpleChatModel):
                         if output["reasoning_delta"]:
                             limiter.add(output=approximate_tokens(output["reasoning_delta"]))
 
+                # Check if response was truncated by max_tokens
+                _final = _last_chunk if stream else _completion
+                _finish = _get_finish_reason(_final) if _final else None
+                if _finish == "length":
+                    _max_used = call_kwargs.get("max_tokens", "?")
+                    from python.helpers.print_style import PrintStyle
+                    PrintStyle(font_color="orange", padding=True).print(
+                        f"⚠ Response truncated: model hit max_tokens={_max_used} "
+                        f"(model={self.model_name}). "
+                        f"Increase max_tokens in chat model kwargs or shorten the conversation."
+                    )
+
                 # Emit usage tracking event
                 if _llm_usage_callbacks:
-                    usage_src = _last_chunk if stream else _completion
+                    usage_src = _final
                     usage_data = getattr(usage_src, "usage", None) or {}
                     if isinstance(usage_data, dict):
                         tokens_in = usage_data.get("prompt_tokens", 0)
@@ -1037,6 +1049,14 @@ def _parse_chunk(chunk: Any) -> ChatChunk:
     ) or ""
 
     return ChatChunk(reasoning_delta=reasoning_delta, response_delta=response_delta)
+
+
+def _get_finish_reason(chunk: Any) -> str | None:
+    """Extract finish_reason from the last chunk/response."""
+    try:
+        return chunk["choices"][0].get("finish_reason")
+    except Exception:
+        return None
 
 
 
