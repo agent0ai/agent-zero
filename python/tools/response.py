@@ -12,8 +12,7 @@ class ResponseTool(Tool):
         pass
 
     async def after_execution(self, response, **kwargs):
-        # do not add anything to the history or output
-
         if self.loop_data and "log_item_response" in self.loop_data.params_temporary:
             log = self.loop_data.params_temporary["log_item_response"]
-            log.update(finished=True) # mark the message as finished
+            final_text = self.args.get("text", self.args.get("message", ""))
+            log.update(content=final_text, finished=True)

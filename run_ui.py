@@ -32,9 +32,9 @@ from uvicorn.middleware.wsgi import WSGIMiddleware
 from python.helpers.websocket_manager import WebSocketManager
 from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
 
-# disable logging
 import logging
-logging.getLogger().setLevel(logging.WARNING)
+from python.helpers.log_format import configure_logging
+configure_logging(root_level=logging.WARNING)
 
 
 # Set the new timezone to 'UTC'

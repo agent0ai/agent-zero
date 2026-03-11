@@ -62,6 +62,12 @@ browser_use_monkeypatch.apply()
 
 litellm.modify_params = True # helps fix anthropic tool calls by browser-use
 
+# Suppress litellm's LoggingWorker "Queue is bound to a different event loop"
+# errors — harmless but noisy in multi-loop environments
+litellm.callbacks = []
+litellm.success_callback = []
+litellm.failure_callback = []
+
 
 # --- LLM Usage Tracking Hooks & Metrics ---
 LLMUsageCallback = Callable[[dict[str, Any]], None]
