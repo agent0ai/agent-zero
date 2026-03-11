@@ -3,6 +3,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 import os
+
+os.environ.setdefault("DISABLE_AIOHTTP_TRANSPORT", "True")
+
 from typing import (
     Any,
     Awaitable,
@@ -633,6 +636,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
         attempt = 0
         while True:
             got_any_chunk = False
+            _stream_finish_reason: str | None = None
             try:
                 if stream:
                     call_kwargs.setdefault("stream_options", {"include_usage": True})
@@ -664,6 +668,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
                             _ttft = _time.monotonic() - _t0
                         got_any_chunk = True
                         _last_chunk = chunk
+                        _fr = _get_finish_reason(chunk)
+                        if _fr is not None:
+                            _stream_finish_reason = _fr
                         parsed = _parse_chunk(chunk)
                         output = result.add_chunk(parsed)
 
@@ -698,9 +705,24 @@ class LiteLLMChatWrapper(SimpleChatModel):
                         if output["reasoning_delta"]:
                             limiter.add(output=approximate_tokens(output["reasoning_delta"]))
 
-                # Check if response was truncated by max_tokens
-                _final = _last_chunk if stream else _completion
-                _finish = _get_finish_reason(_final) if _final else None
+                # Determine finish reason (use tracked value for streams)
+                _finish = _stream_finish_reason if stream else (
+                    _get_finish_reason(_completion) if _completion else None
+                )
+
+                # Detect silently truncated streams: got chunks but transport
+                # closed the connection without a proper finish_reason.
+                if stream and got_any_chunk and _finish is None:
+                    from python.helpers.print_style import PrintStyle
+                    PrintStyle(font_color="red", padding=True).print(
+                        f"⚠ Stream silently truncated: got chunks but no finish_reason "
+                        f"(model={self.model_name}). Retrying..."
+                    )
+                    raise TimeoutError(
+                        f"Stream silently truncated: received chunks but no finish_reason "
+                        f"(model={self.model_name}). Transport closed connection without error."
+                    )
+
                 if _finish == "length":
                     _max_used = call_kwargs.get("max_tokens", "?")
                     from python.helpers.print_style import PrintStyle
@@ -712,7 +734,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
                 # Emit usage tracking event
                 if _llm_usage_callbacks:
-                    usage_src = _final
+                    usage_src = _last_chunk if stream else _completion
                     usage_data = getattr(usage_src, "usage", None) or {}
                     if isinstance(usage_data, dict):
                         tokens_in = usage_data.get("prompt_tokens", 0)
@@ -786,6 +808,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
                 result = ChatGenerationResult()
                 _last_chunk = None
+                _stream_finish_reason = None
                 _ttft = None
                 _t0 = _time.monotonic()
 
