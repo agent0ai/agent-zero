@@ -475,8 +475,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> str:
-        import asyncio
-
         msgs = self._convert_messages(messages)
 
         # Apply rate limiting if configured
@@ -501,8 +499,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
-        import asyncio
-
         msgs = self._convert_messages(messages)
 
         # Apply rate limiting if configured
@@ -728,7 +724,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 return result.response, result.reasoning
 
             except Exception as e:
-                import asyncio
                 import random
 
                 is_stream_stall = isinstance(e, (TimeoutError, asyncio.TimeoutError))
