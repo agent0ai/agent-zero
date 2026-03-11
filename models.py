@@ -62,12 +62,6 @@ browser_use_monkeypatch.apply()
 
 litellm.modify_params = True # helps fix anthropic tool calls by browser-use
 
-# Suppress litellm's LoggingWorker "Queue is bound to a different event loop"
-# errors — harmless but noisy in multi-loop environments
-litellm.callbacks = []
-litellm.success_callback = []
-litellm.failure_callback = []
-
 
 # --- LLM Usage Tracking Hooks & Metrics ---
 LLMUsageCallback = Callable[[dict[str, Any]], None]
@@ -100,6 +94,8 @@ def _emit_usage_event(event: dict[str, Any]) -> None:
 # Auto-register the built-in metrics collector
 from python.helpers.metrics_collector import collector as _metrics_collector
 register_llm_callback(_metrics_collector.record)
+from python.helpers import files as _files
+_metrics_collector.enable_persistence(_files.get_abs_path("usr", "metrics.json"))
 
 
 class ModelType(Enum):

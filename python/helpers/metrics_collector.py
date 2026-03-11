@@ -1,11 +1,13 @@
 """
-In-memory ring buffer for LLM usage metrics.
+Ring buffer for LLM usage metrics with optional file persistence.
 Collects events emitted by models.register_llm_callback and provides
 aggregated snapshots for the metrics dashboard API.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import threading
 import time
 from collections import deque
@@ -13,6 +15,7 @@ from typing import Any
 
 
 _RING_SIZE = 2000
+_FLUSH_INTERVAL = 30.0
 
 
 class MetricsCollector:
@@ -22,10 +25,19 @@ class MetricsCollector:
         self._lock = threading.Lock()
         self._events: deque[dict[str, Any]] = deque(maxlen=maxlen)
         self._started_at = time.time()
+        self._persist_path: str | None = None
+        self._dirty = False
+
+    def enable_persistence(self, path: str) -> None:
+        """Enable file-based persistence. Loads existing data and starts auto-save."""
+        self._persist_path = path
+        self._load()
+        self._schedule_flush()
 
     def record(self, event: dict[str, Any]) -> None:
         with self._lock:
             self._events.append(event)
+            self._dirty = True
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -80,6 +92,50 @@ class MetricsCollector:
     def clear(self) -> None:
         with self._lock:
             self._events.clear()
+            self._dirty = False
+        if self._persist_path:
+            try:
+                os.remove(self._persist_path)
+            except OSError:
+                pass
+
+    # -- Persistence internals --
+
+    def _load(self) -> None:
+        if not self._persist_path or not os.path.isfile(self._persist_path):
+            return
+        try:
+            with open(self._persist_path, "r") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                with self._lock:
+                    for event in data:
+                        self._events.append(event)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    def _flush(self) -> None:
+        if not self._persist_path or not self._dirty:
+            return
+        with self._lock:
+            events = list(self._events)
+            self._dirty = False
+        try:
+            os.makedirs(os.path.dirname(self._persist_path), exist_ok=True)
+            tmp = self._persist_path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(events, f, separators=(",", ":"))
+            os.replace(tmp, self._persist_path)
+        except OSError:
+            pass
+
+    def _schedule_flush(self) -> None:
+        def _tick():
+            self._flush()
+            self._schedule_flush()
+        t = threading.Timer(_FLUSH_INTERVAL, _tick)
+        t.daemon = True
+        t.start()
 
     def _empty_snapshot(self) -> dict[str, Any]:
         return {
