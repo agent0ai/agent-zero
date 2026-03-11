@@ -61,6 +61,15 @@ turn_off_logging()
 browser_use_monkeypatch.apply()
 
 litellm.modify_params = True # helps fix anthropic tool calls by browser-use
+litellm.disable_aiohttp_transport = True  # use httpx instead — aiohttp has event-loop bugs that silently kill streams
+
+
+class _AiohttpLoopFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return "attached to a different loop" not in msg
+
+logging.getLogger("asyncio").addFilter(_AiohttpLoopFilter())
 
 
 # --- LLM Usage Tracking Hooks & Metrics ---
