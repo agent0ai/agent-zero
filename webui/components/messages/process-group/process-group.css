@@ -287,8 +287,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  /* margin-left: auto; */
-  margin-left: 2em;
+  margin-left: auto;
   font-size: 0.65rem;
   font-family: var(--font-family-code);
   color: var(--color-text);
@@ -308,6 +307,10 @@
 
 .process-group-header .group-metrics .metric-notifications {
   font-weight: 600;
+}
+
+.process-group-header .group-metrics .metric-throughput {
+  color: #60a5fa;
 }
 
 .process-group-header .group-metrics .metric-notifications[hidden] {
@@ -874,5 +877,3 @@
 .process-step:not(.expanded) > .process-step-detail > .step-detail-actions {
   display: none;
 }
-
-

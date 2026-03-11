@@ -1,4 +1,4 @@
-import asyncio, random, string, threading
+import asyncio, random, string, threading, time
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -450,13 +450,67 @@ class Agent:
                             # Use the potentially modified full text for downstream processing
                             await self.handle_response_stream(stream_data["full"])
 
+                        stream_metrics = {
+                            "started_at": None,
+                            "output_tokens": 0,
+                            "tokens_per_second": 0.0,
+                        }
+
+                        async def tokens_callback(_chunk: str, token_count: int):
+                            await self.handle_intervention()
+                            if token_count <= 0:
+                                return
+
+                            if stream_metrics["started_at"] is None:
+                                stream_metrics["started_at"] = time.monotonic()
+
+                            stream_metrics["output_tokens"] += token_count
+                            elapsed = max(
+                                time.monotonic() - stream_metrics["started_at"], 1e-3
+                            )
+                            stream_metrics["tokens_per_second"] = (
+                                stream_metrics["output_tokens"] / elapsed
+                            )
+                            self.loop_data.params_temporary["stream_metrics"] = dict(
+                                stream_metrics
+                            )
+
+                            log_item = self.loop_data.params_temporary.get(
+                                "log_item_generating"
+                            )
+                            if not log_item:
+                                return
+
+                            kvps = dict(log_item.kvps or {})
+                            kvps["output_tokens"] = stream_metrics["output_tokens"]
+                            kvps["tokens_per_second"] = round(
+                                stream_metrics["tokens_per_second"], 1
+                            )
+                            log_item.update(kvps=kvps)
+
                         # call main LLM
                         agent_response, _reasoning = await self.call_chat_model(
                             messages=prompt,
                             response_callback=stream_callback,
                             reasoning_callback=reasoning_callback,
+                            tokens_callback=tokens_callback,
                         )
                         await self.handle_intervention(agent_response)
+
+                        log_item = self.loop_data.params_temporary.get(
+                            "log_item_generating"
+                        )
+                        if (
+                            log_item
+                            and stream_metrics["started_at"] is not None
+                            and stream_metrics["output_tokens"] > 0
+                        ):
+                            kvps = dict(log_item.kvps or {})
+                            kvps["output_tokens"] = stream_metrics["output_tokens"]
+                            kvps["tokens_per_second"] = round(
+                                stream_metrics["tokens_per_second"], 1
+                            )
+                            log_item.update(kvps=kvps)
 
                         # Notify extensions to finalize their stream filters
                         await self.call_extensions(
@@ -799,6 +853,7 @@ class Agent:
         messages: list[BaseMessage],
         response_callback: Callable[[str, str], Awaitable[None]] | None = None,
         reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        tokens_callback: Callable[[str, int], Awaitable[None]] | None = None,
         background: bool = False,
         explicit_caching: bool = True,
     ):
@@ -812,6 +867,7 @@ class Agent:
             messages=messages,
             reasoning_callback=reasoning_callback,
             response_callback=response_callback,
+            tokens_callback=tokens_callback,
             rate_limiter_callback=(
                 self.rate_limiter_callback if not background else None
             ),
