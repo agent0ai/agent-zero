@@ -953,12 +953,14 @@ class Agent:
 
     @extension.extensible
     async def validate_tool_request(self, tool_request: Any):
+        if tool_request is None:
+            return  # let process_tools handle the misformat case
         if not isinstance(tool_request, dict):
-            raise ValueError("Tool request must be a dictionary")
+            raise RepairableException("Tool request must be a dictionary")
         if not tool_request.get("tool_name") or not isinstance(tool_request.get("tool_name"), str):
-            raise ValueError("Tool request must have a tool_name (type string) field")
+            raise RepairableException("Tool request must have a tool_name (type string) field")
         if not tool_request.get("tool_args") or not isinstance(tool_request.get("tool_args"), dict):
-            raise ValueError("Tool request must have a tool_args (type dictionary) field")
+            raise RepairableException("Tool request must have a tool_args (type dictionary) field")
 
 
 
