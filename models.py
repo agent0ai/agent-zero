@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
@@ -270,6 +271,9 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         if status_code >= 500:
             return True
         return False
+
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+        return True
 
     # Fallback to exception classes mapped by LiteLLM/OpenAI
     transient_types = (
@@ -600,7 +604,14 @@ class LiteLLMChatWrapper(SimpleChatModel):
         retry_exp_base: float = float(call_kwargs.pop("a0_retry_exponential_base", 2.0))
         retry_max_delay: float = float(call_kwargs.pop("a0_retry_max_delay", 30.0))
         retry_jitter: bool = bool(call_kwargs.pop("a0_retry_jitter", True))
+        chunk_idle_timeout: float = float(call_kwargs.pop("a0_stream_chunk_timeout", 90.0))
+        call_timeout: float = float(call_kwargs.pop("a0_timeout", 600.0))
+        first_chunk_timeout: float = float(call_kwargs.pop("a0_stream_timeout", 90.0))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
+
+        call_kwargs.setdefault("timeout", call_timeout)
+        if stream:
+            call_kwargs.setdefault("stream_timeout", first_chunk_timeout)
 
         import time as _time
         import datetime as _dt
@@ -628,17 +639,27 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 )
 
                 if stream:
-                    # iterate over chunks
-                    async for chunk in _completion:  # type: ignore
+                    # iterate over chunks with idle-timeout between chunks
+                    chunk_iter = _completion.__aiter__()  # type: ignore
+                    while True:
+                        try:
+                            chunk = await asyncio.wait_for(
+                                chunk_iter.__anext__(), timeout=chunk_idle_timeout
+                            )
+                        except StopAsyncIteration:
+                            break
+                        except asyncio.TimeoutError:
+                            raise TimeoutError(
+                                f"Stream stalled: no chunk received for {chunk_idle_timeout:.0f}s "
+                                f"(model={self.model_name}, got_chunks={got_any_chunk})"
+                            )
                         if not got_any_chunk:
                             _ttft = _time.monotonic() - _t0
                         got_any_chunk = True
                         _last_chunk = chunk
-                        # parse chunk
                         parsed = _parse_chunk(chunk)
                         output = result.add_chunk(parsed)
 
-                        # collect reasoning delta and call callbacks
                         if output["reasoning_delta"]:
                             if reasoning_callback:
                                 await reasoning_callback(output["reasoning_delta"], result.reasoning)
@@ -647,10 +668,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
                                     output["reasoning_delta"],
                                     approximate_tokens(output["reasoning_delta"]),
                                 )
-                            # Add output tokens to rate limiter if configured
                             if limiter:
                                 limiter.add(output=approximate_tokens(output["reasoning_delta"]))
-                        # collect response delta and call callbacks
                         if output["response_delta"]:
                             if response_callback:
                                 await response_callback(output["response_delta"], result.response)
@@ -659,7 +678,6 @@ class LiteLLMChatWrapper(SimpleChatModel):
                                     output["response_delta"],
                                     approximate_tokens(output["response_delta"]),
                                 )
-                            # Add output tokens to rate limiter if configured
                             if limiter:
                                 limiter.add(output=approximate_tokens(output["response_delta"]))
 
@@ -713,7 +731,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 import asyncio
                 import random
 
-                if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
+                is_stream_stall = isinstance(e, (TimeoutError, asyncio.TimeoutError))
+                if (got_any_chunk and not is_stream_stall) or not _is_transient_litellm_error(e) or attempt >= max_retries:
                     if _llm_usage_callbacks:
                         _emit_usage_event({
                             "event_type": "llm_call",
@@ -746,6 +765,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
                     delay = min(retry_delay_s * (retry_exp_base ** (attempt - 1)), retry_max_delay)
                 if retry_jitter:
                     delay *= 0.5 + random.random()
+
+                result = ChatGenerationResult()
+                _last_chunk = None
+                _ttft = None
+                _t0 = _time.monotonic()
 
                 from python.helpers.print_style import PrintStyle
                 PrintStyle(font_color="yellow").print(

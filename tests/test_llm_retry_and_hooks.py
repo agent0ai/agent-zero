@@ -61,6 +61,7 @@ from typing import Any, Callable
 _ns = {}
 exec(textwrap.dedent("""
 from typing import Any, Callable
+import asyncio
 import openai
 
 LLMUsageCallback = Callable[[dict[str, Any]], None]
