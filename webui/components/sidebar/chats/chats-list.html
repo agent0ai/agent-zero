@@ -23,10 +23,17 @@
         <ul class="config-list chats-config-list no-scrollbar" x-show="$store.chats.contexts.length > 0">
           <template x-for="context in $store.chats.contexts" :key="context.id">
             <li>
-              <div :class="{'chat-container': true, 'chat-selected': context.id === $store.chats.selected}"
+              <div :class="{
+                  'chat-container': true,
+                  'chat-selected': context.id === $store.chats.selected,
+                  'chat-unread': context.unread && context.id !== $store.chats.selected
+                }"
                 @click="$store.chats.selectChat(context.id)">
                 <div class="chat-list-button">
-                  <span :class="{'project-color-ball': true, 'heartbeat': context.running}"
+                  <span :class="{
+                    'project-color-ball': true,
+                    'heartbeat': context.running && context.id !== $store.chats.selected
+                  }"
                     :style="context.project?.color ? { backgroundColor: context.project.color } : { border: '1px solid var(--color-border)' }"></span>
                   <span class="chat-name"
                     x-text="context.name ? context.name : 'Chat #' + context.no"></span>
@@ -164,10 +171,36 @@
       font-weight: bold;
     }
 
-    /* .chat-list-button.font-bold { position: relative; background-color: var(--color-border) 0.05; } */
-    /* .chat-list-button.font-bold::before { content: ""; position: absolute; left: 0; top: 0; height: 100%; width: 3px; background-color: var(--color-border); border-top-left-radius: 3px; border-bottom-left-radius: 3px; } */
-    /* .light-mode .chat-list-button.font-bold { background-color: var(--color-border) 0.05; } */
-    /* .light-mode .chat-list-button.font-bold::before { background-color: var(--color-border); } */
+    /* Spinning indicator for non-selected running chats */
+    @keyframes chat-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .heartbeat {
+      border: 1.5px solid rgba(128, 128, 128, 0.3) !important;
+      border-top-color: #4fc3f7 !important;
+      background: transparent !important;
+      animation: chat-spin 0.7s linear infinite;
+    }
+
+    .light-mode .heartbeat {
+      border-color: rgba(0, 0, 0, 0.15) !important;
+      border-top-color: #0288d1 !important;
+    }
+
+    /* Unread chat indicator */
+    .chat-unread .chat-name {
+      font-weight: 600;
+    }
+
+    .chat-unread .project-color-ball {
+      background-color: #4fc3f7 !important;
+      border: none !important;
+    }
+
+    .light-mode .chat-unread .project-color-ball {
+      background-color: #0288d1 !important;
+    }
   </style>
 </body>
 

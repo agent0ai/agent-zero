@@ -18,6 +18,8 @@ const model = {
   selected: "",
   selectedContext: null,
   loggedIn: false,
+  _prevRunning: {},
+  _unreadIds: {},
 
   // for convenience
   getSelectedChatId() {
@@ -44,6 +46,18 @@ const model = {
       (a, b) => (b.created_at || 0) - (a.created_at || 0)
     );
 
+    // Detect running → stopped transitions for non-selected chats
+    for (const ctx of this.contexts) {
+      const wasRunning = this._prevRunning[ctx.id] || false;
+      const isRunning = ctx.running || false;
+
+      if (wasRunning && !isRunning && ctx.id !== this.selected) {
+        this._unreadIds[ctx.id] = true;
+      }
+      this._prevRunning[ctx.id] = isRunning;
+      ctx.unread = !!this._unreadIds[ctx.id];
+    }
+
     // Keep selectedContext in sync when the currently selected context's
     // metadata changes (e.g. project activation/deactivation).
     if (this.selected) {
@@ -59,6 +73,13 @@ const model = {
   async selectChat(id) {
     const currentContext = getContext();
     if (id === currentContext) return; // already selected
+
+    // Clear unread state for this chat
+    if (this._unreadIds[id]) {
+      delete this._unreadIds[id];
+      const ctx = this.contexts.find((c) => c.id === id);
+      if (ctx) ctx.unread = false;
+    }
 
     // Proceed with context selection
     setContext(id);
