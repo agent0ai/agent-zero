@@ -39,17 +39,21 @@ let skipOneSpeech = false;
 
 export async function sendMessage() {
   try {
-    const message = inputStore.message.trim();
+    let message = inputStore.message.trim();
     const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
 
     // Handle slash commands before sending to agent
     if (message.startsWith("/") && !hasAttachments) {
-      const handled = await handleSlashCommand(message);
-      if (handled) {
+      const result = await handleSlashCommand(message);
+      if (result === true) {
         inputStore.reset();
         slashCommandsStore.hide();
         return;
+      }
+      if (typeof result === "string") {
+        message = result;
+        inputStore.message = result;
       }
     }
 
@@ -150,12 +154,14 @@ async function handleSlashCommand(message) {
         toast("Usage: /skill-install owner/repo[/skill-name]", "error");
         return true;
       }
-      toast("Installing skill...", "info", 10000);
+      console.log("[slash] /skill-install source:", args);
+      toast("Installing skill...", "info", 30000);
       try {
         const result = await api.callJsonApi("/skill_install", {
           source: args,
           ctxid,
         });
+        console.log("[slash] /skill-install result:", result);
         if (result.ok) {
           const where = result.target === "global" ? "globally" : `in ${result.target}`;
           const installed = result.installed?.length || 0;
@@ -163,11 +169,14 @@ async function handleSlashCommand(message) {
           let msg = `Installed ${installed} skill(s) from ${result.source} ${where}.`;
           if (skipped > 0) msg += ` Skipped ${skipped} (already exist).`;
           toast(msg, "success", 8000);
+          slashCommandsStore.invalidateCache();
         } else {
-          toast(result.error || "Install failed", "error");
+          console.error("[slash] /skill-install error:", result.error);
+          toast("Skill install failed: " + (result.error || "unknown error"), "error", 10000);
         }
       } catch (e) {
-        toastFetchError("Skill install failed", e);
+        console.error("[slash] /skill-install exception:", e);
+        toast("Skill install failed: " + (e.message || e), "error", 10000);
       }
       return true;
     }
@@ -191,7 +200,8 @@ async function handleSlashCommand(message) {
           toast(result.error || "Failed to list skills", "error");
         }
       } catch (e) {
-        toastFetchError("Failed to list skills", e);
+        console.error("[slash] /skill-list exception:", e);
+        toast("Failed to list skills: " + (e.message || e), "error");
       }
       return true;
     }
@@ -208,18 +218,31 @@ async function handleSlashCommand(message) {
         });
         if (result.ok) {
           toast(`Skill removed: ${args}`, "success");
+          slashCommandsStore.invalidateCache();
         } else {
           toast(result.error || "Failed to remove skill", "error");
         }
       } catch (e) {
-        toastFetchError("Failed to remove skill", e);
+        console.error("[slash] /skill-remove exception:", e);
+        toast("Failed to remove skill: " + (e.message || e), "error");
       }
       return true;
     }
 
     default:
-      return false;
+      break;
   }
+
+  // Check if it matches a dynamic (installed) skill command
+  const skillName = cmd.startsWith("/") ? cmd.slice(1) : cmd;
+  if (skillName && slashCommandsStore.isInstalledSkill(skillName)) {
+    const userText = args || "";
+    return userText
+      ? `[Load and use skill: ${skillName}] ${userText}`
+      : `[Load and use skill: ${skillName}]`;
+  }
+
+  return false;
 }
 
 function getChatHistoryEl() {

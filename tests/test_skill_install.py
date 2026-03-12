@@ -42,6 +42,7 @@ def _extract_method(name: str):
 
 _parse_source = _extract_method("_parse_source")
 _find_skills = _extract_method("_find_skills")
+_normalize_skill_md = _extract_method("_normalize_skill_md")
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +183,56 @@ class TestFindSkills:
         skills = _find_skills(repo)
         assert len(skills) == 1
         assert skills[0]["name"] == "my-skill"
+
+    def test_original_filename_preserved(self, tmp_path):
+        repo = str(tmp_path / "repo")
+        skill_dir = os.path.join(repo, "my-skill")
+        os.makedirs(skill_dir)
+        with open(os.path.join(skill_dir, "Skill.md"), "w") as f:
+            f.write("test")
+        skills = _find_skills(repo)
+        assert skills[0]["original_filename"] == "Skill.md"
+
+    def test_uppercase_filename_preserved(self, tmp_path):
+        repo = str(tmp_path / "repo")
+        skill_dir = os.path.join(repo, "my-skill")
+        os.makedirs(skill_dir)
+        with open(os.path.join(skill_dir, "SKILL.md"), "w") as f:
+            f.write("test")
+        skills = _find_skills(repo)
+        assert skills[0]["original_filename"] == "SKILL.md"
+
+
+# ---------------------------------------------------------------------------
+# _normalize_skill_md
+# ---------------------------------------------------------------------------
+
+class TestNormalizeSkillMd:
+    def test_renames_lowercase(self, tmp_path):
+        dest = str(tmp_path / "skill-dir")
+        os.makedirs(dest)
+        with open(os.path.join(dest, "skill.md"), "w") as f:
+            f.write("content")
+        _normalize_skill_md(dest, "skill.md")
+        assert os.path.isfile(os.path.join(dest, "SKILL.md"))
+        actual_names = os.listdir(dest)
+        assert "SKILL.md" in actual_names
+
+    def test_skips_already_uppercase(self, tmp_path):
+        dest = str(tmp_path / "skill-dir")
+        os.makedirs(dest)
+        with open(os.path.join(dest, "SKILL.md"), "w") as f:
+            f.write("content")
+        _normalize_skill_md(dest, "SKILL.md")
+        assert os.path.isfile(os.path.join(dest, "SKILL.md"))
+
+    def test_renames_mixed_case(self, tmp_path):
+        dest = str(tmp_path / "skill-dir")
+        os.makedirs(dest)
+        with open(os.path.join(dest, "Skill.MD"), "w") as f:
+            f.write("content")
+        _normalize_skill_md(dest, "Skill.MD")
+        assert os.path.isfile(os.path.join(dest, "SKILL.md"))
 
 
 # ---------------------------------------------------------------------------

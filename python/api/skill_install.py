@@ -75,6 +75,7 @@ class SkillInstall(ApiHandler):
                     skipped.append(skill["name"])
                     continue
                 shutil.copytree(skill["path"], dest)
+                self._normalize_skill_md(dest, skill["original_filename"])
                 installed.append(skill["name"])
 
             return {
@@ -150,5 +151,16 @@ class SkillInstall(ApiHandler):
                     skills_found.append({
                         "name": skill_name,
                         "path": skill_path,
+                        "original_filename": f,
                     })
         return skills_found
+
+    @staticmethod
+    def _normalize_skill_md(dest_dir: str, original_filename: str) -> None:
+        """Rename skill.md / Skill.md etc. to SKILL.md for discovery."""
+        if original_filename == "SKILL.md":
+            return
+        src = os.path.join(dest_dir, original_filename)
+        dst = os.path.join(dest_dir, "SKILL.md")
+        if os.path.exists(src):
+            os.rename(src, dst)

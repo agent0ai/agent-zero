@@ -28,11 +28,12 @@
                  @click.outside="$store.slashCommands.hide()">
                 <template x-for="(cmd, idx) in $store.slashCommands.commands" :key="cmd.command">
                     <div class="slash-cmd-item"
-                         :class="{ 'selected': idx === $store.slashCommands.selectedIndex }"
+                         :class="{ 'selected': idx === $store.slashCommands.selectedIndex, 'is-skill': cmd.isSkill }"
                          @click="$store.slashCommands.selectCommand(idx)"
                          @mouseenter="$store.slashCommands.selectedIndex = idx">
                         <span class="slash-cmd-name" x-text="cmd.command"></span>
                         <span class="slash-cmd-desc" x-text="cmd.description"></span>
+                        <span class="slash-cmd-badge" x-show="cmd.isSkill">skill</span>
                     </div>
                 </template>
             </div>
@@ -184,6 +185,22 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .slash-cmd-badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+      background: rgba(66, 72, 241, 0.2);
+      color: #7b82f6;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    #slash-command-dropdown {
+      max-height: 240px;
+      overflow-y: auto;
     }
     [x-cloak] { display: none !important; }
     </style>
