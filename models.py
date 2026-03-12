@@ -388,8 +388,18 @@ def _cap_max_tokens_for_context(model_name: str, call_kwargs: dict, msgs: list) 
             return
         est_input = litellm.token_counter(model=model_name, messages=msgs)
         headroom = ctx_window - est_input
+        from python.helpers.print_style import PrintStyle
+        PrintStyle(font_color="cyan", padding=False).print(
+            f"_cap_max_tokens: model={model_name} ctx={ctx_window} "
+            f"est_input={est_input} headroom={headroom} "
+            f"max_tokens={max_tok} msgs={len(msgs)}"
+        )
         if headroom < max_tok:
-            call_kwargs["max_tokens"] = max(headroom, 1024)
+            new_max = max(headroom, 1024)
+            PrintStyle(font_color="yellow", padding=True).print(
+                f"_cap_max_tokens: capping max_tokens {max_tok} -> {new_max}"
+            )
+            call_kwargs["max_tokens"] = new_max
     except Exception:
         pass
 
