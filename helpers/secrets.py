@@ -8,6 +8,7 @@ from typing import Dict, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHE
 from dotenv.parser import parse_stream
 from helpers.errors import RepairableException
 from helpers import files
+from helpers.extension import extensible
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -504,6 +505,7 @@ class SecretsManager:
         return merged
 
 
+@extensible
 def get_secrets_manager(context: "AgentContext|None" = None) -> SecretsManager:
     from helpers import projects
 
@@ -523,6 +525,7 @@ def get_secrets_manager(context: "AgentContext|None" = None) -> SecretsManager:
 
     return SecretsManager.get_instance(*secret_files)
 
+@extensible
 def get_project_secrets_manager(project_name: str, merge_with_global: bool = False) -> SecretsManager:
     from helpers import projects
 
@@ -537,5 +540,6 @@ def get_project_secrets_manager(project_name: str, merge_with_global: bool = Fal
 
     return SecretsManager.get_instance(*secret_files)
 
+@extensible
 def get_default_secrets_manager() -> SecretsManager:
     return SecretsManager.get_instance()
