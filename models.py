@@ -377,7 +377,11 @@ def _resolve_max_output_tokens(model_name: str) -> int | None:
 
 
 def _cap_max_tokens_for_context(model_name: str, call_kwargs: dict, msgs: list) -> None:
-    """Reduce max_tokens if input + max_tokens would exceed the context window."""
+    """Reduce max_tokens if input + max_tokens would exceed the context window.
+
+    Floor is 4096 so long conversations still get useful responses
+    instead of being hard-capped at 1024 tokens.
+    """
     max_tok = call_kwargs.get("max_tokens")
     if not max_tok or not isinstance(max_tok, int):
         return
@@ -389,7 +393,7 @@ def _cap_max_tokens_for_context(model_name: str, call_kwargs: dict, msgs: list) 
         est_input = approximate_tokens(str(msgs))
         headroom = ctx_window - est_input
         if headroom < max_tok:
-            call_kwargs["max_tokens"] = max(headroom, 1024)
+            call_kwargs["max_tokens"] = max(headroom, 4096)
     except Exception:
         pass
 
@@ -977,12 +981,6 @@ class LocalSentenceTransformerWrapper(Embeddings):
             "model_kwargs",
         }
         st_kwargs = {k: v for k, v in (kwargs or {}).items() if k in st_allowed_keys}
-
-        # Disable low_cpu_mem_usage to prevent meta tensor loading
-        # (PyTorch 2.2+ / sentence-transformers bug: model loads on meta
-        # device and then .to(device) fails with NotImplementedError)
-        st_kwargs.setdefault("model_kwargs", {})
-        st_kwargs["model_kwargs"].setdefault("low_cpu_mem_usage", False)
 
         self.model = SentenceTransformer(model, **st_kwargs)
         self.model_name = model
