@@ -376,12 +376,20 @@ def _resolve_max_output_tokens(model_name: str) -> int | None:
     return None
 
 
-def _cap_max_tokens_for_context(model_name: str, call_kwargs: dict, msgs: list) -> None:
-    """Reduce max_tokens if input + max_tokens would exceed the context window.
+def _strip_image_content(msgs: list) -> str:
+    """Serialize messages for token counting, replacing base64 image data
+    with a short placeholder so images don't blow up the estimate."""
+    import json, re
+    raw = json.dumps(msgs, ensure_ascii=False, default=str)
+    return re.sub(
+        r'"data:image/[^;]+;base64,[A-Za-z0-9+/=]+"',
+        '"[image]"',
+        raw,
+    )
 
-    Floor is 4096 so long conversations still get useful responses
-    instead of being hard-capped at 1024 tokens.
-    """
+
+def _cap_max_tokens_for_context(model_name: str, call_kwargs: dict, msgs: list) -> None:
+    """Reduce max_tokens if input + max_tokens would exceed the context window."""
     max_tok = call_kwargs.get("max_tokens")
     if not max_tok or not isinstance(max_tok, int):
         return
@@ -390,7 +398,7 @@ def _cap_max_tokens_for_context(model_name: str, call_kwargs: dict, msgs: list) 
         ctx_window = info.get("max_input_tokens") or info.get("max_tokens", 0)
         if not ctx_window or ctx_window <= 0:
             return
-        est_input = approximate_tokens(str(msgs))
+        est_input = approximate_tokens(_strip_image_content(msgs))
         headroom = ctx_window - est_input
         if headroom < max_tok:
             call_kwargs["max_tokens"] = max(headroom, 4096)
