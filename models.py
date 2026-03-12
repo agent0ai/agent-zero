@@ -978,6 +978,12 @@ class LocalSentenceTransformerWrapper(Embeddings):
         }
         st_kwargs = {k: v for k, v in (kwargs or {}).items() if k in st_allowed_keys}
 
+        # Disable low_cpu_mem_usage to prevent meta tensor loading
+        # (PyTorch 2.2+ / sentence-transformers bug: model loads on meta
+        # device and then .to(device) fails with NotImplementedError)
+        st_kwargs.setdefault("model_kwargs", {})
+        st_kwargs["model_kwargs"].setdefault("low_cpu_mem_usage", False)
+
         self.model = SentenceTransformer(model, **st_kwargs)
         self.model_name = model
         self.a0_model_conf = model_config

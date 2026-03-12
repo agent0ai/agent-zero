@@ -39,7 +39,7 @@ class Message(ApiHandler):
                     filename = safe_filename(attachment.filename)
                     if not filename:
                         continue
-                    save_path = files.get_abs_path(upload_folder_ext, filename)
+                    save_path = os.path.join(upload_folder_ext, filename)
                     attachment.save(save_path)
                     attachment_paths.append(os.path.join(upload_folder_int, filename))
         else:
