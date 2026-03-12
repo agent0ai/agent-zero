@@ -1,5 +1,4 @@
 import { createStore } from "/js/AlpineStore.js";
-import * as api from "/js/api.js";
 
 const BUILTIN_COMMANDS = [
   {
@@ -33,7 +32,15 @@ async function _fetchInstalledSkills() {
   }
 
   try {
-    const result = await api.callJsonApi("/skills", { action: "list" });
+    const fetchApi = globalThis.fetchApi;
+    if (!fetchApi) return _skillsCache;
+    const resp = await fetchApi("/skills", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "list" }),
+    });
+    if (!resp.ok) return _skillsCache;
+    const result = await resp.json();
     if (result.ok && result.data) {
       _skillsCache = result.data.map((s) => ({
         command: "/" + s.name,
