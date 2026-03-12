@@ -25,14 +25,32 @@ def extract_json_object_string(content):
     if start == -1:
         return ""
 
-    # Find the first '{'
-    end = content.rfind('}')
-    if end == -1:
-        # If there's no closing '}', return from start to the end
-        return content[start:]
-    else:
-        # If there's a closing '}', return the substring from start to end
-        return content[start:end+1]
+    # Walk forward from the first '{' tracking brace depth, respecting strings and escapes
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i in range(start, len(content)):
+        ch = content[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == '\\' and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return content[start:i+1]
+
+    # No matching '}' found — return from start to end
+    return content[start:]
 
 def extract_json_string(content):
     # Regular expression pattern to match a JSON object
