@@ -1,3 +1,6 @@
 [submodule "usr/plugins/deimos_memory"]
 	path = usr/plugins/deimos_memory
 	url = http://192.168.200.52:3000/deimosAI/deimos-memory-plugin.git
+[submodule "usr/plugins/stop-button"]
+	path = usr/plugins/stop-button
+	url = http://192.168.200.52:3000/deimosAI/deimos-stop-button-plugin.git
