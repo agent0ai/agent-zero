@@ -1,177 +1,109 @@
 <html>
 <head>
-    <title>Import Skills</title>
+    <title>Install Skills</title>
     <script type="module">
-        import { store } from "/components/settings/skills/skills-import-store.js";
+        import { store } from "/components/settings/skills/skills-install-store.js";
     </script>
 </head>
 <body>
     <div x-data>
-        <template x-if="$store.skillsImportStore">
-            <div x-init="$store.skillsImportStore.init()" x-destroy="$store.skillsImportStore.onClose()">
+        <template x-if="$store.skillsInstallStore">
+            <div>
+                <h3>Install Skills from GitHub</h3>
 
-                <h3>Import Skills (SKILL.md)</h3>
-
-                <div class="upload-section">
-                    <label for="skills-file" class="upload-label">
-                        Select Skills Pack (.zip)
-                    </label>
-                    <input type="file" id="skills-file" accept=".zip"
-                        @change="$store.skillsImportStore.handleFileUpload($event)">
-                    <div class="upload-hint">
-                        Upload a repository/archive that contains SKILL.md skill folders (see agentskills.io).
+                <div class="install-section">
+                    <div class="install-input-row">
+                        <input type="text" class="install-input" placeholder="owner/repo or owner/repo/skill-name"
+                            x-model="$store.skillsInstallStore.source"
+                            @keydown.enter="$store.skillsInstallStore.install()">
+                        <button class="btn slim primary" @click="$store.skillsInstallStore.install()"
+                            :disabled="$store.skillsInstallStore.loading || !$store.skillsInstallStore.source.trim()">
+                            <span x-show="!$store.skillsInstallStore.loading">Install</span>
+                            <span x-show="$store.skillsInstallStore.loading">Installing...</span>
+                        </button>
+                    </div>
+                    <div class="install-hint">
+                        Accepts <code>owner/repo</code>, <code>owner/repo/skill-name</code>,
+                        or a full <code>skills.sh</code> URL. Skills are installed into the
+                        current project if one is active, otherwise globally.
                     </div>
                 </div>
 
-                <div class="options" x-show="$store.skillsImportStore.skillsFile">
-                    <label class="policy-label">
-                        <span class="policy-label-text">Limit to project:</span>
-                        <select x-model="$store.skillsImportStore.projectKey" class="policy-dropdown"
-                            @change="$store.skillsImportStore.previewImport()">
-                            <option value="">All</option>
-                            <template x-for="project in $store.skillsImportStore.projects" :key="project.key">
-                                <option :value="project.key" x-text="project.label"></option>
+                <div x-show="$store.skillsInstallStore.error" class="error">
+                    <span x-text="$store.skillsInstallStore.error"></span>
+                </div>
+
+                <div x-show="$store.skillsInstallStore.result" class="result">
+                    <h4>Install Complete</h4>
+                    <div class="result-meta">
+                        <div>Source: <code x-text="$store.skillsInstallStore.result?.source"></code></div>
+                        <div>Target: <code x-text="$store.skillsInstallStore.result?.target"></code></div>
+                        <div>Installed: <span x-text="$store.skillsInstallStore.result?.installed?.length || 0"></span></div>
+                        <div x-show="($store.skillsInstallStore.result?.skipped?.length || 0) > 0">
+                            Skipped: <span x-text="$store.skillsInstallStore.result?.skipped?.length || 0"></span>
+                        </div>
+                    </div>
+                    <template x-if="$store.skillsInstallStore.result?.installed?.length > 0">
+                        <ul class="skill-list">
+                            <template x-for="name in $store.skillsInstallStore.result.installed" :key="name">
+                                <li x-text="name"></li>
                             </template>
-                        </select>
-                    </label>
-
-                    <label class="policy-label">
-                        <span class="policy-label-text">Limit to agent profile:</span>
-                        <select x-model="$store.skillsImportStore.agentProfileKey" class="policy-dropdown"
-                            @change="$store.skillsImportStore.previewImport()">
-                            <option value="">All</option>
-                            <template x-for="agentProfile in $store.skillsImportStore.agentProfiles" :key="agentProfile.key">
-                                <option :value="agentProfile.key" x-text="agentProfile.label"></option>
-                            </template>
-                        </select>
-                    </label>
-
-                    <label class="policy-label">
-                        <span class="policy-label-text">Namespace:</span>
-                        <input class="text-input" type="text" placeholder="e.g. my-pack"
-                            x-model="$store.skillsImportStore.namespace"
-                            @change="$store.skillsImportStore.previewImport()">
-                    </label>
-
-                    <label class="policy-label">
-                        <span class="policy-label-text">Conflict policy:</span>
-                        <select x-model="$store.skillsImportStore.conflict" class="policy-dropdown"
-                            @change="$store.skillsImportStore.previewImport()">
-                            <option value="skip">Skip existing</option>
-                            <option value="rename">Rename (add _2, _3...)</option>
-                            <option value="overwrite">Overwrite existing</option>
-                        </select>
-                    </label>
-
-                    <div class="buttons">
-                        <button class="btn slim" @click="$store.skillsImportStore.previewImport()"
-                            :disabled="$store.skillsImportStore.loading">Preview</button>
-                        <button class="btn slim primary" @click="$store.skillsImportStore.performImport()"
-                            :disabled="$store.skillsImportStore.loading">Import</button>
-                    </div>
-                </div>
-
-                <div x-show="$store.skillsImportStore.loading" class="loading">
-                    <span x-text="$store.skillsImportStore.loadingMessage || 'Processing...'"></span>
-                </div>
-
-                <div x-show="$store.skillsImportStore.error" class="error">
-                    <span x-text="$store.skillsImportStore.error"></span>
-                </div>
-
-                <div x-show="$store.skillsImportStore.preview" class="preview">
-                    <h4>Preview</h4>
-                    <div class="preview-meta">
-                        <div>Namespace: <code x-text="$store.skillsImportStore.preview?.namespace"></code></div>
-                        <div>Would import: <span x-text="$store.skillsImportStore.preview?.imported_count || 0"></span></div>
-                        <div>Would skip: <span x-text="$store.skillsImportStore.preview?.skipped_count || 0"></span></div>
-                    </div>
-
-                    <textarea class="preview-list" readonly
-                        x-text="($store.skillsImportStore.preview?.imported || []).join('\n')"></textarea>
-                </div>
-
-                <div x-show="$store.skillsImportStore.result" class="result">
-                    <h4>Import Complete</h4>
-                    <div class="preview-meta">
-                        <div>Imported: <span x-text="$store.skillsImportStore.result?.imported_count || 0"></span></div>
-                        <div>Skipped: <span x-text="$store.skillsImportStore.result?.skipped_count || 0"></span></div>
-                    </div>
+                        </ul>
+                    </template>
                     <div class="note">
-                        Skills are indexed automatically. If you don’t see them immediately, use the Restart button in the left pane.
+                        Skills are indexed automatically. If you don't see them immediately, restart the agent.
                     </div>
                 </div>
 
+                <div class="slash-hint">
+                    <strong>Tip:</strong> You can also type <code>/skill-install owner/repo</code> directly in the chat.
+                </div>
             </div>
         </template>
     </div>
 
     <style>
-        .upload-section {
+        .install-section {
             margin-bottom: 1rem;
             padding: 1rem;
-            border: 2px dashed var(--color-border);
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .upload-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-
-        .upload-hint {
-            margin-top: 0.5rem;
-            font-size: 0.85rem;
-            color: var(--color-secondary);
-        }
-
-        .options {
-            margin: 1rem 0;
-            padding: 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
             background: var(--color-input);
-            border: 1px solid var(--color-border);
-            border-radius: 4px;
         }
 
-        .policy-label {
-            display: grid;
-            grid-template-columns: minmax(10rem, 14rem) 1fr;
-            align-items: center;
-            column-gap: 0.75rem;
-            row-gap: 0.25rem;
-            margin: 0.5rem 0;
-        }
-
-        .policy-label-text {
-            font-weight: 600;
-            white-space: normal;
-            width: auto;
-        }
-
-        .policy-dropdown, .text-input {
-            flex: 1;
-            padding: 0.5rem;
-            border: 1px solid var(--color-border);
-            border-radius: 4px;
-            background: var(--color-bg-primary);
-            color: var(--color-text-primary);
-            font-size: 0.9rem;
-        }
-
-        .buttons {
-            margin-top: 0.75rem;
+        .install-input-row {
             display: flex;
             gap: 0.5rem;
+            align-items: center;
         }
 
-        .loading {
-            width: 100%;
-            text-align: center;
-            margin-top: 1rem;
-            margin-bottom: 1rem;
+        .install-input {
+            flex: 1;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-family: "Roboto Mono", monospace;
+            font-size: 0.85rem;
+        }
+
+        .install-input:focus {
+            outline: 1px solid rgba(155, 155, 155, 0.5);
+        }
+
+        .install-hint {
+            margin-top: 0.6rem;
+            font-size: 0.82rem;
             color: var(--color-secondary);
+            line-height: 1.4;
+        }
+
+        .install-hint code {
+            font-size: 0.8rem;
+            background: var(--color-bg-primary);
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
         }
 
         .error {
@@ -179,18 +111,18 @@
             margin: 0.5rem 0;
             padding: 0.5rem;
             background: var(--color-error-bg);
-            border-radius: 4px;
+            border-radius: 6px;
         }
 
-        .preview, .result {
+        .result {
             margin-top: 1rem;
             padding: 0.75rem;
             background: var(--color-bg-primary);
             border: 1px solid var(--color-border);
-            border-radius: 4px;
+            border-radius: 6px;
         }
 
-        .preview-meta {
+        .result-meta {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.25rem 1rem;
@@ -199,36 +131,35 @@
             font-size: 0.9rem;
         }
 
-        .preview-list {
-            width: 100%;
-            height: 12em;
-            font-family: monospace;
-            font-size: 0.85em;
-            background: var(--color-bg-primary);
-            color: var(--color-text-primary);
-            border: 1px solid var(--color-border);
-            border-radius: 4px;
-            padding: 0.5em;
-            resize: vertical;
+        .result-meta code {
+            font-size: 0.82rem;
+        }
+
+        .skill-list {
+            margin: 0.5rem 0;
+            padding-left: 1.2rem;
+            font-size: 0.88rem;
         }
 
         .note {
             margin-top: 0.5rem;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--color-text-secondary);
         }
 
-        @media (max-width: 700px) {
-            .policy-label {
-                grid-template-columns: 1fr;
-            }
+        .slash-hint {
+            margin-top: 1.25rem;
+            font-size: 0.82rem;
+            color: var(--color-text-secondary);
+            opacity: 0.7;
+        }
 
-            .policy-label-text {
-                width: auto;
-                white-space: normal;
-            }
+        .slash-hint code {
+            font-size: 0.8rem;
+            background: var(--color-input);
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
         }
     </style>
 </body>
 </html>
-

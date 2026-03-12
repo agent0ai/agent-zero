@@ -13,6 +13,7 @@ import { store as chatTopStore } from "/components/chat/top-section/chat-top-sto
 import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
 import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js"
+import { store as slashCommandsStore } from "/components/chat/input/slash-commands.js"
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -41,6 +42,16 @@ export async function sendMessage() {
     const message = inputStore.message.trim();
     const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
+
+    // Handle slash commands before sending to agent
+    if (message.startsWith("/") && !hasAttachments) {
+      const handled = await handleSlashCommand(message);
+      if (handled) {
+        inputStore.reset();
+        slashCommandsStore.hide();
+        return;
+      }
+    }
 
     // If empty input but has queued messages, send all queued
     if (!message && !hasAttachments && messageQueueStore.hasQueue) {
@@ -126,6 +137,90 @@ export async function sendMessage() {
   }
 }
 globalThis.sendMessage = sendMessage;
+
+async function handleSlashCommand(message) {
+  const parts = message.split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  const args = parts.slice(1).join(" ").trim();
+  const ctxid = context || "";
+
+  switch (cmd) {
+    case "/skill-install": {
+      if (!args) {
+        toast("Usage: /skill-install owner/repo[/skill-name]", "error");
+        return true;
+      }
+      toast("Installing skill...", "info", 10000);
+      try {
+        const result = await api.callJsonApi("/skill_install", {
+          source: args,
+          ctxid,
+        });
+        if (result.ok) {
+          const where = result.target === "global" ? "globally" : `in ${result.target}`;
+          const installed = result.installed?.length || 0;
+          const skipped = result.skipped?.length || 0;
+          let msg = `Installed ${installed} skill(s) from ${result.source} ${where}.`;
+          if (skipped > 0) msg += ` Skipped ${skipped} (already exist).`;
+          toast(msg, "success", 8000);
+        } else {
+          toast(result.error || "Install failed", "error");
+        }
+      } catch (e) {
+        toastFetchError("Skill install failed", e);
+      }
+      return true;
+    }
+
+    case "/skill-list": {
+      try {
+        const projectName = chatsStore.selectedContext?.project?.name || "";
+        const result = await api.callJsonApi("/skills", {
+          action: "list",
+          project_name: projectName,
+        });
+        if (result.ok && result.data) {
+          const skills = result.data;
+          if (skills.length === 0) {
+            toast("No skills installed.", "info");
+          } else {
+            const names = skills.map((s) => s.name).join(", ");
+            toast(`${skills.length} skill(s): ${names}`, "info", 10000);
+          }
+        } else {
+          toast(result.error || "Failed to list skills", "error");
+        }
+      } catch (e) {
+        toastFetchError("Failed to list skills", e);
+      }
+      return true;
+    }
+
+    case "/skill-remove": {
+      if (!args) {
+        toast("Usage: /skill-remove <skill-path>", "error");
+        return true;
+      }
+      try {
+        const result = await api.callJsonApi("/skills", {
+          action: "delete",
+          skill_path: args,
+        });
+        if (result.ok) {
+          toast(`Skill removed: ${args}`, "success");
+        } else {
+          toast(result.error || "Failed to remove skill", "error");
+        }
+      } catch (e) {
+        toastFetchError("Failed to remove skill", e);
+      }
+      return true;
+    }
+
+    default:
+      return false;
+  }
+}
 
 function getChatHistoryEl() {
   return document.getElementById("chat-history");
