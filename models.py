@@ -376,6 +376,33 @@ def _resolve_max_output_tokens(model_name: str) -> int | None:
     return None
 
 
+def _cap_max_tokens_for_context(model_name: str, call_kwargs: dict, msgs: list) -> None:
+    """Reduce max_tokens if input + max_tokens would exceed the context window."""
+    max_tok = call_kwargs.get("max_tokens")
+    if not max_tok or not isinstance(max_tok, int):
+        return
+    try:
+        info = litellm.get_model_info(model=model_name)
+        ctx_window = info.get("max_input_tokens") or info.get("max_tokens", 0)
+        if not ctx_window or ctx_window <= 0:
+            return
+        msgs_str = str(msgs)
+        est_input = approximate_tokens(msgs_str)
+        headroom = ctx_window - est_input
+        if headroom < max_tok:
+            new_max = max(headroom, 1024)
+            from python.helpers.print_style import PrintStyle
+            PrintStyle(font_color="yellow", padding=True).print(
+                f"_cap_max_tokens_for_context: model={model_name} "
+                f"ctx_window={ctx_window} est_input={est_input} "
+                f"str_len={len(msgs_str)} headroom={headroom} "
+                f"max_tokens {max_tok} -> {new_max} msgs_count={len(msgs)}"
+            )
+            call_kwargs["max_tokens"] = new_max
+    except Exception:
+        pass
+
+
 class LiteLLMChatWrapper(SimpleChatModel):
     model_name: str
     provider: str
@@ -477,6 +504,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
         apply_rate_limiter_sync(self.a0_model_conf, str(msgs))
 
         merged_kwargs = {**self.kwargs, **kwargs}
+        _cap_max_tokens_for_context(self.model_name, merged_kwargs, msgs)
         resp = completion(
             model=self.model_name, messages=msgs, stop=stop, **merged_kwargs
         )
@@ -500,6 +528,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
         result = ChatGenerationResult()
         merged_kwargs = {**self.kwargs, **kwargs}
+        _cap_max_tokens_for_context(self.model_name, merged_kwargs, msgs)
 
         for chunk in completion(
             model=self.model_name,
@@ -532,6 +561,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
         result = ChatGenerationResult()
         merged_kwargs = {**self.kwargs, **kwargs}
+        _cap_max_tokens_for_context(self.model_name, merged_kwargs, msgs)
 
         response = await acompletion(
             model=self.model_name,
@@ -618,6 +648,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
             try:
                 if stream:
                     call_kwargs.setdefault("stream_options", {"include_usage": True})
+                _cap_max_tokens_for_context(self.model_name, call_kwargs, msgs_conv)
                 # call model
                 _completion = await acompletion(
                     model=self.model_name,
