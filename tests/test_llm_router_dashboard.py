@@ -113,7 +113,7 @@ class TestDashboardApiContract:
             router = MagicMock()
             router.db.get_models.return_value = SAMPLE_MODELS
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             result = await handler.process({}, DummyRequest())
@@ -144,7 +144,7 @@ class TestDashboardApiContract:
             router = MagicMock()
             router.db.get_models.return_value = []
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 5, "total_cost": 0.123, "by_model": [{"model": "x"}]}
+            router.get_usage_stats.return_value = {"totalCalls": 5, "totalCost": 0.123, "byModel": [{"model": "x"}]}
             mock_gr.return_value = router
 
             result = await handler.process({}, DummyRequest())
@@ -172,7 +172,7 @@ class TestDashboardApiContract:
             router = MagicMock()
             router.db.get_models.return_value = SAMPLE_MODELS
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             result = await handler.process({}, DummyRequest())
@@ -195,7 +195,7 @@ class TestDashboardApiContract:
             router = MagicMock()
             router.db.get_models.return_value = SAMPLE_MODELS
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             result = await handler.process({}, DummyRequest())
@@ -220,7 +220,7 @@ class TestDashboardApiContract:
             router = MagicMock()
             router.db.get_models.return_value = []
             router.get_default_model.side_effect = fake_default
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             result = await handler.process({}, DummyRequest())
@@ -241,7 +241,7 @@ class TestDashboardApiContract:
             router = MagicMock()
             router.db.get_models.return_value = []
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             result = await handler.process({}, DummyRequest())
@@ -384,7 +384,7 @@ class TestFrontendStoreCompat:
             router = MagicMock()
             router.db.get_models.return_value = SAMPLE_MODELS
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             resp = await handler.process({}, DummyRequest())
@@ -408,7 +408,7 @@ class TestFrontendStoreCompat:
             router = MagicMock()
             router.db.get_models.return_value = SAMPLE_MODELS
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             resp = await handler.process({}, DummyRequest())
@@ -450,7 +450,7 @@ class TestFrontendStoreCompat:
             router = MagicMock()
             router.db.get_models.return_value = SAMPLE_MODELS
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 42, "total_cost": 1.2345, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 42, "totalCost": 1.2345, "byModel": []}
             mock_gr.return_value = router
 
             resp = await handler.process({}, DummyRequest())
@@ -478,7 +478,7 @@ class TestFrontendStoreCompat:
             router = MagicMock()
             router.db.get_models.return_value = []
             router.get_default_model.return_value = None
-            router.get_usage_stats.return_value = {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+            router.get_usage_stats.return_value = {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
             mock_gr.return_value = router
 
             resp = await handler.process({}, DummyRequest())

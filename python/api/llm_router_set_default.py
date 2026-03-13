@@ -12,23 +12,17 @@ class LlmRouterSetDefault(ApiHandler):
 
         role = input.get("role")
         provider = input.get("provider")
-        model_name = input.get("model_name")
+        model_name = input.get("model_name") or input.get("modelName")
 
         if not all([role, provider, model_name]):
-            return {
-                "success": False,
-                "error": "role, provider, and model_name are required"
-            }
+            return {"success": False, "error": "role, provider, and model_name are required"}
 
         # Validate model exists
         models = router.db.get_models(provider=provider)
         model = next((m for m in models if m.name == model_name), None)
 
         if not model:
-            return {
-                "success": False,
-                "error": f"Model {provider}/{model_name} not found in registry"
-            }
+            return {"success": False, "error": f"Model {provider}/{model_name} not found in registry"}
 
         router.set_default_model(role, provider, model_name)
 
@@ -37,5 +31,5 @@ class LlmRouterSetDefault(ApiHandler):
             "message": f"Default {role} model set to {provider}/{model_name}",
             "role": role,
             "provider": provider,
-            "model_name": model_name
+            "modelName": model_name,
         }

@@ -94,17 +94,28 @@ def assert_keys(data: dict, required_keys: list[str], path: str = "") -> list[st
 
 
 def assert_no_snake_keys(data: dict, keys: list[str], path: str = "") -> list[str]:
-    """Verify snake_case keys are NOT present (should be camelCase)."""
+    """Verify snake_case keys are NOT present (should be camelCase).
+
+    Supports dotted paths through dicts. For arrays, use '[]' to check
+    the first element, e.g. 'models.[].display_name'.
+    """
     errors = []
     for key in keys:
         parts = key.split(".")
         obj = data
         found = True
         for part in parts:
-            if not isinstance(obj, dict) or part not in obj:
+            if part == "[]":
+                if isinstance(obj, list) and len(obj) > 0:
+                    obj = obj[0]
+                else:
+                    found = False
+                    break
+            elif isinstance(obj, dict) and part in obj:
+                obj = obj[part]
+            else:
                 found = False
                 break
-            obj = obj[part]
         if found:
             errors.append(f"Found snake_case key that should be camelCase: {path}{key}")
     return errors
@@ -150,18 +161,38 @@ ENDPOINTS = [
         "name": "llm_router_models",
         "payload": {},
         "required_keys": ["success", "models", "count"],
+        "forbidden_snake_keys": [
+            "models.[].display_name",
+            "models.[].is_local",
+            "models.[].context_length",
+            "models.[].cost_per_1k_input",
+            "models.[].cost_per_1k_output",
+            "models.[].size_gb",
+            "models.[].avg_latency_ms",
+            "models.[].is_available",
+            "models.[].priority_score",
+        ],
         "state_changing": False,
     },
     {
         "name": "llm_router_get_defaults",
         "payload": {},
         "required_keys": ["success", "defaults"],
+        "forbidden_snake_keys": [
+            "defaults.chat.model_name",
+        ],
         "state_changing": False,
     },
     {
         "name": "llm_router_usage",
         "payload": {"hours": 24},
         "required_keys": ["success", "stats"],
+        "forbidden_snake_keys": [
+            "stats.total_calls",
+            "stats.total_cost",
+            "stats.by_model",
+            "stats.period_hours",
+        ],
         "state_changing": False,
     },
     {

@@ -93,7 +93,7 @@ def _mock_router(models=None, defaults=None, usage=None, rules=None):
     router = MagicMock()
     router.db.get_models.return_value = models or []
     router.get_default_model.side_effect = lambda role: defaults.get(role) if defaults else None
-    router.get_usage_stats.return_value = usage or {"total_calls": 0, "total_cost": 0.0, "by_model": []}
+    router.get_usage_stats.return_value = usage or {"totalCalls": 0, "totalCost": 0.0, "byModel": []}
     router.get_routing_rules.return_value = rules or []
     router.db.get_routing_rules.return_value = rules or []
     router.db.delete_routing_rule.return_value = True
@@ -182,7 +182,7 @@ class TestLlmRouterGetDefaults:
 
         # Set ones have structure
         assert result["defaults"]["chat"]["provider"] == "anthropic"
-        assert result["defaults"]["chat"]["model_name"] == "claude-sonnet-4-20250514"
+        assert result["defaults"]["chat"]["modelName"] == "claude-sonnet-4-20250514"
         assert result["defaults"]["utility"]["provider"] == "openai"
 
         # Unset ones are None
@@ -226,7 +226,7 @@ class TestLlmRouterSetDefault:
         assert result["success"] is True
         assert result["role"] == "chat"
         assert result["provider"] == "openai"
-        assert result["model_name"] == "gpt-4o"
+        assert result["modelName"] == "gpt-4o"
         router.set_default_model.assert_called_once_with("chat", "openai", "gpt-4o")
 
     @pytest.mark.asyncio
@@ -270,15 +270,15 @@ class TestLlmRouterUsage:
         from python.api.llm_router_usage import LlmRouterUsage
 
         handler = LlmRouterUsage(SimpleNamespace(), SimpleNamespace())
-        usage = {"total_calls": 42, "total_cost": 1.23, "by_model": [{"model": "gpt-4o", "calls": 42}]}
+        usage = {"totalCalls": 42, "totalCost": 1.23, "byModel": [{"model": "gpt-4o", "calls": 42}]}
         with patch("python.api.llm_router_usage.get_router") as mock_gr:
             mock_gr.return_value = _mock_router(usage=usage)
             result = await handler.process({}, DummyRequest())
 
         assert result["success"] is True
-        assert result["stats"]["total_calls"] == 42
-        assert result["stats"]["total_cost"] == 1.23
-        assert len(result["stats"]["by_model"]) == 1
+        assert result["stats"]["totalCalls"] == 42
+        assert result["stats"]["totalCost"] == 1.23
+        assert len(result["stats"]["byModel"]) == 1
 
     @pytest.mark.asyncio
     async def test_custom_hours(self):

@@ -5,7 +5,7 @@ const model = {
   // State
   loading: false,
   error: null,
-  activeView: "dashboard", // dashboard, models
+  activeView: "dashboard", // dashboard, models, rules
 
   // Settings
   routerEnabled: false,
@@ -33,6 +33,20 @@ const model = {
   // Available models for selection
   availableModels: [],
 
+  // Rules state
+  rules: [],
+  showAddRule: false,
+  newRule: {
+    name: "",
+    priority: 0,
+    condition: "",
+    preferredModels: "",
+    excludedModels: "",
+    minContextLength: 0,
+    maxCostPer1k: 0,
+    enabled: true,
+  },
+
   // Lifecycle
   async onOpen() {
     await this.loadSettings();
@@ -46,6 +60,9 @@ const model = {
   // View switching
   switchView(view) {
     this.activeView = view;
+    if (view === "rules" && this.rules.length === 0) {
+      this.loadRules();
+    }
   },
 
   // Settings management
@@ -158,6 +175,103 @@ const model = {
         this.defaults[role] = { provider, modelName: modelName };
       } else {
         throw new Error(resp.error || "Failed to set default");
+      }
+    } catch (err) {
+      this.error = err.message;
+    }
+  },
+
+  // Rules management
+  async loadRules() {
+    try {
+      const resp = await callJsonApi("/llm_router_rules", {
+        action: "list",
+        include_disabled: true,
+      });
+      if (resp.success) {
+        this.rules = resp.rules || [];
+      }
+    } catch (err) {
+      console.error("Failed to load rules:", err);
+    }
+  },
+
+  resetNewRule() {
+    this.newRule = {
+      name: "",
+      priority: 0,
+      condition: "",
+      preferredModels: "",
+      excludedModels: "",
+      minContextLength: 0,
+      maxCostPer1k: 0,
+      enabled: true,
+    };
+    this.showAddRule = false;
+  },
+
+  async addRule() {
+    if (!this.newRule.name.trim()) {
+      this.error = "Rule name is required";
+      return;
+    }
+    try {
+      const rule = {
+        name: this.newRule.name.trim(),
+        priority: parseInt(this.newRule.priority) || 0,
+        condition: this.newRule.condition,
+        preferredModels: this.newRule.preferredModels
+          ? this.newRule.preferredModels.split(",").map((s) => s.trim()).filter(Boolean)
+          : [],
+        excludedModels: this.newRule.excludedModels
+          ? this.newRule.excludedModels.split(",").map((s) => s.trim()).filter(Boolean)
+          : [],
+        minContextLength: parseInt(this.newRule.minContextLength) || 0,
+        maxCostPer1k: parseFloat(this.newRule.maxCostPer1k) || 0,
+        enabled: this.newRule.enabled,
+      };
+      const resp = await callJsonApi("/llm_router_rules", {
+        action: "add",
+        rule,
+      });
+      if (resp.success) {
+        this.resetNewRule();
+        await this.loadRules();
+      } else {
+        throw new Error(resp.error || "Failed to add rule");
+      }
+    } catch (err) {
+      this.error = err.message;
+    }
+  },
+
+  async toggleRule(name, enabled) {
+    try {
+      const resp = await callJsonApi("/llm_router_rules", {
+        action: "toggle",
+        name,
+        enabled,
+      });
+      if (resp.success) {
+        await this.loadRules();
+      } else {
+        throw new Error(resp.error || "Failed to toggle rule");
+      }
+    } catch (err) {
+      this.error = err.message;
+    }
+  },
+
+  async deleteRule(name) {
+    try {
+      const resp = await callJsonApi("/llm_router_rules", {
+        action: "delete",
+        name,
+      });
+      if (resp.success) {
+        await this.loadRules();
+      } else {
+        throw new Error(resp.error || "Failed to delete rule");
       }
     } catch (err) {
       this.error = err.message;

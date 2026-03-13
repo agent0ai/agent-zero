@@ -78,6 +78,29 @@ class ModelInfo:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    def to_camel_dict(self) -> dict:
+        """Return dict with camelCase keys for JSON API responses."""
+        d = asdict(self)
+        _snake_to_camel = {
+            "display_name": "displayName",
+            "size_gb": "sizeGb",
+            "context_length": "contextLength",
+            "cost_per_1k_input": "costPer1kInput",
+            "cost_per_1k_output": "costPer1kOutput",
+            "avg_latency_ms": "avgLatencyMs",
+            "is_local": "isLocal",
+            "is_available": "isAvailable",
+            "last_checked": "lastChecked",
+            "priority_score": "priorityScore",
+            "supports_caching": "supportsCaching",
+            "cache_enabled": "cacheEnabled",
+            "cache_ttl_seconds": "cacheTtlSeconds",
+            "supports_ptc": "supportsPtc",
+            "supports_batch": "supportsBatch",
+            "effort_levels": "effortLevels",
+        }
+        return {_snake_to_camel.get(k, k): v for k, v in d.items()}
+
     @classmethod
     def from_dict(cls, data: dict) -> "ModelInfo":
         return cls(**data)
@@ -355,10 +378,23 @@ class LLMRouterDatabase:
             ).fetchall()
 
             return {
-                "period_hours": hours,
-                "by_model": [dict(row) for row in stats],
-                "total_cost": sum(row["total_cost"] or 0 for row in stats),
-                "total_calls": sum(row["call_count"] for row in stats),
+                "periodHours": hours,
+                "byModel": [
+                    {
+                        "provider": row["provider"],
+                        "modelName": row["model_name"],
+                        "callCount": row["call_count"],
+                        "totalInputTokens": row["total_input_tokens"],
+                        "totalOutputTokens": row["total_output_tokens"],
+                        "totalCost": row["total_cost"],
+                        "avgLatency": row["avg_latency"],
+                        "successCount": row["success_count"],
+                        "errorCount": row["error_count"],
+                    }
+                    for row in stats
+                ],
+                "totalCost": sum(row["total_cost"] or 0 for row in stats),
+                "totalCalls": sum(row["call_count"] for row in stats),
             }
 
     def save_routing_rule(self, rule: RoutingRule):

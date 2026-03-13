@@ -15,8 +15,4 @@ class LlmRouterModels(ApiHandler):
 
         models = router.db.get_models(provider=provider, available_only=available_only)
 
-        return {
-            "success": True,
-            "models": [m.to_dict() for m in models],
-            "count": len(models)
-        }
+        return {"success": True, "models": [m.to_camel_dict() for m in models], "count": len(models)}

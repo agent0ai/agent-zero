@@ -52,11 +52,11 @@ class LlmRouterDashboard(ApiHandler):
             },
             "defaults": defaults,
             "usage": {
-                "lastHour": {"calls": usage_1h["total_calls"], "costUsd": round(usage_1h["total_cost"], 4)},
+                "lastHour": {"calls": usage_1h["totalCalls"], "costUsd": round(usage_1h["totalCost"], 4)},
                 "last24h": {
-                    "calls": usage_24h["total_calls"],
-                    "costUsd": round(usage_24h["total_cost"], 4),
-                    "byModel": usage_24h["by_model"],
+                    "calls": usage_24h["totalCalls"],
+                    "costUsd": round(usage_24h["totalCost"], 4),
+                    "byModel": usage_24h["byModel"],
                 },
             },
         }

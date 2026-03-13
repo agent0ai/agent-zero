@@ -16,14 +16,8 @@ class LlmRouterGetDefaults(ApiHandler):
         for role in roles:
             result = router.get_default_model(role)
             if result:
-                defaults[role] = {
-                    "provider": result[0],
-                    "model_name": result[1]
-                }
+                defaults[role] = {"provider": result[0], "modelName": result[1]}
             else:
                 defaults[role] = None
 
-        return {
-            "success": True,
-            "defaults": defaults
-        }
+        return {"success": True, "defaults": defaults}

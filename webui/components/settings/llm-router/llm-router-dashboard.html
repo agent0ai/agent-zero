@@ -28,6 +28,11 @@
                     @click="$store.llmRouterStore.switchView('models')">
               Models
             </button>
+            <button class="router-tab"
+                    :class="{ active: $store.llmRouterStore.activeView === 'rules' }"
+                    @click="$store.llmRouterStore.switchView('rules')">
+              Rules
+            </button>
           </div>
           <div class="router-actions">
             <button class="btn btn-ok"
@@ -185,6 +190,148 @@
                       <span class="type-badge" :class="model.isLocal ? 'type-local' : 'type-cloud'"
                             x-text="model.isLocal ? 'Local' : 'Cloud'"></span>
                     </span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+        </div>
+
+        <!-- Rules View -->
+        <div class="router-view" x-show="$store.llmRouterStore.activeView === 'rules'">
+
+          <!-- Add Rule Button -->
+          <div class="router-section">
+            <div class="section-header">
+              <h4>Routing Rules</h4>
+              <button class="btn btn-ok"
+                      @click="$store.llmRouterStore.showAddRule = !$store.llmRouterStore.showAddRule">
+                <span x-text="$store.llmRouterStore.showAddRule ? 'Cancel' : '+ Add Rule'"></span>
+              </button>
+            </div>
+
+            <!-- Add Rule Form -->
+            <div class="add-rule-form" x-show="$store.llmRouterStore.showAddRule" x-transition>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Name *</label>
+                  <input type="text" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.name"
+                         placeholder="e.g. prefer-local-for-code">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Priority</label>
+                  <input type="number" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.priority"
+                         placeholder="0 (higher = more important)">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Condition</label>
+                  <input type="text" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.condition"
+                         placeholder="e.g. is_coding=true">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Preferred Models</label>
+                  <input type="text" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.preferredModels"
+                         placeholder="comma-separated, e.g. ollama/qwen2.5-coder:3b">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Excluded Models</label>
+                  <input type="text" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.excludedModels"
+                         placeholder="comma-separated">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Min Context Length</label>
+                  <input type="number" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.minContextLength"
+                         placeholder="0 = no minimum">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Max Cost per 1K tokens</label>
+                  <input type="number" class="form-input" step="0.01"
+                         x-model="$store.llmRouterStore.newRule.maxCostPer1k"
+                         placeholder="0 = no limit">
+                </div>
+                <div class="form-group form-group-checkbox">
+                  <label class="form-label">
+                    <input type="checkbox" x-model="$store.llmRouterStore.newRule.enabled">
+                    Enabled
+                  </label>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-ok" @click="$store.llmRouterStore.addRule()">
+                  Save Rule
+                </button>
+                <button class="btn btn-secondary" @click="$store.llmRouterStore.resetNewRule()">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rules List -->
+          <div class="router-section" x-show="$store.llmRouterStore.rules.length === 0 && !$store.llmRouterStore.showAddRule">
+            <div class="router-empty">
+              No routing rules configured. Rules let you control which models are selected for specific tasks.
+            </div>
+          </div>
+
+          <template x-for="rule in $store.llmRouterStore.rules" :key="rule.name">
+            <div class="router-section rule-card" :class="{ 'rule-disabled': !rule.enabled }">
+              <div class="rule-header">
+                <div class="rule-info">
+                  <span class="rule-name" x-text="rule.name"></span>
+                  <span class="rule-priority">Priority: <strong x-text="rule.priority"></strong></span>
+                </div>
+                <div class="rule-actions">
+                  <label class="switch switch-sm">
+                    <input type="checkbox"
+                           :checked="rule.enabled"
+                           @change="$store.llmRouterStore.toggleRule(rule.name, !rule.enabled)">
+                    <span class="slider"></span>
+                  </label>
+                  <button class="btn btn-sm btn-danger"
+                          @click="$store.llmRouterStore.deleteRule(rule.name)"
+                          title="Delete rule">
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div class="rule-details">
+                <template x-if="rule.condition">
+                  <div class="rule-detail">
+                    <span class="detail-label">Condition:</span>
+                    <code x-text="rule.condition"></code>
+                  </div>
+                </template>
+                <template x-if="rule.preferredModels && rule.preferredModels.length > 0">
+                  <div class="rule-detail">
+                    <span class="detail-label">Preferred:</span>
+                    <span x-text="rule.preferredModels.join(', ')"></span>
+                  </div>
+                </template>
+                <template x-if="rule.excludedModels && rule.excludedModels.length > 0">
+                  <div class="rule-detail">
+                    <span class="detail-label">Excluded:</span>
+                    <span x-text="rule.excludedModels.join(', ')"></span>
+                  </div>
+                </template>
+                <template x-if="rule.minContextLength > 0">
+                  <div class="rule-detail">
+                    <span class="detail-label">Min Context:</span>
+                    <span x-text="$store.llmRouterStore.formatContextLength(rule.minContextLength)"></span>
+                  </div>
+                </template>
+                <template x-if="rule.maxCostPer1k > 0">
+                  <div class="rule-detail">
+                    <span class="detail-label">Max Cost:</span>
+                    <span x-text="'$' + rule.maxCostPer1k + '/1K tokens'"></span>
                   </div>
                 </template>
               </div>

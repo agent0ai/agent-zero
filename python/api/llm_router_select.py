@@ -24,7 +24,7 @@ class LlmRouterSelect(ApiHandler):
             "cost": RoutingPriority.COST,
             "speed": RoutingPriority.SPEED,
             "quality": RoutingPriority.QUALITY,
-            "balanced": RoutingPriority.BALANCED
+            "balanced": RoutingPriority.BALANCED,
         }
         priority = priority_map.get(priority_str, RoutingPriority.BALANCED)
 
@@ -36,18 +36,14 @@ class LlmRouterSelect(ApiHandler):
             min_context_length=min_context_length,
             max_cost_per_1k=max_cost_per_1k,
             preferred_provider=preferred_provider,
-            excluded_providers=excluded_providers
+            excluded_providers=excluded_providers,
         )
 
         if model:
             return {
                 "success": True,
-                "model": model.to_dict(),
-                "selection_criteria": {
-                    "role": role,
-                    "context_type": context_type,
-                    "priority": priority_str
-                }
+                "model": model.to_camel_dict(),
+                "selection_criteria": {"role": role, "context_type": context_type, "priority": priority_str},
             }
         else:
             return {
@@ -57,6 +53,6 @@ class LlmRouterSelect(ApiHandler):
                     "role": role,
                     "context_type": context_type,
                     "priority": priority_str,
-                    "required_capabilities": required_capabilities
-                }
+                    "required_capabilities": required_capabilities,
+                },
             }

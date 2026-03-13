@@ -43,8 +43,8 @@ class LlmRouterFallback(ApiHandler):
             return {
                 "success": True,
                 "role": role,
-                "primary": primary.to_dict(),
-                "fallbacks": [m.to_dict() for m in fallbacks],
+                "primary": primary.to_camel_dict(),
+                "fallbacks": [m.to_camel_dict() for m in fallbacks],
             }
 
         # Otherwise require provider and model_name
@@ -62,4 +62,8 @@ class LlmRouterFallback(ApiHandler):
             primary_model=primary, required_capabilities=required_capabilities, max_fallbacks=max_fallbacks
         )
 
-        return {"success": True, "primary": primary.to_dict(), "fallbacks": [m.to_dict() for m in fallbacks]}
+        return {
+            "success": True,
+            "primary": primary.to_camel_dict(),
+            "fallbacks": [m.to_camel_dict() for m in fallbacks],
+        }
