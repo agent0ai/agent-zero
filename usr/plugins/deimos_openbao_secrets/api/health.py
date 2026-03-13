@@ -1,14 +1,17 @@
-"""Health check and connection test API for Deimos OpenBao plugin."""
+"""Health check and connection test API for Deimos OpenBao plugin.
+
+Endpoint: POST /api/plugins/deimos_openbao_secrets/health
+"""
 import logging
-from python.helpers.api import ApiHandler
+from helpers.api import ApiHandler, Request, Response
 
 logger = logging.getLogger(__name__)
 
 
-class TestOpenbaoConnectionHandler(ApiHandler):
-    """Handle test_openbao_connection action from plugin config UI."""
+class TestConnection(ApiHandler):
+    """Test OpenBao connectivity from the plugin config UI."""
 
-    async def handle(self, input: dict, request) -> dict:
+    async def process(self, input: dict, request: Request) -> dict | Response:
         config_data = input.get("config", {})
         url = config_data.get("url", "http://127.0.0.1:8200")
         timeout = float(config_data.get("timeout", 10.0))
@@ -21,14 +24,17 @@ class TestOpenbaoConnectionHandler(ApiHandler):
             verify = tls_ca_cert if tls_ca_cert else tls_verify
             client = hvac.Client(url=url, verify=verify, timeout=timeout)
 
-            # Try health check (doesn't require authentication)
+            # Health check doesn't require authentication
             health = client.sys.read_health_status(method="GET")
 
             if isinstance(health, dict):
+                status = "healthy"
+                if health.get("sealed"):
+                    status = "sealed"
                 return {
                     "ok": True,
                     "data": {
-                        "status": "healthy",
+                        "status": status,
                         "initialized": health.get("initialized"),
                         "sealed": health.get("sealed"),
                         "standby": health.get("standby"),
@@ -38,7 +44,7 @@ class TestOpenbaoConnectionHandler(ApiHandler):
                 return {"ok": True, "data": {"status": "reachable"}}
 
         except ImportError:
-            return {"ok": False, "error": "hvac library not installed"}
+            return {"ok": False, "error": "hvac library not installed. Run: pip install hvac"}
         except Exception as exc:
             logger.debug("OpenBao connection test failed: %s", exc)
             return {"ok": False, "error": str(exc)}

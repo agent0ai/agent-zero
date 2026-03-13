@@ -3,11 +3,15 @@
     <title>Deimos OpenBao Secrets</title>
 </head>
 <body>
-    <div x-data>
+    <div x-data="{ testResult: '' }">
         <template x-if="config">
             <div>
                 <div class="section-title">
-                    <span>&#127760;</span> Deimos OpenBao Plugin Settings
+                    <a href="https://deimosai.com/agentic-organisation" target="_blank"
+                       style="text-decoration:none; margin-right:6px;" title="Deimos Agentic Organisation">
+                        &#127760;
+                    </a>
+                    Deimos OpenBao Plugin Settings
                 </div>
                 <div class="section-description">
                     Replaces Agent Zero's secrets management with <a href="https://openbao.org" target="_blank">OpenBao</a> KV v2.
@@ -66,10 +70,10 @@
                     <div class="field-label">
                         <div class="field-title">Mount Point</div>
                         <div class="field-description">
-                            The KV v2 secrets engine mount path in OpenBao. This is the "volume" name
-                            where your secrets engine is enabled. Most installations use <code>secret</code>.
+                            The KV v2 secrets engine mount path in OpenBao &mdash; the "volume" where your secrets engine lives.
+                            Most installations use <code>secret</code>.
                             <br><br>
-                            <em>Set with:</em> <code>bao secrets enable -path=secret kv-v2</code>
+                            <em>Enable with:</em> <code>bao secrets enable -path=secret kv-v2</code>
                         </div>
                     </div>
                     <div class="field-control">
@@ -82,12 +86,12 @@
                     <div class="field-label">
                         <div class="field-title">Secrets Path</div>
                         <div class="field-description">
-                            The path within the mount point where A0's secrets are stored as KV pairs.
+                            The KV path within the mount point where A0 secrets are stored as key-value pairs.
                             Think of this as the "folder" inside the secrets engine.
                             <br><br>
-                            <em>Write secrets with:</em> <code>bao kv put secret/<b>agentzero</b> API_KEY=sk-... DB_PASSWORD=...</code>
+                            <em>Write secrets:</em> <code>bao kv put secret/<b>agentzero</b> API_KEY=sk-... DB_PASSWORD=...</code>
                             <br>
-                            <em>For multi-env:</em> <code>agentzero/prod</code>, <code>agentzero/staging</code>
+                            <em>Multi-env:</em> <code>agentzero/prod</code>, <code>agentzero/staging</code>
                         </div>
                     </div>
                     <div class="field-control">
@@ -101,7 +105,7 @@
                         <div class="field-title">Fallback to .env Files</div>
                         <div class="field-description">
                             When enabled, falls back to <code>.env</code> files if OpenBao is unreachable.
-                            Disable for strict mode where secrets are <em>only</em> sourced from OpenBao.
+                            Disable for strict mode &mdash; secrets <em>only</em> from OpenBao (empty on failure).
                         </div>
                     </div>
                     <div class="field-control">
@@ -133,7 +137,7 @@
                     <div class="field-label">
                         <div class="field-title">CA Certificate Path</div>
                         <div class="field-description">
-                            Path to a custom CA certificate bundle for TLS verification. Leave empty to use system defaults.
+                            Path to a custom CA certificate bundle. Leave empty for system defaults.
                         </div>
                     </div>
                     <div class="field-control">
@@ -159,7 +163,7 @@
                     <div class="field-label">
                         <div class="field-title">Cache TTL (seconds)</div>
                         <div class="field-description">
-                            How long to cache secrets before re-fetching from OpenBao. Set to 0 to disable caching.
+                            How long to cache secrets before re-fetching. Set to 0 to disable caching.
                         </div>
                     </div>
                     <div class="field-control">
@@ -198,7 +202,7 @@
                     <div class="field-label">
                         <div class="field-title">Circuit Breaker Recovery (seconds)</div>
                         <div class="field-description">
-                            Seconds before a tripped circuit breaker allows a test request through.
+                            Seconds before a tripped circuit breaker allows a test request.
                         </div>
                     </div>
                     <div class="field-control">
@@ -211,34 +215,37 @@
                     <div class="field-label">
                         <div class="field-title">Connection Test</div>
                         <div class="field-description">
-                            Test connectivity to OpenBao using the current settings.
-                            <span x-show="config._test_result" x-text="config._test_result" style="font-weight:bold;"></span>
+                            Test connectivity to OpenBao with the current URL and TLS settings.
+                            <span x-show="testResult" x-text="testResult" style="font-weight:bold; display:block; margin-top:4px;"></span>
                         </div>
                     </div>
                     <div class="field-control">
                         <button class="btn btn-field" @click="
-                            config._test_result = 'Testing...';
-                            fetch('/api_call', {
+                            testResult = 'Testing...';
+                            fetch('/api/plugins/deimos_openbao_secrets/health', {
                                 method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'same-origin',
                                 body: JSON.stringify({
-                                    endpoint: 'plugins',
-                                    action: 'test_openbao_connection',
-                                    plugin_name: 'deimos_openbao_secrets',
                                     config: {
                                         url: config.url,
-                                        auth_method: config.auth_method,
-                                        mount_point: config.mount_point,
-                                        secrets_path: config.secrets_path,
+                                        timeout: config.timeout,
                                         tls_verify: config.tls_verify,
-                                        tls_ca_cert: config.tls_ca_cert,
-                                        timeout: config.timeout
+                                        tls_ca_cert: config.tls_ca_cert
                                     }
                                 })
                             })
                             .then(r => r.json())
-                            .then(d => { config._test_result = d.ok ? '✅ Connected: ' + (d.data?.status || 'OK') : '❌ ' + (d.error || 'Failed'); })
-                            .catch(e => { config._test_result = '❌ Error: ' + e.message; });
+                            .then(d => {
+                                if (d.ok) {
+                                    let s = d.data?.status || 'OK';
+                                    let extra = d.data?.sealed ? ' (SEALED)' : '';
+                                    testResult = '✅ ' + s + extra;
+                                } else {
+                                    testResult = '❌ ' + (d.error || 'Failed');
+                                }
+                            })
+                            .catch(e => { testResult = '❌ ' + e.message; });
                         ">
                             Test Connection
                         </button>
