@@ -3,7 +3,181 @@
     <title>Deimos OpenBao Secrets</title>
 </head>
 <body>
-    <div x-data="{ testResult: '' }">
+    <div x-data="{
+        testResult: '',
+        secrets: [],
+        secretsLoading: false,
+        secretsError: '',
+        newKey: '',
+        newValue: '',
+        showAdd: false,
+        revealed: {},
+        editing: {},
+        editValues: {},
+
+        parseError(msg) {
+            if (!msg) return msg;
+            if (msg.includes('Connection refused') || msg.includes('NewConnectionError'))
+                return 'Cannot reach OpenBao at this URL. Check the URL and ensure OpenBao is running.';
+            if (msg.includes('timed out') || msg.includes('TimeoutError'))
+                return 'OpenBao did not respond in time. Check network connectivity.';
+            if (msg.includes('SSL') || msg.includes('certificate') || msg.includes('CERTIFICATE'))
+                return 'TLS certificate verification failed. Check CA cert path or disable TLS verify for development.';
+            if (msg.includes('Forbidden') || msg.includes('permission denied'))
+                return 'Permission denied. Check your token or AppRole credentials.';
+            return msg;
+        },
+
+        async testConnection() {
+            this.testResult = 'Testing...';
+            try {
+                const resp = await fetch('/api/plugins/deimos_openbao_secrets/health', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        config: {
+                            url: this.config.url,
+                            timeout: this.config.timeout,
+                            tls_verify: this.config.tls_verify,
+                            tls_ca_cert: this.config.tls_ca_cert
+                        }
+                    })
+                });
+                const d = await resp.json();
+                if (d.ok) {
+                    let s = d.data?.status || 'OK';
+                    let extra = d.data?.sealed ? ' (SEALED)' : '';
+                    this.testResult = '\u2705 ' + s + extra;
+                } else {
+                    this.testResult = '\u274c ' + this.parseError(d.error || 'Failed');
+                }
+            } catch (e) {
+                this.testResult = '\u274c ' + this.parseError(e.message);
+            }
+        },
+
+        async refreshSecrets() {
+            this.secretsLoading = true;
+            this.secretsError = '';
+            try {
+                const resp = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ action: 'list' })
+                });
+                const d = await resp.json();
+                if (d.ok) {
+                    this.secrets = d.secrets || [];
+                } else {
+                    this.secretsError = this.parseError(d.error || 'Failed to list secrets');
+                }
+            } catch (e) {
+                this.secretsError = this.parseError(e.message);
+            }
+            this.secretsLoading = false;
+        },
+
+        async revealSecret(key) {
+            try {
+                const resp = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ action: 'get', key })
+                });
+                const d = await resp.json();
+                if (d.ok) {
+                    this.revealed[key] = d.value;
+                    setTimeout(() => { delete this.revealed[key]; }, 5000);
+                } else {
+                    this.secretsError = d.error;
+                }
+            } catch (e) {
+                this.secretsError = e.message;
+            }
+        },
+
+        startEdit(key) {
+            this.editing[key] = true;
+            this.editValues[key] = '';
+        },
+
+        cancelEdit(key) {
+            delete this.editing[key];
+            delete this.editValues[key];
+        },
+
+        async saveEdit(key) {
+            const value = this.editValues[key];
+            if (!value) return;
+            this.secretsError = '';
+            try {
+                const resp = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ action: 'set', pairs: [{ key, value }] })
+                });
+                const d = await resp.json();
+                if (d.ok) {
+                    delete this.editing[key];
+                    delete this.editValues[key];
+                    this.secretsError = '';
+                } else {
+                    this.secretsError = d.error;
+                }
+            } catch (e) {
+                this.secretsError = e.message;
+            }
+        },
+
+        async deleteSecret(key) {
+            if (!confirm('Delete secret "' + key + '"? This cannot be undone.')) return;
+            this.secretsError = '';
+            try {
+                const resp = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ action: 'delete', key })
+                });
+                const d = await resp.json();
+                if (d.ok) {
+                    await this.refreshSecrets();
+                } else {
+                    this.secretsError = d.error;
+                }
+            } catch (e) {
+                this.secretsError = e.message;
+            }
+        },
+
+        async addSecret() {
+            if (!this.newKey.trim()) return;
+            this.secretsError = '';
+            try {
+                const resp = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ action: 'set', pairs: [{ key: this.newKey.trim(), value: this.newValue }] })
+                });
+                const d = await resp.json();
+                if (d.ok) {
+                    this.newKey = '';
+                    this.newValue = '';
+                    this.showAdd = false;
+                    await this.refreshSecrets();
+                } else {
+                    this.secretsError = d.error;
+                }
+            } catch (e) {
+                this.secretsError = e.message;
+            }
+        }
+    }">
         <template x-if="config">
             <div>
                 <div class="section-title">
@@ -15,8 +189,8 @@
                 </div>
                 <div class="section-description">
                     Replaces Agent Zero's secrets management with <a href="https://openbao.org" target="_blank">OpenBao</a> KV v2.
-                    Credentials (<code>OPENBAO_TOKEN</code>, <code>OPENBAO_ROLE_ID</code>, <code>OPENBAO_SECRET_ID</code>) should be stored in
-                    <strong>A0 Secrets</strong> (project or global), not here.
+                    Credentials should be set as <strong>Docker environment variables</strong>
+                    (e.g., <code>-e OPENBAO_TOKEN=...</code> in your <code>docker-compose.yml</code>).
                 </div>
 
                 <!-- Enable / Disable -->
@@ -53,14 +227,14 @@
                     <div class="field-label">
                         <div class="field-title">Authentication Method</div>
                         <div class="field-description">
-                            <b>Token</b>: Direct token authentication. Set <code>OPENBAO_TOKEN</code> in A0 Secrets.<br>
-                            <b>AppRole</b>: Machine-to-machine auth. Set <code>OPENBAO_ROLE_ID</code> and <code>OPENBAO_SECRET_ID</code> in A0 Secrets.
+                            <b>AppRole</b> (recommended): Machine-to-machine auth for production. Set <code>OPENBAO_ROLE_ID</code> and <code>OPENBAO_SECRET_ID</code> as Docker env vars.<br>
+                            <b>Token</b> (dev only): Direct token auth. Set <code>OPENBAO_TOKEN</code> as Docker env var.
                         </div>
                     </div>
                     <div class="field-control">
                         <select x-model="config.auth_method">
-                            <option value="token">Token</option>
-                            <option value="approle">AppRole</option>
+                            <option value="approle">AppRole (recommended)</option>
+                            <option value="token">Token (dev only)</option>
                         </select>
                     </div>
                 </div>
@@ -70,10 +244,9 @@
                     <div class="field-label">
                         <div class="field-title">Mount Point</div>
                         <div class="field-description">
-                            The KV v2 secrets engine mount path in OpenBao &mdash; the "volume" where your secrets engine lives.
+                            The KV v2 secrets engine mount path &mdash; the "volume" where your secrets engine lives.
                             Most installations use <code>secret</code>.
-                            <br><br>
-                            <em>Enable with:</em> <code>bao secrets enable -path=secret kv-v2</code>
+                            <br><em>Enable with:</em> <code>bao secrets enable -path=secret kv-v2</code>
                         </div>
                     </div>
                     <div class="field-control">
@@ -86,12 +259,9 @@
                     <div class="field-label">
                         <div class="field-title">Secrets Path</div>
                         <div class="field-description">
-                            The KV path within the mount point where A0 secrets are stored as key-value pairs.
-                            Think of this as the "folder" inside the secrets engine.
-                            <br><br>
-                            <em>Write secrets:</em> <code>bao kv put secret/<b>agentzero</b> API_KEY=sk-... DB_PASSWORD=...</code>
-                            <br>
-                            <em>Multi-env:</em> <code>agentzero/prod</code>, <code>agentzero/staging</code>
+                            KV path within the mount where A0 secrets are stored as key-value pairs.
+                            <br><em>Write secrets:</em> <code>bao kv put secret/<b>agentzero</b> API_KEY=sk-...</code>
+                            <br><em>Multi-env:</em> <code>agentzero/prod</code>, <code>agentzero/staging</code>
                         </div>
                     </div>
                     <div class="field-control">
@@ -105,7 +275,7 @@
                         <div class="field-title">Fallback to .env Files</div>
                         <div class="field-description">
                             When enabled, falls back to <code>.env</code> files if OpenBao is unreachable.
-                            Disable for strict mode &mdash; secrets <em>only</em> from OpenBao (empty on failure).
+                            Disable for strict mode &mdash; secrets <em>only</em> from OpenBao.
                         </div>
                     </div>
                     <div class="field-control">
@@ -116,13 +286,11 @@
                     </div>
                 </div>
 
-                <!-- TLS Verify -->
+                <!-- TLS -->
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Verify TLS Certificates</div>
-                        <div class="field-description">
-                            Verify the OpenBao server's TLS certificate. Disable only for development.
-                        </div>
+                        <div class="field-description">Disable only for development.</div>
                     </div>
                     <div class="field-control">
                         <label class="toggle">
@@ -131,80 +299,48 @@
                         </label>
                     </div>
                 </div>
-
-                <!-- TLS CA Cert -->
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">CA Certificate Path</div>
-                        <div class="field-description">
-                            Path to a custom CA certificate bundle. Leave empty for system defaults.
-                        </div>
+                        <div class="field-description">Custom CA bundle. Leave empty for system defaults.</div>
                     </div>
                     <div class="field-control">
                         <input type="text" x-model="config.tls_ca_cert" placeholder="/path/to/ca-bundle.crt" />
                     </div>
                 </div>
 
-                <!-- Timeout -->
+                <!-- Tuning -->
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">HTTP Timeout (seconds)</div>
-                        <div class="field-description">
-                            Maximum time to wait for OpenBao API responses.
-                        </div>
                     </div>
                     <div class="field-control">
                         <input type="number" min="1" max="120" step="0.5" x-model.number="config.timeout" />
                     </div>
                 </div>
-
-                <!-- Cache TTL -->
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Cache TTL (seconds)</div>
-                        <div class="field-description">
-                            How long to cache secrets before re-fetching. Set to 0 to disable caching.
-                        </div>
+                        <div class="field-description">How long to cache secrets. 0 = no caching.</div>
                     </div>
                     <div class="field-control">
                         <input type="number" min="0" max="3600" x-model.number="config.cache_ttl" />
                     </div>
                 </div>
-
-                <!-- Retry Attempts -->
                 <div class="field">
-                    <div class="field-label">
-                        <div class="field-title">Retry Attempts</div>
-                        <div class="field-description">
-                            Maximum retries on transient failures (connection errors, timeouts).
-                        </div>
-                    </div>
+                    <div class="field-label"><div class="field-title">Retry Attempts</div></div>
                     <div class="field-control">
                         <input type="number" min="0" max="10" x-model.number="config.retry_attempts" />
                     </div>
                 </div>
-
-                <!-- Circuit Breaker Threshold -->
                 <div class="field">
-                    <div class="field-label">
-                        <div class="field-title">Circuit Breaker Threshold</div>
-                        <div class="field-description">
-                            Consecutive failures before the circuit opens (fail-fast mode).
-                        </div>
-                    </div>
+                    <div class="field-label"><div class="field-title">Circuit Breaker Threshold</div></div>
                     <div class="field-control">
                         <input type="number" min="1" max="50" x-model.number="config.circuit_breaker_threshold" />
                     </div>
                 </div>
-
-                <!-- Circuit Breaker Recovery -->
                 <div class="field">
-                    <div class="field-label">
-                        <div class="field-title">Circuit Breaker Recovery (seconds)</div>
-                        <div class="field-description">
-                            Seconds before a tripped circuit breaker allows a test request.
-                        </div>
-                    </div>
+                    <div class="field-label"><div class="field-title">Circuit Breaker Recovery (s)</div></div>
                     <div class="field-control">
                         <input type="number" min="5" max="600" x-model.number="config.circuit_breaker_recovery" />
                     </div>
@@ -215,40 +351,78 @@
                     <div class="field-label">
                         <div class="field-title">Connection Test</div>
                         <div class="field-description">
-                            Test connectivity to OpenBao with the current URL and TLS settings.
-                            <span x-show="testResult" x-text="testResult" style="font-weight:bold; display:block; margin-top:4px;"></span>
+                            <span x-show="testResult" x-text="testResult" style="font-weight:bold;"></span>
                         </div>
                     </div>
                     <div class="field-control">
-                        <button class="btn btn-field" @click="
-                            testResult = 'Testing...';
-                            fetch('/api/plugins/deimos_openbao_secrets/health', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'same-origin',
-                                body: JSON.stringify({
-                                    config: {
-                                        url: config.url,
-                                        timeout: config.timeout,
-                                        tls_verify: config.tls_verify,
-                                        tls_ca_cert: config.tls_ca_cert
-                                    }
-                                })
-                            })
-                            .then(r => r.json())
-                            .then(d => {
-                                if (d.ok) {
-                                    let s = d.data?.status || 'OK';
-                                    let extra = d.data?.sealed ? ' (SEALED)' : '';
-                                    testResult = '✅ ' + s + extra;
-                                } else {
-                                    testResult = '❌ ' + (d.error || 'Failed');
-                                }
-                            })
-                            .catch(e => { testResult = '❌ ' + e.message; });
-                        ">
-                            Test Connection
-                        </button>
+                        <button class="btn btn-field" @click="testConnection()">Test Connection</button>
+                    </div>
+                </div>
+
+                <!-- ============= SECRETS MANAGEMENT ============= -->
+                <div x-show="config.enabled && config.url" x-init="if(config.enabled && config.url) refreshSecrets()">
+                    <div class="section-title" style="margin-top:24px;">Secrets Management</div>
+                    <div class="section-description">
+                        Manage secrets stored in OpenBao. Values are <strong>never exposed to the AI agent</strong>.
+                        All operations go directly from your browser to OpenBao.
+                    </div>
+
+                    <!-- Toolbar -->
+                    <div style="display:flex; gap:8px; margin:12px 0;">
+                        <button class="btn btn-field" @click="refreshSecrets()">Refresh</button>
+                        <button class="btn btn-field" @click="showAdd = !showAdd">Add Secret</button>
+                    </div>
+
+                    <!-- Error -->
+                    <div x-show="secretsError" style="color:#ff6b6b; margin:8px 0; font-weight:bold;" x-text="secretsError"></div>
+
+                    <!-- Loading -->
+                    <div x-show="secretsLoading" style="color:#888; margin:8px 0;">Loading secrets...</div>
+
+                    <!-- Add New Secret -->
+                    <div x-show="showAdd" style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; margin:8px 0;">
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <input type="text" x-model="newKey" placeholder="KEY_NAME" style="flex:1; min-width:150px;" />
+                            <input type="password" x-model="newValue" placeholder="secret value" style="flex:2; min-width:200px;" />
+                            <button class="btn btn-field" @click="addSecret()">Save</button>
+                            <button class="btn btn-field" @click="showAdd=false; newKey=''; newValue='';">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Secrets Table -->
+                    <div x-show="!secretsLoading && secrets.length > 0">
+                        <template x-for="secret in secrets" :key="secret.key">
+                            <div class="field">
+                                <div class="field-label">
+                                    <div class="field-title" x-text="secret.key" style="font-family:monospace;"></div>
+                                </div>
+                                <div class="field-control" style="display:flex; gap:6px; align-items:center;">
+                                    <!-- Display mode -->
+                                    <template x-if="!editing[secret.key]">
+                                        <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                                            <span x-text="revealed[secret.key] || '***'" style="font-family:monospace; flex:1;"></span>
+                                            <button class="btn btn-field" @click="revealSecret(secret.key)" title="Reveal for 5 seconds">&#128065;</button>
+                                            <button class="btn btn-field" @click="startEdit(secret.key)" title="Edit">&#9998;</button>
+                                            <button class="btn btn-field" @click="deleteSecret(secret.key)" title="Delete" style="color:#ff6b6b;">&#128465;</button>
+                                        </div>
+                                    </template>
+                                    <!-- Edit mode -->
+                                    <template x-if="editing[secret.key]">
+                                        <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                                            <input type="password" x-model="editValues[secret.key]" placeholder="new value" style="flex:1;" />
+                                            <button class="btn btn-field" @click="saveEdit(secret.key)">Save</button>
+                                            <button class="btn btn-field" @click="cancelEdit(secret.key)">Cancel</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div x-show="!secretsLoading && secrets.length === 0 && !secretsError"
+                         style="color:#888; margin:12px 0; font-style:italic;">
+                        No secrets found at this path. Click "Add Secret" to create one.
                     </div>
                 </div>
 
