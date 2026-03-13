@@ -172,7 +172,7 @@ Each project includes:
 
 There are two ways to access project management:
 
-1. **Dashboard Access**: Click **Projects** in the sidebar to open the Projects modal
+1. **Dashboard Access**: Click **Projects** from the Dashboard to open the Projects modal
 2. **Quick Access**: Click the project dropdown in the top-right corner (shows "No project" when none is active)
 
 ![Project Creation](../res/usage/projects/projects-creation.png)

@@ -178,14 +178,7 @@ This is useful for:
 Projects support two memory modes:
 
 - **Own memory** (default): The project has its own isolated memory directory
-  - Memories stored under `vector_db/projects/<project_name>/`
-  - Prevents context bleed between projects
-  - Ideal for client work, sensitive projects, or distinct domains
-  
 - **Global memory**: The project shares the default memory pool
-  - Memories stored under `vector_db/default/`
-  - Useful when projects need shared knowledge
-  - Better for related projects in the same domain
 
 > [!TIP]
 > Use **own memory** for:
@@ -266,7 +259,7 @@ This feature is incredibly useful for code projects - the agent automatically "s
 To use a project, you need to activate it for your current chat:
 
 ### In a New Chat
-1. Create or select a project from the Projects modal
+1. Activate a project from the Projects modal or dropdown
 2. Start a new chat
 3. The project is automatically active for that chat
 
