@@ -542,8 +542,8 @@ class TestLlmRouterSelect:
 
         assert result["success"] is True
         assert result["model"]["provider"] == "ollama"
-        assert result["selection_criteria"]["role"] == "chat"
-        assert result["selection_criteria"]["priority"] == "quality"
+        assert result["selectionCriteria"]["role"] == "chat"
+        assert result["selectionCriteria"]["priority"] == "quality"
 
     @pytest.mark.asyncio
     async def test_select_model_no_match(self):
@@ -789,6 +789,146 @@ class TestLlmRouterAutoConfigure:
         assert result["success"] is False
         assert "not reachable" in result["error"]
 
+    @pytest.mark.asyncio
+    async def test_auto_configure_no_defaults_returns_empty(self):
+        """When no defaults are set, configuredDefaults should be empty."""
+        from python.api.llm_router_auto_configure import LlmRouterAutoConfigure
+
+        handler = LlmRouterAutoConfigure(SimpleNamespace(), SimpleNamespace())
+        with (
+            patch("python.api.llm_router_auto_configure.auto_configure_models", new_callable=AsyncMock) as mock_ac,
+            patch("python.api.llm_router_auto_configure.get_router") as mock_gr,
+        ):
+            mock_ac.return_value = SAMPLE_MODELS
+            mock_gr.return_value = _mock_router()  # no defaults
+            result = await handler.process({}, DummyRequest())
+
+        assert result["success"] is True
+        assert result["configuredDefaults"] == {}
+
+    @pytest.mark.asyncio
+    async def test_auto_configure_response_has_camel_keys(self):
+        """Verify response uses discoveredModels and configuredDefaults (camelCase)."""
+        from python.api.llm_router_auto_configure import LlmRouterAutoConfigure
+
+        handler = LlmRouterAutoConfigure(SimpleNamespace(), SimpleNamespace())
+        with (
+            patch("python.api.llm_router_auto_configure.auto_configure_models", new_callable=AsyncMock) as mock_ac,
+            patch("python.api.llm_router_auto_configure.get_router") as mock_gr,
+        ):
+            mock_ac.return_value = SAMPLE_MODELS
+            mock_gr.return_value = _mock_router()
+            result = await handler.process({}, DummyRequest())
+
+        # camelCase keys present
+        assert "discoveredModels" in result
+        assert "configuredDefaults" in result
+        # snake_case keys absent
+        assert "discovered_models" not in result
+        assert "configured_defaults" not in result
+
+
+# ── 9b. llm_router_select camelCase ─────────────────────────────────────────
+
+
+class TestLlmRouterSelectCamelCase:
+    """Test that select endpoint accepts camelCase params and returns camelCase response."""
+
+    @pytest.mark.asyncio
+    async def test_select_accepts_camel_case_params(self):
+        from python.api.llm_router_select import LlmRouterSelect
+
+        handler = LlmRouterSelect(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_select.get_router") as mock_gr:
+            router = _mock_router(models=SAMPLE_MODELS)
+            mock_gr.return_value = router
+            result = await handler.process(
+                {
+                    "role": "chat",
+                    "contextType": "user",
+                    "requiredCapabilities": ["chat"],
+                    "priority": "quality",
+                    "minContextLength": 8000,
+                    "maxCostPer1k": 5.0,
+                    "preferredProvider": "openai",
+                },
+                DummyRequest(),
+            )
+
+        # Verify router was called with the right args
+        call_kwargs = router.select_model.call_args[1]
+        assert call_kwargs["context_type"] == "user"
+        assert call_kwargs["min_context_length"] == 8000
+
+    @pytest.mark.asyncio
+    async def test_select_response_uses_camel_case(self):
+        from python.api.llm_router_select import LlmRouterSelect
+
+        handler = LlmRouterSelect(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_select.get_router") as mock_gr:
+            router = _mock_router(models=SAMPLE_MODELS)
+            mock_gr.return_value = router
+            result = await handler.process({"role": "chat"}, DummyRequest())
+
+        assert "selectionCriteria" in result
+        assert "selection_criteria" not in result
+
+
+# ── 9c. Rule Name Validation ────────────────────────────────────────────────
+
+
+class TestRuleNameValidation:
+    """Test rule name validation in the rules endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_empty_name_rejected(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            mock_gr.return_value = _mock_router()
+            result = await handler.process({"action": "add", "rule": {"name": ""}}, DummyRequest())
+
+        assert result["success"] is False
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_too_long_name_rejected(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            mock_gr.return_value = _mock_router()
+            result = await handler.process({"action": "add", "rule": {"name": "x" * 100}}, DummyRequest())
+
+        assert result["success"] is False
+        assert "64" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_special_chars_rejected(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            mock_gr.return_value = _mock_router()
+            result = await handler.process({"action": "add", "rule": {"name": "rule<script>"}}, DummyRequest())
+
+        assert result["success"] is False
+        assert "letters" in result["error"].lower() or "may only" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_valid_name_accepted(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            mock_gr.return_value = _mock_router()
+            result = await handler.process(
+                {"action": "add", "rule": {"name": "My Rule - v2.1", "priority": 5}}, DummyRequest()
+            )
+
+        assert result["success"] is True
+
 
 # ── 10. model_selector_quick_switch ─────────────────────────────────────────
 
@@ -948,3 +1088,199 @@ class TestModelSelectorQuickSwitch:
         # Should still succeed even though router update failed
         assert result["success"] is True
         assert mock_settings["chat_model_provider"] == "openai"
+
+
+# ── 11. Routing Rule Condition Evaluator ────────────────────────────────────
+
+
+class TestRuleConditionEvaluator:
+    """Test the safe condition evaluator (no eval)."""
+
+    def test_empty_condition_always_matches(self):
+        from python.helpers.llm_router import LLMRouter
+
+        assert LLMRouter.evaluate_rule_condition("", {"role": "chat"}) is True
+        assert LLMRouter.evaluate_rule_condition("   ", {}) is True
+        assert LLMRouter.evaluate_rule_condition(None, {}) is True
+
+    def test_simple_equality(self):
+        from python.helpers.llm_router import LLMRouter
+
+        ctx = {"role": "chat", "context_type": "user"}
+        assert LLMRouter.evaluate_rule_condition("role=chat", ctx) is True
+        assert LLMRouter.evaluate_rule_condition("role=utility", ctx) is False
+
+    def test_case_insensitive(self):
+        from python.helpers.llm_router import LLMRouter
+
+        ctx = {"role": "CHAT", "context_type": "USER"}
+        assert LLMRouter.evaluate_rule_condition("role=chat", ctx) is True
+        assert LLMRouter.evaluate_rule_condition("ROLE=CHAT", ctx) is True
+
+    def test_not_equals(self):
+        from python.helpers.llm_router import LLMRouter
+
+        ctx = {"role": "chat", "context_type": "user"}
+        assert LLMRouter.evaluate_rule_condition("role!=utility", ctx) is True
+        assert LLMRouter.evaluate_rule_condition("role!=chat", ctx) is False
+
+    def test_and_operator(self):
+        from python.helpers.llm_router import LLMRouter
+
+        ctx = {"role": "chat", "context_type": "user"}
+        assert LLMRouter.evaluate_rule_condition("role=chat AND context_type=user", ctx) is True
+        assert LLMRouter.evaluate_rule_condition("role=chat AND context_type=background", ctx) is False
+
+    def test_or_operator(self):
+        from python.helpers.llm_router import LLMRouter
+
+        ctx = {"role": "chat", "context_type": "user"}
+        assert LLMRouter.evaluate_rule_condition("role=chat OR role=utility", ctx) is True
+        assert LLMRouter.evaluate_rule_condition("role=utility OR role=browser", ctx) is False
+
+    def test_mixed_and_or(self):
+        from python.helpers.llm_router import LLMRouter
+
+        ctx = {"role": "chat", "context_type": "user"}
+        # OR branches: (role=utility AND context_type=user) OR (role=chat)
+        assert LLMRouter.evaluate_rule_condition("role=utility AND context_type=user OR role=chat", ctx) is True
+
+    def test_missing_key_returns_false(self):
+        from python.helpers.llm_router import LLMRouter
+
+        assert LLMRouter.evaluate_rule_condition("missing_key=value", {}) is False
+
+    def test_bare_key_truthy(self):
+        from python.helpers.llm_router import LLMRouter
+
+        assert LLMRouter.evaluate_rule_condition("role", {"role": "chat"}) is True
+        assert LLMRouter.evaluate_rule_condition("missing", {"role": "chat"}) is False
+
+
+# ── 12. Routing Rules Applied in select_model ───────────────────────────────
+
+
+class TestRoutingRulesApplied:
+    """Test that routing rules actually influence model selection."""
+
+    def _make_router_with_models(self, tmp_path, rules=None):
+        """Create a real router with in-memory DB and sample models."""
+        from python.helpers.llm_router import LLMRouter, LLMRouterDatabase
+
+        db_path = str(tmp_path / "test_router.db")
+        db = LLMRouterDatabase(db_path)
+        router = LLMRouter.__new__(LLMRouter)
+        router.db = db
+        router.MODEL_CATALOG = {}
+
+        # Register sample models
+        for m in SAMPLE_MODELS:
+            db.save_model(m)
+
+        # Also add a fast cheap model
+        fast_model = _make_model(
+            "groq",
+            "llama-3-8b",
+            False,
+            display_name="Llama 3 8B",
+            capabilities=["chat", "fast", "cheap"],
+            context_length=8192,
+            cost_per_1k_input=0.05,
+            cost_per_1k_output=0.08,
+        )
+        db.save_model(fast_model)
+
+        # Add rules
+        if rules:
+            for rule in rules:
+                db.save_routing_rule(rule)
+
+        return router
+
+    def test_rule_excludes_model(self, tmp_path):
+        """A rule excluding a model should remove it from candidates."""
+        rule = RoutingRule(
+            name="no-gpt4o",
+            priority=10,
+            excluded_models=["openai/gpt-4o"],
+            enabled=True,
+        )
+        router = self._make_router_with_models(tmp_path, rules=[rule])
+        result = router.select_model(role="chat", priority=RoutingPriority.QUALITY)
+        assert result is not None
+        assert result.name != "gpt-4o"
+
+    def test_rule_prefers_model(self, tmp_path):
+        """A rule preferring a model should boost its score."""
+        rule = RoutingRule(
+            name="prefer-groq",
+            priority=10,
+            preferred_models=["groq/llama-3-8b"],
+            enabled=True,
+        )
+        router = self._make_router_with_models(tmp_path, rules=[rule])
+        result = router.select_model(role="chat", priority=RoutingPriority.BALANCED)
+        assert result is not None
+        # Groq gets +50 rule boost on top of its base score
+        assert result.provider == "groq"
+
+    def test_rule_with_condition_matches(self, tmp_path):
+        """A rule with role=chat condition should only apply to chat role."""
+        rule = RoutingRule(
+            name="chat-only-exclude-anthropic",
+            priority=10,
+            condition="role=chat",
+            excluded_models=["anthropic/claude-sonnet-4-20250514"],
+            enabled=True,
+        )
+        router = self._make_router_with_models(tmp_path, rules=[rule])
+
+        # Chat role: anthropic excluded
+        chat_result = router.select_model(role="chat", priority=RoutingPriority.QUALITY)
+        assert chat_result is not None
+        assert chat_result.provider != "anthropic"
+
+        # Utility role: anthropic NOT excluded (condition doesn't match)
+        util_result = router.select_model(role="utility", priority=RoutingPriority.QUALITY)
+        assert util_result is not None
+        # Anthropic could be selected for utility
+
+    def test_disabled_rule_ignored(self, tmp_path):
+        """Disabled rules should have no effect."""
+        rule = RoutingRule(
+            name="disabled-rule",
+            priority=10,
+            excluded_models=["openai/gpt-4o", "anthropic/claude-sonnet-4-20250514", "groq/llama-3-8b"],
+            enabled=False,
+        )
+        router = self._make_router_with_models(tmp_path, rules=[rule])
+        result = router.select_model(role="chat", priority=RoutingPriority.QUALITY)
+        assert result is not None
+        # All models should still be available
+
+    def test_rule_max_cost_constraint(self, tmp_path):
+        """A rule with max_cost_per_1k should filter expensive models."""
+        rule = RoutingRule(
+            name="budget-cap",
+            priority=10,
+            max_cost_per_1k=0.1,
+            enabled=True,
+        )
+        router = self._make_router_with_models(tmp_path, rules=[rule])
+        result = router.select_model(role="chat", priority=RoutingPriority.QUALITY)
+        assert result is not None
+        # Only local (free) and groq (0.08) should survive
+        assert max(result.cost_per_1k_input, result.cost_per_1k_output) <= 0.1
+
+    def test_multiple_rules_merge(self, tmp_path):
+        """Multiple matching rules should merge their constraints."""
+        rules = [
+            RoutingRule(
+                name="no-anthropic", priority=10, excluded_models=["anthropic/claude-sonnet-4-20250514"], enabled=True
+            ),
+            RoutingRule(name="no-openai", priority=5, excluded_models=["openai/gpt-4o"], enabled=True),
+        ]
+        router = self._make_router_with_models(tmp_path, rules=rules)
+        result = router.select_model(role="chat", priority=RoutingPriority.QUALITY)
+        assert result is not None
+        assert result.provider not in ("openai", "anthropic")

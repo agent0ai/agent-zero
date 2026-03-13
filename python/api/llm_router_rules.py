@@ -1,7 +1,25 @@
 """LLM Router - Manage routing rules"""
 
+import re
+
 from python.helpers.api import ApiHandler
 from python.helpers.llm_router import RoutingRule, get_router
+
+# Rule name constraints
+_MAX_RULE_NAME_LEN = 64
+_RULE_NAME_RE = re.compile(r"^[\w\s\-\.]+$")  # alphanumeric, spaces, hyphens, dots
+
+
+def _validate_rule_name(name: str | None) -> str | None:
+    """Return an error message if the rule name is invalid, else None."""
+    if not name or not name.strip():
+        return "Rule name is required"
+    name = name.strip()
+    if len(name) > _MAX_RULE_NAME_LEN:
+        return f"Rule name must be {_MAX_RULE_NAME_LEN} characters or fewer"
+    if not _RULE_NAME_RE.match(name):
+        return "Rule name may only contain letters, numbers, spaces, hyphens, underscores, and dots"
+    return None
 
 
 class LlmRouterRules(ApiHandler):
@@ -35,8 +53,9 @@ class LlmRouterRules(ApiHandler):
 
         elif action == "add":
             rule_data = input.get("rule", {})
-            if not rule_data.get("name"):
-                return {"success": False, "error": "Rule name is required"}
+            name_error = _validate_rule_name(rule_data.get("name"))
+            if name_error:
+                return {"success": False, "error": name_error}
 
             rule = RoutingRule(
                 name=rule_data["name"],

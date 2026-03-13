@@ -922,7 +922,10 @@ class LLMRouter:
         excluded_providers: list[str] | None = None,
     ) -> ModelInfo | None:
         """
-        Select the best model based on criteria
+        Select the best model based on criteria and active routing rules.
+
+        Routing rules are loaded from the database and applied in priority order.
+        Each rule can filter, constrain, or boost candidates.
 
         Args:
             role: Model role (chat, utility, browser, embedding)
@@ -964,9 +967,29 @@ class LLMRouter:
         required_capabilities = required_capabilities or []
         excluded_providers = excluded_providers or []
 
+        # Apply routing rules — merge constraints from all matching enabled rules.
+        rule_context = {"role": role, "context_type": context_type}
+        merged = self._merge_routing_rules(rule_context)
+
+        # Augment filters with rule-derived constraints
+        if merged["excluded_models"]:
+            excluded_providers = list(excluded_providers)  # copy
+        if merged["required_capabilities"]:
+            required_capabilities = list(set(required_capabilities) | set(merged["required_capabilities"]))
+        if merged["min_context_length"] > min_context_length:
+            min_context_length = merged["min_context_length"]
+        if merged["max_cost_per_1k"] > 0 and (max_cost_per_1k <= 0 or merged["max_cost_per_1k"] < max_cost_per_1k):
+            max_cost_per_1k = merged["max_cost_per_1k"]
+
         for model in models:
+            model_key = f"{model.provider}/{model.name}"
+
             # Filter by provider
             if model.provider in excluded_providers:
+                continue
+
+            # Filter by rule-excluded models (provider/name)
+            if model_key in merged["excluded_models"] or model.name in merged["excluded_models"]:
                 continue
 
             # Filter by context length
@@ -984,8 +1007,18 @@ class LLMRouter:
                 if not all(cap in model.capabilities for cap in required_capabilities):
                     continue
 
+            # Filter by max latency from rules
+            if merged["max_latency_ms"] > 0 and model.avg_latency_ms > 0:
+                if model.avg_latency_ms > merged["max_latency_ms"]:
+                    continue
+
             # Calculate priority score
             score = self._calculate_score(model, priority, context_type, preferred_provider)
+
+            # Boost preferred models from rules
+            if model_key in merged["preferred_models"] or model.name in merged["preferred_models"]:
+                score += 50  # Significant boost for rule-preferred models
+
             model.priority_score = score
             candidates.append(model)
 
@@ -1002,6 +1035,88 @@ class LLMRouter:
         # Sort by score (descending)
         candidates.sort(key=lambda m: m.priority_score, reverse=True)
         return candidates[0]
+
+    @staticmethod
+    def evaluate_rule_condition(condition: str, context: dict[str, str]) -> bool:
+        """
+        Evaluate a routing rule condition against a context dict.
+
+        Uses a safe key=value matching grammar (NO eval/exec). Supports:
+          - Simple: ``role=chat``
+          - AND:    ``role=chat AND context_type=user``
+          - OR:     ``role=chat OR role=utility``
+          - NOT:    ``role!=background``
+          - Mixed:  ``role=chat AND context_type!=background``
+
+        Keys are matched case-insensitively against *context* keys.
+        Values are matched case-insensitively.
+        An empty or whitespace-only condition always matches (returns True).
+        """
+        condition = (condition or "").strip()
+        if not condition:
+            return True
+
+        # Normalise context keys to lower-case for matching
+        ctx = {k.lower(): str(v).lower() for k, v in context.items()}
+
+        def _eval_atom(atom: str) -> bool:
+            atom = atom.strip()
+            if "!=" in atom:
+                key, _, val = atom.partition("!=")
+                return ctx.get(key.strip().lower(), "") != val.strip().lower()
+            elif "=" in atom:
+                key, _, val = atom.partition("=")
+                return ctx.get(key.strip().lower(), "") == val.strip().lower()
+            # Bare key = truthy check
+            return bool(ctx.get(atom.lower(), ""))
+
+        # Split on OR first (lower precedence), then AND within each OR-branch
+        or_branches = [b.strip() for b in condition.split(" OR ")]
+        for branch in or_branches:
+            and_atoms = [a.strip() for a in branch.split(" AND ")]
+            if all(_eval_atom(a) for a in and_atoms):
+                return True
+        return False
+
+    def _merge_routing_rules(self, context: dict[str, str]) -> dict:
+        """
+        Load enabled routing rules, evaluate conditions, and merge matching
+        rules (ordered by priority descending) into a single constraints dict.
+        """
+        merged: dict[str, Any] = {
+            "preferred_models": set(),
+            "excluded_models": set(),
+            "required_capabilities": set(),
+            "min_context_length": 0,
+            "max_cost_per_1k": 0.0,
+            "max_latency_ms": 0,
+        }
+
+        try:
+            rules = self.db.get_routing_rules(enabled_only=True)
+        except Exception:
+            return merged
+
+        for rule in rules:
+            if not self.evaluate_rule_condition(rule.condition, context):
+                continue
+
+            # Merge preferred / excluded
+            merged["preferred_models"].update(rule.preferred_models)
+            merged["excluded_models"].update(rule.excluded_models)
+            merged["required_capabilities"].update(rule.required_capabilities)
+
+            # Tightest constraint wins
+            if rule.min_context_length > merged["min_context_length"]:
+                merged["min_context_length"] = rule.min_context_length
+            if rule.max_cost_per_1k > 0:
+                if merged["max_cost_per_1k"] <= 0 or rule.max_cost_per_1k < merged["max_cost_per_1k"]:
+                    merged["max_cost_per_1k"] = rule.max_cost_per_1k
+            if rule.max_latency_ms > 0:
+                if merged["max_latency_ms"] <= 0 or rule.max_latency_ms < merged["max_latency_ms"]:
+                    merged["max_latency_ms"] = rule.max_latency_ms
+
+        return merged
 
     def _calculate_score(
         self, model: ModelInfo, priority: RoutingPriority, context_type: str, preferred_provider: str | None = None
@@ -1262,15 +1377,21 @@ class LLMRouter:
         return results
 
 
+import threading as _threading
+
 # Singleton instance
 _router_instance: LLMRouter | None = None
+_router_lock = _threading.Lock()
 
 
 def get_router() -> LLMRouter:
-    """Get the global LLM router instance"""
+    """Get the global LLM router instance (thread-safe)."""
     global _router_instance
     if _router_instance is None:
-        _router_instance = LLMRouter()
+        with _router_lock:
+            # Double-checked locking
+            if _router_instance is None:
+                _router_instance = LLMRouter()
     return _router_instance
 
 

@@ -936,8 +936,25 @@ class Agent:
                 from python.helpers.llm_router import RoutingPriority, get_router
 
                 router = get_router()
+
+                # Derive context signals from conversation history
+                capabilities = ["chat"]
+                context_type = "USER"
+                if hasattr(self, "history") and self.history:
+                    history_text = self.history.output_text("user", "assistant")[-2000:]
+                    ht_lower = history_text.lower()
+                    if any(kw in ht_lower for kw in ("code", "function", "debug", "implement", "refactor")):
+                        capabilities.append("code")
+                    if any(kw in ht_lower for kw in ("image", "screenshot", "photo", "picture", "diagram")):
+                        capabilities.append("vision")
+                    if any(kw in ht_lower for kw in ("reason", "analyze", "complex", "math", "proof")):
+                        capabilities.append("reasoning")
+
                 model_info = router.select_model(
-                    role="chat", context_type="USER", priority=RoutingPriority.QUALITY, required_capabilities=["chat"]
+                    role="chat",
+                    context_type=context_type,
+                    priority=RoutingPriority.QUALITY,
+                    required_capabilities=capabilities,
                 )
                 if model_info:
                     logging.info(f"[LLMRouter] Selected chat model: {model_info.provider}/{model_info.name}")
@@ -1095,6 +1112,14 @@ class Agent:
             rate_limiter_callback=self.rate_limiter_callback if not call_data["background"] else None,
         )
 
+        # Record usage for dashboard stats
+        self._record_router_usage(
+            self.config.utility_model.provider,
+            self.config.utility_model.name,
+            response,
+            model_role="utility",
+        )
+
         return response
 
     def get_thinking_kwargs(self) -> dict:
@@ -1190,12 +1215,52 @@ class Agent:
             **thinking_kwargs,
         )
 
+        # Record usage for dashboard stats (non-failover path)
+        self._record_router_usage(
+            self.config.chat_model.provider,
+            self.config.chat_model.name,
+            response,
+            reasoning,
+            model_role="chat",
+        )
+
         return response, reasoning
 
     async def rate_limiter_callback(self, message: str, key: str, total: int, limit: int):
         # show the rate limit waiting in a progress bar, no need to spam the chat history
         self.context.log.set_progress(message, True)
         return False
+
+    def _record_router_usage(
+        self,
+        provider: str,
+        model_name: str,
+        response: str | None = None,
+        reasoning: str | None = None,
+        model_role: str | None = None,
+    ):
+        """Record a model call in the router usage database (best-effort)."""
+        try:
+            from python.helpers import settings as settings_helper
+
+            if not settings_helper.get_settings().get("llm_router_enabled", False):
+                return
+
+            from python.helpers.llm_router import get_router
+            from python.helpers.tokens import approximate_tokens
+
+            output_tokens = approximate_tokens(response or "") + approximate_tokens(reasoning or "")
+            get_router().record_call(
+                provider=provider,
+                model_name=model_name,
+                input_tokens=0,  # not available from unified_call
+                output_tokens=output_tokens,
+                latency_ms=0,  # not tracked on this path
+                success=True,
+                model_role=model_role,
+            )
+        except Exception:
+            pass  # non-critical — never break agent flow
 
     async def handle_intervention(self, progress: str = ""):
         while self.context.paused:

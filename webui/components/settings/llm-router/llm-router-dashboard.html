@@ -276,10 +276,17 @@
                 </div>
               </div>
               <div class="form-actions">
-                <button class="btn btn-ok" @click="$store.llmRouterStore.addRule()">
-                  Save Rule
-                </button>
-                <button class="btn btn-secondary" @click="$store.llmRouterStore.resetNewRule()">
+                <template x-if="$store.llmRouterStore.editingRule">
+                  <button class="btn btn-ok" @click="$store.llmRouterStore.updateRule()">
+                    Update Rule
+                  </button>
+                </template>
+                <template x-if="!$store.llmRouterStore.editingRule">
+                  <button class="btn btn-ok" @click="$store.llmRouterStore.addRule()">
+                    Save Rule
+                  </button>
+                </template>
+                <button class="btn btn-secondary" @click="$store.llmRouterStore.cancelEditRule()">
                   Cancel
                 </button>
               </div>
@@ -301,6 +308,11 @@
                   <span class="rule-priority">Priority: <strong x-text="rule.priority"></strong></span>
                 </div>
                 <div class="rule-actions">
+                  <button class="btn btn-sm btn-secondary"
+                          @click="$store.llmRouterStore.startEditRule(rule)"
+                          title="Edit rule">
+                    ✏️
+                  </button>
                   <label class="switch switch-sm">
                     <input type="checkbox"
                            :checked="rule.enabled"
@@ -344,6 +356,18 @@
                   <div class="rule-detail">
                     <span class="detail-label">Max Cost:</span>
                     <span x-text="'$' + rule.maxCostPer1k + '/1K tokens'"></span>
+                  </div>
+                </template>
+                <template x-if="rule.maxLatencyMs > 0">
+                  <div class="rule-detail">
+                    <span class="detail-label">Max Latency:</span>
+                    <span x-text="rule.maxLatencyMs + ' ms'"></span>
+                  </div>
+                </template>
+                <template x-if="rule.requiredCapabilities && rule.requiredCapabilities.length > 0">
+                  <div class="rule-detail">
+                    <span class="detail-label">Required:</span>
+                    <span x-text="rule.requiredCapabilities.join(', ')"></span>
                   </div>
                 </template>
               </div>

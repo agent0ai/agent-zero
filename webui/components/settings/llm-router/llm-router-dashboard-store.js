@@ -286,6 +286,69 @@ const model = {
     }
   },
 
+  // Edit rule support
+  editingRule: null,  // name of rule being edited, or null
+
+  startEditRule(rule) {
+    this.editingRule = rule.name;
+    this.newRule = {
+      name: rule.name,
+      priority: rule.priority || 0,
+      condition: rule.condition || "",
+      preferredModels: Array.isArray(rule.preferredModels) ? rule.preferredModels.join(", ") : "",
+      excludedModels: Array.isArray(rule.excludedModels) ? rule.excludedModels.join(", ") : "",
+      minContextLength: rule.minContextLength || 0,
+      maxCostPer1k: rule.maxCostPer1k || 0,
+      maxLatencyMs: rule.maxLatencyMs || 0,
+      requiredCapabilities: Array.isArray(rule.requiredCapabilities) ? rule.requiredCapabilities.join(", ") : "",
+      enabled: rule.enabled !== false,
+    };
+    this.showAddRule = true;
+  },
+
+  cancelEditRule() {
+    this.editingRule = null;
+    this.resetNewRule();
+  },
+
+  async updateRule() {
+    if (!this.editingRule) return;
+    try {
+      const rule = {
+        name: this.newRule.name.trim(),
+        priority: parseInt(this.newRule.priority) || 0,
+        condition: this.newRule.condition,
+        preferredModels: this.newRule.preferredModels
+          ? this.newRule.preferredModels.split(",").map((s) => s.trim()).filter(Boolean)
+          : [],
+        excludedModels: this.newRule.excludedModels
+          ? this.newRule.excludedModels.split(",").map((s) => s.trim()).filter(Boolean)
+          : [],
+        minContextLength: parseInt(this.newRule.minContextLength) || 0,
+        maxCostPer1k: parseFloat(this.newRule.maxCostPer1k) || 0,
+        maxLatencyMs: parseInt(this.newRule.maxLatencyMs) || 0,
+        requiredCapabilities: this.newRule.requiredCapabilities
+          ? this.newRule.requiredCapabilities.split(",").map((s) => s.trim()).filter(Boolean)
+          : [],
+        enabled: this.newRule.enabled,
+      };
+      const resp = await callJsonApi("/llm_router_rules", {
+        action: "update",
+        name: this.editingRule,
+        rule,
+      });
+      if (resp.success) {
+        this.editingRule = null;
+        this.resetNewRule();
+        await this.loadRules();
+      } else {
+        throw new Error(resp.error || "Failed to update rule");
+      }
+    } catch (err) {
+      this.error = err.message;
+    }
+  },
+
   // Helper methods
   formatCost(cost) {
     if (cost == null || cost === undefined) return "$0.00";
