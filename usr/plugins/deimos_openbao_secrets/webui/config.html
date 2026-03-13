@@ -1,38 +1,252 @@
-<div id="openbao-config">
-  <h3>OpenBao Secrets Configuration</h3>
-  <p class="text-muted">Configure OpenBao KV v2 as the secrets backend. Requires upstream PR #1246.</p>
+<html>
+<head>
+    <title>Deimos OpenBao Secrets</title>
+</head>
+<body>
+    <div x-data>
+        <template x-if="config">
+            <div>
+                <div class="section-title">
+                    <span>&#127760;</span> Deimos OpenBao Plugin Settings
+                </div>
+                <div class="section-description">
+                    Replaces Agent Zero's secrets management with <a href="https://openbao.org" target="_blank">OpenBao</a> KV v2.
+                    Credentials (<code>OPENBAO_TOKEN</code>, <code>OPENBAO_ROLE_ID</code>, <code>OPENBAO_SECRET_ID</code>) should be stored in
+                    <strong>A0 Secrets</strong> (project or global), not here.
+                </div>
 
-  <div class="form-group">
-    <label><input type="checkbox" id="openbao-enabled"> Enable OpenBao Backend</label>
-  </div>
+                <!-- Enable / Disable -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Enable OpenBao Backend</div>
+                        <div class="field-description">
+                            When enabled, all secrets are sourced from OpenBao instead of <code>.env</code> files.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.enabled" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
 
-  <div class="form-group">
-    <label for="openbao-url">OpenBao URL</label>
-    <input type="text" id="openbao-url" class="form-control" placeholder="http://127.0.0.1:8200">
-  </div>
+                <!-- URL -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">OpenBao URL</div>
+                        <div class="field-description">
+                            Full URL to your OpenBao server including protocol and port.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="text" x-model="config.url" placeholder="http://127.0.0.1:8200" />
+                    </div>
+                </div>
 
-  <div class="form-group">
-    <label for="openbao-auth">Authentication Method</label>
-    <select id="openbao-auth" class="form-control">
-      <option value="approle">AppRole</option>
-      <option value="token">Token</option>
-    </select>
-  </div>
+                <!-- Auth Method -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Authentication Method</div>
+                        <div class="field-description">
+                            <b>Token</b>: Direct token authentication. Set <code>OPENBAO_TOKEN</code> in A0 Secrets.<br>
+                            <b>AppRole</b>: Machine-to-machine auth. Set <code>OPENBAO_ROLE_ID</code> and <code>OPENBAO_SECRET_ID</code> in A0 Secrets.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <select x-model="config.auth_method">
+                            <option value="token">Token</option>
+                            <option value="approle">AppRole</option>
+                        </select>
+                    </div>
+                </div>
 
-  <div class="form-group">
-    <label for="openbao-mount">Mount Point</label>
-    <input type="text" id="openbao-mount" class="form-control" placeholder="secret">
-  </div>
+                <!-- Mount Point -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Mount Point</div>
+                        <div class="field-description">
+                            The KV v2 secrets engine mount path in OpenBao. This is the "volume" name
+                            where your secrets engine is enabled. Most installations use <code>secret</code>.
+                            <br><br>
+                            <em>Set with:</em> <code>bao secrets enable -path=secret kv-v2</code>
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="text" x-model="config.mount_point" placeholder="secret" />
+                    </div>
+                </div>
 
-  <div class="form-group">
-    <label for="openbao-path">Secrets Path</label>
-    <input type="text" id="openbao-path" class="form-control" placeholder="agentzero">
-  </div>
+                <!-- Secrets Path -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Secrets Path</div>
+                        <div class="field-description">
+                            The path within the mount point where A0's secrets are stored as KV pairs.
+                            Think of this as the "folder" inside the secrets engine.
+                            <br><br>
+                            <em>Write secrets with:</em> <code>bao kv put secret/<b>agentzero</b> API_KEY=sk-... DB_PASSWORD=...</code>
+                            <br>
+                            <em>For multi-env:</em> <code>agentzero/prod</code>, <code>agentzero/staging</code>
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="text" x-model="config.secrets_path" placeholder="agentzero" />
+                    </div>
+                </div>
 
-  <div class="form-group">
-    <button id="openbao-health-check" class="btn btn-outline-secondary">Test Connection</button>
-    <span id="openbao-health-status"></span>
-  </div>
+                <!-- Fallback to .env -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Fallback to .env Files</div>
+                        <div class="field-description">
+                            When enabled, falls back to <code>.env</code> files if OpenBao is unreachable.
+                            Disable for strict mode where secrets are <em>only</em> sourced from OpenBao.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.fallback_to_env" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
 
-  <!-- TODO: Full implementation with save/load, TLS options, resilience tuning -->
-</div>
+                <!-- TLS Verify -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Verify TLS Certificates</div>
+                        <div class="field-description">
+                            Verify the OpenBao server's TLS certificate. Disable only for development.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.tls_verify" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- TLS CA Cert -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">CA Certificate Path</div>
+                        <div class="field-description">
+                            Path to a custom CA certificate bundle for TLS verification. Leave empty to use system defaults.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="text" x-model="config.tls_ca_cert" placeholder="/path/to/ca-bundle.crt" />
+                    </div>
+                </div>
+
+                <!-- Timeout -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">HTTP Timeout (seconds)</div>
+                        <div class="field-description">
+                            Maximum time to wait for OpenBao API responses.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" max="120" step="0.5" x-model.number="config.timeout" />
+                    </div>
+                </div>
+
+                <!-- Cache TTL -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Cache TTL (seconds)</div>
+                        <div class="field-description">
+                            How long to cache secrets before re-fetching from OpenBao. Set to 0 to disable caching.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" max="3600" x-model.number="config.cache_ttl" />
+                    </div>
+                </div>
+
+                <!-- Retry Attempts -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Retry Attempts</div>
+                        <div class="field-description">
+                            Maximum retries on transient failures (connection errors, timeouts).
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" max="10" x-model.number="config.retry_attempts" />
+                    </div>
+                </div>
+
+                <!-- Circuit Breaker Threshold -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Circuit Breaker Threshold</div>
+                        <div class="field-description">
+                            Consecutive failures before the circuit opens (fail-fast mode).
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" max="50" x-model.number="config.circuit_breaker_threshold" />
+                    </div>
+                </div>
+
+                <!-- Circuit Breaker Recovery -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Circuit Breaker Recovery (seconds)</div>
+                        <div class="field-description">
+                            Seconds before a tripped circuit breaker allows a test request through.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="5" max="600" x-model.number="config.circuit_breaker_recovery" />
+                    </div>
+                </div>
+
+                <!-- Test Connection -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Connection Test</div>
+                        <div class="field-description">
+                            Test connectivity to OpenBao using the current settings.
+                            <span x-show="config._test_result" x-text="config._test_result" style="font-weight:bold;"></span>
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <button class="btn btn-field" @click="
+                            config._test_result = 'Testing...';
+                            fetch('/api_call', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    endpoint: 'plugins',
+                                    action: 'test_openbao_connection',
+                                    plugin_name: 'deimos_openbao_secrets',
+                                    config: {
+                                        url: config.url,
+                                        auth_method: config.auth_method,
+                                        mount_point: config.mount_point,
+                                        secrets_path: config.secrets_path,
+                                        tls_verify: config.tls_verify,
+                                        tls_ca_cert: config.tls_ca_cert,
+                                        timeout: config.timeout
+                                    }
+                                })
+                            })
+                            .then(r => r.json())
+                            .then(d => { config._test_result = d.ok ? '✅ Connected: ' + (d.data?.status || 'OK') : '❌ ' + (d.error || 'Failed'); })
+                            .catch(e => { config._test_result = '❌ Error: ' + e.message; });
+                        ">
+                            Test Connection
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </template>
+    </div>
+</body>
+</html>
