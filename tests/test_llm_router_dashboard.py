@@ -206,7 +206,7 @@ class TestDashboardApiContract:
 
     @pytest.mark.asyncio
     async def test_defaults_included_when_set(self):
-        """defaults should map role → {provider, model_name}."""
+        """defaults should map role → {provider, modelName}."""
         from python.api.llm_router_dashboard import LlmRouterDashboard
 
         handler = LlmRouterDashboard(SimpleNamespace(), SimpleNamespace())
@@ -227,7 +227,7 @@ class TestDashboardApiContract:
 
         assert "chat" in result["defaults"]
         assert result["defaults"]["chat"]["provider"] == "anthropic"
-        assert result["defaults"]["chat"]["model_name"] == "claude-sonnet-4-20250514"
+        assert result["defaults"]["chat"]["modelName"] == "claude-sonnet-4-20250514"
         assert "utility" not in result["defaults"]
 
     @pytest.mark.asyncio
@@ -424,9 +424,9 @@ class TestFrontendStoreCompat:
                     {
                         "provider": provider,
                         "name": model["name"],
-                        "displayName": model.get("display_name") or model["name"],
-                        "isLocal": model.get("is_local", False),
-                        "contextLength": model.get("context_length", 0),
+                        "displayName": model.get("displayName") or model["name"],
+                        "isLocal": model.get("isLocal", False),
+                        "contextLength": model.get("contextLength", 0),
                     }
                 )
 

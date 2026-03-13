@@ -412,6 +412,21 @@ class LLMRouterDatabase:
                 for row in rows
             ]
 
+    def delete_routing_rule(self, name: str) -> bool:
+        """Delete a routing rule by name. Returns True if a rule was deleted."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("DELETE FROM routing_rules WHERE name = ?", (name,))
+            return cursor.rowcount > 0
+
+    def toggle_routing_rule(self, name: str, enabled: bool) -> bool:
+        """Enable or disable a routing rule by name. Returns True if a rule was updated."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "UPDATE routing_rules SET enabled = ? WHERE name = ?",
+                (1 if enabled else 0, name),
+            )
+            return cursor.rowcount > 0
+
     def set_model_alias(self, alias: str, provider: str, model_name: str, description: str = ""):
         """Set a model alias for easy switching"""
         with sqlite3.connect(self.db_path) as conn:

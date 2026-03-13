@@ -105,9 +105,9 @@ const model = {
         this.availableModels.push({
           provider: provider,
           name: model.name,
-          displayName: model.display_name || model.name,
-          isLocal: model.is_local,
-          contextLength: model.context_length,
+          displayName: model.displayName || model.name,
+          isLocal: model.isLocal,
+          contextLength: model.contextLength,
         });
       }
     }
@@ -155,7 +155,7 @@ const model = {
         model_name: modelName,
       });
       if (resp.success) {
-        this.defaults[role] = { provider, model_name: modelName };
+        this.defaults[role] = { provider, modelName: modelName };
       } else {
         throw new Error(resp.error || "Failed to set default");
       }
@@ -196,7 +196,7 @@ const model = {
   getDefaultDisplay(role) {
     const def = this.defaults[role];
     if (!def || !def.provider) return "Not set";
-    return `${def.provider}/${def.model_name}`;
+    return `${def.provider}/${def.modelName}`;
   },
 
   // Model selection for dropdowns

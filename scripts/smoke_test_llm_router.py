@@ -216,6 +216,45 @@ ENDPOINTS = [
         "notes": ["Updates settings + router default"],
         "state_changing": True,
     },
+    {
+        "name": "llm_router_select",
+        "payload": {"role": "chat", "priority": "INVALID_JUNK_VALUE"},
+        "required_keys": ["success"],
+        "allow_failure": True,
+        "notes": ["Invalid priority should fallback to BALANCED, not crash"],
+        "state_changing": False,
+        "custom_name": "llm_router_select (invalid priority)",
+    },
+    {
+        "name": "llm_router_fallback",
+        "payload": {"role": "chat", "priority": "NOT_A_REAL_PRIORITY"},
+        "required_keys": ["success"],
+        "allow_failure": True,
+        "notes": ["Invalid priority should fallback to BALANCED, not crash"],
+        "state_changing": False,
+        "custom_name": "llm_router_fallback (invalid priority)",
+    },
+    {
+        "name": "llm_router_rules",
+        "payload": {"action": "add", "rule": {"name": "_smoke_test_rule", "priority": 1, "enabled": True}},
+        "required_keys": ["success"],
+        "state_changing": True,
+        "custom_name": "llm_router_rules (add)",
+    },
+    {
+        "name": "llm_router_rules",
+        "payload": {"action": "toggle", "name": "_smoke_test_rule", "enabled": False},
+        "required_keys": ["success"],
+        "state_changing": True,
+        "custom_name": "llm_router_rules (toggle)",
+    },
+    {
+        "name": "llm_router_rules",
+        "payload": {"action": "delete", "name": "_smoke_test_rule"},
+        "required_keys": ["success"],
+        "state_changing": True,
+        "custom_name": "llm_router_rules (delete)",
+    },
 ]
 
 
@@ -225,7 +264,8 @@ ENDPOINTS = [
 def test_endpoint(session: requests.Session, base_url: str, endpoint: dict) -> TestResult:
     """Test a single endpoint and return results."""
     name = endpoint["name"]
-    result = TestResult(endpoint=name, passed=False)
+    display_name = endpoint.get("custom_name", name)
+    result = TestResult(endpoint=display_name, passed=False)
 
     try:
         start = time.monotonic()
@@ -291,8 +331,8 @@ def run_all_tests(base_url: str, skip_state: bool = False) -> list[TestResult]:
         endpoints = [e for e in ENDPOINTS if not e.get("state_changing")]
 
     for i, endpoint in enumerate(endpoints, 1):
-        name = endpoint["name"]
-        print(f"[{i}/{len(endpoints)}] {name}...", end=" ", flush=True)
+        display_name = endpoint.get("custom_name", endpoint["name"])
+        print(f"[{i}/{len(endpoints)}] {display_name}...", end=" ", flush=True)
 
         result = test_endpoint(session, base_url, endpoint)
         results.append(result)

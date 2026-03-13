@@ -112,7 +112,7 @@
                     </option>
                     <template x-for="model in $store.llmRouterStore.availableModels" :key="model.provider + '/' + model.name">
                       <option :value="model.provider + '/' + model.name"
-                              :selected="$store.llmRouterStore.defaults[role]?.provider === model.provider && $store.llmRouterStore.defaults[role]?.model_name === model.name">
+                              :selected="$store.llmRouterStore.defaults[role]?.provider === model.provider && $store.llmRouterStore.defaults[role]?.modelName === model.name">
                         <span x-text="model.provider"></span>/<span x-text="model.name"></span>
                         (<span x-text="model.isLocal ? 'Local' : 'Cloud'"></span>)
                       </option>
@@ -169,21 +169,21 @@
                 <template x-for="model in models" :key="model.name">
                   <div class="models-row">
                     <span class="col-name">
-                      <span class="model-name" x-text="model.display_name || model.name"></span>
-                      <span class="model-id" x-text="model.name" x-show="model.display_name !== model.name"></span>
+                      <span class="model-name" x-text="model.displayName || model.name"></span>
+                      <span class="model-id" x-text="model.name" x-show="model.displayName !== model.name"></span>
                     </span>
-                    <span class="col-context" x-text="$store.llmRouterStore.formatContextLength(model.context_length)"></span>
+                    <span class="col-context" x-text="$store.llmRouterStore.formatContextLength(model.contextLength)"></span>
                     <span class="col-cost">
-                      <template x-if="model.is_local">
+                      <template x-if="model.isLocal">
                         <span class="cost-local">Local</span>
                       </template>
-                      <template x-if="!model.is_local">
-                        <span x-text="'$' + (model.cost_per_1k_input || 0) + '/$' + (model.cost_per_1k_output || 0)"></span>
+                      <template x-if="!model.isLocal">
+                        <span x-text="'$' + (model.costPer1kInput || 0) + '/$' + (model.costPer1kOutput || 0)"></span>
                       </template>
                     </span>
                     <span class="col-type">
-                      <span class="type-badge" :class="model.is_local ? 'type-local' : 'type-cloud'"
-                            x-text="model.is_local ? 'Local' : 'Cloud'"></span>
+                      <span class="type-badge" :class="model.isLocal ? 'type-local' : 'type-cloud'"
+                            x-text="model.isLocal ? 'Local' : 'Cloud'"></span>
                     </span>
                   </div>
                 </template>

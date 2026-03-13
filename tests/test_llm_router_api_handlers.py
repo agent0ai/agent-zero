@@ -95,6 +95,9 @@ def _mock_router(models=None, defaults=None, usage=None, rules=None):
     router.get_default_model.side_effect = lambda role: defaults.get(role) if defaults else None
     router.get_usage_stats.return_value = usage or {"total_calls": 0, "total_cost": 0.0, "by_model": []}
     router.get_routing_rules.return_value = rules or []
+    router.db.get_routing_rules.return_value = rules or []
+    router.db.delete_routing_rule.return_value = True
+    router.db.toggle_routing_rule.return_value = True
     router.select_model.return_value = (models or [None])[0]
     router.get_fallback_chain.return_value = (models or [])[1:] if models and len(models) > 1 else []
     router.discover_models = AsyncMock(return_value=models or [])
@@ -318,6 +321,9 @@ class TestLlmRouterRules:
         assert len(result["rules"]) == 1
         assert result["rules"][0]["name"] == "prefer-local"
         assert result["rules"][0]["enabled"] is True
+        # Verify camelCase serialization
+        assert result["rules"][0]["preferredModels"] == ["ollama/qwen2.5-coder:3b"]
+        assert "preferred_models" not in result["rules"][0]
 
     @pytest.mark.asyncio
     async def test_add_rule_success(self):
@@ -357,10 +363,164 @@ class TestLlmRouterRules:
         handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
         with patch("python.api.llm_router_rules.get_router") as mock_gr:
             mock_gr.return_value = _mock_router()
-            result = await handler.process({"action": "delete"}, DummyRequest())
+            result = await handler.process({"action": "purge"}, DummyRequest())
 
         assert result["success"] is False
         assert "unknown" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_delete_rule_success(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            router = _mock_router()
+            mock_gr.return_value = router
+            result = await handler.process({"action": "delete", "name": "old-rule"}, DummyRequest())
+
+        assert result["success"] is True
+        assert "old-rule" in result["message"]
+        router.db.delete_routing_rule.assert_called_once_with("old-rule")
+
+    @pytest.mark.asyncio
+    async def test_delete_rule_not_found(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            router = _mock_router()
+            router.db.delete_routing_rule.return_value = False
+            mock_gr.return_value = router
+            result = await handler.process({"action": "delete", "name": "nonexistent"}, DummyRequest())
+
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_delete_rule_missing_name(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            mock_gr.return_value = _mock_router()
+            result = await handler.process({"action": "delete"}, DummyRequest())
+
+        assert result["success"] is False
+        assert "name" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_toggle_rule_enable(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            router = _mock_router()
+            mock_gr.return_value = router
+            result = await handler.process({"action": "toggle", "name": "my-rule", "enabled": True}, DummyRequest())
+
+        assert result["success"] is True
+        assert "enabled" in result["message"]
+        router.db.toggle_routing_rule.assert_called_once_with("my-rule", True)
+
+    @pytest.mark.asyncio
+    async def test_toggle_rule_disable(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            router = _mock_router()
+            mock_gr.return_value = router
+            result = await handler.process({"action": "toggle", "name": "my-rule", "enabled": False}, DummyRequest())
+
+        assert result["success"] is True
+        assert "disabled" in result["message"]
+        router.db.toggle_routing_rule.assert_called_once_with("my-rule", False)
+
+    @pytest.mark.asyncio
+    async def test_toggle_rule_not_found(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            router = _mock_router()
+            router.db.toggle_routing_rule.return_value = False
+            mock_gr.return_value = router
+            result = await handler.process({"action": "toggle", "name": "gone", "enabled": True}, DummyRequest())
+
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_toggle_rule_missing_enabled(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            mock_gr.return_value = _mock_router()
+            result = await handler.process({"action": "toggle", "name": "my-rule"}, DummyRequest())
+
+        assert result["success"] is False
+        assert "enabled" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_update_rule_success(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            router = _mock_router()
+            mock_gr.return_value = router
+            result = await handler.process(
+                {"action": "update", "rule": {"name": "my-rule", "priority": 10, "maxCostPer1k": 1.0}},
+                DummyRequest(),
+            )
+
+        assert result["success"] is True
+        assert "updated" in result["message"].lower()
+        router.add_routing_rule.assert_called_once()
+        updated_rule = router.add_routing_rule.call_args[0][0]
+        assert updated_rule.name == "my-rule"
+        assert updated_rule.priority == 10
+        assert updated_rule.max_cost_per_1k == 1.0
+
+    @pytest.mark.asyncio
+    async def test_update_rule_missing_name(self):
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            mock_gr.return_value = _mock_router()
+            result = await handler.process({"action": "update", "rule": {"priority": 5}}, DummyRequest())
+
+        assert result["success"] is False
+        assert "name" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_add_rule_camelcase_input(self):
+        """Verify add action accepts camelCase input (primary) alongside snake_case (compat)."""
+        from python.api.llm_router_rules import LlmRouterRules
+
+        handler = LlmRouterRules(SimpleNamespace(), SimpleNamespace())
+        with patch("python.api.llm_router_rules.get_router") as mock_gr:
+            router = _mock_router()
+            mock_gr.return_value = router
+            result = await handler.process(
+                {
+                    "action": "add",
+                    "rule": {
+                        "name": "camel-test",
+                        "priority": 3,
+                        "preferredModels": ["ollama/llama3"],
+                        "minContextLength": 8192,
+                    },
+                },
+                DummyRequest(),
+            )
+
+        assert result["success"] is True
+        added_rule = router.add_routing_rule.call_args[0][0]
+        assert added_rule.preferred_models == ["ollama/llama3"]
+        assert added_rule.min_context_length == 8192
 
 
 # ── 6. llm_router_select ────────────────────────────────────────────────────
