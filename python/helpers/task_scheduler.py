@@ -23,10 +23,15 @@ from python.helpers.defer import DeferredTask
 from python.helpers.files import get_abs_path, make_dirs, read_file, write_file
 from python.helpers.localization import Localization
 from python.helpers import projects, guids
+from python.helpers.settings import get_default_value
 import pytz
 from typing import Annotated
 
 SCHEDULER_FOLDER = "usr/scheduler"
+
+
+def _stuck_timeout() -> int:
+    return get_default_value("scheduler_stuck_timeout", 1800)
 
 # ----------------------
 # Task Models
@@ -586,7 +591,7 @@ class SchedulerTaskList(BaseModel):
             await self.reload()
             return [
                 task for task in self.tasks
-                if task.check_schedule() and task.state == TaskState.IDLE
+                if task.check_schedule() and task.state in (TaskState.IDLE, TaskState.ERROR)
             ]
 
     def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
@@ -703,8 +708,38 @@ class TaskScheduler:
         return self._tasks.find_task_by_name(name)
 
     async def tick(self):
+        await self._recover_stuck_tasks()
         for task in await self._tasks.get_due_tasks():
             await self._run_task(task)
+
+    async def _recover_stuck_tasks(self):
+        """Detect and recover tasks stuck in RUNNING state."""
+        await self._tasks.reload()
+        for task in self._tasks.get_tasks():
+            if task.state != TaskState.RUNNING:
+                continue
+
+            with self._running_tasks_lock:
+                deferred = self._running_deferred_tasks.get(task.uuid)
+
+            orphaned = deferred is None or not deferred.is_alive()
+
+            timed_out = False
+            if not orphaned and task.updated_at:
+                elapsed = (datetime.now(timezone.utc) - task.updated_at).total_seconds()
+                if elapsed > _stuck_timeout():
+                    timed_out = True
+
+            if orphaned or timed_out:
+                reason = "orphaned (no running thread)" if orphaned else f"timed out ({int((datetime.now(timezone.utc) - task.updated_at).total_seconds())}s)"
+                PrintStyle.warning(
+                    f"Recovering stuck task '{task.name}' ({task.uuid}): {reason} — resetting RUNNING → IDLE"
+                )
+                if timed_out and deferred:
+                    deferred.kill(terminate_thread=True)
+                    self._unregister_running_task(task.uuid)
+                await self.update_task(task.uuid, state=TaskState.IDLE)
+                await self.save()
 
     async def run_task_by_uuid(self, task_uuid: str, task_context: str | None = None):
         # First reload tasks to ensure we have the latest state
@@ -822,6 +857,12 @@ class TaskScheduler:
                 PrintStyle.warning(f"Scheduler Task '{task_snapshot.name}' already running, skipping")
                 self._unregister_running_task(task_uuid)
                 return
+
+            # Auto-recover from ERROR state on scheduled retry
+            if task_snapshot.state == TaskState.ERROR:
+                PrintStyle.info(f"Scheduler Task '{task_snapshot.name}' auto-recovering from ERROR state")
+                await self.update_task(task_uuid, state=TaskState.IDLE)
+                await self._tasks.reload()
 
             # Atomically fetch and check the task's current state
             current_task = await self.update_task_checked(task_uuid, lambda task: task.state != TaskState.RUNNING, state=TaskState.RUNNING)
