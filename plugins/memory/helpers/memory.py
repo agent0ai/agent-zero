@@ -9,8 +9,6 @@ from python.helpers import guids
 # from langchain_chroma import Chroma
 from langchain_community.vectorstores import FAISS
 
-# faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
-from python.helpers import faiss_monkey_patch
 import faiss
 
 
@@ -18,9 +16,8 @@ from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores.utils import (
     DistanceStrategy,
 )
-from langchain_core.embeddings import Embeddings
-
-import os, json
+import os
+import json
 
 import numpy as np
 
@@ -28,7 +25,7 @@ from python.helpers.print_style import PrintStyle
 from python.helpers import files, plugins, projects
 from langchain_core.documents import Document
 from . import knowledge_import
-from python.helpers.log import Log, LogItem
+from python.helpers.log import LogItem
 from enum import Enum
 from agent import Agent, AgentContext
 import models
@@ -390,27 +387,32 @@ class Memory:
         return rem_docs
 
     async def insert_text(self, text, metadata: dict | None = None):
+        from python.helpers.extension import call_extensions
+
         metadata = metadata or {}
-        doc = Document(text, metadata=metadata)
+
+        # memory_save_before: pass mutable object so extensions can edit or skip
+        obj = {"text": text, "metadata": metadata, "memory_subdir": self.memory_subdir}
+        await call_extensions(
+            "memory_save_before",
+            agent=getattr(self, "agent", None),
+            object=obj,
+        )
+
+        # If an extension set text to None, skip the save
+        if obj["text"] is None:
+            return None
+
+        doc = Document(obj["text"], metadata=obj["metadata"])
         ids = await self.insert_documents([doc])
 
-        # Fire post-save memory hook extensions (best-effort, never breaks memory save)
-        try:
-            from python.helpers.extension import call_extensions
-            await call_extensions(
-                "memory_saved_after",
-                agent=getattr(self, "agent", None),
-                text=text,
-                metadata=metadata,
-                doc_id=ids[0],
-                memory_subdir=self.memory_subdir,
-            )
-        except Exception as e:
-            try:
-                from python.helpers.print_style import PrintStyle
-                PrintStyle.warning(f"memory_saved_after hook failed: {type(e).__name__}")
-            except Exception:
-                pass
+        # memory_save_after: notify extensions after successful persist
+        obj["doc_id"] = ids[0]
+        await call_extensions(
+            "memory_save_after",
+            agent=getattr(self, "agent", None),
+            object=obj,
+        )
 
         return ids[0]
 
