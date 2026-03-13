@@ -214,117 +214,7 @@
                 </div>
 
                 <!-- ============= SECRETS MANAGEMENT ============= -->
-                <div x-show="config.enabled && config.url"
-                     x-data="{
-                        secrets: [],
-                        loading: false,
-                        error: '',
-                        showAdd: false,
-                        newKey: '',
-                        newValue: '',
-                        revealed: {},
-                        editing: {},
-                        editValues: {},
-
-                        async refresh() {
-                            this.loading = true;
-                            this.error = '';
-                            try {
-                                const r = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    credentials: 'same-origin',
-                                    body: JSON.stringify({action: 'list'})
-                                });
-                                const d = await r.json();
-                                if (d.ok) this.secrets = d.secrets || [];
-                                else this.error = d.error || 'Failed to list secrets';
-                            } catch(e) { this.error = e.message; }
-                            this.loading = false;
-                        },
-
-                        async reveal(key) {
-                            try {
-                                const r = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    credentials: 'same-origin',
-                                    body: JSON.stringify({action: 'get', key})
-                                });
-                                const d = await r.json();
-                                if (d.ok) {
-                                    this.revealed = {...this.revealed, [key]: d.value};
-                                    setTimeout(() => {
-                                        const r = {...this.revealed};
-                                        delete r[key];
-                                        this.revealed = r;
-                                    }, 5000);
-                                } else this.error = d.error;
-                            } catch(e) { this.error = e.message; }
-                        },
-
-                        startEdit(key) {
-                            this.editing = {...this.editing, [key]: true};
-                            this.editValues = {...this.editValues, [key]: ''};
-                        },
-
-                        cancelEdit(key) {
-                            const e = {...this.editing}; delete e[key]; this.editing = e;
-                            const v = {...this.editValues}; delete v[key]; this.editValues = v;
-                        },
-
-                        async saveEdit(key) {
-                            const val = this.editValues[key];
-                            if (!val) return;
-                            this.error = '';
-                            try {
-                                const r = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    credentials: 'same-origin',
-                                    body: JSON.stringify({action: 'set', pairs: [{key, value: val}]})
-                                });
-                                const d = await r.json();
-                                if (d.ok) { this.cancelEdit(key); await this.refresh(); }
-                                else this.error = d.error;
-                            } catch(e) { this.error = e.message; }
-                        },
-
-                        async deleteSecret(key) {
-                            if (!confirm('Delete secret "' + key + '"? This cannot be undone.')) return;
-                            this.error = '';
-                            try {
-                                const r = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    credentials: 'same-origin',
-                                    body: JSON.stringify({action: 'delete', key})
-                                });
-                                const d = await r.json();
-                                if (d.ok) await this.refresh();
-                                else this.error = d.error;
-                            } catch(e) { this.error = e.message; }
-                        },
-
-                        async addNew() {
-                            if (!this.newKey.trim()) return;
-                            this.error = '';
-                            try {
-                                const r = await fetch('/api/plugins/deimos_openbao_secrets/secrets', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    credentials: 'same-origin',
-                                    body: JSON.stringify({action: 'set', pairs: [{key: this.newKey.trim(), value: this.newValue}]})
-                                });
-                                const d = await r.json();
-                                if (d.ok) {
-                                    this.newKey = ''; this.newValue = ''; this.showAdd = false;
-                                    await this.refresh();
-                                } else this.error = d.error;
-                            } catch(e) { this.error = e.message; }
-                        }
-                     }"
-                     >
+                <div x-show="config.enabled && config.url" x-data="secretsEditorData()">
 
                     <div class="section-title" style="margin-top:24px;">Secrets Management</div>
                     <div class="section-description">
@@ -332,8 +222,8 @@
                     </div>
 
                     <div style="display:flex; gap:8px; margin:12px 0;">
-                        <button class="btn btn-field" @click="refresh()">Refresh</button>
-                        <button class="btn btn-field" @click="showAdd = !showAdd">Add Secret</button>
+                        <button class="btn btn-field" @click="doRefresh()">Refresh</button>
+                        <button class="btn btn-field" @click="toggleAdd()">Add Secret</button>
                     </div>
 
                     <div x-show="error" style="color:#ff6b6b; margin:8px 0; font-weight:bold;" x-text="error"></div>
@@ -345,7 +235,7 @@
                             <input type="text" x-model="newKey" placeholder="KEY_NAME" style="flex:1; min-width:150px;" />
                             <input type="password" x-model="newValue" placeholder="secret value" style="flex:2; min-width:200px;" />
                             <button class="btn btn-field" @click="addNew()">Save</button>
-                            <button class="btn btn-field" @click="showAdd=false; newKey=''; newValue=''; ">Cancel</button>
+                            <button class="btn btn-field" @click="cancelAdd()">Cancel</button>
                         </div>
                     </div>
 
@@ -357,17 +247,17 @@
                                     <div class="field-title" x-text="secret.key" style="font-family:monospace;"></div>
                                 </div>
                                 <div class="field-control" style="display:flex; gap:6px; align-items:center;">
-                                    <template x-if="!editing[secret.key]">
+                                    <template x-if="!isEditing(secret.key)">
                                         <div style="display:flex; gap:6px; align-items:center; width:100%;">
-                                            <span x-text="revealed[secret.key] || '***'" style="font-family:monospace; flex:1;"></span>
-                                            <button class="btn btn-field" @click="reveal(secret.key)" title="Reveal 5s">&#128065;</button>
+                                            <span x-text="getRevealed(secret.key)" style="font-family:monospace; flex:1;"></span>
+                                            <button class="btn btn-field" @click="doReveal(secret.key)" title="Reveal 5s">&#128065;</button>
                                             <button class="btn btn-field" @click="startEdit(secret.key)" title="Edit">&#9998;</button>
-                                            <button class="btn btn-field" @click="deleteSecret(secret.key)" title="Delete" style="color:#ff6b6b;">&#128465;</button>
+                                            <button class="btn btn-field" @click="confirmDelete(secret.key)" title="Delete" style="color:#ff6b6b;">&#128465;</button>
                                         </div>
                                     </template>
-                                    <template x-if="editing[secret.key]">
+                                    <template x-if="isEditing(secret.key)">
                                         <div style="display:flex; gap:6px; align-items:center; width:100%;">
-                                            <input type="password" x-model="editValues[secret.key]" placeholder="new value" style="flex:1;" />
+                                            <input type="password" :value="getEditValue(secret.key)" @input="setEditValue(secret.key, $event.target.value)" placeholder="new value" style="flex:1;" />
                                             <button class="btn btn-field" @click="saveEdit(secret.key)">Save</button>
                                             <button class="btn btn-field" @click="cancelEdit(secret.key)">Cancel</button>
                                         </div>
@@ -386,5 +276,167 @@
             </div>
         </template>
     </div>
+
+    <script>
+    window.secretsEditorData = function() {
+        var API = '/api/plugins/deimos_openbao_secrets/secrets';
+        var HEADERS = {'Content-Type': 'application/json'};
+
+        return {
+            secrets: [],
+            loading: false,
+            error: '',
+            showAdd: false,
+            newKey: '',
+            newValue: '',
+            _revealed: {},
+            _editing: {},
+            _editValues: {},
+
+            getRevealed: function(key) {
+                return this._revealed[key] || '***';
+            },
+
+            isEditing: function(key) {
+                return !!this._editing[key];
+            },
+
+            getEditValue: function(key) {
+                return this._editValues[key] || '';
+            },
+
+            setEditValue: function(key, val) {
+                this._editValues[key] = val;
+            },
+
+            toggleAdd: function() {
+                this.showAdd = !this.showAdd;
+            },
+
+            cancelAdd: function() {
+                this.showAdd = false;
+                this.newKey = '';
+                this.newValue = '';
+            },
+
+            doRefresh: function() {
+                var self = this;
+                self.loading = true;
+                self.error = '';
+                fetch(API, {
+                    method: 'POST',
+                    headers: HEADERS,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({action: 'list'})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.ok) self.secrets = d.secrets || [];
+                    else self.error = d.error || 'Failed to list secrets';
+                    self.loading = false;
+                })
+                .catch(function(e) {
+                    self.error = e.message;
+                    self.loading = false;
+                });
+            },
+
+            doReveal: function(key) {
+                var self = this;
+                fetch(API, {
+                    method: 'POST',
+                    headers: HEADERS,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({action: 'get', key: key})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.ok) {
+                        self._revealed[key] = d.value;
+                        setTimeout(function() {
+                            delete self._revealed[key];
+                        }, 5000);
+                    } else {
+                        self.error = d.error;
+                    }
+                })
+                .catch(function(e) { self.error = e.message; });
+            },
+
+            startEdit: function(key) {
+                this._editing[key] = true;
+                this._editValues[key] = '';
+            },
+
+            cancelEdit: function(key) {
+                delete this._editing[key];
+                delete this._editValues[key];
+            },
+
+            saveEdit: function(key) {
+                var val = this._editValues[key];
+                if (!val) return;
+                var self = this;
+                self.error = '';
+                fetch(API, {
+                    method: 'POST',
+                    headers: HEADERS,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({action: 'set', pairs: [{key: key, value: val}]})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.ok) {
+                        self.cancelEdit(key);
+                        self.doRefresh();
+                    } else {
+                        self.error = d.error;
+                    }
+                })
+                .catch(function(e) { self.error = e.message; });
+            },
+
+            confirmDelete: function(key) {
+                if (!window.confirm('Delete secret ' + key + '? This cannot be undone.')) return;
+                var self = this;
+                self.error = '';
+                fetch(API, {
+                    method: 'POST',
+                    headers: HEADERS,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({action: 'delete', key: key})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.ok) self.doRefresh();
+                    else self.error = d.error;
+                })
+                .catch(function(e) { self.error = e.message; });
+            },
+
+            addNew: function() {
+                if (!this.newKey.trim()) return;
+                var self = this;
+                self.error = '';
+                fetch(API, {
+                    method: 'POST',
+                    headers: HEADERS,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({action: 'set', pairs: [{key: self.newKey.trim(), value: self.newValue}]})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.ok) {
+                        self.newKey = ''; self.newValue = ''; self.showAdd = false;
+                        self.doRefresh();
+                    } else {
+                        self.error = d.error;
+                    }
+                })
+                .catch(function(e) { self.error = e.message; });
+            }
+        };
+    };
+    </script>
 </body>
 </html>
