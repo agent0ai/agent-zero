@@ -1,0 +1,4 @@
+{{path}}{{suffix}}
+```
+{{content}}
+```

@@ -150,3 +150,30 @@ Alpine.directive(
       cleanup(() => clearInterval(intervalId));
     }
   );
+
+
+  // clone existing global store into standalone instance
+  globalThis.Alpine.magic('instantiate', () => (src) => {
+  const out = {};
+  const desc = Object.getOwnPropertyDescriptors(src);
+
+  for (const k in desc) {
+    const d = desc[k];
+
+    if (d.get || d.set || typeof d.value === "function") {
+      Object.defineProperty(out, k, d);
+    } else {
+      const v = d.value;
+      Object.defineProperty(out, k, {
+        ...d,
+        value: Array.isArray(v)
+          ? v.map(i => (i && typeof i === "object" ? { ...i } : i))
+          : v && typeof v === "object"
+          ? { ...v }
+          : v
+      });
+    }
+  }
+
+  return out;
+});

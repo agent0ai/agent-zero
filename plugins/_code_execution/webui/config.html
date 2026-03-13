@@ -1,0 +1,204 @@
+<html>
+<head>
+    <title>Code Execution</title>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="config">
+            <div>
+                <div class="section-title">Code Execution</div>
+                <div class="section-description">
+                    Configuration for the code execution tool. Controls the shell interface, SSH credentials, execution timeouts, and prompt/dialog detection patterns.
+                </div>
+
+                <!-- Shell Interface -->
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Shell Interface</div>
+                        <div class="field-description">
+                            <b>Auto</b>: SSH when running outside Docker, local TTY when dockerized.
+                            <b>SSH</b>: always connect via SSH. <b>Local</b>: always use local PTY.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <select x-model="config.ssh_enabled">
+                            <option value="auto">Auto</option>
+                            <option value="true">SSH</option>
+                            <option value="false">Local TTY</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- SSH credentials (shown when SSH or Auto) -->
+                <template x-if="config.ssh_enabled !== 'false'">
+                    <div>
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">SSH Address</div>
+                                <div class="field-description">Hostname or IP of the SSH target. Leave empty to use the RFC URL from settings.</div>
+                            </div>
+                            <div class="field-control">
+                                <input type="text" x-model="config.ssh_addr" placeholder="(from RFC URL)" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">SSH Port</div>
+                                <div class="field-description">SSH port on the target host (default: 55022 for Docker RFC).</div>
+                            </div>
+                            <div class="field-control">
+                                <input type="number" min="1" max="65535" x-model.number="config.ssh_port" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">SSH User</div>
+                                <div class="field-description">Username for SSH login.</div>
+                            </div>
+                            <div class="field-control">
+                                <input type="text" x-model="config.ssh_user" placeholder="root" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">SSH Password</div>
+                                <div class="field-description">Password for SSH login. Leave empty to use the dev root password (via RFC).</div>
+                            </div>
+                            <div class="field-control">
+                                <input type="password" autocomplete="off" x-model="config.ssh_pass" placeholder="(from RFC)" />
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Execution timeouts -->
+                <div class="section-title">Execution Timeouts</div>
+                <div class="section-description">
+                    Timeouts (in seconds) for python, nodejs, and terminal runtimes.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">First output timeout</div>
+                        <div class="field-description">Seconds to wait for the first output before returning control to the agent.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.code_exec_first_output_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Between output timeout</div>
+                        <div class="field-description">Seconds to wait between output chunks before returning control.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.code_exec_between_output_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max execution timeout</div>
+                        <div class="field-description">Hard cap on total execution time in seconds.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.code_exec_max_exec_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Dialog detection timeout</div>
+                        <div class="field-description">Seconds of idle output before checking for dialog prompts.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.code_exec_dialog_timeout" />
+                    </div>
+                </div>
+
+                <!-- Output runtime timeouts -->
+                <div class="section-title">Output Runtime Timeouts</div>
+                <div class="section-description">
+                    Timeouts (in seconds) for the "output" runtime (waiting for long-running processes).
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">First output timeout</div>
+                        <div class="field-description">Seconds to wait for the first output.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.output_first_output_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Between output timeout</div>
+                        <div class="field-description">Seconds to wait between output chunks.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.output_between_output_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max execution timeout</div>
+                        <div class="field-description">Hard cap on total wait time in seconds.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.output_max_exec_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Dialog detection timeout</div>
+                        <div class="field-description">Seconds of idle output before checking for dialog prompts.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" x-model.number="config.output_dialog_timeout" />
+                    </div>
+                </div>
+
+                <!-- Patterns -->
+                <div class="section-title">Detection Patterns</div>
+                <div class="section-description">
+                    Regular expressions used to detect shell prompts and interactive dialogs. One pattern per line.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Prompt patterns</div>
+                        <div class="field-description">
+                            When any pattern matches the last output lines, execution is considered complete and output is returned immediately.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <textarea rows="5" x-model="config.prompt_patterns"></textarea>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Dialog patterns</div>
+                        <div class="field-description">
+                            When any pattern matches after the dialog timeout, control is returned to the agent to handle the interactive prompt.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <textarea rows="4" x-model="config.dialog_patterns"></textarea>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

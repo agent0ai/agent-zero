@@ -1,4 +1,4 @@
-from python.helpers.tool import Tool, Response
+from helpers.tool import Tool, Response
 
 # this is an example tool class
 # don't forget to include instructions in the system prompt by creating 

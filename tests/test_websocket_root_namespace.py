@@ -51,8 +51,8 @@ async def test_root_namespace_request_style_calls_resolve_with_no_handlers() -> 
     from flask import Flask
     import socketio
 
-    from python.helpers.websocket import WebSocketHandler
-    from python.helpers.websocket_manager import WebSocketManager
+    from helpers.websocket import WebSocketHandler
+    from helpers.websocket_manager import WebSocketManager
     from run_ui import configure_websocket_namespaces
 
     app = Flask("test_ws_root_namespace")
@@ -124,8 +124,8 @@ async def test_root_namespace_fire_and_forget_does_not_invoke_application_handle
     from flask import Flask
     import socketio
 
-    from python.helpers.websocket import WebSocketHandler
-    from python.helpers.websocket_manager import WebSocketManager
+    from helpers.websocket import WebSocketHandler
+    from helpers.websocket_manager import WebSocketManager
     from run_ui import configure_websocket_namespaces
 
     app = Flask("test_ws_root_fire_and_forget")

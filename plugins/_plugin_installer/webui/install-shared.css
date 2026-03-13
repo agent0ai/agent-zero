@@ -1,0 +1,41 @@
+.pi-hint {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+.pi-actions {
+    display: flex;
+    margin: 1rem 0;
+}
+
+.pi-actions-start {
+    justify-content: flex-start;
+}
+
+.pi-actions-center {
+    justify-content: center;
+}
+
+.pi-result {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 4px;
+    margin-top: 0.75rem;
+}
+
+.pi-result-icon .material-symbols-outlined {
+    font-size: 2rem;
+    color: #22c55e;
+}
+
+.pi-result-path {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.25rem;
+    font-family: var(--font-family-code);
+}

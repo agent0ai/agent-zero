@@ -52,7 +52,7 @@ let _scrollOnNextProcessGroup = null;
  */
 
 /**
- * @typedef {(args: MessageHandlerArgs & Record<string, any>) => MessageHandlerResult} MessageHandler
+ * @typedef {(args: MessageHandlerArgs & Record<string, any>) => (MessageHandlerResult|Promise<MessageHandlerResult>)} MessageHandler
  */
 
 /**
@@ -82,9 +82,9 @@ export function scrollOnNextProcessGroup() {
  * and may return a rich object `{ element, actionButtons?, ...additional }`.
  *
  * @param {string} type
- * @returns {MessageHandler}
+ * @returns {Promise<MessageHandler>}
  */
-export function getMessageHandler(type) {
+export async function getMessageHandler(type) {
   switch (type) {
     case "user":
       return drawMessageUser;
@@ -94,8 +94,6 @@ export function getMessageHandler(type) {
       return drawMessageResponse;
     case "tool":
       return drawMessageTool;
-    case "code_exe":
-      return drawMessageCodeExe;
     case "browser":
       return drawMessageBrowser;
     case "progress":
@@ -117,9 +115,19 @@ export function getMessageHandler(type) {
     case "hint":
       return drawMessageHint;
     default:
-      return drawMessageDefault;
+      return await getHandlerFromExtensions(type);
+  }
+
+  async function getHandlerFromExtensions(type){
+    const extData = { type: type, handler: undefined }
+    await callJsExtensions("get_message_handler", extData);
+    // return handler from extensions
+    if(typeof extData.handler == "function") return extData.handler;
+    //not set by extensions, return default
+    return drawMessageDefault;
   }
 }
+
 
 // entrypoint called from poll/WS communication, this is how all messages are rendered and updated
 // input is raw log format
@@ -157,7 +165,7 @@ export async function setMessages(messages) {
   // process messages
   for (let i = 0; i < context.messages.length; i++) {
     _massRender = context.historyEmpty || (context.isLargeAppend && i < context.cutoff);
-    context.results.push(setMessage(context.messages[i]));
+    context.results.push(await setMessage(context.messages[i]));
   }
 
   await callJsExtensions("set_messages_after_loop", context);
@@ -181,9 +189,9 @@ export async function setMessages(messages) {
 // input is raw log format
 /**
  * @param {MessageHandlerArgs & Record<string, any>} param0
- * @returns {SetMessageResult}
+ * @returns {Promise<SetMessageResult>}
  */
-export function setMessage({
+export async function setMessage({
   no,
   id,
   type,
@@ -194,9 +202,9 @@ export function setMessage({
   agentno,
   ...additional
 }) {
-  const handler = getMessageHandler(type);
+  const handler = await getMessageHandler(type);
   // prefer log ID if set to match user message created on frontend with backend updates
-  const handlerResult = handler({
+  const handlerResult = await handler({
     no,
     id: id || String(no) || "",
     type,
@@ -309,7 +317,7 @@ function getOrCreateProcessGroup(id, allowCompleted = true) {
   return group;
 }
 
-function buildDetailPayload(stepData, extras = {}) {
+export function buildDetailPayload(stepData, extras = {}) {
   if (!stepData) return null;
   return {
     ...stepData,
@@ -321,7 +329,7 @@ function buildDetailPayload(stepData, extras = {}) {
  * @param {ProcessStepArgs & Record<string, any>} param0
  * @returns {MessageHandlerResult}
  */
-function drawProcessStep({
+export function drawProcessStep({
   id,
   title,
   code,
@@ -1198,81 +1206,6 @@ export function drawMessageToolSimple({
  * @param {MessageHandlerArgs & Record<string, any>} param0
  * @returns {MessageHandlerResult}
  */
-export function drawMessageCodeExe({
-  id,
-  type,
-  heading,
-  test,
-  content,
-  kvps,
-  timestamp,
-  agentno = 0,
-  ...additional
-}) {
-  let title = "Code Execution";
-  // show command at the start and end
-  if (kvps?.code && /done_all|code_execution_tool/.test(heading || "")) {
-    const s = kvps.session;
-    title = `${s != null ? `[${s}] ` : ""}${kvps.runtime || "bash"}> ${kvps.code.trim()}`;
-  } else {
-    // during execution show the original heading (current step)
-    title = cleanStepTitle(heading);
-  }
-
-  // KVPS to show
-  const displayKvps = {};
-  // if (kvps?.runtime) displayKvps.runtime = kvps.runtime;
-  // if (kvps?.session>=0) displayKvps.session = kvps.session;
-
-  const headerLabels = [
-    kvps?.runtime && { label: kvps.runtime, class: "tool-name-badge" },
-    kvps?.session != null && {
-      label: `Session ${kvps.session}`,
-      class: "header-label",
-    },
-  ].filter(Boolean);
-
-  // render the standard step
-  const commandText = String(kvps?.code ?? "");
-  const outputText = String(content ?? "");
-
-  const actionButtons = [];
-  actionButtons.push(
-    createActionButton("detail", "", () =>
-      stepDetailStore.showStepDetail(
-        buildDetailPayload(arguments[0], { headerLabels }),
-      ),
-    ),
-  );
-  if (commandText.trim()) {
-    actionButtons.push(
-      createActionButton("copy", "Command", () => copyToClipboard(commandText)),
-    );
-  }
-  if (outputText.trim()) {
-    actionButtons.push(
-      createActionButton("copy", "Output", () => copyToClipboard(outputText)),
-    );
-  }
-  const stepData = drawProcessStep({
-    id,
-    title,
-    code: "EXE",
-    classes: undefined,
-    kvps: displayKvps,
-    content,
-    contentClasses: ["terminal-output"],
-    actionButtons,
-    log: arguments[0],
-  });
-
-  return stepData;
-}
-
-/**
- * @param {MessageHandlerArgs & Record<string, any>} param0
- * @returns {MessageHandlerResult}
- */
 export function drawMessageBrowser({
   id,
   type,
@@ -2133,7 +2066,7 @@ export function convertIcons(html, classes = "") {
  * Clean step title by removing icon:// prefixes and status phrases
  * Preserves agent markers (A1:, A2:, etc.) so users can see which subordinate agent is executing
  */
-function cleanStepTitle(text, maxLength = 100) {
+export function cleanStepTitle(text, maxLength = 100) {
   if (!text) return "";
   let cleaned = String(text)
     .replace(/icon:\/\/[a-zA-Z0-9_]+(\[(?:\\.|[^\]])*\])?\s*/g, "")

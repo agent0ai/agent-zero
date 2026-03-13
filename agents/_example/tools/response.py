@@ -1,4 +1,4 @@
-from python.helpers.tool import Tool, Response
+from helpers.tool import Tool, Response
 
 # example of a tool redefinition
 # the original response tool is in python/tools/response.py

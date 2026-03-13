@@ -6,47 +6,53 @@
     </script>
 </head>
 <body>
-    <div x-data>
-        <template x-if="$store.pluginSettings">
-            <div x-create="$store.pluginSettings.loadConfigList()" class="plugin-configs-container">
+    <div x-data="(() => {
+        const modals = Array.from(document.querySelectorAll('.modal.show'));
+        const parentModal = /** @type {HTMLElement & { __pluginSettingsContext?: object }} */ (modals[modals.length - 2] || null);
+        return {
+            context: parentModal?.__pluginSettingsContext || null,
+        };
+    })()">
+        <template x-if="context">
+            <div x-create="context.loadConfigList()" class="plugin-configs-container">
 
-                <div x-show="$store.pluginSettings.configsError" class="plugin-configs-error">
+                <div x-show="context.configsError" class="plugin-configs-error">
                     <span class="material-symbols-outlined">error</span>
-                    <span x-text="$store.pluginSettings.configsError"></span>
+                    <span x-text="context.configsError"></span>
                 </div>
 
-                <div x-show="$store.pluginSettings.isListingConfigs" class="plugin-configs-loading">
+                <div x-show="context.isListingConfigs" class="plugin-configs-loading">
                     <span class="material-symbols-outlined spinning">progress_activity</span>
                     <span>Loading configurations...</span>
                 </div>
 
-                <div x-show="!$store.pluginSettings.isListingConfigs" class="plugin-configs-list">
-                    <template x-if="($store.pluginSettings.configs || []).length === 0">
+                <div x-show="!context.isListingConfigs" class="plugin-configs-list">
+                    <template x-if="(context.configs || []).length === 0">
                         <div class="plugin-configs-empty">No configurations found.</div>
                     </template>
 
-                    <template x-for="cfg in ($store.pluginSettings.configs || [])" :key="(cfg.project_name || '') + '|' + (cfg.agent_profile || '')">
+                    <template x-for="cfg in (context.configs || [])" :key="(cfg.project_name || '') + '|' + (cfg.agent_profile || '')">
                         <div class="plugin-configs-row">
                             <div class="plugin-configs-scope">
                                 <div class="plugin-configs-scope-top">
                                     <div class="plugin-configs-scope-line">
                                         <span class="plugin-configs-scope-key">Project:</span>
-                                        <span x-text="$store.pluginSettings.projectLabel(cfg.project_name || '')"></span>
+                                        <span x-text="context.projectLabel(cfg.project_name || '')"></span>
                                     </div>
                                     <div class="plugin-configs-scope-line">
                                         <span class="plugin-configs-scope-key">Agent profile:</span>
-                                        <span x-text="$store.pluginSettings.agentProfileLabel(cfg.agent_profile || '')"></span>
+                                        <span x-text="context.agentProfileLabel(cfg.agent_profile || '')"></span>
                                     </div>
                                 </div>
                                 <div class="plugin-configs-scope-sub" x-text="cfg.path || ''"></div>
                             </div>
 
                             <div class="plugin-configs-actions">
-                                <button type="button" class="button" @click="$store.pluginSettings.switchToConfig(cfg.project_name || '', cfg.agent_profile || '')">
+                                <button type="button" class="button" @click="context.switchToConfig(cfg.project_name || '', cfg.agent_profile || '')">
                                     <span class="icon material-symbols-outlined">list</span>
                                     Show
                                 </button>
-                                <button type="button" class="button cancel icon-button" title="Delete" @click="$confirmClick($event, () => $store.pluginSettings.deleteConfig(cfg.project_name || '', cfg.agent_profile || ''))">
+                                <button type="button" class="button cancel icon-button" title="Delete" @click="$confirmClick($event, () => context.deleteConfig(cfg.project_name || '', cfg.agent_profile || ''))">
                                     <span class="icon material-symbols-outlined">delete</span>
                                 </button>
                             </div>

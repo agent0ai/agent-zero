@@ -10,7 +10,7 @@ Quick guide for using the notification system in Agent Zero.
 Use `AgentNotification` helper methods anywhere in your Python code:
 
 ```python
-from python.helpers.notification import AgentNotification
+from helpers.notification import AgentNotification
 
 # Basic notifications
 AgentNotification.info("Operation completed")

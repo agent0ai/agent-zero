@@ -1,0 +1,99 @@
+<html>
+<head>
+    <title>Install Plugin from Git</title>
+    <script type="module">
+        import { store } from "/plugins/_plugin_installer/webui/pluginInstallStore.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.pluginInstallStore">
+            <div x-create="$store.pluginInstallStore.resetGit()">
+
+                <div class="pi-form-group">
+                    <label class="pi-label">Git Repository URL</label>
+                    <input type="text" class="pi-input"
+                        x-model="$store.pluginInstallStore.gitUrl"
+                        :disabled="$store.pluginInstallStore.loading"
+                        placeholder="https://github.com/user/my-plugin.git">
+                </div>
+
+                <div class="pi-form-group">
+                    <label class="pi-label">Access Token <span class="pi-optional">(optional, for private repos)</span></label>
+                    <input type="password" class="pi-input"
+                        x-model="$store.pluginInstallStore.gitToken"
+                        :disabled="$store.pluginInstallStore.loading"
+                        placeholder="ghp_xxxx or glpat-xxxx">
+                    <div class="pi-hint">Token is used only for cloning and is not stored.</div>
+                </div>
+
+                <div class="pi-actions pi-actions-start">
+                    <button class="button confirm"
+                        @click="$store.pluginInstallStore.installGit()"
+                        :disabled="$store.pluginInstallStore.loading || !$store.pluginInstallStore.gitUrl.trim()">
+                        <template x-if="$store.pluginInstallStore.loading">
+                            <span class="pi-button-loading">
+                                <span class="spinner"></span>
+                                <span x-text="$store.pluginInstallStore.loadingMessage || 'Cloning...'"></span>
+                            </span>
+                        </template>
+                        <template x-if="!$store.pluginInstallStore.loading">
+                            <span>
+                                <span class="icon material-symbols-outlined">terminal</span> Clone & Install
+                            </span>
+                        </template>
+                    </button>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.result" class="pi-result">
+                    <div class="pi-result-icon">
+                        <span class="material-symbols-outlined">check_circle</span>
+                    </div>
+                    <div class="pi-result-text">
+                        <strong x-text="'Plugin installed: ' + ($store.pluginInstallStore.result?.title || $store.pluginInstallStore.result?.plugin_name || '')"></strong>
+                        <div class="pi-result-path" x-text="$store.pluginInstallStore.result?.path || ''"></div>
+                    </div>
+                </div>
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        @import url("/plugins/_plugin_installer/webui/install-shared.css");
+
+        .pi-form-group {
+            margin-bottom: 1rem;
+        }
+
+        .pi-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+        }
+
+        .pi-optional {
+            font-weight: 400;
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .pi-input {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+
+        .pi-button-loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</body>
+</html>

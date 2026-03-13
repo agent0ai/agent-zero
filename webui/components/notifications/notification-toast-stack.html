@@ -15,7 +15,9 @@
             <template x-for="(toast, index) in $store.notificationStore.toastStack" :key="toast.toastId">
                 <div class="toast-item"
                      :class="$store.notificationStore.getNotificationClass(toast.type)"
-                     @click="$store.notificationStore.handleToastClick(toast.toastId)"
+                     @click="$store.notificationStore.handleToastClick(toast.toastId, $event)"
+                     @mouseenter="$store.notificationStore.clearToastTimer(toast.toastId)"
+                     @mouseleave="$store.notificationStore.restartToastTimer(toast.toastId)"
                      x-transition:enter="toast-enter"
                      x-transition:leave="toast-leave">
 
@@ -31,7 +33,7 @@
                              x-text="toast.title">
                         </div>
                         <div class="toast-message"
-                             x-text="toast.message">
+                             x-html="toast.message">
                         </div>
                         <!-- <div class="toast-timestamp"
                              x-text="$store.notificationStore.formatTimestamp(toast.timestamp)">
@@ -77,7 +79,8 @@
             border: 1px solid var(--color-border);
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease, border-color 0.2s ease,
+                box-shadow 0.2s ease, filter 0.2s ease;
             /* backdrop-filter: blur(10px); */
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             position: relative;
@@ -87,8 +90,8 @@
         }
 
         .toast-item:hover {
-            transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            filter: brightness(1.02);
         }
 
         /* Toast Type Styling */
@@ -216,7 +219,7 @@
             }
 
             .toast-item:hover {
-                transform: none;
+                filter: none;
             }
         }
     </style>

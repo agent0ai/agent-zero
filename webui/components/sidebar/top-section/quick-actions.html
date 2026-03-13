@@ -56,7 +56,7 @@
         <span>Projects</span>
       </button>
             
-      <button class="dropdown-item" @click="openModal('components/scheduler/scheduler-modal.html'); dropdownOpen = false">
+      <button class="dropdown-item" @click="openModal('components/modals/scheduler/scheduler-modal.html'); dropdownOpen = false">
         <span class="material-symbols-outlined">schedule</span>
         <span>Scheduler</span>
       </button>
@@ -116,22 +116,34 @@
     /* Ensure dropdown appears above all sidebar content */
   }
 
-  /* Icon toolbar layout */
+  /* Icon toolbar layout – grid for extension-friendly wrapping */
   #quick-actions {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: auto;
     width: 100%;
-    justify-content: space-between;
     padding: 0;
-    gap: 0;
+    gap: var(--spacing-xs);
+  }
+
+  #quick-actions > x-extension:not(:empty) {
+    display: contents;
+  }
+
+  #quick-actions > x-extension:empty {
+    display: none;
+  }
+
+  #quick-actions > x-extension > x-component,
+  #quick-actions > x-extension > x-component > div[x-data] {
+    display: contents;
   }
 
   /* Config button - icon only style */
   .config-button {
     background-color: var(--color-panel);
     border: 0.05rem solid var(--color-border);
-    border-radius: 0;
+    border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -140,7 +152,9 @@
     padding: var(--spacing-xs);
     flex: 1;
     min-width: 0;
-    transition: all var(--transition-speed), transform 0.1s ease-in-out;
+    transition: background-color var(--transition-speed),
+      border-color var(--transition-speed), box-shadow var(--transition-speed),
+      opacity var(--transition-speed);
   }
 
   .config-button .material-symbols-outlined {
@@ -152,32 +166,18 @@
     transform: rotate(180deg);
   }
 
-  /* Connected button borders */
-  .config-button:not(:last-child) {
-    margin-right: -1px;
-    border-right: 1px solid var(--color-border);
-  }
-
-  .config-button:first-of-type {
-    border-top-left-radius: 6px !important;
-    border-bottom-left-radius: 6px !important;
-  }
-
-  .config-button:last-child {
-    border-top-right-radius: 6px !important;
-    border-bottom-right-radius: 6px !important;
-  }
 
   .config-button:hover {
     background-color: var(--color-background-hover);
     opacity: 1;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
     z-index: 1;
     position: relative;
   }
 
   .config-button:active {
     opacity: 0.5;
-    transform: scale(0.95);
+    box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.06);
   }
 
   /* Dropdown specific positioning - fixed to escape overflow:hidden */
@@ -222,11 +222,11 @@
   align-items: center;
   opacity: 0.6;
   cursor: pointer;
-  -webkit-transition: all 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
-  transition: all 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
+  -webkit-transition: opacity 0.1s ease-in-out, color 0.1s ease-in-out, filter 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
+  transition: opacity 0.1s ease-in-out, color 0.1s ease-in-out, filter 0.1s ease-in-out, left var(--transition-speed) ease-in-out;
   }
-  #newChat:hover { opacity: 0.85; transform: scale(1.04); }
-  #newChat:active { opacity: 0.5; transform: scale(0.98); }
+  #newChat:hover { opacity: 0.85; filter: brightness(1.08); }
+  #newChat:active { opacity: 0.5; filter: brightness(0.96); }
   #newChat .material-symbols-outlined { 
     color: var(--color-text); 
     font-size: 24px;

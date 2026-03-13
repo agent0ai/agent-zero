@@ -7,7 +7,7 @@ Tech Stack: Python 3.12+ | Flask | Alpine.js | LiteLLM | WebSocket (Socket.io)
 Dev Server: python run_ui.py (runs on http://localhost:50001 by default)
 Run Tests: pytest (standard) or pytest tests/test_name.py (file-scoped)
 Documentation: README.md | docs/
-Frontend Deep Dives: [Component System](docs/agents/AGENTS.components.md) | [Modal System](docs/agents/AGENTS.modals.md) | [Plugin Architecture](AGENTS.plugins.md)
+Frontend Deep Dives: [Component System](docs/agents/AGENTS.components.md) | [Modal System](docs/agents/AGENTS.modals.md) | [Plugin Architecture](docs/agents/AGENTS.plugins.md)
 
 ---
 
@@ -98,15 +98,15 @@ Key Files:
 - python/helpers/api.py: Base class for all API endpoints.
 - docs/agents/AGENTS.components.md: Deep dive into the frontend component architecture.
 - docs/agents/AGENTS.modals.md: Guide to the stacked modal system.
-- AGENTS.plugins.md: Comprehensive guide to the full-stack plugin system.
+- docs/agents/AGENTS.plugins.md: Comprehensive guide to the full-stack plugin system.
 
 ---
 
 ## Development Patterns & Conventions
 
 ### Backend (Python)
-- Context Access: Use from agent import AgentContext, AgentContextType (not python.helpers.context).
-- Communication: Use mq from python.helpers.messages to log proactive UI messages:
+- Context Access: Use from agent import AgentContext, AgentContextType (not helpers.context).
+- Communication: Use mq from helpers.messages to log proactive UI messages:
   mq.log_user_message(context.id, "Message", source="Plugin")
 - API Handlers: Derive from ApiHandler in python/helpers/api.py.
 - Extensions: Use the extension framework in python/helpers/extension.py for lifecycle hooks.
@@ -128,7 +128,10 @@ Key Files:
 - Location: Always develop new plugins in usr/plugins/.
 - Manifest: Every plugin requires a plugin.yaml with name, description, version, and optionally settings_sections, per_project_config, per_agent_config, and always_enabled.
 - Discovery: Conventions based on folder names (api/, tools/, webui/, extensions/).
-- Settings: Use get_plugin_config(plugin_name, agent=agent) to retrieve settings. Plugins can expose a UI for settings via webui/config.html. For plugins wrapping core settings, set $store.pluginSettings.saveMode = 'core' in x-init.
+- Runtime hooks: Plugins may also expose hooks in hooks.py, callable by the framework through helpers.plugins.call_plugin_hook(...).
+- Hook runtime: hooks.py executes inside the Agent Zero framework Python environment, so sys.executable -m pip installs dependencies into that same framework runtime.
+- Environment targeting: If a plugin needs packages or binaries for the separate agent execution runtime or system environment, it must explicitly switch environments in a subprocess by targeting the correct interpreter, virtualenv, or package manager.
+- Settings: Use get_plugin_config(plugin_name, agent=agent) to retrieve settings. Plugins can expose a UI for settings via webui/config.html. Plugin settings modals instantiate a local context from $store.pluginSettingsPrototype; bind plugin fields to config.* and use context.* for modal-level state and actions. For plugins wrapping core settings, set context.saveMode = 'core' in x-init.
 - Activation: Global and scoped activation rules are stored as .toggle-1 (ON) and .toggle-0 (OFF). Scoped rules are handled via the plugin "Switch" modal.
 
 ### Lifecycle Synchronization
@@ -164,7 +167,7 @@ Key Files:
 
 ### API Handler (Good)
 ```python
-from python.helpers.api import ApiHandler, Request, Response
+from helpers.api import ApiHandler, Request, Response
 
 class MyHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
@@ -186,7 +189,7 @@ export const store = createStore("myStore", {
 
 ### Tool Definition (Good)
 ```python
-from python.helpers.tool import Tool, ToolResult
+from helpers.tool import Tool, ToolResult
 
 class MyTool(Tool):
     async def execute(self, arg1: str):

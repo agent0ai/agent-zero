@@ -146,7 +146,7 @@ Handlers are discovered deterministically from `python/websocket_handlers/`:
 Create handler modules under the appropriate namespace entry and inherit from `WebSocketHandler`.
 
 ```python
-from python.helpers.websocket import WebSocketHandler
+from helpers.websocket import WebSocketHandler
 
 class DashboardHandler(WebSocketHandler):
     @classmethod

@@ -10,8 +10,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 @pytest.mark.asyncio
 async def test_state_monitor_debounce_coalesces_without_postponing_and_cleanup_cancels_pending():
-    from python.helpers.state_monitor import StateMonitor
-    from python.helpers.state_snapshot import StateRequestV1
+    from helpers.state_monitor import StateMonitor
+    from helpers.state_snapshot import StateRequestV1
 
     namespace = "/state_sync"
     monitor = StateMonitor(debounce_seconds=10.0)
@@ -44,8 +44,8 @@ async def test_state_monitor_namespace_identity_prevents_cross_namespace_state_p
     import asyncio
     from unittest.mock import AsyncMock
 
-    from python.helpers.state_monitor import StateMonitor
-    from python.helpers.state_snapshot import StateRequestV1
+    from helpers.state_monitor import StateMonitor
+    from helpers.state_snapshot import StateRequestV1
 
     loop = asyncio.get_running_loop()
     push_ready = asyncio.Event()
@@ -94,7 +94,7 @@ async def test_state_monitor_namespace_identity_prevents_cross_namespace_state_p
         }
 
     # Patch build_snapshot used by StateMonitor so this test stays lightweight.
-    monkeypatch.setattr("python.helpers.state_monitor.build_snapshot_from_request", _fake_snapshot)
+    monkeypatch.setattr("helpers.state_monitor.build_snapshot_from_request", _fake_snapshot)
 
     monitor.mark_dirty(ns_a, sid, reason="test")
     await asyncio.wait_for(push_ready.wait(), timeout=1.0)

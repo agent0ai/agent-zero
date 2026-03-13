@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from python.helpers.print_style import PrintStyle
-from python.helpers.websocket import WebSocketHandler
+from helpers.print_style import PrintStyle
+from helpers.websocket import WebSocketHandler
 
 
 class HelloHandler(WebSocketHandler):

@@ -1,0 +1,39 @@
+# Shell interface: auto = auto-detect (SSH when non-dockerized, local when dockerized),
+# true = always SSH, false = always local TTY
+ssh_enabled: auto
+
+# SSH credentials (used when ssh_enabled is true or auto-detected)
+# ssh_addr: derived from rfc_url setting when empty
+ssh_addr: ""
+ssh_port: 55022
+ssh_user: root
+# ssh_pass: uses root_password from RFC exchange when empty
+ssh_pass: ""
+
+# Timeouts for python/nodejs/terminal runtimes (seconds)
+code_exec_first_output_timeout: 30
+code_exec_between_output_timeout: 15
+code_exec_max_exec_timeout: 180
+code_exec_dialog_timeout: 5
+
+# Timeouts for "output" runtime (seconds)
+output_first_output_timeout: 90
+output_between_output_timeout: 45
+output_max_exec_timeout: 300
+output_dialog_timeout: 5
+
+# Shell prompt detection patterns (one regex per line)
+# When matched, output is returned immediately without waiting for timeout
+prompt_patterns: |
+  (\(venv\)).+[$#] ?$
+  root@[^:]+:[^#]+# ?$
+  [a-zA-Z0-9_.-]+@[^:]+:[^$#]+[$#] ?$
+  \(?.*\)?\s*PS\s+[^>]+> ?$
+
+# Dialog detection patterns (one regex per line, case-insensitive)
+# When matched after dialog_timeout, control is returned to the agent
+dialog_patterns: |
+  Y/N
+  yes/no
+  :\s*$
+  \?\s*$

@@ -1,0 +1,63 @@
+{
+  "ratings": {
+    "pass":    { "icon": "🟢", "label": "Pass" },
+    "warning": { "icon": "🟡", "label": "Warning" },
+    "fail":    { "icon": "🔴", "label": "Fail" }
+  },
+  "checks": {
+    "structure": {
+      "label": "Structure & Purpose Match",
+      "detail": "Verify that the files/folders present match what the plugin claims to do.\nCheck for code that accesses files or data unrelated to the plugin's stated functionality.",
+      "criteria": {
+        "pass":    "All components align with declared purpose",
+        "warning": "Minor extras exist but appear benign",
+        "fail":    "Components clearly unrelated to purpose (e.g. UI plugin with backend secret access)"
+      }
+    },
+    "codeReview": {
+      "label": "Static Code Review",
+      "detail": "Look for vulnerabilities — SQL injection, path traversal, unsafe deserialization,\neval/exec, shell injection, hardcoded credentials, insecure file permissions.\nFlag execution of concatenated strings, dynamic commands, or remote code fetched at runtime.",
+      "criteria": {
+        "pass":    "No unsafe patterns found",
+        "warning": "Potentially unsafe patterns that may be justified",
+        "fail":    "Clear vulnerability or exploit vector"
+      }
+    },
+    "agentManipulation": {
+      "label": "Agent Manipulation Detection",
+      "detail": "Search for prompt injection in comments/strings/filenames, instructions telling\nagents to ignore security, social engineering text, hidden instructions in base64, zero-width\ncharacters, Unicode tricks.",
+      "criteria": {
+        "pass":    "No manipulation attempts found",
+        "warning": "Ambiguous text that could be coincidental",
+        "fail":    "Deliberate prompt injection or agent manipulation"
+      }
+    },
+    "remoteComms": {
+      "label": "Remote Communication",
+      "detail": "Identify ANY code that communicates with external servers — HTTP requests, fetch,\nWebSocket, DNS lookups, subprocess calls to curl/wget, etc.",
+      "criteria": {
+        "pass":    "No network calls whatsoever",
+        "warning": "Network calls exist but endpoints appear legitimate for the plugin's purpose",
+        "fail":    "Undisclosed, suspicious, or data-exfiltration endpoints"
+      }
+    },
+    "secrets": {
+      "label": "Secrets & Sensitive Data Access",
+      "detail": "Check if code accesses environment variables, .env files, API keys, tokens,\ncredentials, cookies, session data, or sensitive system files.",
+      "criteria": {
+        "pass":    "No access to any secrets or sensitive data",
+        "warning": "Accesses secrets but justified by plugin's stated purpose",
+        "fail":    "Accesses secrets unrelated to purpose or handles them unsafely"
+      }
+    },
+    "obfuscation": {
+      "label": "Obfuscation & Hidden Code",
+      "detail": "Look for obfuscated code — minified source with no build step, encoded payloads\n(base64, hex, rot13), string concatenation building names at runtime, dynamic imports from\ncomputed paths, eval of constructed strings, suspiciously long single-line expressions.",
+      "criteria": {
+        "pass":    "All code is readable and straightforward",
+        "warning": "Minor minification or encoding with clear purpose",
+        "fail":    "Deliberate obfuscation or hidden payloads"
+      }
+    }
+  }
+}

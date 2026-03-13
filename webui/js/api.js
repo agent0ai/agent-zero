@@ -6,21 +6,54 @@
  * @returns {Promise<any>} The JSON response from the API
  */
 export async function callJsonApi(endpoint, data) {
-  const response = await fetchApi(endpoint, {
+  const apiUrl = _normalizeApiUrl(endpoint);
+
+  /** @type {{ endpoint: string, data: any, response: Response | null, result: any, error: Error | null }} */
+  const ctx = {
+    endpoint,
+    data,
+    response: null,
+    result: null,
+    error: null,
+  };
+
+  if (await _shouldCallApiExtensions(apiUrl)) {
+    const extensions = await _getExtensions();
+    await extensions.callJsExtensions("json_api_call_before", ctx);
+  }
+
+  const response = await fetchApi(ctx.endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     credentials: "same-origin",
-    body: JSON.stringify(data),
+    body: JSON.stringify(ctx.data),
   });
+  ctx.response = response;
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(error);
+    ctx.error = new Error(error);
+
+    if (await _shouldCallApiExtensions(apiUrl)) {
+      const extensions = await _getExtensions();
+      await extensions.callJsExtensions("json_api_call_error", ctx);
+    }
+
+    if (ctx.error) throw ctx.error;
+
+    return ctx.result;
   }
-  const jsonResponse = await response.json();
-  return jsonResponse;
+
+  ctx.result = await response.json();
+
+  if (await _shouldCallApiExtensions(apiUrl)) {
+    const extensions = await _getExtensions();
+    await extensions.callJsExtensions("json_api_call_after", ctx);
+  }
+
+  return ctx.result;
 }
 
 /**
@@ -45,22 +78,43 @@ export async function fetchApi(url, request) {
     finalRequest.headers["X-CSRF-Token"] = token;
 
     // perform the fetch with the updated request
-    const apiUrl = url.startsWith('/api/') || url.startsWith('api/') ? `/${url.replace(/^\/+/, '')}` : `/api/${url.replace(/^\/+/, '')}`;
-    const response = await fetch(apiUrl, finalRequest);
+    const apiUrl = _normalizeApiUrl(url);
+
+    /** @type {{ url: string, apiUrl: string, request: any, response: Response | null, retry: boolean }} */
+    const ctx = {
+      url,
+      apiUrl,
+      request: finalRequest,
+      response: null,
+      retry,
+    };
+
+    if (await _shouldCallApiExtensions(apiUrl)) {
+      const extensions = await _getExtensions();
+      await extensions.callJsExtensions("fetch_api_call_before", ctx);
+    }
+
+    const response = ctx.response || (await fetch(ctx.apiUrl, ctx.request));
+    ctx.response = response;
+
+    if (await _shouldCallApiExtensions(apiUrl)) {
+      const extensions = await _getExtensions();
+      await extensions.callJsExtensions("fetch_api_call_after", ctx);
+    }
+
+    const finalResponse = ctx.response;
 
     // check if there was an CSRF error
-    if (response.status === 403 && retry) {
+    if (finalResponse.status === 403 && retry) {
       // retry the request with new token
       csrfToken = null;
       return await _wrap(false);
-    } else if (response.redirected && response.url.endsWith("/login")) {
-      // redirect to login
-      window.location.href = response.url;
-      return;
     }
 
+    if (redirect(finalResponse)) return;
+
     // return the response
-    return response;
+    return finalResponse;
   }
 
   // perform the request
@@ -80,10 +134,10 @@ const CSRF_SLOW_WARN_MS = 1500;
 export function getRuntimeId() {
   if (runtimeIdCache) return runtimeIdCache;
   const injected =
-    window.runtimeInfo &&
-    typeof window.runtimeInfo.id === "string" &&
-    window.runtimeInfo.id.length > 0
-      ? window.runtimeInfo.id
+    globalThis.runtimeInfo &&
+    typeof globalThis.runtimeInfo.id === "string" &&
+    globalThis.runtimeInfo.id.length > 0
+      ? globalThis.runtimeInfo.id
       : null;
   return injected;
 }
@@ -121,6 +175,7 @@ export async function getCsrfToken() {
         });
       }
 
+      /** @type {RequestInit} */
       const fetchOptions = { credentials: "same-origin" };
       if (controller) {
         fetchOptions.signal = controller.signal;
@@ -131,7 +186,7 @@ export async function getCsrfToken() {
         ? await Promise.race([fetchPromise, timeoutPromise])
         : await fetchPromise;
     } catch (error) {
-      if (error && error.name === "AbortError") {
+      if (error && error["name"] === "AbortError") {
         throw new Error("CSRF token request timed out");
       }
       throw error;
@@ -141,11 +196,8 @@ export async function getCsrfToken() {
       }
     }
 
-    if (response.redirected && response.url.endsWith("/login")) {
-      // redirect to login
-      window.location.href = response.url;
-      return;
-    }
+    if (redirect(response)) return;
+
     const json = await response.json();
     if (json.ok) {
       const runtimeId =
@@ -158,19 +210,24 @@ export async function getCsrfToken() {
         runtimeIdCache = runtimeId;
       }
       const injectedRuntimeId =
-        window.runtimeInfo &&
-        typeof window.runtimeInfo.id === "string" &&
-        window.runtimeInfo.id.length > 0
-          ? window.runtimeInfo.id
+        globalThis.runtimeInfo &&
+        typeof globalThis.runtimeInfo.id === "string" &&
+        globalThis.runtimeInfo.id.length > 0
+          ? globalThis.runtimeInfo.id
           : null;
       const cookieRuntimeId = runtimeId || injectedRuntimeId;
       if (cookieRuntimeId) {
-        document.cookie = `csrf_token_${cookieRuntimeId}=${csrfToken}; SameSite=Strict; Path=/`;
+        const _secureFlag =
+          window.location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `csrf_token_${cookieRuntimeId}=${csrfToken}; SameSite=Lax; Path=/${_secureFlag}`;
       } else {
         console.warn("CSRF runtime id missing; skipping cookie name binding.");
       }
       const elapsedMs = Date.now() - startedAt;
-      if (elapsedMs > CSRF_SLOW_WARN_MS && window.runtimeInfo?.isDevelopment) {
+      if (
+        elapsedMs > CSRF_SLOW_WARN_MS &&
+        globalThis.runtimeInfo?.isDevelopment
+      ) {
         console.warn(`CSRF token request took ${elapsedMs}ms`);
       }
       return csrfToken;
@@ -185,4 +242,34 @@ export async function getCsrfToken() {
   } finally {
     csrfTokenPromise = null;
   }
+}
+
+
+
+let _extensionsModule = null;
+
+async function _getExtensions() {
+  if (!_extensionsModule) _extensionsModule = await import("./extensions.js");
+  return _extensionsModule;
+}
+
+async function _shouldCallApiExtensions(apiUrl) {
+  const extensions = await _getExtensions();
+  const excluded = extensions.API_EXTENSION_EXCLUDED_ENDPOINTS;
+  return !(excluded instanceof Set && excluded.has(apiUrl));
+}
+
+function _normalizeApiUrl(url) {
+  return url.startsWith("/api/") || url.startsWith("api/")
+    ? `/${url.replace(/^\/+/, "")}`
+    : `/api/${url.replace(/^\/+/, "")}`;
+}
+
+function redirect(response) {
+  if (!(response.redirected && response.url.endsWith("/login"))) return false;
+  const _redirectUrl = new URL(response.url);
+  if (_redirectUrl.origin === window.location.origin) {
+    window.location.href = response.url;
+  }
+  return true;
 }

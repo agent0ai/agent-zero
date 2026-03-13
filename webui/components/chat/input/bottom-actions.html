@@ -80,8 +80,11 @@
   </div>
 
   <style>
-        .text-buttons-row { width: 100%; display: flex; padding-top: var(--spacing-xs); margin-left: var(--spacing-xs); }
-        .text-buttons-row > x-extension { display: contents; }
+        .text-buttons-row { width: 100%; display: flex; flex-wrap: wrap; gap: var(--spacing-xs); padding-top: var(--spacing-xs); margin-left: var(--spacing-xs); }
+        .text-buttons-row > x-extension:not(:empty) { display: contents; }
+        .text-buttons-row > x-extension:empty { display: none; }
+        .text-buttons-row > x-extension > x-component,
+        .text-buttons-row > x-extension > x-component > div[x-data] { display: contents; }
         .text-button { background-color: transparent; border: none; border-radius: 5px; color: var(--color-text); font-family: "Rubik", Arial, Helvetica, sans-serif; font-size: 0.6rem; padding: 6px var(--spacing-sm); cursor: pointer; opacity: 0.8; -webkit-transition: all 0.3s; transition: all 0.3s; display: flex; align-items: center; gap: var(--spacing-xs); }
         .text-button:hover:not(:disabled) { opacity: 1; background-color: var(--color-background-hover); border-radius: 4px; }
         .text-button:active:not(:disabled) { opacity: 0.5; }
@@ -90,8 +93,8 @@
         .text-button .material-symbols-outlined { font-size: 14px; flex-shrink: 0; }
         .text-button p { margin-block: 0; }
 
-        @media (max-width: 768px) { .text-buttons-row { width: 90%; display: flex; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { font-size: 0.6rem; } .text-button svg { width: 18px; height: 18px; flex-shrink: 0; } .text-button .material-symbols-outlined { font-size: 18px; } }
-        @media (max-width: 640px) { .text-buttons-row { display: flex; width: 90%; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { max-height: 25px; } .text-button p { display: none; } }
+        @media (max-width: 768px) { .text-buttons-row { width: 90%; display: flex; flex-wrap: wrap; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { font-size: 0.6rem; } .text-button svg { width: 18px; height: 18px; flex-shrink: 0; } .text-button .material-symbols-outlined { font-size: 18px; } }
+        @media (max-width: 640px) { .text-buttons-row { display: flex; flex-wrap: wrap; width: 90%; padding-top: var(--spacing-xs); gap: var(--spacing-xs); white-space: pre-wrap; } .text-button { max-height: 25px; } .text-button p { display: none; } }
     </style>
 </body>
 </html>

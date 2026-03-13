@@ -9,7 +9,7 @@
     <div x-data>
         <template x-if="$store.pluginToggle">
             <div x-create="$store.pluginToggle.open($store.pluginListStore?.selectedPlugin || '')"
-                 x-destroy="$store.pluginToggle.cleanup(); window.dispatchEvent(new Event('plugin-modal-closed'))">
+                 x-destroy="$store.pluginToggle.cleanup(); $store.pluginListStore?.refresh()">
 
                 <!-- Error -->
                 <div x-show="$store.pluginToggle.error" class="plugin-settings-error">
@@ -60,7 +60,7 @@
                                 </label>
 
                                 <div class="plugin-settings-toolbar-item plugin-status-toggle-item">
-                                    <label class="toggle" :class="{ 'disabled-appearance': !$store.pluginToggle.hasExplicitRuleForScope && !$store.pluginToggle.alwaysEnabled }">
+                                    <label class="toggle" :class="{ 'disabled-appearance': $store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving }">
                                         <input type="checkbox"
                                                :checked="$store.pluginToggle.status === 'enabled'"
                                                :disabled="$store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving"

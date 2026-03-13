@@ -48,7 +48,7 @@ To create a custom extension:
 
 ```python
 # File: /agents/_example/extensions/agent_init/_10_example_extension.py
-from python.helpers.extension import Extension
+from helpers.extension import Extension
 
 class ExampleExtension(Extension):
     async def execute(self, **kwargs):
@@ -80,7 +80,7 @@ When a tool with the same name is requested, Agent Zero first checks for its exi
 
 ```python
 # File: /agents/_example/tools/response.py
-from python.helpers.tool import Tool, Response
+from helpers.tool import Tool, Response
 
 # example of a tool redefinition
 # the original response tool is in python/tools/response.py
@@ -145,8 +145,8 @@ When a prompt file is processed, Agent Zero automatically looks for a correspond
 If you have a prompt file `agent.system.tools.md`, you can create `agent.system.tools.py` alongside it:
 
 ```python
-from python.helpers.files import VariablesPlugin
-from python.helpers import files
+from helpers.files import VariablesPlugin
+from helpers import files
 
 class Tools(VariablesPlugin):
     def get_variables(self, file: str, backup_dirs: list[str] | None = None) -> dict[str, Any]:

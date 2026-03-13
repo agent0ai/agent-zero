@@ -12,7 +12,7 @@ Primary references:
 - /a0/AGENTS.md (Full-stack architecture & AgentContext)
 - /a0/docs/agents/AGENTS.components.md (Component system deep dive)
 - /a0/docs/agents/AGENTS.modals.md (Modal system & CSS conventions)
-- /a0/AGENTS.plugins.md (Extension points, plugin.yaml, settings system, Plugin Index)
+- /a0/docs/agents/AGENTS.plugins.md (Extension points, plugin.yaml, settings system, Plugin Index)
 
 ---
 
@@ -80,6 +80,15 @@ Import it in the HTML <head>:
 </head>
 ```
 
+### 3. User Feedback: A0 Notifications Only
+Do **not** show errors or success via inline boxes (e.g. a red `<div>` bound to `store.error`). Use the project notification system so toasts and history stay consistent.
+
+- **Errors**: `toastFrontendError(message, "My Plugin")` (or `$store.notificationStore.frontendError(...)`)
+- **Success**: `toastFrontendSuccess(message, "My Plugin")`
+- **Warnings/Info**: `toastFrontendWarning`, `toastFrontendInfo` from `/components/notifications/notification-store.js`
+
+Import and call from your store; do not render a dedicated error/success block in the template. See [Notifications](/a0/docs/developer/notifications.md) for the full API.
+
 ---
 
 ## Plugin Settings
@@ -88,7 +97,7 @@ If your plugin needs user-configurable settings, add `webui/config.html`. The sy
 
 ### Settings modal contract
 
-The modal provides Project + Agent profile context selectors. Your config.html binds to `$store.pluginSettings.settings`:
+The modal provides Project + Agent profile context selectors. The plugin settings wrapper instantiates a local modal context from `$store.pluginSettingsPrototype`. Inside `config.html`, bind plugin fields to `config.*` and use `context.*` for modal-level state and actions:
 
 ```html
 <html>
@@ -100,14 +109,14 @@ The modal provides Project + Agent profile context selectors. Your config.html b
 </head>
 <body>
   <div x-data>
-    <input x-model="$store.pluginSettings.settings.my_key" />
-    <input type="checkbox" x-model="$store.pluginSettings.settings.feature_enabled" />
+    <input x-model="config.my_key" />
+    <input type="checkbox" x-model="config.feature_enabled" />
   </div>
 </body>
 </html>
 ```
 
-The modal's Save button persists `$store.pluginSettings.settings` to `config.json` in the correct scope (project/agent/global).
+The modal's Save button persists `config` to `config.json` in the correct scope (project/agent/global).
 
 ### Surfacing core settings (e.g. memory pattern)
 
@@ -115,7 +124,7 @@ If your plugin exposes existing core settings rather than plugin-specific ones, 
 
 ```html
 <div x-data x-init="
-    $store.pluginSettings.saveMode = 'core';
+    context.saveMode = 'core';
     if ($store.settings && !$store.settings.settings) $store.settings.onOpen();
 ">
   <x-component path="settings/agent/memory.html"></x-component>
@@ -139,7 +148,7 @@ If your plugin exposes existing core settings rather than plugin-specific ones, 
 ### Sending Messages Proactively
 ```python
 from agent import AgentContext
-from python.helpers.messages import UserMessage
+from helpers.messages import UserMessage
 
 context = AgentContext.use(context_id)
 task = context.communicate(UserMessage("Message text"))
@@ -148,7 +157,7 @@ response = await task.result()
 
 ### Reading Plugin Settings (backend)
 ```python
-from python.helpers.plugins import get_plugin_config, save_plugin_config
+from helpers.plugins import get_plugin_config, save_plugin_config
 
 # Runtime (with running agent - resolves project/profile from context)
 settings = get_plugin_config("my-plugin", agent=agent) or {}
@@ -168,6 +177,8 @@ save_plugin_config(
 ```
 /a0/usr/plugins/<name>/
   plugin.yaml           # Required manifest
+  initialize.py         # Optional one-time setup script
+  hooks.py              # Optional framework runtime hook functions
   default_config.yaml   # Optional default settings fallback
   README.md             # Optional, shown in Plugin List UI
   LICENSE               # Optional, shown in Plugin List UI
@@ -183,6 +194,51 @@ save_plugin_config(
     my-modal.html       # Full plugin pages
     my-store.js         # Alpine stores
 ```
+
+## Plugin Initialization Script (`initialize.py`)
+If your plugin requires one-time setup (e.g., installing dependencies, downloading models), add an `initialize.py` at the plugin root:
+
+```python
+import subprocess
+import sys
+
+def main():
+    print("Installing plugin dependencies...")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "requests==2.31.0"],
+        text=True,
+    )
+    if result.returncode != 0:
+        print("ERROR: Installation failed")
+        return result.returncode
+    print("Done.")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+Users trigger it via the **Init** button in the Plugin List UI. Return `0` on success, non-zero on failure.
+
+## Runtime Hooks (`hooks.py`)
+If your plugin needs framework-internal hook points, add a `hooks.py` file at the plugin root. The framework can call exported functions by name via `helpers.plugins.call_plugin_hook(...)`.
+
+- `hooks.py` runs inside the **Agent Zero framework runtime**, not the separate agent execution environment.
+- Use it for things like install hooks, plugin registration work, cache setup, file preparation, or other internal framework operations.
+- Hook functions may be sync or async.
+- Current example: the plugin installer calls `install()` in `hooks.py` after placing a plugin in `usr/plugins/`.
+
+### Environment targeting rules
+- If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the same Python environment that is running Agent Zero.
+- That is correct for dependencies needed by the plugin inside the framework runtime.
+- If the dependency is meant for the separate agent runtime or for OS-level tools, do **not** assume the current environment is correct.
+
+Instead, explicitly switch targets in a subprocess:
+- invoke the exact Python interpreter for the target runtime
+- activate the target virtualenv in the subprocess before running `pip`
+- run the relevant OS package manager from a subprocess configured for the intended environment
+
+In Docker, this usually means `hooks.py` affects `/opt/venv-a0` unless you intentionally target `/opt/venv` or another environment.
 
 ---
 

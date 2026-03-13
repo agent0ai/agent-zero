@@ -1,8 +1,9 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
-import "/components/plugins/plugin-settings-store.js";
-import "/components/plugins/toggle/plugin-toggle-store.js";
-import "/components/modals/markdown/markdown-store.js";
+import { store as pluginSettingsStore } from "/components/plugins/plugin-settings-store.js";
+import { store as pluginToggleStore } from "/components/plugins/toggle/plugin-toggle-store.js";
+import { store as pluginInitStore } from "/components/plugins/list/plugin-init-store.js";
+import { store as markdownModalStore } from "/components/modals/markdown/markdown-store.js";
 import {
   store as notificationStore,
   defaultPriority,
@@ -38,6 +39,12 @@ const model = {
   },
 
   async setTab(tab) {
+    if (tab === "marketplace") {
+      this.activeTab = "marketplace";
+      this.loading = false;
+      return;
+    }
+
     this.activeTab = tab === "builtin" ? "builtin" : "custom";
     const filter =
       this.activeTab === "builtin"
@@ -47,6 +54,9 @@ const model = {
   },
 
   async refresh() {
+    if (this.activeTab === "marketplace") {
+      return;
+    }
     await this.setTab(this.activeTab);
   },
 
@@ -55,14 +65,17 @@ const model = {
     window.openModal?.(`/plugins/${plugin.name}/webui/main.html`);
   },
 
+  openPluginInit(plugin) {
+    if (!plugin?.name || !plugin?.has_init_script) return;
+    pluginInitStore.open(plugin);
+  },
+
   async openPluginConfig(plugin) {
     if (!plugin?.name || !plugin?.has_config_screen) return;
     try {
       // Initialize toggle store for activation state UI in settings modal
-      const pluginToggleStore = Alpine.store("pluginToggle");
       if (pluginToggleStore?.open) await pluginToggleStore.open(plugin);
 
-      const pluginSettingsStore = Alpine.store("pluginSettings");
       if (!pluginSettingsStore?.open) {
         throw new Error("Plugin settings store is unavailable.");
       }
@@ -84,7 +97,6 @@ const model = {
     if (!plugin?.name) return;
     this.selectedPlugin = plugin;
     try {
-        const pluginToggleStore = Alpine.store("pluginToggle");
         if (!pluginToggleStore?.open) {
             throw new Error("Plugin toggle store is unavailable.");
         }
@@ -135,9 +147,8 @@ const model = {
         doc,
       });
       if (response?.error) throw new Error(response.error);
-      const markdownModal = Alpine.store("markdownModal");
-      if (!markdownModal) throw new Error("Markdown modal store unavailable.");
-      markdownModal.open(response.filename, response.content);
+      if (!markdownModalStore?.open) throw new Error("Markdown modal store unavailable.");
+      markdownModalStore.open(response.filename, response.content);
       window.openModal?.("components/modals/markdown/markdown-modal.html");
     } catch (e) {
       showErrorNotification(e, "Failed to open document");
@@ -151,7 +162,7 @@ const model = {
   },
 
   async deletePlugin(plugin) {
-    if (!plugin?.path) return;
+    if (!plugin?.name) return;
 
     if (!plugin.is_custom) {
       showErrorNotification(
@@ -162,9 +173,9 @@ const model = {
     }
 
     try {
-      const response = await api.callJsonApi("delete_work_dir_file", {
-        path: plugin.path,
-        currentPath: "/",
+      const response = await api.callJsonApi("plugins", {
+        action: "delete_plugin",
+        plugin_name: plugin.name,
       });
       if (response?.error) {
         throw new Error(response.error);

@@ -1,8 +1,8 @@
 import os
 from typing import Any
-from python.helpers.files import VariablesPlugin
-from python.helpers import files
-from python.helpers.print_style import PrintStyle
+from helpers.files import VariablesPlugin
+from helpers import files
+from helpers.print_style import PrintStyle
 
 
 class BuidToolsPrompt(VariablesPlugin):

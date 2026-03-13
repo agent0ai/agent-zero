@@ -114,17 +114,15 @@
 
     /* Chat buttons (Send/Mic) */
     #chat-buttons-wrapper { gap: var(--spacing-xs); padding-left: var(--spacing-xs); line-height: 0.5rem; display: -webkit-flex; display: flex; }
-    .chat-button { border: none; border-radius: 50%; color: var(--color-background); cursor: pointer; font-size: var(--font-size-normal); height: 2.525rem; width: 2.525rem; margin: 0 0.18rem 0 0 var(--spacing-xs); display: -webkit-flex; display: flex; align-items: center; justify-content: center; flex-shrink: 0; flex-grow: 0; min-width: 2.525rem; -webkit-transition: all var(--transition-speed), transform 0.1s ease-in-out; transition: all var(--transition-speed), transform 0.1s ease-in-out; }
+    .chat-button { border: none; border-radius: 50%; color: var(--color-background); cursor: pointer; font-size: var(--font-size-normal); height: 2.525rem; width: 2.525rem; margin: 0 0.18rem 0 0 var(--spacing-xs); display: -webkit-flex; display: flex; align-items: center; justify-content: center; flex-shrink: 0; flex-grow: 0; min-width: 2.525rem; -webkit-transition: background-color var(--transition-speed), box-shadow 0.12s ease-in-out, filter 0.12s ease-in-out; transition: background-color var(--transition-speed), box-shadow 0.12s ease-in-out, filter 0.12s ease-in-out; }
     #send-button { background-color: #4248f1; }
     #send-button.send-queue { background-color: #e67e22; }
-    #send-button:hover { -webkit-transform: scale(1.05); transform: scale(1.05); transform-origin: center; background-color: #353bc5; }
+    #send-button:hover { background-color: #353bc5; box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 6px 14px rgba(0,0,0,0.2); }
     #send-button.send-queue:hover { background-color: #d35400; }
-    #send-button:active { -webkit-transform: scale(1); transform: scale(1); transform-origin: center; background-color: #2b309c; }
+    #send-button:active { background-color: #2b309c; filter: brightness(0.96); }
     .chat-button svg { width: 1.5rem; height: 1.5rem; }
     #send-button .material-symbols-outlined { font-size: 1.5rem; }
     
-    /* Microphone button */
-    .chat-button.mic-inactive svg { /* Add specific styles if needed */ }
     /* Responsive tweaks */
     @media (max-width: 640px) {
       #chat-input { min-height: 5.3rem; align-content: start; }

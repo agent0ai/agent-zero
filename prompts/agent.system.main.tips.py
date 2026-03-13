@@ -1,8 +1,8 @@
-from python.helpers.files import VariablesPlugin
-from python.helpers import settings
-from python.helpers import projects
-from python.helpers import runtime
-from python.helpers import files
+from helpers.files import VariablesPlugin
+from helpers import settings
+from helpers import projects
+from helpers import runtime
+from helpers import files
 from typing import Any
 
 class WorkdirPath(VariablesPlugin):

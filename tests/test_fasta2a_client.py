@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
 import pytest
-from python.helpers import settings
+from helpers import settings
 
 
 def get_test_urls():

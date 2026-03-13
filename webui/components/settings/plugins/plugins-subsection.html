@@ -1,7 +1,7 @@
 <html>
 <head>
     <script type="module">
-        import { store } from "/components/plugins/plugin-settings-store.js";
+        import { store } from "/components/settings/plugins/plugins-subsection-store.js";
     </script>
 </head>
 <body>
@@ -11,80 +11,44 @@
           <x-component path="settings/plugins/plugins-subsection.html" data-tab="agent"></x-component>
         The tab value is read at init time from the x-component element's dataset.
     -->
-    <div x-data="{
-        tab: '',
-        plugins: [],
-        loading: false,
-        async init() {
-            // find closest x-component ancestor to read the data-tab attribute
-            const host = this.$el.closest('x-component') || this.$el.parentElement?.closest('x-component');
-            this.tab = host?.getAttribute('data-tab') || '';
-            await this.load();
-        },
-        async load() {
-            if (!this.tab) return;
-            this.loading = true;
-            try {
-                const r = await globalThis.fetchApi('/plugins_list', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        filter: { custom: true, builtin: true },
-                    }),
-                });
-                const data = await r.json().catch(() => ({}));
-                const plugins = data.ok ? (data.plugins || []) : [];
-                this.plugins = plugins.filter((plugin) => {
-                    const sections = Array.isArray(plugin.settings_sections)
-                        ? plugin.settings_sections
-                        : [];
-                    return plugin.has_config_screen && sections.includes(this.tab);
-                });
-            } catch {
-                this.plugins = [];
-            } finally {
-                this.loading = false;
-            }
-        },
-        async openPluginConfig(plugin) {
-            if (!plugin?.name) return;
-            await Alpine.store('pluginSettings')?.open(plugin.name);
-            window.openModal?.('components/plugins/plugin-settings.html');
-        }
-    }" x-init="init()">
-
-        <template x-if="loading || plugins.length > 0">
-            <div>
-                <div class="section-title">Plugins</div>
-                <div class="section-description">
-                    Plugin-specific settings for this tab.
-                </div>
-
-                <div x-show="loading" class="loading">
-                    <span>Loading plugins...</span>
-                </div>
-
-                <div class="plugins-list">
-                    <template x-for="plugin in plugins" :key="plugin.path || plugin.name">
-                        <div class="plugin-card">
-                            <div class="plugin-header">
-                                <div class="plugin-heading">
-                                    <div class="plugin-title" x-text="plugin.display_name || plugin.name || '(unnamed plugin)'"></div>
-                                    <code class="plugin-path" x-text="plugin.path"></code>
-                                </div>
-                                <div class="plugin-actions">
-                                    <button type="button"
-                                        class="button"
-                                        title="Config"
-                                        @click="openPluginConfig(plugin)">
-                                        <span class="icon material-symbols-outlined">settings</span> Config
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="plugin-description" x-text="plugin.description || 'No description provided.'"></div>
+    <div x-data="(() => ({ context: $instantiate($store.pluginsSubsectionPrototype) }))()">
+        <template x-if="context">
+            <div x-create="context.init($el)"
+                 x-destroy="context.cleanup()">
+                <template x-if="context.loading || context.plugins.length > 0">
+                    <div>
+                        <div class="section-title">Plugins</div>
+                        <div class="section-description">
+                            Plugin-specific settings for this tab.
                         </div>
-                    </template>
-                </div>
+
+                        <div x-show="context.loading" class="loading">
+                            <span>Loading plugins...</span>
+                        </div>
+
+                        <div class="plugins-list">
+                            <template x-for="plugin in context.plugins" :key="plugin.path || plugin.name">
+                                <div class="plugin-card">
+                                    <div class="plugin-header">
+                                        <div class="plugin-heading">
+                                            <div class="plugin-title" x-text="plugin.display_name || plugin.name || '(unnamed plugin)'"></div>
+                                            <code class="plugin-path" x-text="plugin.path"></code>
+                                        </div>
+                                        <div class="plugin-actions">
+                                            <button type="button"
+                                                class="button"
+                                                title="Config"
+                                                @click="context.openPluginConfig(plugin)">
+                                                <span class="icon material-symbols-outlined">settings</span> Config
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="plugin-description" x-text="plugin.description || 'No description provided.'"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
             </div>
         </template>
     </div>

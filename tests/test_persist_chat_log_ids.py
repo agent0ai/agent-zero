@@ -2,8 +2,8 @@ from __future__ import annotations
 
 
 def test_deserialize_log_preserves_item_id() -> None:
-    from python.helpers.log import Log
-    from python.helpers.persist_chat import _deserialize_log, _serialize_log
+    from helpers.log import Log
+    from helpers.persist_chat import _deserialize_log, _serialize_log
 
     log = Log()
     log.log(type="user", heading="User message", content="hello", id="msg-123")

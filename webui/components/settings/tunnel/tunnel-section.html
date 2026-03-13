@@ -476,14 +476,15 @@
             color: #0078d4;
             text-decoration: none;
             font-size: 0.85rem;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease, border-color 0.2s ease,
+                box-shadow 0.2s ease;
             word-break: break-all;
         }
 
         .microsoft-login-link:hover {
             background-color: rgba(0, 120, 212, 0.2);
             border-color: rgba(0, 120, 212, 0.5);
-            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.15);
         }
 
         .microsoft-login-link .icon {
@@ -529,12 +530,12 @@
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease,
+                filter 0.2s ease;
         }
 
         .btn-copy-code:hover {
             background-color: #106ebe;
-            transform: translateY(-1px);
             box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
         }
 

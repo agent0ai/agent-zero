@@ -55,7 +55,7 @@ def _write_handler_module(path: Path, class_name: str, event_type: str) -> None:
                 "",
                 "from typing import Any",
                 "",
-                "from python.helpers.websocket import WebSocketHandler",
+                "from helpers.websocket import WebSocketHandler",
                 "",
                 f"class {class_name}(WebSocketHandler):",
                 "    @classmethod",
@@ -80,7 +80,7 @@ def _write_handler_module(path: Path, class_name: str, event_type: str) -> None:
 
 
 def test_discovery_supports_folder_entries_and_ignores_deeper_nesting(tmp_path: Path) -> None:
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from helpers.websocket_namespace_discovery import discover_websocket_namespaces
 
     folder = tmp_path / "orders"
     folder.mkdir()
@@ -100,7 +100,7 @@ def test_discovery_supports_folder_entries_and_ignores_deeper_nesting(tmp_path: 
 
 
 def test_discovery_folder_suffix_handler_stripped(tmp_path: Path) -> None:
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from helpers.websocket_namespace_discovery import discover_websocket_namespaces
 
     folder = tmp_path / "sales_handler"
     folder.mkdir()
@@ -115,8 +115,8 @@ def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(tmp_path
     from flask import Flask
     import socketio
 
-    from python.helpers.websocket_manager import WebSocketManager
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from helpers.websocket_manager import WebSocketManager
+    from helpers.websocket_namespace_discovery import discover_websocket_namespaces
     from run_ui import configure_websocket_namespaces
 
     empty = tmp_path / "empty"
@@ -128,7 +128,7 @@ def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(tmp_path
     def _warn(message: str) -> None:
         warnings.append(message)
 
-    monkeypatch.setattr("python.helpers.print_style.PrintStyle.warning", staticmethod(_warn))
+    monkeypatch.setattr("helpers.print_style.PrintStyle.warning", staticmethod(_warn))
 
     discoveries = discover_websocket_namespaces(handlers_folder=str(tmp_path), include_root_default=False)
     assert "/empty" not in {d.namespace for d in discoveries}
@@ -181,7 +181,7 @@ def test_discovery_empty_folder_warns_and_treats_namespace_unregistered(tmp_path
 
 
 def test_discovery_invalid_modules_fail_fast_with_descriptive_errors(tmp_path: Path) -> None:
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from helpers.websocket_namespace_discovery import discover_websocket_namespaces
 
     # 0 handlers in a *_handler.py module
     (tmp_path / "bad_handler.py").write_text(
@@ -196,7 +196,7 @@ def test_discovery_invalid_modules_fail_fast_with_descriptive_errors(tmp_path: P
     (tmp_path / "two_handler.py").write_text(
         "\n".join(
             [
-                "from python.helpers.websocket import WebSocketHandler",
+                "from helpers.websocket import WebSocketHandler",
                 "class A(WebSocketHandler):",
                 "    @classmethod",
                 "    def requires_auth(cls): return False",

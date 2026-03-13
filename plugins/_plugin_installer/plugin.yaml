@@ -1,0 +1,6 @@
+name: _plugin_installer
+title: Plugin Installer
+description: Install plugins from ZIP files, Git repositories, or the community index.
+version: 1.0.0
+settings_sections: []
+always_enabled: true

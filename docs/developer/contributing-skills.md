@@ -37,16 +37,16 @@ Skills you create here can be used in any of these platforms!
 
 ```bash
 # Create a new skill interactively
-python -m python.helpers.skills_cli create my-skill-name
+python -m helpers.skills_cli create my-skill-name
 
 # List all available skills
-python -m python.helpers.skills_cli list
+python -m helpers.skills_cli list
 
 # Validate a skill
-python -m python.helpers.skills_cli validate my-skill-name
+python -m helpers.skills_cli validate my-skill-name
 
 # Search skills
-python -m python.helpers.skills_cli search "keyword"
+python -m helpers.skills_cli search "keyword"
 ```
 
 ### Manual Creation
@@ -161,7 +161,7 @@ Ask yourself:
 
 ```bash
 # Using CLI
-python -m python.helpers.skills_cli create my-awesome-skill
+python -m helpers.skills_cli create my-awesome-skill
 
 # Or manually
 mkdir -p usr/skills/my-awesome-skill
@@ -225,7 +225,7 @@ This skill includes helper scripts:
 
 ```bash
 # Validate the skill
-python -m python.helpers.skills_cli validate my-awesome-skill
+python -m helpers.skills_cli validate my-awesome-skill
 
 # Test in Agent Zero
 # Start the agent and ask it to perform the task your skill handles
@@ -281,7 +281,7 @@ One skill = one expertise area. If your skill is getting too long, split it:
 
 1. **Validate Structure:**
    ```bash
-   python -m python.helpers.skills_cli validate my-skill
+   python -m helpers.skills_cli validate my-skill
    ```
 
 2. **Test Semantic Recall:**
@@ -304,7 +304,7 @@ One skill = one expertise area. If your skill is getting too long, split it:
 
 2. **Create Your Skill:**
    ```bash
-   python -m python.helpers.skills_cli create my-skill
+   python -m helpers.skills_cli create my-skill
    # Edit usr/skills/my-skill/SKILL.md
    ```
 

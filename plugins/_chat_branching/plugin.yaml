@@ -1,0 +1,4 @@
+name: _chat_branching
+title: Chat Branching
+description: Branch a chat from any message, creating a new chat with history up to that point.
+version: 1.0.0

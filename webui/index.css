@@ -491,7 +491,8 @@ h4 {
   justify-content: center;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease,
+    filter 0.3s ease;
   animation: fadeIn 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -499,7 +500,7 @@ h4 {
 .preview-item:hover {
   border-color: var(--color-primary);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  filter: brightness(1.02);
 }
 
 .preview-item.image-preview img {
@@ -566,21 +567,19 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease,
+    opacity 0.2s ease;
   z-index: 2;
   opacity: 0;
-  transform: scale(0.8);
 }
 
 .device-pointer .preview-item:hover .remove-attachment,
 .device-pointer .attachment-item:hover .remove-attachment {
   opacity: 1;
-  transform: scale(1);
 }
 
 .device-touch .remove-attachment {
   opacity: 1 !important;
-  transform: scale(1.25) !important;
   /* font-size: 1.5em; */
   top: 0.5em;
   right: 0.5em;
@@ -588,15 +587,15 @@ h4 {
 
 .remove-attachment:hover {
   background-color: var(--color-accent-dark);
-  transform: scale(1.1) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 6px 14px rgba(0, 0, 0, 0.24);
 }
 
 .device-touch .remove-attachment:active {
-  transform: scale(1.1) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12) !important;
 }
 
 .remove-attachment:active {
-  transform: scale(0.9) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12) !important;
 }
 
 .image-error {
@@ -685,7 +684,8 @@ h4 {
   justify-content: center;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease,
+    filter 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: var(--border-radius);
 }
@@ -693,7 +693,7 @@ h4 {
 .attachment-item:hover {
   border-color: var(--color-primary);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  filter: brightness(1.02);
 }
 
 .light-mode .attachment-item:hover {
@@ -844,11 +844,11 @@ h4 {
 
 .remove-attachment:hover {
   background-color: var(--color-accent);
-  transform: scale(1.1);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 6px 14px rgba(0, 0, 0, 0.24);
 }
 
 .remove-attachment:active {
-  transform: scale(0.9);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
 /* Error handling */

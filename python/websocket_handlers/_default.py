@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from python.helpers.websocket import WebSocketHandler, WebSocketResult
+from helpers.websocket import WebSocketHandler, WebSocketResult
 
 
 class RootDefaultHandler(WebSocketHandler):

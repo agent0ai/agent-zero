@@ -5,7 +5,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from python.helpers.websocket import validate_ws_origin
+from helpers.websocket import validate_ws_origin
 
 
 def test_validate_ws_origin_allows_same_origin_with_explicit_port():

@@ -1,0 +1,108 @@
+name: Close inactive issues and PRs
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      inactive_days:
+        description: "Close items with no activity for more than N days"
+        required: false
+        default: "90"
+      dry_run:
+        description: "If true, only print URLs (no comment/close)"
+        required: false
+        default: "true"
+
+permissions:
+  issues: write
+  pull-requests: write
+
+env:
+  DEFAULT_INACTIVE_DAYS: "90"
+  DEFAULT_DRY_RUN: "true"
+
+jobs:
+  close_inactive:
+    if: github.repository == 'agent0ai/agent-zero' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find and optionally close inactive issues/PRs
+        uses: actions/github-script@v7
+        env:
+          INACTIVE_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.inactive_days || env.DEFAULT_INACTIVE_DAYS }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || env.DEFAULT_DRY_RUN }}
+        with:
+          script: |
+            const inactiveDaysRaw = process.env.INACTIVE_DAYS ?? "90";
+            const inactiveDays = Number.parseInt(inactiveDaysRaw, 10);
+            if (!Number.isFinite(inactiveDays) || inactiveDays <= 0) {
+              core.setFailed(`Invalid INACTIVE_DAYS: ${inactiveDaysRaw}`);
+              return;
+            }
+
+            const dryRunRaw = (process.env.DRY_RUN ?? "true").toLowerCase();
+            const dryRun = ["1", "true", "yes", "y"].includes(dryRunRaw);
+
+            const now = new Date();
+            const cutoff = new Date(now.getTime() - inactiveDays * 24 * 60 * 60 * 1000);
+            const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+            core.info(`inactiveDays=${inactiveDays}`);
+            core.info(`dryRun=${dryRun}`);
+            core.info(`cutoffDate=${cutoffDate}`);
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            async function processQuery(kind, searchQuery) {
+              core.info(`Searching ${kind}: ${searchQuery}`);
+
+              const items = await github.paginate(github.rest.search.issuesAndPullRequests, {
+                q: searchQuery,
+                per_page: 100,
+              });
+
+              if (items.length === 0) {
+                core.info(`No inactive ${kind} found.`);
+                return;
+              }
+
+              core.info(`Found ${items.length} inactive ${kind}. URLs:`);
+              for (const item of items) {
+                core.info(item.html_url);
+              }
+
+              if (dryRun) {
+                return;
+              }
+
+              for (const item of items) {
+                const issueNumber = item.number;
+                const url = item.html_url;
+
+                try {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    body: `Closing due to inactivity of ${inactiveDays} days.`,
+                  });
+
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    state: "closed",
+                  });
+
+                  core.info(`Closed: ${url}`);
+                } catch (err) {
+                  core.warning(`Failed to close ${url}: ${err?.message ?? String(err)}`);
+                }
+              }
+            }
+
+            const base = `repo:${owner}/${repo} is:open updated:<${cutoffDate}`;
+            await processQuery("issues", `${base} is:issue`);
+            await processQuery("pull requests", `${base} is:pr`);

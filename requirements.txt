@@ -10,14 +10,15 @@ flask[async]==3.0.3
 flask-basicauth==0.2.0
 flaredantic==0.1.5
 GitPython==3.1.43
+giturlparse==0.14.0
 inputimeout==1.0.4
 kokoro>=0.9.2
 simpleeval==1.0.3
 langchain-core==0.3.49
 langchain-community==0.3.19
-langchain-unstructured[all-docs]==0.1.6
+langchain-unstructured==0.1.6
 openai-whisper==20250625
-lxml_html_clean==0.3.1
+lxml_html_clean>=0.4.0  # CVE-2024-52595 fix: XSS CWE-79 CVSS 8.4
 markdown==3.7
 mcp==1.22.0
 newspaper3k==0.2.8
@@ -51,3 +52,11 @@ pywinpty==3.0.2; sys_platform == "win32"
 python-socketio>=5.14.2
 uvicorn>=0.38.0
 wsproto>=1.2.0
+# Security floor pins for transitive dependencies
+# These packages are pulled transitively — floor pins prevent resolver regressions
+Pillow>=10.2.0  # security floor: heap buffer overflow CWE-122, eval injection CWE-95, DoS CWE-400
+nltk>=3.9.3  # security floor: RCE CWE-94, code injection CWE-94
+h11>=0.16.0  # security floor: HTTP request smuggling CWE-444
+urllib3>=2.6.0  # security floor: resource exhaustion CWE-770, data amplification CWE-409
+cryptography>=46.0.0  # security floor: insufficient data authenticity CWE-345
+werkzeug>=3.0.3  # security floor: RCE CWE-94

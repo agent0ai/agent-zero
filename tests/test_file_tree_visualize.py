@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from python.helpers.file_tree import (
+from helpers.file_tree import (
     OUTPUT_MODE_FLAT,
     OUTPUT_MODE_NESTED,
     OUTPUT_MODE_STRING,
@@ -34,7 +34,7 @@ from python.helpers.file_tree import (
     SORT_DESC,
     file_tree,
 )
-from python.helpers.files import create_dir, delete_dir, get_abs_path, write_file
+from helpers.files import create_dir, delete_dir, get_abs_path, write_file
 
 
 BASE_TEMP_ROOT = "tmp/tests/file_tree/visualize"

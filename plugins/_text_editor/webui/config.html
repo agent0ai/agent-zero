@@ -1,0 +1,58 @@
+<html>
+<head>
+    <title>Text Editor</title>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="config">
+            <div>
+                <div class="section-title">Text Editor</div>
+                <div class="section-description">
+                    Settings for the native text file read/write/patch tools.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max line tokens</div>
+                        <div class="field-description">
+                            Lines exceeding this token count are cropped in read output.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="50" max="5000"
+                            x-model.number="config.max_line_tokens" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Default line count</div>
+                        <div class="field-description">
+                            Number of lines returned by read when no range is specified.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="10" max="1000"
+                            x-model.number="config.default_line_count" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max total read tokens</div>
+                        <div class="field-description">
+                            Total token budget for a single read operation output.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="500" max="50000"
+                            x-model.number="config.max_total_read_tokens" />
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

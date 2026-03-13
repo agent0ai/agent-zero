@@ -1,6 +1,10 @@
 import { createStore } from "/js/AlpineStore.js";
+import { showConfirmDialog } from "/js/confirmDialog.js";
+import { store as settingsStore } from "/components/settings/settings-store.js";
+import { store as pluginToggleStore } from "/components/plugins/toggle/plugin-toggle-store.js";
 
 const fetchApi = globalThis.fetchApi;
+const justToast = globalThis.justToast;
 
 const model = {
     // which plugin this modal is showing
@@ -54,11 +58,10 @@ const model = {
         await this.loadSettings();
 
         // Mirror scope change to pluginToggle so activation state stays in sync
-        const toggleStore = Alpine.store('pluginToggle');
-        if (toggleStore) {
-            toggleStore.projectName = nextProject;
-            toggleStore.agentProfileKey = nextProfile;
-            await toggleStore.loadToggleStatus();
+        if (pluginToggleStore?.loadToggleStatus) {
+            pluginToggleStore.projectName = nextProject;
+            pluginToggleStore.agentProfileKey = nextProfile;
+            await pluginToggleStore.loadToggleStatus();
         }
     },
 
@@ -264,14 +267,34 @@ const model = {
         }
     },
 
+    async resetToDefault() {
+        if (!this.pluginName) return;
+        const confirmed = await showConfirmDialog({
+            title: "Reset to Default",
+            message: "This will replace the current settings with the plugin defaults. Any unsaved changes will be lost.",
+            confirmText: "Reset",
+            type: "warning",
+        });
+        if (!confirmed) return;
+        const response = await fetchApi("/plugins", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "get_default_config", plugin_name: this.pluginName }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (result.ok) {
+            this.settings = result.data || {};
+            justToast("Settings reset to default.", "info");
+        }
+    },
+
     async save() {
         if (!this.pluginName) return;
 
         // Core-backed plugins (e.g. memory) delegate to the settings store
         if (this.saveMode === 'core') {
-            const coreStore = Alpine.store('settings');
-            if (coreStore?.saveSettings) {
-                const ok = await coreStore.saveSettings();
+            if (settingsStore?.saveSettings) {
+                const ok = await settingsStore.saveSettings();
                 if (ok) window.closeModal?.();
             }
             return;
@@ -332,4 +355,4 @@ const model = {
     },
 };
 
-export const store = createStore("pluginSettings", model);
+export const store = createStore("pluginSettingsPrototype", model);

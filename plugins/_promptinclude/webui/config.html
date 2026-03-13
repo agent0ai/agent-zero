@@ -1,0 +1,97 @@
+<html>
+<head>
+    <title>Prompt Include</title>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="config">
+            <div>
+                <div class="section-title">Prompt Include</div>
+                <div class="section-description">
+                    Include matching files from workdir in agent system prompt.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Name pattern</div>
+                        <div class="field-description">
+                            Glob pattern for files to include (e.g. *.promptinclude.md).
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="text"
+                            x-model="config.name_pattern" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max depth</div>
+                        <div class="field-description">
+                            Maximum directory depth to search.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" max="50"
+                            x-model.number="config.max_depth" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max file tokens</div>
+                        <div class="field-description">
+                            Token limit per individual file. Longer files are cropped.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="100" max="20000"
+                            x-model.number="config.max_file_tokens" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max file count</div>
+                        <div class="field-description">
+                            Maximum number of files to include.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" max="200"
+                            x-model.number="config.max_file_count" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max total tokens</div>
+                        <div class="field-description">
+                            Total token budget for all included files combined.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="500" max="50000"
+                            x-model.number="config.max_total_tokens" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Gitignore patterns</div>
+                        <div class="field-description">
+                            Gitignore-style patterns to skip directories/files during search.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <textarea rows="8"
+                            x-model="config.gitignore"></textarea>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from agent import AgentContext
 from initialize import initialize_agent
-from python.api.poll import Poll
+from api.poll import Poll
 
 
 @pytest.mark.asyncio
@@ -31,7 +31,7 @@ async def test_snapshot_builder_matches_poll_output_for_null_context():
         None,  # Poll.process does not access the flask Request object.
     )
 
-    from python.helpers import state_snapshot as snapshot
+    from helpers import state_snapshot as snapshot
 
     builder_payload = await snapshot.build_snapshot(
         context=None,
@@ -62,7 +62,7 @@ async def test_snapshot_builder_active_context_includes_incremental_logs():
         assert first["logs"]
         assert first["log_version"] == len(ctx.log.updates)
 
-        from python.helpers import state_snapshot as snapshot
+        from helpers import state_snapshot as snapshot
 
         second = await snapshot.build_snapshot(
             context=ctxid,

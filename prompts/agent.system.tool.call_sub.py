@@ -1,8 +1,8 @@
 import json
 from typing import Any, TYPE_CHECKING
-from python.helpers.files import VariablesPlugin
-from python.helpers import files, projects, subagents
-from python.helpers.print_style import PrintStyle
+from helpers.files import VariablesPlugin
+from helpers import files, projects, subagents
+from helpers.print_style import PrintStyle
 
 if TYPE_CHECKING:
     from agent import Agent

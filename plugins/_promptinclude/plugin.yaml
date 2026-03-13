@@ -1,0 +1,8 @@
+name: _promptinclude
+title: Prompt Include
+description: Persistent behavioral rules and preferences auto-injected into system prompt.
+version: 1.0.0
+settings_sections:
+  - agent
+per_project_config: true
+per_agent_config: true

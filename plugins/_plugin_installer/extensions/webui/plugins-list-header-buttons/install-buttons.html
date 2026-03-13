@@ -1,0 +1,11 @@
+<span x-data>
+    <script type="module">
+        import { store } from "/plugins/_plugin_installer/webui/pluginInstallStore.js";
+    </script>
+
+    <button type="button"
+        class="button confirm"
+        @click="openModal('/plugins/_plugin_installer/webui/main.html')">
+        <span class="icon material-symbols-outlined">add</span> Install
+    </button>
+</span>

@@ -1,0 +1,79 @@
+<html>
+<head><title>Infection Check</title></head>
+<body>
+<div x-data>
+  <template x-if="config">
+    <div>
+      <div class="section-title">Infection Check</div>
+      <div class="section-description">
+        Safety check for prompt injection. Scans agent output for credential leaks,
+        data theft, and other malicious behavior before tool execution.
+      </div>
+
+      <div class="field">
+        <div class="field-label">
+          <div class="field-title">Check Mode</div>
+          <div class="field-description">
+            <b>Thoughts</b>: Analyze reasoning/thoughts only (faster — runs in parallel with response generation).<br>
+            <b>Complete</b>: Analyze full response including tool arguments (slower, more thorough).
+          </div>
+        </div>
+        <div class="field-control">
+          <select x-model="config.mode">
+            <option value="thoughts">Thoughts (faster)</option>
+            <option value="complete">Complete (thorough)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">
+          <div class="field-title">Model</div>
+          <div class="field-description">Which model runs the security analysis.</div>
+        </div>
+        <div class="field-control">
+          <select x-model="config.model">
+            <option value="utility">Utility model</option>
+            <option value="main">Main model</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">
+          <div class="field-title">Max Clarifications</div>
+          <div class="field-description">Maximum clarification rounds before auto-terminate.</div>
+        </div>
+        <div class="field-control">
+          <input type="number" min="0" max="10"
+            x-model.number="config.max_clarifications" />
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">
+          <div class="field-title">History Size</div>
+          <div class="field-description">Recent conversation messages to include as context for the check.</div>
+        </div>
+        <div class="field-control">
+          <input type="number" min="0" max="100"
+            x-model.number="config.history_size" />
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">
+          <div class="field-title">Security Audit Prompt</div>
+          <div class="field-description">System prompt for the security check model. Customize detection rules and output format.</div>
+        </div>
+        <div class="field-control" style="width:100%;">
+          <textarea rows="14" style="width:100%;font-family:monospace;font-size:0.85em;"
+            x-model="config.prompt"></textarea>
+        </div>
+      </div>
+
+    </div>
+  </template>
+</div>
+</body>
+</html>

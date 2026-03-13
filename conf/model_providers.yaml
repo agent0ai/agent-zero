@@ -78,6 +78,9 @@ chat:
       extra_headers:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
+        "X-OpenRouter-Categories":
+          - personal-agent
+          - cloud-agent
   sambanova:
     name: Sambanova
     litellm_provider: sambanova
@@ -139,6 +142,9 @@ embedding:
       extra_headers:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
+        "X-OpenRouter-Categories":
+          - personal-agent
+          - cloud-agent
   other:
     name: Other OpenAI compatible
     litellm_provider: openai

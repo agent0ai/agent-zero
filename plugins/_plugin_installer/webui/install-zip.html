@@ -1,0 +1,84 @@
+<html>
+<head>
+    <title>Install Plugin from ZIP</title>
+    <script type="module">
+        import { store } from "/plugins/_plugin_installer/webui/pluginInstallStore.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.pluginInstallStore">
+            <div x-create="$store.pluginInstallStore.resetZip()">
+
+                <div class="pi-upload-section">
+                    <label for="plugin-zip-file" class="pi-upload-btn button confirm"
+                        :class="{ 'pi-has-file': $store.pluginInstallStore.zipFile }">
+                        <span class="icon material-symbols-outlined">upload_file</span>
+                        <span x-text="$store.pluginInstallStore.zipFileName || 'Select Plugin ZIP File'"></span>
+                    </label>
+                    <input type="file" id="plugin-zip-file" accept=".zip" style="display:none"
+                        @change="$store.pluginInstallStore.handleFileUpload($event)">
+                    <div class="pi-hint">
+                        The ZIP should contain a folder with a plugin.yaml file.
+                    </div>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.zipFile" class="pi-actions pi-actions-center">
+                    <button class="button confirm"
+                        @click="$store.pluginInstallStore.installZip()"
+                        :disabled="$store.pluginInstallStore.loading">
+                        <span class="icon material-symbols-outlined">download</span> Install Plugin
+                    </button>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.loading" class="pi-loading">
+                    <span x-text="$store.pluginInstallStore.loadingMessage || 'Processing...'"></span>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.result" class="pi-result">
+                    <div class="pi-result-icon">
+                        <span class="material-symbols-outlined">check_circle</span>
+                    </div>
+                    <div class="pi-result-text">
+                        <strong x-text="'Plugin installed: ' + ($store.pluginInstallStore.result?.title || $store.pluginInstallStore.result?.plugin_name || '')"></strong>
+                        <div class="pi-result-path" x-text="$store.pluginInstallStore.result?.path || ''"></div>
+                    </div>
+                </div>
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        @import url("/plugins/_plugin_installer/webui/install-shared.css");
+
+        .pi-upload-section {
+            text-align: center;
+            padding: 2rem 1rem;
+            border: 2px dashed var(--color-border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .pi-upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .pi-upload-btn.pi-has-file {
+            background: var(--color-panel);
+            border-color: var(--color-highlight);
+        }
+
+        .pi-loading {
+            text-align: center;
+            padding: 1rem;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</body>
+</html>

@@ -6,14 +6,23 @@
     </script>
 </head>
 <body>
-    <div x-data>
-        <template x-if="$store.pluginSettings">
-            <div x-create="$store.pluginSettings.onModalOpen()"
-                 x-destroy="$store.pluginSettings.cleanup(); window.dispatchEvent(new Event('plugin-modal-closed'))">
+    <div x-data="(() => {
+        const context = $instantiate($store.pluginSettingsPrototype);
+        return {
+            context,
+            get config() {
+                return this.context.settings;
+            },
+        };
+    })()">
+        <template x-if="context">
+            <div>
+            <div x-create="context.onModalOpen(); (() => { const modal = $el.closest('.modal'); if (modal) modal.__pluginSettingsContext = context; })()"
+                 x-destroy="context.cleanup(); $store.pluginListStore?.refresh()">
 
                 <!-- Context toolbar: Project + Agent profile (only when at least one scope is configurable) -->
                 <div class="plugin-settings-scope-section"
-                     x-show="$store.pluginSettings.perProjectConfig || $store.pluginSettings.perAgentConfig">
+                     x-show="context.perProjectConfig || context.perAgentConfig">
                     <div class="plugin-settings-scope-header">
                         <div class="plugin-settings-scope-title">Settings scope</div>
                         <div class="plugin-settings-scope-desc">This plugin supports settings per project or agent profile.</div>
@@ -23,12 +32,12 @@
 
                         <label class="plugin-settings-toolbar-item">
                             <span class="plugin-settings-toolbar-label">Project</span>
-                            <select x-model="$store.pluginSettings.projectName"
-                                    x-init="$nextTick(() => $el.value = $store.pluginSettings.projectName)"
-                                    @change="$store.pluginSettings.onScopeChanged()"
-                                    :disabled="!$store.pluginSettings.perProjectConfig">
+                            <select x-model="context.projectName"
+                                    x-init="$nextTick(() => $el.value = context.projectName)"
+                                    @change="context.onScopeChanged()"
+                                    :disabled="!context.perProjectConfig">
                                 <option value="">Global</option>
-                                <template x-for="project in $store.pluginSettings.projects" :key="project.key">
+                                <template x-for="project in context.projects" :key="project.key">
                                     <option :value="project.key" x-text="project.label"></option>
                                 </template>
                             </select>
@@ -36,18 +45,18 @@
 
                         <label class="plugin-settings-toolbar-item">
                             <span class="plugin-settings-toolbar-label">Agent profile</span>
-                            <select x-model="$store.pluginSettings.agentProfileKey"
-                                    x-init="$nextTick(() => $el.value = $store.pluginSettings.agentProfileKey)"
-                                    @change="$store.pluginSettings.onScopeChanged()"
-                                    :disabled="!$store.pluginSettings.perAgentConfig">
+                            <select x-model="context.agentProfileKey"
+                                    x-init="$nextTick(() => $el.value = context.agentProfileKey)"
+                                    @change="context.onScopeChanged()"
+                                    :disabled="!context.perAgentConfig">
                                 <option value="">All profiles</option>
-                                <template x-for="profile in $store.pluginSettings.agentProfiles" :key="profile.key">
+                                <template x-for="profile in context.agentProfiles" :key="profile.key">
                                     <option :value="profile.key" x-text="profile.label"></option>
                                 </template>
                             </select>
                         </label>
 
-                        <button type="button" class="button plugin-settings-toolbar-button" title="Show existing configurations" @click="$store.pluginSettings.openConfigListModal()">
+                        <button type="button" class="button plugin-settings-toolbar-button" title="Show existing configurations" @click="context.openConfigListModal()">
                             <span class="icon material-symbols-outlined">list</span>
                         </button>
 
@@ -70,45 +79,51 @@
                     </div>
                 </div>
 
-                <div x-show="$store.pluginSettings.scopeMismatchMessage" class="plugin-settings-scope-info">
+                <div x-show="context.scopeMismatchMessage" class="plugin-settings-scope-info">
                     <span class="material-symbols-outlined">info</span>
-                    <span x-text="$store.pluginSettings.scopeMismatchMessage"></span>
+                    <span x-text="context.scopeMismatchMessage"></span>
                 </div>
                 </div>
 
                 <!-- Error -->
-                <div x-show="$store.pluginSettings.error" class="plugin-settings-error">
+                <div x-show="context.error" class="plugin-settings-error">
                     <span class="material-symbols-outlined">error</span>
-                    <span x-text="$store.pluginSettings.error"></span>
+                    <span x-text="context.error"></span>
                 </div>
 
                 <!-- Loading -->
-                <div x-show="$store.pluginSettings.isLoading" class="plugin-settings-loading">
+                <div x-show="context.isLoading" class="plugin-settings-loading">
                     <span class="material-symbols-outlined spinning">progress_activity</span>
                     <span>Loading settings...</span>
                 </div>
 
                 <!-- Plugin settings body: plugin provides /plugins/<name>/webui/config.html -->
-                <div x-show="!$store.pluginSettings.isLoading"
+                <div x-show="!context.isLoading"
                      class="plugin-settings-body"
-                     x-html="$store.pluginSettings.settingsComponentHtml">
+                     x-html="context.settingsComponentHtml">
                 </div>
 
             </div>
-        </template>
-    </div>
 
-    <!-- Footer (pinned outside scroll area) -->
-    <div class="modal-footer" data-modal-footer>
-        <button class="btn btn-ok"
-                @click="$store.pluginSettings.save()"
-                :disabled="$store.pluginSettings?.isSaving || $store.pluginSettings?.isLoading">
-            Save
-        </button>
-        <button class="btn btn-cancel"
-                @click="window.closeModal?.()">
-            Cancel
-        </button>
+            <!-- Footer (pinned outside scroll area) -->
+            <div class="modal-footer" data-modal-footer>
+                <button class="btn btn-ok"
+                        @click="context.save()"
+                        :disabled="context?.isSaving || context?.isLoading">
+                    Save
+                </button>
+                <button class="btn"
+                        @click="context.resetToDefault()"
+                        :disabled="context?.isSaving || context?.isLoading">
+                    Default
+                </button>
+                <button class="btn btn-cancel"
+                        @click="window.closeModal?.()">
+                    Cancel
+                </button>
+            </div>
+            </div>
+        </template>
     </div>
 
     <style>

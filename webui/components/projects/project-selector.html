@@ -57,12 +57,28 @@
 </body>
 
 <style>
+    .project-dropdown-container {
+        position: relative;
+    }
+
     .project-dropdown-button {
         display: inline-flex;
         align-items: center;
         gap: 0.3em;
         padding-left: 0.5em;
         padding-right: 0.5em;
+    }
+
+    /* Keep the menu flush with the trigger so the pointer does not cross a tiny hover gap. */
+    .project-dropdown-container .dropdown-menu {
+        margin-top: 0;
+        top: calc(100% - 1px);
+    }
+
+    /* Override shared dropdown opacity here so project items do not look muted while hovering edges. */
+    .project-dropdown-container .dropdown-item,
+    .project-dropdown-container .dropdown-item .material-symbols-outlined {
+        opacity: 1;
     }
 </style>
 </html>

@@ -1,7 +1,0 @@
-title: Example Agent
-description: Example agent plugin demonstrating the Agent Zero plugin system.
-version: 1.0.0
-settings_sections: []
-per_project_config: true
-per_agent_config: false
-always_enabled: true

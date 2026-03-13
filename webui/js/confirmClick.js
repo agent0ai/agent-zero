@@ -68,7 +68,7 @@ function resetButton(button, state) {
 // Register Alpine magic helper
 export function registerAlpineMagic() {
   if (globalThis.Alpine) {
-    Alpine.magic('confirmClick', () => confirmClick);
+    globalThis.Alpine.magic('confirmClick', () => confirmClick);
   }
 }
 

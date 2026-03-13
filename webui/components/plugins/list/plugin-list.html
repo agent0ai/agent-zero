@@ -7,7 +7,7 @@
 </head>
 
 <body>
-    <div x-data x-on:plugin-modal-closed.window="$store.pluginListStore.refresh()">
+    <div x-data>
         <template x-if="$store.pluginListStore">
             <div x-init="$store.pluginListStore.init && $store.pluginListStore.init()">
 
@@ -36,110 +36,150 @@
                             Builtin
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link"
+                            :class="{ active: $store.pluginListStore.activeTab === 'marketplace' }"
+                            id="plugins-marketplace-tab"
+                            type="button"
+                            role="tab"
+                            aria-controls="plugins-marketplace"
+                            :aria-selected="$store.pluginListStore.activeTab === 'marketplace'"
+                            @click="$store.pluginListStore.setTab('marketplace')">
+                            <span class="material-symbols-outlined pi-tab-icon">store</span> Browse
+                        </button>
+                    </li>
                 </ul>
 
-                <div class="plugins-toolbar">
-                    <div class="plugins-toolbar-actions">
-                        <button type="button"
-                            class="button confirm"
-                            title="Refresh"
-                            @click="$store.pluginListStore.refresh()"
-                            :disabled="$store.pluginListStore.loading">
-                            <span class="icon material-symbols-outlined">refresh</span> Refresh
-                        </button>
-
-                        <x-extension id="plugins-list-header-buttons"></x-extension>
-                    </div>
-                </div>
-
-                <div x-show="$store.pluginListStore.loading" class="loading">
-                    <span>Loading plugins...</span>
-                </div>
-
-                <div class="plugins-list">
-                    <template x-for="plugin in ($store.pluginListStore.plugins || [])" :key="plugin.path || plugin.name">
-                        <div class="plugin-card">
-                            <div class="plugin-header">
-                                <div class="plugin-heading">
-                                    <div class="plugin-title" x-text="plugin.display_name || plugin.name || '(unnamed plugin)'"></div>
-                                    <code class="plugin-path" x-text="plugin.path"></code>
-                                </div>
-                                <div class="plugin-actions">
-                                    <template x-if="plugin.has_main_screen">
-                                        <button type="button"
-                                            class="button"
-                                            title="Open"
-                                            @click="$store.pluginListStore.openPlugin(plugin)">
-                                            <span class="icon material-symbols-outlined">dashboard</span> Open
-                                        </button>
-                                    </template>
-                                    <template x-if="plugin.has_config_screen">
-                                        <button type="button"
-                                            class="button"
-                                            title="Config"
-                                            @click="$store.pluginListStore.openPluginConfig(plugin)">
-                                            <span class="icon material-symbols-outlined">settings</span> Config
-                                        </button>
-                                    </template>
-                                    <template x-if="plugin.has_readme">
-                                        <button type="button"
-                                            class="button"
-                                            title="README"
-                                            @click="$store.pluginListStore.openPluginDoc(plugin, 'readme')">
-                                            <span class="icon material-symbols-outlined">description</span> README
-                                        </button>
-                                    </template>
-                                    <template x-if="plugin.has_license">
-                                        <button type="button"
-                                            class="button"
-                                            title="LICENSE"
-                                            @click="$store.pluginListStore.openPluginDoc(plugin, 'license')">
-                                            <span class="icon material-symbols-outlined">gavel</span> License
-                                        </button>
-                                    </template>
-                                    <button type="button"
-                                        class="button"
-                                        title="Info"
-                                        @click="$store.pluginListStore.openPluginInfo(plugin)">
-                                        <span class="icon material-symbols-outlined">info</span> Info
-                                    </button>
-                                    <template x-if="plugin.is_custom">
-                                        <button type="button"
-                                            class="button cancel icon-button"
-                                            title="Delete"
-                                            @click="$confirmClick($event, () => $store.pluginListStore.deletePlugin(plugin))">
-                                            <span class="icon material-symbols-outlined">delete</span>
-                                        </button>
-                                    </template>
-                                </div>
+                <template x-if="$store.pluginListStore.activeTab !== 'marketplace'">
+                    <div>
+                        <div class="plugins-toolbar">
+                            <div class="plugins-toolbar-search">
+                                <input type="text"
+                                    class="plugins-search-input"
+                                    placeholder="Search plugins by name or description..."
+                                    x-model="$store.pluginListStore.searchQuery">
                             </div>
-                            
-                            <div class="plugin-footer-row">
-                                <div class="plugin-description" x-text="plugin.description || 'No description provided.'"></div>
-                                <div class="plugin-status-group">
-                                    <template x-if="plugin.toggle_state === 'advanced'">
-                                        <button type="button" 
-                                                class="button icon-button" 
-                                                title="Open Advanced"
-                                                @click="$store.pluginListStore.openPluginAdvancedToggle(plugin)">
-                                            <span class="icon material-symbols-outlined">rule_settings</span>
-                                        </button>
-                                    </template>
-                                    <select class="plugin-status-select"
-                                        @change="$store.pluginListStore.updateToggle(plugin, $event.target.value)"
-                                        @click.stop
-                                        :disabled="plugin.always_enabled">
-                                        <option value="enabled" :selected="plugin.toggle_state === 'enabled'">ON</option>
-                                        <option value="disabled" :selected="plugin.toggle_state === 'disabled'">OFF</option>
-                                        <template x-if="plugin.per_project_config || plugin.per_agent_config">
-                                            <option value="advanced" :selected="plugin.toggle_state === 'advanced'">Advanced</option>
-                                        </template>
-                                    </select>
-                                </div>
+                            <div class="plugins-toolbar-actions">
+                                <button type="button"
+                                    class="button"
+                                    title="Refresh"
+                                    @click="$store.pluginListStore.refresh()"
+                                    :disabled="$store.pluginListStore.loading">
+                                    <span class="icon material-symbols-outlined">refresh</span> Refresh
+                                </button>
+
+                                <x-extension id="plugins-list-header-buttons"></x-extension>
                             </div>
                         </div>
-                    </template>
-                </div>
+
+                        <div x-show="$store.pluginListStore.loading" class="loading">
+                            <span>Loading plugins...</span>
+                        </div>
+
+                        <div class="plugins-list">
+                            <template x-for="plugin in (($store.pluginListStore.plugins || []).filter((plugin) => {
+                                const q = (($store.pluginListStore.searchQuery || '').trim().toLowerCase());
+                                if (!q) return true;
+                                const name = (plugin.display_name || plugin.name || '').toLowerCase();
+                                const description = (plugin.description || '').toLowerCase();
+                                return name.includes(q) || description.includes(q);
+                            }))" :key="plugin.path || plugin.name">
+                                <div class="plugin-card">
+                                    <div class="plugin-header">
+                                        <div class="plugin-heading">
+                                            <div class="plugin-title" x-text="plugin.display_name || plugin.name || '(unnamed plugin)'"></div>
+                                            <code class="plugin-path" x-text="plugin.path"></code>
+                                        </div>
+                                        <div class="plugin-actions">
+                                            <template x-if="plugin.has_main_screen">
+                                                <button type="button"
+                                                    class="button"
+                                                    title="Open"
+                                                    @click="$store.pluginListStore.openPlugin(plugin)">
+                                                    <span class="icon material-symbols-outlined">dashboard</span> Open
+                                                </button>
+                                            </template>
+                                            <template x-if="plugin.has_config_screen">
+                                                <button type="button"
+                                                    class="button"
+                                                    title="Config"
+                                                    @click="$store.pluginListStore.openPluginConfig(plugin)">
+                                                    <span class="icon material-symbols-outlined">settings</span> Config
+                                                </button>
+                                            </template>
+                                            <template x-if="plugin.has_readme">
+                                                <button type="button"
+                                                    class="button"
+                                                    title="README"
+                                                    @click="$store.pluginListStore.openPluginDoc(plugin, 'readme')">
+                                                    <span class="icon material-symbols-outlined">description</span> README
+                                                </button>
+                                            </template>
+                                            <template x-if="plugin.has_license">
+                                                <button type="button"
+                                                    class="button"
+                                                    title="LICENSE"
+                                                    @click="$store.pluginListStore.openPluginDoc(plugin, 'license')">
+                                                    <span class="icon material-symbols-outlined">gavel</span> License
+                                                </button>
+                                            </template>
+                                            <template x-if="plugin.has_init_script">
+                                                <button type="button"
+                                                    class="button"
+                                                    title="Run initializer script"
+                                                    @click="$store.pluginListStore.openPluginInit(plugin)">
+                                                    <span class="icon material-symbols-outlined">terminal</span> Init
+                                                </button>
+                                            </template>
+                                            <button type="button"
+                                                class="button"
+                                                title="Info"
+                                                @click="$store.pluginListStore.openPluginInfo(plugin)">
+                                                <span class="icon material-symbols-outlined">info</span>
+                                            </button>
+                                            <template x-if="plugin.is_custom">
+                                                <button type="button"
+                                                    class="button cancel icon-button"
+                                                    title="Delete"
+                                                    @click="$confirmClick($event, () => $store.pluginListStore.deletePlugin(plugin))">
+                                                    <span class="icon material-symbols-outlined">delete</span>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <div class="plugin-footer-row">
+                                        <div class="plugin-description" x-text="plugin.description || 'No description provided.'"></div>
+                                        <div class="plugin-status-group">
+                                            <template x-if="plugin.toggle_state === 'advanced'">
+                                                <button type="button"
+                                                        class="button icon-button"
+                                                        title="Open Advanced"
+                                                        @click="$store.pluginListStore.openPluginAdvancedToggle(plugin)">
+                                                    <span class="icon material-symbols-outlined">rule_settings</span>
+                                                </button>
+                                            </template>
+                                            <select class="plugin-status-select"
+                                                @change="$store.pluginListStore.updateToggle(plugin, $event.target.value)"
+                                                @click.stop
+                                                :disabled="plugin.always_enabled">
+                                                <option value="enabled" :selected="plugin.toggle_state === 'enabled'">ON</option>
+                                                <option value="disabled" :selected="plugin.toggle_state === 'disabled'">OFF</option>
+                                                <template x-if="plugin.per_project_config || plugin.per_agent_config">
+                                                    <option value="advanced" :selected="plugin.toggle_state === 'advanced'">Advanced</option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="$store.pluginListStore.activeTab === 'marketplace'">
+                    <x-component path="/plugins/_plugin_installer/webui/install-index.html"></x-component>
+                </template>
             </div>
         </template>
     </div>
@@ -148,7 +188,7 @@
         .nav {
             display: flex;
             padding-left: 0;
-            margin: 0.75rem 0 0 0;
+            margin: 0 0 1rem 0;
             list-style: none;
             border-bottom: 1px solid var(--color-border);
             gap: 0.25rem;
@@ -163,6 +203,9 @@
             background: transparent;
             color: var(--color-text-secondary);
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
         }
 
         .nav-link.active {
@@ -170,6 +213,10 @@
             border-color: var(--color-border);
             border-bottom-color: transparent;
             background: var(--color-background);
+        }
+
+        .pi-tab-icon {
+            font-size: 1.1rem;
         }
 
         .plugins-toolbar {
@@ -181,9 +228,32 @@
             margin-bottom: 0.75rem;
         }
 
+        .plugins-toolbar-search {
+            flex: 1 1 22rem;
+            min-width: 14rem;
+        }
+
+        .plugins-search-input {
+            width: 100%;
+            padding: 0.4rem 0.7rem;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: var(--color-background);
+            color: var(--color-text-primary);
+            font-family: "Rubik", Arial, Helvetica, sans-serif;
+            font-size: 0.95rem;
+        }
+
+        .plugins-search-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
         .plugins-toolbar-actions {
             margin-left: auto;
+            display: flex;
             flex: 0 0 auto;
+            gap: var(--spacing-sm);
         }
 
         .plugins-list {
@@ -192,7 +262,7 @@
 
         .plugin-card {
             border: 1px solid var(--color-border);
-            border-radius: 4px;
+            border-radius: 0.5rem;
             padding: 0.75rem;
             margin-top: 0.75rem;
             background: var(--color-background);
@@ -314,7 +384,7 @@
             color: var(--color-secondary);
         }
 
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
             .plugin-header {
                 flex-direction: column;
                 align-items: stretch;

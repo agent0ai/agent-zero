@@ -13,5 +13,5 @@
         "/usr/plugins/*": ["usr/plugins/*"]
       }
     },
-    "include": ["webui/**/*.js", "plugins/**/*.js", "usr/plugins/**/*.js"]
+    "include": ["webui/**/*.js", "extensions/**/*.js", "plugins/**/*.js", "usr/plugins/**/*.js"]
   }

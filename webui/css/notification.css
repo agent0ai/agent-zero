@@ -12,7 +12,8 @@
     border-radius: 6px;
     color: var(--color-text);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease,
+        box-shadow 0.2s ease, opacity 0.2s ease;
     font-size: 1rem;
     width: 36px;
     height: 36px;
@@ -25,7 +26,8 @@
 .notification-toggle:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
-    transform: scale(1.05);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
 .notification-toggle .notification-icon {
@@ -80,7 +82,7 @@
 .notification-toggle.disabled:hover {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.1);
-    transform: none;
+    box-shadow: none;
 }
 
 

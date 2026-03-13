@@ -9,7 +9,11 @@
   color: var(--color-text);
   font-size: 0.875rem;
   font-family: "Rubik", Arial, Helvetica, sans-serif;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    filter 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 2em; /* Standard height */
   display: inline-flex;
   align-items: center;
@@ -29,8 +33,9 @@
 }
 
 .button:hover {
-  transform: scale(1.05);
   filter: brightness(1.05);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 35%, transparent),
+    0 6px 14px rgba(0, 0, 0, 0.12);
 }
 
 .button.cancel:hover {
@@ -73,7 +78,8 @@
   border: 1px solid var(--color-border);
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-action-header .material-symbols-outlined {
@@ -83,6 +89,7 @@
 .btn-action-header:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .btn-action-header.confirm:hover {
@@ -116,13 +123,13 @@
   border: 1px solid var(--color-border);
   padding: 0.25rem;
   color: var(--color-text);
-  opacity: 0.7;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-action .material-symbols-outlined {
@@ -130,11 +137,11 @@
 }
 
 .btn-action:hover {
-  opacity: 1;
   background: var(--color-panel);
   border-color: var(--color-primary);
   color: var(--color-primary);
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
+    0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 .btn-action.delete:hover {
@@ -153,13 +160,15 @@
   align-items: center;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-icon:hover:not(:disabled) {
   background: var(--color-panel);
   border-color: var(--color-primary);
   color: var(--color-text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .btn-icon:disabled {
@@ -202,7 +211,10 @@
   padding: 0.25rem;
   width: 1.75rem;
   height: 1.75rem;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
@@ -214,6 +226,7 @@
 .btn-icon-action:hover {
   border-color: var(--color-primary);
   background-color: var(--color-background-hover);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .btn-icon-action:active {

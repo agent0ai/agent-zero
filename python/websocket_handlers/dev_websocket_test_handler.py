@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict
 
-from python.helpers.print_style import PrintStyle
-from python.helpers import runtime
-from python.helpers.websocket import WebSocketHandler, WebSocketResult
+from helpers.print_style import PrintStyle
+from helpers import runtime
+from helpers.websocket import WebSocketHandler, WebSocketResult
 
 
 class DevWebsocketTestHandler(WebSocketHandler):

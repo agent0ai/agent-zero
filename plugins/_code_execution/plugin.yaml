@@ -1,0 +1,9 @@
+name: _code_execution
+title: Code Execution
+description: Code execution tool supporting terminal, Python, and Node.js runtimes via local TTY or SSH.
+version: 1.0.0
+always_enabled: False
+settings_sections:
+  - agent
+per_project_config: true
+per_agent_config: true

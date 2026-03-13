@@ -95,17 +95,18 @@
       display: flex;
       align-items: center;
       opacity: 0.6;
-      transition: all 0.1s ease-in-out;
+      transition: opacity 0.1s ease-in-out, color 0.1s ease-in-out,
+        box-shadow 0.1s ease-in-out;
     }
 
     .queue-header-btn:hover {
       opacity: 1;
-      transform: scale(1.1);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
     }
 
     .queue-header-btn:active {
       opacity: 0.5;
-      transform: scale(0.95);
+      box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.06);
     }
 
     .queue-header-btn .material-symbols-outlined {

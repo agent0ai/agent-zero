@@ -11,20 +11,21 @@ from flask import Flask, request, Response, session, redirect, url_for, render_t
 from werkzeug.wrappers.request import Request as WerkzeugRequest
 
 import initialize
-from python.helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper, extension
-from python.helpers.files import get_abs_path
-from python.helpers import runtime, dotenv, process
-from python.helpers.websocket import WebSocketHandler, validate_ws_origin
-from python.helpers.api import register_api_route, requires_auth
-from python.helpers.print_style import PrintStyle
-from python.helpers import login
+from helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper, extension
+from helpers.files import get_abs_path
+from helpers import runtime, dotenv, process
+from helpers.websocket import WebSocketHandler, validate_ws_origin
+from helpers.api import register_api_route, requires_auth, csrf_protect
+from helpers.print_style import PrintStyle
+from helpers import login
 import socketio  # type: ignore[import-untyped]
 from socketio import ASGIApp, packet
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from uvicorn.middleware.wsgi import WSGIMiddleware
-from python.helpers.websocket_manager import WebSocketManager
-from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+from helpers.websocket_manager import WebSocketManager
+from helpers.websocket_namespace_discovery import discover_websocket_namespaces
+from flask import send_file
 
 # disable logging
 import logging
@@ -51,7 +52,7 @@ WerkzeugRequest.max_form_memory_size = UPLOAD_LIMIT_BYTES
 webapp.config.update(
     JSON_SORT_KEYS=False,
     SESSION_COOKIE_NAME="session_" + runtime.get_runtime_id(),  # bind the session cookie name to runtime id to prevent session collision on same host
-    SESSION_COOKIE_SAMESITE="Strict",
+    SESSION_COOKIE_SAMESITE="Lax",
     SESSION_PERMANENT=True,
     PERMANENT_SESSION_LIFETIME=timedelta(days=1),
     MAX_CONTENT_LENGTH=int(os.getenv("FLASK_MAX_CONTENT_LENGTH", str(UPLOAD_LIMIT_BYTES))),
@@ -144,6 +145,14 @@ async def serve_builtin_plugin_asset(plugin_name, asset_path):
 async def serve_plugin_asset(plugin_name, asset_path):
     return await _serve_plugin_asset(plugin_name, asset_path)
 
+@webapp.route("/extensions/webui/<path:asset_path>", methods=["GET"])
+@requires_auth
+async def serve_extension_asset(asset_path):
+    path = files.get_abs_path("extensions/webui", asset_path)
+    if not files.is_in_dir(path, "extensions/webui"):
+        return Response("Access denied", 403)
+    return send_file(path)
+
 
 @extension.extensible
 async def _serve_plugin_asset(plugin_name, asset_path):
@@ -151,8 +160,8 @@ async def _serve_plugin_asset(plugin_name, asset_path):
     Serve static assets from plugin directories.
     Resolves using the plugin system (with overrides).
     """
-    from python.helpers import plugins
-    from flask import send_file
+    from helpers import plugins
+    
     
     # Use the new find_plugin helper
     plugin_dir = plugins.find_plugin_dir(plugin_name)

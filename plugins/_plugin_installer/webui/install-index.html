@@ -1,0 +1,585 @@
+<html>
+<head>
+    <title>Browse Plugins</title>
+    <script type="module">
+        import { store } from "/plugins/_plugin_installer/webui/pluginInstallStore.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.pluginInstallStore">
+            <div class="pi-browse-shell"
+                 x-create="$store.pluginInstallStore.resetIndex(); $store.pluginInstallStore.fetchIndex()">
+
+                <section class="pi-browse-hero">
+                    <div class="pi-browse-copy">
+                        <div class="pi-browse-eyebrow">Community Marketplace</div>
+                        <h2 class="pi-browse-title">Discover community plugins for Agent Zero</h2>
+                        <p class="pi-browse-description">
+                            These plugins are provided by the community of Agent Zero. Contribute by publishing in the <a href="https://github.com/agent0ai/a0-plugins" target="_blank">index repository</a>.
+                        </p>
+                    </div>
+                    <div class="pi-browse-summary" x-text="$store.pluginInstallStore.browseResultsSummary"></div>
+                </section>
+
+                <div class="pi-index-toolbar">
+                    <label class="pi-search-field">
+                        <span class="material-symbols-outlined">search</span>
+                        <input type="text"
+                            class="pi-search-input"
+                            x-model="$store.pluginInstallStore.search"
+                            @input="$store.pluginInstallStore.page = 1"
+                            placeholder="Search plugins, authors, or tags...">
+                    </label>
+
+                    <label class="pi-sort-field">
+                        <span class="pi-field-label">Sort</span>
+                        <select class="pi-sort-select"
+                            x-model="$store.pluginInstallStore.sortBy">
+                            <option value="stars">Stars</option>
+                            <option value="name">Name</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="pi-filter-row" x-show="$store.pluginInstallStore.browseFilters.length > 1">
+                    <template x-for="filter in $store.pluginInstallStore.browseFilters" :key="filter.key">
+                        <button type="button"
+                            class="pi-filter-chip"
+                            :class="{
+                                active: $store.pluginInstallStore.browseFilter === filter.key,
+                                'pi-filter-chip-update': filter.key === 'update' && filter.count > 0
+                            }"
+                            @click="$store.pluginInstallStore.setBrowseFilter(filter.key)">
+                            <span x-text="filter.label"></span>
+                            <span class="pi-filter-count" x-text="filter.count"></span>
+                        </button>
+                    </template>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.loading" class="pi-state-card pi-state-loading">
+                    <span class="material-symbols-outlined">progress_activity</span>
+                    <div>
+                        <div class="pi-state-title">Loading marketplace</div>
+                        <div class="pi-state-text" x-text="$store.pluginInstallStore.loadingMessage || 'Loading plugins...'"></div>
+                    </div>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.index && !$store.pluginInstallStore.loading && $store.pluginInstallStore.filteredPlugins.length > 0"
+                    class="pi-grid">
+                    <template x-for="plugin in $store.pluginInstallStore.paginatedPlugins" :key="plugin.key">
+                        <button type="button" class="pi-card" @click="$store.pluginInstallStore.openDetail(plugin)">
+                            <div class="pi-card-thumb">
+                                <template x-if="plugin.thumbnail">
+                                    <img :src="plugin.thumbnail" :alt="plugin.title" loading="lazy">
+                                </template>
+                                <template x-if="!plugin.thumbnail">
+                                    <span class="material-symbols-outlined pi-card-placeholder">extension</span>
+                                </template>
+
+                                <template x-if="plugin.installed">
+                                    <span class="pi-card-installed-pill">Installed</span>
+                                </template>
+
+                                <template x-if="plugin.has_update">
+                                    <span class="pi-card-update-pill" :class="{ 'pi-card-update-pill-offset': plugin.installed }">New version</span>
+                                </template>
+                            </div>
+
+                            <div class="pi-card-body">
+                                <div class="pi-card-head">
+                                    <div class="pi-card-heading">
+                                        <h3 class="pi-card-title" x-text="plugin.title || plugin.key"></h3>
+                                        <div class="pi-card-subtitle"
+                                            x-text="$store.pluginInstallStore.getBrowseSubtitle(plugin)">
+                                        </div>
+                                    </div>
+                                    <span class="material-symbols-outlined pi-card-arrow">arrow_outward</span>
+                                </div>
+
+                                <div class="pi-card-desc"
+                                    x-text="$store.pluginInstallStore.truncate(plugin.description, 110)">
+                                </div>
+                            </div>
+
+                            <div class="pi-card-footer">
+                                <span class="pi-card-stars">
+                                    <span class="material-symbols-outlined">star</span>
+                                    <span x-text="plugin.stars || 0"></span>
+                                </span>
+
+                                <template x-if="$store.pluginInstallStore.getBrowsePrimaryTag(plugin)">
+                                    <span class="pi-card-tag"
+                                        x-text="$store.pluginInstallStore.getBrowsePrimaryTag(plugin)">
+                                    </span>
+                                </template>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.index && !$store.pluginInstallStore.loading && $store.pluginInstallStore.filteredPlugins.length === 0"
+                    class="pi-state-card pi-state-empty">
+                    <span class="material-symbols-outlined">search_off</span>
+                    <div>
+                        <div class="pi-state-title">No plugins match this view</div>
+                        <div class="pi-state-text">
+                            Try a different search or switch to another marketplace filter.
+                        </div>
+                    </div>
+                </div>
+
+                <div x-show="$store.pluginInstallStore.totalPages > 1" class="pi-pagination">
+                    <button class="button"
+                        :disabled="$store.pluginInstallStore.page <= 1"
+                        @click="$store.pluginInstallStore.setPage($store.pluginInstallStore.page - 1)">
+                        <span class="material-symbols-outlined">chevron_left</span>
+                    </button>
+                    <span class="pi-page-info"
+                        x-text="'Page ' + $store.pluginInstallStore.page + ' of ' + $store.pluginInstallStore.totalPages">
+                    </span>
+                    <button class="button"
+                        :disabled="$store.pluginInstallStore.page >= $store.pluginInstallStore.totalPages"
+                        @click="$store.pluginInstallStore.setPage($store.pluginInstallStore.page + 1)">
+                        <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .pi-browse-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            font-family: "Rubik", Arial, Helvetica, sans-serif;
+        }
+
+        .pi-browse-shell button,
+        .pi-browse-shell input,
+        .pi-browse-shell select {
+            font-family: inherit;
+        }
+
+        .pi-browse-hero {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.25rem 0 0.35rem;
+        }
+
+        .pi-browse-copy {
+            max-width: 44rem;
+        }
+
+        .pi-browse-eyebrow {
+            margin-bottom: 0.4rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-highlight);
+        }
+
+        .pi-browse-title {
+            margin: 0;
+            font-size: 1.6rem;
+            line-height: 1.15;
+            color: var(--color-text-primary);
+        }
+
+        .pi-browse-description {
+            margin: 0.5rem 0 0;
+            max-width: 38rem;
+            font-size: 0.95rem;
+            line-height: 1.55;
+            color: var(--color-text-secondary);
+        }
+
+        .pi-browse-summary {
+            flex-shrink: 0;
+            padding: 0.6rem 0.85rem;
+            border: 1px solid var(--color-border);
+            border-radius: 0.5rem;
+            background: var(--color-panel);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .pi-index-toolbar {
+            display: flex;
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+
+        .pi-search-field,
+        .pi-sort-field {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.55rem 0;
+            border: 0;
+            border-bottom: 1px solid var(--color-border);
+            border-radius: 0;
+        }
+
+        .pi-search-field {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pi-search-field .material-symbols-outlined {
+            font-size: 1.15rem;
+            color: var(--color-text-muted);
+        }
+
+        .pi-search-input {
+            width: 100%;
+            min-width: 0;
+            padding: 0;
+            border: 0;
+            outline: none;
+            color: var(--color-text-primary);
+            font-size: 0.95rem;
+        }
+
+        .pi-sort-field {
+            min-width: 160px;
+            flex-shrink: 0;
+            justify-content: space-between;
+        }
+
+        .pi-field-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .pi-sort-select {
+            width: 100%;
+            padding: 0;
+            border: 0;
+            outline: none;
+            color: var(--color-text-primary);
+            font-size: 0.95rem;
+        }
+
+        .pi-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        .pi-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.45rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 0.5rem;
+            background: var(--color-panel);
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
+        }
+
+        .pi-filter-chip:hover {
+            color: var(--color-text-primary);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .pi-filter-chip.active {
+            border-color: var(--color-border);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--color-text-primary);
+        }
+
+        .pi-filter-chip-update {
+            border-color: rgba(59, 130, 246, 0.22);
+            color: #93c5fd;
+        }
+
+        .pi-filter-chip-update:hover,
+        .pi-filter-chip-update.active {
+            border-color: rgba(59, 130, 246, 0.38);
+            background: rgba(59, 130, 246, 0.12);
+            color: #bfdbfe;
+        }
+
+        .pi-filter-chip-update .pi-filter-count {
+            background: rgba(59, 130, 246, 0.16);
+            color: #bfdbfe;
+        }
+
+        body.light-mode .pi-filter-chip-update {
+            border-color: rgba(37, 99, 235, 0.35);
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+        }
+
+        body.light-mode .pi-filter-chip-update:hover,
+        body.light-mode .pi-filter-chip-update.active {
+            border-color: rgba(37, 99, 235, 0.5);
+            background: rgba(37, 99, 235, 0.14);
+            color: #1e40af;
+        }
+
+        body.light-mode .pi-filter-chip-update .pi-filter-count {
+            background: rgba(37, 99, 235, 0.18);
+            color: #1e3a8a;
+        }
+
+        .pi-filter-count {
+            padding: 0.12rem 0.4rem;
+            border-radius: 0.5rem;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--color-text-muted);
+            font-size: 0.75rem;
+        }
+
+        .pi-state-card {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 1rem 1.05rem;
+            border: 1px solid var(--color-border);
+            border-radius: 14px;
+            background: var(--color-panel);
+        }
+
+        .pi-state-card .material-symbols-outlined {
+            font-size: 1.5rem;
+        }
+
+        .pi-state-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .pi-state-text {
+            margin-top: 0.15rem;
+            font-size: 0.88rem;
+            color: var(--color-text-secondary);
+        }
+
+        .pi-state-loading .material-symbols-outlined {
+            color: var(--color-highlight);
+        }
+
+        .pi-state-empty .material-symbols-outlined {
+            color: var(--color-text-muted);
+        }
+
+        .pi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.95rem;
+        }
+
+        .pi-card {
+            width: 100%;
+            padding: 0;
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            background: var(--color-background);
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .pi-card:hover {
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+        }
+
+        .pi-card-thumb {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 148px;
+            padding: 0.5rem;
+            background:
+                radial-gradient(circle at top, #6b728089, var(--color-panel)),
+                var(--color-panel);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .pi-card-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .pi-card-placeholder {
+            font-size: 4rem;
+            color: var(--color-text-muted);
+        }
+
+        .pi-card-installed-pill {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            padding: 0.24rem 0.5rem;
+            border-radius: 0.5rem;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        body.light-mode .pi-card-installed-pill {
+            background: rgba(34, 197, 94, 0.22);
+            color: #166534;
+        }
+
+        .pi-card-update-pill {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            padding: 0.24rem 0.5rem;
+            border-radius: 0.5rem;
+            background: rgba(59, 130, 246, 0.16);
+            color: #60a5fa;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        body.light-mode .pi-card-update-pill {
+            background: rgba(59, 130, 246, 0.2);
+            color: #1d4ed8;
+        }
+
+        .pi-card-update-pill-offset {
+            top: 2.35rem;
+        }
+
+        .pi-card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            padding: 1rem;
+        }
+
+        .pi-card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .pi-card-heading {
+            min-width: 0;
+        }
+
+        .pi-card-title {
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.25;
+            color: var(--color-text-primary);
+        }
+
+        .pi-card-subtitle {
+            margin-top: 0.25rem;
+            font-size: 0.82rem;
+            color: var(--color-text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pi-card-arrow {
+            font-size: 1rem;
+            color: var(--color-text-muted);
+            flex-shrink: 0;
+        }
+
+        .pi-card-desc {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: var(--color-text-secondary);
+        }
+
+        .pi-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.9rem 1rem 1rem;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .pi-card-stars {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .pi-card-stars .material-symbols-outlined {
+            font-size: 1rem;
+            color: #fbbf24;
+        }
+
+        .pi-card-tag {
+            padding: 0.22rem 0.55rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--color-panel);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border);
+        }
+
+        .pi-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0.4rem 0 0.1rem;
+        }
+
+        .pi-page-info {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        @media (max-width: 720px) {
+            .pi-browse-hero {
+                flex-direction: column;
+            }
+
+            .pi-index-toolbar {
+                flex-direction: column;
+            }
+
+            .pi-sort-field {
+                min-width: 0;
+            }
+        }
+
+        @media (max-width: 500px) {
+            .pi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pi-card-thumb {
+                height: 164px;
+            }
+        }
+    </style>
+</body>
+</html>

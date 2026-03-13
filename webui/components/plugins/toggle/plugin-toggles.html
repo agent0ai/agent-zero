@@ -22,7 +22,7 @@
 
                 <div x-show="!$store.pluginToggle.isLoading" class="plugin-configs-list">
                     <template x-if="($store.pluginToggle.configs || []).length === 0">
-                        <div class="plugin-configs-empty">No status configurations found.</div>
+                        <div class="plugin-configs-empty">No activation rules found. This plugin is currently using its default ON state.</div>
                     </template>
 
                     <template x-for="cfg in ($store.pluginToggle.configs || [])" :key="(cfg.project_name || '') + '|' + (cfg.agent_profile || '')">

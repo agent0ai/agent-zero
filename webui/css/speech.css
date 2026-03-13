@@ -1,22 +1,17 @@
 /* MIC BUTTON */
-#microphone-button {  
-}
 
 /* Only apply hover effects on devices that support hover */
 @media (hover: hover) {
   #microphone-button:hover {
     background-color: #636363;
-    transform: scale(1.05);
-    -webkit-transform: scale(1.05);
-    transform-origin: center;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 6px 14px rgba(0, 0, 0, 0.18);
   }
 }
 
 #microphone-button:active {
   background-color: #444444;
-  transform: scale(1);
-  -webkit-transform: scale(1);
-  transform-origin: center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
 #microphone-button.recording {

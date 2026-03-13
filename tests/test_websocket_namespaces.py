@@ -13,8 +13,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from python.helpers.state_monitor import StateMonitor
-from python.helpers.websocket_manager import WebSocketManager
+from helpers.state_monitor import StateMonitor
+from helpers.websocket_manager import WebSocketManager
 
 
 class FakeSocketIOServer:
@@ -108,8 +108,8 @@ async def test_namespace_isolation_state_sync_vs_dev_websocket_test() -> None:
     from flask import Flask
     import socketio
 
-    from python.helpers.websocket import WebSocketHandler
-    from python.helpers.websocket_manager import WebSocketManager
+    from helpers.websocket import WebSocketHandler
+    from helpers.websocket_manager import WebSocketManager
     from run_ui import configure_websocket_namespaces
 
     class StateHandler(WebSocketHandler):
@@ -220,8 +220,8 @@ async def test_diagnostics_include_source_namespace_and_deliver_on_dev_namespace
     but must include `sourceNamespace` identifying the origin namespace.
     """
 
-    from python.helpers.websocket import WebSocketHandler
-    from python.helpers.websocket_manager import DIAGNOSTIC_EVENT, WebSocketManager
+    from helpers.websocket import WebSocketHandler
+    from helpers.websocket_manager import DIAGNOSTIC_EVENT, WebSocketManager
 
     class DummyHandler(WebSocketHandler):
         @classmethod
@@ -267,7 +267,7 @@ def test_namespace_discovery_maps_core_handlers_to_expected_namespaces() -> None
     (no cross-registration).
     """
 
-    from python.helpers.websocket_namespace_discovery import discover_websocket_namespaces
+    from helpers.websocket_namespace_discovery import discover_websocket_namespaces
 
     discoveries = discover_websocket_namespaces(
         handlers_folder="python/websocket_handlers",
@@ -309,7 +309,7 @@ async def test_route_event_dispatches_only_within_connected_namespace_and_result
     CONTRACT.NS.ROUTING: inbound routing is restricted to handlers in the connected namespace.
     """
 
-    from python.helpers.websocket import WebSocketHandler
+    from helpers.websocket import WebSocketHandler
 
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
@@ -365,7 +365,7 @@ async def test_lifecycle_broadcasts_deliver_only_within_the_namespace() -> None:
     CONTRACT.NS.DELIVERY: lifecycle broadcasts are namespace-scoped.
     """
 
-    from python.helpers.websocket_manager import (
+    from helpers.websocket_manager import (
         LIFECYCLE_CONNECT_EVENT,
         LIFECYCLE_DISCONNECT_EVENT,
     )
@@ -422,7 +422,7 @@ async def test_request_semantics_no_handlers_and_timeouts_are_namespace_scoped_a
     CONTRACT.REQUEST.RESULTS + CONTRACT.REQUEST.RESULTS.ORDERING + CONTRACT.NS.ROUTING.
     """
 
-    from python.helpers.websocket import WebSocketHandler
+    from helpers.websocket import WebSocketHandler
 
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())

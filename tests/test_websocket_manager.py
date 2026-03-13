@@ -12,8 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from python.helpers.websocket import ConnectionNotFoundError, WebSocketHandler, WebSocketResult
-from python.helpers.websocket_manager import (
+from helpers.websocket import ConnectionNotFoundError, WebSocketHandler, WebSocketResult
+from helpers.websocket_manager import (
     WebSocketManager,
     BUFFER_TTL,
     DIAGNOSTIC_EVENT,
@@ -354,7 +354,7 @@ async def test_buffer_overflow_drops_oldest(monkeypatch):
     await manager.handle_connect(NAMESPACE, "offline")
     await manager.handle_disconnect(NAMESPACE, "offline")
 
-    monkeypatch.setattr("python.helpers.websocket_manager.BUFFER_MAX_SIZE", 2)
+    monkeypatch.setattr("helpers.websocket_manager.BUFFER_MAX_SIZE", 2)
 
     await manager.emit_to(NAMESPACE, "offline", "event", {"idx": 0})
     await manager.emit_to(NAMESPACE, "offline", "event", {"idx": 1})
@@ -385,7 +385,7 @@ async def test_expired_buffer_entries_are_discarded(monkeypatch):
     socketio.emit.reset_mock()
 
     monkeypatch.setattr(
-        "python.helpers.websocket_manager._utcnow",
+        "helpers.websocket_manager._utcnow",
         lambda: future,
     )
     await manager.handle_connect(NAMESPACE, "sid-expired")
@@ -479,7 +479,7 @@ async def test_timestamps_are_timezone_aware():
     assert info.connected_at.tzinfo is not None
     assert info.last_activity.tzinfo is not None
 
-    with patch("python.helpers.websocket_manager._utcnow") as mocked_now:
+    with patch("helpers.websocket_manager._utcnow") as mocked_now:
         mocked_now.return_value = info.last_activity
         await manager.route_event(NAMESPACE, "unknown", {}, "sid-utc")
         assert info.last_activity.tzinfo is not None
@@ -512,7 +512,7 @@ def test_register_handlers_warns_on_duplicates(monkeypatch):
         warnings.append(message)
 
     monkeypatch.setattr(
-        "python.helpers.print_style.PrintStyle.warning", staticmethod(capture_warning)
+        "helpers.print_style.PrintStyle.warning", staticmethod(capture_warning)
     )
 
     DuplicateHandler._reset_instance_for_testing()
@@ -804,13 +804,13 @@ def test_debug_logging_respects_runtime_flag(monkeypatch):
     def capture(message: str) -> None:
         logs.append(message)
 
-    monkeypatch.setattr("python.helpers.print_style.PrintStyle.debug", staticmethod(capture))
-    monkeypatch.setattr("python.helpers.websocket_manager.runtime.is_development", lambda: False)
+    monkeypatch.setattr("helpers.print_style.PrintStyle.debug", staticmethod(capture))
+    monkeypatch.setattr("helpers.websocket_manager.runtime.is_development", lambda: False)
 
     manager._debug("should-not-log")  # noqa: SLF001
     assert logs == []
 
-    monkeypatch.setattr("python.helpers.websocket_manager.runtime.is_development", lambda: True)
+    monkeypatch.setattr("helpers.websocket_manager.runtime.is_development", lambda: True)
     manager._debug("should-log")  # noqa: SLF001
     assert logs == ["should-log"]
 

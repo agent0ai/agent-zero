@@ -1,0 +1,113 @@
+<html>
+<head>
+  <title>Plugin Scanner</title>
+  <script type="module">
+    import { store } from "/plugins/_plugin_scan/webui/plugin-scan-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.pluginScan">
+      <div x-create="$store.pluginScan.onOpen()" x-destroy="$store.pluginScan.cleanup()" class="plugin-scan">
+
+        <!-- Git URL -->
+        <div class="scan-field">
+          <label>Git Repository URL</label>
+          <input type="text" x-model="$store.pluginScan.gitUrl"
+                 @input.debounce.300ms="$store.pluginScan.buildPrompt()"
+                 placeholder="https://github.com/user/plugin-repo.git" />
+        </div>
+
+        <!-- Checks -->
+        <div class="scan-field">
+          <label>Security Checks</label>
+          <div class="scan-checks">
+            <template x-for="[key, meta] of Object.entries($store.pluginScan.checksMeta)" :key="key">
+              <label>
+                <input type="checkbox" x-model="$store.pluginScan.checks[key]"
+                       @change="$store.pluginScan.buildPrompt()" />
+                <span x-text="meta.label"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <!-- Prompt -->
+        <div class="scan-field">
+          <label>Agent Prompt <span style="font-weight:400; opacity:0.6">(editable)</span></label>
+          <textarea x-model="$store.pluginScan.prompt"></textarea>
+        </div>
+
+        <!-- Error -->
+        <div x-show="$store.pluginScan.error" class="scan-error" x-text="$store.pluginScan.error"></div>
+
+        <!-- Actions -->
+        <div class="scan-actions">
+          <button class="button" @click="$store.pluginScan.copyPrompt()">Copy Prompt</button>
+          <button class="button confirm" @click="$store.pluginScan.runScan()"
+                  :disabled="$store.pluginScan.scanning || $store.pluginScan.queued">
+            <span x-show="$store.pluginScan.queued"><span class="scan-spinner"></span>Queued…</span>
+            <span x-show="$store.pluginScan.scanning && !$store.pluginScan.queued"><span class="scan-spinner"></span>Scanning…</span>
+            <span x-show="!$store.pluginScan.scanning && !$store.pluginScan.queued">Run Scan</span>
+          </button>
+          <button class="button" @click="$store.pluginScan.openChatInNewWindow()"
+                  x-show="$store.pluginScan.scanCtxId"
+                  title="Open this scan's chat in a new tab">
+            Open in Chat ↗
+          </button>
+        </div>
+
+        <!-- Output -->
+        <div x-show="$store.pluginScan.output" class="scan-output">
+          <label style="font-size:0.85rem; font-weight:600; opacity:0.8;">Scan Results</label>
+          <div class="scan-output-html" x-html="$store.pluginScan.renderedOutput"></div>
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .plugin-scan { display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem; }
+
+    .scan-field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .scan-field label { font-size: 0.85rem; font-weight: 600; opacity: 0.8; }
+    .scan-field input[type="text"],
+    .scan-field textarea {
+      width: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      background: var(--color-panel);
+      color: var(--color-text);
+      box-sizing: border-box;
+    }
+    .scan-field textarea { min-height: 15rem; resize: none; font-family: monospace; font-size: 0.8rem; }
+    .scan-field input:focus,
+    .scan-field textarea:focus { outline: none; border-color: var(--color-primary); }
+
+    .scan-checks { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
+    .scan-checks label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer; user-select: none; }
+    .scan-checks input[type="checkbox"] { accent-color: var(--color-primary); }
+
+    .scan-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .scan-output { border-top: 1px solid var(--color-border); padding-top: 1rem; }
+    .scan-output-html { line-height: 1.5; }
+    .scan-output-html table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
+    .scan-output-html th,
+    .scan-output-html td { border: 1px solid var(--color-border); padding: 0.4rem 0.6rem; text-align: left; font-size: 0.85rem; }
+    .scan-output-html th { background: var(--color-panel); font-weight: 600; }
+    .scan-output-html hr { border: 1px solid var(--color-border); }
+    .scan-output-html pre { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; padding: 0.75rem; overflow-x: auto; }
+    .scan-output-html code { font-size: 0.8rem; }
+
+    .scan-error { color: var(--color-error, #e55); font-size: 0.85rem; }
+    .scan-spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid var(--color-border);
+      border-top-color: var(--color-primary); border-radius: 50%; animation: scan-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.4em; }
+    @keyframes scan-spin { to { transform: rotate(360deg); } }
+  </style>
+</body>
+</html>

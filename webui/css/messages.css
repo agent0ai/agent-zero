@@ -545,7 +545,7 @@
 }
 
 .message-agent-response .msg-content .message-markdown-image-wrap img:hover {
-  transform: translateY(-2px);
+  filter: brightness(1.02);
 }
 
 .msg-content h1 {

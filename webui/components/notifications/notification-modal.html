@@ -38,7 +38,7 @@
                             <div class="notification-content">
                                 <div class="notification-title" x-show="notification.title" x-text="notification.title">
                                 </div>
-                                <div class="notification-message" x-text="notification.message">
+                                <div class="notification-message" x-html="notification.message">
                                 </div>
                                 <div class="notification-timestamp"
                                     x-text="$store.notificationStore?.formatTimestamp(notification.timestamp) || notification.timestamp">

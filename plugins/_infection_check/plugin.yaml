@@ -1,0 +1,8 @@
+name: _infection_check
+title: Infection Check
+description: Safety check for prompt injection from external sources.
+version: 1.0.0
+settings_sections:
+  - agent
+per_project_config: true
+per_agent_config: true

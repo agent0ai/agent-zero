@@ -1,4 +1,4 @@
-from python.helpers.extension import Extension
+from helpers.extension import Extension
 
 # this is an example extension that renames the current agent when initialized
 # see /extensions folder for all available extension points

@@ -136,7 +136,7 @@ some classes like modal-header are shared between the old and the new system */
 .modal-scroll {
   max-height: 90vh;
   overflow-y: auto;
-  padding: 0 1rem 1rem 1rem;
+  padding: 1rem;
 }
 
 .modal-x {
@@ -587,6 +587,10 @@ input[type="range"]::-moz-range-thumb {
 
 .confirm-dialog-body p {
   margin: 0;
+}
+
+.confirm-dialog-body .confirm-dialog-extension-note {
+  margin-top: 0.75em;
 }
 
 .confirm-dialog-footer {

@@ -1,0 +1,90 @@
+<html>
+
+<head>
+    <title>Install Plugin</title>
+    <script type="module">
+        import { store } from "/plugins/_plugin_installer/webui/pluginInstallStore.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.pluginInstallStore">
+            <div x-create="$store.pluginInstallStore.setTab('store')"
+                x-destroy="$store.pluginInstallStore.refreshPluginList()">
+
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" :class="{ active: $store.pluginInstallStore.activeTab === 'store' }"
+                            type="button" role="tab" @click="$store.pluginInstallStore.setTab('store')">
+                            <span class="material-symbols-outlined pi-tab-icon">store</span> Browse
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" :class="{ active: $store.pluginInstallStore.activeTab === 'git' }"
+                            type="button" role="tab" @click="$store.pluginInstallStore.setTab('git')">
+                            <span class="material-symbols-outlined pi-tab-icon">terminal</span> Git
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" :class="{ active: $store.pluginInstallStore.activeTab === 'zip' }"
+                            type="button" role="tab" @click="$store.pluginInstallStore.setTab('zip')">
+                            <span class="material-symbols-outlined pi-tab-icon">upload_file</span> ZIP
+                        </button>
+                    </li>
+                </ul>
+
+                <template x-if="$store.pluginInstallStore.activeTab === 'store'">
+                    <x-component path="/plugins/_plugin_installer/webui/install-index.html"></x-component>
+                </template>
+
+                <template x-if="$store.pluginInstallStore.activeTab === 'git'">
+                    <x-component path="/plugins/_plugin_installer/webui/install-git.html"></x-component>
+                </template>
+
+                <template x-if="$store.pluginInstallStore.activeTab === 'zip'">
+                    <x-component path="/plugins/_plugin_installer/webui/install-zip.html"></x-component>
+                </template>
+
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .nav {
+            display: flex;
+            padding-left: 0;
+            margin: 0 0 1rem 0;
+            list-style: none;
+            border-bottom: 1px solid var(--color-border);
+            gap: 0.25rem;
+        }
+
+        .nav-link {
+            font-family: "Rubik", Arial, Helvetica, sans-serif;
+            border: 1px solid transparent;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            padding: 0.4rem 0.7rem;
+            background: transparent;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .nav-link.active {
+            color: var(--color-text-primary);
+            border-color: var(--color-border);
+            border-bottom-color: transparent;
+            background: var(--color-background);
+        }
+
+        .pi-tab-icon {
+            font-size: 1.1rem;
+        }
+    </style>
+</body>
+
+</html>
