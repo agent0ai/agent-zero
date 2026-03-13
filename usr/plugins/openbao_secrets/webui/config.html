@@ -1,0 +1,38 @@
+<div id="openbao-config">
+  <h3>OpenBao Secrets Configuration</h3>
+  <p class="text-muted">Configure OpenBao KV v2 as the secrets backend. Requires upstream PR #1246.</p>
+
+  <div class="form-group">
+    <label><input type="checkbox" id="openbao-enabled"> Enable OpenBao Backend</label>
+  </div>
+
+  <div class="form-group">
+    <label for="openbao-url">OpenBao URL</label>
+    <input type="text" id="openbao-url" class="form-control" placeholder="http://127.0.0.1:8200">
+  </div>
+
+  <div class="form-group">
+    <label for="openbao-auth">Authentication Method</label>
+    <select id="openbao-auth" class="form-control">
+      <option value="approle">AppRole</option>
+      <option value="token">Token</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="openbao-mount">Mount Point</label>
+    <input type="text" id="openbao-mount" class="form-control" placeholder="secret">
+  </div>
+
+  <div class="form-group">
+    <label for="openbao-path">Secrets Path</label>
+    <input type="text" id="openbao-path" class="form-control" placeholder="agentzero">
+  </div>
+
+  <div class="form-group">
+    <button id="openbao-health-check" class="btn btn-outline-secondary">Test Connection</button>
+    <span id="openbao-health-status"></span>
+  </div>
+
+  <!-- TODO: Full implementation with save/load, TLS options, resilience tuning -->
+</div>
