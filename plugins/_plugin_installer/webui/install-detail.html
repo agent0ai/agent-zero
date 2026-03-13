@@ -25,12 +25,14 @@
                         <div class="pi-hero-title-row">
                             <div class="pi-hero-main">
                                 <h2 class="pi-hero-title" x-text="$store.pluginInstallStore.selectedPlugin.title || $store.pluginInstallStore.selectedPlugin.key"></h2>
-                                <template x-if="$store.pluginInstallStore.selectedPlugin.installed">
-                                    <div class="pi-installed-badge-simple">
-                                        <span class="material-symbols-outlined">check_circle</span>
-                                        <span>Installed</span>
-                                    </div>
-                                </template>
+                                <div class="pi-status-badges">
+                                    <template x-if="$store.pluginInstallStore.selectedPlugin.installed">
+                                        <span class="pi-card-installed-pill">Installed</span>
+                                    </template>
+                                    <template x-if="$store.pluginInstallStore.selectedPlugin.has_update">
+                                        <span class="pi-card-update-pill">New version</span>
+                                    </template>
+                                </div>
                                 <div class="pi-hero-meta">
                                     <template x-if="$store.pluginInstallStore.selectedPlugin.author">
                                         <span class="pi-hero-author">
@@ -61,36 +63,36 @@
                                 <div class="pi-hero-manage">
                                     <template x-if="$store.pluginInstallStore.installedPluginInfo.has_main_screen">
                                         <button type="button" class="button"
-                                            @click="$store.pluginInstallStore.manageOpenPlugin()">
+                                            @click="$store.pluginInstallStore.handleOpenPlugin()">
                                             <span class="icon material-symbols-outlined">dashboard</span> Open
                                         </button>
                                     </template>
                                     <template x-if="$store.pluginInstallStore.installedPluginInfo.has_config_screen">
                                         <button type="button" class="button"
-                                            @click="$store.pluginInstallStore.manageOpenConfig()">
+                                            @click="$store.pluginInstallStore.handleOpenConfig()">
                                             <span class="icon material-symbols-outlined">settings</span> Config
                                         </button>
                                     </template>
                                     <template x-if="$store.pluginInstallStore.installedPluginInfo.has_readme">
                                         <button type="button" class="button"
-                                            @click="$store.pluginInstallStore.manageOpenDoc('readme')">
+                                            @click="$store.pluginInstallStore.handleOpenDoc('readme')">
                                             <span class="icon material-symbols-outlined">description</span> README
                                         </button>
                                     </template>
                                     <template x-if="$store.pluginInstallStore.installedPluginInfo.has_license">
                                         <button type="button" class="button"
-                                            @click="$store.pluginInstallStore.manageOpenDoc('license')">
+                                            @click="$store.pluginInstallStore.handleOpenDoc('license')">
                                             <span class="icon material-symbols-outlined">gavel</span> License
                                         </button>
                                     </template>
                                     <template x-if="$store.pluginInstallStore.installedPluginInfo.has_init_script">
                                         <button type="button" class="button"
-                                            @click="$store.pluginInstallStore.manageOpenInit()">
+                                            @click="$store.pluginInstallStore.handleOpenInit()">
                                             <span class="icon material-symbols-outlined">terminal</span> Init
                                         </button>
                                     </template>
                                     <button type="button" class="button"
-                                        @click="$store.pluginInstallStore.manageOpenInfo()">
+                                        @click="$store.pluginInstallStore.handleOpenInfo()">
                                         <span class="icon material-symbols-outlined">info</span> Info
                                     </button>
                                 </div>
@@ -133,17 +135,44 @@
                             </template>
                         </button>
                     </template>
+                    <template x-if="$store.pluginInstallStore.selectedPlugin.installed && $store.pluginInstallStore.installedPluginInfo?.is_custom && $store.pluginInstallStore.selectedPlugin.has_update">
+                        <button type="button" class="pi-btn-install"
+                            @click="$store.pluginInstallStore.handleUpdatePlugin()"
+                            :disabled="$store.pluginInstallStore.loading">
+                            <template x-if="$store.pluginInstallStore.loading">
+                                <span class="pi-btn-loading">
+                                    <span class="spinner"></span>
+                                    <span x-text="$store.pluginInstallStore.loadingMessage || 'Installing...'"></span>
+                                </span>
+                            </template>
+                            <template x-if="!$store.pluginInstallStore.loading">
+                                <span class="material-symbols-outlined">system_update</span>
+                            </template>
+                            <template x-if="!$store.pluginInstallStore.loading">
+                                <span>Update</span>
+                            </template>
+                        </button>
+                    </template>
                     <template x-if="$store.pluginInstallStore.selectedPlugin.installed && $store.pluginInstallStore.installedPluginInfo?.is_custom">
                         <button type="button" class="pi-btn-uninstall"
-                            @click="$confirmClick($event, () => $store.pluginInstallStore.manageDeletePlugin())">
-                            <span class="material-symbols-outlined">delete</span>
-                            <span>Uninstall</span>
+                            @click="$confirmClick($event, () => $store.pluginInstallStore.handleDeletePlugin())"
+                            :disabled="$store.pluginInstallStore.loading">
+                            <span class="pi-btn-loading" x-show="$store.pluginInstallStore.loading">
+                                <span class="spinner"></span>
+                                <span x-text="$store.pluginInstallStore.loadingMessage || 'Uninstalling...'"></span>
+                            </span>
+                            <span x-show="!$store.pluginInstallStore.loading">
+                                <span class="material-symbols-outlined">delete</span>
+                            </span>
+                            <span x-show="!$store.pluginInstallStore.loading">
+                                <span>Uninstall</span>
+                            </span>
                         </button>
                     </template>
                     <template x-if="$store.pluginInstallStore.selectedPlugin.discussion">
                         <a :href="$store.pluginInstallStore.selectedPlugin.discussion" target="_blank" class="pi-btn-discussion">
                             <span class="material-symbols-outlined">forum</span>
-                            <span>Join Discussion</span>
+                            <span>Discussion</span>
                         </a>
                     </template>
                 </div>
@@ -155,6 +184,51 @@
                     </div>
                     <div x-show="$store.pluginInstallStore.readmeContent && !$store.pluginInstallStore.readmeLoading"
                          class="pi-readme-content" x-html="$store.pluginInstallStore.readmeContent"></div>
+                </div>
+
+                <div class="pi-version-section"
+                     x-show="$store.pluginInstallStore.getCurrentInstalledVersion() || $store.pluginInstallStore.getCurrentInstalledCommit() || $store.pluginInstallStore.getLatestMarketplaceVersion() || $store.pluginInstallStore.getLatestMarketplaceCommit()">
+                    <div class="pi-version-header">Version</div>
+                    <div class="pi-version-grid">
+                        <div class="pi-version-card"
+                             x-show="$store.pluginInstallStore.selectedPlugin.installed && ($store.pluginInstallStore.getCurrentInstalledVersion() || $store.pluginInstallStore.getCurrentInstalledCommit())">
+                            <div class="pi-version-label">Current</div>
+                            <div class="pi-version-name"
+                                 x-text="$store.pluginInstallStore.getCurrentInstalledVersion() || 'Unknown version'"></div>
+                            <template x-if="$store.pluginInstallStore.getCurrentInstalledCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getCurrentInstalledCommit())">
+                                <a class="pi-version-commit"
+                                   :href="$store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getCurrentInstalledCommit())"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getCurrentInstalledCommit())"></a>
+                            </template>
+                            <template x-if="!($store.pluginInstallStore.getCurrentInstalledCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getCurrentInstalledCommit()))">
+                                <div class="pi-version-commit"
+                                     x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getCurrentInstalledCommit()) || 'Unknown'"></div>
+                            </template>
+                            <div class="pi-version-time"
+                                 x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getCurrentInstalledCommitTimestamp()) || 'Timestamp unavailable'"></div>
+                        </div>
+                        <div class="pi-version-card"
+                             x-show="$store.pluginInstallStore.getLatestMarketplaceVersion() || $store.pluginInstallStore.getLatestMarketplaceCommit()">
+                            <div class="pi-version-label">Latest</div>
+                            <div class="pi-version-name"
+                                 x-text="$store.pluginInstallStore.getLatestMarketplaceVersion() || 'Unknown version'"></div>
+                            <template x-if="$store.pluginInstallStore.getLatestMarketplaceCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit())">
+                                <a class="pi-version-commit"
+                                   :href="$store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit())"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestMarketplaceCommit())"></a>
+                            </template>
+                            <template x-if="!($store.pluginInstallStore.getLatestMarketplaceCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit()))">
+                                <div class="pi-version-commit"
+                                     x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestMarketplaceCommit()) || 'Unknown'"></div>
+                            </template>
+                            <div class="pi-version-time"
+                                 x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getLatestMarketplaceCommitTimestamp()) || 'Timestamp unavailable'"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pi-developer-section">
@@ -247,6 +321,13 @@
             row-gap: var(--spacing-xxs);
         }
 
+        .pi-status-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.85rem;
+            margin: var(--spacing-xs) 0;
+        }
+
         .pi-hero-title {
             margin: 0;
             font-size: 1.75rem;
@@ -318,18 +399,16 @@
             gap: 0.4rem;
         }
 
-        .pi-installed-badge-simple {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #22c55e;
-            margin: var(--spacing-xs) 0;
+        .pi-status-badges .pi-card-installed-pill {
+            position: static;
+            top: auto;
+            right: auto;
         }
 
-        .pi-installed-badge-simple .material-symbols-outlined {
-            font-size: 1.1rem;
+        .pi-status-badges .pi-card-update-pill {
+            position: static;
+            top: auto;
+            right: auto;
         }
 
         .pi-tag {
@@ -416,6 +495,11 @@
             color: #fff;
         }
 
+        .pi-btn-uninstall:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .pi-btn-uninstall .material-symbols-outlined {
             font-size: 1.3rem;
         }
@@ -465,6 +549,66 @@
             margin: var(--spacing-lg) 0;
             padding-top: var(--spacing-lg);
             border-top: 1px solid var(--color-border);
+        }
+
+        .pi-version-section {
+            margin-bottom: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .pi-version-header {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .pi-version-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .pi-version-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            padding: 0.9rem 1rem;
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+        }
+
+        .pi-version-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+        }
+
+        .pi-version-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            line-height: 1.35;
+        }
+
+        .pi-version-commit {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-decoration: none;
+        }
+
+        a.pi-version-commit:hover {
+            color: var(--color-highlight);
+        }
+
+        .pi-version-time {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            line-height: 1.4;
         }
 
         .pi-screenshots-header {

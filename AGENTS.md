@@ -128,6 +128,9 @@ Key Files:
 - Location: Always develop new plugins in usr/plugins/.
 - Manifest: Every plugin requires a plugin.yaml with name, description, version, and optionally settings_sections, per_project_config, per_agent_config, and always_enabled.
 - Discovery: Conventions based on folder names (api/, tools/, webui/, extensions/).
+- Runtime hooks: Plugins may also expose hooks in hooks.py, callable by the framework through helpers.plugins.call_plugin_hook(...).
+- Hook runtime: hooks.py executes inside the Agent Zero framework Python environment, so sys.executable -m pip installs dependencies into that same framework runtime.
+- Environment targeting: If a plugin needs packages or binaries for the separate agent execution runtime or system environment, it must explicitly switch environments in a subprocess by targeting the correct interpreter, virtualenv, or package manager.
 - Settings: Use get_plugin_config(plugin_name, agent=agent) to retrieve settings. Plugins can expose a UI for settings via webui/config.html. Plugin settings modals instantiate a local context from $store.pluginSettingsPrototype; bind plugin fields to config.* and use context.* for modal-level state and actions. For plugins wrapping core settings, set context.saveMode = 'core' in x-init.
 - Activation: Global and scoped activation rules are stored as .toggle-1 (ON) and .toggle-0 (OFF). Scoped rules are handled via the plugin "Switch" modal.
 

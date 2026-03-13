@@ -15,7 +15,16 @@ from typing import (
     TypedDict,
 )
 
-from helpers import files, notification, print_style, yaml as yaml_helper, cache
+from helpers import (
+    files,
+    git,
+    notification,
+    print_style,
+    yaml as yaml_helper,
+    cache,
+    extension,
+    extract_tools,
+)
 from pydantic import BaseModel, Field
 
 from helpers.defer import DeferredTask
@@ -28,6 +37,7 @@ _META_TARGET_RE = re.compile(
     r'<meta\s+name=["\']plugin-target["\']\s+content=["\']([^"\']+)["\']',
     re.IGNORECASE,
 )
+
 
 type ToggleState = Literal["enabled", "disabled", "advanced"]
 
@@ -44,6 +54,10 @@ CONFIG_DEFAULT_FILE_NAME = "default_config.yaml"
 DISABLED_FILE_NAME = ".toggle-0"
 ENABLED_FILE_NAME = ".toggle-1"
 TOGGLE_FILE_PATTERN = ".toggle-[01]"
+
+HOOKS_SCRIPT = "hooks.py"
+HOOKS_CACHE_AREA = "plugin_hooks(plugins)"
+
 _last_frontend_reload_notification_at = 0.0
 
 
@@ -75,8 +89,24 @@ class PluginListItem(BaseModel):
     has_license: bool = False
     has_init_script: bool = False
     toggle_state: ToggleState = "disabled"
+    current_commit: str = ""
+    current_commit_timestamp: str = ""
 
 
+class PluginUpdateInfo(BaseModel):
+    name: str
+    path: str
+    display_name: str = ""
+    commits_since_local: int = 0
+    last_remote_commit_at: str = ""
+    branch: str = ""
+    remote_branch: str = ""
+    is_git_repo: bool = False
+    is_remote: bool = False
+    error: str = ""
+
+
+@extension.extensible
 def after_plugin_change(plugin_names: list[str] | None = None):
     clear_plugin_cache()
     send_frontend_reload_notification(plugin_names)
@@ -111,15 +141,18 @@ def get_plugins_list():
 
 
 def get_enhanced_plugins_list(
-    custom: bool = True, builtin: bool = True
+    custom: bool = True, builtin: bool = True, plugin_names: list[str] | None = None
 ) -> List[PluginListItem]:
     """Discover plugins by directory convention. First root wins on ID conflict."""
     results = []
+    allowed_names = set(plugin_names) if plugin_names else None
 
     def load_plugins(root_path: str, is_custom: bool):
         for d in sorted(Path(root_path).iterdir(), key=lambda p: p.name):
             try:
                 if not d.is_dir() or d.name.startswith("."):
+                    continue
+                if allowed_names is not None and d.name not in allowed_names:
                     continue
                 meta_file = str(d / META_FILE_NAME)
                 if not files.exists(meta_file):
@@ -131,6 +164,13 @@ def get_enhanced_plugins_list(
                 has_license = files.exists(str(d / "LICENSE"))
                 has_init_script = files.exists(str(d / "initialize.py"))
                 toggle_state = get_toggle_state(d.name)
+                current_commit = ""
+                current_commit_timestamp = ""
+                if is_custom:
+                    repo_info = git.get_repo_release_info(str(d))
+                    if repo_info.is_git_repo and repo_info.head:
+                        current_commit = repo_info.head.hash
+                        current_commit_timestamp = repo_info.head.committed_at
                 results.append(
                     PluginListItem(
                         name=d.name,
@@ -149,6 +189,8 @@ def get_enhanced_plugins_list(
                         has_license=has_license,
                         has_init_script=has_init_script,
                         toggle_state=toggle_state,
+                        current_commit=current_commit,
+                        current_commit_timestamp=current_commit_timestamp,
                     )
                 )
             except Exception as e:
@@ -159,6 +201,30 @@ def get_enhanced_plugins_list(
         load_plugins(files.get_abs_path(files.USER_DIR, files.PLUGINS_DIR), True)
     if builtin:
         load_plugins(files.get_abs_path(files.PLUGINS_DIR), False)
+    return results
+
+
+def get_custom_plugins_updates(plugin_names: list[str] | None = None) -> List[PluginUpdateInfo]:
+    plugins = get_enhanced_plugins_list(custom=True, builtin=False, plugin_names=plugin_names)
+    results: list[PluginUpdateInfo] = []
+
+    for plugin in plugins:
+        update = git.get_remote_commits_since_local(plugin.path)
+        results.append(
+            PluginUpdateInfo(
+                name=plugin.name,
+                path=plugin.path,
+                display_name=plugin.display_name,
+                commits_since_local=update.commits_since_local,
+                last_remote_commit_at=update.last_remote_commit_at,
+                branch=update.branch,
+                remote_branch=update.remote_branch,
+                is_git_repo=update.is_git_repo,
+                is_remote=update.is_remote,
+                error=update.error,
+            )
+        )
+
     return results
 
 
@@ -192,6 +258,14 @@ def find_plugin_dir(plugin_name: str):
     return None
 
 
+@extension.extensible
+def uninstall_plugin(plugin_name):
+    # call the uninstall hook if any
+    call_plugin_hook(plugin_name, "uninstall")
+    # then delete
+    delete_plugin(plugin_name)
+
+@extension.extensible
 def delete_plugin(plugin_name: str):
     plugin_dir = find_plugin_dir(plugin_name)
     if not plugin_dir:
@@ -199,7 +273,9 @@ def delete_plugin(plugin_name: str):
     custom_plugins_dir = files.get_abs_path(files.USER_DIR, files.PLUGINS_DIR)
     if not files.is_in_dir(plugin_dir, custom_plugins_dir):
         raise ValueError("Only custom plugins can be deleted")
-    send_frontend_reload_notification([plugin_name])  # send before deletion to properly check the extensions, second notification will be skipped automatically
+    send_frontend_reload_notification(
+        [plugin_name]
+    )  # send before deletion to properly check the extensions, second notification will be skipped automatically
     files.delete_dir(plugin_dir)
     after_plugin_change([plugin_name])
 
@@ -298,18 +374,6 @@ def get_toggle_state(plugin_name: str) -> ToggleState:
         else "disabled"
     )
 
-    # global toggles
-    usr_toggles = [
-        files.find_existing_paths_by_pattern(
-            files.get_abs_path(files.PLUGINS_DIR, plugin_name, TOGGLE_FILE_PATTERN)
-        ),
-        files.find_existing_paths_by_pattern(
-            files.get_abs_path(
-                files.USER_DIR, files.PLUGINS_DIR, plugin_name, TOGGLE_FILE_PATTERN
-            )
-        ),
-    ]
-
     # additional toggles in project/agent directories, return advanced
     if meta.per_agent_config or meta.per_project_config:
         configs = find_plugin_assets(
@@ -327,6 +391,7 @@ def get_toggle_state(plugin_name: str) -> ToggleState:
     return state
 
 
+@extension.extensible
 def toggle_plugin(
     plugin_name: str,
     enabled: bool,
@@ -363,6 +428,7 @@ def toggle_plugin(
     after_plugin_change([plugin_name])
 
 
+@extension.extensible
 def get_plugin_config(
     plugin_name: str,
     agent: Agent | None = None,
@@ -391,33 +457,73 @@ def get_plugin_config(
         file_path = files.get_abs_path(
             find_plugin_dir(plugin_name), CONFIG_DEFAULT_FILE_NAME
         )
+
+    result = None
     if file_path and files.exists(file_path):
-        return (
+        result = (
             json.loads if file_path.lower().endswith(".json") else yaml_helper.loads
         )(files.read_file(file_path))
-    return None
+
+    # call plugin hook to modify the standard result if needed
+    new_result = call_plugin_hook(
+        plugin_name,
+        "save_plugin_config",
+        result=result,
+        agent=agent,
+        project_name=project_name,
+        agent_profile=agent_profile,
+    )
+
+    if new_result is not None:
+        return new_result
+    return result 
 
 
 def get_default_plugin_config(plugin_name: str):
     file_path = files.get_abs_path(
         find_plugin_dir(plugin_name), CONFIG_DEFAULT_FILE_NAME
     )
-    if file_path and files.exists(file_path):
-        return (
+
+    # call plugin hook to get the result
+    result = call_plugin_hook(
+        plugin_name,
+        "save_plugin_config",
+        file_path = file_path
+    )
+
+    # or do standard load
+    if result is None and file_path and files.exists(file_path):
+        result = (
             json.loads if file_path.lower().endswith(".json") else yaml_helper.loads
         )(files.read_file(file_path))
-    return None
+
+    return result
 
 
+@extension.extensible
 def save_plugin_config(
     plugin_name: str, project_name: str, agent_profile: str, settings: dict
 ):
     file_path = determine_plugin_asset_path(
         plugin_name, project_name, agent_profile, CONFIG_FILE_NAME
     )
-    if file_path:
-        files.write_file(file_path, json.dumps(settings))
+
+    # call plugin hook to get the result first
+    new_settings = call_plugin_hook(
+        plugin_name,
+        "save_plugin_config",
+        result=None,
+        project_name=project_name,
+        agent_profile=agent_profile,
+        settings=settings,
+    )
+
+    # or do standard load
+    if new_settings is not None and file_path:
+        files.write_file(file_path, json.dumps(new_settings))
         after_plugin_change([plugin_name])
+
+
 
 
 def find_plugin_asset(
@@ -604,3 +710,31 @@ def send_frontend_reload_notification(plugin_names: list[str] | None = None):
         )
 
     DeferredTask().start_task(_send_later)
+
+
+def call_plugin_hook(plugin_name: str, hook_name: str, *args, **kwargs):
+    hooks = None
+
+    # use cached hooks if enabled
+    if not cache.has(HOOKS_CACHE_AREA, plugin_name):
+        hooks_script = files.get_abs_path(find_plugin_dir(plugin_name), HOOKS_SCRIPT)
+        hooks = (
+            extract_tools.import_module(hooks_script)
+            if files.exists(hooks_script)
+            else None
+        )
+        cache.add(HOOKS_CACHE_AREA, plugin_name, hooks)
+    else:
+        hooks = cache.get(HOOKS_CACHE_AREA, plugin_name)
+
+    if not hooks:
+        return
+
+    hook = getattr(hooks, hook_name, None)
+    if not hook:
+        return
+
+    if asyncio.iscoroutinefunction(hook):
+        return asyncio.run(hook(*args, **kwargs))
+
+    return hook(*args, **kwargs)

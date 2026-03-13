@@ -252,7 +252,7 @@ def _merge_agent_list_items(
 
 
 def get_agents_roots() -> list[str]:
-    from helpers import plugins
+    # from helpers import plugins
 
     plugin_agents = plugins.get_enabled_plugin_paths(None, "agents")
     project_agents = files.find_existing_paths_by_pattern("usr/projects/*/.a0proj/agents")
@@ -378,7 +378,7 @@ def get_paths(
 
         # plugin agents/<profile>/...
         if include_plugins:
-            from helpers import plugins
+            # from helpers import plugins
             for plugin_dir in plugins.get_enabled_plugin_paths(agent, "agents", profile_name):
                 path = files.get_abs_path(plugin_dir, *subpaths)
                 if (not must_exist_completely) or files.exists(files.get_abs_path(plugin_dir, *check_subpaths)):
@@ -397,7 +397,7 @@ def get_paths(
 
     if include_plugins:
         # plugins/*/subpaths...
-        from helpers import plugins
+        # from helpers import plugins
 
         for plugin_dir in plugins.get_enabled_plugin_paths(agent):
             path = files.get_abs_path(plugin_dir, *subpaths)
@@ -412,3 +412,7 @@ def get_paths(
             paths.append(path)
 
     return paths
+
+
+# end-of-file imports to prevent circular imports
+from helpers import plugins

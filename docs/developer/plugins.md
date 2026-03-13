@@ -50,6 +50,7 @@ Field reference:
 usr/plugins/<plugin_name>/
 ├── plugin.yaml
 ├── initialize.py                    # optional one-time setup script
+├── hooks.py                         # optional runtime hook functions callable by the framework
 ├── default_config.yaml              # optional defaults
 ├── README.md                        # optional, shown in Plugin List UI
 ├── LICENSE                          # optional, shown in Plugin List UI
@@ -96,6 +97,33 @@ if __name__ == "__main__":
 ```
 
 Return `0` on success, non-zero on failure. Print progress for user feedback. Use `sys.executable` for pip commands.
+
+## Runtime Hooks (`hooks.py`)
+
+Plugins can also include an optional `hooks.py` at the plugin root. Agent Zero loads this module on demand and calls exported functions by name through `helpers.plugins.call_plugin_hook(...)`.
+
+- `hooks.py` executes inside the **Agent Zero framework runtime and Python environment**.
+- Use it for framework-internal operations such as install hooks, registration, cache preparation, file setup, or other work that needs direct access to framework internals.
+- Hook functions may be synchronous or async.
+- Hook modules are cached, so edits may require a plugin refresh or cache clear before changes are picked up.
+
+Current built-in usage: the plugin installer calls `install()` from `hooks.py` after copying a plugin into place.
+
+### Dependency and environment behavior
+
+- If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the **same Python environment that is currently running Agent Zero**.
+- That is the correct target for dependencies needed by your plugin's backend code inside the framework runtime.
+- It is not automatically the right target for packages intended only for the separate agent execution runtime or for system-level binaries.
+
+If you need to install into a different environment, do it explicitly from a subprocess. In practice, that means targeting the correct interpreter or activating the correct environment inside the subprocess before running `pip` or another package manager.
+
+Examples of the right approach:
+
+- call a specific Python executable for the target runtime
+- activate the target virtualenv in a subprocess shell command before invoking `pip`
+- run OS-level package installation from a subprocess prepared for the intended environment
+
+In Docker deployments, `hooks.py` normally affects the framework runtime at `/opt/venv-a0`, while the agent execution runtime is `/opt/venv`.
 
 ## Settings Resolution
 

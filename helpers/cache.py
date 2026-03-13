@@ -18,6 +18,13 @@ def toggle_area(area: str, enabled: bool) -> None:
     _enabled_areas[area] = enabled
 
 
+def has(area: str, key: str) -> bool:
+    if not _is_enabled(area):
+        return False
+    with _lock:
+        return key in _cache.get(area, {})
+
+
 def add(area: str, key: str, data: Any) -> None:
     if not _is_enabled(area):
         return

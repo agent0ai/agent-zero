@@ -45,6 +45,17 @@ always_enabled: false
 
 Plugins can include an optional `initialize.py` at the plugin root for one-time setup such as installing dependencies or downloading models. Users trigger it via the **Init** button in the Plugin List UI. The script should return `0` on success and print progress messages for user feedback.
 
+## Runtime Hooks (`hooks.py`)
+
+Plugins can also include an optional `hooks.py` at the plugin root. The framework loads it on demand and can call exported hook functions by name through `helpers.plugins.call_plugin_hook(...)`.
+
+- `hooks.py` runs inside the **Agent Zero framework runtime and Python environment**.
+- Use it for framework-internal work such as install hooks, cache preparation, registration, or filesystem setup.
+- If it runs `sys.executable -m pip install ...`, packages are installed into the same Python environment that runs Agent Zero.
+- If you need to install into the separate agent runtime or into the system environment, explicitly target that environment from a subprocess by selecting the correct interpreter, virtualenv, or package manager.
+
+In Docker, `hooks.py` normally affects `/opt/venv-a0`; the agent execution runtime is `/opt/venv`.
+
 ## Plugin Index & Community Sharing
 
 The **Plugin Index** at https://github.com/agent0ai/a0-plugins is the community-maintained registry of plugins available to all Agent Zero users.

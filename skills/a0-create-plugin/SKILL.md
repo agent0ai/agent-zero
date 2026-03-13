@@ -178,6 +178,7 @@ save_plugin_config(
 /a0/usr/plugins/<name>/
   plugin.yaml           # Required manifest
   initialize.py         # Optional one-time setup script
+  hooks.py              # Optional framework runtime hook functions
   default_config.yaml   # Optional default settings fallback
   README.md             # Optional, shown in Plugin List UI
   LICENSE               # Optional, shown in Plugin List UI
@@ -195,7 +196,6 @@ save_plugin_config(
 ```
 
 ## Plugin Initialization Script (`initialize.py`)
-
 If your plugin requires one-time setup (e.g., installing dependencies, downloading models), add an `initialize.py` at the plugin root:
 
 ```python
@@ -219,6 +219,26 @@ if __name__ == "__main__":
 ```
 
 Users trigger it via the **Init** button in the Plugin List UI. Return `0` on success, non-zero on failure.
+
+## Runtime Hooks (`hooks.py`)
+If your plugin needs framework-internal hook points, add a `hooks.py` file at the plugin root. The framework can call exported functions by name via `helpers.plugins.call_plugin_hook(...)`.
+
+- `hooks.py` runs inside the **Agent Zero framework runtime**, not the separate agent execution environment.
+- Use it for things like install hooks, plugin registration work, cache setup, file preparation, or other internal framework operations.
+- Hook functions may be sync or async.
+- Current example: the plugin installer calls `install()` in `hooks.py` after placing a plugin in `usr/plugins/`.
+
+### Environment targeting rules
+- If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the same Python environment that is running Agent Zero.
+- That is correct for dependencies needed by the plugin inside the framework runtime.
+- If the dependency is meant for the separate agent runtime or for OS-level tools, do **not** assume the current environment is correct.
+
+Instead, explicitly switch targets in a subprocess:
+- invoke the exact Python interpreter for the target runtime
+- activate the target virtualenv in the subprocess before running `pip`
+- run the relevant OS package manager from a subprocess configured for the intended environment
+
+In Docker, this usually means `hooks.py` affects `/opt/venv-a0` unless you intentionally target `/opt/venv` or another environment.
 
 ---
 

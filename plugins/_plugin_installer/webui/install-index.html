@@ -46,7 +46,10 @@
                     <template x-for="filter in $store.pluginInstallStore.browseFilters" :key="filter.key">
                         <button type="button"
                             class="pi-filter-chip"
-                            :class="{ active: $store.pluginInstallStore.browseFilter === filter.key }"
+                            :class="{
+                                active: $store.pluginInstallStore.browseFilter === filter.key,
+                                'pi-filter-chip-update': filter.key === 'update' && filter.count > 0
+                            }"
                             @click="$store.pluginInstallStore.setBrowseFilter(filter.key)">
                             <span x-text="filter.label"></span>
                             <span class="pi-filter-count" x-text="filter.count"></span>
@@ -76,6 +79,10 @@
 
                                 <template x-if="plugin.installed">
                                     <span class="pi-card-installed-pill">Installed</span>
+                                </template>
+
+                                <template x-if="plugin.has_update">
+                                    <span class="pi-card-update-pill" :class="{ 'pi-card-update-pill-offset': plugin.installed }">New version</span>
                                 </template>
                             </div>
 
@@ -294,6 +301,41 @@
             color: var(--color-text-primary);
         }
 
+        .pi-filter-chip-update {
+            border-color: rgba(59, 130, 246, 0.22);
+            color: #93c5fd;
+        }
+
+        .pi-filter-chip-update:hover,
+        .pi-filter-chip-update.active {
+            border-color: rgba(59, 130, 246, 0.38);
+            background: rgba(59, 130, 246, 0.12);
+            color: #bfdbfe;
+        }
+
+        .pi-filter-chip-update .pi-filter-count {
+            background: rgba(59, 130, 246, 0.16);
+            color: #bfdbfe;
+        }
+
+        body.light-mode .pi-filter-chip-update {
+            border-color: rgba(37, 99, 235, 0.35);
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+        }
+
+        body.light-mode .pi-filter-chip-update:hover,
+        body.light-mode .pi-filter-chip-update.active {
+            border-color: rgba(37, 99, 235, 0.5);
+            background: rgba(37, 99, 235, 0.14);
+            color: #1e40af;
+        }
+
+        body.light-mode .pi-filter-chip-update .pi-filter-count {
+            background: rgba(37, 99, 235, 0.18);
+            color: #1e3a8a;
+        }
+
         .pi-filter-count {
             padding: 0.12rem 0.4rem;
             border-radius: 0.5rem;
@@ -369,7 +411,7 @@
             height: 148px;
             padding: 0.5rem;
             background:
-                radial-gradient(circle at top, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)),
+                radial-gradient(circle at top, #6b728089, var(--color-panel)),
                 var(--color-panel);
             border-bottom: 1px solid var(--color-border);
         }
@@ -395,6 +437,32 @@
             color: #4ade80;
             font-size: 0.72rem;
             font-weight: 700;
+        }
+
+        body.light-mode .pi-card-installed-pill {
+            background: rgba(34, 197, 94, 0.22);
+            color: #166534;
+        }
+
+        .pi-card-update-pill {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            padding: 0.24rem 0.5rem;
+            border-radius: 0.5rem;
+            background: rgba(59, 130, 246, 0.16);
+            color: #60a5fa;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        body.light-mode .pi-card-update-pill {
+            background: rgba(59, 130, 246, 0.2);
+            color: #1d4ed8;
+        }
+
+        .pi-card-update-pill-offset {
+            top: 2.35rem;
         }
 
         .pi-card-body {

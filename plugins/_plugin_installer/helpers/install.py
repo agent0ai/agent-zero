@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import os
-import shutil
 import time
+from turtle import stamp
 import urllib.request
 import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
 
-from helpers import files
+from helpers import files, print_style, plugins, git
 from helpers import yaml as yaml_helper
 from helpers.plugins import (
     META_FILE_NAME,
@@ -20,6 +21,7 @@ from helpers.plugins import (
 )
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
+
 
 def _get_user_plugins_dir() -> str:
     """Return absolute path to usr/plugins/."""
@@ -33,7 +35,7 @@ def _get_plugin_name(meta: PluginMetadata) -> str:
     return plugin_name
 
 
-def validate_plugin_dir(path: str, plugin_name:str="") -> PluginMetadata:
+def validate_plugin_dir(path: str, plugin_name: str = "") -> PluginMetadata:
     """Check directory contains plugin.yaml and return parsed metadata.
     Raises ValueError if plugin.yaml is missing or invalid."""
     meta_path = os.path.join(path, META_FILE_NAME)
@@ -44,7 +46,9 @@ def validate_plugin_dir(path: str, plugin_name:str="") -> PluginMetadata:
     data = yaml_helper.loads(content)
     model = PluginMetadata.model_validate(data)
     if plugin_name and plugin_name != model.name:
-        raise ValueError(f"Plugin name is incorrect: expected '{plugin_name}', got '{model.name}'. The author needs to correct this in the plugin.yaml file.")
+        raise ValueError(
+            f"Plugin name is incorrect: expected '{plugin_name}', got '{model.name}'. The author needs to correct this in the plugin.yaml file."
+        )
     return model
 
 
@@ -89,36 +93,47 @@ def install_from_zip(zip_path: str, original_filename: str | None = None) -> dic
     """Extract ZIP, find plugin.yaml, move its parent to usr/plugins/.
     Returns dict with plugin name and metadata.
     Cleans up tmp files regardless of outcome."""
-    base_tmp = files.get_abs_path("tmp", "plugin_installs")
-    os.makedirs(base_tmp, exist_ok=True)
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    extract_dir = os.path.join(base_tmp, f"extract_{stamp}")
-    os.makedirs(extract_dir, exist_ok=True)
+    temp_name = f"tmp_plugin_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    extract_dir = files.get_abs_path(files.TEMP_DIR, "plugin_installs", temp_name)
+    extract_dir = files.create_dir_safe(extract_dir)
+    dest = ""
 
     try:
-        # Extract with path traversal protection
         try:
+            # Extract with path traversal protection
             with zipfile.ZipFile(zip_path, "r") as z:
-                real_extract = os.path.realpath(extract_dir)
                 for member in z.namelist():
                     member_path = os.path.realpath(os.path.join(extract_dir, member))
-                    if not member_path.startswith(real_extract + os.sep) and member_path != real_extract:
+                    if not (files.is_in_dir(member_path, extract_dir)):
                         raise ValueError(f"Unsafe path in archive: {member}")
                 z.extractall(extract_dir)
-        except zipfile.BadZipFile:
-            raise ValueError("The uploaded file is not a valid ZIP archive")
 
-        # Find plugin.yaml
-        plugin_root = _find_plugin_root(extract_dir)
-        meta = validate_plugin_dir(plugin_root)
-        plugin_name = _get_plugin_name(meta)
+            # Find plugin.yaml
+            plugin_root = _find_plugin_root(extract_dir)
+            meta = validate_plugin_dir(plugin_root)
+            plugin_name = _get_plugin_name(meta)
 
-        check_plugin_conflict(plugin_name)
+            check_plugin_conflict(plugin_name)
 
-        # Move to usr/plugins/
-        dest = os.path.join(_get_user_plugins_dir(), plugin_name)
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        shutil.move(plugin_root, dest)
+            # Move to usr/plugins/
+            dest = os.path.join(_get_user_plugins_dir(), plugin_name)
+            files.create_dir(os.path.dirname(dest))
+            files.move_dir(plugin_root, dest)
+        except Exception as e:
+            print_style.PrintStyle.error(f"Failed to validate plugin: {e}")
+            files.delete_dir(extract_dir)
+            raise
+
+        # run installation hook
+        try:
+            run_install_hook(plugin_name)
+        except Exception as e:
+            print_style.PrintStyle.error(
+                f"Failed to run installation hook for {plugin_name}: {e}"
+            )
+            files.delete_dir(dest)
+            raise
+
         after_plugin_change([plugin_name])
 
         return {
@@ -129,48 +144,103 @@ def install_from_zip(zip_path: str, original_filename: str | None = None) -> dic
         }
     finally:
         # Cleanup: extracted files and the archive
-        shutil.rmtree(extract_dir, ignore_errors=True)
         try:
-            os.unlink(zip_path)
-        except OSError:
+            files.delete_dir(extract_dir)
+            files.delete_file(zip_path)
+        except Exception as e:
             pass
 
 
-def install_from_git(url: str, token: str | None = None, plugin_name: str="") -> dict:
+def install_from_git(url: str, token: str | None = None, plugin_name: str = "") -> dict:
     """Clone git repo into usr/plugins/, validate plugin.yaml.
     Returns dict with plugin name and metadata."""
     from helpers.git import clone_repo
 
     temp_name = f"tmp_plugin_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    dest = files.get_abs_path(files.TEMP_DIR, "plugins_installer", temp_name)
-    files.create_dir_safe(dest)
+    git_dir = files.get_abs_path(files.TEMP_DIR, "plugins_installer", temp_name)
 
     try:
-        clone_repo(url, dest, token=token or None)
+        files.create_dir_safe(git_dir)
+        clone_repo(url, git_dir, token=token or None)
+        meta = validate_plugin_dir(git_dir, plugin_name=plugin_name)
+        plugin_name = _get_plugin_name(meta)
+        check_plugin_conflict(plugin_name)
+        final_dir = os.path.join(_get_user_plugins_dir(), plugin_name)
+        files.move_dir(git_dir, final_dir)
     except Exception as e:
-        # Cleanup partial clone
-        shutil.rmtree(dest, ignore_errors=True)
-        raise ValueError(f"Git clone failed: {e}") from e
-
-    try:
-        meta = validate_plugin_dir(dest, plugin_name=plugin_name)
-    except ValueError:
         # No plugin.yaml — remove cloned repo
-        shutil.rmtree(dest, ignore_errors=True)
+        print_style.PrintStyle.error(f"Failed to validate plugin: {e}")
+        files.delete_dir(git_dir)
         raise
 
-    plugin_name = _get_plugin_name(meta)
-    check_plugin_conflict(plugin_name)
-    final_dest = os.path.join(_get_user_plugins_dir(), plugin_name)
-    files.move_dir(dest, final_dest)
+    # run installation hook
+    try:
+        run_install_hook(plugin_name)
+    except Exception as e:
+        print_style.PrintStyle.error(
+            f"Failed to run installation hook for {plugin_name}: {e}"
+        )
+        files.delete_dir(final_dir)
+        raise
+
     after_plugin_change([plugin_name])
 
     return {
         "success": True,
         "plugin_name": plugin_name,
         "title": meta.title or plugin_name,
-        "path": files.deabsolute_path(final_dest),
+        "path": files.deabsolute_path(final_dir),
     }
+
+
+def update_from_git(plugin_name: str) -> dict:
+    plugin_name = (plugin_name or "").strip()
+    if not plugin_name:
+        raise ValueError("Missing plugin_name")
+
+    plugin_dir = plugins.find_plugin_dir(plugin_name)
+    if not plugin_dir:
+        raise ValueError("Plugin not found")
+
+    custom_plugins_dir = files.get_abs_path(files.USER_DIR, files.PLUGINS_DIR)
+    if not files.is_in_dir(plugin_dir, custom_plugins_dir):
+        raise ValueError("Only custom plugins can be updated")
+
+    try:
+        repo = git.update_repo(plugin_dir)
+        meta = plugins.get_plugin_meta(plugin_name)
+    except Exception as e:
+        print_style.PrintStyle.error(f"Failed to update plugin: {e}")
+        raise
+
+    try:
+        run_install_hook(plugin_name)
+    except Exception as e:
+        print_style.PrintStyle.error(
+            f"Failed to run installation hook for {plugin_name}: {e}"
+        )
+        raise
+
+    after_plugin_change([plugin_name])
+    head = repo.head.commit
+
+    return {
+        "ok": True,
+        "success": True,
+        "plugin_name": plugin_name,
+        "title": meta.title if meta else plugin_name,
+        "path": files.deabsolute_path(plugin_dir),
+        "current_commit": head.hexsha,
+        "current_commit_timestamp": datetime.fromtimestamp(head.committed_date, timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "version": getattr(meta, "version", "") or "",
+        "branch": repo.active_branch.name if not repo.head.is_detached else "",
+        "remote_url": git.strip_auth_from_url(repo.remotes.origin.url) if repo.remotes else "",
+        "directory_name": Path(plugin_dir).name,
+    }
+
+
+def run_install_hook(plugin_name: str):
+    return plugins.call_plugin_hook(plugin_name, "install")
 
 
 def get_marketplace_index() -> dict[str, Any]:

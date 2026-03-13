@@ -39,6 +39,7 @@ const model = {
   // Index state
   index: { authors: {}, plugins: {} },
   installedPlugins: [],
+  installedPluginDetails: {},
   search: "",
   page: 1,
   sortBy: "stars",
@@ -97,11 +98,34 @@ const model = {
   _matchesBrowseFilter(plugin, filterKey) {
     if (!filterKey || filterKey === "all") return true;
     if (filterKey === "installed") return !!plugin?.installed;
+    if (filterKey === "update") return !!plugin?.has_update;
     if (filterKey === "popular") return (plugin?.stars || 0) > 0;
     if (filterKey.startsWith("tag:")) {
       return this._pluginPrimaryTag(plugin) === filterKey.slice(4);
     }
     return false;
+  },
+
+  _compareTimestamp(a, b) {
+    const aTime = a ? Date.parse(a) : NaN;
+    const bTime = b ? Date.parse(b) : NaN;
+    if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
+    if (aTime === bTime) return 0;
+    return aTime > bTime ? 1 : -1;
+  },
+
+  _hasMarketplaceUpdate(indexPlugin, installedPlugin) {
+    const latestCommit = (indexPlugin?.commit || "").trim();
+    const currentCommit = (installedPlugin?.current_commit || "").trim();
+    if (!latestCommit || !currentCommit) return false;
+    if (latestCommit === currentCommit) return false;
+
+    const latestTimestamp = indexPlugin?.updated || "";
+    const currentTimestamp = installedPlugin?.current_commit_timestamp || "";
+    const timestampComparison = this._compareTimestamp(latestTimestamp, currentTimestamp);
+    if (timestampComparison !== 0) return timestampComparison > 0;
+
+    return true;
   },
 
   // ── ZIP Install ──────────────────────────────
@@ -219,6 +243,13 @@ const model = {
 
       this.index = data.index;
       this.installedPlugins = data.installed_plugins || [];
+      const installedResponse = await api.callJsonApi("plugins_list", {
+        filter: { custom: true, builtin: false, search: "" },
+      });
+      const installedList = Array.isArray(installedResponse.plugins) ? installedResponse.plugins : [];
+      this.installedPluginDetails = Object.fromEntries(
+        installedList.map((plugin) => [plugin.name, plugin])
+      );
       this.page = 1;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -231,23 +262,38 @@ const model = {
 
   get pluginsList() {
     if (!this.index?.plugins) return [];
-    return Object.entries(this.index.plugins).map(([key, val]) => ({
-      key,
-      ...val,
-      installed: this.installedPlugins.includes(key),
-    }));
+    return Object.entries(this.index.plugins).map(([key, val]) => {
+      const installedPlugin = this.installedPluginDetails[key] || null;
+      const installed = this.installedPlugins.some((pluginKey) => pluginKey === key);
+      const plugin = {
+        key,
+        ...val,
+        commit: val?.commit || val?.latest_commit || "",
+        updated: val?.updated || val?.latest_commit_timestamp || "",
+        version: val?.version || "",
+        installed,
+      };
+
+      return {
+        ...plugin,
+        current_commit: installedPlugin?.current_commit || "",
+        current_commit_timestamp: installedPlugin?.current_commit_timestamp || "",
+        has_update: this._hasMarketplaceUpdate(plugin, installedPlugin),
+      };
+    });
   },
 
   get browseFilters() {
     const plugins = this.pluginsList;
     const filters = [{ key: "all", label: "All", count: plugins.length }];
 
-    if (!plugins.length) return filters;
-
     const installedCount = plugins.filter((plugin) => plugin.installed).length;
     if (installedCount) {
       filters.push({ key: "installed", label: "Installed", count: installedCount });
     }
+
+    const updateCount = plugins.filter((plugin) => plugin.has_update).length;
+    filters.push({ key: "update", label: "Update", count: updateCount });
 
     const popularCount = plugins.filter((plugin) => (plugin.stars || 0) > 0).length;
     if (popularCount) {
@@ -397,7 +443,7 @@ const model = {
 
     try {
       this.loading = true;
-      this.loadingMessage = `Installing ${plugin.title || plugin.key}...`;
+      this.loadingMessage = "Installing";
 
       const data = await api.callJsonApi(PLUGIN_API, {
         action: "install_git",
@@ -411,7 +457,7 @@ const model = {
       }
 
       const installedKey = plugin.key || data.plugin_name;
-      if (installedKey && !this.installedPlugins.includes(installedKey)) {
+      if (installedKey && !this.installedPlugins.some((pluginKey) => pluginKey === installedKey)) {
         this.installedPlugins = [...this.installedPlugins, installedKey];
       }
 
@@ -436,6 +482,25 @@ const model = {
     }
   },
 
+  async _refreshSelectedPluginState(pluginKey) {
+    await this.fetchInstalledPluginInfo(pluginKey);
+
+    const latestInstalled = this.installedPluginInfo || null;
+    const currentSelectedPlugin = this.selectedPlugin ? Object.assign({}, this.selectedPlugin) : null;
+    const indexPlugin = this.pluginsList.find((plugin) => plugin.key === pluginKey) || currentSelectedPlugin;
+    if (!indexPlugin) return;
+
+    this.selectedPlugin = {
+      ...indexPlugin,
+      name: pluginKey || indexPlugin["name"] || "",
+      installed: true,
+      current_commit: latestInstalled?.["current_commit"] || indexPlugin["current_commit"] || "",
+      current_commit_timestamp: latestInstalled?.["current_commit_timestamp"] || indexPlugin["current_commit_timestamp"] || "",
+      has_update: this._hasMarketplaceUpdate(indexPlugin, latestInstalled),
+    };
+    this.detailThumbnailUrl = this.getThumbnailUrl(this.selectedPlugin);
+  },
+
   // ── Installed Plugin Info ─────────────────────
 
   async fetchInstalledPluginInfo(pluginName) {
@@ -452,53 +517,173 @@ const model = {
   },
 
 
-  manageOpenPlugin() {
+  handleOpenPlugin() {
     const info = this.installedPluginInfo;
     if (!info || !info.name || !info.has_main_screen) return;
     openModal(`/plugins/${info.name}/webui/main.html`);
   },
 
-  async manageOpenConfig() {
+  async handleOpenConfig() {
     if (this.installedPluginInfo) {
       await pluginListStore.openPluginConfig(this.installedPluginInfo);
     }
   },
 
-  async manageOpenDoc(doc) {
+  async handleOpenDoc(doc) {
     if (this.installedPluginInfo) {
       await pluginListStore.openPluginDoc(this.installedPluginInfo, doc);
     }
   },
 
-  manageOpenInfo() {
+  handleOpenInfo() {
     if (this.installedPluginInfo) {
       pluginListStore.openPluginInfo(this.installedPluginInfo);
     }
   },
 
-  manageOpenInit() {
+  handleOpenInit() {
     if (this.installedPluginInfo) {
       pluginInitStore.open(this.installedPluginInfo);
     }
   },
 
-  async manageDeletePlugin() {
-    if (this.installedPluginInfo) {
+  async handleDeletePlugin() {
+    if (!this.installedPluginInfo) return;
+
+    try {
+      this.loading = true;
+      this.loadingMessage = "Uninstalling plugin...";
+
       await pluginListStore.deletePlugin(this.installedPluginInfo);
-      const currentPlugin = this.selectedPlugin;
+      const currentPlugin = this.selectedPlugin ? Object.assign({}, this.selectedPlugin) : null;
       if (currentPlugin) {
         this.selectedPlugin = { ...currentPlugin, installed: false };
         this.installedPlugins = this.installedPlugins.filter(
-          (key) => key !== currentPlugin.key
+          (key) => key !== currentPlugin["key"]
         );
       }
       this.installedPluginInfo = null;
+    } finally {
+      this.loading = false;
+      this.loadingMessage = "";
     }
   },
 
   getIndexUrl(pluginKey) {
     if (!pluginKey) return "";
     return `https://github.com/agent0ai/a0-plugins/tree/main/plugins/${pluginKey}`;
+  },
+
+  getCommitShortHash(commitHash) {
+    if (!commitHash || typeof commitHash !== "string") return "";
+    return commitHash.slice(0, 7);
+  },
+
+  formatUserLocaleDateTime(value) {
+    if (!value || typeof value !== "string") return "";
+
+    const normalizedValue = /t/i.test(value) ? value : value.replace(" ", "T");
+    const date = new Date(normalizedValue);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(date);
+  },
+
+  getRepoCommitUrl(plugin, commitHash) {
+    const githubUrl = (plugin?.github || "").trim().replace(/\.git$/i, "");
+    if (!githubUrl || !commitHash) return "";
+    return `${githubUrl}/commit/${commitHash}`;
+  },
+
+  getCurrentInstalledCommit() {
+    return this.installedPluginInfo?.["current_commit"] || this.selectedPlugin?.["current_commit"] || "";
+  },
+
+  getCurrentInstalledVersion() {
+    return this.installedPluginInfo?.["version"] || "";
+  },
+
+  getCurrentInstalledCommitTimestamp() {
+    return this.installedPluginInfo?.["current_commit_timestamp"] || this.selectedPlugin?.["current_commit_timestamp"] || "";
+  },
+
+  getLatestMarketplaceVersion() {
+    return this.selectedPlugin?.["version"] || "";
+  },
+
+  getLatestMarketplaceCommit() {
+    return this.selectedPlugin?.["commit"] || "";
+  },
+
+  getLatestMarketplaceCommitTimestamp() {
+    return this.selectedPlugin?.["updated"] || "";
+  },
+
+  async handleUpdatePlugin() {
+    const selectedPlugin = this["selectedPlugin"];
+    const pluginRecord = selectedPlugin && typeof selectedPlugin === "object" ? selectedPlugin : {};
+    const pluginKey = pluginRecord["key"] || pluginRecord["name"] || this.installedPluginInfo?.name || "";
+    if (!pluginKey) {
+      void toastFrontendError("Plugin name is missing", "Plugin Installer");
+      return;
+    }
+
+    const confirmed = await showConfirmDialog({
+      ...SECURITY_WARNING,
+      extensionContext: {
+        kind: "marketplace_plugin_install_warning",
+        source: "plugin_installer",
+        pluginKey,
+        pluginTitle: pluginRecord["title"] || pluginKey,
+        gitUrl: pluginRecord["github"] || "",
+      },
+    });
+    if (!confirmed) return;
+
+    try {
+      this.loading = true;
+      this.loadingMessage = "Updating";
+
+      const data = await api.callJsonApi(PLUGIN_API, {
+        action: "update_plugin",
+        plugin_name: pluginKey,
+      });
+
+      if (!(data?.ok && data?.success)) {
+        void toastFrontendError(data?.error || "Update failed", "Plugin Installer");
+        return;
+      }
+
+      await this.fetchIndex();
+
+      const installedPluginsSource = this["installedPlugins"];
+      const installedPlugins = Array.isArray(installedPluginsSource) ? Array.from(installedPluginsSource) : [];
+      if (!installedPlugins.some((installedKey) => installedKey === pluginKey)) {
+        installedPlugins.push(String(pluginKey));
+        Reflect.set(this, "installedPlugins", installedPlugins);
+      }
+
+      await this._refreshSelectedPluginState(pluginKey);
+      this.refreshPluginList();
+
+      toastFrontendSuccess(
+        `Plugin "${data.title || data.plugin_name}" updated`,
+        "Plugin Installer"
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      void toastFrontendError(`Update error: ${message}`, "Plugin Installer");
+    } finally {
+      this.loading = false;
+      this.loadingMessage = "";
+    }
   },
 
   getThumbnailUrl(plugin) {
@@ -514,8 +699,9 @@ const model = {
 
   openScreenshot(url) {
     if (!url) return;
+    const selectedPlugin = this.selectedPlugin || null;
     imageViewerStore.open(url, {
-      name: this.selectedPlugin?.title || this.selectedPlugin?.key || "Plugin screenshot",
+      name: selectedPlugin?.["title"] || selectedPlugin?.["key"] || "Plugin screenshot",
     });
   },
 

@@ -7,6 +7,7 @@ from plugins._plugin_installer.helpers.install import (
     get_marketplace_index,
     install_from_git,
     install_uploaded_zip,
+    update_from_git,
 )
 
 class PluginInstall(ApiHandler):
@@ -20,6 +21,8 @@ class PluginInstall(ApiHandler):
                 return self._install_zip(request)
             elif action == "install_git":
                 return self._install_git(input)
+            elif action == "update_plugin":
+                return self._update_git(input)
             elif action == "fetch_index":
                 return self._fetch_index(input)
             else:
@@ -47,6 +50,9 @@ class PluginInstall(ApiHandler):
             return {"success": False, "error": "Git URL is required"}
 
         return install_from_git(url=git_url, token=git_token, plugin_name=plugin_name)
+
+    def _update_git(self, input: dict) -> dict:
+        return update_from_git(input.get("plugin_name", ""))
 
     def _fetch_index(self, input: dict) -> dict:
         return {"success": True, **get_marketplace_index()}

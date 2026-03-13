@@ -25,6 +25,7 @@ Each plugin lives in usr/plugins/<plugin_name>/.
 usr/plugins/<plugin_name>/
 ├── plugin.yaml                   # Required: Title, version, settings + activation metadata
 ├── initialize.py                 # Optional: one-time setup script (dependencies, models, etc.)
+├── hooks.py                      # Optional: runtime hook functions callable by the framework
 ├── default_config.yaml           # Optional: fallback settings defaults
 ├── README.md                     # Optional: shown in Plugin List UI
 ├── LICENSE                       # Optional: shown in Plugin List UI
@@ -67,6 +68,36 @@ Field reference:
 - `per_project_config`: Enables project-scoped settings and toggle rules
 - `per_agent_config`: Enables agent-profile-scoped settings and toggle rules
 - `always_enabled`: Forces ON and disables toggle controls in the UI (reserved for framework use)
+
+### hooks.py (framework runtime hooks)
+
+Plugins can include an optional `hooks.py` file at the plugin root. Agent Zero loads this module on demand and calls exported functions by name through `helpers.plugins.call_plugin_hook(...)`.
+
+- `hooks.py` runs inside the **Agent Zero framework runtime and Python environment**, not the separate agent execution environment.
+- Use it for framework-internal operations such as install-time setup, plugin registration work, filesystem preparation, cache updates, or other tasks that need access to Agent Zero internals.
+- Hook functions may be synchronous or async. Async hooks are awaited by the framework.
+- Hook modules are cached until plugin caches are cleared, so changes may require a plugin refresh/reload cycle.
+
+Current example: the plugin installer calls `install()` from `hooks.py` after a plugin is copied into place.
+
+### Runtime and dependency implications
+
+- If `hooks.py` installs Python packages with `sys.executable -m pip`, those packages are installed into the **same Python environment that runs Agent Zero itself**.
+- This is the correct place for Python dependencies that your plugin's backend code needs while running inside the framework runtime.
+- It is **not** the right place for dependencies meant only for the separate agent execution runtime or for arbitrary system-level tooling.
+
+If your plugin needs to install packages or binaries for the agent execution environment instead of the framework runtime, launch a subprocess that explicitly activates or targets that other environment first. In practice this means invoking the correct interpreter or shell for that environment rather than relying on the current process environment. For example:
+
+- target a specific Python interpreter path for that runtime
+- activate the desired virtualenv inside a subprocess shell command before running `pip`
+- invoke the appropriate package manager from a subprocess prepared for that environment
+
+In Docker deployments, this distinction is especially important:
+
+- Framework runtime: `/opt/venv-a0`
+- Agent execution runtime: `/opt/venv`
+
+So a `hooks.py` install step affects `/opt/venv-a0` unless you intentionally switch to `/opt/venv` (or another target) inside your subprocess.
 
 ---
 

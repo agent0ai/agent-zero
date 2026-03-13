@@ -14,6 +14,13 @@ export function toggle_area(area, enabled) {
   enabledAreas.set(area, !!enabled);
 }
 
+export function has(area, key) {
+  if (!isEnabled(area)) return false;
+  const areaCache = cache.get(area);
+  if (!areaCache) return false;
+  return areaCache.has(key);
+}
+
 export function add(area, key, data) {
   if (!isEnabled(area)) return;
   let areaCache = cache.get(area);

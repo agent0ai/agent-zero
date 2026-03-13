@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Any, Awaitable, Type, cast
 from helpers import extract_tools, files
-from helpers import cache, plugins, subagents
+from helpers import cache, subagents
 from typing import TYPE_CHECKING
 from functools import wraps
 import inspect
