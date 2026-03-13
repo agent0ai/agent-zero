@@ -43,6 +43,11 @@ const memoryDashboardStore = {
   conversationCount: 0,
   areasCount: {},
 
+  // Knowledge graph
+  graphView: false,
+  graphHtml: null,
+  graphLoading: false,
+
   // Memory detail modal (standard modal approach)
   detailMemory: null,
   editMode: false,
@@ -255,6 +260,31 @@ const memoryDashboardStore = {
   async onMemorySubdirChange() {
     // Clear current results when subdirectory changes
     await this.clearSearch(); // Polling continues with new subdirectory
+  },
+
+  async loadKnowledgeGraph() {
+    this.graphLoading = true;
+    this.graphView = true;
+    try {
+      const response = await API.callJsonApi("memory_dashboard", {
+        action: "knowledge_graph",
+      });
+      if (response.success) {
+        this.graphHtml = response.html;
+      } else {
+        justToast(response.error || "Failed to load knowledge graph", "error");
+        this.graphHtml = null;
+      }
+    } catch (e) {
+      justToast("Failed to load knowledge graph", "error");
+      this.graphHtml = null;
+    } finally {
+      this.graphLoading = false;
+    }
+  },
+
+  showMemoryList() {
+    this.graphView = false;
   },
 
   // Pagination

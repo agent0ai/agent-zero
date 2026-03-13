@@ -4,7 +4,7 @@ import * as modals from "/js/modals.js";
 import * as notifications from "/components/notifications/notification-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as browserStore } from "/components/modals/file-browser/file-browser-store.js";
-import { store as skillsImportStore } from "/components/settings/skills/skills-import-store.js";
+import { store as skillsImportStore } from "/components/settings/skills/skills-install-store.js";
 import * as shortcuts from "/js/shortcuts.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
 

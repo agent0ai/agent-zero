@@ -140,6 +140,25 @@ def initialize_preload():
     import preload
     return defer.DeferredTask().start_task(preload.preload)
 
+def initialize_cognee():
+    from python.helpers.cognee_init import configure_cognee
+    configure_cognee()
+
+    async def _cognee_startup():
+        from python.helpers.print_style import PrintStyle
+        try:
+            from scripts.migrate_faiss_to_cognee import run_migration
+            success = await run_migration()
+            if not success:
+                PrintStyle.error("FAISS->Cognee migration incomplete. Will retry on next restart.")
+        except Exception as e:
+            PrintStyle.error(f"FAISS->Cognee migration error (non-fatal): {e}")
+
+        from python.helpers.cognee_background import CogneeBackgroundWorker
+        CogneeBackgroundWorker.get_instance().start()
+
+    return defer.DeferredTask().start_task(_cognee_startup)
+
 def initialize_migration():
     from python.helpers import migration, dotenv
     # run migration

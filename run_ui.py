@@ -550,6 +550,8 @@ def init_a0():
     initialize.initialize_job_loop()
     # preload
     initialize.initialize_preload()
+    # cognee background worker
+    initialize.initialize_cognee()
 
 
 # run the internal server

@@ -1,2 +1,2 @@
 litellm==1.79.3
-openai==1.99.5
+openai==1.99.2

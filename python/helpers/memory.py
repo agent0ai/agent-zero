@@ -1,29 +1,13 @@
 from datetime import datetime
-from typing import Any, List, Sequence
-from langchain.storage import InMemoryByteStore, LocalFileStore
-from langchain.embeddings import CacheBackedEmbeddings
+from typing import Any, List, Optional
 from python.helpers import guids
 
-# from langchain_chroma import Chroma
-from langchain_community.vectorstores import FAISS
-
-# faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
-from python.helpers import faiss_monkey_patch
-import faiss
-
-
-from langchain_community.docstore.in_memory import InMemoryDocstore
-from langchain_community.vectorstores.utils import (
-    DistanceStrategy,
-)
-from langchain_core.embeddings import Embeddings
-
-import os, json
-
-import numpy as np
+import os
+import json
+import asyncio
 
 from python.helpers.print_style import PrintStyle
-from . import files
+from python.helpers import files
 from langchain_core.documents import Document
 from python.helpers import knowledge_import
 from python.helpers.log import Log, LogItem
@@ -31,24 +15,21 @@ from enum import Enum
 from agent import Agent, AgentContext
 import models
 import logging
-from simpleeval import simple_eval
+from python.helpers.cognee_init import configure_cognee, get_cognee_setting
+
+_cognee = None
+_SearchType = None
 
 
-# Raise the log level so WARNING messages aren't shown
-logging.getLogger("langchain_core.vectorstores.base").setLevel(logging.ERROR)
-
-
-class MyFaiss(FAISS):
-    # override aget_by_ids
-    def get_by_ids(self, ids: Sequence[str], /) -> List[Document]:
-        # return all self.docstore._dict[id] in ids
-        return [self.docstore._dict[id] for id in (ids if isinstance(ids, list) else [ids]) if id in self.docstore._dict]  # type: ignore
-
-    async def aget_by_ids(self, ids: Sequence[str], /) -> List[Document]:
-        return self.get_by_ids(ids)
-
-    def get_all_docs(self):
-        return self.docstore._dict  # type: ignore
+def _get_cognee():
+    global _cognee, _SearchType
+    if _cognee is None:
+        configure_cognee()
+        import cognee as _c
+        from cognee import SearchType as _st
+        _cognee = _c
+        _SearchType = _st
+    return _cognee, _SearchType
 
 
 class Memory:
@@ -58,239 +39,114 @@ class Memory:
         FRAGMENTS = "fragments"
         SOLUTIONS = "solutions"
 
-    index: dict[str, "MyFaiss"] = {}
+    _initialized: bool = False
+    _datasets_cache: dict[str, str] = {}
 
     @staticmethod
-    async def get(agent: Agent):
+    async def get(agent: Agent) -> "Memory":
         memory_subdir = get_agent_memory_subdir(agent)
-        if Memory.index.get(memory_subdir) is None:
-            log_item = agent.context.log.log(
-                type="util",
-                heading=f"Initializing VectorDB in '/{memory_subdir}'",
-            )
-            db, created = Memory.initialize(
-                log_item,
-                agent.config.embeddings_model,
-                memory_subdir,
-                False,
-            )
-            Memory.index[memory_subdir] = db
-            wrap = Memory(db, memory_subdir=memory_subdir)
+        dataset_name = _subdir_to_dataset(memory_subdir)
+        mem = Memory(dataset_name=dataset_name, memory_subdir=memory_subdir)
+        if not Memory._initialized:
+            Memory._initialized = True
             knowledge_subdirs = get_knowledge_subdirs_by_memory_subdir(
                 memory_subdir, agent.config.knowledge_subdirs or []
             )
             if knowledge_subdirs:
-                await wrap.preload_knowledge(log_item, knowledge_subdirs, memory_subdir)
-            return wrap
-        else:
-            return Memory(
-                db=Memory.index[memory_subdir],
-                memory_subdir=memory_subdir,
-            )
+                log_item = agent.context.log.log(
+                    type="util",
+                    heading=f"Initializing Cognee memory in '{memory_subdir}'",
+                )
+                await mem.preload_knowledge(log_item, knowledge_subdirs, memory_subdir)
+        return mem
 
     @staticmethod
     async def get_by_subdir(
         memory_subdir: str,
         log_item: LogItem | None = None,
         preload_knowledge: bool = True,
-    ):
-        if not Memory.index.get(memory_subdir):
+    ) -> "Memory":
+        dataset_name = _subdir_to_dataset(memory_subdir)
+        mem = Memory(dataset_name=dataset_name, memory_subdir=memory_subdir)
+        if preload_knowledge:
             import initialize
-
             agent_config = initialize.initialize_agent()
-            model_config = agent_config.embeddings_model
-            db, _created = Memory.initialize(
-                log_item=log_item,
-                model_config=model_config,
-                memory_subdir=memory_subdir,
-                in_memory=False,
+            knowledge_subdirs = get_knowledge_subdirs_by_memory_subdir(
+                memory_subdir, agent_config.knowledge_subdirs or []
             )
-            wrap = Memory(db, memory_subdir=memory_subdir)
-            if preload_knowledge:
-                knowledge_subdirs = get_knowledge_subdirs_by_memory_subdir(
-                    memory_subdir, agent_config.knowledge_subdirs or []
-                )
-                if knowledge_subdirs:
-                    await wrap.preload_knowledge(
-                        log_item, knowledge_subdirs, memory_subdir
-                    )
-            Memory.index[memory_subdir] = db
-        return Memory(db=Memory.index[memory_subdir], memory_subdir=memory_subdir)
+            if knowledge_subdirs:
+                await mem.preload_knowledge(log_item, knowledge_subdirs, memory_subdir)
+        return mem
 
     @staticmethod
-    async def reload(agent: Agent):
-        memory_subdir = get_agent_memory_subdir(agent)
-        if Memory.index.get(memory_subdir):
-            del Memory.index[memory_subdir]
+    async def reload(agent: Agent) -> "Memory":
+        Memory._initialized = False
+        Memory._datasets_cache.clear()
         return await Memory.get(agent)
 
-    @staticmethod
-    def initialize(
-        log_item: LogItem | None,
-        model_config: models.ModelConfig,
-        memory_subdir: str,
-        in_memory=False,
-    ) -> tuple[MyFaiss, bool]:
-
-        PrintStyle.standard("Initializing VectorDB...")
-
-        if log_item:
-            log_item.stream(progress="\nInitializing VectorDB")
-
-        em_dir = files.get_abs_path(
-            "tmp/memory/embeddings"
-        )  # just caching, no need to parameterize
-        db_dir = abs_db_dir(memory_subdir)
-
-        # make sure embeddings and database directories exist
-        os.makedirs(db_dir, exist_ok=True)
-
-        if in_memory:
-            store = InMemoryByteStore()
-        else:
-            os.makedirs(em_dir, exist_ok=True)
-            store = LocalFileStore(em_dir)
-
-        embeddings_model = models.get_embedding_model(
-            model_config.provider,
-            model_config.name,
-            **model_config.build_kwargs(),
-        )
-        embeddings_model_id = files.safe_file_name(
-            model_config.provider + "_" + model_config.name
-        )
-
-        # here we setup the embeddings model with the chosen cache storage
-        embedder = CacheBackedEmbeddings.from_bytes_store(
-            embeddings_model, store, namespace=embeddings_model_id
-        )
-
-        # initial DB and docs variables
-        db: MyFaiss | None = None
-        docs: dict[str, Document] | None = None
-
-        created = False
-
-        # if db folder exists and is not empty:
-        if os.path.exists(db_dir) and files.exists(db_dir, "index.faiss"):
-            db = MyFaiss.load_local(
-                folder_path=db_dir,
-                embeddings=embedder,
-                allow_dangerous_deserialization=True,
-                distance_strategy=DistanceStrategy.COSINE,
-                # normalize_L2=True,
-                relevance_score_fn=Memory._cosine_normalizer,
-            )  # type: ignore
-
-            # if there is a mismatch in embeddings used, re-index the whole DB
-            emb_ok = False
-            emb_set_file = files.get_abs_path(db_dir, "embedding.json")
-            if files.exists(emb_set_file):
-                embedding_set = json.loads(files.read_file(emb_set_file))
-                if (
-                    embedding_set["model_provider"] == model_config.provider
-                    and embedding_set["model_name"] == model_config.name
-                ):
-                    # model matches
-                    emb_ok = True
-
-            # re-index -  create new DB and insert existing docs
-            if db and not emb_ok:
-                docs = db.get_all_docs()
-                db = None
-
-        # DB not loaded, create one
-        if not db:
-            index = faiss.IndexFlatIP(len(embedder.embed_query("example")))
-
-            db = MyFaiss(
-                embedding_function=embedder,
-                index=index,
-                docstore=InMemoryDocstore(),
-                index_to_docstore_id={},
-                distance_strategy=DistanceStrategy.COSINE,
-                # normalize_L2=True,
-                relevance_score_fn=Memory._cosine_normalizer,
-            )
-
-            # insert docs if reindexing
-            if docs:
-                PrintStyle.standard("Indexing memories...")
-                if log_item:
-                    log_item.stream(progress="\nIndexing memories")
-                db.add_documents(documents=list(docs.values()), ids=list(docs.keys()))
-
-            # save DB
-            Memory._save_db_file(db, memory_subdir)
-            # save meta file
-            meta_file_path = files.get_abs_path(db_dir, "embedding.json")
-            files.write_file(
-                meta_file_path,
-                json.dumps(
-                    {
-                        "model_provider": model_config.provider,
-                        "model_name": model_config.name,
-                    }
-                ),
-            )
-
-            created = True
-
-        return db, created
-
-    def __init__(
-        self,
-        db: MyFaiss,
-        memory_subdir: str,
-    ):
-        self.db = db
+    def __init__(self, dataset_name: str, memory_subdir: str):
+        self.dataset_name = dataset_name
         self.memory_subdir = memory_subdir
+
+    def _build_node_sets(self, area: str) -> list[str]:
+        node_sets = [area]
+        if self.memory_subdir.startswith("projects/"):
+            project_name = self.memory_subdir.split("/", 1)[1]
+            node_sets.append(f"project_{project_name}")
+        return node_sets
+
+    def _area_dataset(self, area: str) -> str:
+        return f"{self.dataset_name}_{area}"
 
     async def preload_knowledge(
         self, log_item: LogItem | None, kn_dirs: list[str], memory_subdir: str
     ):
+        cognee, _ = _get_cognee()
+
         if log_item:
             log_item.update(heading="Preloading knowledge...")
 
-        # db abs path
-        db_dir = abs_db_dir(memory_subdir)
-
-        # Load the index file if it exists
-        index_path = files.get_abs_path(db_dir, "knowledge_import.json")
-
-        # make sure directory exists
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
+        state_dir = _state_dir(memory_subdir)
+        os.makedirs(state_dir, exist_ok=True)
+        index_path = os.path.join(state_dir, "knowledge_import.json")
 
         index: dict[str, knowledge_import.KnowledgeImport] = {}
         if os.path.exists(index_path):
             with open(index_path, "r") as f:
                 index = json.load(f)
 
-        # preload knowledge folders
         index = self._preload_knowledge_folders(log_item, kn_dirs, index)
 
-        for file in index:
-            if index[file]["state"] in ["changed", "removed"] and index[file].get(
-                "ids", []
-            ):  # for knowledge files that have been changed or removed and have IDs
-                await self.delete_documents_by_ids(
-                    index[file]["ids"]
-                )  # remove original version
-            if index[file]["state"] == "changed":
-                index[file]["ids"] = await self.insert_documents(
-                    index[file]["documents"]
-                )  # insert new version
+        for file_key in index:
+            entry = index[file_key]
+            if entry["state"] in ["changed", "removed"] and entry.get("ids", []):
+                for data_id in entry["ids"]:
+                    try:
+                        await _delete_data_by_id(self._area_dataset("main"), data_id)
+                    except Exception:
+                        pass
+            if entry["state"] == "changed" and entry.get("documents"):
+                new_ids = []
+                for doc in entry["documents"]:
+                    content = doc.page_content if hasattr(doc, "page_content") else str(doc)
+                    try:
+                        await cognee.add(
+                            content,
+                            dataset_name=self._area_dataset(entry.get("metadata", {}).get("area", "main")),
+                            node_set=self._build_node_sets("knowledge"),
+                        )
+                        new_ids.append(guids.generate_id(10))
+                    except Exception as e:
+                        PrintStyle.error(f"Failed to import knowledge: {e}")
+                entry["ids"] = new_ids
 
-        # remove index where state="removed"
         index = {k: v for k, v in index.items() if v["state"] != "removed"}
 
-        # strip state and documents from index and save it
-        for file in index:
-            if "documents" in index[file]:
-                del index[file]["documents"]  # type: ignore
-            if "state" in index[file]:
-                del index[file]["state"]  # type: ignore
+        for file_key in index:
+            if "documents" in index[file_key]:
+                del index[file_key]["documents"]
+            if "state" in index[file_key]:
+                del index[file_key]["state"]
         with open(index_path, "w") as f:
             json.dump(index, f)
 
@@ -300,9 +156,7 @@ class Memory:
         kn_dirs: list[str],
         index: dict[str, knowledge_import.KnowledgeImport],
     ):
-        # load knowledge folders, subfolders by area
         for kn_dir in kn_dirs:
-            # everything in the root of the knowledge goes to main
             index = knowledge_import.load_knowledge(
                 log_item,
                 abs_knowledge_dir(kn_dir),
@@ -311,147 +165,193 @@ class Memory:
                 filename_pattern="*",
                 recursive=False,
             )
-            # subdirectories go to their folders
             for area in Memory.Area:
                 index = knowledge_import.load_knowledge(
                     log_item,
-                    # files.get_abs_path("knowledge", kn_dir, area.value),
                     abs_knowledge_dir(kn_dir, area.value),
                     index,
                     {"area": area.value},
                     recursive=True,
                 )
-
         return index
 
     def get_document_by_id(self, id: str) -> Document | None:
-        return self.db.get_by_ids(id)[0]
+        return None
 
     async def search_similarity_threshold(
         self, query: str, limit: int, threshold: float, filter: str = ""
-    ):
-        comparator = Memory._get_comparator(filter) if filter else None
+    ) -> list[Document]:
+        cognee, SearchType = _get_cognee()
+        node_names = _parse_filter_to_node_names(filter)
+        datasets = self._datasets_for_filter(filter)
 
-        return await self.db.asearch(
-            query,
-            search_type="similarity_score_threshold",
-            k=limit,
-            score_threshold=threshold,
-            filter=comparator,
-        )
+        multi_enabled = get_cognee_setting("cognee_multi_search_enabled", True)
+
+        if multi_enabled:
+            return await self._multi_search(
+                cognee, SearchType, query, limit, datasets, node_names
+            )
+
+        search_type_name = get_cognee_setting("cognee_search_type", "GRAPH_COMPLETION")
+        try:
+            search_type = getattr(SearchType, search_type_name)
+        except AttributeError:
+            search_type = SearchType.CHUNKS
+
+        try:
+            results = await cognee.search(
+                query_text=query,
+                query_type=search_type,
+                top_k=limit,
+                datasets=datasets if datasets else None,
+                node_name=node_names if node_names else None,
+            )
+        except Exception:
+            try:
+                results = await cognee.search(
+                    query_text=query,
+                    query_type=SearchType.CHUNKS,
+                    top_k=limit,
+                    datasets=datasets if datasets else None,
+                )
+            except Exception as e:
+                PrintStyle.error(f"Cognee search failed: {e}")
+                return []
+
+        return _results_to_documents(results, limit)
+
+    async def _multi_search(
+        self, cognee, SearchType, query: str, limit: int,
+        datasets: list[str], node_names: list[str],
+    ) -> list[Document]:
+        type_names = get_cognee_setting("cognee_search_types", "GRAPH_COMPLETION,CHUNKS_LEXICAL")
+        search_types = []
+        for name in type_names.split(","):
+            name = name.strip()
+            if hasattr(SearchType, name):
+                search_types.append(getattr(SearchType, name))
+        if not search_types:
+            search_types = [SearchType.CHUNKS]
+
+        per_type_limit = max(limit, 10)
+        all_results = []
+
+        for st in search_types:
+            try:
+                results = await cognee.search(
+                    query_text=query,
+                    query_type=st,
+                    top_k=per_type_limit,
+                    datasets=datasets if datasets else None,
+                    node_name=node_names if node_names else None,
+                )
+                if results:
+                    all_results.extend(results)
+            except Exception as e:
+                PrintStyle.error(f"Cognee multi-search ({st.name}) failed: {e}")
+
+        if not all_results:
+            try:
+                all_results = await cognee.search(
+                    query_text=query,
+                    query_type=SearchType.CHUNKS,
+                    top_k=limit,
+                    datasets=datasets if datasets else None,
+                )
+            except Exception as e:
+                PrintStyle.error(f"Cognee fallback search failed: {e}")
+                return []
+
+        docs = _results_to_documents(all_results, limit * len(search_types))
+        return _deduplicate_documents(docs)[:limit]
+
+    def _datasets_for_filter(self, filter: str) -> list[str]:
+        if not filter:
+            return [
+                self._area_dataset(area.value)
+                for area in Memory.Area
+            ]
+
+        datasets = []
+        for area in Memory.Area:
+            if area.value in filter:
+                datasets.append(self._area_dataset(area.value))
+        return datasets if datasets else [self._area_dataset(Memory.Area.MAIN.value)]
 
     async def delete_documents_by_query(
         self, query: str, threshold: float, filter: str = ""
-    ):
-        k = 100
-        tot = 0
+    ) -> list[Document]:
+        docs = await self.search_similarity_threshold(
+            query=query, limit=100, threshold=threshold, filter=filter
+        )
+        if docs:
+            ids = [doc.metadata.get("id", "") for doc in docs if doc.metadata.get("id")]
+            for doc_id in ids:
+                for area in Memory.Area:
+                    try:
+                        await _delete_data_by_id(self._area_dataset(area.value), doc_id)
+                    except Exception:
+                        pass
+        return docs
+
+    async def delete_documents_by_ids(self, ids: list[str]) -> list[Document]:
         removed = []
-
-        while True:
-            # Perform similarity search with score
-            docs = await self.search_similarity_threshold(
-                query, limit=k, threshold=threshold, filter=filter
-            )
-            removed += docs
-
-            # Extract document IDs and filter based on score
-            # document_ids = [result[0].metadata["id"] for result in docs if result[1] < score_limit]
-            document_ids = [result.metadata["id"] for result in docs]
-
-            # Delete documents with IDs over the threshold score
-            if document_ids:
-                # fnd = self.db.get(where={"id": {"$in": document_ids}})
-                # if fnd["ids"]: self.db.delete(ids=fnd["ids"])
-                # tot += len(fnd["ids"])
-                await self.db.adelete(ids=document_ids)
-                tot += len(document_ids)
-
-            # If fewer than K document IDs, break the loop
-            if len(document_ids) < k:
-                break
-
-        if tot:
-            self._save_db()  # persist
+        for doc_id in ids:
+            for area in Memory.Area:
+                try:
+                    await _delete_data_by_id(self._area_dataset(area.value), doc_id)
+                    removed.append(Document(page_content="", metadata={"id": doc_id}))
+                except Exception:
+                    pass
         return removed
 
-    async def delete_documents_by_ids(self, ids: list[str]):
-        # aget_by_ids is not yet implemented in faiss, need to do a workaround
-        rem_docs = await self.db.aget_by_ids(
-            ids
-        )  # existing docs to remove (prevents error)
-        if rem_docs:
-            rem_ids = [doc.metadata["id"] for doc in rem_docs]  # ids to remove
-            await self.db.adelete(ids=rem_ids)
-
-        if rem_docs:
-            self._save_db()  # persist
-        return rem_docs
-
-    async def insert_text(self, text, metadata: dict = {}):
+    async def insert_text(self, text: str, metadata: dict = {}) -> str:
         doc = Document(text, metadata=metadata)
         ids = await self.insert_documents([doc])
         return ids[0]
 
-    async def insert_documents(self, docs: list[Document]):
-        ids = [self._generate_doc_id() for _ in range(len(docs))]
+    async def insert_documents(self, docs: list[Document]) -> list[str]:
+        cognee, _ = _get_cognee()
+        ids = []
         timestamp = self.get_timestamp()
+        from python.helpers.cognee_background import CogneeBackgroundWorker
 
-        if ids:
-            for doc, id in zip(docs, ids):
-                doc.metadata["id"] = id  # add ids to documents metadata
-                doc.metadata["timestamp"] = timestamp  # add timestamp
-                if not doc.metadata.get("area", ""):
-                    doc.metadata["area"] = Memory.Area.MAIN.value
+        state_dir = _state_dir(self.memory_subdir)
+        os.makedirs(state_dir, exist_ok=True)
 
-            await self.db.aadd_documents(documents=docs, ids=ids)
-            self._save_db()  # persist
+        for doc in docs:
+            doc_id = guids.generate_id(10)
+            doc.metadata["id"] = doc_id
+            doc.metadata["timestamp"] = timestamp
+            area = doc.metadata.get("area", Memory.Area.MAIN.value)
+            if not area:
+                area = Memory.Area.MAIN.value
+                doc.metadata["area"] = area
+
+            dataset = self._area_dataset(area)
+            node_sets = self._build_node_sets(area)
+
+            meta_header = json.dumps(doc.metadata, default=str)
+            enriched_text = f"[META:{meta_header}]\n{doc.page_content}"
+
+            try:
+                await cognee.add(
+                    enriched_text,
+                    dataset_name=dataset,
+                    node_set=node_sets,
+                )
+                ids.append(doc_id)
+                CogneeBackgroundWorker.get_instance().mark_dirty(dataset)
+            except Exception as e:
+                PrintStyle.error(f"Cognee insert failed: {e}")
+                ids.append(doc_id)
+
         return ids
 
-    async def update_documents(self, docs: list[Document]):
+    async def update_documents(self, docs: list[Document]) -> list:
         ids = [doc.metadata["id"] for doc in docs]
-        await self.db.adelete(ids=ids)  # delete originals
-        ins = await self.db.aadd_documents(documents=docs, ids=ids)  # add updated
-        self._save_db()  # persist
-        return ins
-
-    def _save_db(self):
-        Memory._save_db_file(self.db, self.memory_subdir)
-
-    def _generate_doc_id(self):
-        while True:
-            doc_id = guids.generate_id(10)  # random ID
-            if not self.db.get_by_ids(doc_id):  # check if exists
-                return doc_id
-
-    @staticmethod
-    def _save_db_file(db: MyFaiss, memory_subdir: str):
-        abs_dir = abs_db_dir(memory_subdir)
-        db.save_local(folder_path=abs_dir)
-
-    @staticmethod
-    def _get_comparator(condition: str):
-        def comparator(data: dict[str, Any]):
-            try:
-                result = simple_eval(condition, names=data)
-                return result
-            except Exception as e:
-                PrintStyle.error(f"Error evaluating condition: {e}")
-                return False
-
-        return comparator
-
-    @staticmethod
-    def _score_normalizer(val: float) -> float:
-        res = 1 - 1 / (1 + np.exp(val))
-        return res
-
-    @staticmethod
-    def _cosine_normalizer(val: float) -> float:
-        res = (1 + val) / 2
-        res = max(
-            0, min(1, res)
-        )  # float precision can cause values like 1.0000000596046448
-        return res
+        await self.delete_documents_by_ids(ids)
+        return await self.insert_documents(docs)
 
     @staticmethod
     def format_docs_plain(docs: list[Document]) -> list[str]:
@@ -469,6 +369,120 @@ class Memory:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _subdir_to_dataset(memory_subdir: str) -> str:
+    return memory_subdir.replace("/", "_").replace(" ", "_").lower()
+
+
+def _state_dir(memory_subdir: str) -> str:
+    if memory_subdir.startswith("projects/"):
+        from python.helpers.projects import get_project_meta_folder
+        return files.get_abs_path(get_project_meta_folder(memory_subdir[9:]), "cognee_state")
+    return files.get_abs_path("usr/cognee_state", memory_subdir)
+
+
+def _parse_filter_to_node_names(filter_str: str) -> list[str]:
+    if not filter_str:
+        return []
+    node_names = []
+    for area in Memory.Area:
+        if area.value in filter_str:
+            node_names.append(area.value)
+    return node_names
+
+
+def _results_to_documents(results: Any, limit: int) -> list[Document]:
+    docs = []
+    if not results:
+        return docs
+
+    for result in results:
+        if len(docs) >= limit:
+            break
+
+        content = ""
+        metadata: dict[str, Any] = {}
+
+        raw = result
+        if hasattr(result, "search_result"):
+            raw = result.search_result
+
+        if isinstance(raw, str):
+            content, metadata = _extract_metadata_from_text(raw)
+        elif hasattr(raw, "text"):
+            content, metadata = _extract_metadata_from_text(str(raw.text))
+        elif hasattr(raw, "page_content"):
+            content = raw.page_content
+            metadata = getattr(raw, "metadata", {})
+        elif isinstance(raw, dict):
+            content = raw.get("text", raw.get("content", str(raw)))
+            content, metadata = _extract_metadata_from_text(content)
+        else:
+            content, metadata = _extract_metadata_from_text(str(raw))
+
+        if hasattr(result, "dataset_name") and result.dataset_name:
+            metadata.setdefault("dataset", result.dataset_name)
+
+        if not metadata.get("id"):
+            metadata["id"] = guids.generate_id(10)
+        if not metadata.get("area"):
+            metadata["area"] = Memory.Area.MAIN.value
+        if not metadata.get("timestamp"):
+            metadata["timestamp"] = Memory.get_timestamp()
+
+        docs.append(Document(page_content=content, metadata=metadata))
+
+    return docs
+
+
+def _deduplicate_documents(docs: list[Document]) -> list[Document]:
+    seen: set[str] = set()
+    unique: list[Document] = []
+    for doc in docs:
+        key = doc.metadata.get("id", "")
+        if not key:
+            key = doc.page_content[:200]
+        if key not in seen:
+            seen.add(key)
+            unique.append(doc)
+    return unique
+
+
+def _extract_metadata_from_text(text: str) -> tuple[str, dict]:
+    if text.startswith("[META:"):
+        try:
+            meta_end = text.index("]\n")
+            meta_json = text[6:meta_end]
+            metadata = json.loads(meta_json)
+            content = text[meta_end + 2:]
+            return content, metadata
+        except (ValueError, json.JSONDecodeError):
+            pass
+    return text, {"area": Memory.Area.MAIN.value}
+
+
+async def _delete_data_by_id(dataset_name: str, data_id: str):
+    cognee, _ = _get_cognee()
+    try:
+        datasets = await cognee.datasets.list_datasets()
+        target = None
+        for ds in datasets:
+            if ds.name == dataset_name:
+                target = ds
+                break
+        if target:
+            data_items = await cognee.datasets.list_data(target.id)
+            for item in data_items:
+                if hasattr(item, "name") and data_id in str(item.name):
+                    await cognee.datasets.delete_data(
+                        dataset_id=target.id,
+                        data_id=item.id,
+                    )
+                    return True
+    except Exception:
+        pass
+    return False
+
+
 def get_custom_knowledge_subdir_abs(agent: Agent) -> str:
     for dir in agent.config.knowledge_subdirs:
         if dir != "default":
@@ -479,29 +493,20 @@ def get_custom_knowledge_subdir_abs(agent: Agent) -> str:
 
 
 def reload():
-    # clear the memory index, this will force all DBs to reload
-    Memory.index = {}
+    Memory._initialized = False
+    Memory._datasets_cache.clear()
 
 
 def abs_db_dir(memory_subdir: str) -> str:
-    # patch for projects, this way we don't need to re-work the structure of memory subdirs
-    if memory_subdir.startswith("projects/"):
-        from python.helpers.projects import get_project_meta_folder
-
-        return files.get_abs_path(get_project_meta_folder(memory_subdir[9:]), "memory")
-    # standard subdirs
-    return files.get_abs_path("usr/memory", memory_subdir)
+    return _state_dir(memory_subdir)
 
 
 def abs_knowledge_dir(knowledge_subdir: str, *sub_dirs: str) -> str:
-    # patch for projects, this way we don't need to re-work the structure of knowledge subdirs
     if knowledge_subdir.startswith("projects/"):
         from python.helpers.projects import get_project_meta_folder
-
         return files.get_abs_path(
             get_project_meta_folder(knowledge_subdir[9:]), "knowledge", *sub_dirs
         )
-    # standard subdirs
     if knowledge_subdir == "default":
         return files.get_abs_path("knowledge", *sub_dirs)
     if knowledge_subdir == "custom":
@@ -511,46 +516,40 @@ def abs_knowledge_dir(knowledge_subdir: str, *sub_dirs: str) -> str:
 
 def get_memory_subdir_abs(agent: Agent) -> str:
     subdir = get_agent_memory_subdir(agent)
-    return abs_db_dir(subdir)
+    return _state_dir(subdir)
 
 
 def get_agent_memory_subdir(agent: Agent) -> str:
-    # if project is active, use project memory subdir
     return get_context_memory_subdir(agent.context)
 
 
 def get_context_memory_subdir(context: AgentContext) -> str:
-    # if project is active, use project memory subdir
     from python.helpers.projects import (
         get_context_memory_subdir as get_project_memory_subdir,
     )
-
     memory_subdir = get_project_memory_subdir(context)
     if memory_subdir:
         return memory_subdir
-
-    # no project, regular memory subdir
     return context.config.memory_subdir or "default"
 
 
 def get_existing_memory_subdirs() -> list[str]:
     try:
-        from python.helpers.projects import (
-            get_project_meta_folder,
-            get_projects_parent_folder,
-        )
+        subdirs = []
+        state_base = files.get_abs_path("usr/cognee_state")
+        if os.path.exists(state_base):
+            subdirs = [d for d in os.listdir(state_base) if os.path.isdir(os.path.join(state_base, d))]
 
-        # Get subdirectories from memory folder
-        subdirs = files.get_subdirectories("usr/memory")
+        from python.helpers.projects import get_projects_parent_folder
+        project_parent = get_projects_parent_folder()
+        if os.path.exists(files.get_abs_path(project_parent)):
+            project_subdirs = files.get_subdirectories(project_parent)
+            for ps in project_subdirs:
+                from python.helpers.projects import get_project_meta_folder
+                cognee_state = files.get_abs_path(get_project_meta_folder(ps), "cognee_state")
+                if os.path.exists(cognee_state):
+                    subdirs.append(f"projects/{ps}")
 
-        project_subdirs = files.get_subdirectories(get_projects_parent_folder())
-        for project_subdir in project_subdirs:
-            if files.exists(
-                get_project_meta_folder(project_subdir), "memory", "index.faiss"
-            ):
-                subdirs.append(f"projects/{project_subdir}")
-
-        # Ensure 'default' is always available
         if "default" not in subdirs:
             subdirs.insert(0, "default")
 
@@ -565,6 +564,5 @@ def get_knowledge_subdirs_by_memory_subdir(
 ) -> list[str]:
     if memory_subdir.startswith("projects/"):
         from python.helpers.projects import get_project_meta_folder
-
         default.append(get_project_meta_folder(memory_subdir[9:], "knowledge"))
     return default

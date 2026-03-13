@@ -13,8 +13,42 @@
             <div x-create="$store.memoryDashboardStore.onOpen()" x-destroy="$store.memoryDashboardStore.cleanup()"
                 class="memory-dashboard">
 
+                <!-- View toggle -->
+                <div class="memory-view-toggle">
+                    <button class="btn btn-view" :class="{'active': !$store.memoryDashboardStore.graphView}"
+                        @click="$store.memoryDashboardStore.showMemoryList()">
+                        <span class="material-symbols-outlined">list</span>
+                        Memories
+                    </button>
+                    <button class="btn btn-view" :class="{'active': $store.memoryDashboardStore.graphView}"
+                        @click="$store.memoryDashboardStore.loadKnowledgeGraph()">
+                        <span class="material-symbols-outlined">share</span>
+                        Knowledge Graph
+                    </button>
+                </div>
+
+                <!-- Knowledge Graph View -->
+                <template x-if="$store.memoryDashboardStore.graphView">
+                    <div class="knowledge-graph-container">
+                        <div x-show="$store.memoryDashboardStore.graphLoading" class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <span>Loading knowledge graph...</span>
+                        </div>
+                        <template x-if="$store.memoryDashboardStore.graphHtml && !$store.memoryDashboardStore.graphLoading">
+                            <iframe class="knowledge-graph-iframe"
+                                :srcdoc="$store.memoryDashboardStore.graphHtml"
+                                sandbox="allow-scripts"
+                                style="width:100%; height:70vh; border:none; border-radius:8px; background:#1a1a2e;">
+                            </iframe>
+                        </template>
+                        <div x-show="!$store.memoryDashboardStore.graphHtml && !$store.memoryDashboardStore.graphLoading" class="data-empty-state">
+                            No knowledge graph data available. Send some messages first to build the graph.
+                        </div>
+                    </div>
+                </template>
+
                 <!-- Search and Filters Section -->
-                <div class="filters-header memory-filters-header">
+                <div class="filters-header memory-filters-header" x-show="!$store.memoryDashboardStore.graphView">
                     <div class="filter-group-inline filter-memory-dir">
                         <label for="memory-subdir-select">Memory Directory</label>
                         <select id="memory-subdir-select" x-model="$store.memoryDashboardStore.selectedMemorySubdir"
@@ -68,19 +102,19 @@
                 </div>
 
                 <!-- Loading state -->
-                <div x-show="$store.memoryDashboardStore.loading" class="loading-state">
+                <div x-show="$store.memoryDashboardStore.loading && !$store.memoryDashboardStore.graphView" class="loading-state">
                     <div class="loading-spinner"></div>
                     <span x-show="!$store.memoryDashboardStore.initializingMemory">Searching memories...</span>
                     <span x-show="$store.memoryDashboardStore.initializingMemory">Initializing memory database...</span>
                 </div>
 
                 <!-- Error state -->
-                <div x-show="$store.memoryDashboardStore.error" class="error-state">
+                <div x-show="$store.memoryDashboardStore.error && !$store.memoryDashboardStore.graphView" class="error-state">
                     <span x-text="$store.memoryDashboardStore.error"></span>
                 </div>
 
                 <!-- Memory table -->
-                <div x-show="!$store.memoryDashboardStore.loading && !$store.memoryDashboardStore.error"
+                <div x-show="!$store.memoryDashboardStore.loading && !$store.memoryDashboardStore.error && !$store.memoryDashboardStore.graphView"
                     class="data-table-container data-table-container-standalone memory-table-container">
 
                     <!-- Status Bar -->
@@ -355,6 +389,48 @@
     </div>
 
     <style>
+        /* View toggle */
+        .memory-view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .btn-view {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--color-text);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.15s;
+        }
+        .btn-view:hover {
+            background: var(--color-panel);
+        }
+        .btn-view.active {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        .btn-view .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        /* Knowledge graph */
+        .knowledge-graph-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 60vh;
+        }
+        .knowledge-graph-iframe {
+            flex: 1;
+        }
+
         /* Modal footer layout */
         .modal-inner.modal-with-footer {
             display: flex;

@@ -118,6 +118,15 @@ class Settings(TypedDict):
     memory_memorize_consolidation: bool
     memory_memorize_replace_threshold: float
 
+    cognee_search_type: str
+    cognee_cognify_interval: int
+    cognee_cognify_after_n_inserts: int
+    cognee_temporal_enabled: bool
+    cognee_memify_enabled: bool
+    cognee_feedback_enabled: bool
+    cognee_session_cache: str
+    cognee_data_dir: str
+
     api_keys: dict[str, str]
 
     auth_login: str
@@ -561,6 +570,14 @@ def get_default_settings() -> Settings:
         memory_memorize_enabled=get_default_value("memory_memorize_enabled", True),
         memory_memorize_consolidation=get_default_value("memory_memorize_consolidation", True),
         memory_memorize_replace_threshold=get_default_value("memory_memorize_replace_threshold", 0.9),
+        cognee_search_type=get_default_value("cognee_search_type", "GRAPH_COMPLETION"),
+        cognee_cognify_interval=get_default_value("cognee_cognify_interval", 5),
+        cognee_cognify_after_n_inserts=get_default_value("cognee_cognify_after_n_inserts", 10),
+        cognee_temporal_enabled=get_default_value("cognee_temporal_enabled", True),
+        cognee_memify_enabled=get_default_value("cognee_memify_enabled", True),
+        cognee_feedback_enabled=get_default_value("cognee_feedback_enabled", True),
+        cognee_session_cache=get_default_value("cognee_session_cache", "filesystem"),
+        cognee_data_dir=get_default_value("cognee_data_dir", "usr/cognee"),
         api_keys={},
         auth_login="",
         auth_password="",
