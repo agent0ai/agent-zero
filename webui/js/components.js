@@ -8,6 +8,9 @@ const componentCache = {};
 // Lock map to prevent multiple simultaneous imports of the same component
 const importLocks = new Map();
 
+// Cache-bust suffix derived from git version (set in index.html)
+const _cacheBust = globalThis.gitinfo?.version ? `?v=${globalThis.gitinfo.version}` : "";
+
 export async function importComponent(path, targetElement) {
   // Create a unique key for this import based on the target element
   const lockKey = targetElement.id || targetElement.getAttribute('data-component-id') || targetElement;
@@ -38,7 +41,7 @@ export async function importComponent(path, targetElement) {
     if (componentCache[componentUrl]) {
       html = componentCache[componentUrl];
     } else {
-      const response = await fetch(componentUrl);
+      const response = await fetch(componentUrl + _cacheBust);
       if (!response.ok) {
         throw new Error(
           `Error loading component ${path}: ${response.statusText}`
@@ -75,7 +78,7 @@ export async function importComponent(path, targetElement) {
 
             // Check if module is already in cache
             if (!componentCache[resolvedUrl]) {
-              const modulePromise = import(resolvedUrl);
+              const modulePromise = import(resolvedUrl + _cacheBust);
               componentCache[resolvedUrl] = modulePromise;
               loadPromises.push(modulePromise);
             }
@@ -97,7 +100,7 @@ export async function importComponent(path, targetElement) {
                       importPath,
                       globalThis.location.origin
                     ).href;
-                    return `import ${bindings} from "${absoluteUrl}"`;
+                    return `import ${bindings} from "${absoluteUrl}${_cacheBust}"`;
                   }
                   return match;
                 }
