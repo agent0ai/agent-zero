@@ -166,6 +166,7 @@ const model = {
 
   // Helper methods
   formatCost(cost) {
+    if (cost == null || cost === undefined) return "$0.00";
     if (cost === 0) return "Free";
     if (cost < 0.01) return "<$0.01";
     return "$" + cost.toFixed(2);

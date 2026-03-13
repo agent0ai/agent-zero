@@ -51,6 +51,14 @@ def _make_agent_mock():
     agent.config.utility_model.provider = "openai"
     agent.config.utility_model.name = "gpt-4o-mini"
     agent.config.utility_model.build_kwargs.return_value = {"temperature": 0.3}
+    agent.config.browser_model = MagicMock()
+    agent.config.browser_model.provider = "openai"
+    agent.config.browser_model.name = "gpt-4o"
+    agent.config.browser_model.build_kwargs.return_value = {"temperature": 0.0}
+    agent.config.embeddings_model = MagicMock()
+    agent.config.embeddings_model.provider = "openai"
+    agent.config.embeddings_model.name = "text-embedding-3-small"
+    agent.config.embeddings_model.build_kwargs.return_value = {}
     agent.loop_data = LoopData()
     return agent
 
@@ -496,3 +504,171 @@ class TestModelLabelFormat:
             await Agent.call_chat_model(agent, messages=[])
 
         assert agent.loop_data.model_used == "anthropic/claude-sonnet-4-20250514"
+
+
+# ── 7. get_browser_model() router integration ──────────────────────────────
+
+
+class TestGetBrowserModelRouter:
+    """Test Agent.get_browser_model() with LLM router."""
+
+    def test_router_selects_browser_model_with_vision(self):
+        """Router should use QUALITY priority and require vision for browser."""
+        from agent import Agent
+
+        settings_data = {"llm_router_enabled": True}
+        selected_model = _make_model_info("anthropic", "claude-sonnet-4-20250514")
+
+        with (
+            patch("python.helpers.settings.get_settings", return_value=settings_data),
+            patch("python.helpers.llm_router.get_router") as mock_gr,
+            patch("models.get_browser_model") as mock_gbm,
+        ):
+            router = MagicMock()
+            router.select_model.return_value = selected_model
+            mock_gr.return_value = router
+            mock_gbm.return_value = MagicMock()
+
+            agent = _make_agent_mock()
+            result = Agent.get_browser_model(agent)
+
+        router.select_model.assert_called_once_with(
+            role="browser",
+            context_type="TASK",
+            priority=RoutingPriority.QUALITY,
+            required_capabilities=["chat", "vision"],
+        )
+        mock_gbm.assert_called_once_with(
+            "anthropic",
+            "claude-sonnet-4-20250514",
+            model_config=agent.config.browser_model,
+            temperature=0.0,
+        )
+
+    def test_browser_model_disabled_uses_config(self):
+        """When router disabled, use config model directly."""
+        from agent import Agent
+
+        settings_data = {"llm_router_enabled": False}
+
+        with (
+            patch("python.helpers.settings.get_settings", return_value=settings_data),
+            patch("models.get_browser_model") as mock_gbm,
+        ):
+            mock_gbm.return_value = MagicMock()
+            agent = _make_agent_mock()
+            result = Agent.get_browser_model(agent)
+
+        mock_gbm.assert_called_once_with(
+            "openai",
+            "gpt-4o",
+            model_config=agent.config.browser_model,
+            temperature=0.0,
+        )
+
+    def test_browser_model_router_exception_falls_back(self):
+        """Router error should fall back to config model."""
+        from agent import Agent
+
+        settings_data = {"llm_router_enabled": True}
+
+        with (
+            patch("python.helpers.settings.get_settings", return_value=settings_data),
+            patch("python.helpers.llm_router.get_router") as mock_gr,
+            patch("models.get_browser_model") as mock_gbm,
+        ):
+            mock_gr.side_effect = RuntimeError("Router init failed")
+            mock_gbm.return_value = MagicMock()
+
+            agent = _make_agent_mock()
+            result = Agent.get_browser_model(agent)
+
+        mock_gbm.assert_called_once_with(
+            "openai",
+            "gpt-4o",
+            model_config=agent.config.browser_model,
+            temperature=0.0,
+        )
+
+
+# ── 8. get_embedding_model() router integration ────────────────────────────
+
+
+class TestGetEmbeddingModelRouter:
+    """Test Agent.get_embedding_model() with LLM router."""
+
+    def test_router_selects_embedding_model(self):
+        """Router should require embedding capability."""
+        from agent import Agent
+
+        settings_data = {"llm_router_enabled": True}
+        selected_model = _make_model_info("openai", "text-embedding-3-large")
+
+        with (
+            patch("python.helpers.settings.get_settings", return_value=settings_data),
+            patch("python.helpers.llm_router.get_router") as mock_gr,
+            patch("models.get_embedding_model") as mock_gem,
+        ):
+            router = MagicMock()
+            router.select_model.return_value = selected_model
+            mock_gr.return_value = router
+            mock_gem.return_value = MagicMock()
+
+            agent = _make_agent_mock()
+            result = Agent.get_embedding_model(agent)
+
+        router.select_model.assert_called_once_with(
+            role="embedding",
+            context_type="TASK",
+            required_capabilities=["embedding"],
+        )
+        mock_gem.assert_called_once_with(
+            "openai",
+            "text-embedding-3-large",
+            model_config=agent.config.embeddings_model,
+        )
+
+    def test_embedding_model_disabled_uses_config(self):
+        """When router disabled, use config model directly."""
+        from agent import Agent
+
+        settings_data = {"llm_router_enabled": False}
+
+        with (
+            patch("python.helpers.settings.get_settings", return_value=settings_data),
+            patch("models.get_embedding_model") as mock_gem,
+        ):
+            mock_gem.return_value = MagicMock()
+            agent = _make_agent_mock()
+            result = Agent.get_embedding_model(agent)
+
+        mock_gem.assert_called_once_with(
+            "openai",
+            "text-embedding-3-small",
+            model_config=agent.config.embeddings_model,
+        )
+
+    def test_embedding_model_router_no_model_falls_back(self):
+        """When router returns None, fall back to config model."""
+        from agent import Agent
+
+        settings_data = {"llm_router_enabled": True}
+
+        with (
+            patch("python.helpers.settings.get_settings", return_value=settings_data),
+            patch("python.helpers.llm_router.get_router") as mock_gr,
+            patch("models.get_embedding_model") as mock_gem,
+        ):
+            router = MagicMock()
+            router.select_model.return_value = None
+            mock_gr.return_value = router
+            mock_gem.return_value = MagicMock()
+
+            agent = _make_agent_mock()
+            result = Agent.get_embedding_model(agent)
+
+        mock_gem.assert_called_once_with(
+            "openai",
+            "text-embedding-3-small",
+            model_config=agent.config.embeddings_model,
+        )

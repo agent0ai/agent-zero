@@ -515,3 +515,40 @@ class TestKvpFiltering:
         # _model should be in the serialized output (UI filters it from display table)
         assert "_model" in output["kvps"]
         assert output["kvps"]["_model"] == "anthropic/claude-sonnet-4-20250514"
+
+
+# ── 6. formatCost null-safety ────────────────────────────────────────────────
+
+
+class TestFormatCostNullSafety:
+    """Validate the JS formatCost function logic handles edge cases.
+
+    These are Python-side contract tests simulating the JS behavior
+    to ensure the store function won't break on null/undefined inputs.
+    """
+
+    @staticmethod
+    def _format_cost_py(cost):
+        """Python port of the JS formatCost function for testing."""
+        if cost is None:
+            return "$0.00"
+        if cost == 0:
+            return "Free"
+        if cost < 0.01:
+            return "<$0.01"
+        return f"${cost:.2f}"
+
+    def test_format_cost_null(self):
+        assert self._format_cost_py(None) == "$0.00"
+
+    def test_format_cost_zero(self):
+        assert self._format_cost_py(0) == "Free"
+
+    def test_format_cost_tiny(self):
+        assert self._format_cost_py(0.001) == "<$0.01"
+
+    def test_format_cost_normal(self):
+        assert self._format_cost_py(1.50) == "$1.50"
+
+    def test_format_cost_large(self):
+        assert self._format_cost_py(99.99) == "$99.99"

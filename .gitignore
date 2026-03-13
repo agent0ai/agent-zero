@@ -123,5 +123,11 @@ node_modules/
 .buildx-cache/
 scripts/training/output/
 
+# Docker runtime artifacts (generated when running Docker containers)
+docker/run/
+
 # Local MCP server wiring (contains ephemeral tokenized URLs)
 .mcp.json
+
+# LLM Router runtime database
+data/llm_router.db

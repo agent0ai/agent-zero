@@ -930,8 +930,8 @@ class Agent:
 
         from python.helpers import settings
 
-        set = settings.get_settings()
-        if set.get("llm_router_enabled", False):
+        sett = settings.get_settings()
+        if sett.get("llm_router_enabled", False):
             try:
                 from python.helpers.llm_router import RoutingPriority, get_router
 
@@ -963,8 +963,8 @@ class Agent:
 
         from python.helpers import settings
 
-        set = settings.get_settings()
-        if set.get("llm_router_enabled", False):
+        sett = settings.get_settings()
+        if sett.get("llm_router_enabled", False):
             try:
                 from python.helpers.llm_router import RoutingPriority, get_router
 
@@ -994,6 +994,34 @@ class Agent:
         )
 
     def get_browser_model(self):
+        # Check if LLM Router should select the model
+        import logging
+
+        from python.helpers import settings
+
+        sett = settings.get_settings()
+        if sett.get("llm_router_enabled", False):
+            try:
+                from python.helpers.llm_router import RoutingPriority, get_router
+
+                router = get_router()
+                model_info = router.select_model(
+                    role="browser",
+                    context_type="TASK",
+                    priority=RoutingPriority.QUALITY,
+                    required_capabilities=["chat", "vision"],
+                )
+                if model_info:
+                    logging.info(f"[LLMRouter] Selected browser model: {model_info.provider}/{model_info.name}")
+                    return models.get_browser_model(
+                        model_info.provider,
+                        model_info.name,
+                        model_config=self.config.browser_model,
+                        **self.config.browser_model.build_kwargs(),
+                    )
+            except Exception as e:
+                logging.warning(f"[LLMRouter] Browser model selection failed: {e}, using default")
+
         return models.get_browser_model(
             self.config.browser_model.provider,
             self.config.browser_model.name,
@@ -1002,6 +1030,33 @@ class Agent:
         )
 
     def get_embedding_model(self):
+        # Check if LLM Router should select the model
+        import logging
+
+        from python.helpers import settings
+
+        sett = settings.get_settings()
+        if sett.get("llm_router_enabled", False):
+            try:
+                from python.helpers.llm_router import get_router
+
+                router = get_router()
+                model_info = router.select_model(
+                    role="embedding",
+                    context_type="TASK",
+                    required_capabilities=["embedding"],
+                )
+                if model_info:
+                    logging.info(f"[LLMRouter] Selected embedding model: {model_info.provider}/{model_info.name}")
+                    return models.get_embedding_model(
+                        model_info.provider,
+                        model_info.name,
+                        model_config=self.config.embeddings_model,
+                        **self.config.embeddings_model.build_kwargs(),
+                    )
+            except Exception as e:
+                logging.warning(f"[LLMRouter] Embedding model selection failed: {e}, using default")
+
         return models.get_embedding_model(
             self.config.embeddings_model.provider,
             self.config.embeddings_model.name,
@@ -1046,11 +1101,11 @@ class Agent:
         """Get kwargs for thinking/extended reasoning mode if enabled."""
         from python.helpers import settings
 
-        set = settings.get_settings()
+        sett = settings.get_settings()
 
         kwargs = {}
-        if set.get("thinking_enabled", False):
-            budget = set.get("thinking_budget", 1024)
+        if sett.get("thinking_enabled", False):
+            budget = sett.get("thinking_budget", 1024)
             # For Anthropic Claude models with extended thinking support
             kwargs["thinking"] = {"type": "enabled", "budget_tokens": int(budget)}
         return kwargs
@@ -1066,10 +1121,10 @@ class Agent:
 
         from python.helpers import settings
 
-        set = settings.get_settings()
+        sett = settings.get_settings()
 
         # Check if failover is enabled
-        if set.get("llm_router_enabled", False):
+        if sett.get("llm_router_enabled", False):
             try:
                 from python.helpers.llm_router import RoutingPriority, call_with_failover, get_router
 
