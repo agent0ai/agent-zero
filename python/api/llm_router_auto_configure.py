@@ -21,8 +21,8 @@ class LlmRouterAutoConfigure(ApiHandler):
             return {
                 "success": True,
                 "message": "Auto-configuration complete",
-                "discovered_models": len(models),
-                "configured_defaults": defaults,
+                "discoveredModels": len(models),
+                "configuredDefaults": defaults,
             }
         except Exception as e:
             return {"success": False, "error": str(e)}

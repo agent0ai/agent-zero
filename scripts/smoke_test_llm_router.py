@@ -228,12 +228,16 @@ ENDPOINTS = [
         "name": "llm_router_auto_configure",
         "payload": {},
         "required_keys": ["success"],
+        "forbidden_snake_keys": [
+            "discovered_models",
+            "configured_defaults",
+        ],
         "state_changing": True,
         "notes": ["Runs full discovery + default assignment"],
     },
     {
         "name": "llm_router_set_default",
-        "payload": {"role": "chat", "provider": "ollama", "model_name": "qwen2.5-coder:3b"},
+        "payload": {"role": "chat", "provider": "ollama", "modelName": "qwen2.5-coder:3b"},
         "required_keys": ["success"],
         "allow_failure": True,
         "notes": ["Will fail if model not in registry (expected before discover)"],
@@ -241,7 +245,7 @@ ENDPOINTS = [
     },
     {
         "name": "model_selector_quick_switch",
-        "payload": {"provider": "ollama", "model_name": "qwen2.5-coder:3b"},
+        "payload": {"provider": "ollama", "modelName": "qwen2.5-coder:3b"},
         "required_keys": ["success"],
         "allow_failure": True,
         "notes": ["Updates settings + router default"],

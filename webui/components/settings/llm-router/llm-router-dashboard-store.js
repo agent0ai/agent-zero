@@ -44,6 +44,8 @@ const model = {
     excludedModels: "",
     minContextLength: 0,
     maxCostPer1k: 0,
+    maxLatencyMs: 0,
+    requiredCapabilities: "",
     enabled: true,
   },
 
@@ -169,7 +171,7 @@ const model = {
       const resp = await callJsonApi("/llm_router_set_default", {
         role,
         provider,
-        model_name: modelName,
+        modelName: modelName,
       });
       if (resp.success) {
         this.defaults[role] = { provider, modelName: modelName };
@@ -205,6 +207,8 @@ const model = {
       excludedModels: "",
       minContextLength: 0,
       maxCostPer1k: 0,
+      maxLatencyMs: 0,
+      requiredCapabilities: "",
       enabled: true,
     };
     this.showAddRule = false;
@@ -228,6 +232,10 @@ const model = {
           : [],
         minContextLength: parseInt(this.newRule.minContextLength) || 0,
         maxCostPer1k: parseFloat(this.newRule.maxCostPer1k) || 0,
+        maxLatencyMs: parseInt(this.newRule.maxLatencyMs) || 0,
+        requiredCapabilities: this.newRule.requiredCapabilities
+          ? this.newRule.requiredCapabilities.split(",").map((s) => s.trim()).filter(Boolean)
+          : [],
         enabled: this.newRule.enabled,
       };
       const resp = await callJsonApi("/llm_router_rules", {

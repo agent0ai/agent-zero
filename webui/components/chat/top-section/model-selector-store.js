@@ -9,6 +9,12 @@ const model = {
     searchQuery: "",           // Model search filter
     loading: false,
     error: null,
+    currentBackend: "native",
+    backendOptions: [
+        { value: "native", label: "Native" },
+        { value: "claude_code", label: "Claude Code" },
+        { value: "codex", label: "Codex" },
+    ],
 
     // Thinking mode state
     thinkingEnabled: false,
@@ -20,8 +26,19 @@ const model = {
     // Initialize on component mount
     async init() {
         await this.loadModels();
+        await this.loadExecutionBackend();
         await this.loadThinkingSettings();
         this.loadFavorites();
+    },
+
+    async loadExecutionBackend() {
+        try {
+            const settings = await loadSettings();
+            this.currentBackend = settings.chat_execution_backend || "native";
+        } catch (err) {
+            console.error("Failed to load chat execution backend:", err);
+            this.currentBackend = "native";
+        }
     },
 
     // Load available models from LLM Router
@@ -35,8 +52,8 @@ const model = {
                 if (resp.defaults?.chat) {
                     this.currentModel = {
                         provider: resp.defaults.chat.provider,
-                        name: resp.defaults.chat.model_name,
-                        displayName: resp.defaults.chat.model_name
+                        name: resp.defaults.chat.modelName,
+                        displayName: resp.defaults.chat.modelName
                     };
                 }
             }
@@ -118,7 +135,7 @@ const model = {
         try {
             const resp = await callJsonApi("/model_selector_quick_switch", {
                 provider,
-                model_name: modelName
+                modelName: modelName
             });
             if (resp.success) {
                 this.currentModel = {
@@ -134,6 +151,20 @@ const model = {
             this.error = err.message;
         } finally {
             this.loading = false;
+        }
+    },
+
+    async switchBackend(backend) {
+        if (!backend || backend === this.currentBackend) return;
+        const previous = this.currentBackend;
+        this.currentBackend = backend;
+        try {
+            await saveSettings({
+                chat_execution_backend: backend,
+            });
+        } catch (err) {
+            this.currentBackend = previous;
+            this.error = "Failed to switch backend: " + err.message;
         }
     },
 
@@ -188,7 +219,7 @@ const model = {
         for (const [provider, models] of Object.entries(this.availableModels)) {
             const matching = models.filter(m =>
                 m.name.toLowerCase().includes(query) ||
-                (m.display_name && m.display_name.toLowerCase().includes(query)) ||
+                (m.displayName && m.displayName.toLowerCase().includes(query)) ||
                 provider.toLowerCase().includes(query)
             );
             if (matching.length > 0) {
@@ -215,10 +246,10 @@ const model = {
 
     // Format cost display
     formatCost(model) {
-        if (model.is_local) return "Local";
-        if (!model.cost_per_1k_input && !model.cost_per_1k_output) return "Free";
-        const input = model.cost_per_1k_input || 0;
-        const output = model.cost_per_1k_output || 0;
+        if (model.isLocal) return "Local";
+        if (!model.costPer1kInput && !model.costPer1kOutput) return "Free";
+        const input = model.costPer1kInput || 0;
+        const output = model.costPer1kOutput || 0;
         return `$${input}/$${output}`;
     },
 
@@ -234,6 +265,11 @@ const model = {
     getCurrentModelDisplay() {
         if (!this.currentModel) return "Select Model";
         return this.currentModel.displayName || this.currentModel.name;
+    },
+
+    getCurrentBackendLabel() {
+        const option = this.backendOptions.find((o) => o.value === this.currentBackend);
+        return option?.label || this.currentBackend || "Native";
     }
 };
 

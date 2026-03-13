@@ -256,6 +256,18 @@
                          x-model="$store.llmRouterStore.newRule.maxCostPer1k"
                          placeholder="0 = no limit">
                 </div>
+                <div class="form-group">
+                  <label class="form-label">Max Latency (ms)</label>
+                  <input type="number" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.maxLatencyMs"
+                         placeholder="0 = no limit">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Required Capabilities</label>
+                  <input type="text" class="form-input"
+                         x-model="$store.llmRouterStore.newRule.requiredCapabilities"
+                         placeholder="e.g. vision, function_calling">
+                </div>
                 <div class="form-group form-group-checkbox">
                   <label class="form-label">
                     <input type="checkbox" x-model="$store.llmRouterStore.newRule.enabled">

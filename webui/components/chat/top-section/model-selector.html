@@ -18,11 +18,14 @@
                 <button class="model-current-btn"
                         @click="$store.modelSelector.togglePicker()"
                         :disabled="$store.modelSelector.loading"
-                        :title="$store.modelSelector.currentModel ? $store.modelSelector.currentModel.provider + '/' + $store.modelSelector.currentModel.name : 'Select a model'">
+                        :title="'Model: ' + ($store.modelSelector.currentModel ? $store.modelSelector.currentModel.provider + '/' + $store.modelSelector.currentModel.name : 'unknown') + ' | Backend: ' + $store.modelSelector.getCurrentBackendLabel()">
                     <span class="model-provider-icon"
                           x-text="$store.modelSelector.getProviderIcon($store.modelSelector.currentModel?.provider)"></span>
                     <span class="model-name-display"
                           x-text="$store.modelSelector.getCurrentModelDisplay()"></span>
+                    <span class="model-backend-badge"
+                          :class="'backend-' + ($store.modelSelector.currentBackend || 'native')"
+                          x-text="$store.modelSelector.getCurrentBackendLabel()"></span>
                     <span class="model-chevron" :class="{ 'open': $store.modelSelector.modelPickerOpen }">▼</span>
                 </button>
 
@@ -69,12 +72,12 @@
                                         <span class="model-option-icon"
                                               x-text="$store.modelSelector.getProviderIcon(model.provider)"></span>
                                         <span class="model-option-name"
-                                              x-text="model.display_name || model.name"></span>
+                                              x-text="model.displayName || model.name"></span>
                                     </div>
                                     <div class="model-option-right">
                                         <span class="model-option-type"
-                                              :class="model.is_local ? 'type-local' : 'type-cloud'"
-                                              x-text="model.is_local ? 'Local' : 'Cloud'"></span>
+                                              :class="model.isLocal ? 'type-local' : 'type-cloud'"
+                                              x-text="model.isLocal ? 'Local' : 'Cloud'"></span>
                                         <span class="model-option-cost"
                                               x-text="$store.modelSelector.formatCost(model)"></span>
                                     </div>
@@ -104,15 +107,15 @@
                                                 <span x-text="$store.modelSelector.isFavorite(provider, model.name) ? '★' : '☆'"></span>
                                             </button>
                                             <span class="model-option-name"
-                                                  x-text="model.display_name || model.name"></span>
+                                                  x-text="model.displayName || model.name"></span>
                                         </div>
                                         <div class="model-option-right">
                                             <span class="model-option-context"
-                                                  x-text="$store.modelSelector.formatContext(model.context_length)"
-                                                  x-show="model.context_length"></span>
+                                                  x-text="$store.modelSelector.formatContext(model.contextLength)"
+                                                  x-show="model.contextLength"></span>
                                             <span class="model-option-type"
-                                                  :class="model.is_local ? 'type-local' : 'type-cloud'"
-                                                  x-text="model.is_local ? 'Local' : 'Cloud'"></span>
+                                                  :class="model.isLocal ? 'type-local' : 'type-cloud'"
+                                                  x-text="model.isLocal ? 'Local' : 'Cloud'"></span>
                                             <span class="model-option-cost"
                                                   x-text="$store.modelSelector.formatCost(model)"></span>
                                         </div>
@@ -136,15 +139,27 @@
 
                     <!-- Footer Actions -->
                     <div class="picker-footer">
-                        <button class="picker-action"
-                                @click="$store.modelSelector.loadModels()"
-                                :disabled="$store.modelSelector.loading">
-                            🔄 Refresh
-                        </button>
-                        <button class="picker-action"
-                                @click="$store.modelSelector.closePicker(); window.openSettings && window.openSettings('llm-router')">
-                            ⚙️ Router Settings
-                        </button>
+                        <div class="backend-switcher">
+                            <span class="backend-switcher-label">Backend</span>
+                            <select class="backend-switcher-select"
+                                    x-model="$store.modelSelector.currentBackend"
+                                    @change="$store.modelSelector.switchBackend($event.target.value)">
+                                <template x-for="backend in $store.modelSelector.backendOptions" :key="backend.value">
+                                    <option :value="backend.value" x-text="backend.label"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="picker-footer-actions">
+                            <button class="picker-action"
+                                    @click="$store.modelSelector.loadModels()"
+                                    :disabled="$store.modelSelector.loading">
+                                🔄 Refresh
+                            </button>
+                            <button class="picker-action"
+                                    @click="$store.modelSelector.closePicker(); window.openSettings && window.openSettings('llm-router')">
+                                ⚙️ Router Settings
+                            </button>
+                        </div>
                     </div>
 
                 </div>

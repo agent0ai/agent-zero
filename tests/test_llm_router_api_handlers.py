@@ -751,11 +751,11 @@ class TestLlmRouterAutoConfigure:
             result = await handler.process({}, DummyRequest())
 
         assert result["success"] is True
-        assert result["discovered_models"] == 3
-        assert "chat" in result["configured_defaults"]
-        assert "utility" in result["configured_defaults"]
-        assert "browser" in result["configured_defaults"]
-        assert "embedding" in result["configured_defaults"]
+        assert result["discoveredModels"] == 3
+        assert "chat" in result["configuredDefaults"]
+        assert "utility" in result["configuredDefaults"]
+        assert "browser" in result["configuredDefaults"]
+        assert "embedding" in result["configuredDefaults"]
 
     @pytest.mark.asyncio
     async def test_auto_configure_reads_all_five_roles(self):
