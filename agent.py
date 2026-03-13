@@ -499,6 +499,7 @@ class LoopData:
         self.params_temporary: dict = {}
         self.params_persistent: dict = {}
         self.current_tool = None
+        self.model_used: str = ""  # provider/model_name of model that handled the request
 
         # override values with kwargs
         for key, value in kwargs.items():
@@ -901,7 +902,9 @@ class Agent:
         return msg
 
     def hist_add_ai_response(self, message: str):
-        self.loop_data.last_response = message
+        # Guard for external backends (codex/claude_code) that skip message_loop()
+        if hasattr(self, "loop_data") and self.loop_data is not None:
+            self.loop_data.last_response = message
         content = self.parse_prompt("fw.ai_response.md", message=message)
         return self.hist_add_message(True, content=content)
 
@@ -923,6 +926,8 @@ class Agent:
 
     def get_chat_model(self):
         # Check if LLM Router should select the model
+        import logging
+
         from python.helpers import settings
 
         set = settings.get_settings()
@@ -935,12 +940,15 @@ class Agent:
                     role="chat", context_type="USER", priority=RoutingPriority.QUALITY, required_capabilities=["chat"]
                 )
                 if model_info:
+                    logging.info(f"[LLMRouter] Selected chat model: {model_info.provider}/{model_info.name}")
                     return models.get_chat_model(
                         model_info.provider,
                         model_info.name,
+                        model_config=self.config.chat_model,
+                        **self.config.chat_model.build_kwargs(),
                     )
-            except Exception:
-                pass  # Fall back to default
+            except Exception as e:
+                logging.warning(f"[LLMRouter] Chat model selection failed: {e}, using default")
 
         return models.get_chat_model(
             self.config.chat_model.provider,
@@ -951,6 +959,8 @@ class Agent:
 
     def get_utility_model(self):
         # Check if LLM Router should select the model
+        import logging
+
         from python.helpers import settings
 
         set = settings.get_settings()
@@ -966,12 +976,15 @@ class Agent:
                     required_capabilities=["chat"],
                 )
                 if model_info:
+                    logging.info(f"[LLMRouter] Selected utility model: {model_info.provider}/{model_info.name}")
                     return models.get_chat_model(
                         model_info.provider,
                         model_info.name,
+                        model_config=self.config.utility_model,
+                        **self.config.utility_model.build_kwargs(),
                     )
-            except Exception:
-                pass  # Fall back to default
+            except Exception as e:
+                logging.warning(f"[LLMRouter] Utility model selection failed: {e}, using default")
 
         return models.get_chat_model(
             self.config.utility_model.provider,
@@ -1049,10 +1062,66 @@ class Agent:
         reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
         background: bool = False,
     ):
-        response = ""
+        import logging
 
-        # model class
+        from python.helpers import settings
+
+        set = settings.get_settings()
+
+        # Check if failover is enabled
+        if set.get("llm_router_enabled", False):
+            try:
+                from python.helpers.llm_router import RoutingPriority, call_with_failover, get_router
+
+                router = get_router()
+                primary_model = router.select_model(
+                    role="chat", context_type="USER", priority=RoutingPriority.QUALITY, required_capabilities=["chat"]
+                )
+
+                if primary_model:
+                    # Get thinking mode kwargs if enabled
+                    thinking_kwargs = self.get_thinking_kwargs()
+
+                    # Define the call function for failover wrapper
+                    async def make_call(provider: str, model_name: str):
+                        model = models.get_chat_model(
+                            provider,
+                            model_name,
+                            model_config=self.config.chat_model,
+                            **self.config.chat_model.build_kwargs(),
+                        )
+                        return await model.unified_call(
+                            messages=messages,
+                            reasoning_callback=reasoning_callback,
+                            response_callback=response_callback,
+                            rate_limiter_callback=self.rate_limiter_callback if not background else None,
+                            **thinking_kwargs,
+                        )
+
+                    # Execute with automatic failover
+                    result = await call_with_failover(
+                        primary_model=primary_model, call_func=make_call, required_capabilities=["chat"], max_retries=3
+                    )
+
+                    if result.success:
+                        model_label = f"{result.model_used.provider}/{result.model_used.name}"
+                        logging.info(f"[LLMRouter] Chat call succeeded with {model_label}")
+                        # Store model used on loop_data so the log extension can display it
+                        if hasattr(self, "loop_data") and self.loop_data:
+                            self.loop_data.model_used = model_label
+                        return result.response, result.reasoning
+                    else:
+                        logging.warning(f"[LLMRouter] All failover attempts failed: {result.error}")
+                        # Fall through to default model
+            except Exception as e:
+                logging.warning(f"[LLMRouter] Failover system error: {e}, using default model")
+
+        # Default: use configured model directly
         model = self.get_chat_model()
+
+        # Store default model info on loop_data so the log extension can display it
+        if hasattr(self, "loop_data") and self.loop_data:
+            self.loop_data.model_used = f"{self.config.chat_model.provider}/{self.config.chat_model.name}"
 
         # Get thinking mode kwargs if enabled
         thinking_kwargs = self.get_thinking_kwargs()

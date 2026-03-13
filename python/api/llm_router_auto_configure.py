@@ -13,7 +13,7 @@ class LlmRouterAutoConfigure(ApiHandler):
 
             router = get_router()
             defaults = {}
-            for role in ["chat", "utility", "fallback"]:
+            for role in ["chat", "utility", "browser", "embedding", "fallback"]:
                 result = router.get_default_model(role)
                 if result:
                     defaults[role] = f"{result[0]}/{result[1]}"
@@ -22,10 +22,7 @@ class LlmRouterAutoConfigure(ApiHandler):
                 "success": True,
                 "message": "Auto-configuration complete",
                 "discovered_models": len(models),
-                "configured_defaults": defaults
+                "configured_defaults": defaults,
             }
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}

@@ -121,7 +121,8 @@ export function _drawMessage(
   contentClasses = [],
   latex = false,
   markdown = false,
-  resizeBtns = true
+  resizeBtns = true,
+  modelLabel = null
 ) {
   // Find existing message div or create new one
   let messageDiv = messageContainer.querySelector(".message");
@@ -149,6 +150,21 @@ export function _drawMessage(
       headingElement.appendChild(headingH4);
     }
     headingH4.innerHTML = convertIcons(escapeHTML(heading));
+
+    // Render model badge next to heading if available
+    if (modelLabel) {
+      let modelBadge = headingElement.querySelector(".msg-model-badge");
+      if (!modelBadge) {
+        modelBadge = document.createElement("span");
+        modelBadge.classList.add("msg-model-badge");
+        headingH4.appendChild(modelBadge);
+      }
+      modelBadge.textContent = modelLabel;
+      modelBadge.title = `Model: ${modelLabel}`;
+    } else {
+      const existingBadge = headingElement.querySelector(".msg-model-badge");
+      if (existingBadge) existingBadge.remove();
+    }
 
     if (resizeBtns) {
       let minMaxBtn = headingElement.querySelector(".msg-min-max-btns");
@@ -327,9 +343,15 @@ export function drawMessageAgent(
   kvps = null
 ) {
   let kvpsFlat = null;
+  let modelLabel = null;
   if (kvps) {
     kvpsFlat = { ...kvps, ...(kvps["tool_args"] || {}) };
     delete kvpsFlat["tool_args"];
+    // Extract model label for badge display
+    if (kvpsFlat["_model"]) {
+      modelLabel = kvpsFlat["_model"];
+      delete kvpsFlat["_model"];
+    }
   }
 
   _drawMessage(
@@ -343,7 +365,9 @@ export function drawMessageAgent(
     ["message-ai"],
     ["msg-json"],
     false,
-    false
+    false,
+    true,
+    modelLabel
   );
 }
 
@@ -356,6 +380,12 @@ export function drawMessageResponse(
   temp,
   kvps = null
 ) {
+  // Extract model label from kvps for badge display
+  let modelLabel = null;
+  if (kvps && kvps["_model"]) {
+    modelLabel = kvps["_model"];
+  }
+
   _drawMessage(
     messageContainer,
     heading,
@@ -367,7 +397,9 @@ export function drawMessageResponse(
     ["message-ai"],
     [],
     true,
-    true
+    true,
+    true,
+    modelLabel
   );
 }
 
@@ -453,7 +485,7 @@ export function drawMessageUser(
       messageDiv.appendChild(attachmentsContainer);
     }
     // Important: Clear existing attachments to re-render, preventing duplicates on update
-    attachmentsContainer.innerHTML = ""; 
+    attachmentsContainer.innerHTML = "";
 
     kvps.attachments.forEach((attachment) => {
       const attachmentDiv = document.createElement("div");
@@ -776,7 +808,7 @@ function drawKvpsIncremental(container, kvps, latex) {
 
     // Get all current rows for comparison
     let existingRows = table.querySelectorAll(".kvps-row");
-    const kvpEntries = Object.entries(kvps);
+    const kvpEntries = Object.entries(kvps).filter(([key]) => !key.startsWith("_"));
 
     // Update or create rows as needed
     kvpEntries.forEach(([key, value], index) => {
@@ -995,17 +1027,17 @@ function adjustMarkdownRender(element) {
 
 async function renderMermaidDiagrams(element) {
   if (!window.mermaid) return;
-  
+
   // Find all code blocks with language 'mermaid'
   const mermaidBlocks = element.querySelectorAll('pre code.language-mermaid');
-  
+
   for (let i = 0; i < mermaidBlocks.length; i++) {
     const codeBlock = mermaidBlocks[i];
     const preElement = codeBlock.parentElement;
-    
+
     // Get the mermaid syntax
     const mermaidCode = codeBlock.textContent;
-    
+
     // Create a container for the rendered diagram
     const diagramDiv = document.createElement('div');
     diagramDiv.className = 'mermaid-diagram';
@@ -1015,15 +1047,15 @@ async function renderMermaidDiagrams(element) {
     diagramDiv.style.backgroundColor = '#f8f9fa';
     diagramDiv.style.borderRadius = '8px';
     diagramDiv.style.overflow = 'auto';
-    
+
     try {
       // Generate unique ID for this diagram
       const id = `mermaid-${Date.now()}-${i}`;
-      
+
       // Render the diagram
       const { svg } = await window.mermaid.render(id, mermaidCode);
       diagramDiv.innerHTML = svg;
-      
+
       // Replace the code block with the rendered diagram
       preElement.replaceWith(diagramDiv);
     } catch (error) {

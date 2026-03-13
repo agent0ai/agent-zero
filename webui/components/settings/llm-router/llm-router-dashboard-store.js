@@ -98,7 +98,9 @@ const model = {
 
   buildAvailableModelsList() {
     this.availableModels = [];
-    for (const [provider, models] of Object.entries(this.models.byProvider)) {
+    const byProvider = this.models?.byProvider;
+    if (!byProvider || typeof byProvider !== "object") return;
+    for (const [provider, models] of Object.entries(byProvider)) {
       for (const model of models) {
         this.availableModels.push({
           provider: provider,

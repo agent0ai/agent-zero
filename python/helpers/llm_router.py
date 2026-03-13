@@ -1,5 +1,5 @@
 """
-LLM Router - Intelligent model selection and prioritization for Agent Zero
+LLM Router - Intelligent model selection and prioritization for Agent Jumbo
 
 This module provides:
 1. Auto-detection of available models (Ollama, cloud providers)
@@ -259,6 +259,40 @@ class LLMRouterDatabase:
                 for row in rows
             ]
 
+    def mark_provider_models_unavailable(self, provider: str):
+        """Mark all models for a provider as unavailable."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                UPDATE models
+                SET is_available = 0, last_checked = ?
+                WHERE provider = ?
+            """,
+                (isoformat_z(utc_now()), provider),
+            )
+
+    def mark_all_models_unavailable(self, providers: list[str] | None = None):
+        """Mark all models (or a provider subset) as unavailable before rediscovery."""
+        with sqlite3.connect(self.db_path) as conn:
+            if providers:
+                placeholders = ",".join("?" for _ in providers)
+                conn.execute(  # nosec B608 - placeholders are ? params, not user input
+                    f"""
+                    UPDATE models
+                    SET is_available = 0, last_checked = ?
+                    WHERE provider IN ({placeholders})
+                """,
+                    (isoformat_z(utc_now()), *providers),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE models
+                    SET is_available = 0, last_checked = ?
+                """,
+                    (isoformat_z(utc_now()),),
+                )
+
     def record_usage(
         self,
         provider: str,
@@ -398,7 +432,7 @@ class LLMRouterDatabase:
 
 class LLMRouter:
     """
-    Intelligent LLM Router for Agent Zero
+    Intelligent LLM Router for Agent Jumbo
 
     Features:
     - Auto-discovery of available models
@@ -473,6 +507,63 @@ class LLMRouter:
             "cost_per_1k_input": 0.0005,
             "cost_per_1k_output": 0.0015,
             "avg_latency_ms": 500,
+        },
+        # OpenAI Reasoning/Codex models (o-series)
+        "openai/o1": {
+            "display_name": "OpenAI o1",
+            "context_length": 200000,
+            "capabilities": ["chat", "code", "reasoning", "function_calling", "long_context", "best_reasoning"],
+            "cost_per_1k_input": 0.015,  # $15 per million
+            "cost_per_1k_output": 0.060,  # $60 per million
+            "avg_latency_ms": 5000,  # Reasoning takes longer
+            "supports_reasoning": True,
+        },
+        "openai/o1-mini": {
+            "display_name": "OpenAI o1-mini",
+            "context_length": 128000,
+            "capabilities": ["chat", "code", "reasoning", "function_calling", "fast"],
+            "cost_per_1k_input": 0.003,  # $3 per million
+            "cost_per_1k_output": 0.012,  # $12 per million
+            "avg_latency_ms": 2000,
+            "supports_reasoning": True,
+        },
+        "openai/o1-pro": {
+            "display_name": "OpenAI o1-pro",
+            "context_length": 200000,
+            "capabilities": [
+                "chat",
+                "code",
+                "reasoning",
+                "function_calling",
+                "long_context",
+                "best_reasoning",
+                "agent",
+            ],
+            "cost_per_1k_input": 0.150,  # $150 per million (premium)
+            "cost_per_1k_output": 0.600,  # $600 per million
+            "avg_latency_ms": 10000,  # Extended reasoning
+            "supports_reasoning": True,
+        },
+        "openai/o3-mini": {
+            "display_name": "OpenAI o3-mini",
+            "context_length": 200000,
+            "capabilities": ["chat", "code", "reasoning", "function_calling", "long_context", "fast"],
+            "cost_per_1k_input": 0.0011,  # $1.10 per million
+            "cost_per_1k_output": 0.0044,  # $4.40 per million
+            "avg_latency_ms": 1500,
+            "supports_reasoning": True,
+            "effort_levels": ["low", "medium", "high"],
+        },
+        "openai/o4-mini": {
+            "display_name": "OpenAI o4-mini (Codex)",
+            "context_length": 200000,
+            "capabilities": ["chat", "code", "reasoning", "function_calling", "long_context", "fast", "best_coding"],
+            "cost_per_1k_input": 0.0011,  # $1.10 per million
+            "cost_per_1k_output": 0.0044,  # $4.40 per million
+            "avg_latency_ms": 1200,
+            "supports_reasoning": True,
+            "effort_levels": ["low", "medium", "high"],
+            "quality_score": 9,  # Strong coding performance
         },
         # Google Gemini models
         "google/gemini-2.0-flash": {
@@ -571,6 +662,10 @@ class LLMRouter:
         now = time.time()
         if not force and self._last_discovery and (now - self._last_discovery) < self._discovery_interval:
             return self.db.get_models()
+
+        # Reset availability so stale entries from previous successful probes
+        # do not remain routable after providers go offline.
+        self.db.mark_all_models_unavailable(["ollama", "openai", "anthropic", "google"])
 
         discovered = []
 
@@ -794,6 +889,25 @@ class LLMRouter:
         models = self.db.get_models(available_only=True)
         if not models:
             return None
+
+        # Respect explicit per-role defaults if configured and still eligible.
+        default = self.get_default_model(role)
+        if default:
+            def_provider, def_name = default
+            default_model = next((m for m in models if m.provider == def_provider and m.name == def_name), None)
+            if default_model:
+                required_capabilities = required_capabilities or []
+                excluded_providers = excluded_providers or []
+                if default_model.provider not in excluded_providers:
+                    if min_context_length <= 0 or default_model.context_length >= min_context_length:
+                        if (
+                            max_cost_per_1k <= 0
+                            or max(default_model.cost_per_1k_input, default_model.cost_per_1k_output) <= max_cost_per_1k
+                        ):
+                            if not required_capabilities or all(
+                                cap in default_model.capabilities for cap in required_capabilities
+                            ):
+                                return default_model
 
         candidates = []
         required_capabilities = required_capabilities or []
@@ -1123,6 +1237,28 @@ async def auto_configure_models():
     # Discover available models
     models = await router.discover_models(force=True)
 
+    # Prefer explicit provider selections from settings when those models are available.
+    settings_seeded_roles: set[str] = set()
+    try:
+        from python.helpers import settings as settings_helper
+
+        current = settings_helper.get_settings()
+        configured_defaults = [
+            ("chat", current.get("chat_model_provider"), current.get("chat_model_name")),
+            ("utility", current.get("util_model_provider"), current.get("util_model_name")),
+            ("browser", current.get("browser_model_provider"), current.get("browser_model_name")),
+        ]
+        for role, provider, name in configured_defaults:
+            if not provider or not name:
+                continue
+            match = next((m for m in models if m.provider == provider and m.name == name), None)
+            if match:
+                router.set_default_model(role, provider, name)
+                settings_seeded_roles.add(role)
+                print(f"[LLMRouter] Auto-configured {role} model from settings: {provider}/{name}")
+    except Exception as e:
+        print(f"[LLMRouter] Could not apply settings-based defaults: {e}")
+
     # Find best local model for chat
     local_models = [m for m in models if m.is_local and "chat" in m.capabilities]
     if local_models:
@@ -1135,9 +1271,12 @@ async def auto_configure_models():
 
         if suitable:
             best_local = suitable[-1]  # Largest that fits
-            router.set_default_model("chat", best_local.provider, best_local.name)
-            router.set_default_model("utility", best_local.provider, best_local.name)
-            print(f"[LLMRouter] Auto-configured chat model: {best_local.provider}/{best_local.name}")
+            if "chat" not in settings_seeded_roles:
+                router.set_default_model("chat", best_local.provider, best_local.name)
+                print(f"[LLMRouter] Auto-configured chat model: {best_local.provider}/{best_local.name}")
+            if "utility" not in settings_seeded_roles:
+                router.set_default_model("utility", best_local.provider, best_local.name)
+                print(f"[LLMRouter] Auto-configured utility model: {best_local.provider}/{best_local.name}")
 
     # Set cloud fallbacks if available
     cloud_models = [m for m in models if not m.is_local]
@@ -1195,3 +1334,194 @@ async def ensure_baseline_model():
     except Exception as e:
         print(f"[LLMRouter] Error pulling baseline model: {e}")
         return False
+
+
+# ============================================================================
+# Failover-Aware Model Execution
+# ============================================================================
+
+
+class FailoverResult:
+    """Result of a failover-aware model call"""
+
+    def __init__(
+        self,
+        success: bool,
+        response: str = "",
+        reasoning: str = "",
+        model_used: ModelInfo | None = None,
+        attempts: list[dict] | None = None,
+        error: str | None = None,
+    ):
+        self.success = success
+        self.response = response
+        self.reasoning = reasoning
+        self.model_used = model_used
+        self.attempts = attempts or []
+        self.error = error
+
+
+async def call_with_failover(
+    primary_model: ModelInfo,
+    call_func,
+    required_capabilities: list[str] | None = None,
+    max_retries: int = 3,
+    record_usage: bool = True,
+) -> FailoverResult:
+    """
+    Execute an LLM call with automatic failover on failure.
+
+    Args:
+        primary_model: The primary ModelInfo to use
+        call_func: Async function that takes (provider: str, model_name: str) and
+                   returns (response, reasoning) tuple. Should raise on failure.
+        required_capabilities: Capabilities required for fallback models
+        max_retries: Maximum number of models to try (including primary)
+        record_usage: Whether to record usage in router database
+
+    Returns:
+        FailoverResult with success status and response/error details
+    """
+    import logging
+    import time
+
+    router = get_router()
+    attempts = []
+
+    # Build model chain: primary + fallbacks
+    models_to_try = [primary_model]
+    fallbacks = router.get_fallback_chain(
+        primary_model, required_capabilities=required_capabilities, max_fallbacks=max_retries - 1
+    )
+    models_to_try.extend(fallbacks)
+
+    # Limit to max_retries
+    models_to_try = models_to_try[:max_retries]
+
+    for model in models_to_try:
+        start_time = time.time()
+        attempt = {
+            "provider": model.provider,
+            "model_name": model.name,
+            "success": False,
+            "error": None,
+            "latency_ms": 0,
+        }
+
+        try:
+            logging.info(f"[LLMRouter] Attempting call with {model.provider}/{model.name}")
+            response, reasoning = await call_func(model.provider, model.name)
+
+            latency_ms = int((time.time() - start_time) * 1000)
+            attempt["success"] = True
+            attempt["latency_ms"] = latency_ms
+            attempts.append(attempt)
+
+            # Record successful usage with estimated token counts
+            if record_usage:
+                from python.helpers.tokens import approximate_tokens
+
+                output_tokens = approximate_tokens(response) + approximate_tokens(reasoning)
+                router.record_call(
+                    provider=model.provider,
+                    model_name=model.name,
+                    input_tokens=0,  # Input tokens not available from unified_call
+                    output_tokens=output_tokens,
+                    latency_ms=latency_ms,
+                    success=True,
+                    model_role="chat",
+                )
+
+            logging.info(f"[LLMRouter] Success with {model.provider}/{model.name} ({latency_ms}ms)")
+            return FailoverResult(
+                success=True, response=response, reasoning=reasoning, model_used=model, attempts=attempts
+            )
+
+        except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            error_msg = str(e)
+            attempt["error"] = error_msg
+            attempt["latency_ms"] = latency_ms
+            attempts.append(attempt)
+
+            logging.warning(f"[LLMRouter] Failed with {model.provider}/{model.name}: {error_msg}")
+
+            # Record failed usage
+            if record_usage:
+                router.record_call(
+                    provider=model.provider,
+                    model_name=model.name,
+                    input_tokens=0,
+                    output_tokens=0,
+                    latency_ms=latency_ms,
+                    success=False,
+                    error_message=error_msg,
+                    model_role="chat",
+                )
+
+            # Check if this is a blocking error (auth/billing) vs transient
+            if _is_permanent_failure(e):
+                logging.warning(
+                    f"[LLMRouter] Permanent failure detected, marking {model.provider}/{model.name} unavailable"
+                )
+                router.db.mark_provider_models_unavailable(model.provider)
+
+            continue
+
+    # All models failed
+    last_error = attempts[-1]["error"] if attempts else "No models available"
+    return FailoverResult(
+        success=False, attempts=attempts, error=f"All {len(attempts)} models failed. Last error: {last_error}"
+    )
+
+
+def _is_permanent_failure(exc: Exception) -> bool:
+    """
+    Determine if an exception indicates a permanent failure (auth, billing, blocked)
+    vs a transient failure (rate limit, overload, timeout).
+
+    Permanent failures should mark the provider as unavailable.
+    """
+    error_str = str(exc).lower()
+
+    # Auth/billing/blocked indicators
+    permanent_indicators = [
+        "authentication",
+        "unauthorized",
+        "invalid api key",
+        "invalid_api_key",
+        "api key is invalid",
+        "billing",
+        "quota exceeded",
+        "account",
+        "forbidden",
+        "access denied",
+        "blocked",
+        "suspended",
+        "disabled",
+    ]
+
+    for indicator in permanent_indicators:
+        if indicator in error_str:
+            return True
+
+    # Check status codes if available
+    status_code = getattr(exc, "status_code", None)
+    if status_code in (401, 403):
+        return True
+
+    return False
+
+
+def mark_provider_unavailable(provider: str):
+    """Mark all models from a provider as unavailable."""
+    router = get_router()
+    router.db.mark_provider_models_unavailable(provider)
+    print(f"[LLMRouter] Marked provider '{provider}' as unavailable")
+
+
+def get_available_providers() -> list[str]:
+    """Get list of currently available providers."""
+    router = get_router()
+    models = router.db.get_models(available_only=True)
+    return list({m.provider for m in models})

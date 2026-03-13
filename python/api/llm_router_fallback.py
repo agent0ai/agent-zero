@@ -23,57 +23,43 @@ class LlmRouterFallback(ApiHandler):
 
         # If role is provided, get default model for that role
         if role:
-            priority = RoutingPriority[input.get("priority", "BALANCED").upper()]
-            primary = router.select_model(
-                role=role,
-                priority=priority,
-                required_capabilities=required_capabilities
-            )
+            priority_str = input.get("priority", "BALANCED").upper()
+            priority_map = {
+                "COST": RoutingPriority.COST,
+                "SPEED": RoutingPriority.SPEED,
+                "QUALITY": RoutingPriority.QUALITY,
+                "BALANCED": RoutingPriority.BALANCED,
+            }
+            priority = priority_map.get(priority_str, RoutingPriority.BALANCED)
+            primary = router.select_model(role=role, priority=priority, required_capabilities=required_capabilities)
 
             if not primary:
-                return {
-                    "success": False,
-                    "error": f"No model available for role '{role}'"
-                }
+                return {"success": False, "error": f"No model available for role '{role}'"}
 
             fallbacks = router.get_fallback_chain(
-                primary_model=primary,
-                required_capabilities=required_capabilities,
-                max_fallbacks=max_fallbacks
+                primary_model=primary, required_capabilities=required_capabilities, max_fallbacks=max_fallbacks
             )
 
             return {
                 "success": True,
                 "role": role,
                 "primary": primary.to_dict(),
-                "fallbacks": [m.to_dict() for m in fallbacks]
+                "fallbacks": [m.to_dict() for m in fallbacks],
             }
 
         # Otherwise require provider and model_name
         if not provider or not model_name:
-            return {
-                "success": False,
-                "error": "Either 'role' or both 'provider' and 'model_name' are required"
-            }
+            return {"success": False, "error": "Either 'role' or both 'provider' and 'model_name' are required"}
 
         # Get primary model by provider/name
         models = router.db.get_models(provider=provider)
         primary = next((m for m in models if m.name == model_name), None)
 
         if not primary:
-            return {
-                "success": False,
-                "error": f"Model {provider}/{model_name} not found"
-            }
+            return {"success": False, "error": f"Model {provider}/{model_name} not found"}
 
         fallbacks = router.get_fallback_chain(
-            primary_model=primary,
-            required_capabilities=required_capabilities,
-            max_fallbacks=max_fallbacks
+            primary_model=primary, required_capabilities=required_capabilities, max_fallbacks=max_fallbacks
         )
 
-        return {
-            "success": True,
-            "primary": primary.to_dict(),
-            "fallbacks": [m.to_dict() for m in fallbacks]
-        }
+        return {"success": True, "primary": primary.to_dict(), "fallbacks": [m.to_dict() for m in fallbacks]}

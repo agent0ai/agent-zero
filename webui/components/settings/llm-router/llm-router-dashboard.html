@@ -145,13 +145,13 @@
         <!-- Models View -->
         <div class="router-view" x-show="$store.llmRouterStore.activeView === 'models'">
 
-          <div class="router-section" x-show="Object.keys($store.llmRouterStore.models.byProvider).length === 0">
+          <div class="router-section" x-show="!$store.llmRouterStore.models.byProvider || Object.keys($store.llmRouterStore.models.byProvider).length === 0">
             <div class="router-empty">
               No models discovered yet. Click "Discover Models" on the Dashboard tab.
             </div>
           </div>
 
-          <template x-for="(models, provider) in $store.llmRouterStore.models.byProvider" :key="provider">
+          <template x-for="(models, provider) in ($store.llmRouterStore.models.byProvider || {})" :key="provider">
             <div class="router-section provider-section">
               <h4>
                 <span x-text="$store.llmRouterStore.getProviderIcon(provider)"></span>

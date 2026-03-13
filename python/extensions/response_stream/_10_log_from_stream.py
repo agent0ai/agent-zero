@@ -6,7 +6,6 @@ from python.helpers.extension import Extension
 
 
 class LogFromStream(Extension):
-
     async def execute(
         self,
         loop_data: LoopData = LoopData(),
@@ -14,14 +13,13 @@ class LogFromStream(Extension):
         parsed: dict | None = None,
         **kwargs,
     ):
-
         if parsed is None:
             parsed = {}
         heading = build_default_heading(self.agent)
         if "headline" in parsed:
-            heading = build_heading(self.agent, parsed['headline'])
+            heading = build_heading(self.agent, parsed["headline"])
         elif "tool_name" in parsed:
-            heading = build_heading(self.agent, f"Using tool {parsed['tool_name']}") # if the llm skipped headline
+            heading = build_heading(self.agent, f"Using tool {parsed['tool_name']}")  # if the llm skipped headline
         elif "thoughts" in parsed:
             # thought length indicator
             thoughts = "\n".join(parsed["thoughts"])
@@ -30,11 +28,9 @@ class LogFromStream(Extension):
 
         # create log message and store it in loop data temporary params
         if "log_item_generating" not in loop_data.params_temporary:
-            loop_data.params_temporary["log_item_generating"] = (
-                self.agent.context.log.log(
-                    type="agent",
-                    heading=heading,
-                )
+            loop_data.params_temporary["log_item_generating"] = self.agent.context.log.log(
+                type="agent",
+                heading=heading,
             )
 
         # update log message
@@ -45,6 +41,10 @@ class LogFromStream(Extension):
         if log_item.kvps is not None and "reasoning" in log_item.kvps:
             kvps["reasoning"] = log_item.kvps["reasoning"]
         kvps.update(parsed)
+
+        # Inject model info from loop_data so the UI can display which model is responding
+        if hasattr(loop_data, "model_used") and loop_data.model_used:
+            kvps["_model"] = loop_data.model_used
 
         # update the log item
         log_item.update(heading=heading, content=text, kvps=kvps)

@@ -272,6 +272,22 @@
   text-overflow: ellipsis;
 }
 
+/* Model badge shown next to heading when LLM Router is active */
+.msg-model-badge {
+  display: inline-block;
+  font-size: 0.65em;
+  font-weight: 400;
+  padding: 1px 6px;
+  margin-left: 8px;
+  border-radius: 3px;
+  vertical-align: middle;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
 /* Message Actions */
 .message-actions {
   color: var(--color-text);
