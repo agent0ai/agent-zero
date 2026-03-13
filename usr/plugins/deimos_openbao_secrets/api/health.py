@@ -2,10 +2,37 @@
 
 Endpoint: POST /api/plugins/deimos_openbao_secrets/health
 """
+import importlib
 import logging
+import os
+import subprocess
+import sys
 from helpers.api import ApiHandler, Request, Response
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_hvac() -> bool:
+    """Ensure hvac is installed in the current Python environment."""
+    try:
+        importlib.import_module("hvac")
+        return True
+    except ImportError:
+        pass
+
+    logger.info("Installing hvac for OpenBao connection test...")
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--quiet", "hvac>=2.1.0"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=120,
+        )
+        importlib.import_module("hvac")
+        return True
+    except Exception as exc:
+        logger.error("Failed to install hvac: %s", exc)
+        return False
 
 
 class TestConnection(ApiHandler):
@@ -17,6 +44,13 @@ class TestConnection(ApiHandler):
         timeout = float(config_data.get("timeout", 10.0))
         tls_verify = config_data.get("tls_verify", True)
         tls_ca_cert = config_data.get("tls_ca_cert", "")
+
+        # Auto-install hvac if needed
+        if not _ensure_hvac():
+            return {
+                "ok": False,
+                "error": "Failed to install hvac library. Check pip permissions.",
+            }
 
         try:
             import hvac
@@ -43,8 +77,6 @@ class TestConnection(ApiHandler):
             else:
                 return {"ok": True, "data": {"status": "reachable"}}
 
-        except ImportError:
-            return {"ok": False, "error": "hvac library not installed. Run: pip install hvac"}
         except Exception as exc:
             logger.debug("OpenBao connection test failed: %s", exc)
             return {"ok": False, "error": str(exc)}

@@ -62,6 +62,22 @@ def get_openbao_manager() -> Optional["SecretsManager"]:
         _init_attempted = True
 
         try:
+            # Auto-install dependencies (hvac, tenacity, circuitbreaker)
+            from helpers.deps import ensure_dependencies as _ensure_deps
+        except ImportError:
+            # If helpers.deps can't be imported, try via plugin dir
+            import importlib.util as _ilu
+            _dp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deps.py")
+            _sp = _ilu.spec_from_file_location("openbao_deps", _dp)
+            _dm = _ilu.module_from_spec(_sp)
+            _sp.loader.exec_module(_dm)
+            _ensure_deps = _dm.ensure_dependencies
+
+        if not _ensure_deps():
+            logger.warning("OpenBao plugin dependencies not available")
+            return None
+
+        try:
             from python.helpers.plugins import find_plugin_dir
             from python.helpers.secrets import DEFAULT_SECRETS_FILE
 
