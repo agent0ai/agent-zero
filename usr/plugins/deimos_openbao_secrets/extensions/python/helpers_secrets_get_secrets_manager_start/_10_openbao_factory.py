@@ -1,6 +1,6 @@
-"""OpenBao factory extension for project-level secret access.
+"""OpenBao factory extension for agent runtime secret access.
 
-Intercepts get_project_secrets_manager() via @extensible to return
+Intercepts get_secrets_manager() via @extensible to return
 OpenBaoSecretsManager when OpenBao is configured and available.
 """
 import logging
@@ -9,10 +9,10 @@ from python.helpers.extension import Extension
 logger = logging.getLogger(__name__)
 
 
-class OpenBaoProjectFactory(Extension):
+class OpenBaoFactory(Extension):
     """Replace default SecretsManager with OpenBao-backed manager.
 
-    This extension is sync-only (get_project_secrets_manager is sync).
+    This extension is sync-only (get_secrets_manager is sync).
     self.agent may be None since the function receives AgentContext, not Agent.
     """
 
@@ -32,7 +32,7 @@ class OpenBaoProjectFactory(Extension):
         import os
         from python.helpers.plugins import find_plugin_dir
 
-        plugin_dir = find_plugin_dir("openbao_secrets")
+        plugin_dir = find_plugin_dir("deimos_openbao_secrets")
         if not plugin_dir:
             return None
 

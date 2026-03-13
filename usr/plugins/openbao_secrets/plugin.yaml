@@ -1,7 +1,0 @@
-name: openbao_secrets
-title: OpenBao Secrets
-description: Replace Agent Zero secrets management with OpenBao KV v2 backend.
-version: 0.1.0
-settings_sections: []
-per_project_config: true
-per_agent_config: false

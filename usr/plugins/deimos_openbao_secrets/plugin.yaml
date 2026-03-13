@@ -1,0 +1,7 @@
+name: deimos_openbao_secrets
+title: Deimos OpenBao Secrets
+description: Deimos OpenBao Secrets — replaces Agent Zero secrets management with OpenBao KV v2 backend.
+version: 0.1.0
+settings_sections: []
+per_project_config: true
+per_agent_config: false
