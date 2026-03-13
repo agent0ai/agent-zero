@@ -34,7 +34,7 @@ class ConsolidationConfig:
     max_llm_context_memories: int = 5
     keyword_extraction_sys_prompt: str = "memory.keyword_extraction.sys.md"
     keyword_extraction_msg_prompt: str = "memory.keyword_extraction.msg.md"
-    processing_timeout_seconds: int = 60
+    processing_timeout_seconds: int = 300
     # Add safety threshold for REPLACE actions
     replace_similarity_threshold: float = 0.9  # Higher threshold for replacement safety
 
@@ -785,7 +785,7 @@ def create_memory_consolidator(agent: Agent, **config_overrides) -> MemoryConsol
     - replace_similarity_threshold: Safety threshold for REPLACE actions (default 0.9)
     - max_similar_memories: Maximum memories to discover (default 10)
     - max_llm_context_memories: Maximum memories to send to LLM (default 5)
-    - processing_timeout_seconds: Timeout for consolidation processing (default 30)
+    - processing_timeout_seconds: Timeout for consolidation processing (default 300)
     """
     config = ConsolidationConfig(**config_overrides)
     return MemoryConsolidator(agent, config)
