@@ -389,13 +389,13 @@ class Memory:
         return rem_docs
 
     async def insert_text(self, text, metadata: dict | None = None):
-        from helpers.extension import call_extensions
+        from helpers.extension import call_extensions_async
 
         metadata = metadata or {}
 
         # memory_save_before: pass mutable object so extensions can edit or skip
         obj = {"text": text, "metadata": metadata, "memory_subdir": self.memory_subdir}
-        await call_extensions(
+        await call_extensions_async(
             "memory_save_before",
             agent=getattr(self, "agent", None),
             object=obj,
@@ -410,7 +410,7 @@ class Memory:
 
         # memory_save_after: notify extensions after successful persist
         obj["doc_id"] = ids[0]
-        await call_extensions(
+        await call_extensions_async(
             "memory_save_after",
             agent=getattr(self, "agent", None),
             object=obj,
