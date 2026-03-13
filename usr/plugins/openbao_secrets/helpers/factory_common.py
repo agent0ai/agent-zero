@@ -1,7 +1,16 @@
 """Shared factory logic for all three @extensible secrets hooks.
 
-Centralises OpenBao manager creation and availability checks
-so the three extension entry points stay thin.
+Centralises OpenBao manager creation so the three extension
+entry points stay thin.
+
+Fallback behaviour:
+    When OpenBao is enabled and configured, the factory ALWAYS returns
+    the OpenBaoSecretsManager — even if OpenBao is currently unreachable.
+    The manager itself decides whether to fall back to .env files based
+    on the `fallback_to_env` config setting.
+
+    This prevents the framework from silently using the default .env
+    manager when the user has explicitly configured OpenBao.
 """
 from __future__ import annotations
 
@@ -23,16 +32,21 @@ _init_attempted = False
 def get_openbao_manager() -> Optional["SecretsManager"]:
     """Get or create the shared OpenBaoSecretsManager singleton.
 
-    Returns the manager if OpenBao is configured and available,
+    Returns the manager if OpenBao is enabled and configured,
     None otherwise (letting the default .env path proceed).
+
+    When the manager IS returned, it handles fallback internally:
+        - fallback_to_env=True  -> OpenBao first, then .env on failure
+        - fallback_to_env=False -> OpenBao only, empty dict on failure
 
     Thread-safe: uses a lock to ensure single initialization.
     """
     global _manager, _init_attempted
 
     if _manager is not None:
-        # Fast path — already initialized
-        return _manager if _manager.is_available() else None
+        # Fast path — already initialized and returned regardless of
+        # current OpenBao availability. The manager handles fallback.
+        return _manager
 
     if _init_attempted:
         # Already tried and failed — don't retry on every call
@@ -41,24 +55,23 @@ def get_openbao_manager() -> Optional["SecretsManager"]:
     with _init_lock:
         # Double-check after acquiring lock
         if _manager is not None:
-            return _manager if _manager.is_available() else None
+            return _manager
         if _init_attempted:
             return None
 
         _init_attempted = True
 
         try:
-            from helpers.plugins import find_plugin_dir
-            from helpers.secrets import DEFAULT_SECRETS_FILE
+            from python.helpers.plugins import find_plugin_dir
+            from python.helpers.secrets import DEFAULT_SECRETS_FILE
 
             # Find our plugin directory for settings.json
-            plugin_dir = find_plugin_dir("openbao-secrets")
+            plugin_dir = find_plugin_dir("openbao_secrets")
             if not plugin_dir:
-                logger.debug("openbao-secrets plugin directory not found")
+                logger.debug("openbao_secrets plugin directory not found")
                 return None
 
             # Load and validate config
-            # Import from plugin's own helpers
             import importlib.util
             import os
 
@@ -78,16 +91,15 @@ def get_openbao_manager() -> Optional["SecretsManager"]:
                 logger.warning("OpenBao config validation errors: %s", errors)
                 return None
 
-            # Load the manager module
-            manager_path = os.path.join(plugin_dir, "helpers", "openbao_secrets_manager.py")
-            spec_mgr = importlib.util.spec_from_file_location("openbao_manager", manager_path)
-            mgr_mod = importlib.util.module_from_spec(spec_mgr)
-
-            # Ensure the client module is loadable too
+            # Load the client and manager modules
             client_path = os.path.join(plugin_dir, "helpers", "openbao_client.py")
             spec_client = importlib.util.spec_from_file_location("openbao_client", client_path)
             client_mod = importlib.util.module_from_spec(spec_client)
             spec_client.loader.exec_module(client_mod)
+
+            manager_path = os.path.join(plugin_dir, "helpers", "openbao_secrets_manager.py")
+            spec_mgr = importlib.util.spec_from_file_location("openbao_manager", manager_path)
+            mgr_mod = importlib.util.module_from_spec(spec_mgr)
 
             # Inject dependencies for the manager module
             import sys
@@ -100,15 +112,23 @@ def get_openbao_manager() -> Optional["SecretsManager"]:
                 config, DEFAULT_SECRETS_FILE
             )
 
+            # ALWAYS return the manager when enabled+configured.
+            # The manager handles fallback_to_env internally:
+            #   - True:  load_secrets() falls back to .env on OpenBao failure
+            #   - False: load_secrets() returns empty dict on OpenBao failure
             if _manager.is_available():
-                logger.info("OpenBao secrets manager initialized successfully")
-                return _manager
+                logger.info("OpenBao secrets manager active (connected)")
             else:
-                logger.warning("OpenBao manager created but not available")
                 if config.fallback_to_env:
-                    # Return the manager anyway — it will handle fallback internally
-                    return _manager
-                return None
+                    logger.warning(
+                        "OpenBao unavailable — manager will use .env fallback"
+                    )
+                else:
+                    logger.warning(
+                        "OpenBao unavailable and fallback_to_env=False — "
+                        "secrets will be empty until OpenBao recovers"
+                    )
+            return _manager
 
         except ImportError as exc:
             logger.warning("OpenBao plugin dependencies not installed: %s", exc)
