@@ -102,6 +102,18 @@ def configure_cognee() -> None:
 
     data_dir = files.get_abs_path(get_cognee_setting("cognee_data_dir", "usr/cognee"))
     os.makedirs(data_dir, exist_ok=True)
-    os.environ["DATA_ROOT_DIRECTORY"] = os.path.join(data_dir, "data_storage")
-    os.environ["SYSTEM_ROOT_DIRECTORY"] = os.path.join(data_dir, "cognee_system")
-    os.environ["CACHE_ROOT_DIRECTORY"] = os.path.join(data_dir, "cognee_cache")
+
+    data_storage = os.path.join(data_dir, "data_storage")
+    system_storage = os.path.join(data_dir, "cognee_system")
+    cache_storage = os.path.join(data_dir, "cognee_cache")
+
+    os.environ["DATA_ROOT_DIRECTORY"] = data_storage
+    os.environ["SYSTEM_ROOT_DIRECTORY"] = system_storage
+    os.environ["CACHE_ROOT_DIRECTORY"] = cache_storage
+
+    try:
+        import cognee
+        cognee.config.set_data_root_directory(data_storage)
+        cognee.config.set_system_root_directory(system_storage)
+    except Exception:
+        pass
