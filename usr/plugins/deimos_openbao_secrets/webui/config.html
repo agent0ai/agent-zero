@@ -215,7 +215,7 @@
                 </div>
 
                 <!-- ============= SECRETS MANAGEMENT ============= -->
-                <div x-show="config.enabled && config.url" x-data="secretsEditorData()" x-effect="if(config.enabled && config.url && !loading && secrets.length === 0 && !error) doRefresh()" x-effect="if(config.enabled && config.url && !loading && secrets.length === 0 && !error) doRefresh()">
+                <div x-show="config.enabled && config.url" x-data="secretsEditorData()" x-effect="if(config.enabled && config.url && !loading && secrets.length === 0 && !error) doRefresh()">
 
                     <div class="section-title" style="margin-top:24px;">Secrets Management</div>
                     <div class="section-description">
@@ -306,8 +306,6 @@ DB_PASSWORD=hunter2
             newValue: '',
             _editing: {},
             _editValues: {},
-
-            },
 
             isEditing: function(key) {
                 return !!this._editing[key];
