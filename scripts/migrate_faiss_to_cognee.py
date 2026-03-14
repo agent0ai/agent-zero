@@ -24,6 +24,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from python.helpers.cognee_init import configure_cognee
 
+
+def _log(msg: str):
+    """Print with immediate flush so background-thread output reaches container logs."""
+    print(msg, flush=True)
+
 MIGRATION_STATE_FILE = "usr/cognee_migration_state.json"
 
 
@@ -129,13 +134,13 @@ def load_faiss_db(db_dir: str) -> dict | None:
         from langchain_community.vectorstores import FAISS
         from langchain_community.vectorstores.utils import DistanceStrategy
     except ImportError:
-        print(f"  ERROR: faiss-cpu not installed, cannot load {db_dir}")
-        print(f"  Install with: pip install faiss-cpu langchain-community")
+        _log(f"  ERROR: faiss-cpu not installed, cannot load {db_dir}")
+        _log(f"  Install with: pip install faiss-cpu langchain-community")
         return None
 
     embedding_meta_path = os.path.join(db_dir, "embedding.json")
     if not os.path.exists(embedding_meta_path):
-        print(f"  WARNING: No embedding.json in {db_dir}, skipping")
+        _log(f"  WARNING: No embedding.json in {db_dir}, skipping")
         return {}
 
     try:
@@ -168,7 +173,7 @@ def load_faiss_db(db_dir: str) -> dict | None:
 
         return db.docstore._dict
     except Exception as e:
-        print(f"  ERROR loading FAISS from {db_dir}: {e}")
+        _log(f"  ERROR loading FAISS from {db_dir}: {e}")
         return None
 
 
@@ -197,7 +202,7 @@ async def migrate_index(
     })
 
     if index_state.get("status") == "complete":
-        print(f"\n  SKIP (already complete): {memory_subdir}")
+        _log(f"\n  SKIP (already complete): {memory_subdir}")
         return {
             "subdir": memory_subdir,
             "total": index_state["total"],
@@ -205,19 +210,19 @@ async def migrate_index(
             "skipped": True,
         }
 
-    print(f"\n{'[DRY RUN] ' if dry_run else ''}Migrating: {memory_subdir}")
-    print(f"  DB dir: {db_dir}")
+    _log(f"\n{'[DRY RUN] ' if dry_run else ''}Migrating: {memory_subdir}")
+    _log(f"  DB dir: {db_dir}")
 
     all_docs = load_faiss_db(db_dir)
     if all_docs is None:
-        print(f"  FAILED to load FAISS — will retry on next startup")
+        _log(f"  FAILED to load FAISS — will retry on next startup")
         index_state["status"] = "error"
         state["indices"][index_key] = index_state
         if not dry_run:
             save_state(base_dir, state)
         return {"subdir": memory_subdir, "total": 0, "migrated": 0, "skipped": False}
     if not all_docs:
-        print(f"  No documents found, marking complete")
+        _log(f"  No documents found, marking complete")
         index_state["status"] = "complete"
         index_state["total"] = 0
         state["indices"][index_key] = index_state
@@ -238,7 +243,7 @@ async def migrate_index(
         by_area[area].append((doc_id, doc))
 
     pending = sum(len(docs) for docs in by_area.values())
-    print(f"  Total: {len(all_docs)}, already migrated: {len(already_migrated)}, pending: {pending}")
+    _log(f"  Total: {len(all_docs)}, already migrated: {len(already_migrated)}, pending: {pending}")
 
     if pending == 0:
         index_state["status"] = "complete"
@@ -260,7 +265,7 @@ async def migrate_index(
         if index_info["type"] == "project":
             node_sets.append(f"project_{index_info['project_name']}")
 
-        print(f"  Area '{area}': {len(docs)} docs -> dataset '{dataset_name}'")
+        _log(f"  Area '{area}': {len(docs)} docs -> dataset '{dataset_name}'")
 
         if dry_run:
             migrated_this_run += len(docs)
@@ -287,7 +292,7 @@ async def migrate_index(
 
             except Exception as e:
                 error_msg = f"doc {doc_id}: {e}"
-                print(f"    ERROR: {error_msg}")
+                _log(f"    ERROR: {error_msg}")
                 index_state.setdefault("errors", []).append(error_msg)
 
     if len(already_migrated) >= len(all_docs):
@@ -305,7 +310,7 @@ async def migrate_index(
         state_dir = os.path.join(base_dir, "usr", "cognee_state", memory_subdir.replace("/", os.sep))
         os.makedirs(state_dir, exist_ok=True)
         shutil.copy2(knowledge_import_path, os.path.join(state_dir, "knowledge_import.json"))
-        print(f"  Copied knowledge_import.json to cognee_state")
+        _log(f"  Copied knowledge_import.json to cognee_state")
 
     return {
         "subdir": memory_subdir,
@@ -333,24 +338,24 @@ async def run_cognify(indices: list[dict]):
     datasets_to_cognify = [d for d in datasets if d in existing_names]
 
     if datasets_to_cognify:
-        print(f"\nRunning cognify on {len(datasets_to_cognify)} datasets...")
+        _log(f"\nRunning cognify on {len(datasets_to_cognify)} datasets...")
         try:
             await cognee.cognify(
                 datasets=datasets_to_cognify,
                 temporal_cognify=True,
             )
-            print("  Cognify completed")
+            _log("  Cognify completed")
         except Exception as e:
-            print(f"  Cognify error (non-fatal): {e}")
+            _log(f"  Cognify error (non-fatal): {e}")
     else:
-        print("\nNo datasets to cognify")
+        _log("\nNo datasets to cognify")
 
 
 async def verify_migration(indices: list[dict]):
     import cognee
     from cognee import SearchType
 
-    print("\n=== VERIFICATION ===")
+    _log("\n=== VERIFICATION ===")
     for index_info in indices:
         dataset_base = subdir_to_dataset(index_info["memory_subdir"])
         for area in ["main", "fragments", "solutions"]:
@@ -363,9 +368,9 @@ async def verify_migration(indices: list[dict]):
                     datasets=[dataset],
                 )
                 count = len(results) if results else 0
-                print(f"  {dataset}: {count} results from test search")
+                _log(f"  {dataset}: {count} results from test search")
             except Exception as e:
-                print(f"  {dataset}: search error - {e}")
+                _log(f"  {dataset}: search error - {e}")
 
 
 def backup_completed_indices(indices: list[dict], state: dict):
@@ -382,7 +387,7 @@ def backup_completed_indices(indices: list[dict], state: dict):
         backup_dir = db_dir.rstrip("/") + "_faiss_backup"
         if os.path.exists(db_dir) and not os.path.exists(backup_dir):
             shutil.copytree(db_dir, backup_dir)
-            print(f"  Backed up (copy): {db_dir} -> {backup_dir}")
+            _log(f"  Backed up (copy): {db_dir} -> {backup_dir}")
 
 
 def _migration_looks_empty(state: dict) -> bool:
@@ -395,56 +400,78 @@ def _migration_looks_empty(state: dict) -> bool:
     return True
 
 
+def _current_data_dir() -> str:
+    from python.helpers.cognee_init import get_cognee_setting
+    from python.helpers import files
+    data_dir = files.get_abs_path(get_cognee_setting("cognee_data_dir", "usr/cognee"))
+    return os.path.join(data_dir, "data_storage")
+
+
 async def run_migration(dry_run: bool = False, verify: bool = False, force: bool = False) -> bool:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(base_dir)
 
+    configure_cognee()
+
     state = load_state(base_dir)
+    current_dir = _current_data_dir()
 
     if state.get("completed") and not force:
-        if _migration_looks_empty(state):
+        needs_rerun = False
+
+        if not state.get("data_dir"):
+            if not _migration_looks_empty(state):
+                _log(f"Migration state pre-dates data_dir tracking. Forcing re-run to ensure data is in {current_dir}")
+                needs_rerun = True
+        elif state["data_dir"] != current_dir:
+            _log(f"Cognee data directory changed ({state['data_dir']} -> {current_dir}). Forcing re-run...")
+            needs_rerun = True
+
+        if not needs_rerun and _migration_looks_empty(state):
             indices_on_disk = find_faiss_indices(base_dir)
             if indices_on_disk:
-                print("Previous migration completed with 0 documents but FAISS indices exist on disk. Re-running...")
-                state = {"version": 1, "indices": {}, "completed": False}
-                save_state(base_dir, state)
-            else:
-                await cleanup_backup_datasets(base_dir)
-                return True
+                _log("Previous migration completed with 0 documents but FAISS indices exist on disk. Re-running...")
+                needs_rerun = True
+
+        if needs_rerun:
+            state = {"version": 1, "indices": {}, "completed": False}
+            save_state(base_dir, state)
         else:
+            _log(f"FAISS->Cognee migration already complete. Data dir: {state.get('data_dir', 'unknown')}")
             await cleanup_backup_datasets(base_dir)
             return True
 
-    configure_cognee()
-
     indices = find_faiss_indices(base_dir)
     if not indices:
+        _log("No FAISS indices found. Nothing to migrate.")
         state["completed"] = True
+        state["data_dir"] = current_dir
         if not dry_run:
             save_state(base_dir, state)
         return True
 
-    print(f"=== FAISS -> Cognee Migration ===")
-    print(f"Base dir: {base_dir}")
+    _log(f"=== FAISS -> Cognee Migration ===")
+    _log(f"Base dir: {base_dir}")
+    _log(f"Data dir: {current_dir}")
     if dry_run:
-        print("MODE: DRY RUN\n")
+        _log("MODE: DRY RUN\n")
 
-    print(f"Found {len(indices)} FAISS indices:")
+    _log(f"Found {len(indices)} FAISS indices:")
     for idx in indices:
-        print(f"  [{idx['type']}] {idx['memory_subdir']} -> {idx['db_dir']}")
+        _log(f"  [{idx['type']}] {idx['memory_subdir']} -> {idx['db_dir']}")
 
     results = []
     for index_info in indices:
         result = await migrate_index(index_info, state, base_dir, dry_run=dry_run)
         results.append(result)
 
-    print("\n=== MIGRATION SUMMARY ===")
+    _log("\n=== MIGRATION SUMMARY ===")
     total_all = sum(r["total"] for r in results)
     migrated_all = sum(r["migrated"] for r in results)
     for r in results:
         status = "SKIP" if r.get("skipped") else "OK"
-        print(f"  [{status}] {r['subdir']}: {r['migrated']}/{r['total']} documents")
-    print(f"  TOTAL: {migrated_all}/{total_all} documents")
+        _log(f"  [{status}] {r['subdir']}: {r['migrated']}/{r['total']} documents")
+    _log(f"  TOTAL: {migrated_all}/{total_all} documents")
 
     all_complete = all(
         state["indices"].get(f"{idx['type']}:{idx['memory_subdir']}", {}).get("status") == "complete"
@@ -453,9 +480,10 @@ async def run_migration(dry_run: bool = False, verify: bool = False, force: bool
 
     if all_complete and not dry_run:
         state["completed"] = True
+        state["data_dir"] = current_dir
         save_state(base_dir, state)
 
-        print("\nBacking up FAISS directories...")
+        _log("\nBacking up FAISS directories...")
         backup_completed_indices(indices, state)
 
         await cleanup_backup_datasets(base_dir)
@@ -470,8 +498,8 @@ async def run_migration(dry_run: bool = False, verify: bool = False, force: bool
             if not r.get("skipped") and r["migrated"] < r["total"]
         ]
         if partial:
-            print(f"\nWARNING: Partial migration for: {partial}")
-            print("Re-run to continue from where it left off.")
+            _log(f"\nWARNING: Partial migration for: {partial}")
+            _log("Re-run to continue from where it left off.")
 
     return all_complete
 
@@ -492,17 +520,17 @@ async def cleanup_backup_datasets(base_dir: str):
             state["cleanup_done"] = True
             save_state(base_dir, state)
             return
-        print(f"\nCleaning up {len(backup_datasets)} duplicate backup datasets...")
+        _log(f"\nCleaning up {len(backup_datasets)} duplicate backup datasets...")
         for ds in backup_datasets:
             try:
                 await cognee.datasets.delete_dataset(ds.id)
-                print(f"  Deleted: {ds.name}")
+                _log(f"  Deleted: {ds.name}")
             except Exception as e:
-                print(f"  Failed to delete {ds.name}: {e}")
+                _log(f"  Failed to delete {ds.name}: {e}")
         state["cleanup_done"] = True
         save_state(base_dir, state)
     except Exception as e:
-        print(f"  Cleanup error (non-fatal): {e}")
+        _log(f"  Cleanup error (non-fatal): {e}")
 
 
 async def main():
@@ -516,7 +544,7 @@ async def main():
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         await cleanup_backup_datasets(base_dir)
 
-    print(f"\n{'Done.' if success else 'Migration incomplete -- re-run to continue.'}")
+    _log(f"\n{'Done.' if success else 'Migration incomplete -- re-run to continue.'}")
 
 
 if __name__ == "__main__":
