@@ -23,27 +23,36 @@ RUN bash /ins/after_install.sh
 
 # --- Run image scripts ---
 COPY ./docker/run/fs/ /
-COPY ./ /git/agent-zero
 
 ARG BRANCH=local
-ARG A0_VERSION=unknown
 ENV BRANCH=$BRANCH
 
-# Embed version for cache-busting when .git is unavailable
-RUN echo "$A0_VERSION" > /git/agent-zero/VERSION
-
 RUN bash /ins/pre_install.sh $BRANCH
-RUN bash /ins/install_A0.sh $BRANCH
-RUN bash /ins/install_additional.sh $BRANCH
 
-ARG CACHE_DATE=none
-RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
+# --- Python deps (cached unless requirements*.txt change) ---
+COPY requirements.txt requirements2.txt /tmp/deps/
+RUN . /ins/setup_venv.sh && \
+    uv pip install -r /tmp/deps/requirements.txt && \
+    uv pip install -r /tmp/deps/requirements2.txt && \
+    rm -rf /tmp/deps
 
-# --- Bun (before post_install cleanup) ---
+# --- Playwright (cached with deps layer) ---
+RUN bash /ins/install_playwright.sh $BRANCH
+
+# --- Bun (rarely changes) ---
 RUN apt-get update && apt-get install -y --no-install-recommends unzip \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
+
+# --- Source code (changes often, but deps already installed above) ---
+COPY ./ /git/agent-zero
+
+ARG A0_VERSION=unknown
+RUN echo "$A0_VERSION" > /git/agent-zero/VERSION
+
+# Re-run install_A0.sh: pip install is near-instant (cached), only preload runs
+RUN bash /ins/install_A0.sh $BRANCH
 
 RUN bash /ins/post_install.sh $BRANCH
 
