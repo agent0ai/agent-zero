@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Agent Zero</title>
+    <meta name="theme-color" content="#333333">
     <link rel="stylesheet" href="/login.css">
     <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+    <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+    <link rel="manifest" href="/js/manifest.json">
 </head>
 <body>
     <div class="login-container">
@@ -26,5 +29,14 @@
             {% endif %}
         </form>
     </div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error) => {
+                    console.log('SW registration failed: ', error);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

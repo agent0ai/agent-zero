@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>Agent Zero</title>
-    <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+    <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+    <meta name="theme-color" content="#333333">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="css/messages.css">
     <link rel="stylesheet" href="components/messages/action-buttons/simple-action-buttons.css">
@@ -57,7 +59,7 @@
     <link rel="stylesheet" href="vendor/google/google-icons.css" />
 
     <!-- Link the PWA manifest file -->
-    <link rel="manifest" href="js/manifest.json">
+    <link rel="manifest" href="/js/manifest.json">
 
     <script>
         // Expose git info for sidebar component
@@ -128,7 +130,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('js/sw.js').then(registration => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(registration => {
                     console.log('SW registered: ', registration);
                 }).catch(registrationError => {
                     console.log('SW registration failed: ', registrationError);
