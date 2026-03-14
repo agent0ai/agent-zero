@@ -106,16 +106,17 @@ def find_faiss_indices(base_dir: str) -> list[dict]:
     return indices
 
 
-def load_faiss_db(db_dir: str) -> dict:
+def load_faiss_db(db_dir: str) -> dict | None:
+    """Load FAISS index. Returns dict of docs, or None if loading failed (missing deps, errors)."""
     try:
         from langchain.embeddings import CacheBackedEmbeddings
         from langchain.storage import LocalFileStore
         from langchain_community.vectorstores import FAISS
         from langchain_community.vectorstores.utils import DistanceStrategy
     except ImportError:
-        print(f"  WARNING: faiss-cpu not installed, cannot load {db_dir}")
+        print(f"  ERROR: faiss-cpu not installed, cannot load {db_dir}")
         print(f"  Install with: pip install faiss-cpu langchain-community")
-        return {}
+        return None
 
     embedding_meta_path = os.path.join(db_dir, "embedding.json")
     if not os.path.exists(embedding_meta_path):
@@ -153,7 +154,7 @@ def load_faiss_db(db_dir: str) -> dict:
         return db.docstore._dict
     except Exception as e:
         print(f"  ERROR loading FAISS from {db_dir}: {e}")
-        return {}
+        return None
 
 
 def subdir_to_dataset(memory_subdir: str) -> str:
@@ -193,6 +194,13 @@ async def migrate_index(
     print(f"  DB dir: {db_dir}")
 
     all_docs = load_faiss_db(db_dir)
+    if all_docs is None:
+        print(f"  FAILED to load FAISS — will retry on next startup")
+        index_state["status"] = "error"
+        state["indices"][index_key] = index_state
+        if not dry_run:
+            save_state(base_dir, state)
+        return {"subdir": memory_subdir, "total": 0, "migrated": 0, "skipped": False}
     if not all_docs:
         print(f"  No documents found, marking complete")
         index_state["status"] = "complete"
@@ -362,6 +370,16 @@ def backup_completed_indices(indices: list[dict], state: dict):
             print(f"  Backed up (copy): {db_dir} -> {backup_dir}")
 
 
+def _migration_looks_empty(state: dict) -> bool:
+    """Detect a previous migration that 'completed' with 0 docs (e.g. faiss-cpu was missing)."""
+    if not state.get("completed"):
+        return False
+    for idx_state in state.get("indices", {}).values():
+        if idx_state.get("total", 0) > 0:
+            return False
+    return True
+
+
 async def run_migration(dry_run: bool = False, verify: bool = False, force: bool = False) -> bool:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(base_dir)
@@ -369,7 +387,16 @@ async def run_migration(dry_run: bool = False, verify: bool = False, force: bool
     state = load_state(base_dir)
 
     if state.get("completed") and not force:
-        return True
+        if _migration_looks_empty(state):
+            indices_on_disk = find_faiss_indices(base_dir)
+            if indices_on_disk:
+                print("Previous migration completed with 0 documents but FAISS indices exist on disk. Re-running...")
+                state = {"version": 1, "indices": {}, "completed": False}
+                save_state(base_dir, state)
+            else:
+                return True
+        else:
+            return True
 
     configure_cognee()
 
