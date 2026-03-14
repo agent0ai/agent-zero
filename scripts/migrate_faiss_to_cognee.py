@@ -49,12 +49,18 @@ def save_state(base_dir: str, state: dict):
     os.replace(tmp_path, state_path)
 
 
+def _is_backup_dir(name: str) -> bool:
+    return name.endswith("_faiss_backup")
+
+
 def find_faiss_indices(base_dir: str) -> list[dict]:
     indices = []
 
     global_memory = os.path.join(base_dir, "usr", "memory")
     if os.path.exists(global_memory):
         for subdir in os.listdir(global_memory):
+            if _is_backup_dir(subdir):
+                continue
             subdir_path = os.path.join(global_memory, subdir)
             if not os.path.isdir(subdir_path):
                 continue
@@ -85,23 +91,32 @@ def find_faiss_indices(base_dir: str) -> list[dict]:
                     "index_path": index_path,
                 })
 
-    backup_memory = os.path.join(base_dir, "usr", "memory_faiss_backup")
-    if os.path.exists(backup_memory):
-        for subdir in os.listdir(backup_memory):
-            subdir_path = os.path.join(backup_memory, subdir)
+    # Fallback: if originals were deleted, look for backups
+    for backup_root in [
+        os.path.join(base_dir, "usr", "memory_faiss_backup"),
+        os.path.join(base_dir, "usr", "memory"),
+    ]:
+        if not os.path.exists(backup_root):
+            continue
+        for subdir in os.listdir(backup_root):
+            if not _is_backup_dir(subdir) and backup_root.endswith("memory"):
+                continue
+            subdir_path = os.path.join(backup_root, subdir)
             if not os.path.isdir(subdir_path):
                 continue
             index_path = os.path.join(subdir_path, "index.faiss")
-            if os.path.isfile(index_path):
-                already = any(i["memory_subdir"] == subdir for i in indices)
-                if not already:
-                    indices.append({
-                        "type": "global_backup",
-                        "subdir": subdir,
-                        "memory_subdir": subdir,
-                        "db_dir": subdir_path,
-                        "index_path": index_path,
-                    })
+            if not os.path.isfile(index_path):
+                continue
+            original_subdir = subdir.removesuffix("_faiss_backup")
+            already = any(i["memory_subdir"] == original_subdir for i in indices)
+            if not already:
+                indices.append({
+                    "type": "global_backup",
+                    "subdir": original_subdir,
+                    "memory_subdir": original_subdir,
+                    "db_dir": subdir_path,
+                    "index_path": index_path,
+                })
 
     return indices
 
@@ -394,8 +409,10 @@ async def run_migration(dry_run: bool = False, verify: bool = False, force: bool
                 state = {"version": 1, "indices": {}, "completed": False}
                 save_state(base_dir, state)
             else:
+                await cleanup_backup_datasets(base_dir)
                 return True
         else:
+            await cleanup_backup_datasets(base_dir)
             return True
 
     configure_cognee()
@@ -441,6 +458,8 @@ async def run_migration(dry_run: bool = False, verify: bool = False, force: bool
         print("\nBacking up FAISS directories...")
         backup_completed_indices(indices, state)
 
+        await cleanup_backup_datasets(base_dir)
+
         if verify:
             await run_cognify(indices)
             await verify_migration(indices)
@@ -457,12 +476,46 @@ async def run_migration(dry_run: bool = False, verify: bool = False, force: bool
     return all_complete
 
 
+async def cleanup_backup_datasets(base_dir: str):
+    """Remove duplicate datasets created from *_faiss_backup dirs in earlier buggy runs."""
+    state = load_state(base_dir)
+    if state.get("cleanup_done"):
+        return
+
+    try:
+        from python.helpers.cognee_init import configure_cognee
+        configure_cognee()
+        import cognee
+        all_datasets = await cognee.datasets.list_datasets()
+        backup_datasets = [ds for ds in all_datasets if "_faiss_backup_" in ds.name]
+        if not backup_datasets:
+            state["cleanup_done"] = True
+            save_state(base_dir, state)
+            return
+        print(f"\nCleaning up {len(backup_datasets)} duplicate backup datasets...")
+        for ds in backup_datasets:
+            try:
+                await cognee.datasets.delete_dataset(ds.id)
+                print(f"  Deleted: {ds.name}")
+            except Exception as e:
+                print(f"  Failed to delete {ds.name}: {e}")
+        state["cleanup_done"] = True
+        save_state(base_dir, state)
+    except Exception as e:
+        print(f"  Cleanup error (non-fatal): {e}")
+
+
 async def main():
     dry_run = "--dry-run" in sys.argv
     verify = "--verify" in sys.argv
     force = "--force" in sys.argv
 
     success = await run_migration(dry_run=dry_run, verify=verify, force=force)
+
+    if success and "--cleanup" in sys.argv:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        await cleanup_backup_datasets(base_dir)
+
     print(f"\n{'Done.' if success else 'Migration incomplete -- re-run to continue.'}")
 
 
