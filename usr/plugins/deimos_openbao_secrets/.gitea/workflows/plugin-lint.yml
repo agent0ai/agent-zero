@@ -1,0 +1,81 @@
+name: Plugin Lint
+
+on:
+  push:
+    branches: ['*']
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  js-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate JS in HTML files
+        run: |
+          ERRORS=0
+          for html in $(find webui -name '*.html' 2>/dev/null); do
+            echo "Checking $html...";
+            # Extract JS from <script> tags
+            sed -n '/<script>/,/<\/script>/p' "$html" | sed '1d;$d' > /tmp/extracted.js
+            if [ -s /tmp/extracted.js ]; then
+              node -e 'try { new Function(require("fs").readFileSync("/tmp/extracted.js","utf8")); console.log("  ✅ JS syntax OK") } catch(e) { console.error("  ❌ " + e.message); process.exit(1) }' || ERRORS=$((ERRORS+1))
+            else
+              echo "  ⏭ No script content"
+            fi
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "❌ $ERRORS file(s) with JS syntax errors"
+            exit 1
+          fi
+          echo "✅ All JS syntax valid"
+
+      - name: Check for duplicate HTML attributes
+        run: |
+          ERRORS=0
+          for html in $(find webui -name '*.html' 2>/dev/null); do
+            echo "Checking $html for duplicate attributes...";
+            # Find lines with duplicate x-* attributes
+            grep -nP '(x-\w+)="[^"]*".*\1=' "$html" && {
+              echo "  ❌ Duplicate Alpine.js attributes found"
+              ERRORS=$((ERRORS+1))
+            } || echo "  ✅ No duplicates"
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "❌ $ERRORS file(s) with duplicate attributes"
+            exit 1
+          fi
+
+      - name: Validate plugin.yaml
+        run: |
+          if [ -f plugin.yaml ]; then
+            python3 -c "import yaml; yaml.safe_load(open('plugin.yaml')); print('✅ plugin.yaml valid YAML')"
+          else
+            echo '⏭ No plugin.yaml found'
+          fi
+
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest hvac tenacity circuitbreaker pyyaml
+
+      - name: Run tests
+        run: |
+          cd tests && python -m pytest -v .
