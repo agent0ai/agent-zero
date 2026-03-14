@@ -31,10 +31,10 @@ RUN bash /ins/pre_install.sh $BRANCH
 
 # --- Python deps (cached unless requirements*.txt change) ---
 COPY requirements.txt requirements2.txt /tmp/deps/
-RUN . /ins/setup_venv.sh && \
+RUN bash -c '. /ins/setup_venv.sh && \
     uv pip install -r /tmp/deps/requirements.txt && \
     uv pip install -r /tmp/deps/requirements2.txt && \
-    rm -rf /tmp/deps
+    rm -rf /tmp/deps'
 
 # --- Playwright (cached with deps layer) ---
 RUN bash /ins/install_playwright.sh $BRANCH
