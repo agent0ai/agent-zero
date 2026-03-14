@@ -4,7 +4,7 @@ Intercepts get_secrets_manager() via @extensible to return
 OpenBaoSecretsManager when OpenBao is configured and available.
 """
 import logging
-from python.helpers.extension import Extension
+from helpers.extension import Extension
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class OpenBaoFactory(Extension):
         """Lazily load and return the OpenBao manager singleton."""
         import importlib.util
         import os
-        from python.helpers.plugins import find_plugin_dir
+        from helpers.plugins import find_plugin_dir
 
         plugin_dir = find_plugin_dir("deimos_openbao_secrets")
         if not plugin_dir:

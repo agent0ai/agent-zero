@@ -78,8 +78,8 @@ def get_openbao_manager() -> Optional["SecretsManager"]:
             return None
 
         try:
-            from python.helpers.plugins import find_plugin_dir
-            from python.helpers.secrets import DEFAULT_SECRETS_FILE
+            from helpers.plugins import find_plugin_dir
+            from helpers.secrets import DEFAULT_SECRETS_FILE
 
             # Find our plugin directory for settings.json
             plugin_dir = find_plugin_dir("deimos_openbao_secrets")

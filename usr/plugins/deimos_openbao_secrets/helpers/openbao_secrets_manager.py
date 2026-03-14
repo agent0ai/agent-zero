@@ -12,7 +12,7 @@ import threading
 from typing import Dict, List, Optional, Tuple
 
 from circuitbreaker import CircuitBreakerError
-from python.helpers.secrets import SecretsManager, alias_for_key, DEFAULT_SECRETS_FILE
+from helpers.secrets import SecretsManager, alias_for_key, DEFAULT_SECRETS_FILE
 from helpers.config import OpenBaoConfig
 from helpers.openbao_client import OpenBaoClient
 
