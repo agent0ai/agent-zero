@@ -198,8 +198,9 @@
                             .then(d => {
                                 if (d.ok) {
                                     let s = d.data?.status || 'OK';
-                                    let extra = d.data?.sealed ? ' (SEALED)' : '';
-                                    testResult = '✅ ' + s + extra;
+                                    let auth = d.data?.authenticated ? '' : ' (NOT AUTHENTICATED)';
+                                    let extra = d.data?.auth_error ? ' - ' + d.data.auth_error : '';
+                                    testResult = (d.data?.authenticated ? '2705 ' : '26a0Fe0f ') + s + auth + extra;
                                 } else {
                                     let msg = d.error || 'Failed';
                                     if (msg.includes('Connection refused') || msg.includes('NewConnectionError')) msg = 'Cannot reach OpenBao. Check URL and ensure it is running.';
@@ -214,7 +215,7 @@
                 </div>
 
                 <!-- ============= SECRETS MANAGEMENT ============= -->
-                <div x-show="config.enabled && config.url" x-data="secretsEditorData()">
+                <div x-show="config.enabled && config.url" x-data="secretsEditorData()" x-effect="if(config.enabled && config.url && !loading && secrets.length === 0 && !error) doRefresh()" x-effect="if(config.enabled && config.url && !loading && secrets.length === 0 && !error) doRefresh()">
 
                     <div class="section-title" style="margin-top:24px;">Secrets Management</div>
                     <div class="section-description">
@@ -264,8 +265,7 @@ DB_PASSWORD=hunter2
                                 <div class="field-control" style="display:flex; gap:6px; align-items:center;">
                                     <template x-if="!isEditing(secret.key)">
                                         <div style="display:flex; gap:6px; align-items:center; width:100%;">
-                                            <span x-text="getRevealed(secret.key)" style="font-family:monospace; flex:1;"></span>
-                                            <button class="btn btn-field" @click="doReveal(secret.key)" title="Reveal 5s">&#128065;</button>
+                                            <span x-text="'***'" style="font-family:monospace; flex:1;"></span>
                                             <button class="btn btn-field" @click="startEdit(secret.key)" title="Edit">&#9998;</button>
                                             <button class="btn btn-field" @click="confirmDelete(secret.key)" title="Delete" style="color:#ff6b6b;">&#128465;</button>
                                         </div>
@@ -304,12 +304,9 @@ DB_PASSWORD=hunter2
             showAdd: false,
             newKey: '',
             newValue: '',
-            _revealed: {},
             _editing: {},
             _editValues: {},
 
-            getRevealed: function(key) {
-                return this._revealed[key] || '***';
             },
 
             isEditing: function(key) {
@@ -356,27 +353,6 @@ DB_PASSWORD=hunter2
                 });
             },
 
-            doReveal: function(key) {
-                var self = this;
-                fetch(API, {
-                    method: 'POST',
-                    headers: HEADERS,
-                    credentials: 'same-origin',
-                    body: JSON.stringify({action: 'get', key: key})
-                })
-                .then(function(r) { return r.json(); })
-                .then(function(d) {
-                    if (d.ok) {
-                        self._revealed[key] = d.value;
-                        setTimeout(function() {
-                            delete self._revealed[key];
-                        }, 5000);
-                    } else {
-                        self.error = d.error;
-                    }
-                })
-                .catch(function(e) { self.error = e.message; });
-            },
 
             startEdit: function(key) {
                 this._editing[key] = true;
