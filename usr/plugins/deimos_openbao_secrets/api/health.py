@@ -38,7 +38,7 @@ class TestConnection(ApiHandler):
 
     @classmethod
     def requires_api_key(cls) -> bool:
-        return True
+        return False
 
     @classmethod
     def requires_auth(cls) -> bool:
