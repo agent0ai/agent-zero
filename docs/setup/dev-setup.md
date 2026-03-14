@@ -64,12 +64,13 @@ Now when you select one of the python files in the project, you should see prope
 
 ![VS Code env terminal](res/dev/devinst-5.png)
 
-3. Install dependencies. Run these two commands in the terminal:
+3. Install dependencies. Run these three commands in the terminal:
 ```bash
 pip install -r requirements.txt
+pip install -r requirements2.txt
 playwright install chromium
 ```
-These will install all the python packages and browser binaries for playwright (browser agent).
+These will install all the python packages and browser binaries for playwright (browser agent). `requirements2.txt` contains override pins that are also installed in the Docker setup and are needed for local development.
 Errors in the code editor caused by missing packages should now be gone. If not, try reloading the window.
 
 
