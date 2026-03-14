@@ -224,6 +224,7 @@
                     <div style="display:flex; gap:8px; margin:12px 0;">
                         <button class="btn btn-field" @click="doRefresh()">Refresh</button>
                         <button class="btn btn-field" @click="toggleAdd()">Add Secret</button>
+                        <button class="btn btn-field" @click="toggleBulk()">Bulk Import</button>
                     </div>
 
                     <div x-show="error" style="color:#ff6b6b; margin:8px 0; font-weight:bold;" x-text="error"></div>
@@ -236,6 +237,20 @@
                             <input type="password" x-model="newValue" placeholder="secret value" style="flex:2; min-width:200px;" />
                             <button class="btn btn-field" @click="addNew()">Save</button>
                             <button class="btn btn-field" @click="cancelAdd()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Bulk Import -->
+                    <div x-show="showBulk" style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; margin:8px 0;">
+                        <div style="margin-bottom:8px; color:#aaa; font-size:0.9em;">
+                            Enter secrets as KEY=VALUE pairs, one per line. Lines starting with # are ignored.
+                        </div>
+                        <textarea x-model="bulkText" placeholder="API_KEY=sk-abc123
+DB_PASSWORD=hunter2
+# This is a comment" rows="8" style="width:100%; font-family:monospace; resize:vertical;"></textarea>
+                        <div style="display:flex; gap:8px; margin-top:8px;">
+                            <button class="btn btn-field" @click="doBulkSet()">Import All</button>
+                            <button class="btn btn-field" @click="cancelBulk()">Cancel</button>
                         </div>
                     </div>
 
@@ -410,6 +425,40 @@
                 .then(function(d) {
                     if (d.ok) self.doRefresh();
                     else self.error = d.error;
+                })
+                .catch(function(e) { self.error = e.message; });
+            },
+
+            showBulk: false,
+            bulkText: '',
+
+            toggleBulk: function() {
+                this.showBulk = !this.showBulk;
+            },
+
+            cancelBulk: function() {
+                this.showBulk = false;
+                this.bulkText = '';
+            },
+
+            doBulkSet: function() {
+                if (!this.bulkText.trim()) return;
+                var self = this;
+                self.error = '';
+                fetch(API, {
+                    method: 'POST',
+                    headers: HEADERS,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({action: 'bulk_set', text: self.bulkText})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.ok) {
+                        self.bulkText = ''; self.showBulk = false;
+                        self.doRefresh();
+                    } else {
+                        self.error = d.error;
+                    }
                 })
                 .catch(function(e) { self.error = e.message; });
             },
