@@ -152,7 +152,7 @@ You're now ready to contribute to Agent Zero, create custom extensions, or modif
 
 ## Next steps
 - See [extensions](../developer/extensions.md) for instructions on how to create custom extensions.
-- See [websocket infrastructure](websocket-infrastructure.md) for real-time handler patterns, client APIs, and troubleshooting tips.
+- See [websocket infrastructure](../developer/websockets.md) for real-time handler patterns, client APIs, and troubleshooting tips.
 - See [contribution](../guides/contribution.md) for instructions on how to contribute to the framework.
 
 ## Configuration via Environment Variables

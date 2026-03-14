@@ -27,9 +27,9 @@ This architecture ensures:
 - Flexible deployment options for advanced users
 
 > [!NOTE]
-> The legacy approach of running Agent Zero directly on the host system (using Python, Conda, etc.) 
-> is still possible but requires Remote Function Calling (RFC) configuration through the Settings 
-> page. See the [development guide](development.md) for detailed instructions.
+> The legacy approach of running Agent Zero directly on the host system (using Python, Conda, etc.)
+> is still possible but requires Remote Function Calling (RFC) configuration through the Settings
+> page. See the [development setup guide](../setup/dev-setup.md) for detailed instructions.
 
 ## Implementation Details
 
