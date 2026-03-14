@@ -16,7 +16,7 @@ class TelegramWebhookTest(ApiHandler):
             "message": {
                 "message_id": 0,
                 "chat": {"id": 0, "type": "private"},
-                "text": "Webhook test from Agent Zero",
+                "text": "Webhook test from Agent Jumbo",
             },
         }
         data = json.dumps(payload).encode("utf-8")
@@ -26,7 +26,7 @@ class TelegramWebhookTest(ApiHandler):
 
         request_obj = urllib.request.Request(url, data=data, headers=headers)
         try:
-            with urllib.request.urlopen(request_obj, timeout=15) as response:
+            with urllib.request.urlopen(request_obj, timeout=15) as response:  # nosec B310
                 raw = response.read().decode("utf-8", errors="ignore")
             return {"success": True, "response": raw}
         except Exception as exc:

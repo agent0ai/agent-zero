@@ -1,6 +1,6 @@
-# Agent Zero Notifications
+# Agent Jumbo Notifications
 
-Quick guide for using the notification system in Agent Zero.
+Quick guide for using the notification system in Agent Jumbo.
 
 ## Backend Usage
 
@@ -55,12 +55,14 @@ $store.notificationStore.frontendInfo("Cache cleared", "System")
 
 **New Feature**: Frontend notifications now automatically sync to the backend when connected, providing persistent history and cross-session availability.
 
-### How it Works:
+### How it Works
+
 - **Backend Connected**: Notifications are sent to backend and appear via polling (persistent)
 - **Backend Disconnected**: Notifications show as frontend-only toasts (temporary)
 - **Automatic Fallback**: Seamless degradation when backend is unavailable
 
-### Global Functions:
+### Global Functions
+
 ```javascript
 // These functions automatically try backend first, then fallback to frontend-only
 toastFrontendError("Server unreachable", "Connection Error")

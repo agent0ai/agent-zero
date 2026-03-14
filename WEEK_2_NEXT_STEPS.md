@@ -88,7 +88,7 @@
 
 □ Each page should include:
   • Problem/challenge unique to segment
-  • How Agent Zero solves it
+  • How Agent Jumbo solves it
   • Customer quote/testimonial
   • Step-by-step use case walkthrough
   • Implementation timeline

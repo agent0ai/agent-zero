@@ -1,22 +1,26 @@
 # Performance Analysis & Architectural Roadmap
 
-This document outlines the performance characteristics of the current Agent Zero implementation and provides a technical roadmap for scaling to enterprise-grade throughput.
+This document outlines the performance characteristics of the current Agent Jumbo implementation and provides a technical roadmap for scaling to enterprise-grade throughput.
 
 ## 1. Performance Baseline (As-Is)
-*   **Security Overhead**: ~120ms/turn (Synchronous audit logging & heuristic checks).
-*   **Extension Latency**: ~40ms/turn (Sequential processing of middleware hooks).
-*   **Tool Latency**: $O(N)$ (Tools execute one after another).
-*   **Memory Retrieval**: $O(N)$ (Linear scan of FAISS vectors).
+
+* **Security Overhead**: ~120ms/turn (Synchronous audit logging & heuristic checks).
+* **Extension Latency**: ~40ms/turn (Sequential processing of middleware hooks).
+* **Tool Latency**: $O(N)$ (Tools execute one after another).
+* **Memory Retrieval**: $O(N)$ (Linear scan of FAISS vectors).
 
 ## 2. Implemented Improvements (Active)
+
 ### ✅ Asynchronous Security Logging
-*   **Change**: Decoupled `SecurityManager.log_event` from the main execution thread using a background worker pattern.
-*   **Impact**: Shaved **~80ms** from every turn. The agent no longer waits for database disk commits to confirm security telemetry.
-*   **Code**: [python/helpers/security.py](python/helpers/security.py)
+
+* **Change**: Decoupled `SecurityManager.log_event` from the main execution thread using a background worker pattern.
+* **Impact**: Shaved **~80ms** from every turn. The agent no longer waits for database disk commits to confirm security telemetry.
+* **Code**: [python/helpers/security.py](python/helpers/security.py)
 
 ### ✅ SQLite WAL Mode
-*   **Change**: Enabled Write-Ahead Logging (WAL) for the workflow database.
-*   **Impact**: Reduced connection lock contention, allowing background logging and UI reads to happen concurrently without `database is locked` errors.
+
+* **Change**: Enabled Write-Ahead Logging (WAL) for the workflow database.
+* **Impact**: Reduced connection lock contention, allowing background logging and UI reads to happen concurrently without `database is locked` errors.
 
 ## 3. Recommended Optimization Blueprint
 

@@ -8,7 +8,7 @@
 
 set -e
 
-REPO_DIR="/home/webemo-aaron/projects/agent-zero"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKTREE_DIR="$REPO_DIR/.worktrees"
 
 # Color codes

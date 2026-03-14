@@ -12,7 +12,7 @@
 4. **stripe-revenue-analyzer** - Stripe revenue analytics and insights
 5. **vercel-landing-page-builder** - Landing page generation for Vercel
 
-## Claude Code Skills vs Agent Zero Tools
+## Claude Code Skills vs Agent Jumbo Tools
 
 **Claude Code Skills**:
 
@@ -20,23 +20,23 @@
 - Use `skill.md` format with frontmatter
 - Designed for Claude Code CLI context
 
-**Agent Zero Tools**:
+**Agent Jumbo Tools**:
 
 - Python classes extending `Tool` base class
 - Located in `python/tools/`
 - Use `execute()` method returning `Response`
 
-## Usage in Agent Zero
+## Usage in Agent Jumbo
 
-These skills are **Claude Code specific** and won't directly work in Agent Zero's tool system. Options:
+These skills are **Claude Code specific** and won't directly work in Agent Jumbo's tool system. Options:
 
 ### Option 1: Use via Claude Code MCP Integration
 
-If Agent Zero has Claude Code MCP integration enabled, skills can be invoked through the MCP bridge.
+If Agent Jumbo has Claude Code MCP integration enabled, skills can be invoked through the MCP bridge.
 
-### Option 2: Convert to Agent Zero Tools
+### Option 2: Convert to Agent Jumbo Tools
 
-Transform skill logic into Agent Zero tools:
+Transform skill logic into Agent Jumbo tools:
 
 **Example: brand-voice skill → brand_voice.py tool**
 
@@ -60,7 +60,7 @@ class BrandVoice(Tool):
 
 ### Option 3: Reference Only
 
-Keep skills as reference for design patterns and best practices when building Agent Zero equivalents.
+Keep skills as reference for design patterns and best practices when building Agent Jumbo equivalents.
 
 ## Recommended Approach
 

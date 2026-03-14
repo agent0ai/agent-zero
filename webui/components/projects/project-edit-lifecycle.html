@@ -1,0 +1,145 @@
+<html>
+
+<head>
+  <title>Project lifecycle</title>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.projects.selectedProject && $store.projects.selectedProject.lifecycle">
+      <div class="lifecycle-section">
+        <div class="lifecycle-controls">
+          <label class="lifecycle-label">Current phase</label>
+          <select class="lifecycle-select" x-model="$store.projects.selectedProject.lifecycle.current_phase">
+            <template x-for="phase in Object.keys($store.projects.selectedProject.lifecycle.phase_bindings || {})" :key="phase">
+              <option :value="phase" x-text="phase"></option>
+            </template>
+          </select>
+
+          <label class="lifecycle-label">Run actor (for per-user browser profile binding)</label>
+          <input
+            class="lifecycle-select"
+            type="text"
+            placeholder="system"
+            x-model="$store.projects.selectedProject._lifecycleActor"
+          />
+
+          <label class="lifecycle-checkbox">
+            <input type="checkbox" x-model="$store.projects.selectedProject._lifecycleRunVisual" />
+            Run visual validation
+          </label>
+
+          <div class="lifecycle-buttons">
+            <button type="button" class="button cancel" @click="$store.projects.refreshSelectedProjectLifecycle()">Refresh</button>
+            <button type="button" class="button cancel" @click="$store.projects.saveLifecyclePhaseOnly()">Set phase</button>
+            <button type="button" class="button confirm" @click="$store.projects.runSelectedLifecyclePhase($store.projects.selectedProject._lifecycleRunVisual)">Run phase</button>
+          </div>
+        </div>
+
+        <div class="lifecycle-summary" x-show="$store.projects.selectedProject.lifecycle.last_run">
+          <span class="projects-project-card-title">Last run</span>
+          <p>
+            <strong>ID:</strong>
+            <span x-text="$store.projects.selectedProject.lifecycle.last_run?.run_id || '-' "></span>
+            |
+            <strong>Status:</strong>
+            <span x-text="$store.projects.selectedProject.lifecycle.last_run?.status || '-' "></span>
+            |
+            <strong>Phase:</strong>
+            <span x-text="$store.projects.selectedProject.lifecycle.last_run?.phase || '-' "></span>
+          </p>
+        </div>
+
+        <div class="lifecycle-runs">
+          <span class="projects-project-card-title">Recent lifecycle runs</span>
+          <template x-if="$store.projects.lifecycleLastError">
+            <p class="lifecycle-error" x-text="$store.projects.lifecycleLastError"></p>
+          </template>
+          <template x-if="!$store.projects.selectedProject.lifecycleRuns || $store.projects.selectedProject.lifecycleRuns.length === 0">
+            <p>No runs yet.</p>
+          </template>
+          <template x-if="$store.projects.selectedProject.lifecycleRuns && $store.projects.selectedProject.lifecycleRuns.length > 0">
+            <div class="lifecycle-run-list">
+              <template x-for="run in $store.projects.selectedProject.lifecycleRuns.slice(0, 8)" :key="run.run_id">
+                <div class="lifecycle-run-item">
+                  <span x-text="run.run_id"></span>
+                  <span x-text="run.phase"></span>
+                  <span x-text="run.status"></span>
+                  <span x-text="run._started_at_display || run.started_at"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+</body>
+
+<style>
+  .lifecycle-section {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .lifecycle-controls {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .lifecycle-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+
+  .lifecycle-select {
+    width: min(28rem, 100%);
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel);
+    color: var(--color-text);
+  }
+
+  .lifecycle-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .lifecycle-run-list {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .lifecycle-run-item {
+    display: grid;
+    grid-template-columns: 1.2fr 0.9fr 0.8fr 1.4fr;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.35rem;
+    padding: 0.4rem 0.55rem;
+    background: var(--color-surface-2, var(--color-panel));
+  }
+
+  .lifecycle-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+  }
+
+  .lifecycle-error {
+    border: 1px solid #ba1a1a;
+    background: #ffe9e9;
+    color: #7a0000;
+    padding: 0.5rem;
+    border-radius: 0.35rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+  }
+</style>
+
+</html>

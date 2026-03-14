@@ -1,7 +1,7 @@
 {
   "$schema": "app_spec/overview.schema.json",
   "product": {
-    "name": "Agent Zero",
+    "name": "Agent Jumbo",
     "summary": "General-purpose local assistant that can chat, call tools, and coordinate subagents.",
     "primary_users": [
       "Developers",

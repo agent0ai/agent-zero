@@ -7,7 +7,6 @@ Run tests:
     pytest tests/test_my_instrument.py::TestMyInstrument::test_specific -v
 """
 
-
 import pytest
 
 # Import your instrument manager
@@ -18,7 +17,7 @@ class TestMyInstrument:
     """
     Test suite for MyInstrument.
 
-    Follows Agent Zero testing conventions:
+    Follows Agent Jumbo testing conventions:
     - Uses tmp_path fixture for database isolation
     - Each test gets fresh manager instance
     - Tests return structured results with status/error keys
@@ -201,6 +200,7 @@ class TestMyInstrumentDatabase:
 
 # ========== Fixtures for Shared Test Data ==========
 
+
 @pytest.fixture
 def sample_items():
     """Sample items for testing"""
@@ -214,8 +214,4 @@ def sample_items():
 @pytest.fixture
 def sample_settings():
     """Sample settings configuration"""
-    return {
-        "option1": True,
-        "option2": "value",
-        "nested": {"key": "value"}
-    }
+    return {"option1": True, "option2": "value", "nested": {"key": "value"}}

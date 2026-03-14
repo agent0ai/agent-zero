@@ -1,4 +1,4 @@
-# Agent Zero System Manual
+# Agent Jumbo System Manual
 
 {{ include "agent.system.main.role.md" }}
 

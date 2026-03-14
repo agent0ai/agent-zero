@@ -7,11 +7,10 @@ Usage:
     python scripts/google_voice_integration_test.py [--interactive]
 """
 
-import sys
-import asyncio
-from pathlib import Path
-from datetime import datetime
 import argparse
+import asyncio
+import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -41,7 +40,7 @@ async def test_message_lifecycle():
     print("\n[1/5] DRAFTING MESSAGE")
     print("─" * 70)
     test_phone = "+14155551234"
-    test_message = "Hi! This is a test message from Agent Zero Google Voice integration."
+    test_message = "Hi! This is a test message from Agent Jumbo Google Voice integration."
 
     draft_msg = manager.draft_outbound(test_phone, test_message)
     print(f"✓ Drafted message ID: {draft_msg['id']}")
@@ -116,7 +115,7 @@ async def test_message_sending():
     test_message = input("📝 Enter message to send: ").strip()
 
     print(f"\n{'─'*70}")
-    print(f"Preview:")
+    print("Preview:")
     print(f"  To: {test_phone}")
     print(f"  Message: {test_message}")
     print(f"{'─'*70}")
@@ -211,7 +210,7 @@ async def main():
         print("\n\n⛔ Test cancelled by user")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Error: {str(e)}")
+        print(f"\n❌ Error: {e!s}")
         import traceback
 
         traceback.print_exc()

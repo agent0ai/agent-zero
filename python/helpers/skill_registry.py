@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -191,10 +192,23 @@ class SkillRegistry:
 
 # Module-level singleton so other parts of the codebase can import it directly.
 _global_registry: SkillRegistry | None = None
+_auto_scanned = False
 
 
 def get_registry() -> SkillRegistry:
-    global _global_registry
+    global _global_registry, _auto_scanned
     if _global_registry is None:
         _global_registry = SkillRegistry()
+    if not _auto_scanned:
+        # One-time lazy discovery so API endpoints (skills_list/skills_get)
+        # can see local skills without requiring an explicit install call.
+        candidate_dirs: list[Path] = []
+        env_dir = os.getenv("A0_SKILLS_DIR", "").strip()
+        if env_dir:
+            candidate_dirs.append(Path(env_dir))
+        candidate_dirs.extend([Path("skills"), Path("/a0/skills")])
+        for skills_dir in candidate_dirs:
+            with contextlib.suppress(Exception):
+                _global_registry.scan_directory(skills_dir)
+        _auto_scanned = True
     return _global_registry

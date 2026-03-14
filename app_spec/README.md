@@ -1,6 +1,6 @@
 # App Spec Bundle
 
-This folder contains structured JSON specs and schemas to help coding agents quickly understand Agent Zero features, workflows, and integration points.
+This folder contains structured JSON specs and schemas to help coding agents quickly understand Agent Jumbo features, workflows, and integration points.
 
 ## Files
 

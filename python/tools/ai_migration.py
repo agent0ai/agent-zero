@@ -1,5 +1,5 @@
 """
-AI Migration Tool for Agent Zero
+AI Migration Tool for Agent Jumbo
 Analyze business processes and design human-AI collaboration workflows
 """
 
@@ -11,12 +11,12 @@ from python.helpers.tool import Response, Tool
 
 class AIMigration(Tool):
     """
-    Agent Zero tool for AI business migration.
+    Agent Jumbo tool for AI business migration.
     Analyze processes, classify tasks, design workflows, and generate roadmaps.
     """
 
-    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
-        super().__init__(agent, name, args, message, **kwargs)
+    def __init__(self, agent, name: str, method: str | None, args: dict, message: str, loop_data=None, **kwargs):
+        super().__init__(agent, name, method, args, message, loop_data, **kwargs)
 
         from instruments.custom.ai_migration.migration_manager import MigrationManager
 
@@ -33,37 +33,29 @@ class AIMigration(Tool):
             "start_assessment": self._start_assessment,
             "get_assessment": self._get_assessment,
             "list_projects": self._list_projects,
-
             # Process management
             "add_process": self._add_process,
             "list_processes": self._list_processes,
             "get_process": self._get_process,
-
             # Task management
             "add_task": self._add_task,
             "list_tasks": self._list_tasks,
-
             # Analysis
             "analyze_process": self._analyze_process,
             "classify_tasks": self._classify_tasks,
-
             # Workflow design
             "design_workflow": self._design_workflow,
             "list_workflows": self._list_workflows,
             "get_workflow": self._get_workflow,
-
             # Roadmap
             "generate_roadmap": self._generate_roadmap,
             "get_roadmap": self._get_roadmap,
-
             # ROI
             "project_roi": self._project_roi,
-
             # Quick wins
             "identify_quick_wins": self._identify_quick_wins,
-
             # Reporting
-            "generate_report": self._generate_report
+            "generate_report": self._generate_report,
         }
 
         handler = action_handlers.get(action)
@@ -71,8 +63,7 @@ class AIMigration(Tool):
             return await handler()
 
         return Response(
-            message=f"Unknown action: {action}. Available: {', '.join(action_handlers.keys())}",
-            break_loop=False
+            message=f"Unknown action: {action}. Available: {', '.join(action_handlers.keys())}", break_loop=False
         )
 
     # ========== Assessment ==========
@@ -84,33 +75,27 @@ class AIMigration(Tool):
         industry = self.args.get("industry")
 
         if not business_name:
-            return Response(
-                message="Error: business_name is required",
-                break_loop=False
-            )
+            return Response(message="Error: business_name is required", break_loop=False)
 
         # Get optional fields
         kwargs = {
-            'company_size': self.args.get("company_size"),
-            'current_tech_stack': self.args.get("current_tech_stack", []),
-            'pain_points': self.args.get("pain_points", []),
-            'goals': self.args.get("goals", []),
-            'budget_range': self.args.get("budget_range"),
-            'timeline': self.args.get("timeline")
+            "company_size": self.args.get("company_size"),
+            "current_tech_stack": self.args.get("current_tech_stack", []),
+            "pain_points": self.args.get("pain_points", []),
+            "goals": self.args.get("goals", []),
+            "budget_range": self.args.get("budget_range"),
+            "timeline": self.args.get("timeline"),
         }
 
         result = self.manager.start_assessment(
-            business_name=business_name,
-            customer_id=customer_id,
-            industry=industry,
-            **kwargs
+            business_name=business_name, customer_id=customer_id, industry=industry, **kwargs
         )
 
         lines = [f"## Assessment Started: {result['business_name']}\n"]
         lines.append(f"**Project ID:** {result['project_id']}")
         lines.append(f"**Status:** {result['status']}")
         lines.append("\n### Next Steps:")
-        for step in result['next_steps']:
+        for step in result["next_steps"]:
             lines.append(f"1. {step}")
 
         return Response(message="\n".join(lines), break_loop=False)
@@ -120,10 +105,7 @@ class AIMigration(Tool):
         project_id = self.args.get("project_id")
 
         if not project_id:
-            return Response(
-                message="Error: project_id is required",
-                break_loop=False
-            )
+            return Response(message="Error: project_id is required", break_loop=False)
 
         result = self.manager.get_assessment_summary(project_id)
 
@@ -136,23 +118,23 @@ class AIMigration(Tool):
         lines.append(f"**Assessment Score:** {result.get('assessment_score', 'N/A')}/100")
 
         lines.append("\n### Summary")
-        s = result['summary']
+        s = result["summary"]
         lines.append(f"- Processes: {s['total_processes']}")
         lines.append(f"- Tasks: {s['total_tasks']}")
         lines.append(f"- Current Hours/Month: {s['total_current_hours_monthly']}")
         lines.append(f"- Avg Automation Score: {s['average_automation_score']}/100")
 
         lines.append("\n### Task Breakdown")
-        tb = result['task_breakdown']
+        tb = result["task_breakdown"]
         lines.append(f"- Fully Automatable: {tb['fully_automatable']}")
         lines.append(f"- AI-Assisted: {tb['ai_assisted']}")
         lines.append(f"- Human Required: {tb['human_required']}")
         lines.append(f"- Unanalyzed: {tb['unanalyzed']}")
 
-        if result['processes']:
+        if result["processes"]:
             lines.append("\n### Processes")
-            for p in result['processes']:
-                score = p.get('automation_score', 'N/A')
+            for p in result["processes"]:
+                score = p.get("automation_score", "N/A")
                 lines.append(f"- **{p['name']}** ({p.get('department', 'N/A')}) - Score: {score}")
 
         return Response(message="\n".join(lines), break_loop=False)
@@ -185,30 +167,24 @@ class AIMigration(Tool):
         name = self.args.get("name")
 
         if not project_id or not name:
-            return Response(
-                message="Error: project_id and name are required",
-                break_loop=False
-            )
+            return Response(message="Error: project_id and name are required", break_loop=False)
 
         kwargs = {
-            'description': self.args.get("description"),
-            'department': self.args.get("department"),
-            'owner': self.args.get("owner"),
-            'frequency': self.args.get("frequency"),
-            'volume_per_period': self.args.get("volume_per_period"),
-            'current_time_hours': self.args.get("current_time_hours"),
-            'current_cost': self.args.get("current_cost"),
-            'pain_points': self.args.get("pain_points", []),
-            'systems_used': self.args.get("systems_used", []),
-            'priority': self.args.get("priority", "medium")
+            "description": self.args.get("description"),
+            "department": self.args.get("department"),
+            "owner": self.args.get("owner"),
+            "frequency": self.args.get("frequency"),
+            "volume_per_period": self.args.get("volume_per_period"),
+            "current_time_hours": self.args.get("current_time_hours"),
+            "current_cost": self.args.get("current_cost"),
+            "pain_points": self.args.get("pain_points", []),
+            "systems_used": self.args.get("systems_used", []),
+            "priority": self.args.get("priority", "medium"),
         }
 
         result = self.manager.add_process(project_id, name, **kwargs)
 
-        return Response(
-            message=self._format_result(result, "Process Added"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Process Added"), break_loop=False)
 
     async def _list_processes(self):
         """List processes for a project"""
@@ -224,7 +200,7 @@ class AIMigration(Tool):
 
         lines = ["## Business Processes\n"]
         for p in processes:
-            score = p.get('automation_score')
+            score = p.get("automation_score")
             score_str = f"{score}/100" if score else "Not analyzed"
             lines.append(f"### {p['name']} (ID: {p['process_id']})")
             lines.append(f"- Department: {p.get('department', 'N/A')}")
@@ -255,15 +231,15 @@ class AIMigration(Tool):
         lines.append(f"**Current Time:** {process.get('current_time_hours', 0)} hours/month")
         lines.append(f"**Automation Score:** {process.get('automation_score', 'N/A')}/100")
 
-        if process.get('pain_points'):
+        if process.get("pain_points"):
             lines.append("\n**Pain Points:**")
-            for pp in process['pain_points']:
+            for pp in process["pain_points"]:
                 lines.append(f"- {pp}")
 
         if tasks:
             lines.append(f"\n### Tasks ({len(tasks)})")
             for t in tasks:
-                category = t.get('automation_category', 'unanalyzed')
+                category = t.get("automation_category", "unanalyzed")
                 lines.append(f"- {t['name']} [{category}]")
 
         return Response(message="\n".join(lines), break_loop=False)
@@ -276,31 +252,25 @@ class AIMigration(Tool):
         name = self.args.get("name")
 
         if not process_id or not name:
-            return Response(
-                message="Error: process_id and name are required",
-                break_loop=False
-            )
+            return Response(message="Error: process_id and name are required", break_loop=False)
 
         kwargs = {
-            'description': self.args.get("description"),
-            'task_type': self.args.get("task_type"),
-            'current_owner': self.args.get("current_owner"),
-            'time_minutes': self.args.get("time_minutes"),
-            'complexity': self.args.get("complexity", "medium"),
-            'data_inputs': self.args.get("data_inputs", []),
-            'data_outputs': self.args.get("data_outputs", []),
-            'tools_used': self.args.get("tools_used", []),
-            'decision_points': self.args.get("decision_points", []),
-            'error_rate': self.args.get("error_rate"),
-            'sequence_order': self.args.get("sequence_order", 0)
+            "description": self.args.get("description"),
+            "task_type": self.args.get("task_type"),
+            "current_owner": self.args.get("current_owner"),
+            "time_minutes": self.args.get("time_minutes"),
+            "complexity": self.args.get("complexity", "medium"),
+            "data_inputs": self.args.get("data_inputs", []),
+            "data_outputs": self.args.get("data_outputs", []),
+            "tools_used": self.args.get("tools_used", []),
+            "decision_points": self.args.get("decision_points", []),
+            "error_rate": self.args.get("error_rate"),
+            "sequence_order": self.args.get("sequence_order", 0),
         }
 
         result = self.manager.add_task(process_id, name, **kwargs)
 
-        return Response(
-            message=self._format_result(result, "Task Added"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Task Added"), break_loop=False)
 
     async def _list_tasks(self):
         """List tasks for a process"""
@@ -316,14 +286,14 @@ class AIMigration(Tool):
 
         lines = ["## Process Tasks\n"]
         for t in tasks:
-            category = t.get('automation_category', 'unanalyzed')
-            score = t.get('automation_score', '-')
+            category = t.get("automation_category", "unanalyzed")
+            score = t.get("automation_score", "-")
             lines.append(f"### {t['name']} (ID: {t['task_id']})")
             lines.append(f"- Type: {t.get('task_type', 'N/A')}")
             lines.append(f"- Time: {t.get('time_minutes', 0)} min")
             lines.append(f"- Category: {category}")
             lines.append(f"- Automation Score: {score}/100")
-            if t.get('ai_tools_suggested'):
+            if t.get("ai_tools_suggested"):
                 lines.append(f"- Suggested Tools: {', '.join(t['ai_tools_suggested'][:3])}")
             lines.append("")
 
@@ -350,20 +320,20 @@ class AIMigration(Tool):
         lines.append(f"**Potential Savings:** {result['potential_savings_minutes']} minutes")
 
         lines.append("\n### Task Breakdown")
-        tb = result['task_breakdown']
+        tb = result["task_breakdown"]
         lines.append(f"- Fully Automatable: {tb['fully_automatable']}")
         lines.append(f"- AI-Assisted: {tb['ai_assisted']}")
         lines.append(f"- Human Required: {tb['human_required']}")
 
-        if result.get('recommendations'):
+        if result.get("recommendations"):
             lines.append("\n### Recommendations")
-            for rec in result['recommendations']:
+            for rec in result["recommendations"]:
                 lines.append(f"- {rec}")
 
         lines.append("\n### Task Analysis")
-        for task in result.get('tasks', [])[:10]:
+        for task in result.get("tasks", [])[:10]:
             lines.append(f"- **{task['name']}**: {task['category']} (Score: {task['automation_score']})")
-            if task.get('ai_tools'):
+            if task.get("ai_tools"):
                 lines.append(f"  Tools: {', '.join(task['ai_tools'][:2])}")
 
         return Response(message="\n".join(lines), break_loop=False)
@@ -392,27 +362,27 @@ class AIMigration(Tool):
         lines.append(f"**Automation Level:** {result['automation_level']}")
 
         lines.append("\n### Original vs Optimized")
-        orig = result['original_process']
-        opt = result['optimized_workflow']
+        orig = result["original_process"]
+        opt = result["optimized_workflow"]
         lines.append("| Metric | Original | Optimized |")
         lines.append("|--------|----------|-----------|")
         lines.append(f"| Time (hours) | {orig['time_hours']} | {opt['time_hours']} |")
-        if orig.get('cost'):
+        if orig.get("cost"):
             lines.append(f"| Cost | ${orig['cost']:.0f} | ${opt['cost']:.0f} |")
         lines.append(f"| Human Touchpoints | - | {opt['human_touchpoints']} |")
         lines.append(f"| AI Touchpoints | 0 | {opt['ai_touchpoints']} |")
 
-        savings = result['savings']
+        savings = result["savings"]
         lines.append("\n### Savings")
         lines.append(f"- Time: {savings['time_hours']} hours ({savings['time_percentage']}%)")
-        if savings.get('cost'):
+        if savings.get("cost"):
             lines.append(f"- Cost: ${savings['cost']:.0f}")
 
         lines.append("\n### Workflow Steps")
-        for step in result.get('steps', []):
-            owner_icon = "🤖" if step['owner'] == 'ai' else "👤" if step['owner'] == 'human' else "🤝"
+        for step in result.get("steps", []):
+            owner_icon = "🤖" if step["owner"] == "ai" else "👤" if step["owner"] == "human" else "🤝"
             lines.append(f"{step['step']}. {owner_icon} **{step['name']}** ({step['owner']})")
-            if step.get('ai_tools'):
+            if step.get("ai_tools"):
                 lines.append(f"   Tools: {', '.join(step['ai_tools'][:2])}")
 
         return Response(message="\n".join(lines), break_loop=False)
@@ -422,10 +392,7 @@ class AIMigration(Tool):
         project_id = self.args.get("project_id")
         process_id = self.args.get("process_id")
 
-        workflows = self.manager.db.list_workflows(
-            process_id=process_id,
-            project_id=project_id
-        )
+        workflows = self.manager.db.list_workflows(process_id=process_id, project_id=project_id)
 
         if not workflows:
             return Response(message="No workflows found.", break_loop=False)
@@ -451,10 +418,7 @@ class AIMigration(Tool):
         if not workflow:
             return Response(message=f"Workflow not found: {workflow_id}", break_loop=False)
 
-        return Response(
-            message=self._format_result(workflow, f"Workflow: {workflow['name']}"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(workflow, f"Workflow: {workflow['name']}"), break_loop=False)
 
     # ========== Roadmap ==========
 
@@ -477,23 +441,23 @@ class AIMigration(Tool):
         lines.append(f"**Timeline:** {result['timeline_months']} months")
 
         lines.append("\n### Investment")
-        inv = result['investment']
+        inv = result["investment"]
         lines.append(f"**Total:** ${inv['total']:,.0f}")
 
         lines.append("\n### Projected ROI")
-        roi = result['projected_roi']
+        roi = result["projected_roi"]
         lines.append(f"- Annual Savings: ${roi['annual_savings']:,.0f}")
         lines.append(f"- Payback Period: {roi['payback_months']} months")
         lines.append(f"- 3-Year ROI: {roi['roi_3_year']}")
 
         lines.append("\n### Phases")
-        for phase in result['phases']:
+        for phase in result["phases"]:
             lines.append(f"\n**Phase {phase['phase']}: {phase['name']}** ({phase['duration_months']} months)")
             lines.append(f"{phase['description']}")
 
-        if result.get('quick_wins'):
+        if result.get("quick_wins"):
             lines.append("\n### Quick Wins to Start")
-            for qw in result['quick_wins'][:5]:
+            for qw in result["quick_wins"][:5]:
                 lines.append(f"- {qw['name']} ({qw['process']}) - {qw['savings_minutes']} min/month saved")
 
         return Response(message="\n".join(lines), break_loop=False)
@@ -509,10 +473,7 @@ class AIMigration(Tool):
         if not roadmap:
             return Response(message=f"Roadmap not found: {roadmap_id}", break_loop=False)
 
-        return Response(
-            message=self._format_result(roadmap, f"Roadmap: {roadmap['name']}"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(roadmap, f"Roadmap: {roadmap['name']}"), break_loop=False)
 
     # ========== ROI ==========
 
@@ -531,7 +492,7 @@ class AIMigration(Tool):
 
         lines = ["## ROI Projections\n"]
 
-        for scenario, data in result['scenarios'].items():
+        for scenario, data in result["scenarios"].items():
             lines.append(f"### {scenario.title()} Scenario")
             lines.append(f"- Implementation Cost: ${data['implementation_cost']:,.0f}")
             lines.append(f"- Annual Savings: ${data['annual_savings']:,.0f}")
@@ -562,12 +523,12 @@ class AIMigration(Tool):
         lines.append(f"**Total Potential Savings:** {result['estimated_total_savings_minutes']} min/month")
 
         lines.append("\n### Top Opportunities")
-        for qw in result['quick_wins'][:10]:
+        for qw in result["quick_wins"][:10]:
             lines.append(f"\n**{qw['name']}** (Process: {qw['process']})")
             lines.append(f"- Score: {qw['automation_score']}/100")
             lines.append(f"- Effort: {qw['effort']}")
             lines.append(f"- Monthly Savings: {qw['savings_minutes']} min")
-            if qw.get('ai_tools'):
+            if qw.get("ai_tools"):
                 lines.append(f"- Tools: {', '.join(qw['ai_tools'][:2])}")
 
         return Response(message="\n".join(lines), break_loop=False)
@@ -587,7 +548,7 @@ class AIMigration(Tool):
         if "error" in result:
             return Response(message=f"Error: {result['error']}", break_loop=False)
 
-        return Response(message=result['report'], break_loop=False)
+        return Response(message=result["report"], break_loop=False)
 
     # ========== Helpers ==========
 
@@ -596,7 +557,7 @@ class AIMigration(Tool):
         lines = [f"## {title}\n"]
 
         for key, value in data.items():
-            if isinstance(value, (dict, list)):
+            if isinstance(value, dict | list):
                 lines.append(f"**{key}:** {json.dumps(value, indent=2)}")
             else:
                 lines.append(f"**{key}:** {value}")

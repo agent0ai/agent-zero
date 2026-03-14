@@ -21,12 +21,12 @@ solutions without human intervention.
 | Tool calling | Native (OpenAI format) + Hermes format |
 | Thinking mode | Built-in `/think` and `/no_think` toggle |
 | Fine-tuning | LoRA, QLoRA (8-bit recommended for MoE), full SFT |
-| Agent Zero integration | Already in MODEL_CATALOG, Hermes parser in tool_adapter.py |
+| Agent Jumbo integration | Already in MODEL_CATALOG, Hermes parser in tool_adapter.py |
 | SWE-bench | ~62% (Qwen3-235B), Qwen3-Coder variants 70%+ |
 
 **Why not GLM-4.7?** GLM-4.7 has better agentic benchmarks (73.8% SWE-bench) but a
 younger fine-tuning ecosystem. Qwen3 has mature tooling (MS-SWIFT, Unsloth, LLaMA-Factory,
-Axolotl), extensive documentation, and Agent Zero already has deep Qwen integration.
+Axolotl), extensive documentation, and Agent Jumbo already has deep Qwen integration.
 
 ### Utility/Fast Clone: Qwen3-30B-A3B (MoE, 3B active)
 
@@ -36,7 +36,7 @@ background processing.
 
 ### Embedding: sentence-transformers/all-MiniLM-L6-v2
 
-Already integrated in Agent Zero's memory system. Zero cost (CPU inference).
+Already integrated in Agent Jumbo's memory system. Zero cost (CPU inference).
 Upgrade path: `nomic-embed-text-v1.5` for 8K context embeddings.
 
 ---
@@ -51,7 +51,7 @@ behavioral consistency, then RLHF/DPO from your feedback for alignment.
 **Goal**: Architect clone that retrieves your patterns from a knowledge base.
 
 No fine-tuning required. Ingest Silver Surfer Platform + best practices into
-Agent Zero's knowledge graph + FAISS memory.
+Agent Jumbo's knowledge graph + FAISS memory.
 
 ```text
 Data Sources:
@@ -357,7 +357,7 @@ GKE Cluster: agent-jumbo-inference
 │
 ├── Node Pool: "app" (always-on)
 │   ├── Machine: e2-standard-8
-│   ├── Agent Zero Flask backend + Next.js frontend
+│   ├── Agent Jumbo Flask backend + Next.js frontend
 │   ├── Ollama sidecar (qwen2.5-coder:3b baseline fallback)
 │   └── LLM Router → primary → utility → DeepSeek API → Ollama
 │
@@ -424,7 +424,7 @@ Cost Profiles:
 
 ---
 
-## 4. Agent Zero Integration
+## 4. Agent Jumbo Integration
 
 ### LLM Router Configuration
 
@@ -456,7 +456,7 @@ architect_clone_utility:
 
 ### Tool Adapter Strategy
 
-Qwen3 supports native OpenAI-style function calling. Agent Zero's `ToolAdapter`
+Qwen3 supports native OpenAI-style function calling. Agent Jumbo's `ToolAdapter`
 at `python/helpers/tool_adapter.py` already handles this:
 
 ```python
@@ -637,7 +637,7 @@ infra/gcp/
     └── run_training.sh                  # Spin up training node, run, tear down
 ```
 
-### Agent Zero Integration
+### Agent Jumbo Integration
 
 ```text
 conf/

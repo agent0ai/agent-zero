@@ -3,9 +3,10 @@
 The **claude_sdk_bridge** tool enables bidirectional integration with the Claude Agent SDK, providing programmatic access to Claude Code's native capabilities.
 
 ## Purpose
+
 - Initialize and manage Claude SDK sessions
 - Send queries through SDK or CLI
-- Bridge Agent Zero tools to Claude Code
+- Bridge Agent Jumbo tools to Claude Code
 - Connect MCP servers between systems
 - Export/import tools bidirectionally
 
@@ -25,6 +26,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ### Status & Installation
 
 #### 1. get_status
+
 **Check SDK availability and session status**
 
 ```
@@ -36,6 +38,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ---
 
 #### 2. install_sdk
+
 **Install Claude Agent SDK**
 
 ```
@@ -49,6 +52,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ### Session Management
 
 #### 3. init_sdk
+
 **Initialize a Claude SDK session**
 
 ```
@@ -62,6 +66,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 **Parameters:**
+
 - `system_prompt` (optional): Custom system prompt for session
 - `allowed_tools` (optional): List of tools to enable (default: ["Read", "Write", "Bash"])
 - `permission_mode` (optional): Permission handling - "acceptEdits", "plan", "bypassPermissions" (default: "acceptEdits")
@@ -72,6 +77,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ---
 
 #### 4. close_sdk
+
 **Close active SDK session**
 
 ```
@@ -83,6 +89,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ### Query Operations
 
 #### 5. query
+
 **Send a stateless query (creates temporary session)**
 
 ```
@@ -95,6 +102,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 **Parameters:**
+
 - `prompt` (required): The query to send
 - `system_prompt` (optional): Override system prompt
 - `allowed_tools` (optional): Tools for this query
@@ -102,6 +110,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ---
 
 #### 6. session_query
+
 **Send query through active session (maintains conversation state)**
 
 ```
@@ -112,6 +121,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 **Parameters:**
+
 - `prompt` (required): The query to send
 
 **Note:** Requires active session from `init_sdk`. Use for multi-turn conversations.
@@ -119,6 +129,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ---
 
 #### 7. cli_query
+
 **Run query directly through Claude Code CLI**
 
 ```
@@ -131,6 +142,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 **Parameters:**
+
 - `prompt` (required): The query to send
 - `working_dir` (optional): Working directory for CLI
 - `timeout` (optional): Timeout in seconds (default: 300)
@@ -142,6 +154,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ### Tool Operations
 
 #### 8. list_tools
+
 **List available SDK tools**
 
 ```
@@ -153,7 +166,8 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ---
 
 #### 9. export_tool
-**Export an Agent Zero tool for use in Claude Code**
+
+**Export an Agent Jumbo tool for use in Claude Code**
 
 ```
 {{claude_sdk_bridge(
@@ -163,7 +177,8 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 **Parameters:**
-- `tool_name` (required): Name of Agent Zero tool to export
+
+- `tool_name` (required): Name of Agent Jumbo tool to export
 
 **Result:** Tool is wrapped and made available via MCP for Claude Code sessions.
 
@@ -172,6 +187,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ### MCP Operations
 
 #### 10. get_mcp_config
+
 **Generate MCP server configuration**
 
 ```
@@ -185,6 +201,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 **Parameters:**
+
 - `server_name` (required): Name for the MCP server
 - `command` (required): Command to run server
 - `args` (optional): Command arguments list
@@ -195,7 +212,8 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ---
 
 #### 11. bridge_mcp
-**Bridge an external MCP server to Agent Zero**
+
+**Bridge an external MCP server to Agent Jumbo**
 
 ```
 {{claude_sdk_bridge(
@@ -211,6 +229,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 **Parameters:**
+
 - `server_name` (required): Name for the MCP server
 - `server_type` (optional): "stdio", "sse", "http" (default: "stdio")
 - `config` (required): Server configuration dict
@@ -230,6 +249,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ## Typical Workflows
 
 ### Code Review Session
+
 ```
 # 1. Initialize session for code review
 {{claude_sdk_bridge(
@@ -255,6 +275,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 ### Quick CLI Query
+
 ```
 # One-off query without session setup
 {{claude_sdk_bridge(
@@ -264,7 +285,8 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 )}}
 ```
 
-### Export Agent Zero Tools
+### Export Agent Jumbo Tools
+
 ```
 # Export business analysis tool for Claude Code use
 {{claude_sdk_bridge(
@@ -280,6 +302,7 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ```
 
 ### Bridge MCP Servers
+
 ```
 # 1. Generate config for filesystem MCP
 {{claude_sdk_bridge(
@@ -306,7 +329,9 @@ The **claude_sdk_bridge** tool enables bidirectional integration with the Claude
 ## Integration with Other Tools
 
 ### With skill_importer
-SDK tools can be converted to Agent Zero tools:
+
+SDK tools can be converted to Agent Jumbo tools:
+
 ```
 # Import a Claude Code skill, then use SDK to enhance it
 {{skill_importer(action="import_skill", path="~/.claude/plugins/my-plugin/skills/review.md")}}
@@ -314,6 +339,7 @@ SDK tools can be converted to Agent Zero tools:
 ```
 
 ### With plugin_marketplace
+
 ```
 # Install plugin, then bridge its MCP servers
 {{plugin_marketplace(action="install_plugin", identifier="@example/mcp-tools")}}
@@ -323,6 +349,7 @@ SDK tools can be converted to Agent Zero tools:
 ---
 
 ## Notes
+
 - SDK requires `claude-agent-sdk` Python package
 - CLI queries work without SDK installed (uses subprocess)
 - Session queries maintain conversation context

@@ -1,9 +1,9 @@
 # Anthropic Platform Updates Integration
 
 **Date**: 2026-01-24
-**Version**: Agent Zero v2.0 Platform Improvements
+**Version**: Agent Jumbo v2.0 Platform Improvements
 
-This document describes the integration of recent Anthropic platform updates into Agent Zero, providing significant improvements in cost, performance, and capabilities.
+This document describes the integration of recent Anthropic platform updates into Agent Jumbo, providing significant improvements in cost, performance, and capabilities.
 
 ---
 
@@ -399,7 +399,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ## Migration Guide
 
-### For Existing Agent Zero Users
+### For Existing Agent Jumbo Users
 
 1. **Update dependencies**:
 
@@ -657,11 +657,11 @@ data/
 - [Batch API Guide](https://docs.anthropic.com/claude/reference/messages-batches-create)
 - [Model Comparison](https://docs.anthropic.com/claude/docs/models-overview)
 
-### Agent Zero Resources
+### Agent Jumbo Resources
 
 - [Main Documentation](../README.md)
 - [Security Updates](./SECURITY_UPDATES.md)
-- [GitHub Issues](https://github.com/agent-zero/agent-zero/issues)
+- [GitHub Issues](https://github.com/agent-jumbo/agent-jumbo/issues)
 
 ### Getting Help
 
@@ -813,4 +813,4 @@ CREATE TABLE batch_jobs (
 
 **Last Updated**: 2026-01-24
 **Version**: 2.0
-**Authors**: Agent Zero Development Team
+**Authors**: Agent Jumbo Development Team

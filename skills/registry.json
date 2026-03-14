@@ -5,6 +5,11 @@
       "name": "digital-clone-aggregator",
       "path": "skills/digital-clone-aggregator",
       "description": "Knowledge aggregation, digests, and architecture review."
+    },
+    {
+      "name": "life-business-operator",
+      "path": "skills/life-business-operator",
+      "description": "Project intake, knowledge decomposition, planning, and recurring execution cadence."
     }
   ],
   "workflows": [
@@ -22,7 +27,12 @@
   "tools": [
     "telegram_send",
     "knowledge_ingest",
-    "digest_builder"
+    "digest_builder",
+    "project_lifecycle",
+    "life_os",
+    "scheduler",
+    "project_validation",
+    "visual_validation"
   ],
   "actors": [
     "actor-ops",

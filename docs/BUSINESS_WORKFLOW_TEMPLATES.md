@@ -1,12 +1,14 @@
 # Business Workflow Templates
 
-This document outlines the common business workflow templates added to Agent Zero's Workflow Engine. These templates are stored in the SQLite database and include best-practice stages and example prompts for the agent.
+This document outlines the common business workflow templates added to Agent Jumbo's Workflow Engine. These templates are stored in the SQLite database and include best-practice stages and example prompts for the agent.
 
 ## 1. Strategic Content Marketing
+
 **Type:** `marketing` | **Version:** `1.0.0`
 Efficiently manage the content lifecycle from research to multi-channel distribution.
 
 ### Stages & Tasks
+
 - **Strategy & Ideation**
   - *Topic & Keyword Research*: [Example Prompt] Perform keyword research for 'Enterprise AI Security' and identify top 5 trending sub-topics for Q1 2026.
   - *Create Content Brief*: [Example Prompt] Create a detailed content brief for a whitepaper on 'Zero Trust AI' including target persona, key message, and outline.
@@ -19,10 +21,12 @@ Efficiently manage the content lifecycle from research to multi-channel distribu
 ---
 
 ## 2. Employee Onboarding (Standard)
+
 **Type:** `hr` | **Version:** `1.1.0`
 A structured approach to integrating new hires.
 
 ### Stages & Tasks
+
 - **Pre-Arrival Logistics**
   - *IT & Access Setup*: [Example Prompt] Generate a checklist for setting up Git, Slack, and AWS access.
   - *Welcome Kit*: [Example Prompt] Draft a personalized welcome email for the new hire.
@@ -32,10 +36,12 @@ A structured approach to integrating new hires.
 ---
 
 ## 3. Customer Support Escalation
+
 **Type:** `support` | **Version:** `1.0.0`
 Streamlined handling of complex technical issues.
 
 ### Stages & Tasks
+
 - **Triage & Documentation**
   - *Issue Summary*: [Example Prompt] Summarize the customer's technical issue from the last 3 tickets.
 - **Engineering Collaboration**
@@ -44,10 +50,12 @@ Streamlined handling of complex technical issues.
 ---
 
 ## 4. Monthly Financial Close
+
 **Type:** `finance` | **Version:** `1.0.0`
 Maintain accounting accuracy and regular executive reporting.
 
 ### Stages & Tasks
+
 - **Account Reconciliation**
   - *Bank Statement Match*: [Example Prompt] Identify discrepancies between records and PDF statements.
 - **Executive Reporting**

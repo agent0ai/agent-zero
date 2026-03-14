@@ -7,13 +7,13 @@
 
 ## Overview
 
-Comprehensive security audit tool for codebase and infrastructure with vulnerability detection, security scoring, and remediation planning. Converted from Mahoosuc OS `/security:audit` command to native Agent Zero tool following TDD methodology.
+Comprehensive security audit tool for codebase and infrastructure with vulnerability detection, security scoring, and remediation planning. Converted from Mahoosuc OS `/security:audit` command to native Agent Jumbo tool following TDD methodology.
 
 ## Parameters
 
 - `scope` (optional, default: `full`)
   - `code`: Audit codebase security only
-  - `infra`: Audit infrastructure security only  
+  - `infra`: Audit infrastructure security only
   - `full`: Complete audit of code and infrastructure
 
 - `severity` (optional, default: `all`)
@@ -49,6 +49,7 @@ await agent.use_tool("security_audit", scope="infra", severity="critical")
 ## Security Scoring
 
 **Calculation**:
+
 - Start: 100 points
 - Critical: -20 each
 - High: -10 each
@@ -56,6 +57,7 @@ await agent.use_tool("security_audit", scope="infra", severity="critical")
 - Low: -2 each
 
 **Grades**:
+
 - A (90-100): Excellent - Production ready
 - B (80-89): Good - Minor fixes needed
 - C (70-79): Fair - Needs improvement
@@ -63,6 +65,7 @@ await agent.use_tool("security_audit", scope="infra", severity="critical")
 - F (0-59): Critical - Immediate action
 
 **Risk Levels**:
+
 - CRITICAL: Has critical findings
 - HIGH: 3+ high findings
 - MODERATE-HIGH: 1-2 high findings
@@ -72,6 +75,7 @@ await agent.use_tool("security_audit", scope="infra", severity="critical")
 ## Audit Coverage
 
 ### Code Security (scope: code or full)
+
 - Authentication & Authorization
 - Input Validation & XSS Prevention
 - SQL Injection Prevention
@@ -81,6 +85,7 @@ await agent.use_tool("security_audit", scope="infra", severity="critical")
 - Audit Logging
 
 ### Infrastructure Security (scope: infra or full)
+
 - IAM & Permissions
 - Network Security & Firewalls
 - Encryption (rest & transit)
@@ -89,6 +94,7 @@ await agent.use_tool("security_audit", scope="infra", severity="critical")
 ## Test Coverage
 
 12 tests with 89% coverage:
+
 - Tool instantiation
 - Parameter validation (scope, severity)
 - Error handling
@@ -108,6 +114,7 @@ await agent.use_tool("security_audit", scope="infra", severity="critical")
 ## Production Integration
 
 Integrate with:
+
 - **Code**: Bandit, SonarQube, Snyk, npm/pip audit
 - **Infrastructure**: GCP Security Command Center, AWS Security Hub
 - **Secrets**: Gitleaks, TruffleHog
@@ -128,7 +135,7 @@ Integrate with:
 
 **Findings Summary**:
 - 🚨 Critical: 0
-- 🔴 High: 1  
+- 🔴 High: 1
 - 🟡 Medium: 4
 - 🟢 Low: 2
 

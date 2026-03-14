@@ -1,6 +1,6 @@
 """
 Simplified Email Integration Test - Standalone
-Tests core email functionality without full Agent Zero dependencies
+Tests core email functionality without full Agent Jumbo dependencies
 """
 
 import sys
@@ -57,11 +57,7 @@ class TestEmailSenderStandalone:
     async def test_email_sender_initialization(self):
         """Test EmailSender initialization"""
         sender = EmailSender(
-            server="smtp.gmail.com",
-            port=587,
-            username="test@example.com",
-            password="test_password",
-            use_tls=True
+            server="smtp.gmail.com", port=587, username="test@example.com", password="test_password", use_tls=True
         )
 
         assert sender.server == "smtp.gmail.com"
@@ -101,14 +97,14 @@ class TestEmailWorkflow:
                 "to": "customer1@example.com",
                 "subject": "Custom Proposal",
                 "body": "Dear Customer 1...",
-                "attachments": ["proposal1.pdf"]
+                "attachments": ["proposal1.pdf"],
             },
             {
                 "to": "customer2@example.com",
                 "subject": "Custom Proposal",
                 "body": "Dear Customer 2...",
-                "attachments": ["proposal2.pdf"]
-            }
+                "attachments": ["proposal2.pdf"],
+            },
         ]
 
         # Validate structure
@@ -144,9 +140,9 @@ class TestEmailWorkflow:
 
 def test_summary():
     """Print test summary"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("EMAIL INTEGRATION TEST SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print("\n✅ All core email functionality tests passed!")
     print("\nTested Components:")
     print("  1. Email address validation (15 test cases)")
@@ -155,7 +151,7 @@ def test_summary():
     print("  4. Bulk email structure")
     print("  5. HTML vs plain text handling")
     print("\n🎯 Email infrastructure is ready for integration")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

@@ -93,7 +93,7 @@ class TestSkillPackager:
         """Test packaging the actual example-skill from the repo."""
         from pathlib import Path
 
-        skill_dir = Path("/mnt/wdblack/dev/projects/agent-zero/.worktrees/agent-jumbo/skills/example-skill")
+        skill_dir = Path("/mnt/wdblack/dev/projects/agent-jumbo/.worktrees/agent-jumbo/skills/example-skill")
         if not skill_dir.exists():
             pytest.skip("example-skill not found")
         packager = SkillPackager()

@@ -8,9 +8,9 @@
 
 ## Overview
 
-The Agent Zero project underwent comprehensive analysis to document **all implemented features, systems, and capabilities**. This analysis captures the complete current state as of February 1, 2026.
+The Agent Jumbo project underwent comprehensive analysis to document **all implemented features, systems, and capabilities**. This analysis captures the complete current state as of February 1, 2026.
 
-**Key Finding**: Agent Zero is **85% production-ready** with enterprise-grade core functionality and sophisticated tool ecosystem.
+**Key Finding**: Agent Jumbo is **85% production-ready** with enterprise-grade core functionality and sophisticated tool ecosystem.
 
 ---
 
@@ -112,7 +112,7 @@ The Agent Zero project underwent comprehensive analysis to document **all implem
 
 **Use When**: You're evaluating open source strategy or comparing to Moltbot.
 
-**Key Finding**: Agent Zero DevOps is **better positioned for open sourcing** than Moltbot because:
+**Key Finding**: Agent Jumbo DevOps is **better positioned for open sourcing** than Moltbot because:
 
 - ✅ Focused scope (deployment, not messaging)
 - ✅ Production-ready quality (66/66 tests)

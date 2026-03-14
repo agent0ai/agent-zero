@@ -1,16 +1,17 @@
-# Gmail Account Setup via Agent Zero UI
+# Gmail Account Setup via Agent Jumbo UI
 
-This guide explains how to set up Gmail accounts for Agent Zero using the web-based settings interface.
+This guide explains how to set up Gmail accounts for Agent Jumbo using the web-based settings interface.
 
 ## Overview
 
-Agent Zero now supports UI-based Gmail account setup through the Settings panel, eliminating the need for manual credential file management and command-line authentication.
+Agent Jumbo now supports UI-based Gmail account setup through the Settings panel, eliminating the need for manual credential file management and command-line authentication.
 
 ## Prerequisites
 
 1. **Google Cloud Project** with Gmail API enabled
 2. **OAuth2 Credentials** (Web Application type)
 3. **Python Dependencies** installed:
+
    ```bash
    pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
    ```
@@ -30,16 +31,18 @@ Agent Zero now supports UI-based Gmail account setup through the Settings panel,
    - Click "Create Credentials" > "OAuth client ID"
    - Choose **"Web application"** as the application type
    - Add authorized redirect URI:
+
      ```
      http://localhost:5000/gmail_oauth_callback
      ```
-     (Adjust port if your Agent Zero runs on a different port)
-   
+
+     (Adjust port if your Agent Jumbo runs on a different port)
+
 5. Download the credentials file (`credentials.json`)
 
-### 2. Access Gmail Settings in Agent Zero
+### 2. Access Gmail Settings in Agent Jumbo
 
-1. Open Agent Zero web interface
+1. Open Agent Jumbo web interface
 2. Click the **Settings** icon (⚙️) in the top navigation
 3. Navigate to the **"External"** tab
 4. Find the **"Gmail Accounts"** section
@@ -106,6 +109,7 @@ API endpoint: `POST /gmail_account_remove`
 ```
 
 This will:
+
 - Remove account from settings
 - Delete stored OAuth2 tokens
 - Revoke access (tokens still valid until Google expires them)
@@ -118,14 +122,15 @@ API endpoint: `POST /gmail_test_send`
 {
     "account_name": "sales",
     "to": "you@example.com",
-    "subject": "Agent Zero Gmail Test",
-    "body": "This is a test email from Agent Zero Gmail UI."
+    "subject": "Agent Jumbo Gmail Test",
+    "body": "This is a test email from Agent Jumbo Gmail UI."
 }
 ```
 
 ### Re-authenticate Expired Accounts
 
 If an account shows as expired:
+
 1. Click the account in the manager
 2. Click **"Re-authenticate"**
 3. Complete OAuth2 flow again
@@ -148,11 +153,12 @@ Accounts are authenticated with the following Gmail API scopes:
 
 - OAuth2 tokens are stored in `data/gmail_credentials/token_{account_name}.pickle`
 - Tokens are encrypted using Google's credential storage
-- Only the Agent Zero instance has access to these files
+- Only the Agent Jumbo instance has access to these files
 
 ### CSRF Protection
 
 The OAuth2 flow uses state tokens to prevent CSRF attacks:
+
 - Each authentication request generates a unique state token
 - Token is verified on callback to ensure request authenticity
 
@@ -169,11 +175,14 @@ The OAuth2 flow uses state tokens to prevent CSRF attacks:
 **Cause:** Invalid credentials.json or missing redirect URI
 
 **Solution:**
+
 1. Verify credentials.json is valid JSON
 2. Check redirect URI in Google Cloud Console matches:
+
    ```
    http://localhost:5000/gmail_oauth_callback
    ```
+
 3. Ensure Gmail API is enabled for your project
 
 ### "Invalid state token (CSRF protection)"
@@ -181,8 +190,9 @@ The OAuth2 flow uses state tokens to prevent CSRF attacks:
 **Cause:** Session expired or OAuth2 callback from different request
 
 **Solution:**
+
 - Start the authentication flow again
-- Don't navigate away from Agent Zero during authentication
+- Don't navigate away from Agent Jumbo during authentication
 - Check browser allows cookies from localhost
 
 ### "Credentials expired"
@@ -190,6 +200,7 @@ The OAuth2 flow uses state tokens to prevent CSRF attacks:
 **Cause:** Refresh token expired or revoked
 
 **Solution:**
+
 1. Remove the account: `POST /gmail_account_remove`
 2. Re-authenticate with fresh credentials
 
@@ -198,6 +209,7 @@ The OAuth2 flow uses state tokens to prevent CSRF attacks:
 **Cause:** Missing Python dependencies
 
 **Solution:**
+
 ```bash
 pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
 ```
@@ -209,6 +221,7 @@ pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
 **Endpoint:** `POST /gmail_oauth_start`
 
 **Request:**
+
 ```json
 {
     "account_name": "sales",
@@ -217,6 +230,7 @@ pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
 ```
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -237,6 +251,7 @@ Handles the OAuth2 redirect and exchanges authorization code for credentials.
 **Endpoint:** `POST /gmail_accounts_list`
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -259,6 +274,7 @@ Handles the OAuth2 redirect and exchanges authorization code for credentials.
 **Endpoint:** `POST /gmail_account_remove`
 
 **Request:**
+
 ```json
 {
     "account_name": "sales"
@@ -266,6 +282,7 @@ Handles the OAuth2 redirect and exchanges authorization code for credentials.
 ```
 
 **Response:**
+
 ```json
 {
     "success": true,

@@ -1,6 +1,6 @@
 # Agent Jumbo
 
-> Agent Jumbo is Agent Zero DevOps fork - a modern DevOps deployment and orchestration platform with an intuitive web interface, comprehensive documentation, and production-ready CI/CD automation.
+> Agent Jumbo is Agent Jumbo DevOps fork - a modern DevOps deployment and orchestration platform with an intuitive web interface, comprehensive documentation, and production-ready CI/CD automation.
 
 ## Quick Start
 
@@ -107,7 +107,7 @@ Copy `.env.example` to `.env.local` and configure:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:3000/api
-NEXT_PUBLIC_GITHUB_REPO=agent-zero-deploy/agent-jumbo
+NEXT_PUBLIC_GITHUB_REPO=agent-jumbo-deploy/agent-jumbo
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_URL=http://localhost:3000
 ```
@@ -133,8 +133,8 @@ Apache License 2.0 - See [../LICENSE](../LICENSE) file for details
 ## Support
 
 - **Documentation:** [In-app docs](https://agent-jumbo.vercel.app/documentation)
-- **Issues:** [GitHub Issues](https://github.com/agent-zero-deploy/agent-jumbo/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/agent-zero-deploy/agent-jumbo/discussions)
+- **Issues:** [GitHub Issues](https://github.com/agent-jumbo-deploy/agent-jumbo/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/agent-jumbo-deploy/agent-jumbo/discussions)
 
 ---
 

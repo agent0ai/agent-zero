@@ -1,6 +1,6 @@
 #!/bin/bash
 # Ollama Model Initialization Script
-# Ensures qwen2.5-coder:7b is pulled and ready before Agent Zero starts
+# Ensures qwen2.5-coder:7b is pulled and ready before Agent Jumbo starts
 
 set -e
 
@@ -17,12 +17,12 @@ for i in $(seq 1 $MAX_RETRIES); do
         echo "✓ Ollama service is ready"
         break
     fi
-    
+
     if [ $i -eq $MAX_RETRIES ]; then
         echo "✗ Ollama service not available after ${MAX_RETRIES} attempts"
         exit 1
     fi
-    
+
     echo "  Waiting for Ollama... (attempt $i/$MAX_RETRIES)"
     sleep $RETRY_DELAY
 done
@@ -39,15 +39,15 @@ fi
 MODEL_MANIFEST="/root/.ollama/models/manifests/registry.ollama.ai/library/qwen2.5-coder/7b"
 if [ -f "$MODEL_MANIFEST" ]; then
     echo "📦 Model files found in volume, attempting to register..."
-    
+
     # The manifest exists but Ollama doesn't see it
     # This happens when files are copied externally
     # We need to trigger Ollama to recognize them
-    
+
     # Try to run the model to trigger registration
     echo "🔄 Attempting to load model from existing files..."
     timeout 60 ollama run "${REQUIRED_MODEL}" "test" > /dev/null 2>&1 || true
-    
+
     # Check again
     if ollama list | grep -q "${REQUIRED_MODEL}"; then
         echo "✓ Model registered successfully from existing files"

@@ -8,9 +8,11 @@ const model = {
   servers: [],
   loading: true,
   reloadingTools: false,
+  estimatingUsage: false,
   statusCheck: false,
   serverLog: "",
   lastReloadMeta: null,
+  observabilityEstimate: null,
 
   async initialize() {
     // Initialize the JSON Viewer after the modal is rendered
@@ -144,6 +146,24 @@ const model = {
       };
     } finally {
       this.reloadingTools = false;
+    }
+  },
+
+  async estimateObservabilityUsage() {
+    if (this.loading || this.estimatingUsage) return;
+    this.estimatingUsage = true;
+    try {
+      const resp = await API.callJsonApi("observability_usage_estimate", {});
+      if (resp && resp.success) {
+        this.observabilityEstimate = resp.estimate;
+      } else {
+        this.observabilityEstimate = { error: "Failed to estimate usage" };
+      }
+    } catch (error) {
+      console.error("Failed to estimate observability usage:", error);
+      this.observabilityEstimate = { error: String(error) };
+    } finally {
+      this.estimatingUsage = false;
     }
   },
 

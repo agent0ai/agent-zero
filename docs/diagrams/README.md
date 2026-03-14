@@ -1,6 +1,7 @@
-# Agent Zero Architecture Diagrams
+# Agent Jumbo Architecture Diagrams
 
-This directory contains Draw.io diagrams documenting the Agent Zero system architecture. These files can be opened in:
+This directory contains Draw.io diagrams documenting the Agent Jumbo system architecture. These files can be opened in:
+
 - [Draw.io Desktop App](https://www.drawio.com/)
 - [Draw.io Web](https://app.diagrams.net/)
 - VS Code with the Draw.io Extension
@@ -8,7 +9,8 @@ This directory contains Draw.io diagrams documenting the Agent Zero system archi
 ## Available Diagrams
 
 ### 1. System Architecture (`system-architecture.drawio`)
-**High-level overview of the entire Agent Zero system**
+
+**High-level overview of the entire Agent Jumbo system**
 
 - **Web UI Layer**: Alpine.js components, dashboards, settings modal
 - **API Layer**: 82 endpoints organized by domain
@@ -17,6 +19,7 @@ This directory contains Draw.io diagrams documenting the Agent Zero system archi
 - **External Services**: Ollama, Anthropic, OpenAI, Gmail, MCP Servers
 
 ### 2. Workflow Engine (`workflow-engine.drawio`)
+
 **Detailed architecture of the workflow management system**
 
 - **Tool Layer**: workflow_engine.py (18 actions), workflow_training.py
@@ -26,6 +29,7 @@ This directory contains Draw.io diagrams documenting the Agent Zero system archi
 - **API Endpoints**: /workflow_dashboard, /workflow_engine_api, etc.
 
 ### 3. Cowork System (`cowork-system.drawio`)
+
 **Collaborative approval framework for tool execution**
 
 - **Core Components**: Fingerprinting, Path Extraction, Approval Check
@@ -35,6 +39,7 @@ This directory contains Draw.io diagrams documenting the Agent Zero system archi
 - **Flow Sequence**: 8-step approval workflow visualization
 
 ### 4. Ralph Loop (`ralph-loop.drawio`)
+
 **Autonomous iterative task execution system**
 
 - **Concept**: "Ralph Wiggum Technique" - continuous execution until completion
@@ -44,6 +49,7 @@ This directory contains Draw.io diagrams documenting the Agent Zero system archi
 - **Execution Flow**: Loop lifecycle from start to completion
 
 ### 5. Web UI Architecture (`web-ui-architecture.drawio`)
+
 **Alpine.js based reactive interface structure**
 
 - **Main Layout**: Left Panel (sidebar), Right Panel (chat + dashboards)
@@ -53,6 +59,7 @@ This directory contains Draw.io diagrams documenting the Agent Zero system archi
 - **Vendor Libraries**: Alpine.js, Mermaid, Marked, KaTeX, Flatpickr
 
 ### 6. Message Flow (`message-flow.drawio`)
+
 **Agent monologue pipeline for message processing**
 
 - **Input → API → Context**: User message to AgentContext
@@ -64,15 +71,18 @@ This directory contains Draw.io diagrams documenting the Agent Zero system archi
 ## How to Open
 
 ### Draw.io Web
-1. Go to https://app.diagrams.net/
+
+1. Go to <https://app.diagrams.net/>
 2. Click "Open Existing Diagram"
 3. Select the .drawio file
 
 ### Draw.io Desktop
-1. Download from https://www.drawio.com/
+
+1. Download from <https://www.drawio.com/>
 2. File → Open → Select .drawio file
 
 ### VS Code Extension
+
 1. Install "Draw.io Integration" extension
 2. Open any .drawio file directly in VS Code
 

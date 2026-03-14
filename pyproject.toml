@@ -6,7 +6,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agent-zero-devops"
+name = "agent-jumbo-devops"
 version = "1.0.0-beta"
 description = "Intelligent multi-platform deployment orchestration for AI agents"
 authors = [
@@ -105,14 +105,14 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/agent-zero-deploy/agent-zero-devops"
-"Bug Tracker" = "https://github.com/agent-zero-deploy/agent-zero-devops/issues"
-Documentation = "https://github.com/agent-zero-deploy/agent-zero-devops/tree/main/docs"
-"Source Code" = "https://github.com/agent-zero-deploy/agent-zero-devops"
-Discussions = "https://github.com/agent-zero-deploy/agent-zero-devops/discussions"
+Homepage = "https://github.com/agent-jumbo-deploy/agent-jumbo-devops"
+"Bug Tracker" = "https://github.com/agent-jumbo-deploy/agent-jumbo-devops/issues"
+Documentation = "https://github.com/agent-jumbo-deploy/agent-jumbo-devops/tree/main/docs"
+"Source Code" = "https://github.com/agent-jumbo-deploy/agent-jumbo-devops"
+Discussions = "https://github.com/agent-jumbo-deploy/agent-jumbo-devops/discussions"
 
 # ============================================
-# Ruff Configuration for Agent Zero
+# Ruff Configuration for Agent Jumbo
 # ============================================
 [tool.ruff]
 target-version = "py312"

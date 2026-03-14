@@ -26,7 +26,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
       <div className="flex h-[var(--topbar-height)] items-center justify-between border-b border-[var(--border-default)] px-3">
         {!collapsed && (
           <Link href="/overview" className="text-sm font-bold text-[var(--text-primary)] truncate">
-            Agent Zero
+            Agent Jumbo
           </Link>
         )}
         <button

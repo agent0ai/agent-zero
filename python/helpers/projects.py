@@ -11,6 +11,8 @@ PROJECTS_PARENT_DIR = "usr/projects"
 PROJECT_META_DIR = ".a0proj"
 PROJECT_INSTRUCTIONS_DIR = "instructions"
 PROJECT_KNOWLEDGE_DIR = "knowledge"
+PROJECT_VALIDATION_DIR = "validation"
+PROJECT_LIFECYCLE_DIR = "lifecycle"
 PROJECT_HEADER_FILE = "project.json"
 
 CONTEXT_DATA_KEY_PROJECT = "project"
@@ -30,9 +32,7 @@ class BasicProjectData(TypedDict):
     description: str
     instructions: str
     color: str
-    memory: Literal[
-        "own", "global"
-    ]  # in the future we can add cutom and point to another existing folder
+    memory: Literal["own", "global"]  # in the future we can add cutom and point to another existing folder
     file_structure: FileStructureInjectionSettings
 
 
@@ -56,6 +56,14 @@ def get_project_meta_folder(name: str, *sub_dirs: str):
     return files.get_abs_path(get_project_folder(name), PROJECT_META_DIR, *sub_dirs)
 
 
+def get_project_validation_folder(name: str, *sub_dirs: str):
+    return files.get_abs_path(get_project_meta_folder(name), PROJECT_VALIDATION_DIR, *sub_dirs)
+
+
+def get_project_lifecycle_folder(name: str, *sub_dirs: str):
+    return files.get_abs_path(get_project_meta_folder(name), PROJECT_LIFECYCLE_DIR, *sub_dirs)
+
+
 def delete_project(name: str):
     abs_path = files.get_abs_path(PROJECTS_PARENT_DIR, name)
     files.delete_dir(abs_path)
@@ -64,9 +72,7 @@ def delete_project(name: str):
 
 
 def create_project(name: str, data: BasicProjectData):
-    files.create_dir_safe(
-        files.get_abs_path(PROJECTS_PARENT_DIR, name), rename_format="{name}_{number}"
-    )
+    files.create_dir_safe(files.get_abs_path(PROJECTS_PARENT_DIR, name), rename_format="{name}_{number}")
     create_project_meta_folders(name)
     data = _normalizeBasicData(data)
     save_project_header(name, data)
@@ -74,9 +80,7 @@ def create_project(name: str, data: BasicProjectData):
 
 
 def load_project_header(name: str):
-    abs_path = files.get_abs_path(
-        PROJECTS_PARENT_DIR, name, PROJECT_META_DIR, PROJECT_HEADER_FILE
-    )
+    abs_path = files.get_abs_path(PROJECTS_PARENT_DIR, name, PROJECT_META_DIR, PROJECT_HEADER_FILE)
     header: dict = dirty_json.parse(files.read_file(abs_path))  # type: ignore
     header["name"] = name
     return header
@@ -164,9 +168,7 @@ def load_basic_project_data(name: str) -> BasicProjectData:
 
 def load_edit_project_data(name: str) -> EditProjectData:
     data = load_basic_project_data(name)
-    additional_instructions = get_additional_instructions_files(
-        name
-    )  # for additional info
+    additional_instructions = get_additional_instructions_files(name)  # for additional info
     variables = load_project_variables(name)
     secrets = load_project_secrets_masked(name)
     knowledge_files_count = get_knowledge_files_count(name)
@@ -185,9 +187,7 @@ def load_edit_project_data(name: str) -> EditProjectData:
 def save_project_header(name: str, data: BasicProjectData):
     # save project header file
     header = dirty_json.stringify(data)
-    abs_path = files.get_abs_path(
-        PROJECTS_PARENT_DIR, name, PROJECT_META_DIR, PROJECT_HEADER_FILE
-    )
+    abs_path = files.get_abs_path(PROJECTS_PARENT_DIR, name, PROJECT_META_DIR, PROJECT_HEADER_FILE)
 
     files.write_file(abs_path, header)
 
@@ -276,10 +276,7 @@ def build_system_prompt_vars(name: str):
     main_instructions = project_data.get("instructions", "") or ""
     additional_instructions = get_additional_instructions_files(name)
     complete_instructions = (
-        main_instructions
-        + "\n\n".join(
-            additional_instructions[k] for k in sorted(additional_instructions)
-        )
+        main_instructions + "\n\n".join(additional_instructions[k] for k in sorted(additional_instructions))
     ).strip()
     return {
         "project_name": project_data.get("title", ""),
@@ -290,9 +287,7 @@ def build_system_prompt_vars(name: str):
 
 
 def get_additional_instructions_files(name: str):
-    instructions_folder = files.get_abs_path(
-        get_project_folder(name), PROJECT_META_DIR, PROJECT_INSTRUCTIONS_DIR
-    )
+    instructions_folder = files.get_abs_path(get_project_folder(name), PROJECT_META_DIR, PROJECT_INSTRUCTIONS_DIR)
     return files.read_text_files_in_dir(instructions_folder)
 
 
@@ -346,31 +341,39 @@ def create_project_meta_folders(name: str):
     from python.helpers import memory
 
     for memory_type in memory.Memory.Area:
-        files.create_dir(
-            get_project_meta_folder(name, PROJECT_KNOWLEDGE_DIR, memory_type.value)
-        )
+        files.create_dir(get_project_meta_folder(name, PROJECT_KNOWLEDGE_DIR, memory_type.value))
+
+    # create validation folders
+    files.create_dir(get_project_validation_folder(name, "suites"))
+    files.create_dir(get_project_validation_folder(name, "runs"))
+    files.create_dir(get_project_validation_folder(name, "profiles"))
+
+    # create lifecycle folders
+    files.create_dir(get_project_lifecycle_folder(name))
+    files.create_dir(get_project_lifecycle_folder(name, "runs"))
 
 
 def get_knowledge_files_count(name: str):
-    knowledge_folder = files.get_abs_path(
-        get_project_meta_folder(name, PROJECT_KNOWLEDGE_DIR)
-    )
+    knowledge_folder = files.get_abs_path(get_project_meta_folder(name, PROJECT_KNOWLEDGE_DIR))
     return len(files.list_files_in_dir_recursively(knowledge_folder))
 
-def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str:
+
+def get_file_structure(name: str, basic_data: BasicProjectData | None = None) -> str:
     project_folder = get_project_folder(name)
     if basic_data is None:
         basic_data = load_basic_project_data(name)
 
-    tree = str(file_tree.file_tree(
-        project_folder,
-        max_depth=basic_data["file_structure"]["max_depth"],
-        max_files=basic_data["file_structure"]["max_files"],
-        max_folders=basic_data["file_structure"]["max_folders"],
-        max_lines=basic_data["file_structure"]["max_lines"],
-        ignore=basic_data["file_structure"]["gitignore"],
-        output_mode=file_tree.OUTPUT_MODE_STRING
-    ))
+    tree = str(
+        file_tree.file_tree(
+            project_folder,
+            max_depth=basic_data["file_structure"]["max_depth"],
+            max_files=basic_data["file_structure"]["max_files"],
+            max_folders=basic_data["file_structure"]["max_folders"],
+            max_lines=basic_data["file_structure"]["max_lines"],
+            ignore=basic_data["file_structure"]["gitignore"],
+            output_mode=file_tree.OUTPUT_MODE_STRING,
+        )
+    )
 
     # empty?
     if "\n" not in tree:

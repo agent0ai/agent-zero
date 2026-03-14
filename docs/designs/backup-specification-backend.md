@@ -1,16 +1,19 @@
-# Agent Zero Backup/Restore Backend Specification
+# Agent Jumbo Backup/Restore Backend Specification
 
 ## Overview
-This specification defines the backend implementation for Agent Zero's backup and restore functionality, providing users with the ability to backup and restore their Agent Zero configurations, data, and custom files using glob pattern-based selection. The backup functionality is implemented as a dedicated "backup" tab in the settings interface for easy access and organization.
+
+This specification defines the backend implementation for Agent Jumbo's backup and restore functionality, providing users with the ability to backup and restore their Agent Jumbo configurations, data, and custom files using glob pattern-based selection. The backup functionality is implemented as a dedicated "backup" tab in the settings interface for easy access and organization.
 
 ## Core Requirements
 
 ### Backup Flow
+
 1. User configures backup paths using glob patterns in settings modal
 2. Backend creates zip archive with selected files and metadata
 3. Archive is provided as download to user
 
 ### Restore Flow
+
 1. User uploads backup archive in settings modal
 2. Backend extracts and validates metadata
 3. User confirms file list and destination paths
@@ -21,11 +24,13 @@ This specification defines the backend implementation for Agent Zero's backup an
 ### 1. Settings Integration
 
 #### Settings Schema Extension
+
 Add backup/restore section with dedicated tab to `python/helpers/settings.py`:
 
 **Integration Notes:**
+
 - Leverages existing settings button handler pattern (follows MCP servers example)
-- Integrates with Agent Zero's established error handling and toast notification system
+- Integrates with Agent Jumbo's established error handling and toast notification system
 - Uses existing file operation helpers with RFC support for development mode compatibility
 
 ```python
@@ -33,7 +38,7 @@ Add backup/restore section with dedicated tab to `python/helpers/settings.py`:
 backup_section: SettingsSection = {
     "id": "backup_restore",
     "title": "Backup & Restore",
-    "description": "Backup and restore Agent Zero data and configurations using glob pattern-based file selection.",
+    "description": "Backup and restore Agent Jumbo data and configurations using glob pattern-based file selection.",
     "fields": [
         {
             "id": "backup_create",
@@ -55,20 +60,21 @@ backup_section: SettingsSection = {
 ```
 
 #### Default Backup Configuration
+
 The backup system now uses **resolved absolute filesystem paths** instead of placeholders, ensuring compatibility across different deployment environments (Docker containers, direct host installations, different users).
 
 ```python
 def _get_default_patterns(self) -> str:
     """Get default backup patterns with resolved absolute paths"""
     # Ensure paths don't have double slashes
-    agent_root = self.agent_zero_root.rstrip('/')
+    agent_root = self.agent_jumbo_root.rstrip('/')
     user_home = self.user_home.rstrip('/')
 
-    return f"""# Agent Zero Knowledge (excluding defaults)
+    return f"""# Agent Jumbo Knowledge (excluding defaults)
 {agent_root}/knowledge/**
 !{agent_root}/knowledge/default/**
 
-# Agent Zero Instruments (excluding defaults)
+# Agent Jumbo Instruments (excluding defaults)
 {agent_root}/instruments/**
 !{agent_root}/instruments/default/**
 
@@ -90,6 +96,7 @@ def _get_default_patterns(self) -> str:
 ```
 
 **Example Resolved Patterns** (varies by environment):
+
 ```
 # Docker container environment
 /a0/knowledge/**
@@ -106,11 +113,12 @@ def _get_default_patterns(self) -> str:
 !/home/rafael/.*
 ```
 
-> **⚠️ CRITICAL FILE NOTICE**: The `{agent_root}/.env` file contains essential configuration including API keys, model settings, and runtime parameters. This file is **REQUIRED** for Agent Zero to function properly and should always be included in backups alongside `settings.json`. Without this file, restored Agent Zero instances will not have access to configured language models or external services.
+> **⚠️ CRITICAL FILE NOTICE**: The `{agent_root}/.env` file contains essential configuration including API keys, model settings, and runtime parameters. This file is **REQUIRED** for Agent Jumbo to function properly and should always be included in backups alongside `settings.json`. Without this file, restored Agent Jumbo instances will not have access to configured language models or external services.
 
 ### 2. API Endpoints
 
 #### 2.1 Backup Test Endpoint
+
 **File**: `python/api/backup_test.py`
 
 ```python
@@ -158,6 +166,7 @@ class BackupTest(ApiHandler):
 ```
 
 #### 2.2 Backup Create Endpoint
+
 **File**: `python/api/backup_create.py`
 
 ```python
@@ -181,7 +190,7 @@ class BackupCreate(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         patterns = input.get("patterns", "")
         include_hidden = input.get("include_hidden", False)
-        backup_name = input.get("backup_name", "agent-zero-backup")
+        backup_name = input.get("backup_name", "agent-jumbo-backup")
 
         try:
             backup_service = BackupService()
@@ -207,6 +216,7 @@ class BackupCreate(ApiHandler):
 ```
 
 #### 2.3 Backup Restore Endpoint
+
 **File**: `python/api/backup_restore.py`
 
 ```python
@@ -262,6 +272,7 @@ class BackupRestore(ApiHandler):
 ```
 
 #### 2.4 Backup Restore Preview Endpoint
+
 **File**: `python/api/backup_restore_preview.py`
 
 ```python
@@ -314,6 +325,7 @@ class BackupRestorePreview(ApiHandler):
 ```
 
 #### 2.5 Backup File Preview Grouped Endpoint
+
 **File**: `python/api/backup_preview_grouped.py`
 
 ```python
@@ -363,6 +375,7 @@ class BackupPreviewGrouped(ApiHandler):
 ```
 
 #### 2.6 Backup Progress Stream Endpoint
+
 **File**: `python/api/backup_progress_stream.py`
 
 ```python
@@ -385,7 +398,7 @@ class BackupProgressStream(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         patterns = input.get("patterns", "")
         include_hidden = input.get("include_hidden", False)
-        backup_name = input.get("backup_name", "agent-zero-backup")
+        backup_name = input.get("backup_name", "agent-jumbo-backup")
 
         def generate_progress():
             try:
@@ -413,6 +426,7 @@ class BackupProgressStream(ApiHandler):
 ```
 
 #### 2.7 Backup Inspect Endpoint
+
 **File**: `python/api/backup_inspect.py`
 
 ```python
@@ -452,7 +466,7 @@ class BackupInspect(ApiHandler):
                 "include_patterns": metadata.get("include_patterns", []),  # Array of include patterns
                 "exclude_patterns": metadata.get("exclude_patterns", []),  # Array of exclude patterns
                 "default_patterns": metadata.get("backup_config", {}).get("default_patterns", ""),
-                "agent_zero_version": metadata.get("agent_zero_version", "unknown"),
+                "agent_jumbo_version": metadata.get("agent_jumbo_version", "unknown"),
                 "timestamp": metadata.get("timestamp", ""),
                 "backup_name": metadata.get("backup_name", ""),
                 "total_files": metadata.get("total_files", len(metadata.get("files", []))),
@@ -470,10 +484,11 @@ class BackupInspect(ApiHandler):
 ### 3. Backup Service Implementation
 
 #### Core Service Class
+
 **File**: `python/helpers/backup.py`
 
 **RFC Integration Notes:**
-The BackupService leverages Agent Zero's existing file operation helpers which already support RFC (Remote Function Call) routing for development mode. This ensures seamless operation whether running in direct mode or with container isolation.
+The BackupService leverages Agent Jumbo's existing file operation helpers which already support RFC (Remote Function Call) routing for development mode. This ensures seamless operation whether running in direct mode or with container isolation.
 
 ```python
 import zipfile
@@ -488,19 +503,19 @@ from python.helpers import files, runtime, git
 import shutil
 
 class BackupService:
-    """Core backup and restore service for Agent Zero"""
+    """Core backup and restore service for Agent Jumbo"""
 
     def __init__(self):
-        self.agent_zero_version = self._get_agent_zero_version()
-        self.agent_zero_root = files.get_abs_path("")  # Resolved Agent Zero root
+        self.agent_jumbo_version = self._get_agent_jumbo_version()
+        self.agent_jumbo_root = files.get_abs_path("")  # Resolved Agent Jumbo root
         self.user_home = os.path.expanduser("~")       # Current user's home directory
 
     def _get_default_patterns(self) -> str:
         """Get default backup patterns from specification"""
         return DEFAULT_BACKUP_PATTERNS
 
-    def _get_agent_zero_version(self) -> str:
-        """Get current Agent Zero version"""
+    def _get_agent_jumbo_version(self) -> str:
+        """Get current Agent Jumbo version"""
         try:
             # Get version from git info (same as run_ui.py)
             gitinfo = git.get_git_info()
@@ -582,7 +597,7 @@ class BackupService:
                 "path": os.environ.get("PATH", "")[:200] + "..." if len(os.environ.get("PATH", "")) > 200 else os.environ.get("PATH", ""),
                 "timezone": str(datetime.datetime.now().astimezone().tzinfo),
                 "working_directory": os.getcwd(),
-                "agent_zero_root": files.get_abs_path(""),
+                "agent_jumbo_root": files.get_abs_path(""),
                 "runtime_mode": "development" if runtime.is_development() else "production"
             }
         except Exception as e:
@@ -704,7 +719,7 @@ class BackupService:
 
         return matched_files
 
-    async def create_backup(self, patterns: str, include_hidden: bool = False, backup_name: str = "agent-zero-backup") -> str:
+    async def create_backup(self, patterns: str, include_hidden: bool = False, backup_name: str = "agent-jumbo-backup") -> str:
         """Create backup archive with selected files"""
 
         # Get matched files
@@ -727,7 +742,7 @@ class BackupService:
 
                 metadata = {
                     # Basic backup information
-                    "agent_zero_version": self.agent_zero_version,
+                    "agent_jumbo_version": self.agent_jumbo_version,
                     "timestamp": datetime.datetime.now().isoformat(),
                     "backup_name": backup_name,
                     "include_hidden": include_hidden,
@@ -907,7 +922,7 @@ class BackupService:
             "total_size": total_size
         }
 
-    def create_backup_with_progress(self, patterns: str, include_hidden: bool = False, backup_name: str = "agent-zero-backup"):
+    def create_backup_with_progress(self, patterns: str, include_hidden: bool = False, backup_name: str = "agent-jumbo-backup"):
         """Generator that yields backup progress for streaming"""
 
         try:
@@ -966,7 +981,7 @@ class BackupService:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Create and add metadata first
                 metadata = {
-                    "agent_zero_version": self.agent_zero_version,
+                    "agent_jumbo_version": self.agent_jumbo_version,
                     "timestamp": datetime.datetime.now().isoformat(),
                     "backup_name": backup_name,
                     "backup_patterns": patterns,
@@ -1228,33 +1243,39 @@ class BackupService:
 ### 4. Dependencies
 
 #### Required Python Packages
+
 Add to `requirements.txt`:
+
 ```
 pathspec>=0.10.0  # For gitignore-style pattern matching
 psutil>=5.8.0     # For system information collection
 ```
 
-#### Agent Zero Internal Dependencies
-The backup system requires these Agent Zero helper modules:
+#### Agent Jumbo Internal Dependencies
+
+The backup system requires these Agent Jumbo helper modules:
+
 - `python.helpers.git` - For version detection using git.get_git_info() (consistent with run_ui.py)
 - `python.helpers.files` - For file operations and path resolution
 - `python.helpers.runtime` - For development/production mode detection
 
 #### Installation Command
+
 ```bash
 pip install pathspec psutil
 ```
 
 ### 5. Error Handling
 
-#### Integration with Agent Zero Error System
-The backup system integrates with Agent Zero's existing error handling infrastructure:
+#### Integration with Agent Jumbo Error System
+
+The backup system integrates with Agent Jumbo's existing error handling infrastructure:
 
 ```python
 from python.helpers.errors import format_error
 from python.helpers.print_style import PrintStyle
 
-# Follow Agent Zero's error handling patterns
+# Follow Agent Jumbo's error handling patterns
 try:
     result = await backup_operation()
     return {"success": True, "data": result}
@@ -1265,6 +1286,7 @@ except Exception as e:
 ```
 
 #### Common Error Scenarios
+
 1. **Invalid Patterns**: Malformed glob patterns
 2. **Permission Errors**: Files/directories not accessible
 3. **Disk Space**: Insufficient space for backup creation
@@ -1272,6 +1294,7 @@ except Exception as e:
 5. **Path Conflicts**: Files outside allowed directories
 
 #### Error Response Format
+
 ```python
 {
     "success": False,
@@ -1287,17 +1310,20 @@ except Exception as e:
 ### 6. Security Considerations
 
 #### Path Security
+
 - Validate all paths to prevent directory traversal attacks
 - Restrict backups to predefined base directories (/a0, /root)
 - Sanitize file names in archives
 - Implement file size limits for uploads/downloads
 
 #### Authentication
+
 - All endpoints require authentication (`requires_auth = True`)
 - All endpoints require loopback (`requires_loopback = True`)
 - No API key access for security
 
 #### File System Protection
+
 - Read-only access to system directories outside allowed paths
 - Size limits for backup archives
 - Timeout limits for backup operations
@@ -1306,12 +1332,14 @@ except Exception as e:
 ### 7. Performance Considerations
 
 #### File Processing
+
 - Limit number of files in test/preview operations (max_files parameter)
 - Stream file processing for large archives
 - Implement progress tracking for large operations
 - Use temporary directories for staging
 
 #### Memory Management
+
 - Stream zip file creation to avoid memory issues
 - Process files individually rather than loading all in memory
 - Clean up temporary files promptly
@@ -1320,6 +1348,7 @@ except Exception as e:
 ### 8. Configuration
 
 #### Default Configuration
+
 ```python
 BACKUP_CONFIG = {
     "max_files_preview": 1000,
@@ -1332,8 +1361,9 @@ BACKUP_CONFIG = {
 ```
 
 #### Future Integration Opportunities
+
 **Task Scheduler Integration:**
-Agent Zero's existing task scheduler could be extended to support automated backups:
+Agent Jumbo's existing task scheduler could be extended to support automated backups:
 
 ```python
 # Potential future enhancement - scheduled backups
@@ -1352,11 +1382,12 @@ Agent Zero's existing task scheduler could be extended to support automated back
 ## Enhanced Metadata Structure and Restore Workflow
 
 ### Version Detection Implementation
-The backup system uses the same version detection method as Agent Zero's main UI:
+
+The backup system uses the same version detection method as Agent Jumbo's main UI:
 
 ```python
-def _get_agent_zero_version(self) -> str:
-    """Get current Agent Zero version"""
+def _get_agent_jumbo_version(self) -> str:
+    """Get current Agent Jumbo version"""
     try:
         # Get version from git info (same as run_ui.py)
         gitinfo = git.get_git_info()
@@ -1368,11 +1399,12 @@ def _get_agent_zero_version(self) -> str:
 This ensures consistency between the backup metadata and the main application version reporting.
 
 ### Metadata.json Format
+
 The backup archive includes a comprehensive `metadata.json` file with the following structure:
 
 ```json
 {
-  "agent_zero_version": "version",
+  "agent_jumbo_version": "version",
   "timestamp": "ISO datetime",
   "backup_name": "user-defined name",
   "include_hidden": boolean,
@@ -1408,6 +1440,7 @@ The backup archive includes a comprehensive `metadata.json` file with the follow
 ```
 
 ### Restore Workflow
+
 1. **Upload Archive**: User uploads backup.zip file
 2. **Load Metadata**: System extracts and parses metadata.json
 3. **Display Metadata**: Complete metadata.json shown in ACE JSON editor
@@ -1416,6 +1449,7 @@ The backup archive includes a comprehensive `metadata.json` file with the follow
 6. **Execute Restore**: Files restored according to final metadata configuration
 
 ### JSON Metadata Editing Benefits
+
 - **Single Source of Truth**: metadata.json is the authoritative configuration
 - **Direct Editing**: Users edit JSON arrays directly in ACE editor
 - **Full Control**: Access to all metadata properties, not just patterns
@@ -1425,33 +1459,39 @@ The backup archive includes a comprehensive `metadata.json` file with the follow
 ## Comprehensive Enhancement Summary
 
 ### Enhanced Metadata Structure
+
 The backup metadata has been significantly enhanced to include:
+
 - **System Information**: Platform, architecture, Python version, CPU count, memory, disk usage
-- **Environment Details**: User, timezone, working directory, runtime mode, Agent Zero root path
+- **Environment Details**: User, timezone, working directory, runtime mode, Agent Jumbo root path
 - **Backup Author**: System identifier (user@hostname) for backup tracking
 - **File Checksums**: SHA-256 hashes for all backed up files for integrity verification
 - **Backup Statistics**: Total files, directories, sizes with verification methods
-- **Compatibility Data**: Agent Zero version and environment for restoration validation
+- **Compatibility Data**: Agent Jumbo version and environment for restoration validation
 
 ### Smart File Management
+
 - **Grouped File Preview**: Organize files by directory structure with depth limitation (max 3 levels)
 - **Smart Grouping**: Show directory hierarchies with expandable file counts
 - **Search and Filter**: Real-time filtering by file name or path fragments
 - **Performance Optimization**: Limit preview files (1000 max) and displayed files (50 per group) for UI responsiveness
 
 ### Real-time Progress Streaming
+
 - **Server-Sent Events**: Live backup progress updates via `/backup_progress_stream` endpoint
 - **Multi-stage Progress**: Discovery → Checksums → Backup → Finalization with percentage tracking
 - **File-by-file Updates**: Real-time display of current file being processed
 - **Error Handling**: Graceful error reporting and warning collection during backup process
 
 ### Advanced API Endpoints
+
 1. **`/backup_preview_grouped`**: Get smart file groupings with depth control and search
 2. **`/backup_progress_stream`**: Stream real-time backup progress via SSE
 3. **`/backup_restore_preview`**: Preview restore operations with pattern filtering
 4. **Enhanced `/backup_inspect`**: Return comprehensive metadata with system information
 
 ### System Information Collection
+
 - **Platform Detection**: OS, architecture, Python version, hostname
 - **Resource Information**: CPU count, memory, disk usage via psutil (converted to strings for JSON consistency)
 - **Environment Capture**: User, timezone, paths, runtime mode
@@ -1459,25 +1499,29 @@ The backup metadata has been significantly enhanced to include:
 - **Integrity Verification**: SHA-256 checksums for individual files and complete backup
 
 ### Security and Reliability Enhancements
+
 - **Integrity Verification**: File-level and backup-level checksum validation
 - **Comprehensive Logging**: Detailed progress tracking and error collection
 - **Path Security**: Enhanced validation with system information context
 - **Backup Validation**: Version compatibility checking and environment verification
 
-This enhanced backend specification provides a production-ready, comprehensive backup and restore system with advanced metadata tracking, real-time progress monitoring, and intelligent file management capabilities, all while maintaining Agent Zero's architectural patterns and security standards.
+This enhanced backend specification provides a production-ready, comprehensive backup and restore system with advanced metadata tracking, real-time progress monitoring, and intelligent file management capabilities, all while maintaining Agent Jumbo's architectural patterns and security standards.
 
 ### Implementation Status Updates
 
 #### ✅ COMPLETED: Core BackupService Implementation
+
 - **Git Version Integration**: Updated to use `git.get_git_info()` consistent with `run_ui.py`
 - **Type Safety**: Fixed psutil return values to be strings for JSON metadata consistency
 - **Code Quality**: All linting errors resolved, proper import structure
-- **Testing Verified**: BackupService initializes correctly and detects Agent Zero root paths
+- **Testing Verified**: BackupService initializes correctly and detects Agent Jumbo root paths
 - **Dependencies Added**: pathspec>=0.10.0 for pattern matching, psutil>=5.8.0 for system info
 - **Git Helper Integration**: Uses python.helpers.git.get_git_info() for version detection consistency
 
 #### Next Implementation Phase: API Endpoints
+
 Ready to implement the 8 API endpoints:
+
 1. `backup_test.py` - Pattern testing and file preview
 2. `backup_create.py` - Archive creation and download
 3. `backup_restore.py` - File restoration from archive
@@ -1492,6 +1536,7 @@ Ready to implement the 8 API endpoints:
 ### ✅ **COMPLETED CLEANUP (December 2024)**
 
 #### **Removed Unused Components:**
+
 - ❌ **`backup_download.py`** - Functionality moved to `backup_create` (direct download)
 - ❌ **`backup_progress_stream.py`** - Not implemented in frontend, overengineered
 - ❌ **`_calculate_file_checksums()` method** - Dead code, checksums not properly used
@@ -1499,12 +1544,14 @@ Ready to implement the 8 API endpoints:
 - ❌ **`hashlib` import** - No longer needed after checksum removal
 
 #### **Simplified BackupService:**
+
 - ✅ **Removed checksum calculation** - Was calculated but not properly used, overcomplicating the code
 - ✅ **Streamlined metadata** - Removed unused integrity verification fields
 - ✅ **Fixed `_count_directories()` method** - Had return statement in wrong place
 - ✅ **Cleaner error handling** - Removed unnecessary warning outputs
 
 #### **Enhanced Hidden File Logic:**
+
 The most critical fix was implementing proper explicit pattern handling:
 
 ```python
@@ -1534,6 +1581,7 @@ if not include_hidden and file.startswith('.'):
 ```
 
 #### **Final API Endpoint Set (6 endpoints):**
+
 1. ✅ **`backup_get_defaults`** - Get default metadata configuration
 2. ✅ **`backup_test`** - Test patterns and preview files (dry run)
 3. ✅ **`backup_preview_grouped`** - Get grouped file preview for UI
@@ -1547,14 +1595,16 @@ if not include_hidden and file.startswith('.'):
 **Problem:** When `include_hidden=false`, the system was excluding ALL hidden files, even when they were explicitly specified in patterns like `/a0/.env`.
 
 **Solution:** Implemented explicit pattern detection that distinguishes between:
+
 - **Explicit patterns** (like `/a0/.env`) - Always included regardless of `include_hidden` setting
 - **Wildcard discoveries** (like `/a0/*`) - Respect the `include_hidden` setting
 
-**Result:** Critical files like `.env` are now properly backed up when explicitly specified, ensuring Agent Zero configurations are preserved.
+**Result:** Critical files like `.env` are now properly backed up when explicitly specified, ensuring Agent Jumbo configurations are preserved.
 
 ### **Implementation Status: ✅ PRODUCTION READY**
 
 The backup system is now:
+
 - **Simplified**: Removed unnecessary complexity and dead code
 - **Reliable**: Fixed critical hidden file handling
 - **Efficient**: No unnecessary checksum calculations
@@ -1562,13 +1612,14 @@ The backup system is now:
 - **Complete**: Full backup and restore functionality working
 
 **Key Benefits of Cleanup:**
+
 - ✅ **Simpler maintenance** - Less code to maintain and debug
 - ✅ **Better performance** - No unnecessary checksum calculations
 - ✅ **Correct behavior** - Hidden files now work as expected
 - ✅ **Cleaner API** - Only endpoints that are actually used
 - ✅ **Better reliability** - Removed complex features that weren't properly implemented
 
-The Agent Zero backup system is now production-ready and battle-tested! 🚀
+The Agent Jumbo backup system is now production-ready and battle-tested! 🚀
 
 ## ✅ **FINAL STATUS: ACE EDITOR STATE GUARANTEE COMPLETED (December 2024)**
 
@@ -1576,7 +1627,8 @@ The Agent Zero backup system is now production-ready and battle-tested! 🚀
 
 The primary goal has been successfully achieved: **All metadata.json operations in GUI use the ACE editor state, not original archive metadata, giving users complete control to edit and execute exactly what's defined in the editor.**
 
-#### **✅ Archive metadata.json Usage** (MINIMAL - only technical requirements):
+#### **✅ Archive metadata.json Usage** (MINIMAL - only technical requirements)
+
 ```python
 # ONLY used for:
 # 1. Initial ACE editor preload (backup_inspect API)
@@ -1586,10 +1638,11 @@ metadata["exclude_patterns"] = original_backup_metadata.get("exclude_patterns", 
 
 # 2. Path translation for cross-system compatibility
 environment_info = original_backup_metadata.get("environment_info", {})
-backed_up_agent_root = environment_info.get("agent_zero_root", "")
+backed_up_agent_root = environment_info.get("agent_jumbo_root", "")
 ```
 
-#### **✅ ACE editor metadata Usage** (EVERYTHING ELSE):
+#### **✅ ACE editor metadata Usage** (EVERYTHING ELSE)
+
 ```python
 # Used for ALL user-controllable operations:
 backup_metadata = user_edited_metadata if user_edited_metadata else original_backup_metadata
@@ -1608,12 +1661,14 @@ include_hidden = backup_metadata.get("include_hidden", False)
 ### **Implementation Architecture**
 
 #### **Hybrid Approach - Perfect Balance:**
+
 - **✅ User Control**: ACE editor content drives all restore operations
 - **✅ Technical Compatibility**: Original metadata enables cross-system path translation
 - **✅ Complete Transparency**: Users see and control exactly what will be executed
 - **✅ System Intelligence**: Automatic path translation preserves functionality
 
 #### **API Layer Integration:**
+
 ```python
 # Both preview and restore APIs follow same pattern:
 class BackupRestorePreview(ApiHandler):
@@ -1631,6 +1686,7 @@ class BackupRestorePreview(ApiHandler):
 ```
 
 #### **Service Layer Implementation:**
+
 ```python
 # Service methods intelligently use both metadata sources:
 async def preview_restore(self, user_edited_metadata: Optional[Dict[str, Any]] = None):
@@ -1650,11 +1706,13 @@ async def preview_restore(self, user_edited_metadata: Optional[Dict[str, Any]] =
 ### **Dead Code Cleanup Results**
 
 #### **✅ Removed Unused Method:**
+
 - **`_find_files_to_clean()` method** (39 lines) - Replaced by `_find_files_to_clean_with_user_metadata()`
 - **Functionality**: Was using original archive metadata instead of user-edited metadata
 - **Replacement**: New method properly uses ACE editor content for clean operations
 
 #### **✅ Method Comparison:**
+
 ```python
 # OLD (REMOVED): Used original archive metadata
 async def _find_files_to_clean(self, backup_metadata: Dict[str, Any]):
@@ -1679,18 +1737,21 @@ async def _find_files_to_clean_with_user_metadata(self, user_metadata: Dict[str,
 ### **Technical Benefits Achieved**
 
 #### **✅ Complete User Control:**
+
 - Users can edit any pattern in the ACE editor
 - Changes immediately reflected in preview operations
 - Execute button runs exactly what's shown in editor
 - No hidden operations using different metadata
 
 #### **✅ Cross-System Compatibility:**
+
 - Path translation preserves technical functionality
 - Users don't need to manually adjust paths
-- Works seamlessly between different Agent Zero installations
+- Works seamlessly between different Agent Jumbo installations
 - Maintains backup portability across environments
 
 #### **✅ Clean Architecture:**
+
 - Single source of truth: ACE editor content
 - Clear separation of concerns: user control vs technical requirements
 - Eliminated dead code and simplified maintenance
@@ -1698,7 +1759,8 @@ async def _find_files_to_clean_with_user_metadata(self, user_metadata: Dict[str,
 
 ### **Final Status: ✅ PRODUCTION READY**
 
-The Agent Zero backup system now provides:
+The Agent Jumbo backup system now provides:
+
 - **✅ Complete user control** via ACE editor state
 - **✅ Cross-system compatibility** through intelligent path translation
 - **✅ Clean, maintainable code** with dead code eliminated

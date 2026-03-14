@@ -6,7 +6,7 @@ from python.helpers.tool import Response
 
 
 class TestNativeToolConversion:
-    """Test native Agent Zero tools converted from Mahoosuc commands"""
+    """Test native Agent Jumbo tools converted from Mahoosuc commands"""
 
     @pytest.mark.asyncio
     async def test_finance_report_tool_exists(self):

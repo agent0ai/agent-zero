@@ -1,17 +1,17 @@
-# Agent Zero DevOps
+# Agent Jumbo DevOps
 
-[![Tests](https://github.com/agent-zero-deploy/agent-zero-devops/workflows/tests/badge.svg)](https://github.com/agent-zero-deploy/agent-zero-devops/actions)
-[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/agent-zero-deploy/agent-zero-devops)
+[![Tests](https://github.com/agent-jumbo-deploy/agent-jumbo-devops/workflows/tests/badge.svg)](https://github.com/agent-jumbo-deploy/agent-jumbo-devops/actions)
+[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/agent-jumbo-deploy/agent-jumbo-devops)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 **Intelligent multi-platform deployment orchestration for AI agents and applications.**
 
-Agent Zero DevOps provides production-grade deployment automation across Kubernetes, SSH, AWS, GCP, and GitHub Actions with intelligent error handling, automatic rollback, and real-time progress monitoring.
+Agent Jumbo DevOps provides production-grade deployment automation across Kubernetes, SSH, AWS, GCP, and GitHub Actions with intelligent error handling, automatic rollback, and real-time progress monitoring.
 
 ## Agent Jumbo - Web UI & Deployment
 
-> Agent Jumbo is a modern web interface for Agent Zero DevOps with a Next.js 14 dashboard, comprehensive documentation, and production-ready Vercel deployment.
+> Agent Jumbo is a modern web interface for Agent Jumbo DevOps with a Next.js 14 dashboard, comprehensive documentation, and production-ready Vercel deployment.
 
 ### Quick Access
 
@@ -47,13 +47,13 @@ Visit [http://localhost:3000](http://localhost:3000)
 ### Installation
 
 ```bash
-pip install agent-zero-devops
+pip install agent-jumbo-devops
 ```
 
 ### Basic Kubernetes Deployment
 
 ```python
-from agent_zero.tools.devops_deploy import deploy_to_kubernetes
+from agent_jumbo.tools.devops_deploy import deploy_to_kubernetes
 
 # Deploy an application
 async for update in deploy_to_kubernetes(
@@ -68,7 +68,7 @@ async for update in deploy_to_kubernetes(
 ### With Error Handling
 
 ```python
-from agent_zero.tools.devops_deploy import (
+from agent_jumbo.tools.devops_deploy import (
     deploy_to_kubernetes,
     DeploymentError,
     TransientDeploymentError,
@@ -134,7 +134,7 @@ async for update in deploy_via_ssh(
 ## Architecture
 
 ```text
-Agent Zero DevOps
+Agent Jumbo DevOps
 ├── Core Framework (100%)
 │   ├── Deployment Orchestration
 │   ├── Error Classification
@@ -151,7 +151,7 @@ Agent Zero DevOps
 
 ## Testing
 
-Agent Zero DevOps has comprehensive test coverage:
+Agent Jumbo DevOps has comprehensive test coverage:
 
 ```text
 Total Tests: 66
@@ -225,7 +225,7 @@ Deployment times (typical Kubernetes):
 
 Compared to similar tools:
 
-| Metric | Agent Zero | Helm | Terraform |
+| Metric | Agent Jumbo | Helm | Terraform |
 |--------|-----------|------|-----------|
 | Setup time | < 5 min | 10-20 min | 15-30 min |
 | Deployment speed | 10-45s | 30-120s | 60-300s |
@@ -240,8 +240,8 @@ Apache License 2.0 - See [LICENSE](LICENSE) file for details.
 ## Support
 
 - 📖 [Documentation](docs/)
-- 🐛 [Report Issues](https://github.com/agent-zero-deploy/agent-zero-devops/issues)
-- 💬 [Discussions](https://github.com/agent-zero-deploy/agent-zero-devops/discussions)
+- 🐛 [Report Issues](https://github.com/agent-jumbo-deploy/agent-jumbo-devops/issues)
+- 💬 [Discussions](https://github.com/agent-jumbo-deploy/agent-jumbo-devops/discussions)
 
 ## Acknowledgments
 

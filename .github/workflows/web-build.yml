@@ -43,7 +43,7 @@ jobs:
         run: npm run build --prefix web
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000/api
-          NEXT_PUBLIC_GITHUB_REPO: agent-zero-deploy/agent-jumbo
+          NEXT_PUBLIC_GITHUB_REPO: agent-jumbo-deploy/agent-jumbo
           NEXT_PUBLIC_URL: http://localhost:3000
 
       - name: Check build output

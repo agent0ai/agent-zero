@@ -29,7 +29,7 @@ class TwilioVoiceManager:
         return sid, token, from_number
 
     def _build_twiml(self, message: str | None) -> str:
-        text = message or "Hello from Agent Zero."
+        text = message or "Hello from Agent Jumbo."
         return f"<Response><Say>{text}</Say></Response>"
 
     async def create_call(

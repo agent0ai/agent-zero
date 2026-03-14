@@ -21,7 +21,7 @@ def mock_agent():
 @pytest.mark.unit
 async def test_demo_request_and_deployment_workflow(monkeypatch, tmp_path, mock_agent):
     store_path = tmp_path / "demo_requests.jsonl"
-    monkeypatch.setenv("AGENT_ZERO_DEMO_REQUESTS_PATH", str(store_path))
+    monkeypatch.setenv("AGENT_JUMBO_DEMO_REQUESTS_PATH", str(store_path))
 
     create_tool = DemoRequestCreate(
         agent=mock_agent,

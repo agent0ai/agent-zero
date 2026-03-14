@@ -70,7 +70,7 @@
         "-y",
         "@modelcontextprotocol/server-sqlite",
         "--db-path",
-        "/home/webemo-aaron/projects/agent-zero/data.db"
+        "/home/webemo-aaron/projects/agent-jumbo/data.db"
       ],
       "description": "SQLite database operations"
     },

@@ -4,9 +4,9 @@
 
 ## Overview
 
-This document describes the conversion of high-value Mahoosuc OS commands to native Agent Zero tools. Following the established pattern from the FinanceReport POC, each command has been converted into a production-ready Tool subclass with comprehensive tests.
+This document describes the conversion of high-value Mahoosuc OS commands to native Agent Jumbo tools. Following the established pattern from the FinanceReport POC, each command has been converted into a production-ready Tool subclass with comprehensive tests.
 
-These native tools provide the same functionality as Mahoosuc commands but run directly within Agent Zero, avoiding subprocess overhead and maintaining full context integration.
+These native tools provide the same functionality as Mahoosuc commands but run directly within Agent Jumbo, avoiding subprocess overhead and maintaining full context integration.
 
 ---
 
@@ -896,7 +896,7 @@ All converted tools follow this consistent, production-ready pattern:
 """
 Tool Name
 
-Converted from Mahoosuc OS <source> to native Agent Zero tool.
+Converted from Mahoosuc OS <source> to native Agent Jumbo tool.
 <Description>
 
 Source: <mahoosuc-path>
@@ -1096,10 +1096,10 @@ All 73 tests passing with 99% average coverage.
 
 ## Comparison: Mahoosuc Commands vs Native Tools
 
-| Aspect | Mahoosuc Commands | Native Agent Zero Tools |
+| Aspect | Mahoosuc Commands | Native Agent Jumbo Tools |
 |--------|------------------|------------------------|
 | **Execution** | Subprocess via Claude Code CLI | Direct Python execution |
-| **Context** | Separate process context | Full Agent Zero context |
+| **Context** | Separate process context | Full Agent Jumbo context |
 | **Overhead** | Process creation, serialization | Zero overhead |
 | **Dependencies** | Requires Claude Code installation | No external dependencies |
 | **Testing** | Limited test coverage | Comprehensive TDD (100%) |
@@ -1116,7 +1116,7 @@ All 73 tests passing with 99% average coverage.
 - High-frequency operations (called multiple times)
 - Performance-critical workflows
 - Complex tool chaining and workflows
-- Need full Agent Zero context access
+- Need full Agent Jumbo context access
 - Production deployments
 - When comprehensive testing is required
 
@@ -1224,7 +1224,7 @@ api_review = await agent.use_tool(
 **Solution**: Ensure you're running from the project root and Python path is configured:
 
 ```bash
-export PYTHONPATH="${PYTHONPATH}:/path/to/agent-zero"
+export PYTHONPATH="${PYTHONPATH}:/path/to/agent-jumbo"
 ```
 
 ### Tool Returns Error Message
@@ -1347,7 +1347,7 @@ Based on usage patterns, utility, and business value, these are recommended for 
 **After** (Native Tools):
 
 - Zero subprocess overhead (~1-5ms)
-- Full Agent Zero context integration
+- Full Agent Jumbo context integration
 - 100% test coverage with TDD
 - No external dependencies
 - Standard Python debugging
@@ -1480,7 +1480,7 @@ result = await workflow.execute()
 - **Original Commands**: `.claude/commands/`
 - **Original Agents**: `.claude/agents/`
 - **Conversion Pattern**: `python/tools/mahoosuc_finance_report.py` (POC)
-- **Integration Guide**: `.claude/docs/AGENT_ZERO_INTEGRATION.md`
+- **Integration Guide**: `.claude/docs/AGENT_JUMBO_INTEGRATION.md`
 - **Command Index**: `.claude/docs/COMMANDS_INDEX.md`
 - **Configuration**: `.claude/docs/CONFIGURATION.md`
 
@@ -1494,7 +1494,7 @@ result = await workflow.execute()
 ### External Resources
 
 - **Mahoosuc OS**: Complete slash command system for Claude Code
-- **Agent Zero**: Autonomous agent framework
+- **Agent Jumbo**: Autonomous agent framework
 - **TDD Best Practices**: Test-driven development methodology
 - **Python async/await**: Python coroutine documentation
 

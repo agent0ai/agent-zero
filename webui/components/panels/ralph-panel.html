@@ -33,6 +33,10 @@
         </div>
     </div>
 
+    <div class="empty-state" x-show="(stats.stale_active_loops || 0) > 0">
+        <span x-text="(stats.stale_active_loops || 0) + ' stale loop(s) hidden from Active.'"></span>
+    </div>
+
     <!-- Active Loops -->
     <div class="active-section" x-show="activeLoops.length > 0">
         <h4>Active Loops</h4>
@@ -121,6 +125,11 @@ function ralphPanelData() {
                     this.stats = data.stats || {};
                     this.activeLoops = data.active_loops || [];
                     this.recentLoops = data.recent_loops || [];
+                    Alpine.store('tileRowStore')?.updateTileBadge(
+                        'ralph',
+                        this.activeLoops.length,
+                        this.activeLoops.length > 0 ? 'warning' : 'info'
+                    );
                 }
             } catch (e) {
                 console.error('Error loading ralph data:', e);

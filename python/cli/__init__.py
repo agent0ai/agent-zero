@@ -1,1 +1,1 @@
-"""CLI package for Agent Zero skill management."""
+"""CLI package for Agent Jumbo skill management."""

@@ -1,9 +1,8 @@
-from python.helpers import errors, git
+from python.helpers import errors, git, perf_metrics
 from python.helpers.api import ApiHandler, Request, Response
 
 
 class HealthCheck(ApiHandler):
-
     @classmethod
     def requires_auth(cls) -> bool:
         return False
@@ -24,4 +23,4 @@ class HealthCheck(ApiHandler):
         except Exception as e:
             error = errors.error_text(e)
 
-        return {"gitinfo": gitinfo, "error": error}
+        return {"gitinfo": gitinfo, "error": error, "runtime_metrics": perf_metrics.snapshot()}

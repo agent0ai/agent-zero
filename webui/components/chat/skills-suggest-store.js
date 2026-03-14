@@ -1,6 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 
-// Complete list of Agent Zero skills/tools with metadata
+// Complete list of Agent Jumbo skills/tools with metadata
 const ALL_SKILLS = [
     // Business & Sales
     {
@@ -273,7 +273,9 @@ const model = {
         });
     },
 
-    // Analyze input text and update suggestions
+    // Analyze input text and update suggestions without opening the UI.
+    // The skills panel should only appear after explicit user interaction
+    // (for example clicking the skills button).
     analyzeInput(text) {
         this.currentInputText = text;
 
@@ -299,10 +301,7 @@ const model = {
 
         this.contextSuggestions = suggestions;
 
-        // Auto-show if we have suggestions
-        if (suggestions.length > 0) {
-            this.visible = true;
-        }
+        // Do not auto-open on typing.
     },
 
     // Show the dropdown

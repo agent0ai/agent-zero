@@ -73,7 +73,7 @@ class TestMahoosucEndToEnd:
             "SKILLS_ADAPTATION.md",
             "IMPORT_SUMMARY.md",
             "USING_MAHOOSUC_COMMANDS.md",
-            "AGENT_ZERO_INTEGRATION.md",
+            "AGENT_JUMBO_INTEGRATION.md",
             "CONFIGURATION.md",
         ]
 

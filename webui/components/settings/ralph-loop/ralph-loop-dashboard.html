@@ -76,6 +76,10 @@
           <!-- Active Loops -->
           <div class="ralph-section" data-testid="active-loops-section">
             <h4>Active Loops</h4>
+            <div class="ralph-empty"
+                 x-show="($store.ralphLoopDashboardStore.stats.stale_active_loops || 0) > 0"
+                 x-text="($store.ralphLoopDashboardStore.stats.stale_active_loops || 0) + ' stale loop(s) hidden from Active.'">
+            </div>
             <div class="ralph-empty" data-testid="active-loops-empty" x-show="!$store.ralphLoopDashboardStore.activeLoops.length">
               No active Ralph loops
             </div>

@@ -122,8 +122,10 @@ const tileRowModel = {
     async loadRalphBadge() {
         try {
             const resp = await this.apiCall('/ralph_loop_dashboard', {});
-            if (resp.stats) {
-                const activeCount = resp.stats.active_loops || 0;
+            if (resp.stats || resp.active_loops) {
+                const activeCount = Array.isArray(resp.active_loops)
+                    ? resp.active_loops.length
+                    : (resp.stats?.active_loops || 0);
                 this.updateTileBadge('ralph', activeCount, activeCount > 0 ? 'warning' : null);
             }
         } catch (e) {

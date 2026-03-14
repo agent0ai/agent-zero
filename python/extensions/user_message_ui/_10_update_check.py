@@ -15,8 +15,8 @@ last_notification_id = ""
 last_notification_time = datetime.datetime.fromtimestamp(0)
 notification_cooldown_seconds = 60 * 60 * 24
 
-class UpdateCheck(Extension):
 
+class UpdateCheck(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), text: str = "", **kwargs):
         try:
             global last_check, last_notification_id, last_notification_time
@@ -36,19 +36,24 @@ class UpdateCheck(Extension):
 
             # if the user should update, send notification
             if notif := version.get("notification"):
-                if notif.get("id") != last_notification_id or (datetime.datetime.now() - last_notification_time).total_seconds() > notification_cooldown_seconds:
+                if (
+                    notif.get("id") != last_notification_id
+                    or (datetime.datetime.now() - last_notification_time).total_seconds()
+                    > notification_cooldown_seconds
+                ):
                     last_notification_id = notif.get("id")
                     last_notification_time = datetime.datetime.now()
                     self.send_notification(notif)
         except Exception:
-            pass # no need to log if the update server is inaccessible
-
+            pass  # no need to log if the update server is inaccessible
 
     def send_notification(self, notif):
         notifs = self.agent.context.get_notification_manager()
         notifs.send_notification(
             title=notif.get("title", "Newer version available"),
-            message=notif.get("message", "A newer version of Agent Zero is available. Please update to the latest version."),
+            message=notif.get(
+                "message", "A newer version of Agent Jumbo is available. Please update to the latest version."
+            ),
             type=notif.get("type", "info"),
             detail=notif.get("detail", ""),
             display_time=notif.get("display_time", 10),

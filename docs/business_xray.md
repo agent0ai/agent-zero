@@ -1,6 +1,6 @@
 # Business X-Ray System
 
-> Comprehensive business intelligence and life optimization platform for Agent Zero
+> Comprehensive business intelligence and life optimization platform for Agent Jumbo
 
 ## Overview
 
@@ -18,11 +18,12 @@ All analyses generate **visual diagrams** using Mermaid, making insights easy to
 
 ### Run Comprehensive Analysis
 
-Ask Agent Zero:
+Ask Agent Jumbo:
 
 > "Run a comprehensive business x-ray for my company 'Acme Corp'"
 
 This will analyze:
+
 1. Business health metrics
 2. Time usage patterns
 3. Automation opportunities
@@ -44,12 +45,14 @@ Focus on one area:
 ### 1. Business Health Analysis 🏥
 
 **What it measures:**
+
 - Monthly revenue and growth rate
 - Profit margins and burn rate
 - Customer metrics (LTV, CAC, churn)
 - Team size and productivity
 
 **Output:**
+
 - Health score (0-100)
 - Mermaid flowchart showing metrics
 - Specific recommendations
@@ -72,6 +75,7 @@ Recommendations:
 ```
 
 **Scoring:**
+
 - **80-100**: Excellent - Scale aggressively
 - **60-79**: Good - Optimize and grow
 - **40-59**: Needs Improvement - Fix fundamentals
@@ -80,6 +84,7 @@ Recommendations:
 ### 2. Time Audit ⏰
 
 **What it measures:**
+
 - Deep work vs shallow work hours
 - Meeting time allocation
 - Email and administrative overhead
@@ -88,6 +93,7 @@ Recommendations:
 - Peak productivity hours
 
 **Output:**
+
 - Time efficiency score (% deep work)
 - Pie chart of weekly time distribution
 - Productivity optimization tips
@@ -110,6 +116,7 @@ Recommendations:
 ```
 
 **Benchmarks:**
+
 - **40%+ deep work**: Excellent
 - **30-40% deep work**: Good
 - **20-30% deep work**: Needs improvement
@@ -118,6 +125,7 @@ Recommendations:
 ### 3. Automation Opportunities 🤖
 
 **What it identifies:**
+
 - Repetitive tasks worth automating
 - Time spent on each task
 - Automation potential (% that can be automated)
@@ -126,6 +134,7 @@ Recommendations:
 - Priority scores
 
 **Output:**
+
 - Prioritized task list with ROI
 - Annual savings projections
 - Quick win identification
@@ -158,6 +167,7 @@ Top 5 Opportunities:
 ```
 
 **Common Tasks to Automate:**
+
 - Invoice generation and payment follow-up
 - Social media content scheduling
 - Email responses for FAQs
@@ -172,6 +182,7 @@ Top 5 Opportunities:
 ### 4. Revenue Opportunities 💰
 
 **What it identifies:**
+
 - Price optimization potential
 - Upsell/cross-sell opportunities
 - New market segments
@@ -180,6 +191,7 @@ Top 5 Opportunities:
 - Subscription model potential
 
 **Output:**
+
 - Revenue opportunity flowchart
 - Prioritized opportunity matrix
 - Difficulty vs impact analysis
@@ -213,6 +225,7 @@ Top Opportunities:
 ```
 
 **Opportunity Categories:**
+
 - **Quick Wins** (1-2 months): Price adjustments, upsells
 - **Medium Term** (3-6 months): New tiers, digital products
 - **Long Term** (6-12 months): Market expansion, partnerships
@@ -220,6 +233,7 @@ Top Opportunities:
 ### 5. Work-Life Balance Analysis ⚖️
 
 **What it measures:**
+
 - Actual vs ideal work hours
 - Stress levels
 - Exercise and sleep patterns
@@ -228,6 +242,7 @@ Top Opportunities:
 - Overall life satisfaction
 
 **Output:**
+
 - Balance score (0-100)
 - Multi-dimensional balance diagram
 - Personalized recommendations
@@ -254,6 +269,7 @@ Recommendations:
 ```
 
 **Balance Dimensions:**
+
 - **Work**: Hours, stress, ideal vs actual
 - **Health**: Exercise, sleep, nutrition
 - **Relationships**: Family, friends, community
@@ -366,6 +382,7 @@ Output:
 ### Example: Automation Implementation
 
 **Step 1: Identify**
+
 ```
 Agent: Find automation opportunities for my business
 
@@ -373,6 +390,7 @@ Result: 10 opportunities identified, totaling $150k/year savings
 ```
 
 **Step 2: Prioritize**
+
 ```
 Top 3 by ROI:
 1. Invoice automation - $30k/year
@@ -381,6 +399,7 @@ Top 3 by ROI:
 ```
 
 **Step 3: Implement**
+
 ```
 Week 1: Set up invoice automation
 Week 2: Create email response templates
@@ -388,6 +407,7 @@ Week 3: Build automated reporting
 ```
 
 **Step 4: Measure**
+
 ```
 Agent: Re-run time audit
 
@@ -399,6 +419,7 @@ Annual value: $41,600 recovered
 ### Example: Revenue Growth Sprint
 
 **Week 1: Discovery**
+
 ```
 Agent: Scan for revenue opportunities
 
@@ -409,6 +430,7 @@ Identified:
 ```
 
 **Week 2-4: Quick Win (Price Increase)**
+
 ```
 Actions:
 - Analyze competitor pricing
@@ -420,6 +442,7 @@ Result: +$5k MRR (+$60k ARR)
 ```
 
 **Months 2-4: Medium Win (Premium Tier)**
+
 ```
 Actions:
 - Define premium features
@@ -500,12 +523,14 @@ All analyses save to the specified output directory:
 ### Business Health Score
 
 **Components:**
+
 - Revenue Growth (30 points)
 - Profit Margin (25 points)
 - LTV/CAC Ratio (25 points)
 - Churn Rate (20 points)
 
 **Interpretation:**
+
 - **90-100**: Market leader potential
 - **75-89**: Strong, scalable business
 - **60-74**: Solid foundation, room to optimize
@@ -518,6 +543,7 @@ All analyses save to the specified output directory:
 **Calculation:** (Deep Work Hours / Total Work Hours) × 100
 
 **Benchmarks:**
+
 - **50%+**: World-class (Cal Newport level)
 - **40-50%**: Excellent
 - **30-40%**: Good (industry average)
@@ -527,12 +553,14 @@ All analyses save to the specified output directory:
 ### Life Balance Score
 
 **Components:**
+
 - Work Hours Balance (25 points)
 - Stress Level (25 points)
 - Health Metrics (25 points)
 - Life Satisfaction (25 points)
 
 **Interpretation:**
+
 - **85-100**: Optimal balance, sustainable
 - **70-84**: Good balance, minor tweaks needed
 - **55-69**: Moderate imbalance, attention required
@@ -673,12 +701,14 @@ business_xray_tool(data=actual_data)
 ### Low Health Score
 
 **Common causes:**
+
 - Negative or low growth rate
 - Poor profit margins (<10%)
 - High churn rate (>15%)
 - LTV/CAC ratio <2
 
 **Solutions:**
+
 1. Focus on one metric at a time
 2. Run revenue scan for growth ideas
 3. Analyze cost structure for margin improvement
@@ -687,12 +717,14 @@ business_xray_tool(data=actual_data)
 ### Low Efficiency Score
 
 **Common causes:**
+
 - Too many meetings
 - High context switching
 - Lack of focus blocks
 - Shallow work dominance
 
 **Solutions:**
+
 1. Block focus time on calendar
 2. Decline non-essential meetings
 3. Batch similar tasks
@@ -701,12 +733,14 @@ business_xray_tool(data=actual_data)
 ### Low Balance Score
 
 **Common causes:**
+
 - Working 50+ hours/week
 - High stress (7+/10)
 - Poor sleep (<7 hours)
 - Neglecting health/relationships
 
 **Solutions:**
+
 1. Delegate or automate to reduce hours
 2. Schedule exercise and personal time
 3. Set boundaries (no work after 7pm)
@@ -749,12 +783,13 @@ A: Yes, use different business_name and output_dir for each.
 ## Resources
 
 - [Diagram Tool Documentation](./diagrams.md) - Create visual diagrams
-- [Agent Zero Usage Guide](./usage.md) - General agent capabilities
+- [Agent Jumbo Usage Guide](./usage.md) - General agent capabilities
 - [Tool Development](./development.md) - Extend Business X-Ray
 
 ## Support
 
 For issues or feature requests:
+
 - Check the [troubleshooting guide](./troubleshooting.md)
 - Review [contribution guidelines](./contribution.md)
 - Open an issue on GitHub

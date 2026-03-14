@@ -7,7 +7,7 @@ set -e
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODELS_DIR="${PROJECT_ROOT}/ollama_models"
-GCP_BUCKET="${GCP_BUCKET:-gs://agent-zero-models}"
+GCP_BUCKET="${GCP_BUCKET:-gs://agent-jumbo-models}"
 MODEL_VERSION="${MODEL_VERSION:-$(date +%Y%m%d-%H%M%S)}"
 MANIFEST_FILE="${MODELS_DIR}/model_manifest.json"
 
@@ -35,7 +35,7 @@ check_gcloud() {
         log_error "gcloud CLI not found. Install from: https://cloud.google.com/sdk/docs/install"
         exit 1
     fi
-    
+
     if ! command -v gsutil &> /dev/null; then
         log_error "gsutil not found. Install gcloud SDK properly."
         exit 1
@@ -45,24 +45,24 @@ check_gcloud() {
 # Generate model manifest
 generate_manifest() {
     log_info "Generating model manifest..."
-    
+
     cat > "${MANIFEST_FILE}" <<EOF
 {
   "version": "${MODEL_VERSION}",
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "models": [
 EOF
-    
+
     # Find all model manifests
     local first=true
     for manifest in $(find "${MODELS_DIR}/models/manifests" -type f 2>/dev/null); do
         local model_name=$(echo "$manifest" | sed "s|${MODELS_DIR}/models/manifests/registry.ollama.ai/library/||" | tr '/' ':')
-        
+
         if [ "$first" = false ]; then
             echo "," >> "${MANIFEST_FILE}"
         fi
         first=false
-        
+
         cat >> "${MANIFEST_FILE}" <<EOF
     {
       "name": "${model_name}",
@@ -71,14 +71,14 @@ EOF
     }
 EOF
     done
-    
+
     cat >> "${MANIFEST_FILE}" <<EOF
 
   ],
   "total_size": "$(du -sh "${MODELS_DIR}" | cut -f1)"
 }
 EOF
-    
+
     log_info "Manifest created at ${MANIFEST_FILE}"
     cat "${MANIFEST_FILE}"
 }
@@ -86,22 +86,22 @@ EOF
 # Upload models to GCP bucket
 upload_models() {
     check_gcloud
-    
+
     log_info "Uploading models to ${GCP_BUCKET}/${MODEL_VERSION}/"
-    
+
     # Generate manifest first
     generate_manifest
-    
+
     # Create versioned directory in bucket
     gsutil -m rsync -r -d "${MODELS_DIR}" "${GCP_BUCKET}/${MODEL_VERSION}/"
-    
+
     # Upload manifest to root and versioned location
     gsutil cp "${MANIFEST_FILE}" "${GCP_BUCKET}/${MODEL_VERSION}/model_manifest.json"
     gsutil cp "${MANIFEST_FILE}" "${GCP_BUCKET}/latest_manifest.json"
-    
+
     # Create 'latest' symlink metadata
     echo "${MODEL_VERSION}" | gsutil cp - "${GCP_BUCKET}/LATEST_VERSION"
-    
+
     log_info "Upload complete! Version: ${MODEL_VERSION}"
     log_info "Models available at: ${GCP_BUCKET}/${MODEL_VERSION}/"
 }
@@ -109,29 +109,29 @@ upload_models() {
 # Download models from GCP bucket
 download_models() {
     check_gcloud
-    
+
     local version="${1:-latest}"
-    
+
     if [ "$version" = "latest" ]; then
         log_info "Fetching latest version..."
         version=$(gsutil cat "${GCP_BUCKET}/LATEST_VERSION" 2>/dev/null || echo "")
-        
+
         if [ -z "$version" ]; then
             log_error "No latest version found in bucket"
             exit 1
         fi
     fi
-    
+
     log_info "Downloading models version: ${version}"
-    
+
     # Create models directory if it doesn't exist
     mkdir -p "${MODELS_DIR}"
-    
+
     # Download models
     gsutil -m rsync -r -d "${GCP_BUCKET}/${version}/" "${MODELS_DIR}/"
-    
+
     log_info "Download complete! Models available at ${MODELS_DIR}"
-    
+
     # Show manifest
     if [ -f "${MANIFEST_FILE}" ]; then
         log_info "Model manifest:"
@@ -142,10 +142,10 @@ download_models() {
 # List available versions
 list_versions() {
     check_gcloud
-    
+
     log_info "Available model versions in ${GCP_BUCKET}:"
     gsutil ls "${GCP_BUCKET}/" | grep -E '[0-9]{8}-[0-9]{6}' || log_warn "No versions found"
-    
+
     echo ""
     log_info "Latest version:"
     gsutil cat "${GCP_BUCKET}/LATEST_VERSION" 2>/dev/null || log_warn "No latest version set"
@@ -154,24 +154,24 @@ list_versions() {
 # Clean old versions (keep last N versions)
 clean_old_versions() {
     check_gcloud
-    
+
     local keep_count="${1:-5}"
-    
+
     log_info "Cleaning old versions (keeping last ${keep_count})..."
-    
+
     # Get all versions sorted by date (newest first)
     local versions=$(gsutil ls "${GCP_BUCKET}/" | grep -E '[0-9]{8}-[0-9]{6}' | sort -r)
     local count=0
-    
+
     for version_path in $versions; do
         count=$((count + 1))
-        
+
         if [ $count -gt $keep_count ]; then
             log_warn "Removing old version: ${version_path}"
             gsutil -m rm -r "${version_path}"
         fi
     done
-    
+
     log_info "Cleanup complete"
 }
 
@@ -205,7 +205,7 @@ Commands:
     help                Show this help message
 
 Environment Variables:
-    GCP_BUCKET          GCS bucket path (default: gs://agent-zero-models)
+    GCP_BUCKET          GCS bucket path (default: gs://agent-jumbo-models)
     MODEL_VERSION       Version tag (default: timestamp YYYYMMDD-HHMMSS)
 
 Examples:

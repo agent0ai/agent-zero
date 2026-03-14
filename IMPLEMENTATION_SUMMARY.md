@@ -7,15 +7,18 @@
 ## What Was Built
 
 ### 1. Customer Lifecycle Manager
+
 **Purpose**: Automate complete customer journey from lead to delivery
 
 **Components**:
+
 - `instruments/custom/customer_lifecycle/lifecycle_db.py` - Database schema (8 tables)
 - `instruments/custom/customer_lifecycle/lifecycle_manager.py` - Business logic
-- `python/tools/customer_lifecycle.py` - Agent Zero tool wrapper
+- `python/tools/customer_lifecycle.py` - Agent Jumbo tool wrapper
 - `prompts/agent.system.tool.customer_lifecycle.md` - Tool documentation
 
 **Capabilities**:
+
 - Lead capture and qualification
 - Structured requirements interviews (10 default questions)
 - Solution architecture design
@@ -26,6 +29,7 @@
 - Pipeline analytics
 
 **Test Results**: ✅ All 9 tests passed
+
 ```
 ✓ Lead captured
 ✓ Requirements gathered
@@ -41,15 +45,18 @@
 ---
 
 ### 2. Virtual Team Orchestrator
+
 **Purpose**: Coordinate specialized AI agents for collaborative development
 
 **Components**:
+
 - `instruments/custom/virtual_team/team_db.py` - Database schema (9 tables)
 - `instruments/custom/virtual_team/team_orchestrator.py` - Team coordination logic
-- `python/tools/virtual_team.py` - Agent Zero tool wrapper
+- `python/tools/virtual_team.py` - Agent Jumbo tool wrapper
 - `prompts/agent.system.tool.virtual_team.md` - Tool documentation
 
 **Agent Roles** (7 specialists):
+
 1. **Architect** - System design, architecture patterns, cloud design
 2. **Developer** - Backend/frontend development, APIs
 3. **DBA** - Database design, optimization, migrations
@@ -59,11 +66,13 @@
 7. **PM** - Project management, planning
 
 **Workflow Templates**:
+
 - `full_stack_development` - Complete app development (7 tasks)
 - `api_development` - API-focused workflow (5 tasks)
 - `database_migration` - Database migration workflow (5 tasks)
 
 **Test Results**: ✅ All 13 tests passed
+
 ```
 ✓ Agent registration (7 agents)
 ✓ Task routing
@@ -85,7 +94,7 @@
 ## File Structure
 
 ```
-agent-zero/
+agent-jumbo/
 ├── instruments/custom/
 │   ├── customer_lifecycle/
 │   │   ├── __init__.py
@@ -121,6 +130,7 @@ agent-zero/
 ## Usage Examples
 
 ### Customer Lifecycle Flow
+
 ```python
 # 1. Capture lead → 2. Interview → 3. Design → 4. Propose → 5. Track → 6. Monitor
 {{customer_lifecycle(action="capture_lead", name="Sarah Johnson", company="MedTech Inc")}}
@@ -132,6 +142,7 @@ agent-zero/
 ```
 
 ### Virtual Team Flow
+
 ```python
 # 1. Start workflow → 2. Monitor → 3. Delegate → 4. Dashboard
 {{virtual_team(action="start_workflow", workflow_name="E-Commerce Build", template="full_stack_development")}}
@@ -141,6 +152,7 @@ agent-zero/
 ```
 
 ### Integration Example
+
 ```python
 # Customer accepted proposal → Create project → Assign virtual team
 {{customer_lifecycle(action="track_proposal", proposal_id=1, status="accepted")}}
@@ -153,6 +165,7 @@ agent-zero/
 ## Key Features
 
 ### Customer Lifecycle
+
 - **10 default interview questions** covering all critical areas
 - **Auto-generated proposal numbers** (PROP-{customer_id}-{count})
 - **Stage auto-promotion** (lead → prospect → customer)
@@ -161,6 +174,7 @@ agent-zero/
 - **360-degree customer view** with all touchpoints
 
 ### Virtual Team
+
 - **7 specialized agents** auto-registered on init
 - **3 workflow templates** with parallel task support
 - **Smart task routing** based on task type
@@ -173,10 +187,12 @@ agent-zero/
 ## Database Schema
 
 ### Customer Lifecycle (8 tables, ~30 columns)
+
 - customers, requirements, solutions, proposals
 - contracts, customer_projects, support_tickets, interactions
 
 ### Virtual Team (9 tables, ~40 columns)
+
 - agents, tasks, task_assignments, task_results
 - workflows, workflow_tasks, collaboration_sessions
 - agent_performance, team_knowledge
@@ -186,8 +202,9 @@ agent-zero/
 ## Testing
 
 Run comprehensive tests:
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero
+cd /home/webemo-aaron/projects/agent-jumbo
 python3 tests/test_customer_lifecycle.py  # 9 tests
 python3 tests/test_virtual_team.py        # 13 tests
 ```
@@ -199,6 +216,7 @@ Both test suites: **✅ 100% pass rate**
 ## Documentation
 
 Complete documentation available:
+
 - **User Guide**: `docs/CUSTOMER_LIFECYCLE_VIRTUAL_TEAM.md`
 - **Tool Reference**: `prompts/agent.system.tool.customer_lifecycle.md`
 - **Tool Reference**: `prompts/agent.system.tool.virtual_team.md`
@@ -208,18 +226,21 @@ Complete documentation available:
 ## Next Steps (Optional Future Enhancements)
 
 ### Phase 3 - SaaS Blueprint Manager
+
 - Multi-tenant solution templates
 - Industry-specific blueprints (healthcare, retail, finance)
 - Automated customization based on customer requirements
 - Solution marketplace
 
 ### Phase 4 - AI-Powered Intelligence
+
 - NLP-based requirement analysis
 - Sentiment analysis for customer interactions
 - Predictive proposal success scoring
 - Agent performance learning/optimization
 
 ### Phase 5 - Advanced Collaboration
+
 - Cross-project resource optimization
 - Agent skill evolution based on task history
 - Automated code review and PR management
@@ -239,10 +260,12 @@ Complete documentation available:
 ## Maintenance
 
 ### Database Locations
+
 - Customer Lifecycle: `instruments/custom/customer_lifecycle/data/customer_lifecycle.db`
 - Virtual Team: `instruments/custom/virtual_team/data/virtual_team.db`
 
 ### Backup
+
 ```bash
 # Backup databases
 cp instruments/custom/customer_lifecycle/data/*.db backups/
@@ -250,6 +273,7 @@ cp instruments/custom/virtual_team/data/*.db backups/
 ```
 
 ### Clear Test Data
+
 ```bash
 # Remove test databases
 rm instruments/custom/*/data/test_*.db
@@ -260,11 +284,13 @@ rm instruments/custom/*/data/test_*.db
 ## Integration Points
 
 ### With Existing Tools
+
 - **Portfolio Manager**: Link customer_projects to portfolio
 - **Property Manager**: Track customer facilities/locations (if applicable)
 - **MCP Tools**: Enable external integrations
 
 ### With External Systems
+
 - CRM integration via customer_lifecycle interactions
 - Project management tools via virtual_team workflows
 - Billing systems via proposals/contracts
@@ -275,14 +301,16 @@ rm instruments/custom/*/data/test_*.db
 ## Success Metrics
 
 ✅ **All objectives achieved**:
+
 1. ✓ Automate lead → customer → delivery cycle
 2. ✓ Implement virtual employee teams (7 roles)
 3. ✓ Multi-agent workflow orchestration
 4. ✓ Complete testing coverage
 5. ✓ Comprehensive documentation
-6. ✓ Integration with existing Agent Zero tools
+6. ✓ Integration with existing Agent Jumbo tools
 
 **Total Implementation**:
+
 - **Lines of Code**: ~3,500
 - **Database Tables**: 17
 - **Tool Actions**: 24 (10 lifecycle + 14 team)
@@ -294,12 +322,14 @@ rm instruments/custom/*/data/test_*.db
 ## Architecture Highlights
 
 ### Design Patterns Used
+
 - **Repository Pattern**: Database classes separate from business logic
 - **Strategy Pattern**: Workflow templates for different development types
 - **Observer Pattern**: Task status updates trigger workflow progress
 - **Factory Pattern**: Agent initialization and task routing
 
 ### Best Practices
+
 - ✓ Async tool execution
 - ✓ JSON serialization for complex data
 - ✓ Auto-created databases with proper schemas
@@ -311,10 +341,10 @@ rm instruments/custom/*/data/test_*.db
 
 ## License
 
-Inherits Agent Zero license.
+Inherits Agent Jumbo license.
 
 ---
 
 **Status**: ✅ **PRODUCTION READY**
 
-All tests passing, documentation complete, ready for immediate use in Agent Zero!
+All tests passing, documentation complete, ready for immediate use in Agent Jumbo!

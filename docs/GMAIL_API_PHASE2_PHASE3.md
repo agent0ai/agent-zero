@@ -2,10 +2,10 @@
 
 ## 🎯 Overview
 
-**Phase 2:** Gmail API with OAuth2 - Multi-account support and advanced features  
+**Phase 2:** Gmail API with OAuth2 - Multi-account support and advanced features
 **Phase 3:** Real-time Push Notifications via Google Pub/Sub
 
-**Status:** ✅ Complete  
+**Status:** ✅ Complete
 **Implementation Date:** January 14, 2026
 
 ---
@@ -15,29 +15,34 @@
 ### Features Delivered
 
 ✅ **Multi-Account Management**
+
 - Support multiple Gmail accounts with separate OAuth2 credentials
 - Account names: sales@, support@, dev@, etc.
 - Independent authentication and token management
 
 ✅ **Advanced Email Operations**
+
 - Send via Gmail API with threading support
 - Read with advanced filtering
 - Search with Gmail query syntax
 - Reply to existing threads
 
 ✅ **Label Management**
+
 - Create custom labels
 - Apply/remove labels from messages
 - List all labels (system + user)
 - Batch label operations
 
 ✅ **Draft Management**
+
 - Create email drafts
 - List existing drafts
 - Send drafts
 - Delete drafts
 
 ✅ **Advanced Search**
+
 - Filter by sender, recipient, subject
 - Search by keywords
 - Filter by has_attachment
@@ -51,17 +56,20 @@
 ### Features Delivered
 
 ✅ **Google Pub/Sub Integration**
+
 - Create Pub/Sub topics and subscriptions
 - Enable Gmail watch on mailboxes
 - Receive real-time notifications for new emails
 
 ✅ **Push Notification Handling**
+
 - Process incoming Pub/Sub messages
 - Get Gmail history since last notification
 - Track message additions, label changes
 - Webhook endpoint support
 
 ✅ **Event Callbacks**
+
 - Register custom handlers for new messages
 - Process notifications asynchronously
 - HMAC signature verification for webhooks
@@ -128,11 +136,13 @@ GMAIL_WEBHOOK_SECRET="your-secret-token"
 ```
 
 **First Run:**
+
 - Opens browser for Google OAuth consent
 - User grants permissions
 - Token saved to `data/gmail_credentials/token_sales.pickle`
 
 **Subsequent Runs:**
+
 - Uses saved token automatically
 - Refreshes if expired
 
@@ -153,6 +163,7 @@ GMAIL_WEBHOOK_SECRET="your-secret-token"
 ```
 
 **Advantages over SMTP:**
+
 - Higher rate limits (2,000/day with Workspace)
 - Automatic threading
 - Label support
@@ -174,6 +185,7 @@ GMAIL_WEBHOOK_SECRET="your-secret-token"
 ```
 
 **Search Operators:**
+
 - `sender`: Filter by from address
 - `recipient`: Filter by to address
 - `subject`: Subject keywords
@@ -205,6 +217,7 @@ GMAIL_WEBHOOK_SECRET="your-secret-token"
 ```
 
 **Label Hierarchy:**
+
 - Use `/` for nested labels
 - Example: `Customers/High Priority`
 - Creates parent-child relationship
@@ -255,6 +268,7 @@ GMAIL_WEBHOOK_SECRET="your-secret-token"
 ```
 
 **Use Cases:**
+
 - `sales@` - Customer proposals and follow-ups
 - `support@` - Customer service emails
 - `dev@` - Technical communications
@@ -274,15 +288,17 @@ GMAIL_WEBHOOK_SECRET="your-secret-token"
 ```
 
 **What Happens:**
+
 - Creates Pub/Sub topic if not exists
 - Creates subscription if not exists
 - Registers Gmail watch on mailbox
 - Returns history ID and expiration
 
 **Watch Duration:**
+
 - Typically 7 days
 - Must renew before expiration
-- Agent Zero can auto-renew
+- Agent Jumbo can auto-renew
 
 #### 2. Disable Push Notifications
 
@@ -302,14 +318,14 @@ from python.helpers.gmail_push_notifications import GmailPushNotifications
 def handle_new_email(notification):
     """Callback for new email notifications"""
     print(f"New email! History ID: {notification['history_id']}")
-    
+
     # Get changes since last notification
     push = GmailPushNotifications(project_id="your-project")
     history = push.get_notification_history(
         account_name="support",
         start_history_id=notification['history_id']
     )
-    
+
     for change in history.get('changes', []):
         if change['type'] == 'message_added':
             # Process new message
@@ -339,10 +355,10 @@ def gmail_webhook():
     signature = request.headers.get('X-Goog-Signature')
     if not webhook.verify_webhook(request.data, signature):
         return 'Invalid signature', 401
-    
+
     # Process notification
     result = webhook.process_webhook(request.get_json())
-    
+
     return 'OK', 200
 
 # Register callback
@@ -362,16 +378,19 @@ app.run(port=5000)
 ### OAuth2 Tokens
 
 **Storage:**
+
 - Tokens stored in `data/gmail_credentials/token_*.pickle`
 - Encrypted with system credentials
 - Never commit to Git
 
 **Refresh:**
+
 - Automatic token refresh when expired
 - Refresh tokens valid for 6 months (default)
 - Re-authentication required after expiration
 
 **Scopes:**
+
 ```python
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',  # Read emails
@@ -385,11 +404,13 @@ SCOPES = [
 ### Pub/Sub Security
 
 **Service Account:**
+
 - Least privilege principle
 - Only "Pub/Sub Editor" role needed
 - Separate from OAuth2 credentials
 
 **Webhook Verification:**
+
 - HMAC-SHA256 signature verification
 - Secret token in environment variable
 - Prevents unauthorized requests
@@ -431,7 +452,7 @@ await email_advanced.execute(
     labels=["Proposals", "High Priority"]
 )
 
-# Support team  
+# Support team
 await email_advanced.execute(
     action="read_gmail",
     account_name="support",
@@ -490,25 +511,25 @@ await email_advanced.execute(
 def handle_support_email(notification):
     # Get new messages
     history = push.get_notification_history(...)
-    
+
     for change in history['changes']:
         if change['type'] == 'message_added':
             # Read email
             email = client.read_emails(query=f"id:{change['message_id']}")
-            
+
             # Create support ticket automatically
             ticket_id = support_system.create_ticket(
                 subject=email['subject'],
                 from_email=email['from'],
                 body=email['body']
             )
-            
+
             # Apply label
             client.apply_labels(
                 message_ids=[change['message_id']],
                 label_ids=["Support/In Progress"]
             )
-            
+
             # Auto-reply
             client.send_email(
                 to=[email['from']],
@@ -597,28 +618,34 @@ print(result)
 ## 🐛 Troubleshooting
 
 ### "OAuth2 libraries not installed"
+
 ```bash
 pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
 ```
 
 ### "credentials.json not found"
+
 - Download OAuth2 credentials from Google Cloud Console
 - Save to `data/gmail_credentials/credentials.json`
 
 ### "Access denied" or "Insufficient permissions"
+
 - Check OAuth2 scopes in `gmail_oauth2.py`
 - Re-authenticate account to grant new permissions
 
 ### "Token expired"
+
 - Tokens auto-refresh if refresh_token exists
 - If failed, re-run authenticate action
 - Check token file in `data/gmail_credentials/`
 
 ### "Pub/Sub not enabled"
+
 - Enable Cloud Pub/Sub API in Google Cloud Console
 - Ensure service account has Pub/Sub Editor role
 
 ### "Watch expired"
+
 - Gmail watch expires after ~7 days
 - Re-run enable_push action
 - Implement auto-renewal (check expiration timestamp)
@@ -630,11 +657,13 @@ pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
 ### Gradual Migration Strategy
 
 **Keep Phase 1 (SMTP) for:**
+
 - Simple send operations
 - Non-Gmail accounts
 - Low-complexity workflows
 
 **Migrate to Phase 2 (Gmail API) for:**
+
 - Multi-account management
 - Label organization
 - Draft workflows
@@ -665,6 +694,7 @@ else:
 ## 🔮 Future Enhancements
 
 ### Potential Phase 4 Features
+
 - Calendar integration (schedule emails)
 - Gmail filters automation
 - Canned responses management
@@ -681,14 +711,17 @@ else:
 ## 📝 Files Delivered
 
 ### Phase 2 Files
+
 1. `python/helpers/gmail_oauth2.py` (271 lines) - OAuth2 handler
 2. `python/helpers/gmail_api_client.py` (658 lines) - Gmail API client
 3. `python/tools/email_advanced.py` (554 lines) - Advanced email tool
 
 ### Phase 3 Files
+
 4. `python/helpers/gmail_push_notifications.py` (414 lines) - Pub/Sub integration
 
 ### Documentation
+
 5. `docs/GMAIL_API_PHASE2_PHASE3.md` (this file)
 
 **Total: ~1,900 lines of production code**
@@ -698,6 +731,7 @@ else:
 ## ✅ Completion Checklist
 
 **Phase 2:**
+
 - [x] OAuth2 authentication handler
 - [x] Multi-account management
 - [x] Gmail API send with threading
@@ -708,6 +742,7 @@ else:
 - [x] Account listing and status
 
 **Phase 3:**
+
 - [x] Google Pub/Sub integration
 - [x] Topic and subscription setup
 - [x] Enable/disable Gmail watch
@@ -718,6 +753,7 @@ else:
 - [x] Signature verification
 
 **Documentation:**
+
 - [x] Complete usage guide
 - [x] Setup instructions
 - [x] Security considerations
@@ -727,13 +763,13 @@ else:
 
 ---
 
-## 🎉 Success!
+## 🎉 Success
 
 Phase 2 and Phase 3 implementation complete! You now have:
 
-✅ **Multi-Account Gmail Management** (Phase 2)  
-✅ **Real-Time Push Notifications** (Phase 3)  
-✅ **Advanced Email Operations**  
+✅ **Multi-Account Gmail Management** (Phase 2)
+✅ **Real-Time Push Notifications** (Phase 3)
+✅ **Advanced Email Operations**
 ✅ **Comprehensive Documentation**
 
 Ready to scale your email automation with enterprise-grade features!

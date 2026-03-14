@@ -172,7 +172,7 @@ class SecurityManager:
             return cls._storage_key
 
         # We use the VAPID private key as a seed for the platform derivation
-        seed = SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "agent-zero-storage-fallback")
+        seed = SecurityVaultManager.get_secret("VAPID_PRIVATE_KEY", "agent-jumbo-storage-fallback")
         cls._storage_key = hashlib.sha256(seed.encode()).digest()
         return cls._storage_key
 

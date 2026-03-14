@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure Telegram webhook for Agent Zero."""
+"""Configure Telegram webhook for Agent Jumbo."""
 
 from __future__ import annotations
 

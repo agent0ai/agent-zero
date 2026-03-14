@@ -80,7 +80,7 @@
 
 ### Agent Jumbo
 
-- **What**: Production AI agent orchestration (enhanced Agent Zero)
+- **What**: Production AI agent orchestration (enhanced Agent Jumbo)
 - **Tech**: Python, Flask, FAISS, LangChain, Next.js
 - **Key systems**: 13 agent profiles, 65+ tools, LLM router, 4 messaging channels, heartbeat daemon, workflow engine
 

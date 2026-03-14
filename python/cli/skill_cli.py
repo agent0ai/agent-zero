@@ -1,4 +1,4 @@
-"""CLI entry point for Agent Zero skill management.
+"""CLI entry point for Agent Jumbo skill management.
 
 Usage::
 
@@ -285,7 +285,7 @@ def cmd_info(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m python.cli.skill_cli",
-        description="Agent Zero skill management CLI",
+        description="Agent Jumbo skill management CLI",
     )
     parser.add_argument(
         "--skills-dir",

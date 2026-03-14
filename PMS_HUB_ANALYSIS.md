@@ -1,7 +1,7 @@
 # PMS Hub: Comprehensive Authentication and System Integration Analysis
 
-**Analysis Date:** 2026-01-17  
-**Scope:** Complete PMS Hub implementation in `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/`
+**Analysis Date:** 2026-01-17
+**Scope:** Complete PMS Hub implementation in `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/`
 
 ---
 
@@ -21,10 +21,11 @@ The PMS Hub is a multi-provider property management system integration layer sup
 
 ### 1.1 HOSTAWAY AUTHENTICATION
 
-**Authentication Type:** OAuth 2.0 Bearer Token + API Key  
-**Files:** `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/providers/hostaway.py`
+**Authentication Type:** OAuth 2.0 Bearer Token + API Key
+**Files:** `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/providers/hostaway.py`
 
 #### Configuration Requirements
+
 ```python
 # Line 42-55: Configuration Loading
 config = {
@@ -35,11 +36,13 @@ config = {
 ```
 
 #### Token Storage & Management
+
 - **Location:** Memory (`self.access_token`, `self.api_key`) - Line 49-55
 - **Provider Registry:** `~/.pms_hub/providers.json` (credentials dict)
 - **Flow:** Registry loads from JSON → passes to HostawayProvider constructor
 
 #### Authentication Flow
+
 ```
 HostawayProvider.authenticate() (Line 57-75)
 ├─ _get_headers() builds Bearer token header
@@ -51,11 +54,13 @@ _get_headers() (Line 504-510)
 ```
 
 #### Token Refresh Mechanism
+
 - **Status:** NOT IMPLEMENTED
 - **Issue:** No token expiration handling or refresh logic
 - **Risk:** Long-lived tokens could become invalid
 
 #### Webhook Verification
+
 - **Method:** Default implementation returns True (Line 228-240 in pms_provider.py)
 - **Status:** NOT IMPLEMENTED for Hostaway
 - **Supported Events:** reservation.new, reservation.confirmed, reservation.updated, reservation.cancelled, message.new, review.new, calendar.updated (Line 490-500)
@@ -64,10 +69,11 @@ _get_headers() (Line 504-510)
 
 ### 1.2 LODGIFY AUTHENTICATION
 
-**Authentication Type:** API Key (Bearer Token) + HMAC-SHA256 Webhook Verification  
-**Files:** `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/providers/lodgify.py`
+**Authentication Type:** API Key (Bearer Token) + HMAC-SHA256 Webhook Verification
+**Files:** `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/providers/lodgify.py`
 
 #### Configuration Requirements
+
 ```python
 # Line 42-52: Configuration Loading
 config = {
@@ -78,11 +84,13 @@ config = {
 ```
 
 #### Token Storage & Management
+
 - **Location:** Memory (`self.api_key`, `self.api_secret`)
 - **Provider Registry:** `~/.pms_hub/providers.json` (credentials dict)
 - **api_secret:** Used for HMAC signature verification only (not for API calls)
 
 #### Authentication Flow
+
 ```
 LodgifyProvider.authenticate() (Line 54-72)
 ├─ _get_headers() builds Bearer token header
@@ -94,7 +102,8 @@ _get_headers() (Line 543-549)
 ```
 
 #### Webhook Signature Verification
-**Method:** HMAC-SHA256 with sorted JSON payload  
+
+**Method:** HMAC-SHA256 with sorted JSON payload
 **Code:** `verify_webhook()` (Line 513-539)
 
 ```python
@@ -109,23 +118,25 @@ def verify_webhook(self, payload: Dict[str, Any], signature: str) -> bool:
     """
     if not self.api_secret:
         return False
-    
+
     payload_str = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     expected_signature = hmac.new(
         self.api_secret.encode(),
         payload_str.encode(),
         hashlib.sha256,
     ).hexdigest()
-    
+
     return hmac.compare_digest(signature, expected_signature)
 ```
 
 #### Webhook Events
+
 - reservation.created, reservation.updated, reservation.cancelled
 - message.created, review.created
 - **Verification Required:** Yes - via ms-signature header
 
 #### Pagination & Rate Limiting
+
 - **Method:** Cursor-based pagination
 - **Rate Limiting:** NOT IMPLEMENTED
 - **Issue:** No backoff/retry mechanism
@@ -134,10 +145,11 @@ def verify_webhook(self, payload: Dict[str, Any], signature: str) -> bool:
 
 ### 1.3 HOSTIFY AUTHENTICATION
 
-**Authentication Type:** API Key (Bearer Token)  
-**Files:** `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/providers/hostify.py`
+**Authentication Type:** API Key (Bearer Token)
+**Files:** `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/providers/hostify.py`
 
 #### Configuration Requirements
+
 ```python
 # Line 36-45: Configuration Loading
 config = {
@@ -147,11 +159,13 @@ config = {
 ```
 
 #### Token Storage & Management
+
 - **Location:** Memory (`self.api_key`)
 - **Provider Registry:** `~/.pms_hub/providers.json` (credentials dict)
 - **No secret key for webhook verification**
 
 #### Authentication Flow
+
 ```
 HostifyProvider.authenticate() (Line 47-56)
 ├─ _get_headers() builds Bearer token header
@@ -163,11 +177,13 @@ _get_headers() (Line 351-356)
 ```
 
 #### Webhook Verification
+
 - **Method:** Not implemented (returns default True)
 - **Status:** INCOMPLETE
 - **Risk:** No signature verification means potential spoofing
 
 #### Supported Webhook Events
+
 - reservation.created, reservation.updated, reservation.cancelled
 - message.created, review.created
 - **Verification:** NOT IMPLEMENTED
@@ -176,10 +192,11 @@ _get_headers() (Line 351-356)
 
 ### 1.4 iCAL AUTHENTICATION
 
-**Authentication Type:** URL-based (HTTP GET with optional auth headers)  
-**Files:** `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/providers/ical.py`
+**Authentication Type:** URL-based (HTTP GET with optional auth headers)
+**Files:** `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/providers/ical.py`
 
 #### Configuration Requirements
+
 ```python
 # Line 35-45: Configuration Loading
 config = {
@@ -190,6 +207,7 @@ config = {
 ```
 
 #### Authentication Flow
+
 ```
 ICalProvider.authenticate() (Line 47-58)
 ├─ Verify iCal feed is accessible
@@ -198,6 +216,7 @@ ICalProvider.authenticate() (Line 47-58)
 ```
 
 #### Limitations
+
 - **No credentials support** - relies on public URLs
 - **No messaging** - calendar synchronization only
 - **Read-only** - cannot update calendar at source
@@ -218,7 +237,8 @@ ICalProvider.authenticate() (Line 47-58)
 | Lodgify Credentials | Memory + JSON | Plaintext | Exposed in config |
 | Hostify API Key | Memory + JSON | Plaintext | Exposed in config |
 
-**Configuration File Location:** `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/provider_registry.py:63`
+**Configuration File Location:** `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/provider_registry.py:63`
+
 ```python
 self.config_path = config_path or Path.home() / ".pms_hub" / "providers.json"
 ```
@@ -233,10 +253,12 @@ self.config_path = config_path or Path.home() / ".pms_hub" / "providers.json"
    - No encryption at rest
 
 2. **No Credential Masking in API Responses** (pms_settings_get.py:49)
+
    ```python
    # GOOD: Credentials not exposed
    "has_credentials": bool(config.credentials)  # Only boolean flag
    ```
+
    - API responses hide credential values
    - But file system exposure remains
 
@@ -258,7 +280,7 @@ self.config_path = config_path or Path.home() / ".pms_hub" / "providers.json"
 
 ### 3.1 Webhook Architecture
 
-**Entry Point:** `/home/webemo-aaron/projects/agent-zero/python/api/pms_webhook_receive.py`
+**Entry Point:** `/home/webemo-aaron/projects/agent-jumbo/python/api/pms_webhook_receive.py`
 
 ```
 External Webhook (POST /api/pms/webhook/{provider}/{provider_id})
@@ -300,12 +322,12 @@ async def _verify_webhook(
     if not signature:
         # No signature provided - some providers don't require it
         return True  # SECURITY ISSUE: Accepts unsigned payloads
-    
+
     try:
         provider = await self.registry.get_provider_async(provider_id)
         if not provider:
             return False
-        
+
         # Use provider's verify_webhook method
         return provider.verify_webhook(payload, signature)
     except Exception as e:
@@ -325,6 +347,7 @@ async def _verify_webhook(
 ### 3.4 Webhook Signature Methods
 
 #### Lodgify: HMAC-SHA256
+
 **Location:** `lodgify.py:513-539`
 
 ```
@@ -336,6 +359,7 @@ Format: Hex digest
 ```
 
 **Exact Implementation:**
+
 ```python
 payload_str = json.dumps(payload, separators=(",", ":"), sort_keys=True)
 expected_signature = hmac.new(
@@ -348,6 +372,7 @@ expected_signature = hmac.new(
 **Verification:** `hmac.compare_digest()` for timing-attack resistance
 
 #### Hostaway & Hostify
+
 - **Current Status:** Stubbed implementation returns True
 - **Expected:** Likely custom signature headers (not documented)
 - **Gap:** Implementation missing
@@ -355,6 +380,7 @@ expected_signature = hmac.new(
 ### 3.5 Webhook Event Handling
 
 **Event Flow:**
+
 ```
 webhook_receive.py:85-92
     └─ event_bus.emit(f"pms.webhook.{provider}.{event_type}", {...})
@@ -367,6 +393,7 @@ webhook_receive.py:85-92
 ```
 
 **Event Structure:**
+
 ```python
 {
     "provider": "hostaway|lodgify|hostify",
@@ -377,6 +404,7 @@ webhook_receive.py:85-92
 ```
 
 **No Event Consumer Registered** ⚠️
+
 - Events are emitted but no handlers subscribed
 - Gap in implementation: webhook events not processed to sync
 
@@ -387,6 +415,7 @@ webhook_receive.py:85-92
 ### 4.1 Provider Registry ↔ Sync Service Connection
 
 **Files:**
+
 - Provider Registry: `provider_registry.py:53-327`
 - Sync Service: `sync_service.py:19-361`
 
@@ -405,6 +434,7 @@ PMSSyncService.sync_all_reservations() (Line 308-340)
 ```
 
 **Data Flow:**
+
 ```
 Registry Config (JSON)
     ↓
@@ -421,11 +451,13 @@ Sync Service (uses provider)
 ### 4.2 EventBus Integration
 
 **Files:**
+
 - EventBus: `python/helpers/event_bus.py:1-99`
 - EventStore: `python/helpers/event_bus.py:12-75`
 - Webhook Receiver: `pms_webhook_receive.py:1-142`
 
 **Event Emission:**
+
 ```
 pms_webhook_receive.py:85-92
     └─ self.event_bus.emit(
@@ -440,6 +472,7 @@ pms_webhook_receive.py:85-92
 ```
 
 **Event Storage:**
+
 ```
 EventStore.add_event() (event_bus.py:34-53)
     ├─ Hash event using hash_event() (audit.py)
@@ -453,6 +486,7 @@ EventStore.add_event() (event_bus.py:34-53)
 ```
 
 **Event Subscription:**
+
 ```
 EventBus.subscribe() (event_bus.py:83-84)
     └─ self._handlers.setdefault(event_type, []).append(handler)
@@ -465,15 +499,18 @@ EventBus.emit() (event_bus.py:91-98)
 ```
 
 **ISSUE:** No subscribers registered for PMS webhook events
+
 - Events are emitted and stored but never processed
 - Gap: Need handlers to call sync_service on webhook events
 
 ### 4.3 PropertyManager Sync Integration
 
 **Files:**
+
 - Sync Service: `sync_service.py:41-361`
 
 **Sync Chain:**
+
 ```
 sync_reservation_to_property_manager(reservation) (Line 41-94)
     ├─ Step 1: _sync_property() → Property created in manager
@@ -484,6 +521,7 @@ sync_reservation_to_property_manager(reservation) (Line 41-94)
 ```
 
 **Property Manager API Calls:**
+
 ```python
 # Line 139: Add property
 result = await self.pm.add_property(property_data)
@@ -502,6 +540,7 @@ result = await self.pm.record_payment(payment_data)
 ```
 
 **Mapping Logic:**
+
 ```
 PMS Data → PropertyManager Data
 ├─ Reservation.status → Lease.status (Line 286-306)
@@ -516,11 +555,12 @@ PMS Data → PropertyManager Data
 ```
 
 **Dependency:** PropertyManager import (Line 30-39)
+
 ```python
 try:
     from property_manager.property_manager import PropertyManager as PM
     from property_manager.property_db import PropertyDatabase
-    
+
     self.pm = PM()
     self.pm_db = PropertyDatabase()
 except ImportError:
@@ -532,6 +572,7 @@ except ImportError:
 ### 4.4 API Endpoints Integration
 
 **Files:**
+
 - Webhook Receiver: `python/api/pms_webhook_receive.py`
 - Settings Get: `python/api/pms_settings_get.py`
 - Settings Set: `python/api/pms_settings_set.py`
@@ -607,9 +648,9 @@ Output:
 
 **Implementation:** `pms_settings_set.py:14-206`
 
-### 4.5 PMSHub Tool Integration with agent-zero
+### 4.5 PMSHub Tool Integration with agent-jumbo
 
-**File:** `/home/webemo-aaron/projects/agent-zero/python/tools/pms_hub_tool.py`
+**File:** `/home/webemo-aaron/projects/agent-jumbo/python/tools/pms_hub_tool.py`
 
 **Tool Class:** `PMSHub(Tool)` (Line 16-75)
 
@@ -629,6 +670,7 @@ Output:
 | `sync_status` | Get sync info | providers enabled, last sync |
 
 **Integration Pattern:**
+
 ```
 Agent-zero Tool Call
     ↓
@@ -641,17 +683,18 @@ pms_hub_tool.py:execute(**kwargs)
 ```
 
 **Example: Get Reservations** (Line 189-251)
+
 ```python
 async def _get_reservations(self, kwargs) -> Response:
     provider_id = kwargs.get("provider_id")
-    
+
     provider = await registry.get_provider_async(provider_id)
     reservations = await provider.get_reservations(
         property_id=kwargs.get("property_id"),
         start_date=parse(kwargs.get("start_date")),
         end_date=parse(kwargs.get("end_date"))
     )
-    
+
     return Response(status="success", data={
         "reservations": [
             {
@@ -679,7 +722,7 @@ async def _get_reservations(self, kwargs) -> Response:
        "action": "reservation.new",
        "data": {...}
    }
-   
+
 2. SIGNATURE VERIFICATION (pms_webhook_receive.py:115-142)
    provider = await registry.get_provider_async("main")
    provider.verify_webhook(payload, signature)
@@ -700,11 +743,11 @@ async def _get_reservations(self, kwargs) -> Response:
 4. EVENT STORAGE (event_bus.py:34-53)
    SQLite: INSERT INTO events (type, payload, event_hash, created_at)
    └─ Audit hash generated from event
-   
+
 5. EVENT DISTRIBUTION (event_bus.py:91-98)
    For each handler in _handlers.get("pms.webhook.hostaway.reservation.new", []):
        await handler(event)
-   
+
 6. GAP: NO SYNC HANDLER REGISTERED ⚠️
    ├─ Events stored but not processed
    ├─ Sync service not triggered
@@ -807,8 +850,9 @@ PUSH (PropertyManager → PMS):
 ### 6.1 Critical Gaps
 
 #### Gap 1: Webhook Event Handlers Not Connected
-**Severity:** HIGH  
-**File:** `pms_webhook_receive.py` and `sync_service.py`  
+
+**Severity:** HIGH
+**File:** `pms_webhook_receive.py` and `sync_service.py`
 **Issue:** Webhooks are received and events emitted, but no handlers subscribed
 
 ```python
@@ -820,6 +864,7 @@ event_bus.emit("pms.webhook.hostaway.reservation.new", {...})
 ```
 
 **Fix Required:**
+
 ```python
 # In sync_service.py or separate handler module:
 event_bus.subscribe("pms.webhook.*", handle_pms_webhook)
@@ -830,11 +875,13 @@ async def handle_pms_webhook(event):
 ```
 
 #### Gap 2: Hostaway Webhook Signature Verification
-**Severity:** HIGH  
-**Files:** `hostaway.py:228-240` (default implementation)  
+
+**Severity:** HIGH
+**Files:** `hostaway.py:228-240` (default implementation)
 **Issue:** No actual signature verification - always returns True
 
 **Current Code:**
+
 ```python
 async def verify_webhook(self, payload: Dict[str, Any], signature: str) -> bool:
     # Default implementation - override in provider if needed
@@ -844,52 +891,61 @@ async def verify_webhook(self, payload: Dict[str, Any], signature: str) -> bool:
 **Missing:** Hostaway signature algorithm documentation and implementation
 
 #### Gap 3: Hostify Webhook Verification
-**Severity:** HIGH  
-**Files:** `hostify.py` (uses default)  
+
+**Severity:** HIGH
+**Files:** `hostify.py` (uses default)
 **Issue:** No signature verification implemented
 
 **Missing:** Hostify-specific signature header and algorithm
 
 #### Gap 4: Token Refresh Mechanism
-**Severity:** MEDIUM  
-**All Providers**  
+
+**Severity:** MEDIUM
+**All Providers**
 **Issue:** No token expiration handling
 
 **Hostaway OAuth:**
+
 - access_token expires after configured duration
 - No refresh token handling
 - Failed API calls when token expires
 
 **Recommendations:**
+
 1. Store refresh token (if available)
 2. Detect 401 responses
 3. Attempt refresh before failing
 4. Re-try request with new token
 
 #### Gap 5: Reverse Sync (PropertyManager → PMS)
-**Severity:** MEDIUM  
-**File:** `sync_service.py`  
+
+**Severity:** MEDIUM
+**File:** `sync_service.py`
 **Issue:** One-way sync only (PMS to PropertyManager)
 
 **Missing:**
+
 - Sync lease changes back to PMS
 - Update reservation status in PMS
 - Update pricing from property_manager
 
 #### Gap 6: Error Handling & Retry Logic
-**Severity:** MEDIUM  
-**All Providers**  
+
+**Severity:** MEDIUM
+**All Providers**
 **Issue:** Minimal error handling, no retry mechanism
 
 **Missing:**
+
 - Rate limit handling (HTTP 429)
 - Network timeout retry
 - Partial sync recovery
 - Transaction rollback on failure
 
 #### Gap 7: Pagination Edge Cases
-**Severity:** LOW  
-**Files:** `hostaway.py`, `lodgify.py`, `hostify.py`  
+
+**Severity:** LOW
+**Files:** `hostaway.py`, `lodgify.py`, `hostify.py`
 **Issue:** Assumed pagination works but no validation
 
 **Hostaway:** Offset-based (Line 90-114)
@@ -897,17 +953,20 @@ async def verify_webhook(self, payload: Dict[str, Any], signature: str) -> bool:
 **Hostify:** Offset-based (Line 64-81)
 
 **Missing:**
+
 - Max limit enforcement
 - Infinite loop prevention
 - Empty result handling (already done)
 
 #### Gap 8: iCal Feed Credentials
-**Severity:** MEDIUM  
-**File:** `ical.py`  
+
+**Severity:** MEDIUM
+**File:** `ical.py`
 **Issue:** No support for authenticated iCal feeds
 
-**Current:** Only public URLs  
+**Current:** Only public URLs
 **Missing:**
+
 - HTTP Basic Auth support
 - Query parameter auth
 - Bearer token support
@@ -1245,6 +1304,7 @@ pms_hub_tool.py:_sync_reservations()
 ## PART 9: SUMMARY OF IMPLEMENTATION STATUS
 
 ### Complete Implementations
+
 - ✅ Provider adapter interface (PMSProvider abstract class)
 - ✅ Hostaway API integration (full CRUD)
 - ✅ Lodgify API integration (full CRUD)
@@ -1256,9 +1316,10 @@ pms_hub_tool.py:_sync_reservations()
 - ✅ EventBus with event storage
 - ✅ PropertyManager sync (PMS → PropertyManager)
 - ✅ Canonical data models
-- ✅ PMSHub tool for agent-zero
+- ✅ PMSHub tool for agent-jumbo
 
 ### Partial/Incomplete Implementations
+
 - 🟡 Webhook verification (only Lodgify fully implemented)
 - 🟡 Webhook event processing (events emitted, no handlers)
 - 🟡 Credential storage (plaintext JSON, no encryption)
@@ -1266,6 +1327,7 @@ pms_hub_tool.py:_sync_reservations()
 - 🟡 Rate limiting (none implemented)
 
 ### Missing Implementations
+
 - ❌ Token refresh mechanism
 - ❌ Reverse sync (PropertyManager → PMS)
 - ❌ Hostaway webhook signature verification
@@ -1280,24 +1342,28 @@ pms_hub_tool.py:_sync_reservations()
 ## RECOMMENDATIONS
 
 ### Priority 1: Security (CRITICAL)
+
 1. Implement webhook signature verification for Hostaway and Hostify
 2. Add credential encryption at rest
 3. Implement webhook event handlers for automatic sync
 4. Validate webhook origins
 
 ### Priority 2: Reliability (HIGH)
+
 1. Implement token refresh mechanism
 2. Add comprehensive error handling and retry logic
 3. Implement rate limiting detection
 4. Add transaction rollback on sync failure
 
 ### Priority 3: Features (MEDIUM)
+
 1. Implement reverse sync (PropertyManager → PMS)
 2. Add iCal feed authentication support
 3. Implement webhook signature validation for all providers
 4. Add comprehensive logging
 
 ### Priority 4: Operations (LOW)
+
 1. Add monitoring and alerting
 2. Implement health checks
 3. Add performance metrics
@@ -1308,12 +1374,14 @@ pms_hub_tool.py:_sync_reservations()
 ## TESTING COVERAGE ASSESSMENT
 
 **Existing Tests:**
+
 - ✅ test_pms_providers.py - Unit tests for adapters
 - ✅ test_pms_registry.py - Registry tests
 - ✅ test_pms_sync_service.py - Sync service tests
 - ✅ test_pms_canonical_models.py - Model validation
 
 **Missing Tests:**
+
 - ❌ Webhook signature verification (end-to-end)
 - ❌ Webhook event handling
 - ❌ Token refresh flows

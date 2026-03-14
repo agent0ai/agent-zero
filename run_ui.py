@@ -21,7 +21,7 @@ with contextlib.suppress(Exception):
     warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
 
 import initialize
-from python.helpers import dotenv, fasta2a_server, files, git, login, mcp_server, process, runtime
+from python.helpers import dotenv, fasta2a_server, files, git, login, mcp_server, perf_metrics, process, runtime
 from python.helpers.api import ApiHandler
 from python.helpers.extract_tools import load_classes_from_folder
 from python.helpers.files import get_abs_path
@@ -49,6 +49,12 @@ webapp.config.update(
 lock = threading.Lock()
 _mcp_token_lock = threading.Lock()
 _active_mcp_token: str | None = None
+_startup_tasks: list[object] = []
+
+
+def _is_laptop_mode() -> bool:
+    return os.getenv("AGENT_ZERO_LAPTOP_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+
 
 # Set up basic authentication for UI and API but not MCP
 # basic_auth = BasicAuth(webapp)
@@ -209,6 +215,10 @@ async def serve_index():
     index = files.replace_placeholders_text(
         _content=index, version_no=gitinfo["version"], version_time=gitinfo["commit_time"]
     )
+    response = Response(response=index, status=200, mimetype="text/html")
+    if _is_laptop_mode():
+        return response
+
     # Auto-provision MCP token details on main page load.
     # Use explicit refresh to rotate safely without invalidating active sessions unexpectedly.
     refresh_requested = request.args.get("refresh_mcp_token", "").lower() in {"1", "true", "yes"}
@@ -217,7 +227,6 @@ async def serve_index():
     streamable_http_url = f"/mcp/t-{token}/http/"
     base_url = request.host_url.rstrip("/")
 
-    response = Response(response=index, status=200, mimetype="text/html")
     response.headers["X-Agent-Zero-MCP-Token"] = token
     response.headers["X-Agent-Zero-MCP-SSE"] = sse_url
     response.headers["X-Agent-Zero-MCP-HTTP"] = streamable_http_url
@@ -307,12 +316,15 @@ def run():
 
     # Initialize messaging gateway with channel adapters.
     # Keep UI boot resilient if gateway dependencies are mid-refactor.
-    try:
-        from python.helpers.gateway_init import initialize_gateway
+    if _is_laptop_mode():
+        PrintStyle(font_color="yellow").print("[!] Gateway init skipped (laptop mode)")
+    else:
+        try:
+            from python.helpers.gateway_init import initialize_gateway
 
-        initialize_gateway()
-    except Exception as e:
-        PrintStyle(font_color="yellow").print(f"[!] Gateway init skipped: {e}")
+            initialize_gateway()
+        except Exception as e:
+            PrintStyle(font_color="yellow").print(f"[!] Gateway init skipped: {e}")
 
     # Add the webapp, mcp, and a2a to the app.
     # Protect startup from blocking proxy initialization.
@@ -326,8 +338,11 @@ def run():
         except Exception as e:
             PrintStyle(font_color="yellow").print(f"[!] Skipping {path} route: {e}")
 
-    _init_route("/mcp", mcp_server.DynamicMcpProxy.get_instance)
-    _init_route("/a2a", fasta2a_server.DynamicA2AProxy.get_instance)
+    if _is_laptop_mode():
+        PrintStyle(font_color="yellow").print("[!] MCP/A2A routes skipped (laptop mode)")
+    else:
+        _init_route("/mcp", mcp_server.DynamicMcpProxy.get_instance)
+        _init_route("/a2a", fasta2a_server.DynamicA2AProxy.get_instance)
 
     PrintStyle(font_color="yellow").print("[boot] Building WSGI dispatcher...")
     app = DispatcherMiddleware(webapp, middleware_routes)  # type: ignore
@@ -353,12 +368,54 @@ def run():
 
 
 def init_a0():
-    # Initialize all in background - don't block server startup
-    # Chats will load in background, MCP connects lazily on first use
-    initialize.initialize_chats()  # Background - no result_sync()
-    initialize.initialize_mcp()  # Background - connects on first tool call
-    initialize.initialize_job_loop()
-    initialize.initialize_preload()
+    def _record_startup_phase_result(phase: str, started_at: float, status: str = "success", error: str = ""):
+        duration_ms = (time.perf_counter() - started_at) * 1000.0
+        perf_metrics.record_startup_phase(phase, duration_ms, status=status, error=error or None)
+        if status == "success":
+            PrintStyle(font_color="green").print(f"[boot] {phase} completed in {duration_ms:.1f}ms")
+        else:
+            PrintStyle(font_color="yellow").print(f"[boot] {phase} failed in {duration_ms:.1f}ms: {error}")
+
+    def _watch_background_startup_task(phase: str, task, started_at: float):
+        def _watch():
+            try:
+                task.result_sync()
+                _record_startup_phase_result(phase, started_at, "success")
+            except Exception as e:
+                _record_startup_phase_result(phase, started_at, "error", str(e))
+
+        thread = threading.Thread(target=_watch, daemon=True, name=f"startup-metric-{phase}")
+        thread.start()
+
+    # Load chats deterministically first so users retain context after restart.
+    # This is lightweight and avoids races with background task GC/cancellation.
+    chats_started = time.perf_counter()
+    chats_task = initialize.initialize_chats()
+    if chats_task is not None:
+        try:
+            chats_task.result_sync(timeout=10)
+        except Exception as e:
+            _record_startup_phase_result("initialize_chats", chats_started, "error", str(e))
+            PrintStyle(font_color="yellow").print(f"[!] Chat restore incomplete: {e}")
+        else:
+            _record_startup_phase_result("initialize_chats", chats_started, "success")
+            _startup_tasks.append(chats_task)
+    else:
+        _record_startup_phase_result("initialize_chats", chats_started, "success")
+
+    # Initialize heavier subsystems in background.
+    for phase, initializer in (
+        ("initialize_mcp", initialize.initialize_mcp),  # Background - connects on first tool call
+        ("initialize_job_loop", initialize.initialize_job_loop),
+        ("initialize_preload", initialize.initialize_preload),
+    ):
+        phase_started = time.perf_counter()
+        task = initializer()
+        if task is not None:
+            _startup_tasks.append(task)
+            _watch_background_startup_task(phase, task, phase_started)
+        else:
+            _record_startup_phase_result(phase, phase_started, "success")
     PrintStyle(font_color="green").print("[✓] Background initialization started")
 
 

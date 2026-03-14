@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Agent Zero DevOps Release Validation"
+echo "Agent Jumbo DevOps Release Validation"
 echo "========================================"
 echo ""
 

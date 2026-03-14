@@ -3,6 +3,7 @@
 The **project_scaffold** tool generates complete project structures from templates, with automatic app_spec.json generation and integration with portfolio management.
 
 ## Purpose
+
 - Generate new projects from built-in or custom templates
 - Support multiple project types: web apps, APIs, CLIs, microservices
 - Auto-generate app_spec.json for project documentation
@@ -12,23 +13,28 @@ The **project_scaffold** tool generates complete project structures from templat
 ## Available Templates
 
 ### Web Applications
+
 - `web_app/react` - React + Vite + TailwindCSS
 - `web_app/nextjs` - Next.js 14 with App Router
 - `web_app/vue` - Vue.js 3 with Vite
 
 ### APIs
+
 - `api/fastapi` - Python FastAPI with SQLAlchemy
 - `api/express` - Node.js Express with TypeScript
 
 ### CLI Applications
+
 - `cli/python` - Python CLI with Click and Rich
 
 ### Microservices
+
 - `microservice/python` - FastAPI microservice with Docker
 
 ## Available Actions
 
 ### 1. scaffold_project
+
 **Generate a new project from a template**
 
 ```
@@ -48,6 +54,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `template` (required): Template name (e.g., "web_app/react")
 - `name` (required): Project name
 - `output_path` (required): Where to create the project
@@ -60,6 +67,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 2. preview_scaffold
+
 **Preview files that would be generated**
 
 ```
@@ -74,6 +82,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `template` (required): Template name
 - `variables` (optional): Template variables
 
@@ -82,6 +91,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 3. list_templates
+
 **List available templates**
 
 ```
@@ -93,6 +103,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `type` (optional): Filter by type (web_app, api, cli, microservice)
 - `language` (optional): Filter by language (python, javascript, typescript)
 - `framework` (optional): Filter by framework (react, fastapi, express)
@@ -102,6 +113,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 4. get_template
+
 **Get detailed template information**
 
 ```
@@ -112,6 +124,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `name` (required): Template name
 
 **Returns:** Template details including variables and configuration
@@ -119,6 +132,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 5. create_template
+
 **Create a template from an existing project**
 
 ```
@@ -131,6 +145,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `project_path` (required): Path to existing project
 - `name` (required): Name for new template
 - `description` (optional): Template description
@@ -140,6 +155,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 6. generate_app_spec
+
 **Generate app_spec.json for an existing project**
 
 ```
@@ -151,6 +167,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `project_path` (required): Path to project
 - `analyze_code` (optional): Analyze code for components (default: true)
 
@@ -159,6 +176,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 7. add_component
+
 **Add a component to an existing project**
 
 ```
@@ -171,6 +189,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `project_path` (required): Path to project
 - `component_type` (required): page, api_endpoint, model, service, test
 - `name` (required): Component name
@@ -180,6 +199,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 8. list_projects
+
 **List generated projects**
 
 ```
@@ -190,6 +210,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `customer_id` (optional): Filter by customer
 - `template_id` (optional): Filter by template
 
@@ -198,6 +219,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ---
 
 ### 9. get_project
+
 **Get project details**
 
 ```
@@ -208,6 +230,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 
 **Returns:** Project details, variables used, generated files
@@ -217,12 +240,14 @@ The **project_scaffold** tool generates complete project structures from templat
 ## Template Variables
 
 ### web_app/react
+
 - `project_name` (required): Project name
 - `description`: Project description
 - `use_typescript` (default: true): Use TypeScript
 - `use_tailwind` (default: true): Include TailwindCSS
 
 ### api/fastapi
+
 - `project_name` (required): Project name
 - `description`: Project description
 - `use_sqlalchemy` (default: true): Include SQLAlchemy ORM
@@ -230,11 +255,13 @@ The **project_scaffold** tool generates complete project structures from templat
 - `database` (default: "sqlite"): Database type (sqlite, postgresql, mysql)
 
 ### cli/python
+
 - `project_name` (required): Project name
 - `description`: CLI description
 - `use_rich` (default: true): Include rich console output
 
 ### microservice/python
+
 - `service_name` (required): Service name
 - `description`: Service description
 - `port` (default: 8000): Service port
@@ -244,6 +271,7 @@ The **project_scaffold** tool generates complete project structures from templat
 ## Typical Workflows
 
 ### Create Project for Customer
+
 ```
 # 1. Get customer requirements from customer_lifecycle
 {{customer_lifecycle(action="get_customer_view", customer_id=5)}}
@@ -258,10 +286,11 @@ The **project_scaffold** tool generates complete project structures from templat
 )}}
 
 # 3. Add to portfolio
-{{portfolio_manager(action="add", project_path="/projects/customer-5/api")}}
+{{portfolio_manager_tool(action="add", project_path="/projects/customer-5/api")}}
 ```
 
 ### Create Full-Stack Application
+
 ```
 # 1. Create backend API
 {{project_scaffold(
@@ -291,19 +320,25 @@ The **project_scaffold** tool generates complete project structures from templat
 ## Integration with Other Tools
 
 ### With Customer Lifecycle
+
 Link projects to customers for tracking:
+
 ```
 {{project_scaffold(action="scaffold_project", customer_id=5, ...)}}
 ```
 
 ### With Portfolio Manager
+
 Generated projects can be added to portfolio:
+
 ```
-{{portfolio_manager(action="scan", folder="/projects")}}
+{{portfolio_manager_tool(action="scan", folder="/projects")}}
 ```
 
 ### With Deployment Orchestrator
+
 Generate CI/CD for scaffolded projects:
+
 ```
 {{deployment_orchestrator(action="generate_cicd", project_path="/projects/myapp")}}
 ```
@@ -311,6 +346,7 @@ Generate CI/CD for scaffolded projects:
 ---
 
 ## Notes
+
 - All templates include README.md, .gitignore, and .env.example
 - app_spec.json is generated automatically unless disabled
 - Custom templates can be created from existing projects

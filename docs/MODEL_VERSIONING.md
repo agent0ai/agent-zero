@@ -1,8 +1,9 @@
-# Agent Zero - Model Management & GCP Deployment Guide
+# Agent Jumbo - Model Management & GCP Deployment Guide
 
 ## ✅ Setup Complete
 
 Your Ollama models are now:
+
 - ✅ Stored locally in `ollama_models/` directory (4.4 GB)
 - ✅ Excluded from Git (only manifest tracked)
 - ✅ Ready for GCP bucket versioning
@@ -11,15 +12,17 @@ Your Ollama models are now:
 ## 🚀 Quick Commands
 
 ### Build & Run
+
 ```bash
 # Full build with automatic model handling
 ./scripts/build.sh
 
-# Access Agent Zero
+# Access Agent Jumbo
 http://localhost:50080
 ```
 
 ### GCP Model Sync
+
 ```bash
 # Upload current models to GCP bucket (first time setup)
 ./scripts/gcp_models_sync.sh upload
@@ -37,16 +40,20 @@ http://localhost:50080
 ## 📦 Model Versioning Strategy
 
 ### Current Setup
+
 - **Model Location**: `./ollama_models/` (4.4 GB)
 - **Model Version**: `20260113-184641`
 - **Included Models**: qwen2.5-coder:7b
-- **GCP Bucket**: `gs://agent-zero-models` (configurable)
+- **GCP Bucket**: `gs://agent-jumbo-models` (configurable)
 
 ### Version Format
+
 Versions use timestamp: `YYYYMMDD-HHMMSS`
+
 - Example: `20260113-184641` = Jan 13, 2026 at 18:46:41
 
 ### What's Tracked in Git
+
 - ✅ `ollama_models/model_manifest.json` - Version metadata
 - ✅ `ollama_models/README.md` - Documentation
 - ✅ `ollama_models/.gitkeep` - Directory structure
@@ -58,23 +65,26 @@ Versions use timestamp: `YYYYMMDD-HHMMSS`
 ### One-Time Setup
 
 1. **Create GCP Bucket**
+
    ```bash
    # Set your project
    gcloud config set project YOUR_PROJECT_ID
-   
+
    # Create bucket (choose region close to you)
-   gsutil mb -l us-central1 gs://agent-zero-models
-   
+   gsutil mb -l us-central1 gs://agent-jumbo-models
+
    # Or use custom name
    export GCP_BUCKET=gs://your-custom-bucket-name
    ```
 
 2. **Upload Initial Models**
+
    ```bash
    ./scripts/gcp_models_sync.sh upload
    ```
 
 3. **Verify Upload**
+
    ```bash
    ./scripts/gcp_models_sync.sh list
    ```
@@ -82,6 +92,7 @@ Versions use timestamp: `YYYYMMDD-HHMMSS`
 ### Team Workflow
 
 **Developer 1** (You - has models locally):
+
 ```bash
 # Upload to bucket
 ./scripts/gcp_models_sync.sh upload
@@ -93,10 +104,11 @@ git push
 ```
 
 **Developer 2** (New team member):
+
 ```bash
 # Clone repo
 git clone <repo-url>
-cd agent-zero
+cd agent-jumbo
 
 # Download models from GCP
 ./scripts/gcp_models_sync.sh download
@@ -108,8 +120,9 @@ cd agent-zero
 ## 🏗️ CI/CD Integration
 
 ### GitHub Actions Example
+
 ```yaml
-name: Build Agent Zero
+name: Build Agent Jumbo
 
 on: [push]
 
@@ -118,22 +131,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-      
+
       - name: Download Models
         run: |
           ./scripts/gcp_models_sync.sh download
-      
+
       - name: Build
         run: |
           ./scripts/build.sh
 ```
 
 ### GitLab CI Example
+
 ```yaml
 build:
   image: google/cloud-sdk:alpine
@@ -169,26 +183,31 @@ GCP_BUCKET=gs://my-models ./scripts/build.sh
 When you need to update/add models:
 
 1. **Pull new model on host**
+
    ```bash
    ollama pull new-model:latest
    ```
 
 2. **Copy to project**
+
    ```bash
    cp -r ~/.ollama/* ./ollama_models/
    ```
 
 3. **Generate new manifest**
+
    ```bash
    ./scripts/gcp_models_sync.sh manifest
    ```
 
 4. **Upload new version to GCP**
+
    ```bash
    ./scripts/gcp_models_sync.sh upload
    ```
 
 5. **Commit manifest update**
+
    ```bash
    git add ollama_models/model_manifest.json
    git commit -m "Update models to include new-model:latest"
@@ -198,6 +217,7 @@ When you need to update/add models:
 ## 🗑️ Storage Management
 
 ### Local Storage
+
 ```bash
 # Check model size
 du -sh ollama_models/
@@ -208,12 +228,13 @@ rm -rf ollama_models/models ollama_models/blobs
 ```
 
 ### GCP Storage
+
 ```bash
 # List versions with sizes
-gsutil du -sh gs://agent-zero-models/*
+gsutil du -sh gs://agent-jumbo-models/*
 
 # Remove specific version
-gsutil -m rm -r gs://agent-zero-models/20260113-184641
+gsutil -m rm -r gs://agent-jumbo-models/20260113-184641
 
 # Keep last 5 versions
 ./scripts/gcp_models_sync.sh clean 5
@@ -222,6 +243,7 @@ gsutil -m rm -r gs://agent-zero-models/20260113-184641
 ## 🔍 Troubleshooting
 
 ### Models not showing in Ollama
+
 ```bash
 # Check mount
 docker exec ollama ls -la /root/.ollama/models/
@@ -232,6 +254,7 @@ docker exec ollama ollama list
 ```
 
 ### GCP authentication issues
+
 ```bash
 # Check auth
 gcloud auth list
@@ -244,28 +267,32 @@ gcloud auth activate-service-account --key-file=key.json
 ```
 
 ### Download fails
+
 ```bash
 # Check bucket exists
-gsutil ls gs://agent-zero-models/
+gsutil ls gs://agent-jumbo-models/
 
 # Check permissions
-gsutil iam get gs://agent-zero-models/
+gsutil iam get gs://agent-jumbo-models/
 
 # Manual download
-gsutil -m rsync -r gs://agent-zero-models/latest/ ./ollama_models/
+gsutil -m rsync -r gs://agent-jumbo-models/latest/ ./ollama_models/
 ```
 
 ## 💡 Cost Optimization
 
 ### GCP Storage Costs
+
 - Standard Storage: ~$0.02/GB/month
 - 4.4 GB model: ~$0.09/month
 - 10 versions: ~$0.90/month
 
 ### Optimization Tips
+
 1. **Use Nearline/Coldline for old versions**
+
    ```bash
-   gsutil rewrite -s nearline gs://agent-zero-models/old-version/**
+   gsutil rewrite -s nearline gs://agent-jumbo-models/old-version/**
    ```
 
 2. **Auto-delete old versions**
@@ -286,6 +313,7 @@ gsutil -m rsync -r gs://agent-zero-models/latest/ ./ollama_models/
 ## ✨ Summary
 
 You now have a complete model versioning system:
+
 1. ✅ Models stored in project (not in Git)
 2. ✅ GCP bucket for version control
 3. ✅ Automated build integration
@@ -293,6 +321,7 @@ You now have a complete model versioning system:
 5. ✅ CI/CD ready
 
 **Next Step**: Upload to GCP bucket
+
 ```bash
 ./scripts/gcp_models_sync.sh upload
 ```

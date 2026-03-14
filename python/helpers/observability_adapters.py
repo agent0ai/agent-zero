@@ -27,7 +27,7 @@ def _selected_providers(settings: dict[str, Any]) -> list[str]:
 class LangSmithAdapter:
     def __init__(self, api_key: str, project: str, endpoint: str | None):
         self.api_key = api_key
-        self.project = project or "agent-zero"
+        self.project = project or "agent-jumbo"
         self.endpoint = endpoint or None
         self.client = None
         try:

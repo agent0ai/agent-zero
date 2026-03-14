@@ -45,7 +45,7 @@ export default function Header() {
             </Link>
           </li>
           <li>
-            <a href="https://github.com/agent-zero-deploy/agent-jumbo" target="_blank" rel="noopener noreferrer" className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" onClick={() => trackExternalClick('GitHub')}>
+            <a href="https://github.com/agent-jumbo-deploy/agent-jumbo" target="_blank" rel="noopener noreferrer" className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" onClick={() => trackExternalClick('GitHub')}>
               GitHub
             </a>
           </li>
@@ -70,7 +70,7 @@ export default function Header() {
             <Link href="/overview" className="block px-3 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded" onClick={() => { trackNavClick('Dashboard'); setIsOpen(false) }}>
               Dashboard
             </Link>
-            <a href="https://github.com/agent-zero-deploy/agent-jumbo" target="_blank" rel="noopener noreferrer" className="block px-3 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded" onClick={() => { trackExternalClick('GitHub'); setIsOpen(false) }}>
+            <a href="https://github.com/agent-jumbo-deploy/agent-jumbo" target="_blank" rel="noopener noreferrer" className="block px-3 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded" onClick={() => { trackExternalClick('GitHub'); setIsOpen(false) }}>
               GitHub
             </a>
           </div>

@@ -13,7 +13,7 @@ def _repo_root() -> Path:
 
 
 def get_demo_requests_path() -> Path:
-    env_path = os.getenv("AGENT_ZERO_DEMO_REQUESTS_PATH", "").strip()
+    env_path = os.getenv("AGENT_JUMBO_DEMO_REQUESTS_PATH", "").strip()
     if env_path:
         return Path(env_path).expanduser().resolve()
     return _repo_root() / "tmp" / "demo_requests.jsonl"
@@ -52,4 +52,4 @@ def list_demo_requests(limit: int = 25) -> list[dict[str, Any]]:
             except json.JSONDecodeError:
                 continue
 
-    return list(reversed(rows[-max(limit, 1):]))
+    return list(reversed(rows[-max(limit, 1) :]))

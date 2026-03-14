@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "app_spec/schema.json",
-  "title": "Agent Zero App Spec Schema",
+  "title": "Agent Jumbo App Spec Schema",
   "type": "object",
   "properties": {
     "name": {"type": "string"},

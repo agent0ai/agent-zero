@@ -7,7 +7,7 @@
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/agent-zero-deploy/agent-jumbo.git
+git clone https://github.com/agent-jumbo-deploy/agent-jumbo.git
 cd agent-jumbo
 ```
 

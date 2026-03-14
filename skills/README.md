@@ -1,6 +1,6 @@
-# Agent Zero Skill Format
+# Agent Jumbo Skill Format
 
-This document describes how to create, test, and publish skills for Agent Zero.
+This document describes how to create, test, and publish skills for Agent Jumbo.
 
 ## Directory Structure
 
@@ -35,7 +35,7 @@ tier: 1                           # Optional (default: 1).
                                   #   2 = Python module (code in *.py files)
 
 trust_level: community            # Optional (default: community).
-                                  #   builtin  - Ships with Agent Zero core
+                                  #   builtin  - Ships with Agent Jumbo core
                                   #   verified - Reviewed and signed by maintainers
                                   #   community - Published on JumboHub, not yet verified
                                   #   local    - Installed from a local path
@@ -69,19 +69,19 @@ The body after the closing `---` is free-form Markdown. It should describe:
 
 ### Tier 1: Markdown Skills
 
-Tier 1 skills are pure instructions. The `SKILL.md` body tells Agent Zero *how* to
+Tier 1 skills are pure instructions. The `SKILL.md` body tells Agent Jumbo *how* to
 accomplish a task using its existing tools (memory, knowledge, instruments, MCP servers).
 
 - No Python code required.
 - Activated by matching the skill description against the user's request.
-- Safe by default -- no code beyond what Agent Zero already supports.
+- Safe by default -- no code beyond what Agent Jumbo already supports.
 
 **Best for:** prompt templates, workflows, brand guidelines, domain knowledge.
 
 ### Tier 2: Python Skills
 
 Tier 2 skills include Python code (`main.py` or other `.py` files) that
-Agent Zero can import and run.
+Agent Jumbo can import and run.
 
 - Must declare all system capabilities used (filesystem, network, process).
 - Subject to the security scanner before installation.
@@ -219,7 +219,7 @@ python -m python.cli.skill_cli install my-skill.tar.gz
 ---
 name: stripe-revenue-analyzer
 version: 1.2.0
-author: agent-zero-team
+author: agent-jumbo-team
 description: >
   Analyze Stripe revenue data, generate reports, and identify trends.
   Use when asked about revenue, MRR, churn, or Stripe analytics.

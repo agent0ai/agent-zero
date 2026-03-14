@@ -1,8 +1,8 @@
-# Flash Drive Deployment Plan: Agent Zero Portable System
+# Flash Drive Deployment Plan: Agent Jumbo Portable System
 
 ## Executive Summary
 
-**Goal**: Deploy Agent Zero on a flash drive for operation on any computer
+**Goal**: Deploy Agent Jumbo on a flash drive for operation on any computer
 **Current State**: 17GB total (8.3GB source + 8.7GB Python venv + system container)
 **Feasibility**: ✅ **HIGHLY FEASIBLE** with Docker containerization
 **Recommended Flash Drive**: 256GB USB 3.1 (optimal) or 128GB minimum (tight)
@@ -43,15 +43,18 @@
 ## Phase 2: Deployment Strategy Comparison
 
 ### Option A: Docker Desktop Approach (RECOMMENDED)
+
 **Best for: Maximum portability and zero setup complexity**
 
 **How it works:**
+
 - Build Docker image locally
 - Export as `.tar.gz` (~2-3GB compressed)
 - Include docker-compose.yml on flash drive
 - User: `docker load` + `docker-compose up`
 
 **Pros:**
+
 - ✅ Works on Windows, Mac, Linux
 - ✅ No dependency installation needed
 - ✅ One-command startup: `docker-compose up`
@@ -59,6 +62,7 @@
 - ✅ Easy rollback/updates
 
 **Cons:**
+
 - ❌ Requires Docker Desktop installed (~2GB)
 - ❌ Larger initial deployment
 - ⚠️ Slower first startup (first load)
@@ -68,19 +72,23 @@
 ---
 
 ### Option B: Python venv + Scripts (ALTERNATIVE)
+
 **Best for: Minimal dependencies, developers only**
 
 **How it works:**
+
 - Strip venv, include source + requirements.txt
 - User runs: `python -m venv venv && pip install -r requirements.txt`
 - User runs: `python agent.py` directly
 
 **Pros:**
+
 - ✅ Smaller initial package (8.5GB)
 - ✅ No Docker required
 - ✅ Faster to run once initialized
 
 **Cons:**
+
 - ❌ Must install Python 3.12+ separately
 - ❌ System dependencies required (Kali packages, browser tools)
 - ❌ Platform-specific (requires setup per OS)
@@ -92,9 +100,11 @@
 ---
 
 ### Option C: Hybrid Approach (BEST OF BOTH)
+
 **Best for: Balance of portability and flexibility**
 
 **How it works:**
+
 - Main deployment: Docker (like Option A)
 - Fallback: Included build scripts + requirements.txt
 - Startup script detects Docker, uses it if available
@@ -109,7 +119,7 @@
 
 ```
 flash-drive/
-├── agent-zero/                 # Source code (stripped)
+├── agent-jumbo/                 # Source code (stripped)
 │   ├── agents/
 │   ├── python/
 │   ├── skills/
@@ -129,6 +139,7 @@ flash-drive/
 ### Startup Process (from flash drive)
 
 **Windows/Mac:**
+
 ```bash
 # 1. Copy docker-image.tar.gz to local temp storage (if not already)
 # 2. Load Docker image
@@ -141,12 +152,14 @@ docker-compose up -d
 ```
 
 **Linux:**
+
 ```bash
 # Same as above, or:
 docker compose up -d  # Newer Docker versions
 ```
 
 **One-line startup (after Docker imported):**
+
 ```bash
 docker-compose up
 ```
@@ -156,19 +169,23 @@ docker-compose up
 ## Phase 4: Implementation Roadmap
 
 ### Step 1: Optimize & Strip Source Code
+
 **Time: 30 mins**
 
 1. ✅ Remove .git history (save ~1GB)
+
    ```bash
-   git clone --depth 1 . /tmp/agent-zero-clean
+   git clone --depth 1 . /tmp/agent-jumbo-clean
    ```
 
 2. ✅ Remove .venv directory
+
    ```bash
    rm -rf .venv
    ```
 
 3. ✅ Clean cache and build artifacts
+
    ```bash
    find . -type d -name __pycache__ -exec rm -rf {} +
    find . -type f -name "*.pyc" -delete
@@ -187,9 +204,11 @@ docker-compose up
 ---
 
 ### Step 2: Build Optimized Docker Image
+
 **Time: 60-90 mins**
 
 1. ✅ Create Dockerfile for local build (optimized)
+
    ```dockerfile
    FROM kalilinux/kali-rolling:latest
 
@@ -198,7 +217,7 @@ docker-compose up
    RUN bash /ins/install_python.sh
 
    # Copy source code
-   COPY ./agent-zero /a0
+   COPY ./agent-jumbo /a0
    WORKDIR /a0
 
    # Install Python dependencies
@@ -212,17 +231,19 @@ docker-compose up
    ```
 
 2. ✅ Build with BuildKit for smaller layers
+
    ```bash
    DOCKER_BUILDKIT=1 docker build \
      --compress \
-     --tag agent-zero:portable \
+     --tag agent-jumbo:portable \
      --file Dockerfile.portable \
      .
    ```
 
 3. ✅ Compress and save
+
    ```bash
-   docker save agent-zero:portable | gzip > docker-image.tar.gz
+   docker save agent-jumbo:portable | gzip > docker-image.tar.gz
    ```
 
 **Expected image size: 2-3GB compressed**
@@ -230,6 +251,7 @@ docker-compose up
 ---
 
 ### Step 3: Create Docker Compose Configuration
+
 **Time: 20 mins**
 
 Create `docker-compose.yml`:
@@ -238,16 +260,16 @@ Create `docker-compose.yml`:
 version: '3.8'
 
 services:
-  agent-zero:
-    image: agent-zero:portable
-    container_name: agent-zero-portable
+  agent-jumbo:
+    image: agent-jumbo:portable
+    container_name: agent-jumbo-portable
 
     # Persist data across restarts
     volumes:
-      - ./agent-zero/data:/a0/data
-      - ./agent-zero/memory:/a0/memory
-      - ./agent-zero/knowledge:/a0/knowledge
-      - ./agent-zero/logs:/a0/logs
+      - ./agent-jumbo/data:/a0/data
+      - ./agent-jumbo/memory:/a0/memory
+      - ./agent-jumbo/knowledge:/a0/knowledge
+      - ./agent-jumbo/logs:/a0/logs
 
     # Port mappings
     ports:
@@ -268,9 +290,11 @@ services:
 ---
 
 ### Step 4: Create Setup & Startup Scripts
+
 **Time: 30 mins**
 
 #### **run.sh** (Linux/Mac)
+
 ```bash
 #!/bin/bash
 
@@ -278,7 +302,7 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-echo "🚀 Agent Zero Portable - Starting..."
+echo "🚀 Agent Jumbo Portable - Starting..."
 
 # Check Docker
 if ! command -v docker &> /dev/null; then
@@ -287,7 +311,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Import Docker image if not already loaded
-if ! docker images | grep -q agent-zero:portable; then
+if ! docker images | grep -q agent-jumbo:portable; then
     echo "📦 Loading Docker image... (this may take a few minutes)"
     docker load -i "$SCRIPT_DIR/docker-image.tar.gz"
 fi
@@ -299,19 +323,19 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
 fi
 
 # Start container
-echo "✅ Starting Agent Zero container..."
+echo "✅ Starting Agent Jumbo container..."
 cd "$SCRIPT_DIR"
 docker-compose up -d
 
 # Wait for health check
-echo "⏳ Waiting for Agent Zero to be ready..."
+echo "⏳ Waiting for Agent Jumbo to be ready..."
 sleep 10
 
 # Show status
-docker ps -a | grep agent-zero
+docker ps -a | grep agent-jumbo
 
 echo ""
-echo "✨ Agent Zero is running!"
+echo "✨ Agent Jumbo is running!"
 echo "🌐 Web UI: http://localhost:5000"
 echo "📡 API: http://localhost:8000"
 echo ""
@@ -320,6 +344,7 @@ echo "To stop: docker-compose down"
 ```
 
 #### **run.bat** (Windows)
+
 ```batch
 @echo off
 
@@ -327,7 +352,7 @@ setlocal enabledelayedexpansion
 
 set SCRIPT_DIR=%~dp0
 
-echo 🚀 Agent Zero Portable - Starting...
+echo 🚀 Agent Jumbo Portable - Starting...
 
 REM Check Docker
 docker --version >nul 2>&1
@@ -338,7 +363,7 @@ if %errorlevel% neq 0 (
 )
 
 REM Import Docker image if not already loaded
-docker images | findstr /R "agent-zero.*portable" >nul 2>&1
+docker images | findstr /R "agent-jumbo.*portable" >nul 2>&1
 if %errorlevel% neq 0 (
     echo 📦 Loading Docker image... ^(this may take a few minutes^)
     docker load -i "%SCRIPT_DIR%docker-image.tar.gz"
@@ -351,19 +376,19 @@ if not exist "%SCRIPT_DIR%.env" (
 )
 
 REM Start container
-echo ✅ Starting Agent Zero container...
+echo ✅ Starting Agent Jumbo container...
 cd /d "%SCRIPT_DIR%"
 docker-compose up -d
 
 REM Wait for health check
-echo ⏳ Waiting for Agent Zero to be ready...
+echo ⏳ Waiting for Agent Jumbo to be ready...
 timeout /t 10
 
 REM Show status
-docker ps -a | findstr "agent-zero"
+docker ps -a | findstr "agent-jumbo"
 
 echo.
-echo ✨ Agent Zero is running!
+echo ✨ Agent Jumbo is running!
 echo 🌐 Web UI: http://localhost:5000
 echo 📡 API: http://localhost:8000
 echo.
@@ -375,9 +400,11 @@ pause
 ---
 
 ### Step 5: Create Configuration & Documentation
+
 **Time: 20 mins**
 
 #### **.env.example**
+
 ```env
 # ============================================
 # FLASH DRIVE PORTABLE DEPLOYMENT
@@ -409,8 +436,9 @@ AGENT_KNOWLEDGE_SUBDIR=default
 ```
 
 #### **SETUP.md**
+
 ```markdown
-# Agent Zero Portable - Setup Guide
+# Agent Jumbo Portable - Setup Guide
 
 ## Prerequisites
 
@@ -435,7 +463,7 @@ AGENT_KNOWLEDGE_SUBDIR=default
    - Edit `.env` file with your API keys
    - Restart: `docker-compose restart`
 
-5. **Access Agent Zero**
+5. **Access Agent Jumbo**
    - Web UI: http://localhost:5000
    - API: http://localhost:8000
 
@@ -445,31 +473,36 @@ AGENT_KNOWLEDGE_SUBDIR=default
 # View logs
 docker-compose logs -f
 
-# Stop Agent Zero
+# Stop Agent Jumbo
 docker-compose down
 
 # Rebuild if needed
 docker-compose build
 
 # Access container shell
-docker-compose exec agent-zero bash
+docker-compose exec agent-jumbo bash
 ```
 
 ## Troubleshooting
 
 **"Docker is not installed"**
+
 - Install Docker Desktop from docker.com
 
 **"Port 5000 already in use"**
+
 - Edit docker-compose.yml, change ports: "5001:5000"
 
 **"Image loading fails"**
+
 - Check flash drive has >3GB free space
 - Try: `docker load -i docker-image.tar.gz`
 
 **Memory issues**
+
 - Docker needs 4-8GB RAM allocated
 - Settings → Resources in Docker Desktop
+
 ```
 
 ---
@@ -479,8 +512,9 @@ docker-compose exec agent-zero bash
 ### Final Flash Drive Structure
 
 ```
-agent-zero-portable/
-├── 📁 agent-zero/           (5-6GB stripped source)
+
+agent-jumbo-portable/
+├── 📁 agent-jumbo/           (5-6GB stripped source)
 ├── 📄 docker-image.tar.gz   (2-3GB Docker image)
 ├── 📄 docker-compose.yml    (2KB)
 ├── 📄 Dockerfile            (2KB) - for rebuilding
@@ -492,6 +526,7 @@ agent-zero-portable/
 └── 📄 TROUBLESHOOTING.md    (5KB)
 
 Total: ~10-11GB
+
 ```
 
 ### Pre-Assembly Checklist
@@ -518,9 +553,9 @@ Total: ~10-11GB
    - [ ] Web UI loads at http://localhost:5000
 
 2. **Portability Testing** (1.5 hours each)
-   - [ ] **Windows machine** - run.bat starts Agent Zero
-   - [ ] **Mac machine** - run.sh starts Agent Zero
-   - [ ] **Linux machine** - run.sh starts Agent Zero
+   - [ ] **Windows machine** - run.bat starts Agent Jumbo
+   - [ ] **Mac machine** - run.sh starts Agent Jumbo
+   - [ ] **Linux machine** - run.sh starts Agent Jumbo
    - [ ] Fresh user (no Docker experience) can follow SETUP.md
 
 3. **Functional Testing** (1 hour)
@@ -607,8 +642,8 @@ Total: ~10-11GB
 **Q: What if user doesn't have Docker?**
 A: SETUP.md directs them to install Docker Desktop (simple, free, one-time)
 
-**Q: Can they update Agent Zero code?**
-A: Yes! They can edit files in the agent-zero/ folder, changes persist
+**Q: Can they update Agent Jumbo code?**
+A: Yes! They can edit files in the agent-jumbo/ folder, changes persist
 
 **Q: What about API keys and secrets?**
 A: Stored in .env file (git-ignored), not in docker image

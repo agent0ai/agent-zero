@@ -1,6 +1,6 @@
 {
   "$schema": "app_spec/app_spec.schema.json",
-  "name": "agent-zero",
+  "name": "agent-jumbo",
   "version": "0.0.0",
   "purpose": "Local-first multi-agent assistant with tool execution, web UI, and integrations.",
   "entrypoints": {

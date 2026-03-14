@@ -231,17 +231,20 @@
 ## 🖥️ UI Dashboard
 
 ### Access
-1. Open Agent Zero web interface
+
+1. Open Agent Jumbo web interface
 2. Click **Settings** (gear icon)
 3. Select **Workflows** tab
 
 ### Dashboard Views
+
 - **Dashboard** - Overview stats, recent executions
 - **Workflows** - List and visualize workflows
 - **Training** - Learning paths and progress
 - **Skills** - Skill proficiency tracking
 
 ### Features
+
 - Real-time polling (every 5 seconds)
 - Mermaid diagram rendering
 - Tab-based navigation

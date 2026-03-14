@@ -1,14 +1,16 @@
-# MCP Integration Setup Guide for Agent Zero
+# MCP Integration Setup Guide for Agent Jumbo
 
 ## Overview
-This guide will help you integrate Model Context Protocol (MCP) servers into Agent Zero, enabling extended capabilities like file operations, web search, GitHub integration, and more.
+
+This guide will help you integrate Model Context Protocol (MCP) servers into Agent Jumbo, enabling extended capabilities like file operations, web search, GitHub integration, and more.
 
 ## Quick Start - Essential MCP Servers
 
 Here's a minimal configuration to get started with the most useful MCP servers:
 
 ### 1. Filesystem Server (Most Useful)
-Allows Agent Zero to read/write files in specified directories.
+
+Allows Agent Jumbo to read/write files in specified directories.
 
 ```json
 {
@@ -26,6 +28,7 @@ Allows Agent Zero to read/write files in specified directories.
 ```
 
 ### 2. Fetch Server (Web Content)
+
 Fetches and extracts content from web pages.
 
 ```json
@@ -40,6 +43,7 @@ Fetches and extracts content from web pages.
 ```
 
 ### 3. Sequential Thinking (Enhanced Reasoning)
+
 Provides extended chain-of-thought reasoning for complex problems.
 
 ```json
@@ -57,23 +61,25 @@ Provides extended chain-of-thought reasoning for complex problems.
 
 ### Method 1: Via Web UI (Recommended)
 
-1. **Access Agent Zero**: Open http://localhost:8080
+1. **Access Agent Jumbo**: Open <http://localhost:8080>
 2. **Open Settings**: Click the Settings button
 3. **Navigate to MCP Servers**: Scroll to "MCP Servers Configuration"
 4. **Paste Configuration**: Copy the JSON from above and paste into the text area
 5. **Save**: Click Save Settings
-6. **Restart**: Restart Agent Zero container or process
+6. **Restart**: Restart Agent Jumbo container or process
 
 ### Method 2: Direct File Edit
 
-1. **Run Agent Zero Once**: This creates `tmp/settings.json`
-2. **Stop Agent Zero**
+1. **Run Agent Jumbo Once**: This creates `tmp/settings.json`
+2. **Stop Agent Jumbo**
 3. **Edit Settings File**:
+
    ```bash
-   nano /home/webemo-aaron/projects/agent-zero/tmp/settings.json
+   nano /home/webemo-aaron/projects/agent-jumbo/tmp/settings.json
    ```
+
 4. **Update mcp_servers Field**: Replace the `mcp_servers` value with your JSON config
-5. **Restart Agent Zero**
+5. **Restart Agent Jumbo**
 
 ## Recommended Starter Configuration
 
@@ -135,7 +141,8 @@ Some servers require API keys. Add them after you obtain the keys:
 }
 ```
 
-**Get GitHub Token**: https://github.com/settings/tokens
+**Get GitHub Token**: <https://github.com/settings/tokens>
+
 - Required scopes: `repo`, `read:org`, `read:user`
 
 ### Brave Search (Web Search)
@@ -154,33 +161,36 @@ Some servers require API keys. Add them after you obtain the keys:
 }
 ```
 
-**Get Brave API Key**: https://brave.com/search/api/
+**Get Brave API Key**: <https://brave.com/search/api/>
 
 ## Docker Configuration
 
-If running Agent Zero in Docker, ensure Node.js/npm are available in the container (they should be in the built image).
+If running Agent Jumbo in Docker, ensure Node.js/npm are available in the container (they should be in the built image).
 
 To configure MCP servers in Docker:
 
 1. **Access Container**:
+
    ```bash
-   docker exec -it agent-zero bash
+   docker exec -it agent-jumbo bash
    ```
 
 2. **Test npx Availability**:
+
    ```bash
    npx --version
    ```
 
-3. **Configure via Web UI**: Use http://localhost:8080 settings
+3. **Configure via Web UI**: Use <http://localhost:8080> settings
 
 Alternatively, mount your settings file:
+
 ```bash
-docker run -d --name agent-zero \
+docker run -d --name agent-jumbo \
   -p 8080:80 \
-  -v /home/webemo-aaron/projects/agent-zero:/a0 \
-  -v /home/webemo-aaron/projects/agent-zero/tmp:/a0/tmp \
-  agent-zero-local:latest
+  -v /home/webemo-aaron/projects/agent-jumbo:/a0 \
+  -v /home/webemo-aaron/projects/agent-jumbo/tmp:/a0/tmp \
+  agent-jumbo-local:latest
 ```
 
 ## Verification
@@ -188,11 +198,13 @@ docker run -d --name agent-zero \
 After configuration and restart:
 
 1. **Check Logs**: Look for MCP server initialization messages
+
    ```bash
-   docker logs agent-zero | grep -i mcp
+   docker logs agent-jumbo | grep -i mcp
    ```
 
-2. **Test in Chat**: Ask Agent Zero to use an MCP tool
+2. **Test in Chat**: Ask Agent Jumbo to use an MCP tool
+
    ```
    "Can you list files in the current directory using the filesystem server?"
    ```
@@ -208,24 +220,28 @@ After configuration and restart:
 ### MCP Servers Not Loading
 
 1. **Check Node.js/npm**: Ensure they're available
+
    ```bash
    node --version
    npm --version
    ```
 
 2. **Check Settings Format**: Ensure JSON is valid
+
    ```bash
    cat tmp/settings.json | jq '.mcp_servers'
    ```
 
 3. **Check Logs**: Look for error messages
+
    ```bash
-   docker logs agent-zero --tail 100 | grep -i error
+   docker logs agent-jumbo --tail 100 | grep -i error
    ```
 
 ### NPX Package Installation Fails
 
 - **Manually Install**: If auto-install fails, manually install packages:
+
   ```bash
   npm install -g @modelcontextprotocol/server-filesystem
   npm install -g @modelcontextprotocol/server-fetch
@@ -235,6 +251,7 @@ After configuration and restart:
 
 - Ensure env vars are properly quoted in JSON
 - For Docker, you may need to pass them via docker run:
+
   ```bash
   docker run -d \
     -e GITHUB_PERSONAL_ACCESS_TOKEN="ghp_token" \
@@ -247,6 +264,7 @@ After configuration and restart:
 See `mcp_config_claude.json` for a comprehensive list of available Anthropic MCP servers with all configuration options.
 
 Popular servers include:
+
 - **filesystem**: File operations
 - **github**: GitHub integration
 - **brave-search**: Web search
@@ -264,12 +282,12 @@ Popular servers include:
 1. **Start with Basics**: Configure filesystem, fetch, and sequential-thinking
 2. **Test Functionality**: Verify each server works before adding more
 3. **Add API Services**: Once comfortable, add GitHub, Brave Search, etc.
-4. **Explore Tools**: Ask Agent Zero what tools are available
+4. **Explore Tools**: Ask Agent Jumbo what tools are available
 5. **Build Workflows**: Create complex workflows using multiple MCP tools
 
 ## Resources
 
-- **MCP Documentation**: https://modelcontextprotocol.io
-- **Anthropic MCP Servers**: https://github.com/modelcontextprotocol/servers
-- **Agent Zero Docs**: `/docs/mcp_setup.md`
+- **MCP Documentation**: <https://modelcontextprotocol.io>
+- **Anthropic MCP Servers**: <https://github.com/modelcontextprotocol/servers>
+- **Agent Jumbo Docs**: `/docs/mcp_setup.md`
 - **Configuration Examples**: `mcp_config_claude.json`

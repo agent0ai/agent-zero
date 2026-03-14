@@ -1,10 +1,11 @@
-# 🚀 Agent Zero - Quick Reference
+# 🚀 Agent Jumbo - Quick Reference
 
 ## ✅ System Status
 
 **All Systems Operational**
+
 - ✓ Docker containers running
-- ✓ Agent Zero UI: http://localhost:50080
+- ✓ Agent Jumbo UI: <http://localhost:50080>
 - ✓ Ollama models: 4.4GB in project
 - ✓ Portfolio Manager tool loaded
 - ✓ Property Manager tool loaded
@@ -13,6 +14,7 @@
 ## 📋 Common Commands
 
 ### Daily Operations
+
 ```bash
 # Start everything
 cd docker/run && docker-compose up -d
@@ -25,13 +27,14 @@ cd docker/run && docker-compose logs -f
 
 # Restart a service
 docker restart ollama
-docker restart agent-zero
+docker restart agent-jumbo
 
 # Check status
 ./scripts/validate.sh
 ```
 
 ### Model Management
+
 ```bash
 # Upload models to GCP (first time)
 ./scripts/gcp_models_sync.sh upload
@@ -47,6 +50,7 @@ docker restart agent-zero
 ```
 
 ### Build & Deploy
+
 ```bash
 # Full build with model handling
 ./scripts/build.sh
@@ -61,22 +65,26 @@ MODEL_VERSION=20260113-184641 ./scripts/build.sh
 ## 🛠️ Tools Available
 
 ### Portfolio Manager
+
 **Purpose**: Scan, analyze, and manage your code projects for sale
 
 **Key Actions**:
+
 - `scan` - Scan directory for projects
 - `list` - List all projects in portfolio
 - `analyze` - Deep analysis of project quality
 - `create_product` - Convert project to sellable product
 - `pipeline` - Manage sales pipeline
 
-**Example**: 
+**Example**:
 > "Scan /home/webemo-aaron/projects for my portfolio"
 
 ### Property Manager
+
 **Purpose**: Manage West Bethel Motel and rental properties
 
 **Key Actions**:
+
 - `setup_initial` - Initialize West Bethel Motel
 - `add_property` - Add new rental property
 - `add_tenant` - Add tenant to unit
@@ -90,7 +98,7 @@ MODEL_VERSION=20260113-184641 ./scripts/build.sh
 ## 📁 Project Structure
 
 ```
-agent-zero/
+agent-jumbo/
 ├── ollama_models/          # Ollama models (4.4GB, not in Git)
 │   ├── models/             # Model manifests
 │   ├── blobs/              # Model binaries
@@ -101,7 +109,7 @@ agent-zero/
 │   └── validate.sh         # Check deployment status
 ├── docker/run/
 │   ├── docker-compose.yml  # Container orchestration
-│   └── agent-zero/data/    # SQLite databases (persistent)
+│   └── agent-jumbo/data/    # SQLite databases (persistent)
 ├── python/tools/
 │   ├── portfolio_manager_tool.py  # 17KB
 │   └── property_manager_tool.py   # 29KB
@@ -118,6 +126,7 @@ agent-zero/
 ## 🔧 Troubleshooting
 
 ### Ollama models not loading
+
 ```bash
 # Check mount
 docker exec ollama ls -la /root/.ollama/models/
@@ -128,25 +137,28 @@ sleep 30
 docker exec ollama ollama list
 ```
 
-### Agent Zero UI not accessible
+### Agent Jumbo UI not accessible
+
 ```bash
 # Check logs
-docker logs agent-zero
+docker logs agent-jumbo
 
 # Restart
-docker restart agent-zero
+docker restart agent-jumbo
 ```
 
 ### Database not persisting
+
 ```bash
 # Check volume
-docker volume inspect agent_zero_data
+docker volume inspect agent_jumbo_data
 
 # Check mount
-docker exec agent-zero ls -la /a0/data/
+docker exec agent-jumbo ls -la /a0/data/
 ```
 
 ### GCP sync fails
+
 ```bash
 # Check authentication
 gcloud auth list
@@ -155,19 +167,21 @@ gcloud auth list
 gcloud auth login
 
 # Check bucket
-gsutil ls gs://agent-zero-models/
+gsutil ls gs://agent-jumbo-models/
 ```
 
 ## 📊 Testing Checklist
 
 ### Portfolio Manager
+
 - [ ] Scan a directory with projects
 - [ ] View project list
 - [ ] Analyze project quality score
 - [ ] Create product from project
 - [ ] Export portfolio report
 
-### Property Manager  
+### Property Manager
+
 - [ ] Initialize West Bethel Motel
 - [ ] Add 3 house properties
 - [ ] Add tenants to units
@@ -176,6 +190,7 @@ gsutil ls gs://agent-zero-models/
 - [ ] View financial summary
 
 ### Infrastructure
+
 - [ ] Restart containers - verify models persist
 - [ ] Create test database - verify data persists
 - [ ] Upload models to GCP bucket
@@ -183,21 +198,21 @@ gsutil ls gs://agent-zero-models/
 
 ## 🌐 Access Points
 
-- **Agent Zero UI**: http://localhost:50080
-- **Ollama API**: http://localhost:11434
+- **Agent Jumbo UI**: <http://localhost:50080>
+- **Ollama API**: <http://localhost:11434>
 - **Model Manifest**: `ollama_models/model_manifest.json`
-- **Databases**: `docker/run/agent-zero/data/`
+- **Databases**: `docker/run/agent-jumbo/data/`
 
 ## 📝 Important Notes
 
 1. **Models are NOT in Git** - They're in `ollama_models/` (gitignored) and versioned in GCP bucket
 2. **Download before building** - New machines need: `./scripts/gcp_models_sync.sh download`
 3. **Databases persist** - SQLite files in volume survive container restarts
-4. **Tools auto-load** - Agent Zero discovers `python/tools/*.py` automatically
+4. **Tools auto-load** - Agent Jumbo discovers `python/tools/*.py` automatically
 
 ## 🎯 Next Actions
 
-1. **Test the UI**: http://localhost:50080
+1. **Test the UI**: <http://localhost:50080>
 2. **Initialize Properties**: "Setup West Bethel Motel with 12 units"
 3. **Scan Portfolio**: Point at your projects folder
 4. **Upload Models**: `./scripts/gcp_models_sync.sh upload`
@@ -206,7 +221,7 @@ gsutil ls gs://agent-zero-models/
 
 **Current Version**: 20260113-184641
 **Model**: qwen2.5-coder:7b (4.4GB) via Ollama (local)
-**Provider**: Ollama at http://ollama:11434
+**Provider**: Ollama at <http://ollama:11434>
 **Status**: ✅ Ready for testing
 
 ## 📖 Additional Documentation

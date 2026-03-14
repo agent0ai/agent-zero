@@ -1,9 +1,9 @@
 #!/bin/bash
-# Apply MCP Configuration to Agent Zero
+# Apply MCP Configuration to Agent Jumbo
 
 set -e
 
-echo "🔧 MCP Configuration Setup for Agent Zero"
+echo "🔧 MCP Configuration Setup for Agent Jumbo"
 echo "=========================================="
 echo ""
 
@@ -13,12 +13,12 @@ MINIMAL='{"mcpServers":{"filesystem":{"command":"npx","args":["-y","@modelcontex
 RECOMMENDED='{"mcpServers":{"filesystem":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/home/webemo-aaron/projects"]},"fetch":{"command":"npx","args":["-y","@modelcontextprotocol/server-fetch"]},"sequential-thinking":{"command":"npx","args":["-y","@modelcontextprotocol/server-sequential-thinking"]},"memory":{"command":"npx","args":["-y","@modelcontextprotocol/server-memory"]},"git":{"command":"npx","args":["-y","@modelcontextprotocol/server-git"]}}}'
 
 # Check if tmp/settings.json exists
-SETTINGS_FILE="/home/webemo-aaron/projects/agent-zero/tmp/settings.json"
+SETTINGS_FILE="/home/webemo-aaron/projects/agent-jumbo/tmp/settings.json"
 
 if [ ! -f "$SETTINGS_FILE" ]; then
     echo "❌ Settings file not found: $SETTINGS_FILE"
     echo ""
-    echo "Please run Agent Zero at least once to create the settings file."
+    echo "Please run Agent Jumbo at least once to create the settings file."
     echo "Access http://localhost:8080 and wait for it to load, then try again."
     exit 1
 fi
@@ -99,11 +99,11 @@ fi
 
 echo ""
 echo "🔄 Next steps:"
-echo "1. Restart Agent Zero container:"
-echo "   docker restart agent-zero"
+echo "1. Restart Agent Jumbo container:"
+echo "   docker restart agent-jumbo"
 echo ""
 echo "2. Check logs for MCP initialization:"
-echo "   docker logs -f agent-zero | grep -i mcp"
+echo "   docker logs -f agent-jumbo | grep -i mcp"
 echo ""
 echo "3. Test in web UI at http://localhost:8080"
 echo "   Try: 'List available MCP tools'"
@@ -114,13 +114,13 @@ echo ""
 echo "📝 Backup saved to: $BACKUP_FILE"
 echo ""
 
-read -p "Restart Agent Zero container now? [y/N]: " restart
+read -p "Restart Agent Jumbo container now? [y/N]: " restart
 if [ "$restart" = "y" ] || [ "$restart" = "Y" ]; then
-    echo "🔄 Restarting Agent Zero..."
-    docker restart agent-zero
+    echo "🔄 Restarting Agent Jumbo..."
+    docker restart agent-jumbo
     echo "✅ Container restarted"
     echo ""
     echo "🔍 Watching logs (Ctrl+C to exit)..."
     sleep 2
-    docker logs -f agent-zero --tail 50
+    docker logs -f agent-jumbo --tail 50
 fi

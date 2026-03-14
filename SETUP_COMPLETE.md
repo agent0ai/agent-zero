@@ -37,6 +37,7 @@ Team B Worktree (Guest Communication)
 ### Test Files Created ✅
 
 **Team A - Calendar Hub Integration**
+
 ```
 tests/test_pms_calendar_sync.py (16 KB, 45+ test specs)
 ├── TestCalendarSyncServiceInitialization (2 tests)
@@ -57,6 +58,7 @@ tests/test_pms_calendar_sync.py (16 KB, 45+ test specs)
 ```
 
 **Team B - Guest Communication Automation**
+
 ```
 tests/test_pms_communication_workflows.py (20 KB, 53+ test specs)
 ├── TestCommunicationWorkflowInitialization (3 tests)
@@ -77,6 +79,7 @@ tests/test_pms_communication_workflows.py (20 KB, 53+ test specs)
 ### Documentation Complete ✅
 
 **Primary Guides**
+
 1. **TEAM_QUICKSTART.md** (500 lines)
    - 5-minute onboarding
    - Common commands
@@ -101,6 +104,7 @@ tests/test_pms_communication_workflows.py (20 KB, 53+ test specs)
    - Reference documentation
 
 **Supporting Resources**
+
 - TDD_SWARM_GUIDE.md (existing)
 - PMS_HUB_IMPLEMENTATION.md (existing)
 - instruments/custom/pms_hub/README.md (existing)
@@ -112,6 +116,7 @@ tests/test_pms_communication_workflows.py (20 KB, 53+ test specs)
 ### Team A: Calendar Hub Integration
 
 **What They'll Build**:
+
 - Calendar synchronization service
 - Dynamic pricing rule sync
 - Availability blocking management
@@ -119,6 +124,7 @@ tests/test_pms_communication_workflows.py (20 KB, 53+ test specs)
 - Real-time event updates
 
 **Deliverables**:
+
 ```
 New Files (1,100 lines total):
 - instruments/custom/pms_hub/calendar_sync.py (350 lines)
@@ -134,6 +140,7 @@ Quality Gate:
 ```
 
 **Key Files They'll Use**:
+
 - instruments/custom/pms_hub/canonical_models.py (reference only)
 - python/tools/calendar_hub.py (integration target)
 - tests/conftest.py (fixtures and mocks)
@@ -144,6 +151,7 @@ Quality Gate:
 ### Team B: Guest Communication Automation
 
 **What They'll Build**:
+
 - Pre-arrival message workflows
 - Post-checkout workflows
 - Issue resolution workflows
@@ -151,6 +159,7 @@ Quality Gate:
 - Review request automation
 
 **Deliverables**:
+
 ```
 New Files (1,340 lines total):
 - instruments/custom/pms_hub/communication_workflows.py (450 lines)
@@ -168,6 +177,7 @@ Quality Gate:
 ```
 
 **Key Files They'll Use**:
+
 - instruments/custom/pms_hub/canonical_models.py (reference only)
 - instruments/custom/pms_hub/sync_service.py (pattern reference)
 - tests/conftest.py (fixtures and mocks)
@@ -178,6 +188,7 @@ Quality Gate:
 ## 🔧 Setup Scripts & Tools Ready
 
 ### Worktree Management
+
 ```bash
 ./scripts/setup_feature_teams.sh create   # Create worktrees
 ./scripts/setup_feature_teams.sh list     # List active worktrees
@@ -185,6 +196,7 @@ Quality Gate:
 ```
 
 ### Test Execution
+
 ```bash
 ./scripts/run_pms_tests.sh all       # Run all tests
 ./scripts/run_pms_tests.sh calendar  # Run calendar tests
@@ -193,6 +205,7 @@ Quality Gate:
 ```
 
 ### Pytest Configuration
+
 ```bash
 pytest.ini configured with:
 - Test markers (@pytest.mark.unit, @pytest.mark.asyncio, etc.)
@@ -206,6 +219,7 @@ pytest.ini configured with:
 ## ✅ How Teams Will Use This Setup
 
 ### Day 1: Understand the System
+
 ```
 Team A:
 1. cd .worktrees/pms-calendar
@@ -223,6 +237,7 @@ Team B:
 ```
 
 ### Days 2-4: Implement Features (TDD)
+
 ```
 RED Phase:
 - Replace pytest.skip() with actual test code
@@ -239,6 +254,7 @@ REFACTOR Phase:
 ```
 
 ### Day 5: Merge & Deploy
+
 ```
 1. Final code review
 2. Ensure 100% test pass rate
@@ -254,6 +270,7 @@ REFACTOR Phase:
 ## 📈 Progress Tracking
 
 ### Current Metrics
+
 ```
 Foundation (PMS Hub Core):
 - 91 tests passing (98.9% pass rate)
@@ -280,6 +297,7 @@ After Team B Completion:
 ## 🎯 Success Criteria (Per Team)
 
 ### Team A: Calendar Hub
+
 - [ ] 45+ tests implemented (100% passing)
 - [ ] 95%+ code coverage
 - [ ] EventBus integration working
@@ -290,6 +308,7 @@ After Team B Completion:
 - [ ] Documentation complete
 
 ### Team B: Guest Communication
+
 - [ ] 53+ tests implemented (100% passing)
 - [ ] 95%+ code coverage
 - [ ] EventBus integration working
@@ -305,18 +324,20 @@ After Team B Completion:
 ## 🚀 Teams Can Start Immediately
 
 **Team A (Calendar Hub)**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 git branch  # Verify: feature/pms-calendar-sync
-cat /home/webemo-aaron/projects/agent-zero/TEAM_QUICKSTART.md
+cat /home/webemo-aaron/projects/agent-jumbo/TEAM_QUICKSTART.md
 pytest tests/test_pms_calendar_sync.py -v  # See test specs
 ```
 
 **Team B (Guest Communication)**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 git branch  # Verify: feature/pms-messaging-automation
-cat /home/webemo-aaron/projects/agent-zero/TEAM_QUICKSTART.md
+cat /home/webemo-aaron/projects/agent-jumbo/TEAM_QUICKSTART.md
 pytest tests/test_pms_communication_workflows.py -v  # See test specs
 ```
 
@@ -417,6 +438,7 @@ Integration Handoff:
 ## 📊 Deliverable Summary
 
 ### What Exists (Do Not Change)
+
 - ✅ Core PMS Hub system (16 files)
 - ✅ 4 provider adapters (fully functional)
 - ✅ Sync service (PropertyManager integration)
@@ -424,10 +446,12 @@ Integration Handoff:
 - ✅ Complete documentation
 
 ### What Gets Implemented (New)
+
 - 🔨 Team A: Calendar sync service + 45 tests
 - 🔨 Team B: Communication workflows + 53 tests
 
 ### What Gets Merged
+
 - ✅ Main ← Team A feature (Day 5 AM)
 - ✅ Main ← Team B feature (Day 5 PM)
 - ✅ Full test suite: 189+ tests
@@ -455,6 +479,7 @@ Everything is in place for successful parallel team execution:
 ## 🎯 Next Actions
 
 ### For Project Lead
+
 1. Assign Team A (Calendar Hub Integration)
 2. Assign Team B (Guest Communication Automation)
 3. Share setup details with teams
@@ -462,6 +487,7 @@ Everything is in place for successful parallel team execution:
 5. Monitor progress and blockers
 
 ### For Team A
+
 1. Read TEAM_QUICKSTART.md
 2. Navigate to `.worktrees/pms-calendar`
 3. Review TDD_SWARM_FEATURE_TEAMS.md (Calendar section)
@@ -469,6 +495,7 @@ Everything is in place for successful parallel team execution:
 5. Daily sync at 09:00
 
 ### For Team B
+
 1. Read TEAM_QUICKSTART.md
 2. Navigate to `.worktrees/pms-messaging`
 3. Review TDD_SWARM_FEATURE_TEAMS.md (Messaging section)
@@ -480,6 +507,7 @@ Everything is in place for successful parallel team execution:
 ## 📞 Questions?
 
 Check these in order:
+
 1. TEAM_QUICKSTART.md (troubleshooting section)
 2. FEATURE_TEAMS_DEPLOYMENT.md (detailed reference)
 3. TDD_SWARM_GUIDE.md (testing patterns)

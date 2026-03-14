@@ -1,7 +1,7 @@
 ---
 name: example-skill
 version: "1.0.0"
-author: Agent Zero Team
+author: Agent Jumbo Team
 tier: 1
 trust_level: builtin
 description: A demonstration skill showing the SKILL.md format for Tier 1 markdown skills.

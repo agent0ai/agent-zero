@@ -1,5 +1,5 @@
 """
-Finance Manager Tool for Agent Zero
+Finance Manager Tool for Agent Jumbo
 Mock-friendly finance automation with ingest, categorize, and reporting actions.
 """
 
@@ -12,8 +12,8 @@ from python.helpers.tool import Response, Tool
 
 
 class FinanceManagerTool(Tool):
-    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
-        super().__init__(agent, name, args, message, **kwargs)
+    def __init__(self, agent, name: str, method: str | None, args: dict, message: str, loop_data=None, **kwargs):
+        super().__init__(agent, name, method, args, message, loop_data, **kwargs)
         from instruments.custom.finance_manager.finance_manager import FinanceManager
 
         db_path = files.get_abs_path("./instruments/custom/finance_manager/data/finance_manager.db")

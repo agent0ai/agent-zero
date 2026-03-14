@@ -1,11 +1,13 @@
 import asyncio
 import threading
+import time
 from collections.abc import Awaitable, Callable, Coroutine
 from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
 T = TypeVar("T")
+
 
 class EventLoopThread:
     _instances = {}
@@ -24,12 +26,15 @@ class EventLoopThread:
             return cls._instances[thread_name]
 
     def _start(self):
-        if not hasattr(self, "loop") or not self.loop:
+        loop_missing = not hasattr(self, "loop") or not self.loop
+        loop_not_running = bool(getattr(self, "loop", None)) and not self.loop.is_running()  # type: ignore[union-attr]
+        thread_missing = not hasattr(self, "thread") or not self.thread
+        thread_dead = bool(getattr(self, "thread", None)) and not self.thread.is_alive()  # type: ignore[union-attr]
+
+        if loop_missing or loop_not_running:
             self.loop = asyncio.new_event_loop()
-        if not hasattr(self, "thread") or not self.thread:
-            self.thread = threading.Thread(
-                target=self._run_event_loop, daemon=True, name=self.thread_name
-            )
+        if thread_missing or thread_dead:
+            self.thread = threading.Thread(target=self._run_event_loop, daemon=True, name=self.thread_name)
             self.thread.start()
 
     def _run_event_loop(self):
@@ -46,7 +51,7 @@ class EventLoopThread:
 
     def run_coroutine(self, coro):
         self._start()
-        if not self.loop:
+        if not self.loop or not self.loop.is_running():
             raise RuntimeError("Event loop is not initialized")
         return asyncio.run_coroutine_threadsafe(coro, self.loop)
 
@@ -65,10 +70,9 @@ class DeferredTask:
         self.event_loop_thread = EventLoopThread(thread_name)
         self._future: Future | None = None
         self.children: list[ChildTask] = []
+        self.started_at_monotonic: float = 0.0
 
-    def start_task(
-        self, func: Callable[..., Coroutine[Any, Any, Any]], *args: Any, **kwargs: Any
-    ):
+    def start_task(self, func: Callable[..., Coroutine[Any, Any, Any]], *args: Any, **kwargs: Any):
         self.func = func
         self.args = args
         self.kwargs = kwargs
@@ -79,6 +83,7 @@ class DeferredTask:
         self.kill()
 
     def _start_task(self):
+        self.started_at_monotonic = time.monotonic()
         self._future = self.event_loop_thread.run_coroutine(self._run())
 
     async def _run(self):
@@ -93,9 +98,7 @@ class DeferredTask:
         try:
             return self._future.result(timeout)
         except TimeoutError:
-            raise TimeoutError(
-                "The task did not complete within the specified timeout."
-            )
+            raise TimeoutError("The task did not complete within the specified timeout.")
 
     async def result(self, timeout: float | None = None) -> Any:
         if not self._future:
@@ -109,9 +112,7 @@ class DeferredTask:
                 # self.kill()
                 return result
             except TimeoutError:
-                raise TimeoutError(
-                    "The task did not complete within the specified timeout."
-                )
+                raise TimeoutError("The task did not complete within the specified timeout.")
 
         return await loop.run_in_executor(None, _get_result)
 
@@ -121,11 +122,7 @@ class DeferredTask:
         if self._future and not self._future.done():
             self._future.cancel()
 
-        if (
-            terminate_thread
-            and self.event_loop_thread.loop
-            and self.event_loop_thread.loop.is_running()
-        ):
+        if terminate_thread and self.event_loop_thread.loop and self.event_loop_thread.loop.is_running():
 
             def cleanup():
                 tasks = [
@@ -138,9 +135,7 @@ class DeferredTask:
                     try:
                         # Give tasks a chance to cleanup
                         if self.event_loop_thread.loop:
-                            self.event_loop_thread.loop.run_until_complete(
-                                asyncio.gather(task, return_exceptions=True)
-                            )
+                            self.event_loop_thread.loop.run_until_complete(asyncio.gather(task, return_exceptions=True))
                     except Exception:
                         pass  # Ignore cleanup errors
 
@@ -155,18 +150,19 @@ class DeferredTask:
     def is_alive(self) -> bool:
         return self._future and not self._future.done()  # type: ignore
 
+    def age_seconds(self) -> float:
+        if self.started_at_monotonic <= 0:
+            return 0.0
+        return max(0.0, time.monotonic() - self.started_at_monotonic)
+
     def restart(self, terminate_thread: bool = False) -> None:
         self.kill(terminate_thread=terminate_thread)
         self._start_task()
 
-    def add_child_task(
-        self, task: "DeferredTask", terminate_thread: bool = False
-    ) -> None:
+    def add_child_task(self, task: "DeferredTask", terminate_thread: bool = False) -> None:
         self.children.append(ChildTask(task, terminate_thread))
 
-    async def _execute_in_task_context(
-        self, func: Callable[..., T], *args, **kwargs
-    ) -> T:
+    async def _execute_in_task_context(self, func: Callable[..., T], *args, **kwargs) -> T:
         """Execute a function in the task's context and return its result."""
         result = func(*args, **kwargs)
         if asyncio.iscoroutine(result):
@@ -187,13 +183,9 @@ class DeferredTask:
                 # Keep awaiting until we get a concrete value
                 while isinstance(result, Awaitable):
                     result = await result
-                self.event_loop_thread.loop.call_soon_threadsafe(
-                    future.set_result, result
-                )
+                self.event_loop_thread.loop.call_soon_threadsafe(future.set_result, result)
             except Exception as e:
-                self.event_loop_thread.loop.call_soon_threadsafe(
-                    future.set_exception, e
-                )
+                self.event_loop_thread.loop.call_soon_threadsafe(future.set_exception, e)
 
         asyncio.run_coroutine_threadsafe(wrapped(), self.event_loop_thread.loop)
         return asyncio.wrap_future(future)

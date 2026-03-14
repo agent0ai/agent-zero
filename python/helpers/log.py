@@ -9,7 +9,7 @@ from collections import OrderedDict  # Import OrderedDict
 from typing import TypeVar
 
 from python.helpers.secrets import get_secrets_manager
-from python.helpers.strings import truncate_text_by_ratio
+from python.helpers.strings import redact_sensitive_tokens, truncate_text_by_ratio
 
 if TYPE_CHECKING:
     from agent import AgentContext
@@ -73,7 +73,7 @@ def _truncate_value(val: T) -> T:
             val[i] = _truncate_value(val[i])
         return val
     if isinstance(val, tuple):
-        return tuple(_truncate_value(x) for x in val) # type: ignore
+        return tuple(_truncate_value(x) for x in val)  # type: ignore
 
     # Convert non-str values to json for consistent length measurement
     if isinstance(val, str):
@@ -95,7 +95,6 @@ def _truncate_value(val: T) -> T:
 
 
 def _truncate_content(text: str | None, type: Type) -> str:
-
     max_len = CONTENT_MAX_LEN if type != "response" else RESPONSE_CONTENT_MAX_LEN
 
     if text is None:
@@ -114,9 +113,6 @@ def _truncate_content(text: str | None, type: Type) -> str:
             break
         removed = new_removed
     return truncated
-
-
-
 
 
 @dataclass
@@ -185,9 +181,8 @@ class LogItem:
 
 
 class Log:
-
     def __init__(self):
-        self.context: AgentContext|None = None # set from outside
+        self.context: AgentContext | None = None  # set from outside
         self.guid: str = str(uuid.uuid4())
         self.updates: list[int] = []
         self.logs: list[LogItem] = []
@@ -204,7 +199,6 @@ class Log:
         id: str | None = None,
         **kwargs,
     ) -> LogItem:
-
         # add a minimal item to the log
         item = LogItem(
             log=self,
@@ -252,7 +246,6 @@ class Log:
 
         if update_progress is not None:
             item.update_progress = update_progress
-
 
         # adjust all content before processing
         if heading is not None:
@@ -320,8 +313,13 @@ class Log:
 
     def _mask_recursive(self, obj: T) -> T:
         """Recursively mask secrets in nested objects."""
+        if isinstance(obj, str):
+            # Always apply deterministic token masking, even when secrets manager
+            # context is unavailable.
+            obj = redact_sensitive_tokens(obj)  # type: ignore[assignment]
         try:
             from agent import AgentContext
+
             secrets_mgr = get_secrets_manager(self.context or AgentContext.current())
 
             # debug helper to identify context mismatch

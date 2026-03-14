@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea to enhance Agent Zero DevOps
+about: Suggest an idea to enhance Agent Jumbo DevOps
 title: '[FEATURE] '
 labels: 'enhancement'
 assignees: ''

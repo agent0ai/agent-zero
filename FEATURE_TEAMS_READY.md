@@ -16,28 +16,33 @@
 ### What Has Been Set Up
 
 Two professional parallel development teams are ready to execute on:
+
 1. **Team A**: Calendar Hub Integration + Dynamic Pricing (45+ tests)
 2. **Team B**: Guest Communication Automation (53+ tests)
 
 ### Key Preparations Complete
 
 ✅ **Git Infrastructure**
+
 - Main branch: PMS Hub production system (16 files, 91 tests, 98.9% pass rate)
 - Team A worktree: `feature/pms-calendar-sync` isolated branch
 - Team B worktree: `feature/pms-messaging-automation` isolated branch
 
 ✅ **Test Specifications**
+
 - Team A: 45+ comprehensive test placeholders in 4 test files
 - Team B: 53+ comprehensive test placeholders in 5 test files
 - All tests follow TDD Red/Green/Refactor pattern
 
 ✅ **Documentation**
+
 - TDD_SWARM_FEATURE_TEAMS.md (comprehensive feature specs)
 - TEAM_QUICKSTART.md (5-minute onboarding guide)
 - FEATURE_TEAMS_DEPLOYMENT.md (detailed execution plan)
 - This document (quick reference)
 
 ✅ **Development Scripts**
+
 - scripts/setup_feature_teams.sh (worktree management)
 - scripts/run_pms_tests.sh (test execution)
 - Pytest configuration with markers and fixtures
@@ -47,28 +52,32 @@ Two professional parallel development teams are ready to execute on:
 ## 📁 Worktree Locations
 
 ### Team A: Calendar Hub Integration
+
 ```
-Worktree: /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+Worktree: /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 Branch: feature/pms-calendar-sync
 Status: ✅ Ready
 ```
 
 **Start working:**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 pytest tests/test_pms_calendar_sync.py -v
 ```
 
 ### Team B: Guest Communication Automation
+
 ```
-Worktree: /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+Worktree: /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 Branch: feature/pms-messaging-automation
 Status: ✅ Ready
 ```
 
 **Start working:**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 pytest tests/test_pms_communication_workflows.py -v
 ```
 
@@ -79,12 +88,14 @@ pytest tests/test_pms_communication_workflows.py -v
 ### Team A: Calendar Hub Integration
 
 **Features**:
+
 - PMS calendar synchronization to Google/Outlook calendars
 - Dynamic pricing rule synchronization
 - Availability blocking management
 - Real-time calendar updates on reservation changes
 
 **Deliverables**:
+
 - `instruments/custom/pms_hub/calendar_sync.py` (350 lines)
 - `python/tools/pms_calendar_sync.py` (120 lines)
 - `python/api/pms_calendar_sync.py` (180 lines)
@@ -92,6 +103,7 @@ pytest tests/test_pms_communication_workflows.py -v
 - Complete documentation
 
 **Success Metrics**:
+
 - ✅ 45+ tests passing (100%)
 - ✅ 95%+ code coverage
 - ✅ <500ms per event sync
@@ -102,6 +114,7 @@ pytest tests/test_pms_communication_workflows.py -v
 ### Team B: Guest Communication Automation
 
 **Features**:
+
 - Pre-arrival message workflows (check-in instructions, house rules)
 - Post-checkout workflows (thank you, reviews)
 - Issue resolution workflows (damage, noise, cleanliness)
@@ -109,6 +122,7 @@ pytest tests/test_pms_communication_workflows.py -v
 - Review request automation
 
 **Deliverables**:
+
 - `instruments/custom/pms_hub/communication_workflows.py` (450 lines)
 - `instruments/custom/pms_hub/message_templates.py` (180 lines)
 - `python/tools/pms_communication.py` (150 lines)
@@ -118,6 +132,7 @@ pytest tests/test_pms_communication_workflows.py -v
 - Complete documentation
 
 **Success Metrics**:
+
 - ✅ 53+ tests passing (100%)
 - ✅ 95%+ code coverage
 - ✅ <1s per message send
@@ -128,9 +143,10 @@ pytest tests/test_pms_communication_workflows.py -v
 ## 🚀 Quick Start (2 Minutes)
 
 ### For Team A
+
 ```bash
 # 1. Navigate to your worktree
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 
 # 2. Verify your branch
 git branch  # Should show: feature/pms-calendar-sync
@@ -142,13 +158,14 @@ cat tests/test_pms_calendar_sync.py | head -50
 pytest tests/test_pms_calendar_sync.py -v
 
 # 5. Read the quick start
-cat /home/webemo-aaron/projects/agent-zero/TEAM_QUICKSTART.md
+cat /home/webemo-aaron/projects/agent-jumbo/TEAM_QUICKSTART.md
 ```
 
 ### For Team B
+
 ```bash
 # 1. Navigate to your worktree
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 
 # 2. Verify your branch
 git branch  # Should show: feature/pms-messaging-automation
@@ -160,7 +177,7 @@ cat tests/test_pms_communication_workflows.py | head -50
 pytest tests/test_pms_communication_workflows.py -v
 
 # 5. Read the quick start
-cat /home/webemo-aaron/projects/agent-zero/TEAM_QUICKSTART.md
+cat /home/webemo-aaron/projects/agent-jumbo/TEAM_QUICKSTART.md
 ```
 
 ---
@@ -199,6 +216,7 @@ cat /home/webemo-aaron/projects/agent-zero/TEAM_QUICKSTART.md
 ## 🎯 The TDD Approach (Red → Green → Refactor)
 
 ### Phase 1: RED (Tests Fail)
+
 ```
 Team writes test specification
 ↓
@@ -208,6 +226,7 @@ Test fails (not yet implemented)
 ```
 
 ### Phase 2: GREEN (Tests Pass)
+
 ```
 Team implements minimal code to pass test
 ↓
@@ -217,6 +236,7 @@ Test passes ✓
 ```
 
 ### Phase 3: REFACTOR (Clean Up)
+
 ```
 Team refactors code for quality
 ↓
@@ -228,6 +248,7 @@ Coverage improves
 ### Example: Calendar Sync
 
 **RED Phase**:
+
 ```python
 def test_create_event_from_reservation(self):
     """Test creating calendar event from PMS reservation"""
@@ -238,6 +259,7 @@ def test_create_event_from_reservation(self):
 ```
 
 **GREEN Phase**:
+
 ```python
 def test_create_event_from_reservation(self):
     """Test creating calendar event from PMS reservation"""
@@ -251,6 +273,7 @@ def test_create_event_from_reservation(self):
 ```
 
 **REFACTOR Phase**:
+
 ```python
 def test_create_event_from_reservation(self):
     """Test creating calendar event from PMS reservation"""
@@ -273,6 +296,7 @@ def test_create_event_from_reservation(self):
 ## 📊 Current PMS Hub Status (Foundation)
 
 ### What's Already Implemented (Do Not Modify)
+
 ```
 ✅ Core Infrastructure
 - Canonical Data Models (Property, Unit, Guest, Reservation, Message, etc.)
@@ -306,6 +330,7 @@ def test_create_event_from_reservation(self):
 ```
 
 ### What Teams Are Building (New Features)
+
 ```
 🔨 Team A: Calendar Hub Integration
 - New service: CalendarSyncService
@@ -326,6 +351,7 @@ def test_create_event_from_reservation(self):
 ## 🔗 Integration Points (Both Teams Must Understand)
 
 ### EventBus Integration
+
 ```python
 # Teams will subscribe to these events:
 event_bus.subscribe("pms.reservation.created", callback)
@@ -338,6 +364,7 @@ event_bus.subscribe("pms.pricing_rule.updated", callback)
 ```
 
 ### Canonical Models (Read-Only, Do Not Modify)
+
 ```python
 from instruments.custom.pms_hub.canonical_models import (
     Property, Unit, Guest, Reservation, Message, Review, Calendar, PricingRule
@@ -345,6 +372,7 @@ from instruments.custom.pms_hub.canonical_models import (
 ```
 
 ### Provider Registry (Existing Service)
+
 ```python
 from instruments.custom.pms_hub.provider_registry import ProviderRegistry
 
@@ -353,6 +381,7 @@ provider = await registry.get_provider_async("provider_id")
 ```
 
 ### Calendar Hub Tool (Team A Will Use)
+
 ```python
 from instruments.custom.calendar_hub.calendar_manager import CalendarHubManager
 
@@ -365,6 +394,7 @@ manager.create_event(calendar_id, title, start, end, attendees, notes)
 ## ✅ Pre-Execution Checklist
 
 ### Team A: Calendar Hub
+
 - [ ] Read TEAM_QUICKSTART.md
 - [ ] Navigate to `.worktrees/pms-calendar`
 - [ ] Verify on `feature/pms-calendar-sync` branch
@@ -374,6 +404,7 @@ manager.create_event(calendar_id, title, start, end, attendees, notes)
 - [ ] Ready to implement tests (RED phase)
 
 ### Team B: Guest Communication
+
 - [ ] Read TEAM_QUICKSTART.md
 - [ ] Navigate to `.worktrees/pms-messaging`
 - [ ] Verify on `feature/pms-messaging-automation` branch
@@ -387,6 +418,7 @@ manager.create_event(calendar_id, title, start, end, attendees, notes)
 ## 🎯 5-Day Sprint Timeline
 
 ### Day 1: Setup & Analysis
+
 ```
 Morning:   Team setup, documentation review
 Midday:    Test specification understanding
@@ -395,6 +427,7 @@ Evening:   Status sync
 ```
 
 ### Days 2-3: Implementation
+
 ```
 Morning:   Implement features (GREEN phase)
 Midday:    Test coverage check
@@ -403,6 +436,7 @@ Evening:   Status sync, blockers discussion
 ```
 
 ### Day 4: Integration & Optimization
+
 ```
 Morning:   Integration testing with main branch
 Midday:    Error handling, edge cases
@@ -411,6 +445,7 @@ Evening:   Final testing, merge preparation
 ```
 
 ### Day 5: Merge & Validation
+
 ```
 Morning:   Final code review
 Midday:    Merge to main
@@ -423,6 +458,7 @@ Evening:   Documentation finalization, celebration 🎉
 ## 🚨 Important Reminders
 
 ### Do NOT Modify
+
 - ❌ instruments/custom/pms_hub/canonical_models.py
 - ❌ instruments/custom/pms_hub/pms_provider.py
 - ❌ instruments/custom/pms_hub/provider_registry.py
@@ -431,6 +467,7 @@ Evening:   Documentation finalization, celebration 🎉
 - ❌ Main branch without team consensus
 
 ### DO Implement
+
 - ✅ instruments/custom/pms_hub/calendar_sync.py (NEW - Team A)
 - ✅ instruments/custom/pms_hub/communication_workflows.py (NEW - Team B)
 - ✅ instruments/custom/pms_hub/message_templates.py (NEW - Team B)
@@ -440,12 +477,14 @@ Evening:   Documentation finalization, celebration 🎉
 - ✅ tests/test_pms_*.py (NEW - all comprehensive tests)
 
 ### DO Subscribe to Events
+
 - ✅ Subscribe to pms.reservation.* events
 - ✅ Subscribe to pms.issue.* events
 - ✅ Subscribe to pms.pricing_rule.* events
 - ✅ Emit appropriate events when actions complete
 
 ### DO Maintain Quality
+
 - ✅ 100% test pass rate required
 - ✅ >95% code coverage required
 - ✅ Ruff linting compliance required
@@ -457,12 +496,14 @@ Evening:   Documentation finalization, celebration 🎉
 ## 📞 Support & Questions
 
 ### Resources Available
+
 - **Documentation**: All guides in project root
 - **Example Code**: tests/test_pms_*.py (existing tests to follow)
 - **Reference**: instruments/custom/pms_hub/README.md
 - **Testing Guide**: TDD_SWARM_GUIDE.md
 
 ### Getting Help
+
 1. Check TEAM_QUICKSTART.md troubleshooting section
 2. Review existing test examples
 3. Check TDD_SWARM_GUIDE.md for testing patterns
@@ -470,7 +511,7 @@ Evening:   Documentation finalization, celebration 🎉
 
 ---
 
-## 🎉 You're Ready to Go!
+## 🎉 You're Ready to Go
 
 **Everything is prepared for successful feature team execution:**
 
@@ -489,27 +530,31 @@ Evening:   Documentation finalization, celebration 🎉
 ## 📋 Worktree Management Commands
 
 ### View Status
+
 ```bash
 git worktree list
 ```
 
 ### For Team A
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 git branch
 git status
 ```
 
 ### For Team B
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 git branch
 git status
 ```
 
 ### Return to Main
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero
+cd /home/webemo-aaron/projects/agent-jumbo
 git branch
 ```
 

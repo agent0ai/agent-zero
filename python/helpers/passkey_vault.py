@@ -20,7 +20,7 @@ from webauthn.helpers.structs import (
 class PasskeyVaultManager:
     """Manages Passkey registration and verification for centralized auth."""
 
-    RP_NAME = "Agent Zero Central"
+    RP_NAME = "Agent Jumbo Central"
 
     def __init__(self, db):
         self.db = db
@@ -40,7 +40,7 @@ class PasskeyVaultManager:
                 resident_key=ResidentKeyRequirement.REQUIRED,
                 user_verification=UserVerificationRequirement.REQUIRED,
             )
-            attestation = "direct" # Request attestation data for hardware verification
+            attestation = "direct"  # Request attestation data for hardware verification
             print("[🛡️ Security] Enforcing Strict Hardware Attestation for Passkey registration.")
 
         options = generate_registration_options(
@@ -69,9 +69,14 @@ class PasskeyVaultManager:
                 user_id=user_id,
                 passkey_id=verification.credential_id,
                 public_key=verification.public_key,
-                sign_count=verification.sign_count
+                sign_count=verification.sign_count,
             )
-            return {"success": True, "credential_id": verification.credential_id.decode('utf-8') if isinstance(verification.credential_id, bytes) else str(verification.credential_id)}
+            return {
+                "success": True,
+                "credential_id": verification.credential_id.decode("utf-8")
+                if isinstance(verification.credential_id, bytes)
+                else str(verification.credential_id),
+            }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -83,7 +88,7 @@ class PasskeyVaultManager:
 
         options = generate_authentication_options(
             rp_id=rp_id,
-            allow_credentials=[{"id": p['passkey_id'], "type": "public-key"} for p in passkeys],
+            allow_credentials=[{"id": p["passkey_id"], "type": "public-key"} for p in passkeys],
         )
         return json.loads(options_to_json(options))
 
@@ -100,8 +105,8 @@ class PasskeyVaultManager:
                 expected_challenge=challenge,
                 expected_origin=origin,
                 expected_rp_id=rp_id,
-                credential_public_key=passkey['public_key'],
-                credential_current_sign_count=passkey['sign_count'],
+                credential_public_key=passkey["public_key"],
+                credential_current_sign_count=passkey["sign_count"],
             )
 
             # Update sign count
@@ -114,10 +119,13 @@ class PasskeyVaultManager:
     def _save_passkey(self, user_id, passkey_id, public_key, sign_count):
         conn = self.db._get_conn()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO user_passkeys (passkey_id, user_id, public_key, sign_count)
             VALUES (?, ?, ?, ?)
-        """, (passkey_id, user_id, public_key, sign_count))
+        """,
+            (passkey_id, user_id, public_key, sign_count),
+        )
         conn.commit()
         conn.close()
 
@@ -140,7 +148,9 @@ class PasskeyVaultManager:
     def _update_sign_count(self, passkey_id, sign_count):
         conn = self.db._get_conn()
         cursor = conn.cursor()
-        cursor.execute("UPDATE user_passkeys SET sign_count = ?, last_used = CURRENT_TIMESTAMP WHERE passkey_id = ?",
-                      (sign_count, passkey_id))
+        cursor.execute(
+            "UPDATE user_passkeys SET sign_count = ?, last_used = CURRENT_TIMESTAMP WHERE passkey_id = ?",
+            (sign_count, passkey_id),
+        )
         conn.commit()
         conn.close()

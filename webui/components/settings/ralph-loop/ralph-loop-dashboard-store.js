@@ -13,6 +13,7 @@ const model = {
     active_loops: 0,
     completed_loops: 0,
     cancelled_loops: 0,
+    stale_active_loops: 0,
     total_iterations: 0,
     avg_iterations_per_loop: 0,
     success_rate: 0,

@@ -1,5 +1,5 @@
 """
-Shared Test Fixtures for Agent Zero Tests
+Shared Test Fixtures for Agent Jumbo Tests
 
 Import fixtures from this module in your tests:
     from tests.fixtures.common import sample_workflow, sample_skills
@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 # ========== Path Fixtures ==========
+
 
 @pytest.fixture
 def project_root():
@@ -36,6 +37,7 @@ def test_output_dir(tmp_path):
 
 # ========== Database Fixtures ==========
 
+
 @pytest.fixture
 def test_db_path(tmp_path):
     """Get isolated database path for tests"""
@@ -58,6 +60,7 @@ def populated_db(test_db_path):
 
 # ========== Sample Data Fixtures ==========
 
+
 @pytest.fixture
 def sample_workflow_definition():
     """Sample workflow definition"""
@@ -69,23 +72,16 @@ def sample_workflow_definition():
                 "id": "stage1",
                 "name": "Stage 1",
                 "type": "design",
-                "tasks": [
-                    {"id": "task1", "name": "Task 1", "duration_hours": 4}
-                ]
+                "tasks": [{"id": "task1", "name": "Task 1", "duration_hours": 4}],
             },
             {
                 "id": "stage2",
                 "name": "Stage 2",
                 "type": "development",
-                "tasks": [
-                    {"id": "task2", "name": "Task 2", "duration_hours": 8}
-                ]
-            }
+                "tasks": [{"id": "task2", "name": "Task 2", "duration_hours": 8}],
+            },
         ],
-        "settings": {
-            "parallel_execution": False,
-            "require_approvals": True
-        }
+        "settings": {"parallel_execution": False, "require_approvals": True},
     }
 
 
@@ -95,10 +91,7 @@ def sample_user_context():
     return {
         "user_id": "test_user_001",
         "email": "test@example.com",
-        "preferences": {
-            "timezone": "UTC",
-            "notifications": True
-        }
+        "preferences": {"timezone": "UTC", "notifications": True},
     }
 
 
@@ -110,11 +103,12 @@ def sample_timestamps():
         "now": now.isoformat(),
         "yesterday": (now - timedelta(days=1)).isoformat(),
         "last_week": (now - timedelta(weeks=1)).isoformat(),
-        "last_month": (now - timedelta(days=30)).isoformat()
+        "last_month": (now - timedelta(days=30)).isoformat(),
     }
 
 
 # ========== Mock Fixtures ==========
+
 
 @pytest.fixture
 def mock_agent_context():
@@ -122,6 +116,7 @@ def mock_agent_context():
     Mock agent context for testing tools.
     Simulates the agent environment without full initialization.
     """
+
     class MockAgent:
         def __init__(self):
             self.number = 0
@@ -143,14 +138,11 @@ def mock_agent_context():
 @pytest.fixture
 def mock_tool_args():
     """Sample tool arguments"""
-    return {
-        "action": "create",
-        "name": "Test Item",
-        "options": {"key": "value"}
-    }
+    return {"action": "create", "name": "Test Item", "options": {"key": "value"}}
 
 
 # ========== Cleanup Fixtures ==========
+
 
 @pytest.fixture(autouse=False)
 def clean_test_artifacts(tmp_path):
@@ -161,6 +153,7 @@ def clean_test_artifacts(tmp_path):
     yield
     # Cleanup code here if needed
     import shutil
+
     for item in tmp_path.iterdir():
         if item.is_dir():
             shutil.rmtree(item)

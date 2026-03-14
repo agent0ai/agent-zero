@@ -1,6 +1,6 @@
 # Observability & Telemetry
 
-Agent Zero can collect lightweight telemetry per thread to track tool usage, latency, and errors.
+Agent Jumbo can collect lightweight telemetry per thread to track tool usage, latency, and errors.
 
 ## Enable
 
@@ -15,6 +15,7 @@ You can route telemetry to LangSmith, Langfuse, or both. Configure provider keys
 Observability settings section. Credentials are stored in `.env`.
 
 Supported settings:
+
 - LangSmith: API key, project, endpoint (optional)
 - Langfuse: public key, secret key, host
 

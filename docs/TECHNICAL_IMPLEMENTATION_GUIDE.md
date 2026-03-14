@@ -1,4 +1,4 @@
-# Agent Zero: Technical Implementation Guide
+# Agent Jumbo: Technical Implementation Guide
 
 **Document Version**: 1.0
 **Last Updated**: 2026-01-17
@@ -25,7 +25,7 @@
 
 ### Layered Architecture
 
-Agent Zero follows a **multi-layered architecture** designed for scalability, modularity, and clear separation of concerns:
+Agent Jumbo follows a **multi-layered architecture** designed for scalability, modularity, and clear separation of concerns:
 
 ```
 ┌─────────────────────────────────────────────────────┐

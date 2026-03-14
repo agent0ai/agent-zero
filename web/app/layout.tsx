@@ -4,21 +4,21 @@ import AnalyticsClient from '@/components/AnalyticsClient'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'Agent Zero - Intelligent Application Operating System',
+  title: 'Agent Jumbo - Intelligent Application Operating System',
   description: 'Build, test, and deploy AI-powered workflows that integrate with your business systems. Enterprise-grade orchestration, observability, and governance.',
   icons: {
     icon: '/favicon.svg',
   },
   openGraph: {
-    title: 'Agent Zero',
+    title: 'Agent Jumbo',
     description: 'The Operating System for Intelligent Business Applications',
     type: 'website',
-    url: 'https://agent-zero.com',
-    siteName: 'Agent Zero',
+    url: 'https://agent-jumbo.com',
+    siteName: 'Agent Jumbo',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Agent Zero',
+    title: 'Agent Jumbo',
     description: 'Operating System for Intelligent Business Applications',
   },
   robots: {

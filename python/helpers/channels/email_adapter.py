@@ -42,7 +42,7 @@ class EmailAdapter(ChannelBridge):
 
     async def send(self, target_id: str, text: str, **kwargs: Any) -> dict[str, Any]:
         # TODO: connect to email_smtp_host, authenticate, send via smtplib
-        subject = kwargs.get("subject", "Agent Zero Message")
+        subject = kwargs.get("subject", "Agent Jumbo Message")
         return {"to": target_id, "subject": subject, "body": text, "ok": True}
 
     async def verify_webhook(self, headers: dict[str, str], body: bytes) -> bool:

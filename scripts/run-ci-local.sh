@@ -1,5 +1,5 @@
 #!/bin/bash
-# Local CI Runner for Agent Zero
+# Local CI Runner for Agent Jumbo
 # Uses 'act' to run GitHub Actions locally
 #
 # Install act:
@@ -24,7 +24,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 Agent Zero Local CI Runner${NC}"
+echo -e "${GREEN}🚀 Agent Jumbo Local CI Runner${NC}"
 echo "================================"
 
 # Check if act is installed
@@ -121,7 +121,7 @@ fi
 if [ ! -f "$PROJECT_ROOT/.actrc" ]; then
     echo -e "${YELLOW}Creating .actrc configuration...${NC}"
     cat > "$PROJECT_ROOT/.actrc" << 'EOF'
-# Act configuration for Agent Zero
+# Act configuration for Agent Jumbo
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 --container-architecture linux/amd64
 EOF

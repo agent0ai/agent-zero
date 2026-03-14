@@ -30,7 +30,7 @@ These agents touch completely separate file sets. Zero merge conflicts possible.
 **Verification**:
 
 ```bash
-cd /mnt/wdblack/dev/projects/agent-zero/.worktrees/agent-jumbo
+cd /mnt/wdblack/dev/projects/agent-jumbo/.worktrees/agent-jumbo
 python -c "from python.helpers.settings import *; print('Settings import OK')"
 pytest tests/ -x -q --timeout=30
 ```
@@ -274,7 +274,7 @@ for d in agents/*/; do [ -f "$d/manifest.yaml" ] && python -c "import yaml; yaml
 
 - `python/helpers/skill_index.py` — JumboHub index client (search, fetch, publish)
 - `python/helpers/skill_packager.py` — Package skills as .tar.gz with SHA256
-- `python/cli/skill_cli.py` — CLI entry point for `python -m agent_zero skill ...`
+- `python/cli/skill_cli.py` — CLI entry point for `python -m agent_jumbo skill ...`
 - `python/__main__.py` — CLI routing
 - `CONTRIBUTING.md` — Skill creation guide (enhance existing)
 - `skills/README.md` — Skill format documentation
@@ -284,7 +284,7 @@ for d in agents/*/; do [ -f "$d/manifest.yaml" ] && python -c "import yaml; yaml
 **Verification**:
 
 ```bash
-python -m agent_zero skill list
+python -m agent_jumbo skill list
 python -c "from python.helpers.skill_packager import SkillPackager; print('Packager OK')"
 python -c "from python.helpers.skill_index import SkillIndex; print('Index OK')"
 ```
@@ -308,7 +308,7 @@ python -c "from python.helpers.skill_index import SkillIndex; print('Index OK')"
 1. Merge all 3 branches (any order)
 2. Full test suite + type check
 3. Verify: `python -c "from python.helpers.channel_factory import ChannelFactory; print(len(ChannelFactory.available()), 'channels')"`
-4. Verify: `python -m agent_zero skill list`
+4. Verify: `python -m agent_jumbo skill list`
 
 ---
 
@@ -431,7 +431,7 @@ Each agent should receive a prompt with:
 ```text
 You are implementing OPA-{N} ({name}) for the Agent Jumbo project.
 
-CONTEXT: Agent Zero is a production AI agent platform. You are building {description}.
+CONTEXT: Agent Jumbo is a production AI agent platform. You are building {description}.
 
 YOUR FILE BOUNDARY (only touch these):
 - CREATE: {list of new files}

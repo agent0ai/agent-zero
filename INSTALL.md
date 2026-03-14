@@ -13,15 +13,15 @@
 Once published to PyPI:
 
 ```bash
-pip install agent-zero-devops
+pip install agent-jumbo-devops
 ```
 
 ### Option 2: Development Installation (From Source)
 
 ```bash
 # Clone repository
-git clone https://github.com/agent-zero-deploy/agent-zero-devops.git
-cd agent-zero-devops
+git clone https://github.com/agent-jumbo-deploy/agent-jumbo-devops.git
+cd agent-jumbo-devops
 
 # Create virtual environment
 python -m venv venv
@@ -36,8 +36,8 @@ pip install -e ".[dev]"
 Build from source:
 
 ```bash
-docker build -t agent-zero-devops:latest .
-docker run -it agent-zero-devops:latest
+docker build -t agent-jumbo-devops:latest .
+docker run -it agent-jumbo-devops:latest
 ```
 
 ## Verification
@@ -45,7 +45,7 @@ docker run -it agent-zero-devops:latest
 Verify installation:
 
 ```bash
-python -c "from agent_zero.tools.devops_deploy import deploy_to_kubernetes; print('✅ Installation successful')"
+python -c "from agent_jumbo.tools.devops_deploy import deploy_to_kubernetes; print('✅ Installation successful')"
 ```
 
 ## Platform-Specific Setup
@@ -111,11 +111,11 @@ GCP credentials via:
 
 ### Import Errors
 
-If you get "ModuleNotFoundError: No module named 'agent_zero'":
+If you get "ModuleNotFoundError: No module named 'agent_jumbo'":
 
 ```bash
 # Ensure you've installed the package
-pip install agent-zero-devops
+pip install agent-jumbo-devops
 
 # Or from source
 pip install -e .
@@ -145,10 +145,10 @@ If you get permission errors:
 # Use virtual environment (recommended)
 python -m venv venv
 source venv/bin/activate
-pip install agent-zero-devops
+pip install agent-jumbo-devops
 
 # Or use --user flag
-pip install --user agent-zero-devops
+pip install --user agent-jumbo-devops
 ```
 
 ## Next Steps
@@ -160,5 +160,5 @@ pip install --user agent-zero-devops
 ## Getting Help
 
 - Documentation: [docs/](docs/)
-- Report Issues: [https://github.com/agent-zero-deploy/agent-zero-devops/issues](https://github.com/agent-zero-deploy/agent-zero-devops/issues)
-- Discussions: [https://github.com/agent-zero-deploy/agent-zero-devops/discussions](https://github.com/agent-zero-deploy/agent-zero-devops/discussions)
+- Report Issues: [https://github.com/agent-jumbo-deploy/agent-jumbo-devops/issues](https://github.com/agent-jumbo-deploy/agent-jumbo-devops/issues)
+- Discussions: [https://github.com/agent-jumbo-deploy/agent-jumbo-devops/discussions](https://github.com/agent-jumbo-deploy/agent-jumbo-devops/discussions)

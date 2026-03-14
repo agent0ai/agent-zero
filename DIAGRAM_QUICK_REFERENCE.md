@@ -1,8 +1,9 @@
 # 📋 Diagram Generation Quick Reference
 
-## 🎨 For Agent Zero Users
+## 🎨 For Agent Jumbo Users
 
 ### Ask the Agent
+
 ```
 "Create a flowchart for user authentication"
 "Show me a sequence diagram of the API flow"
@@ -12,6 +13,7 @@
 ```
 
 ### Inline Mermaid (Best for Chat)
+
 ````markdown
 ```mermaid
 graph TD
@@ -22,18 +24,21 @@ graph TD
 ## 🛠️ For Developers
 
 ### Mermaid CLI
+
 ```bash
 python generate_mermaid.py -o diagram.png -c "graph TD; A-->B;"
 python generate_mermaid.py -o diagram.svg -f svg -t dark -c "..."
 ```
 
 ### Excalidraw CLI
+
 ```bash
 python generate_excalidraw.py -o sketch.excalidraw -t flowchart
 python generate_excalidraw.py -o custom.excalidraw -e '[...]'
 ```
 
 ### Draw.io CLI
+
 ```bash
 python generate_drawio.py -o network.png -t network
 python generate_drawio.py -o diagram.drawio -x "<mxfile>...</mxfile>"
@@ -55,6 +60,7 @@ python generate_drawio.py -o diagram.drawio -x "<mxfile>...</mxfile>"
 ## 🎯 Quick Examples
 
 ### Flowchart
+
 ```mermaid
 flowchart LR
     A[Start] --> B{Check}
@@ -63,6 +69,7 @@ flowchart LR
 ```
 
 ### Sequence
+
 ```mermaid
 sequenceDiagram
     User->>API: Request
@@ -72,6 +79,7 @@ sequenceDiagram
 ```
 
 ### Class
+
 ```mermaid
 classDiagram
     Animal <|-- Dog
@@ -101,9 +109,9 @@ classDiagram
 
 ## 🔍 Troubleshooting
 
-**Not rendering?** → Check browser console  
-**Export fails?** → Run `mmdc --version`  
-**Syntax error?** → Validate at mermaid.live  
+**Not rendering?** → Check browser console
+**Export fails?** → Run `mmdc --version`
+**Syntax error?** → Validate at mermaid.live
 **File not found?** → Check absolute paths
 
 ## 📖 Full Documentation

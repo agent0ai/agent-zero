@@ -1,6 +1,6 @@
 # Agent Jumbo vs OpenClaw: High-Level Architecture
 
-This visual compares the current Agent Zero + Agent Jumbo implementation to the OpenClaw reference model used in this codebase planning docs.
+This visual compares the current Agent Jumbo + Agent Jumbo implementation to the OpenClaw reference model used in this codebase planning docs.
 
 Assumption sources in this repo:
 
@@ -8,7 +8,7 @@ Assumption sources in this repo:
 - `COMPETITIVE-ANALYSIS.md`
 - `COMPLETE_VS_COMPLETE_COMPARISON.md`
 
-## 1) Current Implementation (Agent Zero + Agent Jumbo)
+## 1) Current Implementation (Agent Jumbo + Agent Jumbo)
 
 ```mermaid
 graph TB
@@ -101,4 +101,4 @@ graph TB
 
 - Agent Jumbo strength: orchestration, security, deployment, and now local-first LLM control.
 - OpenClaw strength: channel breadth + ecosystem scale + mature messaging-native memory patterns.
-- OPA roadmap objective: close channel/skill/memory gaps while preserving Agent Zero enterprise strengths.
+- OPA roadmap objective: close channel/skill/memory gaps while preserving Agent Jumbo enterprise strengths.

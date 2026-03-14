@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-IMAGE_TAG="${IMAGE_TAG:-agent-zero-local:latest}"
+IMAGE_TAG="${IMAGE_TAG:-agent-jumbo-local:latest}"
 CACHE_DIR="${CACHE_DIR:-.buildx-cache}"
-BUILDER_NAME="${BUILDER_NAME:-agent-zero-builder}"
+BUILDER_NAME="${BUILDER_NAME:-agent-jumbo-builder}"
 if [[ -n "${BASE_IMAGE:-}" ]]; then
   BASE_IMAGE="${BASE_IMAGE}"
 elif docker image inspect agent-zero-base:local >/dev/null 2>&1; then

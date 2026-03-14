@@ -43,7 +43,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-100 dark:bg-brand-900/30 mb-3">
               <Lock className="h-6 w-6 text-brand-600 dark:text-brand-400" />
             </div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Agent Zero</h1>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Agent Jumbo</h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">Sign in to continue</p>
           </div>
 

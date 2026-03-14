@@ -1,4 +1,4 @@
-# Agent Zero: Deployment & Operations Guide
+# Agent Jumbo: Deployment & Operations Guide
 
 **Document Version**: 1.0
 **Last Updated**: 2026-01-17
@@ -74,7 +74,7 @@ git push origin v1.4.0
 
 # Pipeline automatically:
 # 1. Runs full test suite
-# 2. Builds Docker image: agent-zero:1.4.0
+# 2. Builds Docker image: agent-jumbo:1.4.0
 # 3. Pushes to registry
 # 4. Updates staging environment
 # 5. Runs smoke tests
@@ -119,34 +119,34 @@ If errors detected at any point:
 ./scripts/deploy_bluegreen.sh --version=1.4.0 --environment=production
 
 # Monitor canary phase
-watch -n 5 'kubectl logs -l app=agent-zero,version=1.4.0 | tail -20'
+watch -n 5 'kubectl logs -l app=agent-jumbo,version=1.4.0 | tail -20'
 
 # Finalize deployment (after manual approval)
-kubectl patch service agent-zero -p '{"spec":{"selector":{"version":"1.4.0"}}}'
+kubectl patch service agent-jumbo -p '{"spec":{"selector":{"version":"1.4.0"}}}'
 
 # Rollback if needed (instant)
-kubectl patch service agent-zero -p '{"spec":{"selector":{"version":"1.3.0"}}}'
+kubectl patch service agent-jumbo -p '{"spec":{"selector":{"version":"1.3.0"}}}'
 ```
 
 ### Manual Deployment (Emergency Only)
 
 ```bash
 # 1. Build image
-docker build -t agent-zero:1.4.0-manual .
+docker build -t agent-jumbo:1.4.0-manual .
 
 # 2. Tag and push
-docker tag agent-zero:1.4.0-manual gcr.io/project/agent-zero:1.4.0-manual
-docker push gcr.io/project/agent-zero:1.4.0-manual
+docker tag agent-jumbo:1.4.0-manual gcr.io/project/agent-jumbo:1.4.0-manual
+docker push gcr.io/project/agent-jumbo:1.4.0-manual
 
 # 3. Update deployment
-kubectl set image deployment/agent-zero \
-  agent-zero=gcr.io/project/agent-zero:1.4.0-manual --record
+kubectl set image deployment/agent-jumbo \
+  agent-jumbo=gcr.io/project/agent-jumbo:1.4.0-manual --record
 
 # 4. Monitor rollout
-kubectl rollout status deployment/agent-zero
+kubectl rollout status deployment/agent-jumbo
 
 # 5. Verify health
-curl https://api.agent-zero.io/health
+curl https://api.agent-jumbo.io/health
 # Expected: {"status": "healthy", "version": "1.4.0-manual"}
 ```
 
@@ -168,7 +168,7 @@ pytest tests/e2e/ -m production_like
 ./scripts/migrate.sh --environment=production --version=1.4.0
 
 # 5. Verify production functionality
-curl https://api.agent-zero.io/health/database
+curl https://api.agent-jumbo.io/health/database
 # Expected: {"status": "ok", "migrations_applied": "1.4.0"}
 
 # 6. Monitor error rates for 5 minutes
@@ -194,7 +194,7 @@ curl https://api.agent-zero.io/health/database
 
 ```yaml
 # .env.development
-DATABASE_URL: sqlite:///./agent_zero.db
+DATABASE_URL: sqlite:///./agent_jumbo.db
 LLM_MODEL: claude-3-5-sonnet-20241022
 LLM_API_KEY: sk-ant-...
 ENVIRONMENT: development
@@ -217,7 +217,7 @@ MEMORY_CONSOLIDATION_INTERVAL: 3600  # 1 hour
 
 ```yaml
 # .env.staging
-DATABASE_URL: postgresql://user:pass@staging-db:5432/agent_zero
+DATABASE_URL: postgresql://user:pass@staging-db:5432/agent_jumbo
 LLM_MODEL: claude-3-5-sonnet-20241022
 LLM_API_KEY: sk-ant-...
 ENVIRONMENT: staging
@@ -243,8 +243,8 @@ TLS_KEY_PATH: /etc/tls/staging-key.pem
 
 ```yaml
 # .env.production (stored in Vault)
-DATABASE_URL: postgresql://...@prod-db-cluster:5432/agent_zero
-DATABASE_REPLICA_URL: postgresql://...@prod-db-replica:5432/agent_zero
+DATABASE_URL: postgresql://...@prod-db-cluster:5432/agent_jumbo
+DATABASE_REPLICA_URL: postgresql://...@prod-db-replica:5432/agent_jumbo
 LLM_MODEL: claude-3-5-sonnet-20241022
 LLM_API_KEY: ${VAULT_CLAUDE_API_KEY}
 ENVIRONMENT: production
@@ -277,13 +277,13 @@ SHUTDOWN_TIMEOUT: 60
 
 ```bash
 # Store secrets in HashiCorp Vault
-vault kv put secret/agent-zero/prod \
+vault kv put secret/agent-jumbo/prod \
   claude_api_key=sk-ant-... \
   encryption_key=... \
   jwt_secret=...
 
 # Load at deployment time
-export $(vault kv get -format=env secret/agent-zero/prod)
+export $(vault kv get -format=env secret/agent-jumbo/prod)
 ```
 
 ---
@@ -320,7 +320,7 @@ export $(vault kv get -format=env secret/agent-zero/prod)
 {
   "@timestamp": "2026-01-17T10:30:00Z",
   "level": "ERROR",
-  "logger": "agent_zero.tools.calendar_sync",
+  "logger": "agent_jumbo.tools.calendar_sync",
   "message": "Failed to sync calendar",
   "environment": "production",
   "agent_id": "research_001",
@@ -496,7 +496,7 @@ for: 10m
 
 ```
 1. CHECK: Memory trend
-   kubectl top pod agent-zero-xxx
+   kubectl top pod agent-jumbo-xxx
    # Compare to baseline (should be <2GB)
 
 2. IDENTIFY: Is it growing? Take memory dumps
@@ -506,7 +506,7 @@ for: 10m
    python -m memory_profiler agent.py
 
 4. MITIGATE:
-   - Restart pod (temporary): kubectl delete pod agent-zero-xxx
+   - Restart pod (temporary): kubectl delete pod agent-jumbo-xxx
    - Enable memory consolidation: POST /admin/consolidate-memory
    - Reduce concurrent agents if needed
 
@@ -559,23 +559,23 @@ Async memory consolidation not awaiting properly, causing event loop to hang
 
 ```bash
 # Current state
-kubectl get pods -l app=agent-zero
+kubectl get pods -l app=agent-jumbo
 # NAME                      READY   STATUS    REPLICAS
-# agent-zero-1              1/1     Running   1
-# agent-zero-2              1/1     Running   1
-# agent-zero-3              1/1     Running   1
+# agent-jumbo-1              1/1     Running   1
+# agent-jumbo-2              1/1     Running   1
+# agent-jumbo-3              1/1     Running   1
 
 # Scale to 5 replicas
-kubectl scale deployment agent-zero --replicas=5
+kubectl scale deployment agent-jumbo --replicas=5
 
 # Monitor scaling progress
-watch kubectl get pods -l app=agent-zero
+watch kubectl get pods -l app=agent-jumbo
 ```
 
 **Load Balancer Configuration**:
 
 ```nginx
-upstream agent_zero_backend {
+upstream agent_jumbo_backend {
     # Round-robin load balancing
     server api-1.internal:8000 weight=1;
     server api-2.internal:8000 weight=1;
@@ -593,7 +593,7 @@ server {
     ssl_certificate_key /etc/tls/key.pem;
 
     location /api {
-        proxy_pass http://agent_zero_backend;
+        proxy_pass http://agent_jumbo_backend;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
     }
@@ -606,12 +606,12 @@ server {
 
 ```bash
 # Update pod resource requests/limits
-kubectl set resources deployment agent-zero \
+kubectl set resources deployment agent-jumbo \
   --requests=cpu=2,memory=4Gi \
   --limits=cpu=4,memory=8Gi
 
 # Verify
-kubectl describe deployment agent-zero
+kubectl describe deployment agent-jumbo
 ```
 
 **Database Scaling**:
@@ -621,7 +621,7 @@ kubectl describe deployment agent-zero
 apiVersion: postgres-operator.crunchydata.com/v1beta1
 kind: PostgresCluster
 metadata:
-  name: agent-zero-db
+  name: agent-jumbo-db
 spec:
   imagePrefix: registry.developers.crunchydata.com/crunchydata
   postgresVersion: 15
@@ -640,7 +640,7 @@ spec:
       repos:
         - name: repo1
           s3:
-            bucket: agent-zero-backups
+            bucket: agent-jumbo-backups
 ```
 
 ### Performance Tuning
@@ -708,15 +708,15 @@ results = await llm.batch_generate([
 ```bash
 # Full database backup (automated daily)
 pg_basebackup -h prod-db.internal \
-  -D /backups/agent_zero_$(date +%Y%m%d) \
+  -D /backups/agent_jumbo_$(date +%Y%m%d) \
   -Ft -z -P
 
 # Verify backup integrity
-pg_verify_backup -b /backups/agent_zero_20260117
+pg_verify_backup -b /backups/agent_jumbo_20260117
 
 # Upload to S3 with encryption
-aws s3 cp /backups/agent_zero_20260117.tar.gz \
-  s3://agent-zero-backups/ \
+aws s3 cp /backups/agent_jumbo_20260117.tar.gz \
+  s3://agent-jumbo-backups/ \
   --sse AES256 \
   --metadata "backup_date=2026-01-17,checksum=abc123"
 ```
@@ -727,7 +727,7 @@ aws s3 cp /backups/agent_zero_20260117.tar.gz \
 
 ```bash
 # 1. Stop application
-kubectl scale deployment agent-zero --replicas=0
+kubectl scale deployment agent-jumbo --replicas=0
 
 # 2. Restore from latest backup (within 1 min due to WAL)
 pg_ctl stop
@@ -743,14 +743,14 @@ psql -c "SELECT COUNT(*) FROM agents;"
 psql -c "PRAGMA integrity_check;" # If SQLite
 
 # 5. Restart application
-kubectl scale deployment agent-zero --replicas=3
+kubectl scale deployment agent-jumbo --replicas=3
 ```
 
 **Scenario 2: Complete Regional Failure (Multi-region Setup)**
 
 ```bash
 # 1. Detect primary region down (health check timeout)
-curl https://api.agent-zero.io/health
+curl https://api.agent-jumbo.io/health
 # No response for >2 minutes
 
 # 2. Automatic failover to secondary region (DNS update)
@@ -758,15 +758,15 @@ curl https://api.agent-zero.io/health
 # Expected time: <3 minutes
 
 # 3. Verify secondary region is healthy
-curl https://api-secondary.agent-zero.io/health
+curl https://api-secondary.agent-jumbo.io/health
 # Expected: {"status": "healthy", "region": "us-west-2"}
 
 # 4. Database read replica promotes to primary
 # Managed by RDS Multi-AZ failover (automatic)
 
 # 5. Manually restore primary region once stable
-aws ec2 create-instances --image-id ami-agent-zero --count 3 --region us-east-1
-kubectl apply -f manifests/agent-zero-east.yaml
+aws ec2 create-instances --image-id ami-agent-jumbo --count 3 --region us-east-1
+kubectl apply -f manifests/agent-jumbo-east.yaml
 ```
 
 ### Testing Disaster Recovery
@@ -805,7 +805,7 @@ NEW_JWT_SECRET=$(openssl rand -base64 32)
 NEW_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 # 2. Store in Vault
-vault kv put secret/agent-zero/prod \
+vault kv put secret/agent-jumbo/prod \
   jwt_secret=$NEW_JWT_SECRET \
   encryption_key=$NEW_ENCRYPTION_KEY
 
@@ -816,7 +816,7 @@ vault kv put secret/agent-zero/prod \
 # Old tokens/data will fail (expected)
 
 # 5. Verify all systems working
-curl https://api.agent-zero.io/health
+curl https://api.agent-jumbo.io/health
 ```
 
 ### Credential Scanning
@@ -859,7 +859,7 @@ ssh -i ~/.ssh/prod-onecall.key admin@api-1.internal
 # Commands recorded and searchable by user/timestamp
 
 # sudo access requires MFA and approval
-sudo su - agent_zero
+sudo su - agent_jumbo
 # Prompt: "MFA code: " + "Approval needed from: ops-team-lead@company.com"
 ```
 
@@ -869,7 +869,7 @@ sudo su - agent_zero
 # Logs shipped to immutable S3 bucket
 # Locked with governance lock (can't delete for 90 days)
 aws s3api put-object-lock-legal-hold \
-    --bucket agent-zero-audit-logs \
+    --bucket agent-jumbo-audit-logs \
     --key logs/2026-01-17.tar.gz \
     --legal-hold Status=ON
 
@@ -924,7 +924,7 @@ aws s3api put-object-lock-legal-hold \
 **Step 1: Check system resources**
 
 ```bash
-kubectl top pods -l app=agent-zero
+kubectl top pods -l app=agent-jumbo
 # Check CPU and memory usage
 
 free -h
@@ -951,11 +951,11 @@ psql -c "SELECT schemaname, tablename, indexname, idx_scan FROM pg_stat_user_ind
 
 ```bash
 # Last 100 error logs
-kubectl logs -l app=agent-zero --tail=100 | grep ERROR
+kubectl logs -l app=agent-jumbo --tail=100 | grep ERROR
 
 # Trace specific request
 export REQUEST_ID=req_xyz
-kubectl logs -l app=agent-zero | grep $REQUEST_ID
+kubectl logs -l app=agent-jumbo | grep $REQUEST_ID
 ```
 
 **Step 4: Check external services**
@@ -974,7 +974,7 @@ curl -w "Time: %{time_total}s\n" https://www.googleapis.com/calendar/v3/
 
 ```bash
 # Take memory snapshot
-kubectl exec agent-zero-1 -- \
+kubectl exec agent-jumbo-1 -- \
   python -c "import tracemalloc; tracemalloc.start(); ..." > memory_trace.txt
 
 # Analyze top memory consumers
@@ -992,13 +992,13 @@ for line in sorted(lines, reverse=True)[:10]:
 curl -X POST https://api.internal:8000/admin/consolidate-memory
 
 # Monitor memory drop
-kubectl top pod agent-zero-1 --containers --watch
+kubectl top pod agent-jumbo-1 --containers --watch
 ```
 
 **Step 3: Restart if needed**
 
 ```bash
-kubectl delete pod agent-zero-1
+kubectl delete pod agent-jumbo-1
 # Pod automatically respawns
 ```
 
@@ -1030,7 +1030,7 @@ WHERE query LIKE '%SELECT%' AND query_start < now() - interval '5 minutes';"
 DATABASE_POOL_SIZE: 150  # Increase from 100
 
 # Redeploy
-kubectl set env deployment/agent-zero \
+kubectl set env deployment/agent-jumbo \
   DATABASE_POOL_SIZE=150
 ```
 
@@ -1043,18 +1043,18 @@ curl https://api.internal:8000/agents/research_001
 # Expected: {"status": "ready", "tasks_completed": 1234}
 
 # If no response, check if pod is running
-kubectl get pods -l app=agent-zero
+kubectl get pods -l app=agent-jumbo
 ```
 
 **Step 2: Check for deadlock**
 
 ```bash
 # Look for "task_started" but no "task_completed" events
-kubectl logs -l app=agent-zero | grep research_001 | tail -20
+kubectl logs -l app=agent-jumbo | grep research_001 | tail -20
 
 # Check for hung message loop
 if last event >5 minutes old without completion:
-    kubectl delete pod agent-zero-1
+    kubectl delete pod agent-jumbo-1
 fi
 ```
 
@@ -1082,9 +1082,9 @@ curl -X POST https://api.internal:8000/admin/kill-task/research_001
 3. VP Engineering (P1 after 30 min, all customer impact)
 4. CTO (P1 after 1 hour, reputation risk)
 
-**Incident Slack Channel**: #incidents-agent-zero
+**Incident Slack Channel**: #incidents-agent-jumbo
 
-**Status Page**: <https://status.agent-zero.io>
+**Status Page**: <https://status.agent-jumbo.io>
 
 ---
 

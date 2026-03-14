@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTAINER_NAME="${CONTAINER_NAME:-agent-zero-local}"
+CONTAINER_NAME="${CONTAINER_NAME:-agent-jumbo}"
 CLAUDE_CONFIG_PATH="${CLAUDE_CONFIG_PATH:-$HOME/.config/Claude/claude_desktop_config.json}"
-SERVER_NAME="${SERVER_NAME:-agent-zero-local}"
+SERVER_NAME="${SERVER_NAME:-agent-jumbo-local}"
 A0_BASE_URL="${A0_BASE_URL:-http://localhost:50080}"
 
 if ! docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
-  echo "Container '$CONTAINER_NAME' is not running."
-  exit 1
+  if docker ps --format '{{.Names}}' | grep -qx "agent-zero"; then
+    CONTAINER_NAME="agent-zero"
+  else
+    echo "Container '$CONTAINER_NAME' is not running."
+    exit 1
+  fi
 fi
 
 # Prefer the live token used by the running UI instance.

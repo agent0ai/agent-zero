@@ -14,7 +14,7 @@ export default function Footer() {
             <ul className="space-y-2">
               <li><Link href="/documentation" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Documentation</Link></li>
               <li><Link href="/overview" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Dashboard</Link></li>
-              <li><a href="https://github.com/agent-zero-deploy/agent-jumbo" target="_blank" rel="noopener noreferrer" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">GitHub</a></li>
+              <li><a href="https://github.com/agent-jumbo-deploy/agent-jumbo" target="_blank" rel="noopener noreferrer" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">GitHub</a></li>
             </ul>
           </div>
           <div>

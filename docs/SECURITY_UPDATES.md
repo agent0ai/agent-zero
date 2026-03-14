@@ -6,7 +6,7 @@
 
 ### CVE-2025-68143, CVE-2025-68144, CVE-2025-68145
 
-Agent Zero has been updated to address three critical vulnerabilities in the Model Context Protocol (MCP) Git server implementation:
+Agent Jumbo has been updated to address three critical vulnerabilities in the Model Context Protocol (MCP) Git server implementation:
 
 1. **CVE-2025-68143**: Path traversal vulnerability in `git_diff`
 2. **CVE-2025-68144**: Path traversal vulnerability in `git_checkout`
@@ -20,7 +20,7 @@ Agent Zero has been updated to address three critical vulnerabilities in the Mod
 
 ### Recommendations
 
-If you have implemented custom MCP servers for Agent Zero:
+If you have implemented custom MCP servers for Agent Jumbo:
 
 1. **Update to latest MCP version**: `pip install --upgrade mcp`
 2. **Review git operations**: Ensure all git commands validate paths and restrict operations to allowed directories
@@ -71,7 +71,7 @@ python -m pytest tests/test_mcp_security.py
 
 - [MCP Security Advisory](https://github.com/anthropics/anthropic-sdk-python/security/advisories)
 - [MCP Documentation](https://modelcontextprotocol.io/docs)
-- [Agent Zero Security Policy](./SECURITY.md)
+- [Agent Jumbo Security Policy](./SECURITY.md)
 
 ### Contact
 

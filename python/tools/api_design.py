@@ -1,7 +1,7 @@
 """
 API Design Tool
 
-Converted from Mahoosuc OS /api:design command to native Agent Zero tool.
+Converted from Mahoosuc OS /api:design command to native Agent Jumbo tool.
 Generates API specifications and documentation for resources.
 
 Source: .claude/commands/api/design.md

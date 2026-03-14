@@ -1,17 +1,11 @@
 {
-  "name": "Agent Zero Development",
+  "name": "Agent Jumbo Development",
   "build": {
     "dockerfile": "../DockerfileLocal",
-    "context": ".."
-  },
-  "features": {
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.12"
-    },
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "20"
-    },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "context": "..",
+    "args": {
+      "BRANCH": "local"
+    }
   },
   "customizations": {
     "vscode": {
@@ -23,15 +17,19 @@
         "charliermarsh.ruff"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.defaultInterpreterPath": "/root/.venv/bin/python",
         "python.testing.pytestEnabled": true,
         "python.testing.pytestArgs": ["tests"],
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true
+        }
       }
     }
   },
   "forwardPorts": [5000, 80, 22, 9000, 9001, 9002],
-  "postCreateCommand": "pip install -r requirements.txt && playwright install chromium",
+  "postCreateCommand": "bash -c 'source /root/.venv/bin/activate && playwright install chromium'",
   "remoteUser": "root",
   "mounts": [
     "source=${localWorkspaceFolder}/memory,target=/a0/memory,type=bind",
@@ -40,6 +38,10 @@
   ],
   "containerEnv": {
     "CODE_EXEC_SSH_ENABLED": "false",
-    "PYTHONPATH": "/a0"
+    "PYTHONPATH": "/a0",
+    "PATH": "/root/.venv/bin:${PATH}"
+  },
+  "remoteEnv": {
+    "PATH": "/root/.venv/bin:${PATH}"
   }
 }

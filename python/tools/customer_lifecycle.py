@@ -1,8 +1,9 @@
 """
-Customer Lifecycle Tool for Agent Zero
+Customer Lifecycle Tool for Agent Jumbo
 Enables AI agents to manage complete customer journey
 """
 
+import asyncio
 import json
 
 from python.helpers import files
@@ -11,13 +12,13 @@ from python.helpers.tool import Response, Tool
 
 class CustomerLifecycle(Tool):
     """
-    Agent Zero tool for customer lifecycle management.
+    Agent Jumbo tool for customer lifecycle management.
     Automates lead capture, requirements gathering, solution design,
     proposal generation, and customer health monitoring.
     """
 
-    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
-        super().__init__(agent, name, args, message, **kwargs)
+    def __init__(self, agent, name: str, method: str | None, args: dict, message: str, loop_data=None, **kwargs):
+        super().__init__(agent, name, method, args, message, loop_data, **kwargs)
 
         # Import manager here to avoid circular imports
         from instruments.custom.customer_lifecycle.lifecycle_manager import CustomerLifecycleManager
@@ -53,10 +54,7 @@ class CustomerLifecycle(Tool):
         elif action == "list_customers":
             return await self._list_customers()
         else:
-            return Response(
-                message=f"Unknown action: {action}",
-                break_loop=False
-            )
+            return Response(message=f"Unknown action: {action}", break_loop=False)
 
     async def _capture_lead(self):
         """Capture new lead"""
@@ -68,13 +66,24 @@ class CustomerLifecycle(Tool):
             industry=self.args.get("industry"),
             company_size=self.args.get("company_size"),
             source=self.args.get("source"),
-            initial_notes=self.args.get("notes")
+            initial_notes=self.args.get("notes"),
         )
 
-        return Response(
-            message=self._format_result(result, "Lead Captured"),
-            break_loop=False
-        )
+        # MOS hook: fire-and-forget Linear issue creation
+        try:
+            from python.helpers.mos_orchestrator import MOSOrchestrator
+
+            asyncio.create_task(
+                MOSOrchestrator.on_lead_captured(
+                    customer_name=self.args.get("name", ""),
+                    company=self.args.get("company", ""),
+                    customer_id=result.get("customer_id"),
+                )
+            )
+        except Exception:
+            pass
+
+        return Response(message=self._format_result(result, "Lead Captured"), break_loop=False)
 
     async def _conduct_interview(self):
         """Conduct requirements interview"""
@@ -87,15 +96,10 @@ class CustomerLifecycle(Tool):
         questions = self.args.get("questions")
 
         result = self.manager.conduct_requirements_interview(
-            customer_id=customer_id,
-            interview_questions=questions,
-            responses=responses
+            customer_id=customer_id, interview_questions=questions, responses=responses
         )
 
-        return Response(
-            message=self._format_result(result, "Requirements Interview"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Requirements Interview"), break_loop=False)
 
     async def _design_solution(self):
         """Design solution architecture"""
@@ -103,13 +107,10 @@ class CustomerLifecycle(Tool):
             customer_id=self.args.get("customer_id"),
             requirement_id=self.args.get("requirement_id"),
             solution_name=self.args.get("solution_name"),
-            architecture_preferences=self.args.get("architecture_preferences")
+            architecture_preferences=self.args.get("architecture_preferences"),
         )
 
-        return Response(
-            message=self._format_result(result, "Solution Design"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Solution Design"), break_loop=False)
 
     async def _generate_proposal(self):
         """Generate customer proposal"""
@@ -117,72 +118,48 @@ class CustomerLifecycle(Tool):
             customer_id=self.args.get("customer_id"),
             solution_id=self.args.get("solution_id"),
             pricing_model=self.args.get("pricing_model", "fixed_price"),
-            discount_percentage=self.args.get("discount_percentage", 0)
+            discount_percentage=self.args.get("discount_percentage", 0),
         )
 
-        return Response(
-            message=self._format_result(result, "Proposal Generated"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Proposal Generated"), break_loop=False)
 
     async def _track_proposal(self):
         """Track proposal status"""
         result = self.manager.track_proposal(
-            proposal_id=self.args.get("proposal_id"),
-            new_status=self.args.get("status")
+            proposal_id=self.args.get("proposal_id"), new_status=self.args.get("status")
         )
 
-        return Response(
-            message=self._format_result(result, "Proposal Status"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Proposal Status"), break_loop=False)
 
     async def _get_customer_view(self):
         """Get 360-degree customer view"""
         customer_id = self.args.get("customer_id")
         result = self.manager.db.get_customer_360(customer_id)
 
-        return Response(
-            message=self._format_result(result, "Customer 360 View"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Customer 360 View"), break_loop=False)
 
     async def _check_customer_health(self):
         """Check customer health score"""
         customer_id = self.args.get("customer_id")
         result = self.manager.get_customer_health_score(customer_id)
 
-        return Response(
-            message=self._format_result(result, "Customer Health"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Customer Health"), break_loop=False)
 
     async def _get_pipeline_summary(self):
         """Get sales pipeline summary"""
         result = self.manager.db.get_pipeline_summary()
 
-        return Response(
-            message=self._format_result(result, "Pipeline Summary"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Pipeline Summary"), break_loop=False)
 
     async def _update_customer_stage(self):
         """Update customer lifecycle stage"""
         success = self.manager.db.update_customer_stage(
-            customer_id=self.args.get("customer_id"),
-            stage=self.args.get("stage")
+            customer_id=self.args.get("customer_id"), stage=self.args.get("stage")
         )
 
-        result = {
-            "success": success,
-            "customer_id": self.args.get("customer_id"),
-            "new_stage": self.args.get("stage")
-        }
+        result = {"success": success, "customer_id": self.args.get("customer_id"), "new_stage": self.args.get("stage")}
 
-        return Response(
-            message=self._format_result(result, "Customer Stage Updated"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Customer Stage Updated"), break_loop=False)
 
     async def _list_customers(self):
         """List all customers with optional filters"""
@@ -219,7 +196,7 @@ class CustomerLifecycle(Tool):
 
         return Response(
             message=self._format_result({"customers": customers, "count": len(customers)}, "Customer List"),
-            break_loop=False
+            break_loop=False,
         )
 
     def _format_result(self, result: dict, title: str) -> str:

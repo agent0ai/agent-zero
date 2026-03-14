@@ -84,6 +84,7 @@ Execution Time: ~12 seconds
 ## 🧪 TDD Cycle Demonstrated
 
 ### Phase 1: RED (Tests Fail)
+
 ```python
 @pytest.mark.unit
 def test_calendar_sync_service_creation(self):
@@ -94,6 +95,7 @@ def test_calendar_sync_service_creation(self):
 ❌ Test skipped/failed - no implementation
 
 ### Phase 2: GREEN (Tests Pass)
+
 ```python
 @pytest.mark.unit
 def test_calendar_sync_service_creation(self):
@@ -108,6 +110,7 @@ def test_calendar_sync_service_creation(self):
 ✅ Test passes - minimal implementation complete
 
 ### Phase 3: REFACTOR (Clean Code)
+
 ```python
 # Implementation refined to handle edge cases:
 # - EventBus initialization with proper event store
@@ -123,18 +126,21 @@ def test_calendar_sync_service_creation(self):
 ## 💡 Key Insights from Implementation
 
 ### ★ Architecture Insight ──────────────────────────────────
+
 1. **EventBus Pattern**: Requires event store initialization for event persistence - useful for audit trails
 2. **Service Initialization**: Graceful degradation when optional services unavailable (Calendar Hub, EventBus)
 3. **Data Formatting**: Calendar events need comprehensive description fields including all reservation details
 ──────────────────────────────────────────────────
 
 ### ★ Implementation Insight ──────────────────────────────────
+
 1. **Attribute Handling**: Use `getattr()` with defaults for optional model attributes
 2. **Error Messages**: Preserve detailed error context in exception handling for debugging
 3. **Async Patterns**: Proper use of async/await for I/O operations (calendar API calls)
 ──────────────────────────────────────────────────
 
 ### ★ Testing Insight ──────────────────────────────────────
+
 1. **Mock Strategy**: Use `patch.object()` for service dependencies
 2. **Fixture Reuse**: Leverage conftest.py fixtures (sample_reservation) across test classes
 3. **Test Organization**: Clear test class hierarchy matching feature domains
@@ -147,6 +153,7 @@ def test_calendar_sync_service_creation(self):
 ### Immediate Next Steps (Continue This Approach)
 
 1. **Implement TestCalendarEventUpdates (4 tests)**
+
    ```python
    # Location: test_pms_calendar_sync.py:153
    # Tests for updating events when status/dates change
@@ -154,6 +161,7 @@ def test_calendar_sync_service_creation(self):
    ```
 
 2. **Implement TestBlockedDatesSync (5 tests)**
+
    ```python
    # Location: test_pms_calendar_sync.py:170
    # Tests for cleaning days, maintenance, blocking
@@ -162,6 +170,7 @@ def test_calendar_sync_service_creation(self):
    ```
 
 3. **Implement TestDynamicPricingRules (9 tests)**
+
    ```python
    # Location: test_pms_calendar_sync.py:252
    # Tests for pricing adjustments
@@ -170,6 +179,7 @@ def test_calendar_sync_service_creation(self):
    ```
 
 4. **Implement TestCalendarHubIntegration (10 tests)**
+
    ```python
    # Location: test_pms_calendar_sync.py:310
    # Tests integration with calendar_hub tool
@@ -244,12 +254,14 @@ Error Handling: Try/except with context preservation
 ### For Team A
 
 1. **Clone/navigate to worktree**
+
    ```bash
-   cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+   cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
    git branch  # Verify: feature/pms-calendar-sync
    ```
 
 2. **Review what's been implemented**
+
    ```bash
    cat instruments/custom/pms_hub/calendar_sync.py
    pytest tests/test_pms_calendar_sync.py::TestCalendarSyncServiceInitialization -v
@@ -264,6 +276,7 @@ Error Handling: Try/except with context preservation
    - Iterate until all tests in class pass
 
 4. **Commit regularly**
+
    ```bash
    git add instruments/custom/pms_hub/calendar_sync.py tests/test_pms_calendar_sync.py
    git commit -m "feat(calendar): implement blocked dates sync with 5 tests"
@@ -277,12 +290,14 @@ Error Handling: Try/except with context preservation
    - Review fixture usage in `tests/conftest.py`
 
 2. **Begin your own TDD cycle**
+
    ```bash
-   cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+   cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
    pytest tests/test_pms_communication_workflows.py::TestCommunicationWorkflowInitialization -v
    ```
 
 3. **Create implementation file**
+
    ```bash
    # Create: instruments/custom/pms_hub/communication_workflows.py
    # Pattern to follow: Same structure as calendar_sync.py
@@ -299,11 +314,13 @@ Error Handling: Try/except with context preservation
 ## 📚 Reference Materials Available
 
 ### For Pattern Reference
+
 - `instruments/custom/pms_hub/calendar_sync.py` - Full implementation example
 - `tests/test_pms_calendar_sync.py` - Test structure and organization
 - `instruments/custom/pms_hub/sync_service.py` - Another service example
 
 ### For Fixtures and Utilities
+
 - `tests/conftest.py` - All available fixtures documented
 - Example fixtures:
   - `sample_reservation` - Pre-configured Reservation object
@@ -312,6 +329,7 @@ Error Handling: Try/except with context preservation
   - `mock_property_manager` - PropertyManager mock
 
 ### For Best Practices
+
 - `TDD_SWARM_GUIDE.md` - Testing patterns and practices
 - `TEAM_QUICKSTART.md` - Quick reference guide
 - `TDD_SWARM_FEATURE_TEAMS.md` - Detailed specifications
@@ -336,7 +354,8 @@ Before moving to next test class, verify:
 
 ## 🚀 Success Indicators
 
-### Team A is on Track if:
+### Team A is on Track if
+
 ✅ Tests are being written and passing incrementally
 ✅ New methods added to CalendarSyncService regularly
 ✅ EventBus integration working
@@ -344,7 +363,8 @@ Before moving to next test class, verify:
 ✅ Daily commits showing steady progress
 ✅ Code coverage increasing toward 95%
 
-### Team B Can Start When:
+### Team B Can Start When
+
 ✅ Team A has completed initialization tests (foundation)
 ✅ Team A has implemented first 20+ tests
 ✅ Team B has read reference materials
@@ -357,13 +377,15 @@ Before moving to next test class, verify:
 ### Common Issues & Solutions
 
 **Issue: Import errors for calendar_sync**
+
 ```bash
 # Solution: Ensure you're in project root
-cd /home/webemo-aaron/projects/agent-zero
+cd /home/webemo-aaron/projects/agent-jumbo
 python -c "from instruments.custom.pms_hub.calendar_sync import CalendarSyncService"
 ```
 
 **Issue: Tests not finding fixtures**
+
 ```bash
 # Solution: fixtures are defined in conftest.py
 # Make sure tests are run from repo root
@@ -371,6 +393,7 @@ pytest tests/test_pms_calendar_sync.py -v
 ```
 
 **Issue: EventBus initialization failing**
+
 ```bash
 # Solution: Already fixed in implementation
 # Uses EventStore with temporary database
@@ -378,6 +401,7 @@ pytest tests/test_pms_calendar_sync.py -v
 ```
 
 **Issue: Calendar Hub not available**
+
 ```bash
 # Solution: Service gracefully degrades
 # Tests should mock calendar_manager when needed
@@ -391,6 +415,7 @@ pytest tests/test_pms_calendar_sync.py -v
 ### By End of Sprint (5 Days)
 
 **Team A: Calendar Hub Integration**
+
 - ✅ 45+ tests implemented and passing
 - ✅ 95%+ code coverage
 - ✅ All event sync methods complete
@@ -400,6 +425,7 @@ pytest tests/test_pms_calendar_sync.py -v
 - ✅ Ready for merge to main
 
 **Team B: Guest Communication Automation**
+
 - ✅ 53+ tests implemented and passing
 - ✅ 95%+ code coverage
 - ✅ All workflow types working
@@ -409,6 +435,7 @@ pytest tests/test_pms_calendar_sync.py -v
 - ✅ Ready for merge to main
 
 **Total Impact**
+
 - 200+ tests passing (PMS Hub core + new features)
 - 2 new production services fully tested
 - Zero technical debt from untested code

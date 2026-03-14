@@ -3,6 +3,7 @@
 The **sales_generator** tool creates customer-facing materials including proposals, demos, ROI analyses, case studies, portfolio showcases, and business cases.
 
 ## Purpose
+
 - Generate professional proposals with pricing
 - Create demo scripts and specifications
 - Calculate ROI with multi-scenario projections
@@ -18,6 +19,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### Proposals
 
 #### 1. generate_proposal
+
 **Generate a full proposal document**
 
 ```
@@ -37,6 +39,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `title` (required): Proposal title
 - `customer_id` (optional): Link to customer_lifecycle
 - `customer_name` (optional): Customer name
@@ -49,6 +52,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ---
 
 #### 2. get_proposal
+
 **Get full proposal details**
 
 ```
@@ -61,6 +65,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ---
 
 #### 3. list_proposals
+
 **List proposals with filters**
 
 ```
@@ -72,12 +77,14 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `customer_id` (optional): Filter by customer
 - `status` (optional): Filter by status (draft, sent, accepted, declined)
 
 ---
 
 #### 4. update_proposal_status
+
 **Update proposal status**
 
 ```
@@ -93,6 +100,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### Demos
 
 #### 5. create_demo
+
 **Create a demo specification**
 
 ```
@@ -111,6 +119,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `title` (required): Demo title
 - `customer_id` (optional): Link to customer
 - `customer_name` (optional): Customer name
@@ -123,6 +132,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ---
 
 #### 6. get_demo / list_demos
+
 **Retrieve demo details or list demos**
 
 ```
@@ -135,6 +145,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### ROI Analysis
 
 #### 7. calculate_roi
+
 **Calculate ROI with projections**
 
 ```
@@ -158,6 +169,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `title` (required): ROI analysis title
 - `customer_id` (optional): Link to customer
 - `customer_name` (optional): Customer name
@@ -167,6 +179,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 - `years` (optional): Projection years (default: 3)
 
 **Returns:** ROI calculation with:
+
 - Summary (annual savings, payback period, ROI %, NPV)
 - Three scenarios: Conservative (50%), Moderate (75%), Aggressive (100%)
 - Year-by-year projections
@@ -174,6 +187,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ---
 
 #### 8. get_roi / list_roi
+
 **Retrieve ROI calculation or list all**
 
 ```
@@ -186,6 +200,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### Case Studies
 
 #### 9. generate_case_study
+
 **Generate a case study from a completed project**
 
 ```
@@ -207,6 +222,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `project_name` (required): Project name
 - `customer_id` (optional): Link to customer
 - `customer_name` (optional): Customer name
@@ -233,6 +249,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### Portfolio Showcases
 
 #### 11. generate_portfolio_showcase
+
 **Generate a portfolio presentation**
 
 ```
@@ -259,6 +276,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `title` (required): Showcase title
 - `description` (optional): Overview text
 - `projects` (optional): Array of projects to feature
@@ -280,6 +298,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### Business Cases
 
 #### 13. build_business_case
+
 **Build a comprehensive business case**
 
 ```
@@ -306,6 +325,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `title` (required): Business case title
 - `customer_id` (optional): Link to customer
 - `customer_name` (optional): Customer name
@@ -333,6 +353,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### Competitive Comparisons
 
 #### 15. create_comparison
+
 **Create competitive comparison**
 
 ```
@@ -351,6 +372,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 **Parameters:**
+
 - `title` (required): Comparison title
 - `our_solution` (required): Our solution name
 - `competitors` (optional): List of competitor names
@@ -372,6 +394,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ### Statistics
 
 #### 17. get_stats
+
 **Get overall statistics**
 
 ```
@@ -385,6 +408,7 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ## Typical Workflows
 
 ### Complete Sales Cycle
+
 ```
 # 1. Get customer requirements from customer_lifecycle
 {{customer_lifecycle(action="get_customer_view", customer_id=5)}}
@@ -424,12 +448,13 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ```
 
 ### Industry-Focused Showcase
+
 ```
 # 1. Pull relevant case studies
 {{sales_generator(action="list_case_studies", industry="healthcare")}}
 
 # 2. Get portfolio projects
-{{portfolio_manager(action="list", tech="React")}}
+{{portfolio_manager_tool(action="list", tech="React")}}
 
 # 3. Create targeted showcase
 {{sales_generator(
@@ -445,27 +470,35 @@ The **sales_generator** tool creates customer-facing materials including proposa
 ## Integration with Other Tools
 
 ### With Customer Lifecycle
+
 Link all materials to customer records:
+
 ```
 {{sales_generator(action="generate_proposal", customer_id=5, ...)}}
 ```
 
 ### With Portfolio Manager
+
 Pull project data for showcases:
+
 ```
-{{portfolio_manager(action="list")}}
+{{portfolio_manager_tool(action="list")}}
 {{sales_generator(action="generate_portfolio_showcase", projects=[...])}}
 ```
 
 ### With Business X-Ray
+
 Use analysis for ROI calculations:
+
 ```
 {{business_xray_tool(action="get_analysis", customer_id=5)}}
 {{sales_generator(action="calculate_roi", ...)}}
 ```
 
 ### With Diagram Architect
+
 Include architecture visuals in proposals:
+
 ```
 {{diagram_architect(action="generate_system_diagram", analysis_id=1)}}
 # Reference diagram in proposal content
@@ -474,6 +507,7 @@ Include architecture visuals in proposals:
 ---
 
 ## Notes
+
 - All materials stored in SQLite for tracking
 - Proposals include automatic expiration dates
 - ROI calculations support three scenarios

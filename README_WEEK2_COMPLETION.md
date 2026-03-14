@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Week 2 successfully transformed Agent Zero's positioning from generic "operating system" messaging to segment-specific, customer-centric value propositions. The enhanced demo form now captures customer segmentation data, enabling sales teams to immediately identify prospects and pre-prepare customized demos.
+Week 2 successfully transformed Agent Jumbo's positioning from generic "operating system" messaging to segment-specific, customer-centric value propositions. The enhanced demo form now captures customer segmentation data, enabling sales teams to immediately identify prospects and pre-prepare customized demos.
 
 ### Key Deliverables
 

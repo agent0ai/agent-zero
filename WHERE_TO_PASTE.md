@@ -1,7 +1,8 @@
 # WHERE TO PASTE MCP CONFIG - QUICK VISUAL GUIDE
 
 ## 1. Open Settings
-- Go to: http://localhost:8080
+
+- Go to: <http://localhost:8080>
 - Click the **⚙️ Settings** button (gear icon, usually top right)
 
 ## 2. Find the MCP/A2A Tab
@@ -43,7 +44,7 @@ You'll see tabs at the top of the Settings window:
 └────────────────────────────────────────────────────────┘
 ```
 
-## 4. What to Do:
+## 4. What to Do
 
 1. **Select all text** in the JSON editor (Ctrl+A or Cmd+A)
 2. **Paste** the MCP configuration from `APPLY_MCP_CONFIG.md`
@@ -51,9 +52,9 @@ You'll see tabs at the top of the Settings window:
 4. Click **"Apply Now"** button
 5. Wait for servers to show "Connected" status
 6. Click **"Save Settings"** at the very bottom of the Settings modal
-7. Close Settings and run: `docker restart agent-zero`
+7. Close Settings and run: `docker restart agent-jumbo`
 
-## The Config to Paste:
+## The Config to Paste
 
 Copy this entire block:
 
@@ -106,6 +107,6 @@ Copy this entire block:
 }
 ```
 
-## Done!
+## Done
 
-After restarting, your Agent Zero will have access to all these MCP tools! 🎉
+After restarting, your Agent Jumbo will have access to all these MCP tools! 🎉

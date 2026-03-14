@@ -1,6 +1,6 @@
 ---
 name: digital-clone-aggregator
-description: Build and operate an Agent Zero profile that acts as a knowledge aggregator and digital clone of a solution architect, including multi-source ingestion, vector memory + database storage, tech/news/business briefs, and Telegram delivery. Use when asked to set up, evolve, or troubleshoot Agent Zero as a personal knowledge hub, architecture advisor, or always-on news/technology/business digest.
+description: Build and operate an Agent Jumbo profile that acts as a knowledge aggregator and digital clone of a solution architect, including multi-source ingestion, vector memory + database storage, tech/news/business briefs, and Telegram delivery. Use when asked to set up, evolve, or troubleshoot Agent Jumbo as a personal knowledge hub, architecture advisor, or always-on news/technology/business digest.
 ---
 
 # Digital Clone Aggregator
@@ -15,7 +15,7 @@ description: Build and operate an Agent Zero profile that acts as a knowledge ag
 
 ## Implementation guardrails
 
-- Prefer Agent Zero native features: memory (FAISS), knowledge (RAG), workflow_engine, instruments, and MCP servers.
+- Prefer Agent Jumbo native features: memory (FAISS), knowledge (RAG), workflow_engine, instruments, and MCP servers.
 - Keep ingestion deterministic: log source, timestamp, topic, and confidence per item.
 - Separate source facts from synthesis to avoid hallucinations in long-term memory.
 - Telegram delivery must be summarized, actionable, and include source links.

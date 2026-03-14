@@ -3,6 +3,7 @@
 The **diagram_architect** tool auto-generates architecture diagrams from codebase analysis. It detects components, relationships, data flows, and external integrations to create comprehensive architecture documentation.
 
 ## Purpose
+
 - Analyze codebases to detect software components
 - Map relationships and dependencies between components
 - Identify external service integrations
@@ -24,6 +25,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ## Available Actions
 
 ### 1. analyze_architecture
+
 **Perform full architecture analysis of a project**
 
 ```
@@ -35,12 +37,14 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `project_path` (required): Path to the project to analyze
 - `analysis_type` (optional): Type of analysis (full, quick) - default: full
 
 **Returns:** analysis_id, detected counts for components, relationships, integrations, data flows
 
 **What it detects:**
+
 - Services, Controllers, Repositories, Models
 - API endpoints and routes
 - Database connections
@@ -54,6 +58,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 2. get_analysis
+
 **Get analysis details**
 
 ```
@@ -64,6 +69,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (required): Analysis ID
 
 **Returns:** Analysis details with component counts
@@ -71,6 +77,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 3. list_analyses
+
 **List all analyses**
 
 ```
@@ -81,6 +88,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `project_path` (optional): Filter by project path
 
 **Returns:** List of analyses with status
@@ -88,6 +96,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 4. get_analysis_summary
+
 **Get comprehensive analysis summary**
 
 ```
@@ -98,6 +107,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (required): Analysis ID
 
 **Returns:** Summary with component breakdown, integration types, diagram list
@@ -105,6 +115,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 5. generate_system_diagram
+
 **Generate system/component architecture diagram**
 
 ```
@@ -116,12 +127,14 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (required): Analysis ID
 - `title` (optional): Custom diagram title
 
 **Returns:** diagram_id, Mermaid code
 
 **Shows:**
+
 - Components grouped by type (Controllers, Services, Models, etc.)
 - Relationships between components
 - Infrastructure components
@@ -129,6 +142,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 6. generate_data_flow
+
 **Generate data flow diagram**
 
 ```
@@ -140,12 +154,14 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (required): Analysis ID
 - `title` (optional): Custom diagram title
 
 **Returns:** diagram_id, Mermaid code
 
 **Shows:**
+
 - Data entry points (API endpoints)
 - Data transformations
 - Storage destinations
@@ -154,6 +170,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 7. generate_integration_map
+
 **Generate external integrations diagram**
 
 ```
@@ -165,12 +182,14 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (required): Analysis ID
 - `title` (optional): Custom diagram title
 
 **Returns:** diagram_id, Mermaid code
 
 **Shows:**
+
 - Central application
 - External services grouped by type
 - Connection protocols
@@ -179,6 +198,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 8. generate_deployment
+
 **Generate deployment/infrastructure diagram**
 
 ```
@@ -190,12 +210,14 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (required): Analysis ID
 - `title` (optional): Custom diagram title
 
 **Returns:** diagram_id, Mermaid code
 
 **Shows:**
+
 - Containers and orchestration
 - Database instances
 - Cache layers
@@ -204,6 +226,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 9. generate_from_app_spec
+
 **Generate diagram from app_spec.json**
 
 ```
@@ -215,6 +238,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `app_spec_path` (required): Path to app_spec.json
 - `diagram_type` (optional): Type of diagram (system, data_flow) - default: system
 
@@ -223,6 +247,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 10. export_all
+
 **Generate and export all diagram types**
 
 ```
@@ -234,6 +259,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (required): Analysis ID
 - `output_dir` (optional): Output directory for diagram files
 
@@ -242,6 +268,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 11. get_diagram
+
 **Get a specific diagram**
 
 ```
@@ -252,6 +279,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `diagram_id` (required): Diagram ID
 
 **Returns:** Diagram details with Mermaid code
@@ -259,6 +287,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ---
 
 ### 12. list_diagrams
+
 **List generated diagrams**
 
 ```
@@ -270,6 +299,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ```
 
 **Parameters:**
+
 - `analysis_id` (optional): Filter by analysis
 - `diagram_type` (optional): Filter by type
 
@@ -280,6 +310,7 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ## Typical Workflow
 
 ### Analyze and Document a Project
+
 ```
 # 1. Analyze the codebase
 {{diagram_architect(
@@ -313,12 +344,14 @@ The **diagram_architect** tool auto-generates architecture diagrams from codebas
 ### What Gets Detected
 
 **Services**
+
 ```python
 class UserService:       # Detected as 'service'
 class OrderService:      # Detected as 'service'
 ```
 
 **Controllers**
+
 ```python
 class UserController:    # Detected as 'controller'
 @Controller('/users')    # Detected as 'controller'
@@ -326,18 +359,21 @@ router = APIRouter()     # Detected as 'controller'
 ```
 
 **Models**
+
 ```python
 class User(Base):        # Detected as 'model'
 class OrderSchema:       # Detected as 'model'
 ```
 
 **API Endpoints**
+
 ```python
 @app.get('/users')       # Detected as 'api_endpoint'
 @router.post('/orders')  # Detected as 'api_endpoint'
 ```
 
 **Databases**
+
 ```python
 create_engine('postgresql://...')  # Detected as 'database'
 sqlite3.connect('app.db')          # Detected as 'database'
@@ -345,6 +381,7 @@ MongoClient()                      # Detected as 'database'
 ```
 
 **External Integrations**
+
 ```python
 requests.get('https://api.stripe.com')  # Detected as 'http_api'
 boto3.client('s3')                       # Detected as 'cloud_storage'
@@ -356,29 +393,37 @@ smtplib.SMTP()                           # Detected as 'smtp'
 ## Integration with Other Tools
 
 ### With Project Scaffold
+
 Generate architecture docs for new projects:
+
 ```
 {{project_scaffold(action="scaffold_project", template="api/fastapi", ...)}}
 {{diagram_architect(action="analyze_architecture", project_path="...")}}
 ```
 
 ### With Portfolio Manager
+
 Document existing portfolio projects:
+
 ```
-{{portfolio_manager(action="list")}}
+{{portfolio_manager_tool(action="list")}}
 # For each project:
 {{diagram_architect(action="analyze_architecture", project_path="...")}}
 ```
 
 ### With Sales Generator
+
 Include architecture visuals in proposals:
+
 ```
 {{diagram_architect(action="generate_system_diagram", analysis_id=1)}}
 {{sales_generator(action="generate_proposal", include_diagrams=true)}}
 ```
 
 ### With Diagram Tool
+
 The diagram_architect complements the existing diagram_tool:
+
 - **diagram_tool**: Manual diagram creation with precise control
 - **diagram_architect**: Auto-generate diagrams from code analysis
 
@@ -416,8 +461,9 @@ flowchart TB
 ---
 
 ## Notes
+
 - Analysis results are stored in SQLite for reuse
-- Skip directories: node_modules, venv, __pycache__, .git, dist, build
+- Skip directories: node_modules, venv, **pycache**, .git, dist, build
 - Supports Python, JavaScript/TypeScript, Go, Java projects
 - Mermaid files can be rendered in GitHub, VS Code, or converted to images
 - Use `export_all` to generate complete architecture documentation

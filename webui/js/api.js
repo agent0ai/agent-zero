@@ -105,6 +105,65 @@ export async function fetchApi(url, request) {
   return response;
 }
 
+/**
+ * Probe backend reachability and warm-up status without requiring auth/csrf.
+ * @returns {Promise<{state: "ready"|"warming"|"offline", message: string}>}
+ */
+export async function probeBackendStatus() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+
+  try {
+    const response = await fetch("/health", {
+      method: "GET",
+      credentials: "same-origin",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return { state: "warming", message: "Backend is starting up..." };
+    }
+
+    return { state: "ready", message: "Backend connected" };
+  } catch (_error) {
+    return { state: "offline", message: "Backend is unreachable" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+let chatReadinessCache = { ts: 0, value: null };
+
+/**
+ * Validate chat runtime readiness (provider/model/backend) before sending messages.
+ * Cached briefly to keep typing/send latency low.
+ * @returns {Promise<{ready: boolean, message: string, checks?: any[]}>}
+ */
+export async function getChatReadiness() {
+  const now = Date.now();
+  if (chatReadinessCache.value && now - chatReadinessCache.ts < 10000) {
+    return chatReadinessCache.value;
+  }
+
+  try {
+    const response = await fetchApi("/chat_readiness", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      credentials: "same-origin",
+    });
+    const json = await response.json();
+    chatReadinessCache = { ts: now, value: json };
+    return json;
+  } catch (error) {
+    return {
+      ready: false,
+      message: `Readiness check failed: ${error?.message || error}`,
+      checks: [],
+    };
+  }
+}
+
 // csrf token stored locally
 let csrfToken = null;
 

@@ -1,5 +1,5 @@
 """
-Virtual Team Tool for Agent Zero
+Virtual Team Tool for Agent Jumbo
 Enables AI-driven multi-agent collaboration
 """
 
@@ -11,13 +11,13 @@ from python.helpers.tool import Response, Tool
 
 class VirtualTeam(Tool):
     """
-    Agent Zero tool for virtual team orchestration.
+    Agent Jumbo tool for virtual team orchestration.
     Coordinates specialized AI agents (architect, developer, DBA, QA, DevOps, etc.)
     for collaborative software development workflows.
     """
 
-    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
-        super().__init__(agent, name, args, message, **kwargs)
+    def __init__(self, agent, name: str, method: str | None, args: dict, message: str, loop_data=None, **kwargs):
+        super().__init__(agent, name, method, args, message, loop_data, **kwargs)
 
         # Import orchestrator here to avoid circular imports
         from instruments.custom.virtual_team.team_orchestrator import VirtualTeamOrchestrator
@@ -61,10 +61,7 @@ class VirtualTeam(Tool):
         elif action == "get_available_roles":
             return await self._get_available_roles()
         else:
-            return Response(
-                message=f"Unknown action: {action}",
-                break_loop=False
-            )
+            return Response(message=f"Unknown action: {action}", break_loop=False)
 
     async def _route_task(self):
         """Automatically route task to best-suited agent"""
@@ -74,13 +71,10 @@ class VirtualTeam(Tool):
             description=self.args.get("description"),
             context=self.args.get("context"),
             priority=self.args.get("priority", "medium"),
-            complexity=self.args.get("complexity")
+            complexity=self.args.get("complexity"),
         )
 
-        return Response(
-            message=self._format_result(result, "Task Routed"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Task Routed"), break_loop=False)
 
     async def _delegate_to_specialist(self):
         """Delegate task to specific specialist role"""
@@ -89,13 +83,10 @@ class VirtualTeam(Tool):
             specialist_role=self.args.get("specialist_role"),
             description=self.args.get("description"),
             context=self.args.get("context"),
-            priority=self.args.get("priority", "medium")
+            priority=self.args.get("priority", "medium"),
         )
 
-        return Response(
-            message=self._format_result(result, "Task Delegated"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Task Delegated"), break_loop=False)
 
     async def _start_workflow(self):
         """Start multi-agent workflow"""
@@ -105,152 +96,95 @@ class VirtualTeam(Tool):
             customer_id=self.args.get("customer_id"),
             project_id=self.args.get("project_id"),
             template=self.args.get("template"),
-            custom_tasks=self.args.get("custom_tasks")
+            custom_tasks=self.args.get("custom_tasks"),
         )
 
-        return Response(
-            message=self._format_result(result, "Workflow Started"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Workflow Started"), break_loop=False)
 
     async def _get_workflow_progress(self):
         """Get workflow progress"""
         workflow_id = self.args.get("workflow_id")
         result = self.orchestrator.get_workflow_progress(workflow_id)
 
-        return Response(
-            message=self._format_result(result, "Workflow Progress"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Workflow Progress"), break_loop=False)
 
     async def _coordinate_parallel_tasks(self):
         """Coordinate parallel task execution"""
         task_specs = self.args.get("task_specs", [])
         result = self.orchestrator.coordinate_parallel_tasks(task_specs)
 
-        return Response(
-            message=self._format_result(result, "Parallel Tasks Coordinated"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Parallel Tasks Coordinated"), break_loop=False)
 
     async def _escalate_task(self):
         """Escalate task to different agent"""
         result = self.orchestrator.escalate_task(
             task_id=self.args.get("task_id"),
             escalation_reason=self.args.get("reason"),
-            target_role=self.args.get("target_role")
+            target_role=self.args.get("target_role"),
         )
 
-        return Response(
-            message=self._format_result(result, "Task Escalated"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Task Escalated"), break_loop=False)
 
     async def _get_task_queue(self):
         """Get pending task queue"""
-        result = self.orchestrator.get_task_queue(
-            role=self.args.get("role")
-        )
+        result = self.orchestrator.get_task_queue(role=self.args.get("role"))
 
-        return Response(
-            message=self._format_result(result, "Task Queue"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Task Queue"), break_loop=False)
 
     async def _get_agent_workload(self):
         """Get agent workload"""
-        result = self.orchestrator.get_agent_workload(
-            agent_id=self.args.get("agent_id"),
-            role=self.args.get("role")
-        )
+        result = self.orchestrator.get_agent_workload(agent_id=self.args.get("agent_id"), role=self.args.get("role"))
 
-        return Response(
-            message=self._format_result(result, "Agent Workload"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Agent Workload"), break_loop=False)
 
     async def _get_team_dashboard(self):
         """Get team dashboard"""
         result = self.orchestrator.get_team_dashboard()
 
-        return Response(
-            message=self._format_result(result, "Team Dashboard"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Team Dashboard"), break_loop=False)
 
     async def _update_task_status(self):
         """Update task status"""
         success = self.orchestrator.db.update_task_status(
             task_id=self.args.get("task_id"),
             status=self.args.get("status"),
-            progress_percentage=self.args.get("progress_percentage")
+            progress_percentage=self.args.get("progress_percentage"),
         )
 
-        result = {
-            "success": success,
-            "task_id": self.args.get("task_id"),
-            "new_status": self.args.get("status")
-        }
+        result = {"success": success, "task_id": self.args.get("task_id"), "new_status": self.args.get("status")}
 
-        return Response(
-            message=self._format_result(result, "Task Status Updated"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Task Status Updated"), break_loop=False)
 
     async def _get_task_details(self):
         """Get task details"""
         task_id = self.args.get("task_id")
         result = self.orchestrator.db.get_task(task_id)
 
-        return Response(
-            message=self._format_result(result, "Task Details"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Task Details"), break_loop=False)
 
     async def _list_agents(self):
         """List all agents"""
-        agents = self.orchestrator.db.list_agents(
-            role=self.args.get("role"),
-            status=self.args.get("status", "active")
-        )
+        agents = self.orchestrator.db.list_agents(role=self.args.get("role"), status=self.args.get("status", "active"))
 
-        result = {
-            "agents": agents,
-            "count": len(agents)
-        }
+        result = {"agents": agents, "count": len(agents)}
 
-        return Response(
-            message=self._format_result(result, "Agent List"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Agent List"), break_loop=False)
 
     async def _get_available_workflows(self):
         """Get available workflow templates"""
         workflows = self.orchestrator.get_available_workflows()
 
-        result = {
-            "workflows": workflows,
-            "count": len(workflows)
-        }
+        result = {"workflows": workflows, "count": len(workflows)}
 
-        return Response(
-            message=self._format_result(result, "Available Workflows"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Available Workflows"), break_loop=False)
 
     async def _get_available_roles(self):
         """Get available agent roles"""
         roles = self.orchestrator.get_available_roles()
 
-        result = {
-            "roles": roles,
-            "count": len(roles)
-        }
+        result = {"roles": roles, "count": len(roles)}
 
-        return Response(
-            message=self._format_result(result, "Available Roles"),
-            break_loop=False
-        )
+        return Response(message=self._format_result(result, "Available Roles"), break_loop=False)
 
     def _format_result(self, result: dict, title: str) -> str:
         """Format result for display"""

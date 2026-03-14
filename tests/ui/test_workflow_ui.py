@@ -36,7 +36,7 @@ def _wait_for_server(url: str, timeout: float = 90.0) -> None:
 
 
 def _start_ui_server(port: int) -> subprocess.Popen:
-    """Start the Agent Zero UI server for testing"""
+    """Start the Agent Jumbo UI server for testing"""
     env = os.environ.copy()
     env["WEB_UI_HOST"] = "127.0.0.1"
     env["WEB_UI_PORT"] = str(port)

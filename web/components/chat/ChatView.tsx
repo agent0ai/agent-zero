@@ -25,7 +25,7 @@ export function ChatView({ logs, progress, progressActive, onSend, sending }: Ch
           <EmptyState
             icon={<MessageSquare className="h-12 w-12" />}
             title="Start a conversation"
-            description="Send a message to begin interacting with Agent Zero"
+            description="Send a message to begin interacting with Agent Jumbo"
           />
         </div>
       )}

@@ -6,7 +6,7 @@
 
 ## Overview
 
-Mahoosuc OS agents are designed for Claude Code's agent system. Agent Zero uses a different architecture (`agent.py`, `AgentContext`, tool system). These agents serve as **reference implementations** and **design patterns**.
+Mahoosuc OS agents are designed for Claude Code's agent system. Agent Jumbo uses a different architecture (`agent.py`, `AgentContext`, tool system). These agents serve as **reference implementations** and **design patterns**.
 
 ## Agent Categories
 
@@ -32,12 +32,12 @@ Mahoosuc OS agents are designed for Claude Code's agent system. Agent Zero uses 
 
 ## Migration Strategy
 
-**DO NOT** directly invoke these agents in Agent Zero. Instead:
+**DO NOT** directly invoke these agents in Agent Jumbo. Instead:
 
 1. **Extract Patterns**: Review agent prompts for workflow patterns
-2. **Adapt to Tools**: Convert agent capabilities to Agent Zero tools
-3. **Use as Templates**: Reference when creating new Agent Zero subagents
-4. **Document Learnings**: Note valuable patterns in Agent Zero's architecture docs
+2. **Adapt to Tools**: Convert agent capabilities to Agent Jumbo tools
+3. **Use as Templates**: Reference when creating new Agent Jumbo subagents
+4. **Document Learnings**: Note valuable patterns in Agent Jumbo's architecture docs
 
 ## Example: product-planner Agent
 
@@ -47,11 +47,11 @@ Mahoosuc OS agents are designed for Claude Code's agent system. Agent Zero uses 
 - Returns structured plan
 - Designed for Claude Code context
 
-**Agent Zero Adaptation**:
+**Agent Jumbo Adaptation**:
 
 - Create `python/tools/product_plan.py`
-- Use Agent Zero's `Tool` base class
-- Integrate with Agent Zero's context and memory systems
+- Use Agent Jumbo's `Tool` base class
+- Integrate with Agent Jumbo's context and memory systems
 - Return `Response` object with markdown plan
 
-See `python/tools/` for Agent Zero tool patterns.
+See `python/tools/` for Agent Jumbo tool patterns.

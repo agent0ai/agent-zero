@@ -16,6 +16,7 @@ python scripts/test_google_voice_checkin.py
 ```
 
 Expected output shows:
+
 - Number of customers checking in today
 - Message content for each customer
 - Phone numbers and property details
@@ -52,6 +53,7 @@ When customers check in today, they automatically receive:
    - Emoji to make it feel personal
 
 **Example:**
+
 ```
 Hi John! Welcome to Property prop_001! 🎉
 
@@ -103,6 +105,7 @@ python scripts/google_voice_integration_test.py
 ```
 
 This test:
+
 - ✓ Creates a sample message
 - ✓ Lists draft messages
 - ✓ Shows database statistics
@@ -110,6 +113,7 @@ This test:
 - ✓ Reports overall system health
 
 **Expected Output:**
+
 ```
 [1/5] DRAFTING MESSAGE
 ✓ Drafted message ID: 1
@@ -141,6 +145,7 @@ python scripts/test_google_voice_checkin.py
 ```
 
 Shows:
+
 - Customer names and phone numbers
 - Full message text
 - Property details
@@ -156,6 +161,7 @@ python scripts/test_google_voice_checkin.py --auto-send
 ```
 
 This will:
+
 1. Query today's reservations
 2. Create draft messages for each
 3. Automatically send each message
@@ -170,6 +176,7 @@ python scripts/google_voice_integration_test.py --interactive
 ```
 
 Interactive prompts for:
+
 - Phone number to send to
 - Message content
 - Confirmation before sending
@@ -183,6 +190,7 @@ python scripts/test_google_voice_checkin.py --list-pending
 ```
 
 Shows:
+
 - Draft messages (waiting for approval)
 - Approved messages (waiting to send)
 - Sent messages (with timestamps)
@@ -210,6 +218,7 @@ curl -X POST http://localhost:8000/google_voice_outbound_create \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -239,6 +248,7 @@ curl http://localhost:8000/google_voice_outbound_list
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -277,6 +287,7 @@ curl -X POST http://localhost:8000/google_voice_inbound_sync \
 **Cause:** Google Voice authentication session needed
 
 **Solution:**
+
 1. Ensure display server available (SSH: use `ssh -X`)
 2. Check Google Voice credentials configured in `data/profile/`
 3. Try running with `DISPLAY=:0` on headless systems
@@ -290,6 +301,7 @@ DISPLAY=:0 python scripts/test_google_voice_checkin.py --auto-send
 **Cause:** Sample data is used for testing (not real PMS query)
 
 **Solution:**
+
 - Edit script to modify sample check-in data
 - Integrate with real PMS provider query (see Implementation Guide)
 - Ensure today's date is correct (`date` command)
@@ -299,11 +311,14 @@ DISPLAY=:0 python scripts/test_google_voice_checkin.py --auto-send
 **Cause:** Auto-send not enabled or send failed silently
 
 **Solution:**
+
 1. Check logs: `tail -50 instruments/custom/google_voice/data/events.db`
 2. Try manual send:
+
    ```bash
    python scripts/google_voice_integration_test.py --interactive
    ```
+
 3. Check Google Voice web UI for messages
 4. Verify phone number format (must include country code)
 
@@ -312,6 +327,7 @@ DISPLAY=:0 python scripts/test_google_voice_checkin.py --auto-send
 **Cause:** Optional event tracking unavailable
 
 **Solution:**
+
 - This is non-critical; messages still send
 - Check Python imports are correct
 - Verify event_bus library installed
@@ -326,10 +342,10 @@ Add to crontab:
 
 ```bash
 # Send check-in messages every day at 8 AM
-0 8 * * * cd /path/to/agent-zero && python scripts/test_google_voice_checkin.py --auto-send
+0 8 * * * cd /path/to/agent-jumbo && python scripts/test_google_voice_checkin.py --auto-send
 
 # List pending messages every hour
-0 * * * * cd /path/to/agent-zero && python scripts/test_google_voice_checkin.py --list-pending >> /var/log/google_voice.log
+0 * * * * cd /path/to/agent-jumbo && python scripts/test_google_voice_checkin.py --list-pending >> /var/log/google_voice.log
 ```
 
 ### Monitoring
@@ -441,6 +457,7 @@ python scripts/test_google_voice_checkin.py --auto-send
 ### 2. Test with Real Numbers Sparingly
 
 Google Voice has rate limits. For testing:
+
 - Use same test number multiple times
 - Space out tests by 30+ seconds
 - Keep daily test volume <10 messages
@@ -455,6 +472,7 @@ python scripts/test_google_voice_checkin.py --list-pending
 ### 4. Keep Audit Trail
 
 All messages are logged to database with:
+
 - Timestamp (when sent)
 - Phone number (to/from)
 - Message content
@@ -529,6 +547,7 @@ A: Check credentials in `data/profile/`. May need to re-authenticate via browser
 ---
 
 For questions or issues, check the troubleshooting section or review the source code in:
+
 - `instruments/custom/google_voice/google_voice_manager.py`
 - `python/api/google_voice_*.py`
 

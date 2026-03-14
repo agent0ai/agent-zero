@@ -1,4 +1,4 @@
-"""Knowledge ingest tool for Agent Zero."""
+"""Knowledge ingest tool for Agent Jumbo."""
 
 from python.helpers import files
 from python.helpers.tool import Response, Tool
@@ -7,15 +7,13 @@ from python.helpers.tool import Response, Tool
 class KnowledgeIngest(Tool):
     """Ingests knowledge sources into local storage and the knowledge base."""
 
-    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
-        super().__init__(agent, name, args, message, **kwargs)
+    def __init__(self, agent, name: str, method: str | None, args: dict, message: str, loop_data=None, **kwargs):
+        super().__init__(agent, name, method, args, message, loop_data, **kwargs)
         from instruments.custom.knowledge_ingest.knowledge_ingest_manager import (
             KnowledgeIngestManager,
         )
 
-        db_path = files.get_abs_path(
-            "./instruments/custom/knowledge_ingest/data/knowledge_ingest.db"
-        )
+        db_path = files.get_abs_path("./instruments/custom/knowledge_ingest/data/knowledge_ingest.db")
         self.manager = KnowledgeIngestManager(db_path)
 
     async def execute(self, **kwargs):

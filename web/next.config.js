@@ -20,7 +20,7 @@ const remotePatterns = process.env.NODE_ENV === 'production'
       {
         protocol: 'https',
         hostname: 'raw.githubusercontent.com',
-        pathname: '/agent-zero-deploy/agent-jumbo/**',
+        pathname: '/agent-jumbo-deploy/agent-jumbo/**',
       },
       // GitHub user avatars (if needed)
       {

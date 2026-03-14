@@ -1,12 +1,13 @@
-# 🎨 Agent Zero Diagram Generation - Implementation Complete
+# 🎨 Agent Jumbo Diagram Generation - Implementation Complete
 
 ## Summary
 
-Successfully implemented comprehensive diagram generation capabilities for Agent Zero using **Mermaid**, **Excalidraw**, and **Draw.io**. The system supports both inline rendering in the WebUI and file export capabilities.
+Successfully implemented comprehensive diagram generation capabilities for Agent Jumbo using **Mermaid**, **Excalidraw**, and **Draw.io**. The system supports both inline rendering in the WebUI and file export capabilities.
 
 ## ✅ What Was Implemented
 
 ### 1. WebUI Enhancements
+
 - **Mermaid.js Integration** - Automatic inline diagram rendering
   - Added mermaid.min.js to vendor directory
   - Modified webui/index.html to load Mermaid library
@@ -14,7 +15,9 @@ Successfully implemented comprehensive diagram generation capabilities for Agent
   - Diagrams render beautifully directly in chat messages
 
 ### 2. Diagram Generation Instrument
+
 Created `/instruments/custom/diagram_generator/` with:
+
 - **diagram_generator.md** - Agent-facing documentation with examples
 - **generate_mermaid.py** - Full Mermaid diagram generator (PNG/SVG/PDF)
 - **generate_excalidraw.py** - Excalidraw diagram generator (JSON/PNG)
@@ -23,23 +26,28 @@ Created `/instruments/custom/diagram_generator/` with:
 - **README.md** - Developer documentation
 
 ### 3. Python Tool
+
 Created `/python/tools/diagram_tool.py`:
+
 - Unified interface for all diagram types
 - Methods for Mermaid, Excalidraw, and Draw.io
 - Automatic fallback to JSON/XML if CLI unavailable
 - Proper error handling and user feedback
 
 ### 4. Tool Prompts
+
 - **prompts/agent.system.tool.diagram_tool.md** - Comprehensive tool documentation with examples
 - **prompts/agent.system.response_tool_tips.md** - Updated to mention diagram capabilities
 - Examples for all diagram types and use cases
 
 ### 5. Docker Dependencies
+
 - Updated `docker/run/fs/ins/install_additional.sh`
 - Installs @mermaid-js/mermaid-cli via npm
 - Ensures diagram generation works in container
 
 ### 6. Documentation
+
 - **docs/diagrams.md** - Complete user guide with 10+ diagram type examples
 - Usage patterns, command reference, troubleshooting
 - Best practices and tips
@@ -47,6 +55,7 @@ Created `/python/tools/diagram_tool.py`:
 ## 🎯 Supported Diagram Types
 
 ### Mermaid (10+ types)
+
 1. ✅ Flowcharts / Process diagrams
 2. ✅ Sequence diagrams
 3. ✅ Class diagrams (UML)
@@ -59,12 +68,14 @@ Created `/python/tools/diagram_tool.py`:
 10. ✅ Mindmaps
 
 ### Excalidraw
+
 - ✅ Hand-drawn style diagrams
 - ✅ Architecture sketches
 - ✅ Flowchart templates
 - ✅ Custom element support
 
 ### Draw.io
+
 - ✅ Professional technical diagrams
 - ✅ Network topology
 - ✅ System architecture
@@ -73,6 +84,7 @@ Created `/python/tools/diagram_tool.py`:
 ## 📁 Files Created/Modified
 
 ### Created Files
+
 ```
 webui/vendor/mermaid.min.js
 instruments/custom/diagram_generator/diagram_generator.md
@@ -88,6 +100,7 @@ DIAGRAM_IMPLEMENTATION_SUMMARY.md
 ```
 
 ### Modified Files
+
 ```
 webui/index.html - Added Mermaid.js script
 webui/js/messages.js - Added renderMermaidDiagrams() function
@@ -98,7 +111,9 @@ docker/run/fs/ins/install_additional.sh - Added mermaid-cli installation
 ## 🚀 How to Use
 
 ### Method 1: Chat with Agent (Recommended)
+
 Simply ask:
+
 ```
 "Create a flowchart showing the user login process"
 "Generate a sequence diagram for API authentication"
@@ -108,7 +123,9 @@ Simply ask:
 The agent will respond with inline Mermaid diagrams that render automatically.
 
 ### Method 2: Export to Files
+
 Ask:
+
 ```
 "Create a Gantt chart for the project timeline and save it as PNG"
 "Generate an architecture diagram and export it"
@@ -117,6 +134,7 @@ Ask:
 The agent will use `diagram_tool` to create files.
 
 ### Method 3: Direct CLI Usage
+
 ```bash
 # Mermaid
 python /a0/instruments/custom/diagram_generator/generate_mermaid.py \
@@ -137,19 +155,22 @@ python /a0/instruments/custom/diagram_generator/generate_drawio.py \
 ## 💡 Key Features
 
 ### Inline Rendering
+
 - **Zero configuration** - Works immediately in chat
 - **Beautiful output** - Professional-looking diagrams
 - **Fast** - Renders client-side, no server processing
 - **Multiple themes** - Default, dark, forest, neutral
 
 ### File Export
+
 - **Multiple formats** - PNG, SVG, PDF, JSON, XML
 - **Batch generation** - Generate many diagrams at once
 - **Templates** - Pre-built common diagram patterns
 - **Customizable** - Full control over styling and layout
 
 ### Integration
-- **Tool system** - Seamlessly integrates with Agent Zero's tools
+
+- **Tool system** - Seamlessly integrates with Agent Jumbo's tools
 - **Instrument system** - Available in long-term memory
 - **Code execution** - Can generate via code_execution_tool
 - **Response tool** - Inline in markdown responses
@@ -157,11 +178,13 @@ python /a0/instruments/custom/diagram_generator/generate_drawio.py \
 ## 🧪 Testing
 
 Run the test suite:
+
 ```bash
 python /a0/instruments/custom/diagram_generator/test_diagrams.py
 ```
 
 This will generate 12 test diagrams covering:
+
 - All Mermaid diagram types
 - Excalidraw templates
 - Draw.io templates
@@ -170,7 +193,9 @@ This will generate 12 test diagrams covering:
 ## 📊 Example Output
 
 ### Flowchart (Inline)
+
 When the agent responds with:
+
 ````markdown
 ```mermaid
 graph TD
@@ -184,6 +209,7 @@ graph TD
 The WebUI automatically renders it as a beautiful diagram!
 
 ### Sequence Diagram (Export)
+
 ```bash
 python generate_mermaid.py -o sequence.png -c "sequenceDiagram
     User->>System: Login
@@ -197,6 +223,7 @@ Creates a professional sequence diagram image.
 ## 🔧 Technical Details
 
 ### Architecture
+
 ```
 User Request
     ↓
@@ -214,12 +241,14 @@ Agent Processing
 ```
 
 ### Dependencies
+
 - **Mermaid.js** (CDN) - Client-side rendering
 - **@mermaid-js/mermaid-cli** (npm) - Server-side export
 - **Python 3.8+** - Script execution
 - **Node.js** - npm package management
 
 ### Performance
+
 - **Inline rendering**: <100ms (client-side)
 - **File export**: 2-5 seconds (includes CLI startup)
 - **Complex diagrams**: 5-10 seconds
@@ -229,9 +258,9 @@ Agent Processing
 - **Full Guide**: `/docs/diagrams.md`
 - **Agent Docs**: `/instruments/custom/diagram_generator/diagram_generator.md`
 - **Tool Prompt**: `/prompts/agent.system.tool.diagram_tool.md`
-- **Mermaid Docs**: https://mermaid.js.org/
-- **Excalidraw**: https://excalidraw.com
-- **Draw.io**: https://app.diagrams.net
+- **Mermaid Docs**: <https://mermaid.js.org/>
+- **Excalidraw**: <https://excalidraw.com>
+- **Draw.io**: <https://app.diagrams.net>
 
 ## ✨ What Makes This Special
 
@@ -246,16 +275,19 @@ Agent Processing
 ## 🚦 Next Steps
 
 ### To Enable in Docker
+
 1. Rebuild the Docker image (includes mermaid-cli installation)
 2. Start the container
 3. Test by asking agent to create a diagram
 
 ### To Test Locally
+
 1. Install mermaid-cli: `npm install -g @mermaid-js/mermaid-cli`
 2. Run test suite: `python instruments/custom/diagram_generator/test_diagrams.py`
 3. Open WebUI and ask agent to create diagrams
 
 ### Future Enhancements
+
 - [ ] Add more templates (UML, ERD, BPMN)
 - [ ] Support for PlantUML
 - [ ] Interactive diagram editing
@@ -266,6 +298,7 @@ Agent Processing
 ## 📞 Support
 
 For issues or questions:
+
 1. Check `/docs/diagrams.md` for usage guide
 2. Run test suite to verify installation
 3. Check browser console for rendering errors

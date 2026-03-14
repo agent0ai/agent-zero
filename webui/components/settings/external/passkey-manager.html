@@ -4,7 +4,7 @@
         import { store as passkeyStore } from "/components/settings/external/passkey-auth-store.js";
         import { store as profileStore } from "/components/settings/external/profile-sync-store.js";
         import securityStore from "/components/settings/external/security-store.js";
-        
+
         if (!Alpine.store('passkeyAuth')) {
             Alpine.store('passkeyAuth', passkeyStore);
         }
@@ -31,10 +31,10 @@
                 </div>
                 <div class="flex-grow-1">
                     <h6 class="mb-0">Android Profile Data Sharing</h6>
-                    <small class="text-secondary">Sync your Android identity, device status, and locale preferences with Agent Zero.</small>
+                    <small class="text-secondary">Sync your Android identity, device status, and locale preferences with Agent Jumbo.</small>
                 </div>
                 <div>
-                    <button class="btn btn-outline-success btn-sm" 
+                    <button class="btn btn-outline-success btn-sm"
                             @click="$store.profileSync.syncAndroidProfile()"
                             :disabled="$store.profileSync.loading">
                         <span x-show="!$store.profileSync.loading">Sync Profile</span>
@@ -42,7 +42,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="mt-3 p-2 border border-secondary rounded overflow-hidden" x-show="$store.profileSync.profile" style="background: rgba(0,0,0,0.2); font-size: 0.85rem;">
                 <div class="row">
                     <div class="col-6"><strong>User:</strong> <span x-text="$store.profileSync.profile.full_name"></span></div>
@@ -61,10 +61,10 @@
                 </div>
                 <div class="flex-grow-1">
                     <h6 class="mb-0">Apple (iOS) Profile Sync</h6>
-                    <small class="text-secondary">Sync your Apple identity and environment preferences with Agent Zero.</small>
+                    <small class="text-secondary">Sync your Apple identity and environment preferences with Agent Jumbo.</small>
                 </div>
                 <div>
-                    <button class="btn btn-outline-light btn-sm" 
+                    <button class="btn btn-outline-light btn-sm"
                             @click="$store.profileSync.syncAppleProfile()"
                             :disabled="$store.profileSync.loading">
                         <span x-show="!$store.profileSync.loading">Sync Profile</span>
@@ -72,7 +72,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="mt-3 p-2 border border-secondary rounded overflow-hidden" x-show="$store.profileSync.profile" style="background: rgba(0,0,0,0.2); font-size: 0.85rem;">
                 <div class="row">
                     <div class="col-6"><strong>User:</strong> <span x-text="$store.profileSync.profile.full_name"></span></div>
@@ -93,7 +93,7 @@
                     <small x-text="$store.passkeyAuth.isPasskeySupported ? 'Your browser supports FIDO2/WebAuthn. You can bind your phone.' : 'Please use a modern browser like Chrome, Safari, or Edge over HTTPS.'"></small>
                 </div>
                 <div x-show="$store.passkeyAuth.isPasskeySupported">
-                    <button class="btn btn-primary btn-sm" 
+                    <button class="btn btn-primary btn-sm"
                             @click="$store.passkeyAuth.registerPasskey()"
                             :disabled="$store.passkeyAuth.loading">
                         <span x-show="!$store.passkeyAuth.loading">Register My Phone</span>
@@ -111,10 +111,10 @@
                 </div>
                 <div class="flex-grow-1">
                     <h6 class="mb-0">Native Push Notifications</h6>
-                    <small class="text-secondary">Get proactive alerts on your phone even when Agent Zero is closed.</small>
+                    <small class="text-secondary">Get proactive alerts on your phone even when Agent Jumbo is closed.</small>
                 </div>
                 <div>
-                    <button class="btn btn-sm" 
+                    <button class="btn btn-sm"
                             :class="$store.profileSync.pushEnabled ? 'btn-outline-info' : 'btn-info'"
                             @click="$store.profileSync.enablePushNotifications()"
                             :disabled="$store.profileSync.pushEnabled">
@@ -134,7 +134,7 @@
                     <small class="text-secondary small">Instantly revoke all authorizations if you suspect a compromise.</small>
                 </div>
                 <button class="btn btn-danger btn-sm" @click="$store.securityOps.triggerPanicLock()">
-                    <span class="material-icons align-middle" style="font-size: 1.1rem">gpp_maybe</span> 
+                    <span class="material-icons align-middle" style="font-size: 1.1rem">gpp_maybe</span>
                     Panic Lock
                 </button>
             </div>
@@ -148,7 +148,7 @@
                     <span class="material-icons align-middle" style="font-size: 1rem">refresh</span> Refresh
                 </button>
             </div>
-            
+
             <div class="audit-log-container border border-secondary rounded overflow-hidden">
                 <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
                     <template x-for="log in $store.securityOps.auditLogs" :key="log.id">

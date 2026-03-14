@@ -28,7 +28,7 @@ What actually happens.
 
 - OS: (Windows/macOS/Linux)
 - Python version: (3.10/3.11/3.12)
-- Agent Zero DevOps version: (1.0.0 or branch name)
+- Agent Jumbo DevOps version: (1.0.0 or branch name)
 - Kubernetes version: (if applicable)
 
 ## Logs/Error Messages

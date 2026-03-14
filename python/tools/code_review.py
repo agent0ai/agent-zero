@@ -1,7 +1,7 @@
 """
 Code Review Tool
 
-Converted from Mahoosuc OS agent-os/code-reviewer agent to native Agent Zero tool.
+Converted from Mahoosuc OS agent-os/code-reviewer agent to native Agent Jumbo tool.
 Provides automated code quality analysis with security, performance, and best practices checks.
 
 Source: .claude/agents/agent-os/code-reviewer.md

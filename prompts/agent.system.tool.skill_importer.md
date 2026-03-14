@@ -1,12 +1,13 @@
 # Skill Importer Tool
 
-The **skill_importer** tool enables importing Claude Code plugins, skills, hooks, agents, and MCP server configurations into Agent Zero.
+The **skill_importer** tool enables importing Claude Code plugins, skills, hooks, agents, and MCP server configurations into Agent Jumbo.
 
 ## Purpose
+
 - Import individual skills from markdown files
 - Import complete Claude Code plugins with all components
 - Manage imported skills and plugins
-- Generate Agent Zero-compatible tool prompts
+- Generate Agent Jumbo-compatible tool prompts
 - Export MCP server configurations for integration
 
 ## Available Actions
@@ -14,6 +15,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ### Skill Management
 
 #### 1. import_skill
+
 **Import a single skill from a markdown file**
 
 ```
@@ -25,6 +27,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `source_path` (required): Path to the skill markdown file
 - `category` (optional): Category for organization
 
@@ -33,6 +36,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 2. list_skills
+
 **List all imported skills**
 
 ```
@@ -45,6 +49,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `enabled_only` (optional): Only show enabled skills (default: true)
 - `category` (optional): Filter by category
 - `plugin_name` (optional): Filter by source plugin
@@ -54,6 +59,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 3. get_skill
+
 **Get details of a specific skill**
 
 ```
@@ -64,6 +70,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `skill_id` (optional): Skill ID
 - `name` (optional): Skill name (use either skill_id or name)
 
@@ -72,6 +79,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 4. remove_skill
+
 **Remove an imported skill**
 
 ```
@@ -82,6 +90,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `skill_id` (required): ID of skill to remove
 
 **Returns:** Success status
@@ -89,6 +98,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 5. toggle_skill
+
 **Enable or disable a skill**
 
 ```
@@ -100,13 +110,15 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `skill_id` (required): Skill ID
 - `enabled` (optional): Enable (true) or disable (false)
 
 ---
 
 #### 6. generate_prompt
-**Generate Agent Zero tool prompt from imported skill**
+
+**Generate Agent Jumbo tool prompt from imported skill**
 
 ```
 {{skill_importer(
@@ -116,6 +128,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `skill_id` (required): Skill ID
 
 **Returns:** Markdown prompt suitable for prompts/agent.system.tool.{name}.md
@@ -123,6 +136,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 7. get_skill_context
+
 **Get execution context for a skill**
 
 ```
@@ -133,6 +147,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `skill_id` (required): Skill ID
 
 **Returns:** Execution context including required tools, arguments, and compatibility info
@@ -142,6 +157,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ### Plugin Management
 
 #### 8. import_plugin
+
 **Import a complete Claude Code plugin**
 
 ```
@@ -152,17 +168,20 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `plugin_path` (required): Path to plugin directory (containing plugin.json or .claude/ structure)
 
 **Returns:** Plugin ID, imported components (skills, hooks, agents, MCP servers)
 
 **Supported Plugin Structures:**
+
 - Standard: `plugin.json`, `skills/`, `hooks/`, `agents/`
 - Claude: `.claude/plugin.json`, `.claude/skills/`, `.claude/hooks/`
 
 ---
 
 #### 9. list_plugins
+
 **List all imported plugins**
 
 ```
@@ -173,6 +192,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `enabled_only` (optional): Only show enabled plugins (default: true)
 
 **Returns:** List of plugins with component counts
@@ -180,6 +200,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 10. get_plugin
+
 **Get details of a specific plugin**
 
 ```
@@ -190,6 +211,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `plugin_id` (optional): Plugin ID
 - `name` (optional): Plugin name
 
@@ -198,6 +220,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 11. remove_plugin
+
 **Remove a plugin and all its components**
 
 ```
@@ -208,6 +231,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `plugin_id` (required): Plugin ID to remove
 
 **Returns:** Success status, removed component counts
@@ -215,7 +239,8 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ---
 
 #### 12. get_mcp_config
-**Get MCP configuration for Agent Zero integration**
+
+**Get MCP configuration for Agent Jumbo integration**
 
 ```
 {{skill_importer(
@@ -225,15 +250,17 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `plugin_id` (required): Plugin ID
 
-**Returns:** JSON MCP configuration to add to Agent Zero settings
+**Returns:** JSON MCP configuration to add to Agent Jumbo settings
 
 ---
 
 ### Bulk Operations
 
 #### 13. sync_directory
+
 **Bulk import skills from a directory**
 
 ```
@@ -245,6 +272,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `directory` (required): Directory to scan for skills
 - `recursive` (optional): Search subdirectories (default: true)
 
@@ -255,6 +283,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ### Statistics
 
 #### 14. get_stats
+
 **Get execution statistics**
 
 ```
@@ -265,6 +294,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 **Parameters:**
+
 - `skill_id` (optional): Filter stats by skill ID
 
 **Returns:** Execution counts, success rates, average duration
@@ -274,6 +304,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ## Typical Workflows
 
 ### Import a Claude Code Plugin
+
 ```
 # 1. Import the plugin
 {{skill_importer(action="import_plugin", plugin_path="~/.claude/plugins/my-plugin")}}
@@ -286,6 +317,7 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ```
 
 ### Import Skills from Directory
+
 ```
 # 1. Sync a plugins directory
 {{skill_importer(action="sync_directory", directory="~/.claude/plugins")}}
@@ -302,7 +334,9 @@ The **skill_importer** tool enables importing Claude Code plugins, skills, hooks
 ## Integration with Other Tools
 
 ### With Virtual Team
+
 After importing developer-focused skills, route tasks:
+
 ```
 # Import developer tools plugin
 {{skill_importer(action="import_plugin", plugin_path="/plugins/dev-tools")}}
@@ -312,7 +346,9 @@ After importing developer-focused skills, route tasks:
 ```
 
 ### With Deployment Orchestrator
+
 Import CI/CD related skills:
+
 ```
 {{skill_importer(action="import_plugin", plugin_path="/plugins/deployment")}}
 {{deployment_orchestrator(action="generate_cicd", ...)}}
@@ -321,8 +357,9 @@ Import CI/CD related skills:
 ---
 
 ## Notes
+
 - Database auto-creates on first use at `instruments/custom/skill_importer/data/skill_importer.db`
 - Skills are stored with their original source path for reference
-- MCP server configs can be exported and merged into Agent Zero settings
-- Imported hooks are stored but require manual integration into Agent Zero extensions
-- Agent definitions can be converted to Agent Zero profiles
+- MCP server configs can be exported and merged into Agent Jumbo settings
+- Imported hooks are stored but require manual integration into Agent Jumbo extensions
+- Agent definitions can be converted to Agent Jumbo profiles

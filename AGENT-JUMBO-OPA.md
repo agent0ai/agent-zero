@@ -1,19 +1,19 @@
 # Agent Jumbo: OPA Technical Implementation Plan
 
-## Closing the Gap Between Agent Zero and OpenClaw
+## Closing the Gap Between Agent Jumbo and OpenClaw
 
 **Project**: Agent Jumbo
 **Date**: March 2026
 **Status**: Planning
-**Goal**: Build upon OpenClaw's proven patterns to close competitive gaps while preserving Agent Zero's enterprise strengths (deployment orchestration, LLM routing, security, 138 API endpoints)
+**Goal**: Build upon OpenClaw's proven patterns to close competitive gaps while preserving Agent Jumbo's enterprise strengths (deployment orchestration, LLM routing, security, 138 API endpoints)
 
 ---
 
 ## Executive Summary
 
-Agent Zero has **deeper execution capabilities** than any competitor — 6 deployment strategies, enterprise security (passkeys, CSRF, audit), intelligent LLM routing, and 138 API endpoints. But it trails OpenClaw in four critical areas:
+Agent Jumbo has **deeper execution capabilities** than any competitor — 6 deployment strategies, enterprise security (passkeys, CSRF, audit), intelligent LLM routing, and 138 API endpoints. But it trails OpenClaw in four critical areas:
 
-| Gap | Agent Zero | OpenClaw | AgentMesh Variants |
+| Gap | Agent Jumbo | OpenClaw | AgentMesh Variants |
 |-----|-----------|----------|-------------------|
 | **Messaging** | 4 channels | 50+ channels | REST/Slack/custom (Solace) |
 | **Skills** | 65 tools, no marketplace | 5,700+ on ClawHub | Role-based teams (MinimalFuture) |
@@ -28,7 +28,7 @@ This plan closes these gaps in **8 OPA phases**, building on OpenClaw's architec
 
 ### Problem
 
-Agent Zero supports 4 messaging channels (Telegram, Slack, Discord, WhatsApp). OpenClaw supports 50+. Solace Agent Mesh uses an event-driven broker pattern for unlimited channel integration.
+Agent Jumbo supports 4 messaging channels (Telegram, Slack, Discord, WhatsApp). OpenClaw supports 50+. Solace Agent Mesh uses an event-driven broker pattern for unlimited channel integration.
 
 ### Current Architecture
 
@@ -163,7 +163,7 @@ class WebhookRouter(ApiHandler):
 
 ### Problem
 
-Agent Zero has 65 built-in tools with no marketplace. OpenClaw has 5,700+ community skills on ClawHub. MinimalFuture/AgentMesh uses role-based agent teams.
+Agent Jumbo has 65 built-in tools with no marketplace. OpenClaw has 5,700+ community skills on ClawHub. MinimalFuture/AgentMesh uses role-based agent teams.
 
 ### Current Architecture
 
@@ -322,7 +322,7 @@ class SkillScanner:
 
 ### Problem
 
-Agent Zero uses FAISS with 4 memory areas (MAIN, FRAGMENTS, SOLUTIONS, INSTRUMENTS). OpenClaw uses a 12-layer memory with knowledge graph, activation/decay, and cross-session reconstruction. hupe1980/AgentMesh uses checkpointed BSP state.
+Agent Jumbo uses FAISS with 4 memory areas (MAIN, FRAGMENTS, SOLUTIONS, INSTRUMENTS). OpenClaw uses a 12-layer memory with knowledge graph, activation/decay, and cross-session reconstruction. hupe1980/AgentMesh uses checkpointed BSP state.
 
 ### Current Architecture
 
@@ -465,7 +465,7 @@ class SharedMemoryBus:
 
 ### Problem
 
-Agent Zero's heartbeat is time-based only (30-min intervals, HEARTBEAT.md parsing). OpenClaw supports event-driven triggers. Solace Agent Mesh is fully event-driven.
+Agent Jumbo's heartbeat is time-based only (30-min intervals, HEARTBEAT.md parsing). OpenClaw supports event-driven triggers. Solace Agent Mesh is fully event-driven.
 
 ### Current Architecture
 
@@ -803,7 +803,7 @@ class DelegationRouter:
 
 ### Problem
 
-Agent Zero lacks community infrastructure for skill sharing. OpenClaw has ClawHub with 900+ contributors. Solace Agent Mesh uses standard package distribution.
+Agent Jumbo lacks community infrastructure for skill sharing. OpenClaw has ClawHub with 900+ contributors. Solace Agent Mesh uses standard package distribution.
 
 ### Implementation
 
@@ -829,7 +829,7 @@ Package as `.tar.gz` with SHA256 signature for integrity verification.
 ```python
 class SkillIndex:
     """Client for the JumboHub skill index (GitHub-hosted JSON index)"""
-    INDEX_URL = "https://raw.githubusercontent.com/agent-zero/jumbohub/main/index.json"
+    INDEX_URL = "https://raw.githubusercontent.com/agent-jumbo/jumbohub/main/index.json"
 
     async def search(self, query: str) -> list[SkillManifest]: ...
     async def fetch(self, name: str, version: str) -> Path: ...
@@ -847,7 +847,7 @@ Initial index hosted as a GitHub repository with JSON catalog:
       "author": "community",
       "categories": ["web"],
       "downloads": 1250,
-      "url": "https://github.com/agent-zero/jumbohub-skills/releases/download/web-scraper-1.2.0/web-scraper-1.2.0.tar.gz",
+      "url": "https://github.com/agent-jumbo/jumbohub-skills/releases/download/web-scraper-1.2.0/web-scraper-1.2.0.tar.gz",
       "sha256": "abc123..."
     }
   ]
@@ -858,19 +858,19 @@ Initial index hosted as a GitHub repository with JSON catalog:
 
 ```bash
 # Install from JumboHub
-python -m agent_zero skill install web-scraper
+python -m agent_jumbo skill install web-scraper
 
 # Install from local path
-python -m agent_zero skill install ./my-skill/
+python -m agent_jumbo skill install ./my-skill/
 
 # Publish to JumboHub
-python -m agent_zero skill publish ./my-skill/ --token=...
+python -m agent_jumbo skill publish ./my-skill/ --token=...
 
 # List installed
-python -m agent_zero skill list
+python -m agent_jumbo skill list
 
 # Search
-python -m agent_zero skill search "web scraping"
+python -m agent_jumbo skill search "web scraping"
 ```
 
 #### OPA-8.4: Contributing Guide

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'agent-zero-v1';
+const CACHE_NAME = 'agent-jumbo-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -36,13 +36,13 @@ self.addEventListener('activate', (event) => {
 // Fetch Event - Cache First Strategy
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request).then((fetchRes) => {
         // Don't cache API calls
         if (event.request.url.includes('/api/')) return fetchRes;
-        
+
         return caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request.url, fetchRes.clone());
           return fetchRes;
@@ -56,7 +56,7 @@ self.addEventListener('fetch', (event) => {
 
 // PUSH Event - Handle incoming push notifications
 self.addEventListener('push', (event) => {
-  let data = { title: 'Agent Zero', body: 'New update available', icon: '/public/icon.svg' };
+  let data = { title: 'Agent Jumbo', body: 'New update available', icon: '/public/icon.svg' };
   if (event.data) {
     try {
       data = event.data.json();

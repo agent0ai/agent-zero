@@ -4,8 +4,8 @@ import path from 'path'
 type JsonRecord = Record<string, unknown>
 
 function resolveStorePath(): string {
-  if (process.env.AGENT_ZERO_DEMO_REQUESTS_PATH) {
-    return process.env.AGENT_ZERO_DEMO_REQUESTS_PATH
+  if (process.env.AGENT_JUMBO_DEMO_REQUESTS_PATH) {
+    return process.env.AGENT_JUMBO_DEMO_REQUESTS_PATH
   }
 
   const cwd = process.cwd()

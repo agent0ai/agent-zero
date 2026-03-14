@@ -25,7 +25,7 @@ BUILD_ENV="${BUILD_ENV:-production}"
 SKIP_MODEL_DOWNLOAD="${SKIP_MODEL_DOWNLOAD:-false}"
 MODEL_VERSION="${MODEL_VERSION:-latest}"
 
-log_info "Starting Agent Zero build process"
+log_info "Starting Agent Jumbo build process"
 log_info "Environment: ${BUILD_ENV}"
 log_info "Model version: ${MODEL_VERSION}"
 
@@ -81,11 +81,11 @@ else
     log_info "⚠ Ollama service not ready yet"
 fi
 
-# Check Agent Zero
+# Check Agent Jumbo
 if curl -s http://localhost:50080 &>/dev/null; then
-    log_info "✓ Agent Zero UI accessible at http://localhost:50080"
+    log_info "✓ Agent Jumbo UI accessible at http://localhost:50080"
 else
-    log_info "⚠ Agent Zero UI not ready yet (may still be starting)"
+    log_info "⚠ Agent Jumbo UI not ready yet (may still be starting)"
 fi
 
 log_info "Build complete!"

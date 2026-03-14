@@ -611,6 +611,6 @@ if __name__ == "__main__":
 - Testing guide: `DEVOPS_DEPLOY_TESTING_PLAN.md`
 - Source code: `python/tools/deployment_strategies/kubernetes.py`
 
-**Repository**: <https://github.com/agent-zero-deploy/agent-zero-devops>
+**Repository**: <https://github.com/agent-jumbo-deploy/agent-jumbo-devops>
 
 **Status**: Production Ready ✅

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 
 from agent import LoopData
@@ -85,13 +86,25 @@ class PromptEnhancer(Extension):
         tool_context = ""
         if suggested_tools:
             tool_list = ", ".join(suggested_tools)
-            tool_context = f"\n\nRelevant Agent Zero tools for this request: {tool_list}"
+            tool_context = f"\n\nRelevant Agent Jumbo tools for this request: {tool_list}"
 
         message_prompt = self.agent.read_prompt("prompt.enhance.msg.md", user_message=user_text) + tool_context
 
         try:
-            # Use LLM Router for model selection if available
-            enhanced = await self._call_enhance_model(system_prompt, message_prompt)
+            # Keep enhancement from blocking the main execution path.
+            timeout_seconds = int(set.get("prompt_enhance_timeout_seconds", 8) or 8)
+            enhanced = await asyncio.wait_for(
+                self._call_enhance_model(system_prompt, message_prompt),
+                timeout=timeout_seconds,
+            )
+        except TimeoutError:
+            self.agent.context.log.log(
+                type="warning",
+                content=("Prompt enhancement timed out. " "Continuing with original user prompt."),
+            )
+            if set.get("prompt_enhance_fail_open", True):
+                return
+            raise
         except Exception as e:
             self.agent.context.log.log(type="warning", content=f"Prompt enhancement failed: {e}")
             return

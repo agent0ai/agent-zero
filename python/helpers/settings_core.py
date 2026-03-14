@@ -88,6 +88,12 @@ class Settings(TypedDict):
     chat_background_timeout_seconds: int
     chat_stale_intervention_seconds: int
     prompt_build_extension_timeout_seconds: int
+    startup_auto_select_enabled: bool
+    startup_selection_goal: str
+    startup_context_priority: str
+    startup_fallback_policy: str
+    startup_fallback_chain: list[str]
+    startup_active_project: str
 
     memory_recall_enabled: bool
     memory_recall_delayed: bool
@@ -184,6 +190,13 @@ class Settings(TypedDict):
     enable_persona_systems: bool
     max_concurrent_sessions: int
     perf_slo_profile: str
+
+    # MOS integration API keys
+    linear_api_key: str
+    linear_default_team_id: str
+    motion_api_key: str
+    notion_api_key: str
+    notion_default_database_id: str
 
 
 class PartialSettings(Settings, total=False):
@@ -499,6 +512,12 @@ def get_default_settings() -> Settings:
         chat_background_timeout_seconds=300,
         chat_stale_intervention_seconds=45,
         prompt_build_extension_timeout_seconds=20,
+        startup_auto_select_enabled=True,
+        startup_selection_goal="reliability",
+        startup_context_priority="project",
+        startup_fallback_policy="chain",
+        startup_fallback_chain=["claude_local", "codex_local", "native_local", "native_gemini"],
+        startup_active_project="",
         rfc_auto_docker=True,
         rfc_url="localhost",
         rfc_password="",
@@ -547,4 +566,9 @@ def get_default_settings() -> Settings:
         enable_persona_systems=enable_persona,
         max_concurrent_sessions=max_concurrent_sessions,
         perf_slo_profile=perf_profile,
+        linear_api_key=dotenv.get_dotenv_value("LINEAR_API_KEY", ""),
+        linear_default_team_id=dotenv.get_dotenv_value("LINEAR_DEFAULT_TEAM_ID", ""),
+        motion_api_key=dotenv.get_dotenv_value("MOTION_API_KEY", ""),
+        notion_api_key=dotenv.get_dotenv_value("NOTION_API_KEY", ""),
+        notion_default_database_id=dotenv.get_dotenv_value("NOTION_DEFAULT_DATABASE_ID", ""),
     )

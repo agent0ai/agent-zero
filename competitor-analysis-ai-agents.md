@@ -239,7 +239,7 @@
 - [Dify 100K Stars Announcement](https://dify.ai/blog/100k-stars-on-github-thank-you-to-our-amazing-open-source-community)
 - [Microsoft Agent Framework Overview](https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview)
 - [7 Open-Source Frameworks for Deploying AI Bots to Messaging Platforms in 2026](https://aibotbuilder.hashnode.dev/7-open-source-frameworks-for-deploying-ai-bots-to-messaging-platforms-in-2026)
-- [Agent Zero vs OpenClaw Comparison](https://www.creolestudios.com/agent-zero-vs-openclaw/)
+- [Agent Jumbo vs OpenClaw Comparison](https://www.creolestudios.com/agent-jumbo-vs-openclaw/)
 - [OpenClaw Skills Guide (DigitalOcean)](https://www.digitalocean.com/resources/articles/what-are-openclaw-skills)
 - [OpenClaw Docker Production Guide](https://openclawconsult.com/lab/openclaw-docker)
 - [OpenClaw Heartbeat Docs](https://docs.openclaw.ai/gateway/heartbeat)

@@ -1,7 +1,7 @@
 """
 Finance Report Tool
 
-Converted from Mahoosuc OS /finance:report command to native Agent Zero tool.
+Converted from Mahoosuc OS /finance:report command to native Agent Jumbo tool.
 Generates financial reports (income, balance, cashflow, P&L).
 
 Source: .claude/commands/finance/report.md

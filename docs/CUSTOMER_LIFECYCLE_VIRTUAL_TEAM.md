@@ -2,15 +2,16 @@
 
 ## Overview
 
-This guide covers the new **Customer Lifecycle Manager** and **Virtual Team Orchestrator** features added to Agent Zero.
+This guide covers the new **Customer Lifecycle Manager** and **Virtual Team Orchestrator** features added to Agent Jumbo.
 
 ### Features
+
 - **Customer Lifecycle Manager**: Automates lead → customer → delivery cycle
 - **Virtual Team Orchestrator**: Coordinates specialized AI agents (architect, developer, DBA, QA, DevOps)
 
 ## Installation
 
-These features are installed as custom instruments in Agent Zero:
+These features are installed as custom instruments in Agent Jumbo:
 
 ```
 instruments/custom/
@@ -27,10 +28,12 @@ instruments/custom/
 ### Tool Integration
 
 Tools are registered in `python/tools/`:
+
 - `customer_lifecycle.py` - Customer lifecycle management tool
 - `virtual_team.py` - Virtual team orchestration tool
 
 Prompts are in `prompts/`:
+
 - `agent.system.tool.customer_lifecycle.md` - Customer lifecycle tool documentation
 - `agent.system.tool.virtual_team.md` - Virtual team tool documentation
 
@@ -213,8 +216,8 @@ Prompts are in `prompts/`:
   project_id=8
 )}}
 # workflow_id = 2
-# Creates tasks: architect → design (1), dba → schema (1), 
-# developer → backend/frontend (2), qa → testing (1), 
+# Creates tasks: architect → design (1), dba → schema (1),
+# developer → backend/frontend (2), qa → testing (1),
 # security → review (1), devops → deployment (1)
 
 # === STEP 9: Monitor Progress ===
@@ -260,6 +263,7 @@ Prompts are in `prompts/`:
 ### Manual Testing
 
 #### Customer Lifecycle
+
 ```bash
 # Test lead capture
 1. Capture 3 leads with different industries
@@ -272,6 +276,7 @@ Prompts are in `prompts/`:
 ```
 
 #### Virtual Team
+
 ```bash
 # Test task routing
 1. Route 5 different task types
@@ -295,7 +300,7 @@ from instruments.custom.customer_lifecycle.lifecycle_manager import CustomerLife
 
 def test_full_lifecycle():
     manager = CustomerLifecycleManager("data/test_lifecycle.db")
-    
+
     # Test 1: Capture lead
     lead = manager.capture_lead(
         name="Test Customer",
@@ -304,7 +309,7 @@ def test_full_lifecycle():
     )
     assert lead['customer_id'] > 0
     print("✓ Lead capture works")
-    
+
     # Test 2: Interview
     interview = manager.conduct_requirements_interview(
         customer_id=lead['customer_id'],
@@ -312,7 +317,7 @@ def test_full_lifecycle():
     )
     assert interview['requirement_id'] > 0
     print("✓ Requirements interview works")
-    
+
     # Test 3: Solution design
     solution = manager.design_solution(
         customer_id=lead['customer_id'],
@@ -320,7 +325,7 @@ def test_full_lifecycle():
     )
     assert solution['solution_id'] > 0
     print("✓ Solution design works")
-    
+
     # Test 4: Proposal
     proposal = manager.generate_proposal(
         customer_id=lead['customer_id'],
@@ -328,12 +333,12 @@ def test_full_lifecycle():
     )
     assert proposal['proposal_id'] > 0
     print("✓ Proposal generation works")
-    
+
     # Test 5: Customer health
     health = manager.get_customer_health_score(lead['customer_id'])
     assert health['health_score'] >= 0
     print("✓ Customer health check works")
-    
+
     print("\n✅ All customer lifecycle tests passed!")
 
 if __name__ == "__main__":
@@ -350,7 +355,7 @@ from instruments.custom.virtual_team.team_orchestrator import VirtualTeamOrchest
 
 def test_team_orchestration():
     orchestrator = VirtualTeamOrchestrator("data/test_team.db")
-    
+
     # Test 1: Route task
     task = orchestrator.route_task(
         task_name="Test Architecture",
@@ -359,7 +364,7 @@ def test_team_orchestration():
     )
     assert task['task_id'] > 0
     print("✓ Task routing works")
-    
+
     # Test 2: Delegate to specialist
     delegation = orchestrator.delegate_to_specialist(
         task_name="Test Development",
@@ -368,7 +373,7 @@ def test_team_orchestration():
     )
     assert delegation['task_id'] > 0
     print("✓ Specialist delegation works")
-    
+
     # Test 3: Start workflow
     workflow = orchestrator.start_workflow(
         workflow_name="Test Workflow",
@@ -377,17 +382,17 @@ def test_team_orchestration():
     assert workflow['workflow_id'] > 0
     assert workflow['tasks_created'] > 0
     print("✓ Workflow creation works")
-    
+
     # Test 4: Get workflow progress
     progress = orchestrator.get_workflow_progress(workflow['workflow_id'])
     assert 'progress_percentage' in progress
     print("✓ Workflow progress tracking works")
-    
+
     # Test 5: Team dashboard
     dashboard = orchestrator.get_team_dashboard()
     assert dashboard['active_agents'] > 0
     print("✓ Team dashboard works")
-    
+
     print("\n✅ All virtual team tests passed!")
 
 if __name__ == "__main__":
@@ -395,6 +400,7 @@ if __name__ == "__main__":
 ```
 
 Run tests:
+
 ```bash
 cd tests
 python test_customer_lifecycle.py
@@ -404,6 +410,7 @@ python test_virtual_team.py
 ## Integration Patterns
 
 ### Pattern 1: Lead to Delivery
+
 ```
 Customer Lifecycle → Virtual Team → Portfolio Manager
 ```
@@ -418,6 +425,7 @@ Customer Lifecycle → Virtual Team → Portfolio Manager
 8. Monitor progress (Virtual Team + Portfolio Manager)
 
 ### Pattern 2: Parallel Development
+
 ```
 Virtual Team (parallel tasks) → Customer Lifecycle (updates)
 ```
@@ -432,20 +440,23 @@ Virtual Team (parallel tasks) → Customer Lifecycle (updates)
 ### Database Issues
 
 **Problem**: Database file not found
+
 ```
 Solution: Databases auto-create in instruments/custom/*/data/
 Check file permissions in data/ directory
 ```
 
 **Problem**: SQLite locked error
+
 ```
 Solution: Close connections properly
-Restart Agent Zero if needed
+Restart Agent Jumbo if needed
 ```
 
 ### Task Assignment Issues
 
 **Problem**: No agent available for task
+
 ```
 Solution: Check agent initialization in VirtualTeamOrchestrator
 Verify agent role matches task requirements
@@ -453,6 +464,7 @@ Call list_agents to see registered agents
 ```
 
 **Problem**: Task stuck in pending
+
 ```
 Solution: Check task_queue for pending tasks
 Manually assign using assign_task
@@ -470,6 +482,7 @@ Verify workflow dependencies
 ## Next Steps
 
 ### Phase 3 Enhancements (Planned)
+
 - Multi-tenant SaaS Manager (blueprint solutions)
 - AI-powered requirement analysis
 - Automated proposal customization
@@ -479,11 +492,12 @@ Verify workflow dependencies
 ## Support
 
 For issues or questions:
+
 1. Check tool documentation: `prompts/agent.system.tool.*.md`
 2. Review database schemas: `instruments/custom/*/db.py`
 3. Run test scripts to verify functionality
-4. Check Agent Zero logs for errors
+4. Check Agent Jumbo logs for errors
 
 ## License
 
-Inherits Agent Zero license (see LICENSE in project root)
+Inherits Agent Jumbo license (see LICENSE in project root)

@@ -1,6 +1,6 @@
 # Agent Jumbo Deployment Guide
 
-> This guide covers deploying Agent Jumbo (Agent Zero DevOps fork) to Vercel with full CI/CD automation.
+> This guide covers deploying Agent Jumbo (Agent Jumbo DevOps fork) to Vercel with full CI/CD automation.
 
 ## Quick Start
 
@@ -17,7 +17,7 @@
 
    ```bash
    # Clone repository
-   git clone https://github.com/agent-zero-deploy/agent-jumbo.git
+   git clone https://github.com/agent-jumbo-deploy/agent-jumbo.git
    cd agent-jumbo
 
    # Create feature branch for deployment setup
@@ -174,7 +174,7 @@ Agent Jumbo uses a multi-layer deployment architecture:
    | Variable | Example | Required |
    |----------|---------|----------|
    | NEXT_PUBLIC_API_URL | <https://api.example.com> | Yes |
-   | NEXT_PUBLIC_GITHUB_REPO | agent-zero-deploy/agent-jumbo | Yes |
+   | NEXT_PUBLIC_GITHUB_REPO | agent-jumbo-deploy/agent-jumbo | Yes |
    | NEXT_PUBLIC_GA_ID | G-XXXXXXXXXX | No |
    | NEXT_PUBLIC_URL | <https://agent-jumbo.vercel.app> | Yes |
 

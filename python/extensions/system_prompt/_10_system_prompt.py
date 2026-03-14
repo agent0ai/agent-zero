@@ -40,6 +40,10 @@ def get_tools_prompt(agent: Agent):
 
 
 def get_mcp_tools_prompt(agent: Agent):
+    # Fail-open default on constrained/local environments:
+    # collecting MCP tool catalogs can stall prompt assembly.
+    if not get_settings().get("mcp_tools_in_system_prompt_enabled", False):
+        return ""
     mcp_config = MCPConfig.get_instance()
     if mcp_config.servers:
         pre_progress = agent.context.log.progress

@@ -3,6 +3,7 @@
 The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generation, Docker configuration, Kubernetes manifests, and deployment management.
 
 ## Purpose
+
 - Generate CI/CD pipelines for GitHub Actions, GitLab CI, Azure Pipelines
 - Create Docker configurations with multi-stage builds
 - Generate Kubernetes deployment manifests
@@ -16,6 +17,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ### Project Registration
 
 #### 1. register_project
+
 **Register a project for deployment management**
 
 ```
@@ -29,6 +31,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `name` (required): Project name
 - `project_path` (required): Path to project
 - `project_type` (optional): web, api, cli, microservice
@@ -51,6 +54,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ### CI/CD Pipeline Generation
 
 #### 3. generate_cicd
+
 **Generate CI/CD pipeline configuration**
 
 ```
@@ -66,6 +70,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 - `platform` (optional): github_actions, gitlab_ci, azure_pipelines (default: github_actions)
 - `include_tests` (optional): Include test job (default: true)
@@ -76,6 +81,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 **Returns:** pipeline_id, config_path, full pipeline configuration
 
 **Supported Languages:**
+
 - Python (pytest, ruff)
 - JavaScript/TypeScript (npm test, npm run lint)
 - Go (go test, golangci-lint)
@@ -94,6 +100,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ### Docker Configuration
 
 #### 5. generate_docker
+
 **Generate Docker configuration**
 
 ```
@@ -107,6 +114,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 - `port` (optional): Application port (default: 8000)
 - `include_compose` (optional): Generate docker-compose.yml (default: true)
@@ -115,6 +123,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 **Returns:** Dockerfile, docker-compose.yml, .dockerignore
 
 **Generated Files:**
+
 - Dockerfile (optimized for production)
 - docker-compose.yml (with optional database service)
 - .dockerignore (language-specific exclusions)
@@ -132,6 +141,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ### Kubernetes Manifests
 
 #### 7. generate_k8s
+
 **Generate Kubernetes manifests**
 
 ```
@@ -147,6 +157,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 - `replicas` (optional): Number of replicas (default: 2)
 - `port` (optional): Container port (default: 8000)
@@ -157,6 +168,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 **Returns:** Deployment, Service, Ingress manifests
 
 **Generated Manifests:**
+
 - Deployment with resource limits and probes
 - ClusterIP Service
 - Ingress with nginx annotations
@@ -174,6 +186,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 - `manifest_type` (optional): Filter by type (deployment, service, ingress)
 
@@ -182,6 +195,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ### Environment Management
 
 #### 9. setup_environment
+
 **Set up a deployment environment**
 
 ```
@@ -198,6 +212,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 - `name` (required): Environment name
 - `env_type` (optional): development, staging, production (default: staging)
@@ -219,6 +234,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ### Deployment Status
 
 #### 11. get_deployment_dashboard
+
 **Get comprehensive deployment dashboard**
 
 ```
@@ -229,6 +245,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 
 **Returns:** Environment status, recent deployments, pipeline count
@@ -236,6 +253,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ---
 
 #### 12. health_check
+
 **Check health status of deployments**
 
 ```
@@ -247,6 +265,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 **Parameters:**
+
 - `project_id` (required): Project ID
 - `environment_id` (optional): Specific environment
 
@@ -255,6 +274,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ---
 
 #### 13. list_deployments
+
 **List recent deployments**
 
 ```
@@ -270,6 +290,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ## Typical Workflows
 
 ### Complete Deployment Setup
+
 ```
 # 1. Register the project
 {{deployment_orchestrator(
@@ -323,6 +344,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ```
 
 ### Quick Container Setup
+
 ```
 # Register and generate Docker in one flow
 {{deployment_orchestrator(action="register_project", name="App", project_path="/app")}}
@@ -334,6 +356,7 @@ The **deployment_orchestrator** tool provides end-to-end CI/CD pipeline generati
 ## Generated Configuration Examples
 
 ### GitHub Actions (Python)
+
 ```yaml
 name: CI/CD for My API
 
@@ -361,6 +384,7 @@ jobs:
 ```
 
 ### Multi-Stage Dockerfile (Python)
+
 ```dockerfile
 # Build stage
 FROM python:3.11-slim AS builder
@@ -380,6 +404,7 @@ CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000
 ```
 
 ### Kubernetes Deployment
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -413,7 +438,9 @@ spec:
 ## Integration with Other Tools
 
 ### With Project Scaffold
+
 Deploy scaffolded projects:
+
 ```
 {{project_scaffold(action="scaffold_project", template="api/fastapi", ...)}}
 {{deployment_orchestrator(action="register_project", name="New API", project_path="...")}}
@@ -421,14 +448,18 @@ Deploy scaffolded projects:
 ```
 
 ### With Portfolio Manager
+
 Track deployed products:
+
 ```
-{{portfolio_manager(action="add", project_path="/projects/api")}}
+{{portfolio_manager_tool(action="add", project_path="/projects/api")}}
 {{deployment_orchestrator(action="register_project", ...)}}
 ```
 
 ### With Diagram Architect
+
 Include deployment in architecture docs:
+
 ```
 {{diagram_architect(action="analyze_architecture", project_path="...")}}
 {{deployment_orchestrator(action="generate_k8s", ...)}}
@@ -437,6 +468,7 @@ Include deployment in architecture docs:
 ---
 
 ## Notes
+
 - Auto-detects project language from files (package.json, requirements.txt, go.mod)
 - Generates production-ready configurations
 - Multi-stage Docker builds minimize image size

@@ -3,7 +3,9 @@
 The **customer_lifecycle** tool automates the complete customer journey from lead capture through solution delivery and ongoing support.
 
 ## Purpose
+
 Manage end-to-end customer lifecycle including:
+
 - Lead capture and qualification
 - Requirements gathering through structured interviews
 - Solution architecture design
@@ -14,6 +16,7 @@ Manage end-to-end customer lifecycle including:
 ## Available Actions
 
 ### 1. capture_lead
+
 **Capture new lead and initiate qualification process**
 
 ```
@@ -31,6 +34,7 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `name` (required): Lead contact name
 - `company` (optional): Company name
 - `email` (optional): Contact email
@@ -45,6 +49,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 2. conduct_interview
+
 **Conduct structured requirements gathering interview**
 
 ```
@@ -63,6 +68,7 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `customer_id` (required): Customer ID from lead capture
 - `responses` (required): Dictionary of question/answer pairs
 - `questions` (optional): Custom interview questions (uses defaults if not provided)
@@ -70,6 +76,7 @@ Manage end-to-end customer lifecycle including:
 **Returns:** Requirement ID, structured requirements, pain points, success criteria
 
 **Default Interview Questions:**
+
 1. What business problem are you trying to solve?
 2. Who are the primary users/stakeholders?
 3. What are your main pain points with current solutions?
@@ -84,6 +91,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 3. design_solution
+
 **Design solution architecture based on requirements**
 
 ```
@@ -101,6 +109,7 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `customer_id` (required): Customer ID
 - `requirement_id` (optional): Specific requirement (uses latest if not provided)
 - `solution_name` (optional): Solution name
@@ -111,6 +120,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 4. generate_proposal
+
 **Generate comprehensive customer proposal**
 
 ```
@@ -124,6 +134,7 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `customer_id` (required): Customer ID
 - `solution_id` (optional): Solution ID (uses latest if not provided)
 - `pricing_model` (optional): "fixed_price", "time_materials", "milestone_based" (default: "fixed_price")
@@ -132,6 +143,7 @@ Manage end-to-end customer lifecycle including:
 **Returns:** Proposal ID, content, cost, timeline, deliverables
 
 **Pricing Models:**
+
 - `fixed_price`: Fixed total cost
 - `time_materials`: Hourly/daily rates
 - `milestone_based`: Payment tied to deliverables
@@ -139,6 +151,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 5. track_proposal
+
 **Track proposal status and follow-up actions**
 
 ```
@@ -150,12 +163,14 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `proposal_id` (required): Proposal ID
 - `status` (optional): Update status ("draft", "sent", "accepted", "rejected")
 
 **Returns:** Proposal status, days pending, recommended follow-up action
 
 **Proposal Statuses:**
+
 - `draft`: Not yet sent
 - `sent`: Awaiting customer response
 - `accepted`: Customer accepted (auto-promotes to "customer" stage)
@@ -164,6 +179,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 6. get_customer_view
+
 **Get 360-degree view of customer**
 
 ```
@@ -174,9 +190,11 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `customer_id` (required): Customer ID
 
 **Returns:** Complete customer profile including:
+
 - Basic info (name, company, contact)
 - Requirements sessions count
 - Solutions designed count
@@ -188,6 +206,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 7. check_customer_health
+
 **Calculate customer health score and get recommendations**
 
 ```
@@ -198,16 +217,19 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `customer_id` (required): Customer ID
 
 **Returns:** Health score (0-100), status, factors, recommendations
 
 **Health Statuses:**
+
 - `healthy` (80-100): All systems go
 - `at_risk` (60-79): Needs attention
 - `critical` (0-59): Urgent intervention needed
 
 **Health Factors:**
+
 - Support ticket volume
 - Active project count
 - Project completion rate
@@ -216,6 +238,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 8. get_pipeline_summary
+
 **Get sales pipeline analytics**
 
 ```
@@ -227,6 +250,7 @@ Manage end-to-end customer lifecycle including:
 **Returns:** Customers by stage, proposals by status, total values
 
 **Customer Stages:**
+
 - `lead`: Initial contact, not qualified
 - `prospect`: Qualified, requirements gathered
 - `customer`: Active contract/project
@@ -235,6 +259,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 9. update_customer_stage
+
 **Manually update customer lifecycle stage**
 
 ```
@@ -246,6 +271,7 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `customer_id` (required): Customer ID
 - `stage` (required): New stage ("lead", "prospect", "customer", "churned")
 
@@ -254,6 +280,7 @@ Manage end-to-end customer lifecycle including:
 ---
 
 ### 10. list_customers
+
 **List customers with optional filters**
 
 ```
@@ -266,6 +293,7 @@ Manage end-to-end customer lifecycle including:
 ```
 
 **Parameters:**
+
 - `stage` (optional): Filter by stage
 - `industry` (optional): Filter by industry
 - `limit` (optional): Max results
@@ -276,7 +304,8 @@ Manage end-to-end customer lifecycle including:
 
 ## Typical Workflow
 
-### Lead to Customer Journey:
+### Lead to Customer Journey
+
 1. **Capture Lead** → Get customer_id
 2. **Conduct Interview** → Gather requirements
 3. **Design Solution** → Create architecture
@@ -285,7 +314,8 @@ Manage end-to-end customer lifecycle including:
 6. **Update Stage to "customer"** (when accepted)
 7. **Check Health** → Ongoing monitoring
 
-### Example Complete Flow:
+### Example Complete Flow
+
 ```
 # Step 1: Capture lead
 {{customer_lifecycle(action="capture_lead", name="Sarah Johnson", company="MedTech Inc", email="sarah@medtech.com", industry="Healthcare")}}
@@ -315,18 +345,22 @@ Manage end-to-end customer lifecycle including:
 
 ## Integration with Other Tools
 
-### With Portfolio Manager:
+### With Portfolio Manager
+
 After proposal acceptance, create project:
+
 ```
 # Customer accepted proposal
 {{customer_lifecycle(action="track_proposal", proposal_id=7, status="accepted")}}
 
 # Create project in portfolio
-{{portfolio_manager(action="create_project", project_name="MedTech Patient Portal", client="MedTech Inc")}}
+{{portfolio_manager_tool(action="create_project", project_name="MedTech Patient Portal", client="MedTech Inc")}}
 ```
 
-### With Virtual Team:
+### With Virtual Team
+
 Route solution design to specialized agents:
+
 ```
 # Get solution architecture
 {{customer_lifecycle(action="design_solution", customer_id=5)}}
@@ -349,6 +383,7 @@ Route solution design to specialized agents:
 ---
 
 ## Notes
+
 - Database auto-creates on first use
 - All timestamps in ISO format
 - Proposal numbers auto-generated (PROP-{customer_id}-{count})

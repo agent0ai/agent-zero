@@ -30,7 +30,7 @@ function formatSize(bytes?: number): string {
 
 export default function BackupsPage() {
   const [modalOpen, setModalOpen] = useState(false)
-  const [backupName, setBackupName] = useState('agent-zero-backup')
+  const [backupName, setBackupName] = useState('agent-jumbo-backup')
   const { data: previewData, isLoading: previewLoading } = useBackupPreview()
   const createBackup = useCreateBackup()
 
@@ -40,7 +40,7 @@ export default function BackupsPage() {
     createBackup.mutate(backupName, {
       onSuccess: () => {
         setModalOpen(false)
-        setBackupName('agent-zero-backup')
+        setBackupName('agent-jumbo-backup')
       },
     })
   }
@@ -70,7 +70,7 @@ export default function BackupsPage() {
             label="Backup Name"
             value={backupName}
             onChange={(e) => setBackupName(e.target.value)}
-            placeholder="agent-zero-backup"
+            placeholder="agent-jumbo-backup"
           />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>

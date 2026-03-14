@@ -1,0 +1,35 @@
+{
+  "date": "2026-03-08",
+  "pricing_profile": {
+    "seat_price_usd": 39,
+    "included_events": 10000,
+    "billing_unit": 1000,
+    "unit_price_usd": 0.5
+  },
+  "defaults": {
+    "days_per_month": 30,
+    "growth_buffer_pct": 20,
+    "tool_events_per_turn": 1,
+    "ops_hourly_rate_usd": 120
+  },
+  "projects": [
+    {
+      "name": "agent-jumbo-main",
+      "active_users": 8,
+      "sessions_per_user_per_day": 5,
+      "avg_turns_per_session": 12,
+      "team_seats": 6,
+      "infra_monthly_usd": 250,
+      "ops_hours_per_month": 6
+    },
+    {
+      "name": "client-project-a",
+      "active_users": 5,
+      "sessions_per_user_per_day": 4,
+      "avg_turns_per_session": 10,
+      "team_seats": 3,
+      "infra_monthly_usd": 180,
+      "ops_hours_per_month": 4
+    }
+  ]
+}

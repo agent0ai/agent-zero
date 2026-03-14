@@ -1,5 +1,5 @@
 const GITHUB_API_BASE = 'https://api.github.com'
-const REPO = process.env.NEXT_PUBLIC_GITHUB_REPO || 'agent-zero-deploy/agent-jumbo'
+const REPO = process.env.NEXT_PUBLIC_GITHUB_REPO || 'agent-jumbo-deploy/agent-jumbo'
 
 export async function getRepoStats() {
   try {

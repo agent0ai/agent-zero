@@ -35,7 +35,8 @@
         <!-- Container for textarea and expand button -->
         <div id="chat-input-container" style="position: relative;">
             <textarea id="chat-input" placeholder="Type your message here..." rows="1"
-                      @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
+                      :placeholder="$store.chatTop && $store.chatTop.connectionState !== 'ready' ? ($store.chatTop.connectionMessage || 'Backend not ready') : 'Type your message here...'"
+                      @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); if ($store.chatTop && $store.chatTop.connectionState === 'ready') { $store.chatInput.sendMessage(); } }"
                       @input="$store.chatInput.adjustTextareaHeight(); document.dispatchEvent(new CustomEvent('skillsSuggest:analyze', { detail: { text: $event.target.value } }))"
                       @keydown.tab="if ($store.skillsSuggest && $store.skillsSuggest.contextSuggestions.length > 0) { $event.preventDefault(); $store.skillsSuggest.show(); }"></textarea>
             <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">
@@ -45,9 +46,17 @@
             </button>
         </div>
 
+        <div class="backend-status-pill"
+             x-show="$store.chatTop && $store.chatTop.connectionState !== 'ready'"
+             :class="'state-' + ($store.chatTop ? $store.chatTop.connectionState : 'connecting')"
+             x-text="$store.chatTop ? $store.chatTop.connectionMessage : 'Connecting to backend...'">
+        </div>
+
         <div id="chat-buttons-wrapper">
             <!-- Send button -->
             <button class="chat-button" id="send-button" aria-label="Send message"
+                    :disabled="$store.chatTop && $store.chatTop.connectionState !== 'ready'"
+                    :title="$store.chatTop && $store.chatTop.connectionState !== 'ready' ? ($store.chatTop.connectionMessage || 'Backend not ready') : 'Send message'"
                     @click="$store.chatInput.sendMessage()">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
                     <path d="M25 20 L75 50 L25 80" fill="none" stroke="currentColor" stroke-width="15"></path>
@@ -71,7 +80,7 @@
     <style>
     /* Layout rows */
     .input-row { display: flex; align-items: center; gap: var(--spacing-xs); width: 100%; white-space: nowrap; }
-    
+
     /* Attachments icon + tooltip */
     .attachment-wrapper { position: relative; flex-shrink: 0; }
     .attachment-icon { cursor: pointer; color: var(--color-text); opacity: 0.7; transition: opacity 0.2s ease; display: flex; align-items: center; }
@@ -127,7 +136,12 @@
     #send-button { background-color: #4248f1; }
     #send-button:hover { -webkit-transform: scale(1.05); transform: scale(1.05); transform-origin: center; background-color: #353bc5; }
     #send-button:active { -webkit-transform: scale(1); transform: scale(1); transform-origin: center; background-color: #2b309c; }
+    #send-button:disabled { background-color: #5f6478; cursor: not-allowed; transform: none; opacity: 0.7; }
     .chat-button svg { width: 1.5rem; height: 1.5rem; }
+    .backend-status-pill { font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0; border: 1px solid transparent; }
+    .backend-status-pill.state-connecting { color: #9ec5fe; background: rgba(13,110,253,0.15); border-color: rgba(13,110,253,0.35); }
+    .backend-status-pill.state-warming { color: #ffd78a; background: rgba(253, 126, 20, 0.16); border-color: rgba(253, 126, 20, 0.4); }
+    .backend-status-pill.state-offline { color: #ffb3bb; background: rgba(220,53,69,0.15); border-color: rgba(220,53,69,0.4); }
     /* Microphone button */
     .chat-button.mic-inactive svg { /* Add specific styles if needed */ }
     /* Tooltip */
@@ -141,4 +155,3 @@
     </style>
 </body>
 </html>
-

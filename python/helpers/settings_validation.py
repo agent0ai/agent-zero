@@ -136,6 +136,39 @@ if _HAS_PYDANTIC:
         llm_local_only_mode: bool = True
         llm_cloud_fallback_enabled: bool = False
 
+    class StartupSelectionValidator(BaseModel):
+        """Validates startup auto-selection policy."""
+
+        startup_auto_select_enabled: bool = True
+        startup_selection_goal: str = "reliability"
+        startup_context_priority: str = "project"
+        startup_fallback_policy: str = "chain"
+        startup_fallback_chain: list[str] = ["claude_local", "codex_local", "native_local", "native_gemini"]
+
+        @field_validator("startup_selection_goal")
+        @classmethod
+        def valid_goal(cls, v: str) -> str:
+            normalized = v.strip().lower()
+            if normalized not in {"reliability", "quality", "cost"}:
+                raise ValueError("startup_selection_goal must be one of: reliability, quality, cost")
+            return normalized
+
+        @field_validator("startup_context_priority")
+        @classmethod
+        def valid_context_priority(cls, v: str) -> str:
+            normalized = v.strip().lower()
+            if normalized not in {"project", "user", "system"}:
+                raise ValueError("startup_context_priority must be one of: project, user, system")
+            return normalized
+
+        @field_validator("startup_fallback_policy")
+        @classmethod
+        def valid_fallback_policy(cls, v: str) -> str:
+            normalized = v.strip().lower()
+            if normalized not in {"chain", "hard_fail", "retry"}:
+                raise ValueError("startup_fallback_policy must be one of: chain, hard_fail, retry")
+            return normalized
+
 
 # ---------------------------------------------------------------------------
 # Unified validator
@@ -261,5 +294,25 @@ class SettingsValidator:
             validated["llm_cloud_fallback_enabled"] = llm.llm_cloud_fallback_enabled
         except Exception as exc:
             warnings.append(f"llm-routing: {exc}")
+
+        # --- startup auto-selection ---
+        try:
+            startup = StartupSelectionValidator(
+                startup_auto_select_enabled=raw.get("startup_auto_select_enabled", True),
+                startup_selection_goal=raw.get("startup_selection_goal", "reliability"),
+                startup_context_priority=raw.get("startup_context_priority", "project"),
+                startup_fallback_policy=raw.get("startup_fallback_policy", "chain"),
+                startup_fallback_chain=raw.get(
+                    "startup_fallback_chain",
+                    ["claude_local", "codex_local", "native_local", "native_gemini"],
+                ),
+            )
+            validated["startup_auto_select_enabled"] = startup.startup_auto_select_enabled
+            validated["startup_selection_goal"] = startup.startup_selection_goal
+            validated["startup_context_priority"] = startup.startup_context_priority
+            validated["startup_fallback_policy"] = startup.startup_fallback_policy
+            validated["startup_fallback_chain"] = startup.startup_fallback_chain
+        except Exception as exc:
+            warnings.append(f"startup-selection: {exc}")
 
         return validated, warnings

@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "🚀 Agent Zero - Full Stack (Recommended)",
+      "name": "🚀 Agent Jumbo - Full Stack (Recommended)",
       "type": "python",
       "request": "launch",
       "module": "agent",
@@ -15,7 +15,7 @@
         "AGENT_ENV": "development",
         "ENABLE_MEMORY": "true"
       },
-      "preLaunchTask": "agent-zero:setup"
+      "preLaunchTask": "agent-jumbo:setup"
     },
     {
       "name": "🔧 Web UI Server (port 5000)",
@@ -156,7 +156,7 @@
         "docker",
         "exec",
         "-it",
-        "agent-zero",
+        "agent-jumbo",
         "bash"
       ]
     },
@@ -245,7 +245,7 @@
       "configurations": [
         "🔧 Web UI Server (port 5000)",
         "⚡ API Server (port 8000)",
-        "🚀 Agent Zero - Full Stack (Recommended)"
+        "🚀 Agent Jumbo - Full Stack (Recommended)"
       ],
       "stopAll": true
     },

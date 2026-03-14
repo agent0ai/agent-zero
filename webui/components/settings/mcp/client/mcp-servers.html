@@ -25,6 +25,11 @@
                         <span x-show="!$store.mcpServersStore.reloadingTools">Reload MCP Tools</span>
                         <span x-show="$store.mcpServersStore.reloadingTools">Reloading...</span>
                     </button>
+                    <button class="btn slim" :disabled="$store.mcpServersStore.estimatingUsage"
+                        style="margin-left: 0.5em;" @click="$store.mcpServersStore.estimateObservabilityUsage()">
+                        <span x-show="!$store.mcpServersStore.estimatingUsage">Estimate Observability Usage</span>
+                        <span x-show="$store.mcpServersStore.estimatingUsage">Estimating...</span>
+                    </button>
                 </h3>
                 <div id="mcp-servers-config-json"></div>
 
@@ -38,6 +43,20 @@
                         x-text="' duration=' + $store.mcpServersStore.lastReloadMeta.cache.duration_ms + 'ms'"></span>
                     <span x-show="$store.mcpServersStore.lastReloadMeta.cache && $store.mcpServersStore.lastReloadMeta.cache.error"
                         x-text="' error=' + $store.mcpServersStore.lastReloadMeta.cache.error"></span>
+                </div>
+
+                <div class="reload-status" x-show="$store.mcpServersStore.observabilityEstimate">
+                    <span><strong>Observability estimate ready</strong></span>
+                    <span x-show="$store.mcpServersStore.observabilityEstimate.project_count !== undefined"
+                        x-text="' projects=' + $store.mcpServersStore.observabilityEstimate.project_count"></span>
+                    <span x-show="$store.mcpServersStore.observabilityEstimate.totals"
+                        x-text="' events=' + $store.mcpServersStore.observabilityEstimate.totals.buffered_events"></span>
+                    <span x-show="$store.mcpServersStore.observabilityEstimate.totals"
+                        x-text="' commercial=$' + $store.mcpServersStore.observabilityEstimate.totals.commercial_total_usd"></span>
+                    <span x-show="$store.mcpServersStore.observabilityEstimate.totals"
+                        x-text="' self-hosted=$' + $store.mcpServersStore.observabilityEstimate.totals.self_hosted_total_usd"></span>
+                    <span x-show="$store.mcpServersStore.observabilityEstimate.error"
+                        x-text="' error=' + $store.mcpServersStore.observabilityEstimate.error"></span>
                 </div>
 
                 <h3 id="mcp-servers-status">Servers status (refreshing automatically)</h3>

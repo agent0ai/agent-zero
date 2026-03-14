@@ -1,10 +1,10 @@
-# Agent Zero vs. Competitors: Comprehensive Analysis (March 2026)
+# Agent Jumbo vs. Competitors: Comprehensive Analysis (March 2026)
 
 ## Executive Summary
 
-Agent Zero is a production-grade AI agent orchestration platform competing in a market led by OpenClaw (~220K stars), AutoGPT (~167K stars), Dify (~130K stars), and LangChain (~126K stars). While Agent Zero has fewer GitHub stars, it offers **deeper execution capabilities** in areas most competitors lack: multi-cloud deployment strategies, enterprise security (passkeys, HMAC audit), comprehensive workflow management, and a dual UI architecture.
+Agent Jumbo is a production-grade AI agent orchestration platform competing in a market led by OpenClaw (~220K stars), AutoGPT (~167K stars), Dify (~130K stars), and LangChain (~126K stars). While Agent Jumbo has fewer GitHub stars, it offers **deeper execution capabilities** in areas most competitors lack: multi-cloud deployment strategies, enterprise security (passkeys, HMAC audit), comprehensive workflow management, and a dual UI architecture.
 
-### Where Agent Zero Wins
+### Where Agent Jumbo Wins
 
 - **Deployment orchestration**: 6 deployment strategies (AWS, GCP, K8s, SSH, GitHub Actions, Docker) vs. zero in most competitors
 - **Enterprise security**: Passkey/WebAuthn auth, CSRF protection, secret masking, security audit logging
@@ -13,7 +13,7 @@ Agent Zero is a production-grade AI agent orchestration platform competing in a 
 - **Tool depth**: 72 specialized tools covering deployment, business, voice, email, and more
 - **API surface**: 138 endpoints — the most comprehensive API of any agent framework
 
-### Where Agent Zero Needs to Catch Up
+### Where Agent Jumbo Needs to Catch Up
 
 - **Messaging presence**: 4 channels (Telegram, Slack, Discord, WhatsApp) vs. OpenClaw's 50+
 - **Community scale**: Smaller community vs. OpenClaw's 900+ skill contributors
@@ -24,7 +24,7 @@ Agent Zero is a production-grade AI agent orchestration platform competing in a 
 
 ## Feature-by-Feature Comparison
 
-| Capability | Agent Zero | OpenClaw | AutoGPT | CrewAI | Dify |
+| Capability | Agent Jumbo | OpenClaw | AutoGPT | CrewAI | Dify |
 |-----------|-----------|----------|---------|--------|------|
 | **Tools/Skills** | 72 tools | 5,700+ skills | Extensible blocks | 100s + MCP | 50+ built-in |
 | **API Endpoints** | 138 | ~50 | ~20 | API/SDK | REST API |
@@ -52,11 +52,11 @@ Agent Zero is a production-grade AI agent orchestration platform competing in a 
 
 ## Detailed Platform Analysis
 
-### Agent Zero Strengths
+### Agent Jumbo Strengths
 
 #### 1. Enterprise Deployment (Unmatched)
 
-No competitor offers multi-cloud deployment orchestration. Agent Zero's deployment strategies cover:
+No competitor offers multi-cloud deployment orchestration. Agent Jumbo's deployment strategies cover:
 
 - **AWS**: EC2, ECS, Lambda support
 - **GCP**: Compute Engine, Cloud Run
@@ -113,29 +113,29 @@ Deep customization without core modifications:
 - Reasoning stream access
 - Secret masking/unmasking hooks
 
-### Agent Zero Gaps vs. OpenClaw
+### Agent Jumbo Gaps vs. OpenClaw
 
 #### 1. Messaging Breadth
 
-- **Agent Zero**: 4 channels with validation and security
+- **Agent Jumbo**: 4 channels with validation and security
 - **OpenClaw**: 50+ channels (WhatsApp, Telegram, Slack, Discord, Signal, iMessage, Teams, Matrix, Zalo, etc.)
 - **Gap**: Need to add Signal, iMessage, Google Chat, Teams, Matrix adapters
 
 #### 2. Skill Ecosystem
 
-- **Agent Zero**: 72 built-in tools, no marketplace
+- **Agent Jumbo**: 72 built-in tools, no marketplace
 - **OpenClaw**: 5,700+ curated skills on ClawHub with 900+ contributors
 - **Gap**: Need a skill registry with community contributions (Phase 4 of plan addresses this)
 
 #### 3. Memory Architecture
 
-- **Agent Zero**: FAISS with 4 areas + auto-recall + consolidation
+- **Agent Jumbo**: FAISS with 4 areas + auto-recall + consolidation
 - **OpenClaw**: 12-layer system with knowledge graph, activation/decay, cross-session reconstruction
 - **Gap**: Consider adding knowledge graph layer and activation/decay for memory relevance
 
 #### 4. Community & Adoption
 
-- **Agent Zero**: Growing project
+- **Agent Jumbo**: Growing project
 - **OpenClaw**: 220K+ stars, fastest GitHub growth ever, 13% of OpenRouter tokens
 - **Gap**: Need developer advocacy, documentation, and community building
 
@@ -143,9 +143,9 @@ Deep customization without core modifications:
 
 ## Market Positioning
 
-### Agent Zero's Competitive Niche
+### Agent Jumbo's Competitive Niche
 
-Agent Zero occupies a unique position as the **most deployment-capable and enterprise-ready** open-source agent framework. While OpenClaw dominates the messaging-native personal assistant space, Agent Zero targets:
+Agent Jumbo occupies a unique position as the **most deployment-capable and enterprise-ready** open-source agent framework. While OpenClaw dominates the messaging-native personal assistant space, Agent Jumbo targets:
 
 1. **Enterprise Operations**: Multi-cloud deployment, security compliance, audit logging
 2. **Development Teams**: Comprehensive API, workflow management, scheduler
@@ -175,7 +175,7 @@ Agent Zero occupies a unique position as the **most deployment-capable and enter
 
 ## Metrics Summary
 
-| Metric | Agent Zero | Industry Average |
+| Metric | Agent Jumbo | Industry Average |
 |--------|-----------|-----------------|
 | Tool count | 72 | ~30 |
 | API endpoints | 138 | ~25 |

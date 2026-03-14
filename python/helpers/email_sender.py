@@ -1,5 +1,5 @@
 """
-Async SMTP Email Sender for Agent Zero
+Async SMTP Email Sender for Agent Jumbo
 Supports Gmail and other SMTP providers
 """
 
@@ -13,7 +13,7 @@ import aiosmtplib
 
 
 class EmailSender:
-    """Async SMTP email sender compatible with Agent Zero"""
+    """Async SMTP email sender compatible with Agent Jumbo"""
 
     def __init__(self, server: str, port: int, username: str, password: str, use_tls: bool = True):
         """
@@ -41,7 +41,7 @@ class EmailSender:
         bcc: list[str] | None = None,
         attachments: list[str] | None = None,
         html: bool = False,
-        from_name: str | None = None
+        from_name: str | None = None,
     ) -> dict:
         """
         Send email with optional attachments
@@ -64,19 +64,19 @@ class EmailSender:
 
         # Set sender
         if from_name:
-            msg['From'] = f"{from_name} <{self.username}>"
+            msg["From"] = f"{from_name} <{self.username}>"
         else:
-            msg['From'] = self.username
+            msg["From"] = self.username
 
-        msg['To'] = ', '.join(to)
-        msg['Subject'] = subject
+        msg["To"] = ", ".join(to)
+        msg["Subject"] = subject
 
         if cc:
-            msg['Cc'] = ', '.join(cc)
+            msg["Cc"] = ", ".join(cc)
 
         # Add body
-        body_type = 'html' if html else 'plain'
-        msg.attach(MIMEText(body, body_type, 'utf-8'))
+        body_type = "html" if html else "plain"
+        msg.attach(MIMEText(body, body_type, "utf-8"))
 
         # Add attachments
         if attachments:
@@ -84,15 +84,12 @@ class EmailSender:
                 if not os.path.exists(file_path):
                     raise FileNotFoundError(f"Attachment not found: {file_path}")
 
-                with open(file_path, 'rb') as f:
+                with open(file_path, "rb") as f:
                     filename = os.path.basename(file_path)
-                    part = MIMEBase('application', 'octet-stream')
+                    part = MIMEBase("application", "octet-stream")
                     part.set_payload(f.read())
                     encoders.encode_base64(part)
-                    part.add_header(
-                        'Content-Disposition',
-                        f'attachment; filename="{filename}"'
-                    )
+                    part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
                     msg.attach(part)
 
         # Build recipient list (to + cc + bcc)
@@ -112,7 +109,7 @@ class EmailSender:
                     port=self.port,
                     username=self.username,
                     password=self.password,
-                    start_tls=True
+                    start_tls=True,
                 )
             else:
                 # Direct SSL connection (port 465) or plain (port 25)
@@ -122,35 +119,23 @@ class EmailSender:
                     port=self.port,
                     username=self.username,
                     password=self.password,
-                    use_tls=(self.port == 465)
+                    use_tls=(self.port == 465),
                 )
 
             return {
                 "success": True,
-                "message_id": msg.get('Message-ID', 'unknown'),
+                "message_id": msg.get("Message-ID", "unknown"),
                 "recipients": len(all_recipients),
                 "to": to,
-                "subject": subject
+                "subject": subject,
             }
 
         except aiosmtplib.SMTPException as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "error_type": type(e).__name__
-            }
+            return {"success": False, "error": str(e), "error_type": type(e).__name__}
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "error_type": "UnexpectedError"
-            }
+            return {"success": False, "error": str(e), "error_type": "UnexpectedError"}
 
-    async def send_bulk_emails(
-        self,
-        recipients: list[dict],
-        delay_seconds: float = 0.1
-    ) -> dict:
+    async def send_bulk_emails(self, recipients: list[dict], delay_seconds: float = 0.1) -> dict:
         """
         Send multiple emails with rate limiting
 
@@ -163,12 +148,7 @@ class EmailSender:
         """
         import asyncio
 
-        results = {
-            "total": len(recipients),
-            "successful": 0,
-            "failed": 0,
-            "details": []
-        }
+        results = {"total": len(recipients), "successful": 0, "failed": 0, "details": []}
 
         for recipient in recipients:
             result = await self.send_email(**recipient)
@@ -198,7 +178,8 @@ class EmailSender:
             True if email appears valid
         """
         import re
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+        pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         return re.match(pattern, email) is not None
 
     @staticmethod
@@ -224,9 +205,9 @@ class EmailSender:
             filename = os.path.basename(normalized)
 
         # Replace any remaining path separators with underscores.
-        filename = filename.replace('/', '_').replace('\\', '_')
+        filename = filename.replace("/", "_").replace("\\", "_")
 
         # Remove unsafe characters but keep spaces, dots, hyphens, and underscores.
-        safe_name = re.sub(r'[^\w\s.-]', '', filename).strip()
+        safe_name = re.sub(r"[^\w\s.-]", "", filename).strip()
 
-        return safe_name or 'attachment'
+        return safe_name or "attachment"

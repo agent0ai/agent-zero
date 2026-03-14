@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Agent Zero DevOps will be documented in this file.
+All notable changes to Agent Jumbo DevOps will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Beta release of Agent Zero DevOps
+- Beta release of Agent Jumbo DevOps
 - Production-ready Kubernetes deployment strategy
 - POC framework for SSH, AWS, GCP, GitHub Actions
 - Intelligent error classification and retry logic

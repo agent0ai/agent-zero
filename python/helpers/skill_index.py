@@ -63,8 +63,8 @@ def _http_post_json(
 class SkillIndex:
     """Client for the JumboHub skill index (GitHub-hosted JSON catalog)."""
 
-    INDEX_URL = "https://raw.githubusercontent.com/agent-zero/jumbohub/main/index.json"
-    PUBLISH_API = "https://api.github.com/repos/agent-zero/jumbohub/releases"
+    INDEX_URL = "https://raw.githubusercontent.com/agent-jumbo/jumbohub/main/index.json"
+    PUBLISH_API = "https://api.github.com/repos/agent-jumbo/jumbohub/releases"
 
     def __init__(
         self,

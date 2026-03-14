@@ -64,7 +64,7 @@ export default function ChatPage() {
           <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-default)]">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                {contextId ? `Chat` : 'Agent Zero'}
+                {contextId ? `Chat` : 'Agent Jumbo'}
               </h2>
               {realtime.connected && (
                 <span className="inline-flex h-2 w-2 rounded-full bg-success" title="Connected" />

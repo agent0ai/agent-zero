@@ -5,13 +5,13 @@
 <body class="modal-medium">
     <div style="padding: 1em;">
         <h2>Gmail API Setup Guide</h2>
-        <p>To use Gmail with Agent Zero, you need to create OAuth2 credentials in the Google Cloud Console.</p>
+        <p>To use Gmail with Agent Jumbo, you need to create OAuth2 credentials in the Google Cloud Console.</p>
 
         <div style="margin-top: 1.5em;">
             <h3 style="color: var(--c-primary);">1. Create Google Cloud Project</h3>
             <ol>
                 <li>Go to the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
-                <li>Create a new project (e.g., "Agent Zero Gmail").</li>
+                <li>Create a new project (e.g., "Agent Jumbo Gmail").</li>
                 <li>Navigate to <strong>APIs & Services > Library</strong>.</li>
                 <li>Search for <strong>"Gmail API"</strong> and click <strong>Enable</strong>.</li>
             </ol>
@@ -34,12 +34,12 @@
                 <li>Go to <strong>APIs & Services > Credentials</strong>.</li>
                 <li>Click <strong>Create Credentials > OAuth client ID</strong>.</li>
                 <li>Select <strong>Web application</strong> as the Application type.</li>
-                <li>Name it (e.g., "Agent Zero Web").</li>
+                <li>Name it (e.g., "Agent Jumbo Web").</li>
                 <li>Under <strong>Authorized redirect URIs</strong>, add:
                     <div style="background: rgba(0,0,0,0.1); padding: 5px 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 0.9em;">
                         http://localhost:5000/gmail_oauth_callback
                     </div>
-                    <em>Note: If you access Agent Zero via a different host, use that hostname/port instead.</em>
+                    <em>Note: If you access Agent Jumbo via a different host, use that hostname/port instead.</em>
                 </li>
                 <li>Click <strong>Create</strong>.</li>
                 <li>Download the <code>credentials.json</code> file or copy its contents.</li>
@@ -49,7 +49,7 @@
         <div style="margin-top: 1.5em;">
             <h3 style="color: var(--c-primary);">4. Link Account</h3>
             <ol>
-                <li>Go to <strong>Manage Accounts</strong> in Agent Zero settings.</li>
+                <li>Go to <strong>Manage Accounts</strong> in Agent Jumbo settings.</li>
                 <li>Click <strong>Add Account</strong>.</li>
                 <li>Upload or paste the contents of your <code>credentials.json</code>.</li>
                 <li>Click <strong>Authenticate via Google</strong> and complete the flow in the popup window.</li>

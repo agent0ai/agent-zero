@@ -1,10 +1,10 @@
 # Architecture Options
 
-## Option A: In-app pipelines (Agent Zero native)
+## Option A: In-app pipelines (Agent Jumbo native)
 
 ### Summary
 
-Use Agent Zero tools, instruments, MCP servers, and workflow_engine to ingest, summarize, and store knowledge. Deliver digests via a Telegram tool.
+Use Agent Jumbo tools, instruments, MCP servers, and workflow_engine to ingest, summarize, and store knowledge. Deliver digests via a Telegram tool.
 
 ### Pros
 
@@ -21,7 +21,7 @@ Use Agent Zero tools, instruments, MCP servers, and workflow_engine to ingest, s
 
 ### Summary
 
-Run an external ETL service (cron or serverless) that fetches sources, stores them in a DB/vector store, and pushes summaries to Agent Zero via API.
+Run an external ETL service (cron or serverless) that fetches sources, stores them in a DB/vector store, and pushes summaries to Agent Jumbo via API.
 
 ### Pros
 
@@ -37,7 +37,7 @@ Run an external ETL service (cron or serverless) that fetches sources, stores th
 
 ### Summary
 
-Keep core reasoning and storage in Agent Zero, but use a lightweight external scheduler to trigger ingestion and backfill. Agent Zero remains the brain; the scheduler is only a trigger.
+Keep core reasoning and storage in Agent Jumbo, but use a lightweight external scheduler to trigger ingestion and backfill. Agent Jumbo remains the brain; the scheduler is only a trigger.
 
 ### Pros
 

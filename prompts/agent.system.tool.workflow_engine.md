@@ -5,6 +5,7 @@ Orchestrate structured workflows with defined stages, gates, and training paths.
 ## User Stories
 
 ### Story 1: New Product Development
+
 *"As a project manager, I want to guide a product from concept to production with clear milestones and deliverables."*
 
 ```
@@ -30,6 +31,7 @@ Orchestrate structured workflows with defined stages, gates, and training paths.
 ```
 
 ### Story 2: Stage Gate Reviews
+
 *"As a technical lead, I want to ensure each phase meets quality criteria before advancing."*
 
 ```
@@ -67,6 +69,7 @@ Orchestrate structured workflows with defined stages, gates, and training paths.
 ```
 
 ### Story 3: Task Assignment & Tracking
+
 *"As a developer, I want to know what tasks are assigned to me and track my progress."*
 
 ```
@@ -101,6 +104,7 @@ Orchestrate structured workflows with defined stages, gates, and training paths.
 ```
 
 ### Story 4: Failed Task Recovery
+
 *"As a QA engineer, I want to handle test failures and retry mechanisms."*
 
 ```
@@ -128,6 +132,7 @@ Orchestrate structured workflows with defined stages, gates, and training paths.
 ```
 
 ### Story 5: Service Delivery Workflow
+
 *"As a solutions architect, I want to deliver custom solutions to clients with proper handoffs."*
 
 ```
@@ -160,6 +165,7 @@ Orchestrate structured workflows with defined stages, gates, and training paths.
 ```
 
 ### Story 6: Continuous Improvement Cycle
+
 *"As a product owner, I want to track the support → upgrade cycle for ongoing improvements."*
 
 ```
@@ -182,6 +188,7 @@ Orchestrate structured workflows with defined stages, gates, and training paths.
 ## Stage Types
 
 The workflow engine supports these lifecycle stages:
+
 - **design** - Requirements, architecture, planning
 - **poc** - Proof of concept, feasibility validation
 - **mvp** - Minimum viable product development
@@ -193,7 +200,9 @@ The workflow engine supports these lifecycle stages:
 ## Core Concepts
 
 ### Workflow Definition
+
 A workflow consists of ordered stages, each containing:
+
 - **Entry Criteria** - Conditions that must be met to enter the stage
 - **Tasks** - Work items to complete (can run sequentially or in parallel)
 - **Deliverables** - Artifacts that must be produced
@@ -201,7 +210,9 @@ A workflow consists of ordered stages, each containing:
 - **Approval** - Optional approval gate before advancing
 
 ### Task Dependencies
+
 Tasks can specify dependencies and run in parallel groups:
+
 ```json
 {
   "id": "testing",
@@ -210,10 +221,13 @@ Tasks can specify dependencies and run in parallel groups:
   "parallel_group": 1
 }
 ```
+
 Tasks in the same `parallel_group` run concurrently after their dependencies complete.
 
 ### Role-Based Assignment
+
 Tasks can target specific roles:
+
 - `architect`, `developer`, `dba`, `qa`, `devops`, `security`, `pm`, `designer`, `analyst`
 
 ---
@@ -239,6 +253,7 @@ Tasks can target specific roles:
 | `create_from_template` | Create workflow from template with customizations |
 
 **Available Templates:**
+
 - `product_development.json` - Full lifecycle: design → poc → mvp → production → support → upgrade
 - `service_delivery.json` - Client projects: discovery → design → implementation → deployment → training → support
 
@@ -304,6 +319,7 @@ Tasks can target specific roles:
 ## Detailed Action Reference
 
 ### create_workflow
+
 Create a new workflow with defined stages.
 
 ```
@@ -345,6 +361,7 @@ Create a new workflow with defined stages.
 ```
 
 ### start_workflow
+
 Start executing a workflow with optional context.
 
 ```
@@ -362,6 +379,7 @@ Start executing a workflow with optional context.
 ```
 
 ### get_status
+
 Get comprehensive execution status.
 
 ```
@@ -369,6 +387,7 @@ Get comprehensive execution status.
 ```
 
 **Output Example:**
+
 ```
 ## Execution Status
 
@@ -391,6 +410,7 @@ Stages: 2/5
 ```
 
 ### visualize_workflow
+
 Generate a Mermaid flowchart.
 
 ```
@@ -402,6 +422,7 @@ Generate a Mermaid flowchart.
 ```
 
 **Output:**
+
 ```mermaid
 flowchart TD
     design[Design Phase]
@@ -425,6 +446,7 @@ flowchart TD
 ```
 
 ### visualize_gantt
+
 Generate a planning Gantt chart.
 
 ```
@@ -436,6 +458,7 @@ Generate a planning Gantt chart.
 ```
 
 **Output:**
+
 ```mermaid
 gantt
     title Product Development Timeline
@@ -451,6 +474,7 @@ gantt
 ```
 
 ### dashboard
+
 Get comprehensive dashboard.
 
 ```
@@ -458,6 +482,7 @@ Get comprehensive dashboard.
 ```
 
 **Output:**
+
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║            WORKFLOW ENGINE DASHBOARD                         ║
@@ -544,7 +569,7 @@ Get comprehensive dashboard.
 
 ## Integration with Other Tools
 
-The workflow engine integrates with Agent Zero's tool ecosystem:
+The workflow engine integrates with Agent Jumbo's tool ecosystem:
 
 | Tool | Integration |
 |------|-------------|
@@ -557,6 +582,7 @@ The workflow engine integrates with Agent Zero's tool ecosystem:
 | `sales_generator` | Create proposals and demos |
 
 **Example Integration:**
+
 ```
 # In a workflow task definition
 {
@@ -574,7 +600,9 @@ When the task executes, it can automatically invoke the `diagram_architect` tool
 ## Best Practices
 
 ### 1. Start with Templates
+
 Use built-in templates and customize rather than building from scratch:
+
 ```
 {{workflow_engine(
   action="create_from_template",
@@ -585,7 +613,9 @@ Use built-in templates and customize rather than building from scratch:
 ```
 
 ### 2. Use Meaningful Context
+
 Include project-specific context when starting workflows:
+
 ```
 {{workflow_engine(
   action="start_workflow",
@@ -595,7 +625,9 @@ Include project-specific context when starting workflows:
 ```
 
 ### 3. Track Deliverables
+
 Always mark deliverables with artifact paths for traceability:
+
 ```
 {{workflow_engine(
   action="complete_deliverable",
@@ -607,14 +639,18 @@ Always mark deliverables with artifact paths for traceability:
 ```
 
 ### 4. Use Visualization for Stakeholders
+
 Generate visual artifacts for status meetings:
+
 ```
 {{workflow_engine(action="visualize_progress", execution_id=1)}}
 {{workflow_engine(action="visualize_gantt", name="My Project")}}
 ```
 
 ### 5. Handle Failures Gracefully
+
 Use retry for recoverable failures:
+
 ```
 {{workflow_engine(
   action="fail_task",

@@ -380,12 +380,23 @@ class Message(ApiHandler):
             )
             return output
         except Exception as e:
+            cfg = settings.get_settings()
+            cloud_fallback_enabled = bool(cfg.get("llm_cloud_fallback_enabled", False))
+            if not cloud_fallback_enabled:
+                message = f"{backend} failed and cloud fallback is disabled. " f"Error: {e}"
+                context.log.log(
+                    type="error",
+                    heading=f"{backend} failed",
+                    content=message,
+                )
+                return message
+
             context.log.log(
                 type="warning",
                 heading=f"{backend} failed, falling back",
                 content=str(e),
             )
-            # Fall back to native Agent Jumbo runtime.
+            # Optional fallback to native Agent Jumbo runtime.
             return await context._process_chain(context.get_agent(), user_msg, True)
 
     async def _run_external_chat(

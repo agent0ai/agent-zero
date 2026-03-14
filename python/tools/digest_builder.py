@@ -1,4 +1,4 @@
-"""Digest builder tool for Agent Zero."""
+"""Digest builder tool for Agent Jumbo."""
 
 from python.helpers import files
 from python.helpers.tool import Response, Tool
@@ -7,13 +7,11 @@ from python.helpers.tool import Response, Tool
 class DigestBuilder(Tool):
     """Builds digests from ingested knowledge items."""
 
-    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
-        super().__init__(agent, name, args, message, **kwargs)
+    def __init__(self, agent, name: str, method: str | None, args: dict, message: str, loop_data=None, **kwargs):
+        super().__init__(agent, name, method, args, message, loop_data, **kwargs)
         from instruments.custom.digest_builder.digest_builder_manager import DigestBuilderManager
 
-        db_path = files.get_abs_path(
-            "./instruments/custom/knowledge_ingest/data/knowledge_ingest.db"
-        )
+        db_path = files.get_abs_path("./instruments/custom/knowledge_ingest/data/knowledge_ingest.db")
         self.manager = DigestBuilderManager(db_path)
 
     async def execute(self, **kwargs):
@@ -40,7 +38,33 @@ class DigestBuilder(Tool):
             max_items_per_section=max_items,
             channel=channel,
         )
-        return Response(message=result.get("summary", str(result)), break_loop=False)
+
+        # MOS hook: append Linear activity section to digest
+        linear_section = self._get_linear_activity_section()
+        summary = result.get("summary", str(result))
+        if linear_section:
+            summary += f"\n\n{linear_section}"
+
+        return Response(message=summary, break_loop=False)
+
+    def _get_linear_activity_section(self) -> str:
+        """Pull recent Linear issues from cache for digest inclusion."""
+        try:
+            from instruments.custom.linear_integration.linear_db import LinearDatabase
+
+            db_path = files.get_abs_path("./instruments/custom/linear_integration/data/linear_integration.db")
+            db = LinearDatabase(db_path)
+            issues = db.get_issues(limit=5)
+            if not issues:
+                return ""
+            lines = ["## Linear Activity"]
+            for issue in issues:
+                lines.append(
+                    f"- **{issue.get('identifier', '')}** {issue.get('title', '')} [{issue.get('state_name', '')}]"
+                )
+            return "\n".join(lines)
+        except Exception:
+            return ""
 
     def _list_digests(self):
         limit = int(self.args.get("limit", 10))

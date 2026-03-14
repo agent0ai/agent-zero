@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "agent-zero",
+  "name": "agent-jumbo",
   "public": true,
   "installCommand": "cd web && npm install",
   "buildCommand": "cd web && npm run build",

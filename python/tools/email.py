@@ -1,5 +1,5 @@
 """
-Email Tool for Agent Zero
+Email Tool for Agent Jumbo
 Provides email send/read/search capabilities with SMTP and IMAP
 """
 
@@ -13,7 +13,7 @@ from python.helpers.tool import Response, Tool
 
 class Email(Tool):
     """
-    Email operations tool for Agent Zero.
+    Email operations tool for Agent Jumbo.
     Supports send (SMTP), read (IMAP), and search operations.
     Integrates with customer_lifecycle and virtual_team for automation.
     """
@@ -35,7 +35,7 @@ class Email(Tool):
         else:
             return Response(
                 message=f"Unknown email action: {action}. Available actions: send, read, search, send_bulk",
-                break_loop=False
+                break_loop=False,
             )
 
     async def _send_email(self):
@@ -50,7 +50,7 @@ class Email(Tool):
             if not from_email or not app_password:
                 return Response(
                     message="Email credentials not configured. Please set GMAIL_FROM_EMAIL and GMAIL_APP_PASSWORD in environment variables.",
-                    break_loop=False
+                    break_loop=False,
                 )
 
             # Validate recipients
@@ -59,26 +59,16 @@ class Email(Tool):
                 to_list = [to_list]
 
             if not to_list:
-                return Response(
-                    message="No recipients specified. Please provide 'to' parameter.",
-                    break_loop=False
-                )
+                return Response(message="No recipients specified. Please provide 'to' parameter.", break_loop=False)
 
             # Validate email addresses
             invalid_emails = [email for email in to_list if not EmailSender.validate_email(email)]
             if invalid_emails:
-                return Response(
-                    message=f"Invalid email addresses: {', '.join(invalid_emails)}",
-                    break_loop=False
-                )
+                return Response(message=f"Invalid email addresses: {', '.join(invalid_emails)}", break_loop=False)
 
             # Create sender
             sender = EmailSender(
-                server=smtp_server,
-                port=smtp_port,
-                username=from_email,
-                password=app_password,
-                use_tls=True
+                server=smtp_server, port=smtp_port, username=from_email, password=app_password, use_tls=True
             )
 
             # Send email
@@ -90,7 +80,7 @@ class Email(Tool):
                 bcc=self.args.get("bcc"),
                 attachments=self.args.get("attachments"),
                 html=self.args.get("html", False),
-                from_name=self.args.get("from_name", "Agent Zero")
+                from_name=self.args.get("from_name", "Agent Jumbo"),
             )
 
             if result.get("success"):
@@ -109,10 +99,7 @@ class Email(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Email send error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Email send error: {e!s}", break_loop=False)
 
     async def _read_emails(self):
         """Read emails via IMAP (using existing implementation)"""
@@ -126,7 +113,7 @@ class Email(Tool):
             if not username or not password:
                 return Response(
                     message="Email credentials not configured. Please set GMAIL_FROM_EMAIL and GMAIL_APP_PASSWORD.",
-                    break_loop=False
+                    break_loop=False,
                 )
 
             # Set download folder
@@ -141,14 +128,11 @@ class Email(Tool):
                 username=username,
                 password=password,
                 download_folder=download_path,
-                filter=self.args.get("filter", {"unread": True})
+                filter=self.args.get("filter", {"unread": True}),
             )
 
             if not messages:
-                return Response(
-                    message="No messages found matching the criteria.",
-                    break_loop=False
-                )
+                return Response(message="No messages found matching the criteria.", break_loop=False)
 
             # Format results
             result = f"📧 Found {len(messages)} message(s):\n\n"
@@ -159,7 +143,7 @@ class Email(Tool):
                 result += f"   **Date:** {msg.date}\n"
 
                 # Truncate body for display
-                body_preview = msg.body[:200].replace('\n', ' ') if msg.body else ""
+                body_preview = msg.body[:200].replace("\n", " ") if msg.body else ""
                 if len(msg.body) > 200:
                     body_preview += "..."
                 result += f"   **Preview:** {body_preview}\n"
@@ -174,10 +158,7 @@ class Email(Tool):
             return Response(message=result, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Email read error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Email read error: {e!s}", break_loop=False)
 
     async def _search_emails(self):
         """Search emails with advanced filters"""
@@ -211,10 +192,7 @@ class Email(Tool):
             return result
 
         except Exception as e:
-            return Response(
-                message=f"❌ Email search error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Email search error: {e!s}", break_loop=False)
 
     async def _send_bulk_emails(self):
         """Send multiple emails with rate limiting"""
@@ -226,26 +204,16 @@ class Email(Tool):
             app_password = os.getenv("GMAIL_APP_PASSWORD")
 
             if not from_email or not app_password:
-                return Response(
-                    message="Email credentials not configured.",
-                    break_loop=False
-                )
+                return Response(message="Email credentials not configured.", break_loop=False)
 
             # Get recipient list
             recipients = self.args.get("recipients", [])
             if not recipients:
-                return Response(
-                    message="No recipients provided. Please specify 'recipients' list.",
-                    break_loop=False
-                )
+                return Response(message="No recipients provided. Please specify 'recipients' list.", break_loop=False)
 
             # Create sender
             sender = EmailSender(
-                server=smtp_server,
-                port=smtp_port,
-                username=from_email,
-                password=app_password,
-                use_tls=True
+                server=smtp_server, port=smtp_port, username=from_email, password=app_password, use_tls=True
             )
 
             # Send bulk emails
@@ -258,17 +226,14 @@ class Email(Tool):
             message += f"**Failed:** {result['failed']} ❌\n\n"
 
             # Show details of any failures
-            if result['failed'] > 0:
+            if result["failed"] > 0:
                 message += "**Failed Emails:**\n"
-                for detail in result['details']:
-                    if not detail.get('success'):
+                for detail in result["details"]:
+                    if not detail.get("success"):
                         message += f"  - To: {detail.get('to', 'unknown')}\n"
                         message += f"    Error: {detail.get('error', 'unknown')}\n"
 
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Bulk email error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Bulk email error: {e!s}", break_loop=False)

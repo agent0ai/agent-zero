@@ -324,7 +324,7 @@ If issues occur during deployment:
 
 ```bash
 # 1. Identify issue
-# Check logs: docker logs agent-zero | grep ERROR
+# Check logs: docker logs agent-jumbo | grep ERROR
 
 # 2. Stop current deployment
 # Kill Phase 4 agent processes if needed
@@ -409,7 +409,7 @@ pytest tests/ -v  # Verify old tests pass
 
 ### Escalation Path
 
-1. Check logs: `docker logs agent-zero | grep phase4`
+1. Check logs: `docker logs agent-jumbo | grep phase4`
 2. Review metrics dashboard
 3. Run diagnostic tests: `pytest tests/test_*phase4* -v`
 4. Consult DEPLOYMENT_READINESS_BRIEF.md

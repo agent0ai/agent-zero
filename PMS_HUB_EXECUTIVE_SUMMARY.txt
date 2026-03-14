@@ -3,11 +3,11 @@ PMS HUB: COMPREHENSIVE AUTHENTICATION & SYSTEM INTEGRATION ANALYSIS
 ===============================================================================
 Analysis Date: 2026-01-17
 Scope: Complete PMS Hub implementation
-Location: /home/webemo-aaron/projects/agent-zero/
+Location: /home/webemo-aaron/projects/agent-jumbo/
 
 OVERVIEW
 ========
-The PMS Hub is a multi-provider property management system integration layer 
+The PMS Hub is a multi-provider property management system integration layer
 supporting Hostaway, Lodgify, Hostify, and iCal calendars. It provides unified
 API access to multiple PMS platforms with event-driven webhook processing and
 synchronization with the PropertyManager system.
@@ -106,7 +106,7 @@ FILE LOCATIONS
 ==============
 
 Core Implementation:
-  /home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/
+  /home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/
   ├── pms_provider.py (256 lines) - Abstract interface
   ├── provider_registry.py (327 lines) - Configuration management
   ├── sync_service.py (362 lines) - PMS ↔ PropertyManager sync
@@ -118,13 +118,13 @@ Core Implementation:
       └── ical.py (198 lines) - HTTP GET
 
 API Endpoints:
-  /home/webemo-aaron/projects/agent-zero/python/api/
+  /home/webemo-aaron/projects/agent-jumbo/python/api/
   ├── pms_webhook_receive.py (142 lines) - Webhook handler
   ├── pms_settings_get.py (81 lines) - Get configuration
   └── pms_settings_set.py (207 lines) - Set configuration
 
 Tool Integration:
-  /home/webemo-aaron/projects/agent-zero/python/tools/
+  /home/webemo-aaron/projects/agent-jumbo/python/tools/
   └── pms_hub_tool.py (436 lines) - Agent-zero interface
 
 Configuration Storage:
@@ -325,7 +325,7 @@ POST /api/pms/webhook/{provider}/{provider_id}
     - signature: webhook signature (optional)
     - payload: event payload
     - timestamp: webhook timestamp
-  
+
   Response:
     ✅ 200: { status: "success", event_id }
     ❌ 401: { status: "error", message: "Invalid webhook signature" }
@@ -335,7 +335,7 @@ POST /api/pms/webhook/{provider}/{provider_id}
 GET /api/pms/settings
   Parameters:
     - provider_id: optional, specific provider
-  
+
   Response:
     ✅ All providers: { providers: [...], total, enabled_count }
     ✅ Single provider: { provider: {...} }
@@ -348,7 +348,7 @@ POST /api/pms/settings
     - remove: { action, provider_id }
     - enable: { action, provider_id }
     - disable: { action, provider_id }
-  
+
   Response:
     ✅ 200: { status: "success", message, provider_id }
     ❌ 400: { status: "error", message, valid_actions }
@@ -396,7 +396,7 @@ IMPLEMENTATION STATUS
   - EventBus with SQLite storage
   - PropertyManager sync (PMS → Manager only)
   - Canonical data models
-  - PMSHub tool for agent-zero
+  - PMSHub tool for agent-jumbo
 
 🟡 PARTIAL:
   - Webhook verification (only Lodgify fully implemented)
@@ -471,7 +471,7 @@ DOCUMENTATION DELIVERABLES
    - Recommendations
 
 All documents located in:
-  /home/webemo-aaron/projects/agent-zero/
+  /home/webemo-aaron/projects/agent-jumbo/
 
 ===============================================================================
 END OF EXECUTIVE SUMMARY

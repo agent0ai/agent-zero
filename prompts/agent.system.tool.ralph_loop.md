@@ -2,7 +2,7 @@
 
 Autonomous iterative task execution using the Ralph Wiggum technique.
 
-Ralph Loop enables Agent Zero to work on tasks iteratively, continuing until the task is complete or a maximum number of iterations is reached. This is ideal for complex tasks that require multiple attempts, refinement, or tasks where success criteria can be automatically verified.
+Ralph Loop enables Agent Jumbo to work on tasks iteratively, continuing until the task is complete or a maximum number of iterations is reached. This is ideal for complex tasks that require multiple attempts, refinement, or tasks where success criteria can be automatically verified.
 
 ## How It Works
 
@@ -30,6 +30,7 @@ Ralph Loop enables Agent Zero to work on tasks iteratively, continuing until the
 ### Loop Lifecycle
 
 #### start_loop
+
 Start a new Ralph loop.
 
 ```
@@ -43,12 +44,14 @@ Start a new Ralph loop.
 ```
 
 **Parameters:**
+
 - `name` (optional): Name for the loop
 - `prompt` (required): Task description and instructions
 - `completion_promise` (optional): Text to output when task is complete
 - `max_iterations` (optional, default 50): Safety limit
 
 #### get_status
+
 Check current loop status.
 
 ```
@@ -58,6 +61,7 @@ Check current loop status.
 If `loop_id` is omitted, returns status of the active loop for the current agent.
 
 #### cancel_loop
+
 Cancel an active loop.
 
 ```
@@ -65,6 +69,7 @@ Cancel an active loop.
 ```
 
 #### list_loops
+
 List Ralph loops.
 
 ```
@@ -72,10 +77,12 @@ List Ralph loops.
 ```
 
 **Parameters:**
+
 - `status` (optional): Filter by status (active, completed, cancelled, paused)
 - `limit` (optional, default 20): Max results
 
 #### get_loop_history
+
 View iteration history.
 
 ```
@@ -85,6 +92,7 @@ View iteration history.
 ### Workflow Integration
 
 #### start_task_loop
+
 Start a Ralph loop for a workflow task.
 
 ```
@@ -99,6 +107,7 @@ Start a Ralph loop for a workflow task.
 ```
 
 #### link_to_workflow
+
 Link an existing loop to a workflow execution.
 
 ```
@@ -113,6 +122,7 @@ Link an existing loop to a workflow execution.
 ### Configuration
 
 #### set_completion_promise
+
 Update the completion promise mid-loop.
 
 ```
@@ -120,6 +130,7 @@ Update the completion promise mid-loop.
 ```
 
 #### set_max_iterations
+
 Update the iteration limit.
 
 ```
@@ -127,6 +138,7 @@ Update the iteration limit.
 ```
 
 #### pause_loop
+
 Pause an active loop (can resume later).
 
 ```
@@ -134,6 +146,7 @@ Pause an active loop (can resume later).
 ```
 
 #### resume_loop
+
 Resume a paused loop.
 
 ```
@@ -143,6 +156,7 @@ Resume a paused loop.
 ### Statistics
 
 #### get_stats
+
 View Ralph loop statistics.
 
 ```
@@ -164,6 +178,7 @@ For example, if your promise is `ALL_TESTS_PASSING`, output:
 ```
 
 **Important Rules:**
+
 - Only output the promise when the task is **genuinely complete**
 - Do not lie to exit the loop early
 - The promise text must match exactly (case-insensitive)
@@ -173,6 +188,7 @@ For example, if your promise is `ALL_TESTS_PASSING`, output:
 ### Good Prompts
 
 ✅ Clear completion criteria:
+
 ```
 {{ralph_loop(
   action="start_loop",
@@ -188,6 +204,7 @@ For example, if your promise is `ALL_TESTS_PASSING`, output:
 ```
 
 ✅ Incremental goals:
+
 ```
 {{ralph_loop(
   action="start_loop",
@@ -203,6 +220,7 @@ For example, if your promise is `ALL_TESTS_PASSING`, output:
 ```
 
 ✅ Self-correction instructions:
+
 ```
 {{ralph_loop(
   action="start_loop",
@@ -222,12 +240,14 @@ For example, if your promise is `ALL_TESTS_PASSING`, output:
 ### Avoid
 
 ❌ Vague prompts:
+
 ```
 # Bad - no clear success criteria
 {{ralph_loop(prompt="Make the code better")}}
 ```
 
 ❌ Impossible tasks:
+
 ```
 # Bad - no clear path to completion
 {{ralph_loop(prompt="Write perfect code with no bugs")}}

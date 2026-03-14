@@ -76,7 +76,7 @@ export default function DemoPage() {
           </h1>
           <p className="text-xl text-slate-300 mb-8">
             Our team will reach out within 24 hours to schedule your personalized demo and discuss
-            how Agent Zero can solve your specific use case.
+            how Agent Jumbo can solve your specific use case.
           </p>
           <div className="bg-slate-800 rounded-lg p-8 mb-8 border border-slate-700">
             <p className="text-slate-300 mb-4">
@@ -109,7 +109,7 @@ export default function DemoPage() {
             Get a Custom Demo
           </h1>
           <p className="text-lg text-slate-300">
-            See how Agent Zero can solve your specific AI workflow challenges.
+            See how Agent Jumbo can solve your specific AI workflow challenges.
             Fill out the form below and our team will reach out within 24 hours.
           </p>
         </div>

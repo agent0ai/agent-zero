@@ -14,7 +14,7 @@ The Portfolio Manager is a comprehensive tool for organizing, analyzing, and com
 
 ### 1. Scan Your Projects
 
-Point Agent Zero to your projects folder:
+Point Agent Jumbo to your projects folder:
 
 ```
 Scan my projects folder at ~/projects for portfolio
@@ -100,5 +100,6 @@ Projects are scored 0-100% based on:
 ## Integration
 
 Works with:
+
 - **Diagram Tool**: Visualize portfolio structure
 - **Business X-Ray**: Analyze revenue opportunities

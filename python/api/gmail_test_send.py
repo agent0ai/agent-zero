@@ -2,6 +2,7 @@
 Gmail Test Send API Handler
 Sends a test email via Gmail API to verify configuration
 """
+
 from python.helpers import settings
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.gmail_api_client import GmailAPIClient
@@ -28,8 +29,8 @@ class GmailTestSend(ApiHandler):
         try:
             account_name = input.get("account_name")
             to = input.get("to")
-            subject = input.get("subject") or "Agent Zero Gmail Test"
-            body = input.get("body") or "This is a test email from Agent Zero Gmail UI."
+            subject = input.get("subject") or "Agent Jumbo Gmail Test"
+            body = input.get("body") or "This is a test email from Agent Jumbo Gmail UI."
 
             current_settings = settings.get_settings()
             gmail_accounts = current_settings.get("gmail_accounts", {})
@@ -53,12 +54,7 @@ class GmailTestSend(ApiHandler):
                 return Response("to is required (recipient email address)", 400)
 
             client = GmailAPIClient(account_name)
-            result = client.send_email(
-                to=[to] if isinstance(to, str) else to,
-                subject=subject,
-                body=body,
-                html=False
-            )
+            result = client.send_email(to=[to] if isinstance(to, str) else to, subject=subject, body=body, html=False)
 
             if not result.get("success"):
                 return Response(result.get("error") or "Failed to send test email", 500)
@@ -68,7 +64,7 @@ class GmailTestSend(ApiHandler):
                 "message_id": result.get("message_id"),
                 "thread_id": result.get("thread_id"),
                 "to": result.get("to"),
-                "account_name": account_name
+                "account_name": account_name,
             }
 
         except Exception as e:

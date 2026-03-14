@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def validate_security():
-    print("=== Agent Zero White-Hat Security Validation ===")
+    print("=== Agent Jumbo White-Hat Security Validation ===")
 
     db_path = Path("instruments/custom/workflow_engine/data/workflow.db")
     if not db_path.exists():
@@ -25,7 +25,9 @@ def validate_security():
 
     # 3. Analyze Security Audit Log
     print("\n--- Recent Security Events ---")
-    cursor.execute("SELECT event_type, status, timestamp, details FROM security_audit_log ORDER BY timestamp DESC LIMIT 10")
+    cursor.execute(
+        "SELECT event_type, status, timestamp, details FROM security_audit_log ORDER BY timestamp DESC LIMIT 10"
+    )
     events = cursor.fetchall()
 
     if events:
@@ -44,6 +46,7 @@ def validate_security():
 
     conn.close()
     print("\n=== Validation Complete ===")
+
 
 if __name__ == "__main__":
     validate_security()

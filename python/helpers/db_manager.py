@@ -1,5 +1,5 @@
 """
-Database Manager for Agent Zero
+Database Manager for Agent Jumbo
 Centralized SQLite connection handling and utilities
 """
 
@@ -32,10 +32,7 @@ class DatabaseManager:
     def connection(self) -> sqlite3.Connection:
         """Get or create database connection"""
         if self._connection is None:
-            self._connection = sqlite3.connect(
-                str(self.db_path),
-                check_same_thread=False
-            )
+            self._connection = sqlite3.connect(str(self.db_path), check_same_thread=False)
             self._connection.row_factory = sqlite3.Row
             # Enable foreign keys
             self._connection.execute("PRAGMA foreign_keys = ON")
@@ -104,10 +101,7 @@ class DatabaseManager:
 
     def table_exists(self, table_name: str) -> bool:
         """Check if table exists"""
-        result = self.fetch_one(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (table_name,)
-        )
+        result = self.fetch_one("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
         return result is not None
 
     def close(self):

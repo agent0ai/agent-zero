@@ -1,8 +1,9 @@
-# Agent Zero Diagram Generation Guide
+# Agent Jumbo Diagram Generation Guide
 
 ## Overview
 
-Agent Zero now supports comprehensive diagram generation using three powerful tools:
+Agent Jumbo now supports comprehensive diagram generation using three powerful tools:
+
 - **Mermaid** - Text-based diagrams with inline rendering
 - **Excalidraw** - Hand-drawn style visual diagrams
 - **Draw.io** - Professional technical diagrams
@@ -10,22 +11,25 @@ Agent Zero now supports comprehensive diagram generation using three powerful to
 ## Features
 
 ### 🎨 Mermaid Diagrams (Recommended)
+
 - ✅ Renders automatically in the WebUI chat
 - ✅ No file needed - just use code blocks
 - ✅ 10+ diagram types supported
 - ✅ Can export to PNG/SVG/PDF
 
 ### ✏️ Excalidraw Diagrams
+
 - ✅ Beautiful hand-drawn aesthetic
 - ✅ Perfect for architecture sketches
 - ✅ Export to JSON or images
-- ✅ Can open in https://excalidraw.com
+- ✅ Can open in <https://excalidraw.com>
 
 ### 📐 Draw.io Diagrams
+
 - ✅ Professional technical diagrams
 - ✅ Network topology, system architecture
 - ✅ Export to multiple formats
-- ✅ Can open in https://app.diagrams.net
+- ✅ Can open in <https://app.diagrams.net>
 
 ## Quick Start
 
@@ -75,6 +79,7 @@ python /a0/instruments/custom/diagram_generator/generate_drawio.py \
 ## Mermaid Diagram Types
 
 ### Flowchart
+
 ```mermaid
 flowchart TD
     A[Start] --> B{Is it working?}
@@ -85,13 +90,14 @@ flowchart TD
 ```
 
 ### Sequence Diagram
+
 ```mermaid
 sequenceDiagram
     participant User
     participant Browser
     participant Server
     participant Database
-    
+
     User->>Browser: Enter URL
     Browser->>Server: HTTP Request
     Server->>Database: Query Data
@@ -101,6 +107,7 @@ sequenceDiagram
 ```
 
 ### Class Diagram
+
 ```mermaid
 classDiagram
     class Animal {
@@ -121,6 +128,7 @@ classDiagram
 ```
 
 ### State Diagram
+
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
@@ -132,6 +140,7 @@ stateDiagram-v2
 ```
 
 ### Entity Relationship Diagram
+
 ```mermaid
 erDiagram
     CUSTOMER ||--o{ ORDER : places
@@ -153,6 +162,7 @@ erDiagram
 ```
 
 ### Gantt Chart
+
 ```mermaid
 gantt
     title Project Schedule
@@ -168,6 +178,7 @@ gantt
 ```
 
 ### Pie Chart
+
 ```mermaid
 pie title Technology Stack Usage
     "Python" : 45
@@ -178,6 +189,7 @@ pie title Technology Stack Usage
 ```
 
 ### Git Graph
+
 ```mermaid
 gitGraph
     commit
@@ -197,6 +209,7 @@ gitGraph
 ```
 
 ### User Journey
+
 ```mermaid
 journey
     title User Registration Flow
@@ -211,9 +224,10 @@ journey
 ```
 
 ### Mindmap
+
 ```mermaid
 mindmap
-  root((Agent Zero))
+  root((Agent Jumbo))
     Tools
       Code Execution
       Memory
@@ -231,25 +245,26 @@ mindmap
 ## Advanced Examples
 
 ### Architecture Diagram
+
 ```mermaid
 graph TB
     subgraph "Frontend"
         UI[Web UI]
         WS[WebSocket]
     end
-    
+
     subgraph "Backend"
         API[API Server]
-        Agent[Agent Zero]
+        Agent[Agent Jumbo]
         Tools[Tool System]
     end
-    
+
     subgraph "Services"
         DB[(Database)]
         Cache[(Redis)]
         Search[SearXNG]
     end
-    
+
     UI --> WS
     WS --> API
     API --> Agent
@@ -260,6 +275,7 @@ graph TB
 ```
 
 ### System Flow
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -267,7 +283,7 @@ sequenceDiagram
     participant A as Agent
     participant T as Tool
     participant M as Memory
-    
+
     U->>A: Send message
     A->>M: Load context
     M-->>A: Historical data
@@ -281,6 +297,7 @@ sequenceDiagram
 ## Command Reference
 
 ### Mermaid CLI
+
 ```bash
 # Basic usage
 python generate_mermaid.py -o output.png -c "graph TD; A-->B;"
@@ -300,6 +317,7 @@ python generate_mermaid.py -o output.png -i input.mmd
 ```
 
 ### Excalidraw CLI
+
 ```bash
 # Use template
 python generate_excalidraw.py -o sketch.excalidraw -t flowchart
@@ -310,6 +328,7 @@ python generate_excalidraw.py -o custom.excalidraw \
 ```
 
 ### Draw.io CLI
+
 ```bash
 # Use template
 python generate_drawio.py -o network.png -t network -f png
@@ -349,17 +368,21 @@ python generate_drawio.py -o diagram.drawio -x "<mxfile>...</mxfile>"
 ## Troubleshooting
 
 ### Mermaid not rendering
+
 - Check browser console for errors
 - Ensure mermaid.min.js is loaded
 - Verify code block has `language-mermaid` class
 
 ### Export failures
+
 - Ensure mmdc (mermaid-cli) is installed
 - Check file path permissions
 - Verify diagram syntax is valid
 
 ### Installation
+
 If diagram tools aren't working in Docker:
+
 ```bash
 # Inside container
 npm install -g @mermaid-js/mermaid-cli
@@ -392,4 +415,4 @@ To add new diagram types or templates:
 - [Mermaid Documentation](https://mermaid.js.org/)
 - [Excalidraw](https://excalidraw.com)
 - [Draw.io](https://app.diagrams.net)
-- [Agent Zero Docs](../docs/README.md)
+- [Agent Jumbo Docs](../docs/README.md)

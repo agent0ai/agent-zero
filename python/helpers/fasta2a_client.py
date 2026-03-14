@@ -6,6 +6,7 @@ from python.helpers.print_style import PrintStyle
 try:
     import httpx  # type: ignore
     from fasta2a.client import A2AClient  # type: ignore
+
     FASTA2A_CLIENT_AVAILABLE = True
 except ImportError:
     FASTA2A_CLIENT_AVAILABLE = False
@@ -15,7 +16,7 @@ _PRINTER = PrintStyle(italic=True, font_color="cyan", padding=False)
 
 
 class AgentConnection:
-    """Helper class for connecting to and communicating with other Agent Zero instances via FastA2A."""
+    """Helper class for connecting to and communicating with other Agent Jumbo instances via FastA2A."""
 
     def __init__(self, agent_url: str, timeout: int = 30, token: str | None = None):
         """Initialize connection to an agent.
@@ -28,14 +29,15 @@ class AgentConnection:
             raise RuntimeError("FastA2A client not available")
 
         # Ensure scheme is present
-        if not agent_url.startswith(('http://', 'https://')):
-            agent_url = 'http://' + agent_url
+        if not agent_url.startswith(("http://", "https://")):
+            agent_url = "http://" + agent_url
 
-        self.agent_url = agent_url.rstrip('/')
+        self.agent_url = agent_url.rstrip("/")
         self.timeout = timeout
         # Auth headers
         if token is None:
             import os
+
             token = os.getenv("A2A_TOKEN")
         headers = {}
         if token:
@@ -55,8 +57,8 @@ class AgentConnection:
                 response.raise_for_status()
                 self._agent_card = response.json()
                 _PRINTER.print(f"Retrieved agent card from {self.agent_url}")
-                _PRINTER.print(f"Agent: {self._agent_card.get('name', 'Unknown')}") # type: ignore
-                _PRINTER.print(f"Description: {self._agent_card.get('description', 'No description')}") # type: ignore
+                _PRINTER.print(f"Agent: {self._agent_card.get('name', 'Unknown')}")  # type: ignore
+                _PRINTER.print(f"Description: {self._agent_card.get('description', 'No description')}")  # type: ignore
             except Exception as e:
                 # Fallback: if URL contains '/a2a', try root path without it
                 if "/a2a" in self.agent_url:
@@ -68,7 +70,9 @@ class AgentConnection:
                         _PRINTER.print(f"Retrieved agent card from {root_url}")
                     except Exception:
                         pass  # swallow, will re-raise below
-                _PRINTER.print(f"[!] Could not connect to {self.agent_url}\n    → Ensure the server is running and reachable.\n    → Full error: {e}")
+                _PRINTER.print(
+                    f"[!] Could not connect to {self.agent_url}\n    → Ensure the server is running and reachable.\n    → Full error: {e}"
+                )
                 raise RuntimeError(f"Could not retrieve agent card: {e}")
 
         return self._agent_card  # type: ignore
@@ -78,7 +82,7 @@ class AgentConnection:
         message: str,
         attachments: list[str] | None = None,
         context_id: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Send a message to the remote agent and return task response."""
         if not self._agent_card:
@@ -89,35 +93,30 @@ class AgentConnection:
             context_id = self._context_id
 
         # Build message parts
-        parts = [{'kind': 'text', 'text': message}]
+        parts = [{"kind": "text", "text": message}]
 
         if attachments:
             for attachment in attachments:
-                file_part = {'kind': 'file', 'file': {'uri': attachment}}
+                file_part = {"kind": "file", "file": {"uri": attachment}}
                 parts.append(file_part)  # type: ignore
 
         # Construct A2A message
-        a2a_message = {
-            'role': 'user',
-            'parts': parts,
-            'kind': 'message',
-            'message_id': str(uuid.uuid4())
-        }
+        a2a_message = {"role": "user", "parts": parts, "kind": "message", "message_id": str(uuid.uuid4())}
 
         if context_id is not None:
-            a2a_message['context_id'] = context_id
+            a2a_message["context_id"] = context_id
 
         # Send using the message/send method (not send_task)
         try:
             response = await self._a2a_client.send_message(
                 message=a2a_message,  # type: ignore
                 metadata=metadata,
-                configuration={'accepted_output_modes': ['application/json', 'text/plain'], 'blocking': True}  # type: ignore
+                configuration={"accepted_output_modes": ["application/json", "text/plain"], "blocking": True},  # type: ignore
             )
 
             # Persist context id for subsequent calls
             try:
-                ctx = response.get('result', {}).get('context_id')  # type: ignore[index]
+                ctx = response.get("result", {}).get("context_id")  # type: ignore[index]
                 if isinstance(ctx, str):
                     self._context_id = ctx
             except Exception:
@@ -160,12 +159,12 @@ class AgentConnection:
         while waited < max_wait:
             task_info = await self.get_task(task_id)
 
-            if 'result' in task_info:
-                task = task_info['result']
-                status = task.get('status', {})
-                state = status.get('state', 'unknown')
+            if "result" in task_info:
+                task = task_info["result"]
+                status = task.get("status", {})
+                state = status.get("state", "unknown")
 
-                if state in ['completed', 'failed', 'canceled']:
+                if state in ["completed", "failed", "canceled"]:
                     _PRINTER.print(f"Task {task_id} finished with state: {state}")
                     return task_info
                 else:

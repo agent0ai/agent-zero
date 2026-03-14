@@ -87,7 +87,7 @@ verify_step "Import summary exists"
 test -f .claude/docs/USING_MAHOOSUC_COMMANDS.md
 verify_step "Usage guide exists"
 
-test -f .claude/docs/AGENT_ZERO_INTEGRATION.md
+test -f .claude/docs/AGENT_JUMBO_INTEGRATION.md
 verify_step "Integration guide exists"
 
 echo ""

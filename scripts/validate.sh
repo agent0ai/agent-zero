@@ -1,23 +1,25 @@
 #!/bin/bash
-# Quick validation script to check Agent Zero deployment
+# Quick validation script to check Agent Jumbo deployment
 
-set -e
+set -euo pipefail
 
-echo "🔍 Agent Zero Deployment Validation"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "🔍 Agent Jumbo Deployment Validation"
 echo "===================================="
 echo ""
 
 # Check Docker containers
 echo "📦 Container Status:"
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(agent-zero|ollama)" || echo "⚠️  Containers not running"
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(agent-jumbo|agent-zero|ollama)" || echo "⚠️  Containers not running"
 echo ""
 
 # Check UI accessibility
 echo "🌐 Web Interface:"
 if curl -s http://localhost:50080 > /dev/null; then
-    echo "✓ Agent Zero UI accessible at http://localhost:50080"
+    echo "✓ Agent Jumbo UI accessible at http://localhost:50080"
 else
-    echo "✗ Agent Zero UI not accessible"
+    echo "✗ Agent Jumbo UI not accessible"
 fi
 echo ""
 
@@ -28,8 +30,8 @@ echo ""
 
 # Check model files
 echo "📁 Model Files:"
-if [ -d "/home/webemo-aaron/projects/agent-zero/ollama_models/models" ]; then
-    echo "✓ Models directory: $(du -sh /home/webemo-aaron/projects/agent-zero/ollama_models | cut -f1)"
+if [ -d "${ROOT_DIR}/ollama_models/models" ]; then
+    echo "✓ Models directory: $(du -sh "${ROOT_DIR}/ollama_models" | cut -f1)"
 else
     echo "✗ Models directory not found"
 fi
@@ -37,16 +39,16 @@ echo ""
 
 # Check custom tools
 echo "🛠️  Custom Tools:"
-TOOLS_COUNT=$(ls -1 /home/webemo-aaron/projects/agent-zero/python/tools/*.py 2>/dev/null | wc -l)
+TOOLS_COUNT=$(ls -1 "${ROOT_DIR}"/python/tools/*.py 2>/dev/null | wc -l)
 echo "Found $TOOLS_COUNT tool files:"
-ls -1 /home/webemo-aaron/projects/agent-zero/python/tools/ | grep -E "portfolio|property" | sed 's/^/  - /'
+ls -1 "${ROOT_DIR}/python/tools/" | grep -E "portfolio|property" | sed 's/^/  - /' || true
 echo ""
 
 # Check databases
 echo "💾 Database Status:"
-if [ -d "/home/webemo-aaron/projects/agent-zero/docker/run/agent-zero/data" ]; then
+if [ -d "${ROOT_DIR}/docker/run/agent-zero/data" ]; then
     echo "Database directory exists"
-    ls -lh /home/webemo-aaron/projects/agent-zero/docker/run/agent-zero/data/*.db 2>/dev/null | awk '{print "  - " $9 " (" $5 ")"}' || echo "  No databases created yet (will be created on first use)"
+    ls -lh "${ROOT_DIR}"/docker/run/agent-zero/data/*.db 2>/dev/null | awk '{print "  - " $9 " (" $5 ")"}' || echo "  No databases created yet (will be created on first use)"
 else
     echo "  Database directory will be created on first use"
 fi
@@ -56,7 +58,7 @@ echo ""
 echo "📊 Summary:"
 echo "==========="
 echo "✓ Docker containers: Running"
-echo "✓ Agent Zero UI: http://localhost:50080"
+echo "✓ Agent Jumbo UI: http://localhost:50080"
 echo "✓ Portfolio Manager: Ready"
 echo "✓ Property Manager: Ready"
 echo "✓ Ollama Models: In project (4.4GB)"

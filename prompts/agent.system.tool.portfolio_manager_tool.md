@@ -1,15 +1,9 @@
-# Portfolio Manager Tool
+### portfolio_manager_tool
 
-A comprehensive code project portfolio management tool for organizing, analyzing, and selling software projects. Designed for AI Solution Architects and developers who build multiple projects and need to commercialize them.
-
-## Purpose
-
-The Portfolio Manager tool helps you:
-- Scan and catalog code projects from any folder
-- Analyze projects for sale-readiness with quality scoring
-- Create product listings with pricing tiers
-- Manage a sales pipeline for your software products
-- Export catalogs for marketing and sales
+comprehensive code project portfolio management for organizing, analyzing, and selling software projects
+scan folders to catalog projects, analyze sale-readiness, create product listings with pricing tiers, manage sales pipeline
+use "action" arg: "scan" "list" "get" "add" "update" "analyze" "export" "search" "pipeline" "dashboard" "create_product" "pricing"
+returns structured JSON with operation results
 
 ## Usage
 
@@ -25,6 +19,7 @@ portfolio_manager_tool(
 ```
 
 This will:
+
 - Detect all projects in the folder
 - Identify programming languages (Python, JavaScript, TypeScript, Go, Rust, Java, etc.)
 - Analyze README quality, test coverage, documentation
@@ -69,6 +64,7 @@ portfolio_manager_tool(
 ```
 
 This provides:
+
 - README quality score
 - Test coverage percentage
 - Documentation quality
@@ -191,6 +187,7 @@ portfolio_manager_tool(
 ```
 
 Pipeline stages:
+
 - `lead` - Initial contact
 - `qualified` - Confirmed interest and budget
 - `proposal` - Sent pricing/proposal
@@ -221,6 +218,7 @@ portfolio_manager_tool(
 ```
 
 Shows:
+
 - Total projects and products
 - Average sale-readiness score
 - Projects by status and language
@@ -252,6 +250,7 @@ The sale-readiness score (0-100%) is calculated based on:
 | Code Quality | 10% | Linting, formatting, best practices |
 
 **Score Interpretation:**
+
 - 🟢 70-100%: Ready for sale
 - 🟡 40-69%: Needs some improvement
 - 🔴 0-39%: Significant work needed
@@ -259,21 +258,25 @@ The sale-readiness score (0-100%) is calculated based on:
 ## Workflow Example
 
 1. **Scan your projects folder:**
+
    ```python
    portfolio_manager_tool(action="scan", folder_path="~/projects")
    ```
 
 2. **Review and improve low-scoring projects:**
+
    ```python
    portfolio_manager_tool(action="analyze", folder_path="~/projects/my-tool")
    ```
 
 3. **Create products from ready projects:**
+
    ```python
    portfolio_manager_tool(action="create_product", project_id=1)
    ```
 
 4. **Add pricing tiers:**
+
    ```python
    portfolio_manager_tool(action="pricing", product_id=1, data={
        "pricing_action": "add",
@@ -283,6 +286,7 @@ The sale-readiness score (0-100%) is calculated based on:
    ```
 
 5. **Track sales opportunities:**
+
    ```python
    portfolio_manager_tool(action="pipeline", data={
        "pipeline_action": "add",
@@ -293,6 +297,7 @@ The sale-readiness score (0-100%) is calculated based on:
    ```
 
 6. **Monitor your portfolio:**
+
    ```python
    portfolio_manager_tool(action="dashboard")
    ```

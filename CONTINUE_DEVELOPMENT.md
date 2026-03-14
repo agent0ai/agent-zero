@@ -11,6 +11,7 @@
 ### Your Current Position
 
 ✅ **Completed**:
+
 - CalendarSyncService class created
 - Event sync method implemented
 - Calendar formatting methods working
@@ -19,6 +20,7 @@
 - Error handling established
 
 ⏳ **Next**:
+
 - Complete remaining 4 tests in TestCalendarEventCreation
 - Implement TestCalendarEventUpdates (4 tests)
 - Implement TestBlockedDatesSync (5 tests)
@@ -27,8 +29,9 @@
 ### Step-by-Step Continuation
 
 #### Step 1: See Current Status
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero
+cd /home/webemo-aaron/projects/agent-jumbo
 
 # Run current tests
 pytest tests/test_pms_calendar_sync.py -v
@@ -142,6 +145,7 @@ Day 5:
 ### Success Metrics for Team A
 
 Complete by Day 5:
+
 - ✅ 45+ tests passing (100%)
 - ✅ >95% code coverage
 - ✅ All methods implemented
@@ -159,6 +163,7 @@ Complete by Day 5:
 ### Your Starting Position
 
 ✅ **Prepared**:
+
 - 53 test placeholders written
 - Test organization complete
 - Test specifications documented
@@ -166,6 +171,7 @@ Complete by Day 5:
 - All infrastructure ready
 
 ⏳ **Your task**:
+
 - Implement CommunicationWorkflow class
 - Implement MessageTemplate system
 - Write and implement 53 tests
@@ -291,7 +297,7 @@ def test_workflow_service_creation(self):
 
 ```bash
 # cd to your worktree
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 
 # Run initialization tests
 pytest tests/test_pms_communication_workflows.py::TestCommunicationWorkflowInitialization -v
@@ -345,6 +351,7 @@ Day 5:
 ### Success Metrics for Team B
 
 Complete by Day 5:
+
 - ✅ 53+ tests passing (100%)
 - ✅ >95% code coverage
 - ✅ All workflow types implemented
@@ -363,6 +370,7 @@ Complete by Day 5:
 ### For Both Teams
 
 #### Daily Sync (5 minutes)
+
 ```
 09:00 - Daily standup
 ├─ How many tests passed today?
@@ -372,11 +380,13 @@ Complete by Day 5:
 ```
 
 #### Code Pattern Sharing
+
 - Team A: Share patterns as you discover them
 - Team B: Ask questions about Team A's patterns
 - Both: Use each other's code as reference
 
 #### Branch Management
+
 ```bash
 # Team A
 git status
@@ -391,6 +401,7 @@ git branch  # Should be: feature/pms-messaging-automation
 ```
 
 #### Handling Conflicts
+
 - Test in your feature branch first
 - Only merge when tests pass 100%
 - Merge to main only on Day 5
@@ -480,23 +491,27 @@ Day 5:
 ## 🎯 Key Principles to Remember
 
 ### TDD Approach
+
 1. **RED**: Write test, see it fail
 2. **GREEN**: Write minimal code to pass test
 3. **REFACTOR**: Clean up code while keeping tests green
 
 ### Code Quality
+
 - Type hints on all methods
 - Docstrings on all public methods
 - Error handling in all I/O operations
 - >95% code coverage target
 
 ### Git Workflow
+
 - Commit frequently (every test class)
 - Use clear commit messages
 - Reference test counts in messages
 - Push to origin regularly
 
 ### Testing Strategy
+
 - Use fixtures from conftest.py
 - Mock external services
 - Test both success and failure paths
@@ -507,17 +522,20 @@ Day 5:
 ## 💡 Resources Available
 
 ### Code References
+
 - `instruments/custom/pms_hub/calendar_sync.py` - Working example
 - `instruments/custom/pms_hub/sync_service.py` - Another example
 - `tests/test_pms_calendar_sync.py` - Test structure reference
 
 ### Documentation
+
 - `TDD_SWARM_GUIDE.md` - Testing patterns
 - `TDD_SWARM_EXECUTION_STATUS.md` - Current progress
 - `TDD_SWARM_FEATURE_TEAMS.md` - Detailed specifications
 - `TEAM_QUICKSTART.md` - Quick reference
 
 ### Fixtures
+
 - `tests/conftest.py` - All available fixtures
 - `sample_reservation` - Pre-configured test data
 - `sample_property` - Property test data
@@ -539,7 +557,7 @@ Before each commit, verify:
 
 ---
 
-## 🚀 You Are Ready!
+## 🚀 You Are Ready
 
 **Team A**: Continue from 8 passing tests to 45+
 **Team B**: Start with initialization and build systematically
@@ -557,6 +575,7 @@ Both teams have:
 ---
 
 **Questions?** Check:
+
 1. TDD_SWARM_EXECUTION_STATUS.md (current progress)
 2. Test examples in test_pms_*.py files
 3. Implementation reference in calendar_sync.py

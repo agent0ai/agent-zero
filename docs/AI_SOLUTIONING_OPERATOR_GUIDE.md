@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers the complete AI solutioning workflow for operators using Agent Zero. As an operator, you'll deliver end-to-end AI solutions from discovery through deployment and optimization.
+This guide covers the complete AI solutioning workflow for operators using Agent Jumbo. As an operator, you'll deliver end-to-end AI solutions from discovery through deployment and optimization.
 
 ---
 
@@ -57,17 +57,19 @@ This guide covers the complete AI solutioning workflow for operators using Agent
 | `knowledge_base` | `search` | Consult architectural patterns |
 
 **Architectural Excellence Guidelines:**
-1.  **Consult Patterns**: Always search `knowledge/custom/architectural_patterns/` before proposing a design. Familiarize yourself with EDA, Microservices, and Serverless patterns stored there.
-2.  **Trade-off Analysis**: Use the `tradeoff_analysis` skill to compare at least two architectural options (e.g., Centralized vs. Decentralized).
-3.  **WAF Alignment**: Ensure solutions align with the Azure Well-Architected Framework (Cost, Security, Reliability, Performance, Operational Excellence).
+
+1. **Consult Patterns**: Always search `knowledge/custom/architectural_patterns/` before proposing a design. Familiarize yourself with EDA, Microservices, and Serverless patterns stored there.
+2. **Trade-off Analysis**: Use the `tradeoff_analysis` skill to compare at least two architectural options (e.g., Centralized vs. Decentralized).
+3. **WAF Alignment**: Ensure solutions align with the Azure Well-Architected Framework (Cost, Security, Reliability, Performance, Operational Excellence).
 
 **Example Design Flow:**
+
 ```
 # 1. Search for patterns
 {{knowledge_search(query="Event Driven Architecture for AI Agents")}}
 
 # 2. Perform Trade-off Analysis
-I've compared the Monolithic vs Event-Driven approach for Acme Corp. 
+I've compared the Monolithic vs Event-Driven approach for Acme Corp.
 - Results: EDA provides better horizontal scale but higher initial complexity.
 - Recommendation: EDA via Azure Service Bus.
 ```
@@ -81,6 +83,7 @@ For extremely complex projects (e.g., analyzing 50+ business processes simultane
 **Purpose**: Spawns multiple "specialist" agents in parallel. Each agent focuses on a sub-task and reports back to the master architect.
 
 **Example Swarm Command:**
+
 ```
 {{swarm_batch(
   tasks=[
@@ -94,7 +97,8 @@ For extremely complex projects (e.g., analyzing 50+ business processes simultane
 
 ## 📜 Architectural Memory (ADRs)
 
-Agent Zero now features **Automated ADR Generation**.
+Agent Jumbo now features **Automated ADR Generation**.
+
 - **Extraction**: Every time you conclude a technical decision, the `adr_generator` extension saves a record in `knowledge/custom/architectural_patterns/adrs/`.
 - **Injection**: Future agents will automatically see these decisions in their system prompt via the `adr_context` extension. This ensures **Architectural Consistency** over time.
 
@@ -255,7 +259,7 @@ Agent Zero now features **Automated ADR Generation**.
 | Tool | Action | Purpose |
 |------|--------|---------|
 | `project_scaffold` | `scaffold_project` | Production project setup |
-| Agent Zero | Code execution | Implement features |
+| Agent Jumbo | Code execution | Implement features |
 
 ---
 
@@ -383,33 +387,39 @@ Complete certification path covering all skills.
 ## 🎯 Key Skills for Operators
 
 ### Discovery Skills
+
 - `customer_intake` - Customer Intake & Qualification
 - `business_analysis` - Business Analysis & X-Ray
 - `requirements_gathering` - Requirements Gathering
 - `ai_readiness_assessment` - AI Readiness Assessment
 
 ### Solution Design Skills
+
 - `task_classification` - Task Classification (Human/AI/Hybrid)
 - `workflow_design` - Human-AI Workflow Design
 - `architecture_design` - AI Solution Architecture
 - `prompt_engineering` - Prompt Engineering
 
 ### Sales Skills
+
 - `roi_calculation` - ROI Calculation & Projection
 - `proposal_creation` - Proposal Creation
 - `roadmap_planning` - Migration Roadmap Planning
 
 ### Implementation Skills
+
 - `project_scaffolding` - Project Scaffolding
 - `ai_integration` - AI Model Integration
 - `testing` - AI Solution Testing
 
 ### Deployment Skills
+
 - `cicd_setup` - CI/CD Pipeline Setup
 - `containerization` - Docker Containerization
 - `cloud_deployment` - Cloud Deployment
 
 ### Support Skills
+
 - `performance_monitoring` - AI Performance Monitoring
 - `prompt_optimization` - Prompt Optimization
 - `customer_success` - Customer Success Management
@@ -422,7 +432,8 @@ Access the workflow dashboard in the UI:
 
 **Settings → Workflows tab**
 
-### Dashboard Views:
+### Dashboard Views
+
 1. **Dashboard** - Overview stats, recent executions
 2. **Workflows** - All workflows with status
 3. **Training** - Learning paths and progress
@@ -433,6 +444,7 @@ Access the workflow dashboard in the UI:
 ## 🔄 Typical Operator Day
 
 ### Morning Routine
+
 ```
 # Check active workflows
 {{workflow_engine(action="list_workflows", status="in_progress")}}
@@ -445,6 +457,7 @@ Access the workflow dashboard in the UI:
 ```
 
 ### Working on Projects
+
 ```
 # Start working on a task
 {{workflow_engine(action="start_task", execution_id=1, task_id="business_xray")}}
@@ -466,6 +479,7 @@ Access the workflow dashboard in the UI:
 ```
 
 ### End of Day
+
 ```
 # Update skill progress
 {{workflow_training(
@@ -533,14 +547,16 @@ Access the workflow dashboard in the UI:
 ## ✅ Certification Requirements
 
 ### AI Solutioning Quickstart Certificate
+
 - Complete Quick Start path (6 hours)
 - Achieve Beginner level in 4 essential skills
 
 ### Certified AI Solution Architect
+
 - Complete full path (30 hours)
 - Achieve Intermediate level in all 20 skills
 - Complete one end-to-end AI project
 
 ---
 
-*Created for Agent Zero operators delivering AI solutions.*
+*Created for Agent Jumbo operators delivering AI solutions.*

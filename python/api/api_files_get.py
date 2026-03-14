@@ -30,18 +30,10 @@ class ApiFilesGet(ApiHandler):
             paths = input.get("paths", [])
 
             if not paths:
-                return Response(
-                    '{"error": "paths array is required"}',
-                    status=400,
-                    mimetype="application/json"
-                )
+                return Response('{"error": "paths array is required"}', status=400, mimetype="application/json")
 
             if not isinstance(paths, list):
-                return Response(
-                    '{"error": "paths must be an array"}',
-                    status=400,
-                    mimetype="application/json"
-                )
+                return Response('{"error": "paths must be an array"}', status=400, mimetype="application/json")
 
             result = {}
 
@@ -54,7 +46,7 @@ class ApiFilesGet(ApiHandler):
                         external_path = files.get_abs_path("tmp/uploads", filename)
                         filename = os.path.basename(external_path)
                     elif path.startswith("/a0/"):
-                        # Other internal Agent Zero paths
+                        # Other internal Agent Jumbo paths
                         relative_path = path.replace("/a0/", "")
                         external_path = files.get_abs_path(relative_path)
                         filename = os.path.basename(external_path)
@@ -71,7 +63,7 @@ class ApiFilesGet(ApiHandler):
                     # Read and encode file
                     with open(external_path, "rb") as f:
                         file_content = f.read()
-                        base64_content = base64.b64encode(file_content).decode('utf-8')
+                        base64_content = base64.b64encode(file_content).decode("utf-8")
                         result[filename] = base64_content
 
                     PrintStyle().print(f"Retrieved file: {filename} ({len(file_content)} bytes)")
@@ -81,16 +73,14 @@ class ApiFilesGet(ApiHandler):
                     continue
 
             # Log the retrieval
-            PrintStyle(
-                background_color="#2ECC71", font_color="white", bold=True, padding=True
-            ).print(f"API Files retrieved: {len(result)} files")
+            PrintStyle(background_color="#2ECC71", font_color="white", bold=True, padding=True).print(
+                f"API Files retrieved: {len(result)} files"
+            )
 
             return result
 
         except Exception as e:
             PrintStyle.error(f"API files get error: {e!s}")
             return Response(
-                json.dumps({"error": f"Internal server error: {e!s}"}),
-                status=500,
-                mimetype="application/json"
+                json.dumps({"error": f"Internal server error: {e!s}"}), status=500, mimetype="application/json"
             )

@@ -23,7 +23,7 @@
   - Normalize text and dedupe by `content_hash`.
   - Save raw facts into `knowledge/` and metadata into SQLite.
 - Use MCP fetch for web pages and brave-search for discovery.
-- Add a scheduled trigger (cron or systemd) that calls Agent Zero `/api_message` to run ingestion workflows.
+- Add a scheduled trigger (cron or systemd) that calls Agent Jumbo `/api_message` to run ingestion workflows.
 
 ## Phase 3: Summarization and memory consolidation
 

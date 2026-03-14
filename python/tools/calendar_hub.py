@@ -1,5 +1,5 @@
 """
-Calendar Hub Tool for Agent Zero
+Calendar Hub Tool for Agent Jumbo
 Mock-friendly calendar integration with event CRUD and prep/follow-up hooks.
 """
 
@@ -10,8 +10,8 @@ from python.helpers.tool import Response, Tool
 
 
 class CalendarHub(Tool):
-    def __init__(self, agent, name: str, args: dict, message: str, **kwargs):
-        super().__init__(agent, name, args, message, **kwargs)
+    def __init__(self, agent, name: str, method: str | None, args: dict, message: str, loop_data=None, **kwargs):
+        super().__init__(agent, name, method, args, message, loop_data, **kwargs)
         from instruments.custom.calendar_hub.calendar_manager import CalendarHubManager
 
         db_path = files.get_abs_path("./instruments/custom/calendar_hub/data/calendar_hub.db")

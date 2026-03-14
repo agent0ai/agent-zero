@@ -14,6 +14,7 @@ Implement two major feature enhancements using **parallel TDD Swarm teams** with
 ## 📋 Team A: Calendar Hub Integration
 
 ### Feature Scope
+
 - Sync PMS calendar availability to Google/Outlook calendars
 - Dynamic pricing rule synchronization to calendar events
 - Availability blocking management (min stay, cleaning days)
@@ -22,6 +23,7 @@ Implement two major feature enhancements using **parallel TDD Swarm teams** with
 ### Implementation Files
 
 #### New Files to Create
+
 ```
 instruments/custom/pms_hub/calendar_sync.py          # Calendar sync service
 python/tools/pms_calendar_sync.py                    # Calendar sync tool
@@ -31,6 +33,7 @@ tests/test_pms_calendar_pricing.py                   # 20+ tests
 ```
 
 #### Integration Points
+
 ```
 PMS Reservation → Canonical Model → Calendar Sync Service
     ↓
@@ -44,6 +47,7 @@ Store pricing rules as calendar event metadata
 ### Test Suite Specification
 
 #### Test Category 1: Calendar Sync Service (15 tests)
+
 ```python
 class TestCalendarSyncService:
     - test_sync_service_initialization
@@ -64,6 +68,7 @@ class TestCalendarSyncService:
 ```
 
 #### Test Category 2: Dynamic Pricing Rules (12 tests)
+
 ```python
 class TestDynamicPricingRules:
     - test_apply_percentage_adjustment
@@ -81,6 +86,7 @@ class TestDynamicPricingRules:
 ```
 
 #### Test Category 3: Availability Blocking (8 tests)
+
 ```python
 class TestAvailabilityBlocking:
     - test_create_blocked_dates
@@ -94,6 +100,7 @@ class TestAvailabilityBlocking:
 ```
 
 #### Test Category 4: Calendar Hub Integration (10 tests)
+
 ```python
 class TestCalendarHubIntegration:
     - test_calendar_hub_connection
@@ -111,6 +118,7 @@ class TestCalendarHubIntegration:
 ### Key Implementation Details
 
 **Calendar Sync Service (`instruments/custom/pms_hub/calendar_sync.py`)**
+
 ```python
 class CalendarSyncService:
     async def sync_reservation_to_calendar(reservation: Reservation) -> bool
@@ -123,6 +131,7 @@ class CalendarSyncService:
 ```
 
 **EventBus Subscribers**
+
 ```python
 # In sync_service.py __init__
 self.event_bus.subscribe("pms.reservation.created", self._on_reservation_created)
@@ -136,6 +145,7 @@ self.event_bus.subscribe("pms.pricing_rule.updated", self._on_pricing_updated)
 ## 🗣️ Team B: Guest Communication Automation
 
 ### Feature Scope
+
 - Pre-arrival messages (check-in instructions, house rules)
 - Post-checkout messages (thank you, review requests)
 - Automated review requests with templates
@@ -145,6 +155,7 @@ self.event_bus.subscribe("pms.pricing_rule.updated", self._on_pricing_updated)
 ### Implementation Files
 
 #### New Files to Create
+
 ```
 instruments/custom/pms_hub/communication_workflows.py # Workflow engine
 python/tools/pms_communication.py                     # Communication tool
@@ -155,6 +166,7 @@ tests/test_pms_message_templates.py                   # 20+ tests
 ```
 
 #### Integration Points
+
 ```
 PMS Reservation Event → Workflow Trigger
     ↓
@@ -168,6 +180,7 @@ Delivery Status Tracking → EventBus
 ### Test Suite Specification
 
 #### Test Category 1: Workflow Engine (15 tests)
+
 ```python
 class TestCommunicationWorkflows:
     - test_workflow_initialization
@@ -188,6 +201,7 @@ class TestCommunicationWorkflows:
 ```
 
 #### Test Category 2: Message Templates (12 tests)
+
 ```python
 class TestMessageTemplates:
     - test_load_template
@@ -205,6 +219,7 @@ class TestMessageTemplates:
 ```
 
 #### Test Category 3: Multi-Channel Delivery (10 tests)
+
 ```python
 class TestMultiChannelDelivery:
     - test_send_via_sms
@@ -220,6 +235,7 @@ class TestMultiChannelDelivery:
 ```
 
 #### Test Category 4: Issue Resolution (10 tests)
+
 ```python
 class TestIssueResolution:
     - test_damage_report_workflow
@@ -235,6 +251,7 @@ class TestIssueResolution:
 ```
 
 #### Test Category 5: Review Management (8 tests)
+
 ```python
 class TestReviewManagement:
     - test_review_request_timing
@@ -250,6 +267,7 @@ class TestReviewManagement:
 ### Key Implementation Details
 
 **Communication Workflows (`instruments/custom/pms_hub/communication_workflows.py`)**
+
 ```python
 class CommunicationWorkflow:
     async def trigger_pre_arrival_workflow(reservation: Reservation) -> WorkflowExecution
@@ -262,6 +280,7 @@ class CommunicationWorkflow:
 ```
 
 **Message Template Model**
+
 ```python
 @dataclass
 class MessageTemplate:
@@ -278,6 +297,7 @@ class MessageTemplate:
 ```
 
 **EventBus Integration**
+
 ```python
 self.event_bus.subscribe("pms.reservation.created", self._on_pre_arrival_trigger)
 self.event_bus.subscribe("pms.reservation.checked_in", self._on_check_in_trigger)
@@ -321,22 +341,25 @@ Sprint Timeline:
 ### Parallel Execution
 
 **Terminal 1 - Team A (Calendar)**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 # Create tests, implement, iterate
 ./scripts/run_pms_tests.sh calendar
 ```
 
 **Terminal 2 - Team B (Messaging)**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 # Create tests, implement, iterate
 ./scripts/run_pms_tests.sh messaging
 ```
 
 **Terminal 3 - Main (Integration)**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero
+cd /home/webemo-aaron/projects/agent-jumbo
 # Monitor changes, prepare merge strategy
 git log --oneline
 ```
@@ -346,6 +369,7 @@ git log --oneline
 ## 📊 Success Criteria
 
 ### Team A: Calendar Hub Integration
+
 - ✅ 45+ tests written and passing
 - ✅ 95%+ code coverage
 - ✅ EventBus integration working
@@ -354,6 +378,7 @@ git log --oneline
 - ✅ Performance: <500ms per event sync
 
 ### Team B: Guest Communication Automation
+
 - ✅ 53+ tests written and passing
 - ✅ 95%+ code coverage
 - ✅ All workflow types implemented
@@ -362,6 +387,7 @@ git log --oneline
 - ✅ Performance: <1s per message send
 
 ### Overall
+
 - ✅ Zero conflicts on merge
 - ✅ Full test suite passes (100+ existing + 100+ new)
 - ✅ Documentation updated
@@ -438,18 +464,21 @@ Feature Branch: feature/pms-messaging-automation
 ## 🎓 Learning Outcomes
 
 ### Architecture Patterns
+
 - Event-driven architecture with EventBus
 - Service-oriented design (Calendar Sync, Communication Services)
 - Plugin-based template system
 - Workflow engine patterns
 
 ### TDD Best Practices
+
 - Test-first development
 - Fixture reuse across teams
 - Parallel development coordination
 - Git worktree workflow
 
 ### Integration Testing
+
 - Multi-service integration validation
 - EventBus event flow testing
 - API endpoint integration testing
@@ -460,12 +489,14 @@ Feature Branch: feature/pms-messaging-automation
 ## 📞 Support & Communication
 
 ### Team Sync Points
+
 - **Daily**: Team status check
 - **End of Day**: Merge conflict resolution if needed
 - **Day 5**: Joint validation and merge ceremony
 
 ### Documentation
-- Update `/home/webemo-aaron/projects/agent-zero/README.md` with new features
+
+- Update `/home/webemo-aaron/projects/agent-jumbo/README.md` with new features
 - Add API documentation for new endpoints
 - Create troubleshooting guide for new workflows
 

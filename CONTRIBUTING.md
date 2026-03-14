@@ -1,6 +1,6 @@
-# Contributing to Agent Zero DevOps
+# Contributing to Agent Jumbo DevOps
 
-Thank you for your interest in contributing to Agent Zero DevOps! This guide will help you get started.
+Thank you for your interest in contributing to Agent Jumbo DevOps! This guide will help you get started.
 
 ## Code of Conduct
 
@@ -44,8 +44,8 @@ Be respectful, inclusive, and professional. We're building a welcoming community
 
 ```bash
 # Clone the repository
-git clone https://github.com/agent-zero-deploy/agent-zero-devops.git
-cd agent-zero-devops
+git clone https://github.com/agent-jumbo-deploy/agent-jumbo-devops.git
+cd agent-jumbo-devops
 
 # Create virtual environment
 python -m venv venv

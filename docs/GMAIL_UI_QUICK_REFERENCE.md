@@ -2,11 +2,12 @@
 
 ## 🎯 What's New
 
-Agent Zero now supports **web-based Gmail account setup** through the Settings UI - no more manual credential file management!
+Agent Jumbo now supports **web-based Gmail account setup** through the Settings UI - no more manual credential file management!
 
 ## 📦 Files Created/Modified
 
 ### New API Endpoints (4 files, 9.6K)
+
 ```
 python/api/
 ├── gmail_oauth_start.py      (2.2K) - Start OAuth2 flow
@@ -16,6 +17,7 @@ python/api/
 ```
 
 ### Updated Core Files (4 files)
+
 ```
 python/helpers/
 ├── settings.py          - Added gmail_accounts field & UI section
@@ -27,6 +29,7 @@ webui/js/
 ```
 
 ### Documentation (4 files)
+
 ```
 docs/
 ├── GMAIL_API_PHASE2_PHASE3.md         - Complete Gmail API guide
@@ -38,12 +41,14 @@ docs/
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
+
 ```bash
 pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
 ```
 
 ### 2. Get Google OAuth2 Credentials
-1. https://console.cloud.google.com/ → New Project
+
+1. <https://console.cloud.google.com/> → New Project
 2. Enable Gmail API
 3. Create OAuth client ID (Web application)
 4. Add redirect URI: `http://localhost:5000/gmail_oauth_callback`
@@ -52,17 +57,20 @@ pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
 ### 3. Add Account (Two Options)
 
 #### Option A: Via Settings UI
+
 1. Settings → External tab → Gmail Accounts
 2. Click "Manage Accounts"
 3. Upload or paste `credentials.json` in the modal
 4. Click "Authenticate via Google"
 
 #### Option A2: Test & Setup Utility
+
 1. Settings → External tab → Gmail Accounts
 2. Click "Test & Setup Utility"
 3. Follow the step-by-step OAuth + test email flow
 
 #### Option B: Via API
+
 ```bash
 curl -X POST http://localhost:5000/gmail_oauth_start \
   -H "Content-Type: application/json" \
@@ -75,8 +83,9 @@ curl -X POST http://localhost:5000/gmail_oauth_start \
 Response includes `authorization_url` (alias: `auth_url`) - open in browser to complete OAuth2 flow.
 
 ### 4. Use Account
+
 ```python
-# In Agent Zero conversation
+# In Agent Jumbo conversation
 "Send email via Gmail to customer@example.com"
 
 # Tool call (automatic)
@@ -92,18 +101,21 @@ Response includes `authorization_url` (alias: `auth_url`) - open in browser to c
 ## 🔑 Key Features
 
 ### OAuth2 Web Flow
+
 - ✅ No local server required
 - ✅ Popup/redirect based authentication
 - ✅ CSRF protection via state tokens
 - ✅ Automatic token refresh
 
 ### Account Management
+
 - ✅ Multiple accounts supported
 - ✅ Status tracking (valid/expired)
 - ✅ Persistent across restarts
 - ✅ Easy removal
 
 ### Security
+
 - ✅ Tokens stored in `data/gmail_credentials/` (pickled)
 - ✅ Session-based CSRF protection
 - ✅ Secure credential handling
@@ -112,6 +124,7 @@ Response includes `authorization_url` (alias: `auth_url`) - open in browser to c
 ## 📋 API Reference
 
 ### Start OAuth2
+
 ```http
 POST /gmail_oauth_start
 Content-Type: application/json
@@ -129,6 +142,7 @@ Response: {
 ```
 
 ### Send Test Email
+
 ```http
 POST /gmail_test_send
 Content-Type: application/json
@@ -136,12 +150,13 @@ Content-Type: application/json
 {
     "account_name": "sales",
     "to": "you@example.com",
-    "subject": "Agent Zero Gmail Test",
-    "body": "This is a test email from Agent Zero Gmail UI."
+    "subject": "Agent Jumbo Gmail Test",
+    "body": "This is a test email from Agent Jumbo Gmail UI."
 }
 ```
 
 ### OAuth2 Callback
+
 ```http
 GET /gmail_oauth_callback?code=AUTH_CODE&state=CSRF_TOKEN
 
@@ -153,6 +168,7 @@ Response: {
 ```
 
 ### List Accounts
+
 ```http
 POST /gmail_accounts_list
 
@@ -170,6 +186,7 @@ Response: {
 ```
 
 ### Remove Account
+
 ```http
 POST /gmail_account_remove
 Content-Type: application/json
@@ -189,16 +206,19 @@ Response: {
 Location: **Settings → External tab → Gmail Accounts**
 
 ### Fields
+
 - **Account Info**: Shows count of configured accounts
 - **Manage Accounts**: Opens account manager (lists accounts)
 - **View Setup Guide**: Shows setup instructions
 
 ### Current UI (v1.0)
+
 - Account list displayed in notifications
 - Console logging for details
 - Button-based actions
 
 ### Planned UI (v2.0)
+
 - Full modal with account table
 - Inline authentication buttons
 - File upload for credentials.json
@@ -207,6 +227,7 @@ Location: **Settings → External tab → Gmail Accounts**
 ## 🔧 Configuration
 
 ### Settings Schema
+
 ```python
 # In tmp/settings.json
 {
@@ -221,6 +242,7 @@ Location: **Settings → External tab → Gmail Accounts**
 ```
 
 ### Token Storage
+
 ```
 data/gmail_credentials/
 ├── token_sales.pickle
@@ -229,6 +251,7 @@ data/gmail_credentials/
 ```
 
 ### Environment Variables (Optional)
+
 ```bash
 WEB_UI_HOST=localhost  # For OAuth2 redirect URI
 WEB_UI_PORT=5000       # For OAuth2 redirect URI
@@ -237,28 +260,34 @@ WEB_UI_PORT=5000       # For OAuth2 redirect URI
 ## 🐛 Troubleshooting
 
 ### "Failed to start OAuth2 flow"
-→ Check credentials.json is valid JSON  
+
+→ Check credentials.json is valid JSON
 → Verify redirect URI in Google Cloud Console
 
 ### "Invalid state token"
-→ Don't navigate away during OAuth2 flow  
+
+→ Don't navigate away during OAuth2 flow
 → Check browser allows cookies
 
 ### "Credentials expired"
-→ Remove account: `POST /gmail_account_remove`  
+
+→ Remove account: `POST /gmail_account_remove`
 → Re-authenticate with fresh flow
 
 ### "Module not found: google-auth-oauthlib"
+
 → Install dependencies: `pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client`
 
 ## 📊 Testing Status
 
 ✅ **Syntax Validated**
+
 - All Python files compile successfully
 - JavaScript syntax verified
 - No import errors in modified files
 
 ⏳ **Pending Manual Testing**
+
 - Full OAuth2 flow (requires Google Cloud setup)
 - Account manager UI
 - Multi-account workflows
@@ -268,13 +297,13 @@ See `docs/GMAIL_UI_TESTING.md` for complete test plan.
 
 ## 🎯 Success Criteria
 
-✅ Settings schema extended  
-✅ API endpoints created (4)  
-✅ OAuth2 web flow implemented  
-✅ UI components integrated  
-✅ Documentation complete (4 guides)  
-✅ Security measures in place  
-✅ Syntax validation passed  
+✅ Settings schema extended
+✅ API endpoints created (4)
+✅ OAuth2 web flow implemented
+✅ UI components integrated
+✅ Documentation complete (4 guides)
+✅ Security measures in place
+✅ Syntax validation passed
 
 ## 📚 Documentation
 
@@ -309,12 +338,14 @@ See `docs/GMAIL_UI_TESTING.md` for complete test plan.
 ## 💡 Usage Examples
 
 ### Send Email
+
 ```
 User: "Send email to john@example.com about the meeting"
 Agent: Uses email_advanced with account_name="sales"
 ```
 
 ### Read Emails
+
 ```
 User: "Check my unread emails from support@company.com"
 Agent: {
@@ -325,6 +356,7 @@ Agent: {
 ```
 
 ### Manage Labels
+
 ```
 User: "Create a label called 'Important Clients'"
 Agent: {
@@ -337,6 +369,7 @@ Agent: {
 ## 🎉 Summary
 
 **What Changed:**
+
 - ✅ 4 new API endpoints for OAuth2 flow
 - ✅ Settings UI with Gmail Accounts section
 - ✅ Web-compatible OAuth2 (no local server)
@@ -344,6 +377,7 @@ Agent: {
 - ✅ Automatic token management
 
 **What's Ready:**
+
 - ✅ Production code (syntax validated)
 - ✅ API handlers (auto-registered)
 - ✅ Settings integration (persists data)
@@ -351,6 +385,7 @@ Agent: {
 - ✅ Testing plan (15 test cases)
 
 **What's Next:**
+
 - ⏳ Manual testing with Google Cloud
 - ⏳ Full modal UI implementation
 - ⏳ Enhanced tool integration
@@ -360,4 +395,4 @@ Agent: {
 
 **Ready to test!** Set up Google Cloud OAuth2 credentials and follow the Quick Start guide.
 
-For questions or issues, see `docs/GMAIL_UI_TESTING.md` or check the Agent Zero documentation.
+For questions or issues, see `docs/GMAIL_UI_TESTING.md` or check the Agent Jumbo documentation.

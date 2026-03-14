@@ -15,7 +15,7 @@ This guide provides comprehensive instructions for deploying Agent Jumbo to Verc
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/agent-zero-deploy/agent-jumbo.git
+git clone https://github.com/agent-jumbo-deploy/agent-jumbo.git
 cd agent-jumbo/web
 ```
 
@@ -30,7 +30,7 @@ cp .env.example .env.local
 Environment variables needed for local development:
 
 - `NEXT_PUBLIC_API_URL`: Your API endpoint (e.g., `http://localhost:8000`)
-- `NEXT_PUBLIC_GITHUB_REPO`: Repository identifier (e.g., `agent-zero-deploy/agent-jumbo`)
+- `NEXT_PUBLIC_GITHUB_REPO`: Repository identifier (e.g., `agent-jumbo-deploy/agent-jumbo`)
 - `NEXT_PUBLIC_GA_ID`: Google Analytics ID (optional, leave empty to skip)
 - `NEXT_PUBLIC_URL`: Application URL (e.g., `http://localhost:3000`)
 
@@ -78,7 +78,7 @@ Click "Environment Variables" and add:
 | Variable | Value | Required |
 |----------|-------|----------|
 | `NEXT_PUBLIC_API_URL` | Your API endpoint (e.g., `https://api.example.com`) | Yes |
-| `NEXT_PUBLIC_GITHUB_REPO` | `agent-zero-deploy/agent-jumbo` | Yes |
+| `NEXT_PUBLIC_GITHUB_REPO` | `agent-jumbo-deploy/agent-jumbo` | Yes |
 | `NEXT_PUBLIC_URL` | Your production domain (e.g., `https://agent-jumbo.vercel.app`) | Yes |
 | `NEXT_PUBLIC_GA_ID` | Your Google Analytics ID (e.g., `G-XXXXXXXXXX`) | No |
 | `NEXT_PUBLIC_ENABLE_BETA_FEATURES` | `false` | No |
@@ -141,7 +141,7 @@ Or edit variables in the Vercel Dashboard (Project Settings > Environment Variab
 
 - GitHub repository identifier
 - Format: `owner/repo`
-- Example: `agent-zero-deploy/agent-jumbo`
+- Example: `agent-jumbo-deploy/agent-jumbo`
 - Used for repository statistics and information
 
 #### NEXT_PUBLIC_URL
@@ -399,7 +399,7 @@ After successful deployment:
 - [Vercel Documentation](https://vercel.com/docs)
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Vercel Community](https://vercel.com/community)
-- [GitHub Issues](https://github.com/agent-zero-deploy/agent-jumbo/issues)
+- [GitHub Issues](https://github.com/agent-jumbo-deploy/agent-jumbo/issues)
 
 ## Related Documentation
 

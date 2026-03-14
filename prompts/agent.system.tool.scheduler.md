@@ -1,5 +1,6 @@
-## Task Scheduler Subsystem:
-The task scheduler is a part of agent-zero enabling the system to execute
+## Task Scheduler Subsystem
+
+The task scheduler is a part of agent-jumbo enabling the system to execute
 arbitrary tasks defined by a "system prompt" and "user prompt".
 
 When the task is executed the prompts are being run in the background in a context
@@ -14,37 +15,45 @@ Automatic execution happens by a schedule defined when creating the task.
 Tasks are run asynchronously. If you need to wait for a running task's completion or need the result of the last task run, use the scheduler:wait_for_task tool. It will wait for the task completion in case the task is currently running and will provide the result of the last execution.
 
 ### Important instructions
+
 When a task is scheduled or planned, do not manually run it, if you have no more tasks, respond to user.
 Be careful not to create recursive prompt, do not send a message that would make the agent schedule more tasks, no need to mention the interval in message, just the objective.
 !!! When the user asks you to execute a task, first check if the task already exists and do not create a new task for execution. Execute the existing task instead. If the task in question does not exist ask the user what action to take. Never create tasks if asked to execute a task.
 
 ### Types of scheduler tasks
+
 There are 3 types of scheduler tasks:
 
 #### Scheduled - type="scheduled"
-This type of task is run by a recurring schedule defined in the crontab syntax with 5 fields (ex. */5 * * * * means every 5 minutes).
+
+This type of task is run by a recurring schedule defined in the crontab syntax with 5 fields (ex. */5* ** * means every 5 minutes).
 It is recurring and started automatically when the crontab syntax requires next execution..
 
 #### Planned - type="planned"
+
 This type of task is run by a linear schedule defined as discrete datetimes of the upcoming executions.
 It is  started automatically when a scheduled time elapses.
 
 #### AdHoc - type="adhoc"
+
 This type of task is run manually and does not follow any schedule. It can be run explicitly by "scheduler:run_task" agent tool or by the user in the UI.
 
 ### Tools to manage the task scheduler system and it's tasks
 
 #### scheduler:list_tasks
+
 List all tasks present in the system with their 'uuid', 'name', 'type', 'state', 'schedule' and 'next_run'.
 All runnable tasks can be listed and filtered here. The arguments are filter fields.
 
-##### Arguments:
+##### Arguments
+
 * state: list(str) (Optional) - The state filter, one of "idle", "running", "disabled", "error". To only show tasks in given state.
 * type: list(str) (Optional) - The task type filter, one of "adhoc", "planned", "scheduled"
 * next_run_within: int (Optional) - The next run of the task must be within this many minutes
 * next_run_after: int (Optional) - The next run of the task must be after not less than this many minutes
 
-##### Usage:
+##### Usage
+
 ~~~json
 {
     "thoughts": [
@@ -61,14 +70,16 @@ All runnable tasks can be listed and filtered here. The arguments are filter fie
 }
 ~~~
 
-
 #### scheduler:find_task_by_name
+
 List all tasks whose name is matching partially or fully the provided name parameter.
 
-##### Arguments:
+##### Arguments
+
 * name: str - The task name to look for
 
-##### Usage:
+##### Usage
+
 ~~~json
 {
     "thoughts": [
@@ -82,14 +93,16 @@ List all tasks whose name is matching partially or fully the provided name param
 }
 ~~~
 
-
 #### scheduler:show_task
+
 Show task details for scheduler task with the given uuid.
 
-##### Arguments:
+##### Arguments
+
 * uuid: string - The uuid of the task to display
 
-##### Usage (execute task with uuid "xyz-123"):
+##### Usage (execute task with uuid "xyz-123")
+
 ~~~json
 {
     "thoughts": [
@@ -103,19 +116,21 @@ Show task details for scheduler task with the given uuid.
 }
 ~~~
 
-
 #### scheduler:run_task
+
 Execute a task manually which is not in "running" state
 This can be used to trigger tasks manually.
 Normally you should only "run" tasks manually if they are in the "idle" state.
 It is also advised to only run "adhoc" tasks manually but every task type can be triggered by this tool.
 You can pass input data in text form as the "context" argument. The context will then be prepended to the task prompt when executed. This way you can pass for example result of one task as the input of another task or provide additional information specific to this one task run.
 
-##### Arguments:
+##### Arguments
+
 * uuid: string - The uuid of the task to run. Can be retrieved for example from "scheduler:tasks_list"
 * context: (Optional) string - The context that will be prepended to the actual task prompt as contextual information.
 
-##### Usage (execute task with uuid "xyz-123"):
+##### Usage (execute task with uuid "xyz-123")
+
 ~~~json
 {
     "thoughts": [
@@ -130,14 +145,16 @@ You can pass input data in text form as the "context" argument. The context will
 }
 ~~~
 
-
 #### scheduler:delete_task
+
 Delete the task defined by the given uuid from the system.
 
-##### Arguments:
+##### Arguments
+
 * uuid: string - The uuid of the task to run. Can be retrieved for example from "scheduler:tasks_list"
 
-##### Usage (execute task with uuid "xyz-123"):
+##### Usage (execute task with uuid "xyz-123")
+
 ~~~json
 {
     "thoughts": [
@@ -151,12 +168,13 @@ Delete the task defined by the given uuid from the system.
 }
 ~~~
 
-
 #### scheduler:create_scheduled_task
+
 Create a task within the scheduler system with the type "scheduled".
 The scheduled type of tasks is being run by a cron schedule that you must provide.
 
-##### Arguments:
+##### Arguments
+
 * name: str - The name of the task, will also be displayed when listing tasks
 * system_prompt: str - The system prompt to be used when executing the task
 * prompt: str - The actual prompt with the task definition
@@ -164,7 +182,8 @@ The scheduled type of tasks is being run by a cron schedule that you must provid
 * attachments: list[str] - Here you can add message attachments, valid are filesystem paths and internet urls
 * dedicated_context: bool - if false, then the task will run in the context it was created in. If true, the task will have it's own context. If unspecified then false is assumed. The tasks run in the context they were created in by default.
 
-##### Usage:
+##### Usage
+
 ~~~json
 {
     "thoughts": [
@@ -189,19 +208,21 @@ The scheduled type of tasks is being run by a cron schedule that you must provid
 }
 ~~~
 
-
 #### scheduler:create_adhoc_task
+
 Create a task within the scheduler system with the type "adhoc".
 The adhoc type of tasks is being run manually by "scheduler:run_task" tool or by the user via ui.
 
-##### Arguments:
+##### Arguments
+
 * name: str - The name of the task, will also be displayed when listing tasks
 * system_prompt: str - The system prompt to be used when executing the task
 * prompt: str - The actual prompt with the task definition
 * attachments: list[str] - Here you can add message attachments, valid are filesystem paths and internet urls
 * dedicated_context: bool - if false, then the task will run in the context it was created in. If true, the task will have it's own context. If unspecified then false is assumed. The tasks run in the context they were created in by default.
 
-##### Usage:
+##### Usage
+
 ~~~json
 {
     "thoughts": [
@@ -219,12 +240,13 @@ The adhoc type of tasks is being run manually by "scheduler:run_task" tool or by
 }
 ~~~
 
-
 #### scheduler:create_planned_task
+
 Create a task within the scheduler system with the type "planned".
 The planned type of tasks is being run by a fixed plan, a list of datetimes that you must provide.
 
-##### Arguments:
+##### Arguments
+
 * name: str - The name of the task, will also be displayed when listing tasks
 * system_prompt: str - The system prompt to be used when executing the task
 * prompt: str - The actual prompt with the task definition
@@ -232,7 +254,8 @@ The planned type of tasks is being run by a fixed plan, a list of datetimes that
 * attachments: list[str] - Here you can add message attachments, valid are filesystem paths and internet urls
 * dedicated_context: bool - if false, then the task will run in the context it was created in. If true, the task will have it's own context. If unspecified then false is assumed. The tasks run in the context they were created in by default.
 
-##### Usage:
+##### Usage
+
 ~~~json
 {
     "thoughts": [
@@ -252,15 +275,17 @@ The planned type of tasks is being run by a fixed plan, a list of datetimes that
 }
 ~~~
 
-
 #### scheduler:wait_for_task
+
 Wait for the completion of a scheduler task identified by the uuid argument and return the result of last execution of the task.
 Attention: You can only wait for tasks running in a different chat context (dedicated). Tasks with dedicated_context=False can not be waited for.
 
-##### Arguments:
+##### Arguments
+
 * uuid: string - The uuid of the task to wait for. Can be retrieved for example from "scheduler:tasks_list"
 
-##### Usage (wait for task with uuid "xyz-123"):
+##### Usage (wait for task with uuid "xyz-123")
+
 ~~~json
 {
     "thoughts": [

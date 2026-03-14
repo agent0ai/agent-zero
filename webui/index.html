@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>Agent Zero</title>
+    <title>Agent Jumbo</title>
     <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="css/messages.css">
@@ -139,7 +139,7 @@
     <link rel="manifest" href="js/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Agent Zero">
+    <meta name="apple-mobile-web-app-title" content="Agent Jumbo">
     <link rel="apple-touch-icon" href="public/icon.svg">
 
     <!-- Non-module scripts after Alpine.js -->
@@ -313,8 +313,26 @@
                                                 <template x-if="field.type === 'textarea'">
                                                     <textarea :class="field.classes" :value="field.value"
                                                         :readonly="field.readonly === true"
-                                                        @input="field.value = $event.target.value"
+                                                        @input="field.value = $event.target.value; settingsModalProxy.validateSecretsField(field)"
                                                         :style="field.style"></textarea>
+                                                </template>
+                                                <template x-if="field.type === 'textarea' && field.id === 'secrets'">
+                                                    <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+                                                        <button class="btn btn-secondary btn-small"
+                                                            :disabled="field.readonly === true"
+                                                            @click="settingsModalProxy.insertGithubReadOnlyPatTemplate(field)">
+                                                            Add GitHub Read-Only PAT Template
+                                                        </button>
+                                                        <button class="btn btn-secondary btn-small"
+                                                            :disabled="field.readonly === true"
+                                                            @click="settingsModalProxy.validateSecretsField(field, true)">
+                                                            Validate PAT Format
+                                                        </button>
+                                                    </div>
+                                                </template>
+                                                <template x-if="field.type === 'textarea' && field.id === 'secrets' && field._tokenWarning">
+                                                    <div style="margin-top: 6px; color: #f59e0b; font-size: 12px;"
+                                                        x-text="field._tokenWarning"></div>
                                                 </template>
 
                                                 <!-- Switch field -->
@@ -395,7 +413,7 @@
                             <div id="section-task-scheduler" class="section" x-data="schedulerSettings">
                                 <div class="section-title">Task Scheduler</div>
                                 <div class="section-description">Manage scheduled tasks and automated processes for
-                                    Agent Zero.</div>
+                                    Agent Jumbo.</div>
 
                                 <!-- Create Task Form -->
                                 <div class="scheduler-form" x-show="isCreating">

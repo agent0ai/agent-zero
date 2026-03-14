@@ -1,4 +1,4 @@
-# Act configuration for Agent Zero local CI
+# Act configuration for Agent Jumbo local CI
 # Uses a full Ubuntu image for compatibility
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 --container-architecture linux/amd64

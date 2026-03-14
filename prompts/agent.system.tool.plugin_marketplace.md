@@ -3,11 +3,12 @@
 The **plugin_marketplace** tool enables discovery, browsing, and installation of plugins from Claude Code marketplaces. It provides access to the growing ecosystem of community and official plugins.
 
 ## Purpose
+
 - Discover plugins from multiple marketplace sources
 - Search and browse plugins by name, tag, or popularity
 - Install plugins from marketplaces
 - Track installed plugins and check for updates
-- Import installed plugins into Agent Zero via skill_importer
+- Import installed plugins into Agent Jumbo via skill_importer
 
 ## Available Marketplaces
 
@@ -24,6 +25,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ### Marketplace Management
 
 #### 1. add_marketplace
+
 **Add a new marketplace source**
 
 ```
@@ -37,6 +39,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ```
 
 **Parameters:**
+
 - `name` (required): Marketplace name
 - `url` (required): Marketplace URL
 - `api_endpoint` (optional): API endpoint for fetching plugins
@@ -46,6 +49,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 2. list_marketplaces
+
 **List configured marketplaces**
 
 ```
@@ -56,6 +60,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 3. remove_marketplace / toggle_marketplace
+
 **Manage marketplaces**
 
 ```
@@ -68,6 +73,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ### Sync Operations
 
 #### 4. sync_marketplace
+
 **Sync plugins from a specific marketplace**
 
 ```
@@ -78,6 +84,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 5. sync_all
+
 **Sync all enabled marketplaces**
 
 ```
@@ -91,6 +98,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ### Plugin Discovery
 
 #### 6. search_plugins
+
 **Search plugins by name/description**
 
 ```
@@ -109,6 +117,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ```
 
 **Parameters:**
+
 - `query` (required): Search term
 - `marketplace_id` (optional): Limit to specific marketplace
 - `tags` (optional): Filter by tags
@@ -117,6 +126,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 7. list_plugins
+
 **List plugins with sorting**
 
 ```
@@ -128,6 +138,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ```
 
 **Parameters:**
+
 - `marketplace_id` (optional): Filter by marketplace
 - `sort_by` (optional): downloads, stars, recent, name (default: downloads)
 - `limit` (optional): Max results (default: 20)
@@ -136,6 +147,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 8. list_popular / list_trending
+
 **Quick access to popular/recent plugins**
 
 ```
@@ -146,6 +158,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 9. browse_by_tag
+
 **Browse plugins by tag**
 
 ```
@@ -156,6 +169,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 10. get_plugin_details
+
 **Get detailed plugin information**
 
 ```
@@ -172,6 +186,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ### Installation
 
 #### 11. install_plugin
+
 **Install a plugin from marketplace**
 
 ```
@@ -189,18 +204,21 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ```
 
 **Parameters:**
+
 - `identifier` (required): Plugin identifier
 - `marketplace_id` (optional): Source marketplace
 - `use_cli` (optional): Use Claude Code CLI for installation (default: true)
 - `target_path` (optional): Custom installation path (only for use_cli=false)
 
 **Installation Methods:**
+
 1. **CLI (recommended)**: Uses `npx claude-plugins install` or `claude plugin install`
 2. **Direct**: Git clones from repository URL
 
 ---
 
 #### 12. uninstall_plugin
+
 **Uninstall a plugin**
 
 ```
@@ -210,6 +228,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 13. list_installed
+
 **List installed plugins**
 
 ```
@@ -221,6 +240,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 14. check_updates
+
 **Check for available updates**
 
 ```
@@ -230,6 +250,7 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 ---
 
 #### 15. update_plugin
+
 **Update a plugin to latest version**
 
 ```
@@ -240,18 +261,20 @@ The **plugin_marketplace** tool enables discovery, browsing, and installation of
 
 ### Integration
 
-#### 16. import_to_agent_zero
-**Import installed plugin into Agent Zero**
+#### 16. import_to_agent_jumbo
+
+**Import installed plugin into Agent Jumbo**
 
 ```
 {{plugin_marketplace(
-  action="import_to_agent_zero",
+  action="import_to_agent_jumbo",
   identifier="@anthropics/feature-dev"
 )}}
 ```
 
 This uses the `skill_importer` tool to:
-- Import plugin skills as Agent Zero tools
+
+- Import plugin skills as Agent Jumbo tools
 - Register hooks
 - Configure MCP servers
 - Set up agent profiles
@@ -261,6 +284,7 @@ This uses the `skill_importer` tool to:
 ### Statistics
 
 #### 17. get_stats
+
 **Get marketplace statistics**
 
 ```
@@ -274,6 +298,7 @@ This uses the `skill_importer` tool to:
 ## Typical Workflows
 
 ### Discover and Install a Plugin
+
 ```
 # 1. Sync marketplaces first
 {{plugin_marketplace(action="sync_all")}}
@@ -287,17 +312,19 @@ This uses the `skill_importer` tool to:
 # 4. Install
 {{plugin_marketplace(action="install_plugin", identifier="@wshobson/pr-review-toolkit")}}
 
-# 5. Import to Agent Zero
-{{plugin_marketplace(action="import_to_agent_zero", identifier="@wshobson/pr-review-toolkit")}}
+# 5. Import to Agent Jumbo
+{{plugin_marketplace(action="import_to_agent_jumbo", identifier="@wshobson/pr-review-toolkit")}}
 ```
 
 ### Browse Popular Plugins
+
 ```
 {{plugin_marketplace(action="list_popular", limit=20)}}
 {{plugin_marketplace(action="browse_by_tag", tag="productivity")}}
 ```
 
 ### Keep Plugins Updated
+
 ```
 {{plugin_marketplace(action="check_updates")}}
 {{plugin_marketplace(action="update_plugin", identifier="outdated-plugin")}}
@@ -308,12 +335,15 @@ This uses the `skill_importer` tool to:
 ## Integration with Other Tools
 
 ### With skill_importer
-After installation, use `import_to_agent_zero` to make plugins available in Agent Zero:
+
+After installation, use `import_to_agent_jumbo` to make plugins available in Agent Jumbo:
+
 ```
-{{plugin_marketplace(action="import_to_agent_zero", identifier="plugin-name")}}
+{{plugin_marketplace(action="import_to_agent_jumbo", identifier="plugin-name")}}
 ```
 
 This is equivalent to:
+
 ```
 {{skill_importer(action="import_plugin", plugin_path="~/.claude/plugins/plugin-name")}}
 ```
@@ -321,8 +351,9 @@ This is equivalent to:
 ---
 
 ## Notes
+
 - Sync marketplaces before searching to ensure fresh data
 - CLI installation is recommended for proper validation
-- Imported plugins become available as Agent Zero tools
+- Imported plugins become available as Agent Jumbo tools
 - Local plugins in `~/.claude/plugins` are auto-discovered
 - Plugin cache is stored in SQLite for offline browsing

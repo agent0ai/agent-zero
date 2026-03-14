@@ -2,7 +2,7 @@
 
 ## Quick Commands
 
-### Agent Zero Commands
+### Agent Jumbo Commands
 
 ```
 "Run a comprehensive business x-ray for [Company Name]"
@@ -66,6 +66,7 @@ business_xray_tool(
 | 0-39 | Critical | Immediate action |
 
 **Key Metrics:**
+
 - Revenue Growth: >10% = Excellent
 - Profit Margin: >30% = Excellent
 - LTV/CAC Ratio: >3x = Excellent
@@ -94,6 +95,7 @@ business_xray_tool(
 | 0-39 | Critical |
 
 **Components:**
+
 - Work hours vs ideal (25 pts)
 - Stress level (25 pts)
 - Health metrics (25 pts)
@@ -116,12 +118,14 @@ business_xray_tool(
 ## Common Workflows
 
 ### Monthly Review
+
 1. Run comprehensive x-ray
 2. Review executive summary
 3. Pick top 3 actions
 4. Track in next month
 
 ### Automation Sprint
+
 1. Run automation scan
 2. Sort by annual savings
 3. Pick highest ROI
@@ -129,12 +133,14 @@ business_xray_tool(
 5. Measure time saved
 
 ### Revenue Growth
+
 1. Scan opportunities
 2. Pick 1 quick win (1-2 months)
 3. Pick 1 medium win (3-6 months)
 4. Execute and measure
 
 ### Balance Check
+
 1. Run weekly balance check
 2. Track trends over time
 3. Adjust if score <70
@@ -158,6 +164,7 @@ diagram_tool(
 ## Typical Analysis Results
 
 ### Startup (Year 1)
+
 - Health: 45-65 (building phase)
 - Efficiency: 25-35% (learning)
 - Automation savings: $50-100k
@@ -165,6 +172,7 @@ diagram_tool(
 - Balance: 40-60 (high stress)
 
 ### Growing Business (Year 2-5)
+
 - Health: 65-80 (scaling)
 - Efficiency: 35-45% (optimizing)
 - Automation savings: $100-200k
@@ -172,6 +180,7 @@ diagram_tool(
 - Balance: 55-75 (improving)
 
 ### Established Business (Year 5+)
+
 - Health: 75-90 (mature)
 - Efficiency: 40-55% (optimized)
 - Automation savings: $50-150k
@@ -181,18 +190,21 @@ diagram_tool(
 ## Red Flags
 
 ### Business Health
+
 - ⚠️ Growth rate <0% (declining)
 - ⚠️ Profit margin <10% (unsustainable)
 - ⚠️ LTV/CAC <1 (losing money per customer)
 - ⚠️ Churn >20% (major retention issue)
 
 ### Time Efficiency
+
 - ⚠️ Deep work <15h/week (not enough focus)
 - ⚠️ Meetings >20h/week (meeting overload)
 - ⚠️ Efficiency <20% (severe inefficiency)
 - ⚠️ Context switches >30/day (fragmentation)
 
 ### Life Balance
+
 - ⚠️ Work hours >60/week (burnout risk)
 - ⚠️ Stress level >8/10 (critical stress)
 - ⚠️ Sleep <6h/night (health risk)
@@ -202,26 +214,31 @@ diagram_tool(
 ## Quick Wins by Module
 
 ### Business Health
+
 1. Raise prices 10-20% (quick revenue boost)
 2. Reduce churn with customer success program
 3. Improve CAC with referral program
 
 ### Time Efficiency
+
 1. Block 4h focus time daily
 2. Decline 30% of meetings
 3. Batch email to 2x daily
 
 ### Automation
+
 1. Automate invoicing (95% potential)
 2. Set up email templates (70% potential)
 3. Auto-post social media (80% potential)
 
 ### Revenue
+
 1. Upsell existing customers (low difficulty)
 2. Create premium tier (medium difficulty)
 3. Launch digital product (medium difficulty)
 
 ### Balance
+
 1. Set hard stop time (6pm no work)
 2. Schedule 3 exercise sessions
 3. Block family time on calendar

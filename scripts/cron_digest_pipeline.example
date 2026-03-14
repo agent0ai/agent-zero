@@ -1,2 +1,2 @@
 # Run daily digest at 8am local time
-0 8 * * * cd /home/webemo-aaron/projects/agent-zero && TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... ./scripts/run_digest_pipeline.py --ingest --send-telegram
+0 8 * * * cd /home/webemo-aaron/projects/agent-jumbo && TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... ./scripts/run_digest_pipeline.py --ingest --send-telegram

@@ -2,11 +2,14 @@ import json
 import subprocess
 from pathlib import Path
 
-
-FIXTURE_MODULE = "/mnt/wdblack/dev/projects/agent-zero/webui/components/settings/observability/observability-fixture.js"
-OBSERVABILITY_HTML = Path("/mnt/wdblack/dev/projects/agent-zero/webui/components/settings/observability/observability.html")
+FIXTURE_MODULE = (
+    "/mnt/wdblack/dev/projects/agent-jumbo/webui/components/settings/observability/observability-fixture.js"
+)
+OBSERVABILITY_HTML = Path(
+    "/mnt/wdblack/dev/projects/agent-jumbo/webui/components/settings/observability/observability.html"
+)
 OBSERVABILITY_STORE = Path(
-    "/mnt/wdblack/dev/projects/agent-zero/webui/components/settings/observability/observability-store.js"
+    "/mnt/wdblack/dev/projects/agent-jumbo/webui/components/settings/observability/observability-store.js"
 )
 
 

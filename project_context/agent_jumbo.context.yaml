@@ -1,0 +1,85 @@
+version: 1
+project:
+  id: agent-jumbo
+  name: Agent Jumbo
+  mission: >-
+    Provide a reliable, local-first, agent-native operating platform for project execution,
+    validation, and life/business orchestration.
+  owners:
+    - platform-core
+
+context_sources:
+  skills_registry: skills/registry.json
+  commands_root: .claude/commands
+  runbooks_root: docs
+  workflows_root: docs
+
+skills:
+  - id: life-business-operator
+    ref: skills/life-business-operator/SKILL.md
+    purpose: Intake, decomposition, phased planning, recurring execution
+  - id: observability-usage-estimator
+    ref: skills/observability-usage-estimator/SKILL.md
+    purpose: Estimate usage/cost and monitoring envelope
+
+commands:
+  - id: workflow-scenario
+    ref: .claude/commands/scenario/workflow.md
+    purpose: Decision workflow orchestration
+  - id: project-commands
+    ref: .claude/commands/project
+    purpose: Project-level command surface
+
+workflows:
+  - id: validation-360
+    ref: scripts/validate_360.sh
+    trigger: pre-release and daily sanity
+    output: artifacts/validation/validation-360-*.log
+  - id: lifecycle-browser-rc1
+    ref: docs/RC1_LIFECYCLE_BROWSER.md
+    trigger: release candidate browser validation
+
+runbooks:
+  - id: runtime-validation
+    ref: docs/VALIDATION_360.md
+    when: stability, regression, release checks
+  - id: mcp-performance-rc
+    ref: docs/RC_MCP_TOOL_PERFORMANCE.md
+    when: mcp discovery/cache/reload tuning
+  - id: troubleshooting
+    ref: docs/troubleshooting.md
+    when: runtime stalls, startup, connectivity issues
+
+guardrails:
+  - id: deterministic-validation
+    rule: Every high-risk change must pass validate_360 before release.
+  - id: fail-open-runtime
+    rule: Optional extensions must time out/fail-open; core chat flow must continue.
+  - id: context-integrity
+    rule: Persisted contexts must remain backward compatible across restarts.
+  - id: secrets-safety
+    rule: Secrets (including PATs/tokens) must be stored only in Secrets UI/store, never in code, prompts/messages, or plain logs.
+  - id: secrets-redaction-gate
+    rule: Secret-pattern redaction tests must pass before release (token leak prevention).
+
+success_criteria:
+  - id: ctx-01
+    metric: chat_roundtrip_success_rate
+    target: ">=99% in local smoke"
+    evidence: artifacts/validation/validation-360-*.log
+  - id: ctx-02
+    metric: context_restore_visibility
+    target: ">=1 historical context visible after restart"
+    evidence: poll contexts list after restart
+  - id: ctx-03
+    metric: mcp_cache_latency
+    target: no repeated heavy tool discovery on poll path
+    evidence: docs/RC_MCP_TOOL_PERFORMANCE.md checklist
+  - id: ctx-04
+    metric: constructor_contract_regression
+    target: 0 violations
+    evidence: tests/test_tool_constructor_contract.py
+  - id: ctx-05
+    metric: sensitive_token_redaction_regression
+    target: 0 violations
+    evidence: tests/test_sensitive_token_redaction.py

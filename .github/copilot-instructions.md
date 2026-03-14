@@ -1,10 +1,11 @@
-# Agent Zero - Copilot Instructions
+# Agent Jumbo - Copilot Instructions
 
 ## Architecture Overview
 
-Agent Zero is a **prompt-driven, hierarchical agentic framework** designed as an active personal AI assistant application. Almost nothing is hardcoded—behavior is controlled through prompts in `/prompts/` and code is dynamically loaded.
+Agent Jumbo is a **prompt-driven, hierarchical agentic framework** designed as an active personal AI assistant application. Almost nothing is hardcoded—behavior is controlled through prompts in `/prompts/` and code is dynamically loaded.
 
 **Key architectural concepts:**
+
 - **Agent hierarchy**: User → Agent 0 → subordinate agents (each can spawn subordinates)
 - **AgentContext** ([agent.py](agent.py)) manages agent state, lifecycle, and communication
 - **AgentConfig** defines model connections (chat, utility, embeddings, browser) and runtime settings
@@ -28,10 +29,12 @@ Agent Zero is a **prompt-driven, hierarchical agentic framework** designed as an
 ## Testing
 
 ### Test Framework
+
 - **pytest** with config in `pytest.ini` (testpaths=`tests/`, pythonpath=`.`)
 - Tests use `tmp_path` fixtures for isolation
 
 ### Running Tests
+
 ```bash
 # All tests
 pytest
@@ -47,6 +50,7 @@ pytest -v tests/test_workflow_e2e.py
 ```
 
 ### Test Categories
+
 | Pattern | Purpose |
 |---------|---------|
 | `test_*_manager.py` | Unit tests for business logic |
@@ -55,6 +59,7 @@ pytest -v tests/test_workflow_e2e.py
 | `test_*_schema.py` | JSON schema validation |
 
 ### Writing Tests
+
 ```python
 # tests/test_my_feature.py
 import pytest
@@ -65,7 +70,7 @@ class TestMyFeature:
     def setup_method(self, tmp_path):
         self.db_path = str(tmp_path / "test.db")
         self.manager = MyManager(self.db_path)
-    
+
     def test_basic_operation(self):
         result = self.manager.create_item(name="Test")
         assert 'item_id' in result
@@ -73,16 +78,20 @@ class TestMyFeature:
 ```
 
 ### Test Fixtures
+
 Shared fixtures in `tests/fixtures/`:
+
 - `workflow_sample_data.py` - Sample data generator for workflow engine
 - `common.py` - Shared fixtures (paths, mocks, sample data)
 
 Use fixtures for:
+
 - Database path isolation (`tmp_path`)
 - Sample data generation
 - Mock agent contexts for tool testing
 
 ### Test Template
+
 Copy `tests/_test_template.py` when creating new instrument tests.
 
 ---
@@ -90,22 +99,25 @@ Copy `tests/_test_template.py` when creating new instrument tests.
 ## Docker & Container Development
 
 ### Runtime Architecture
-Agent Zero runs in Docker for code execution isolation. The framework on your machine connects to a containerized runtime via SSH.
+
+Agent Jumbo runs in Docker for code execution isolation. The framework on your machine connects to a containerized runtime via SSH.
 
 ### Docker Commands
+
 ```bash
 # Pull and run production image
 docker pull agent0ai/agent-zero
 docker run -p 50001:80 agent0ai/agent-zero
 
 # Build local development image
-docker build -f DockerfileLocal -t agent-zero-local .
+docker build -f DockerfileLocal -t agent-jumbo-local .
 
 # Run with local code mounted
-docker run -p 50001:80 -v $(pwd):/a0 agent-zero-local
+docker run -p 50001:80 -v $(pwd):/a0 agent-jumbo-local
 ```
 
 ### Development with DevPod
+
 ```bash
 # Initialize DevPod workspace
 devpod up . --ide vscode
@@ -115,7 +127,9 @@ devpod up . --provider docker --ide vscode
 ```
 
 ### SSH Code Execution Config
+
 Configure in Settings UI or `.env`:
+
 ```env
 CODE_EXEC_SSH_ENABLED=true
 CODE_EXEC_SSH_ADDR=localhost
@@ -124,6 +138,7 @@ CODE_EXEC_SSH_USER=root
 ```
 
 ### Container Ports
+
 | Port | Service |
 |------|---------|
 | 80 | Web UI |
@@ -160,6 +175,7 @@ Instruments are callable Python procedures that extend agent capabilities. Locat
 ### Creating Instruments
 
 **Required Structure:**
+
 ```
 instruments/custom/my_instrument/
 ├── __init__.py           # Package marker
@@ -172,6 +188,7 @@ instruments/custom/my_instrument/
 ```
 
 **Best Practices:**
+
 1. **Separation of concerns**: Split into `*_manager.py` (logic), `*_db.py` (persistence), `*_visualizer.py` (output)
 2. **Schema validation**: Use jsonschema for input validation
 3. **Typed returns**: Return structured dicts with `status`, `error`, or domain-specific keys
@@ -179,6 +196,7 @@ instruments/custom/my_instrument/
 5. **Markdown docs**: Create `{instrument_name}.md` describing capabilities for the agent
 
 **Example Manager Pattern:**
+
 ```python
 # instruments/custom/my_instrument/manager.py
 import json
@@ -191,14 +209,14 @@ class MyInstrumentManager:
         self.db = MyDatabase(db_path)
         self._schema_cache = {}
         self._load_schemas()
-    
+
     def _load_schemas(self):
         schema_dir = Path(__file__).parent / "schemas"
         for schema_file in schema_dir.glob("*.schema.json"):
             with open(schema_file) as f:
                 name = schema_file.stem.replace(".schema", "")
                 self._schema_cache[name] = json.load(f)
-    
+
     def create_item(self, name: str, **kwargs) -> dict:
         # Validate, persist, return structured result
         item_id = self.db.save_item(name=name, **kwargs)
@@ -209,10 +227,12 @@ class MyInstrumentManager:
 
 ## MCP Integration
 
-Agent Zero supports [Model Context Protocol](https://modelcontextprotocol.io/) for external integrations.
+Agent Jumbo supports [Model Context Protocol](https://modelcontextprotocol.io/) for external integrations.
 
 ### Configuration
+
 MCP servers configured in Settings UI or `mcp_config_claude.json`:
+
 ```json
 {
   "mcpServers": {
@@ -221,7 +241,7 @@ MCP servers configured in Settings UI or `mcp_config_claude.json`:
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/projects"]
     },
     "memory": {
-      "command": "npx", 
+      "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"]
     }
   }
@@ -229,6 +249,7 @@ MCP servers configured in Settings UI or `mcp_config_claude.json`:
 ```
 
 ### Available MCP Servers
+
 | Server | Purpose |
 |--------|---------|
 | `filesystem` | File read/write/search |
@@ -241,15 +262,19 @@ MCP servers configured in Settings UI or `mcp_config_claude.json`:
 | `sequential-thinking` | Extended reasoning |
 
 ### External API
-Agent Zero exposes APIs for external integration:
+
+Agent Jumbo exposes APIs for external integration:
+
 - `POST /api_message` - Send messages, receive responses
 - `GET/POST /api_log_get` - Retrieve conversation logs
 - Use `X-API-KEY` header (generated from credentials in Settings)
 
 ### Creating Custom MCP Servers
+
 For project-specific integrations, create MCP servers:
 
 1. **Using Python (fastmcp)**:
+
 ```python
 # mcp_servers/my_server.py
 from fastmcp import FastMCP
@@ -266,6 +291,7 @@ if __name__ == "__main__":
 ```
 
 2. **Register in `mcp_config_claude.json`**:
+
 ```json
 {
   "mcpServers": {
@@ -287,6 +313,7 @@ if __name__ == "__main__":
 The frontend uses **Alpine.js** with a store-based state management pattern.
 
 ### Directory Structure
+
 ```
 webui/
 ├── index.js              # Main app, message handling
@@ -300,7 +327,9 @@ webui/
 ```
 
 ### Store Pattern
+
 Each feature has a store file (`*-store.js`) managing state:
+
 ```javascript
 // components/feature/feature-store.js
 import Alpine from "alpinejs";
@@ -308,7 +337,7 @@ import Alpine from "alpinejs";
 export const store = {
   items: [],
   loading: false,
-  
+
   async fetchItems() {
     this.loading = true;
     const data = await callJsonApi("/api/items", {});
@@ -321,6 +350,7 @@ Alpine.store("feature", store);
 ```
 
 ### API Conventions
+
 - All API calls go through `fetchApi()` which handles CSRF tokens
 - Use `callJsonApi(endpoint, data)` for JSON POST requests
 - Endpoints are in `/python/api/` (one file per endpoint)
@@ -330,7 +360,9 @@ Alpine.store("feature", store);
 ## Prompt Engineering
 
 ### JSON Response Format
+
 Agent responses must be valid JSON with these fields:
+
 ```json
 {
   "thoughts": ["Step-by-step reasoning..."],
@@ -341,13 +373,16 @@ Agent responses must be valid JSON with these fields:
 ```
 
 ### Writing Tool Prompts
+
 Tool prompts in `prompts/agent.system.tool.*.md` should:
+
 1. Start with `### tool_name:` header
 2. Describe purpose in terse, instruction-style prose
 3. List all args with types and requirements
 4. Include JSON usage examples with `~~~json` blocks
 
 ### Prompt Tips
+
 - Use terse, instruction-style language (no articles, minimal words)
 - Include concrete examples from the codebase
 - Define edge cases and error handling
@@ -358,11 +393,13 @@ Tool prompts in `prompts/agent.system.tool.*.md` should:
 ## Memory System
 
 ### Architecture
+
 - **Storage**: FAISS vector database per memory subdirectory
 - **Embeddings**: Cached via `CacheBackedEmbeddings`
 - **Areas**: `main` (facts), `solutions` (code/fixes), `fragments`, `instruments`
 
 ### Memory Flow
+
 ```
 User message → Automatic recall (if enabled) → Agent processes
      ↓
@@ -372,6 +409,7 @@ Future queries → Similarity search → Relevant memories injected
 ```
 
 ### Configuration
+
 ```python
 # Key settings in Settings UI or .env
 MEMORY_RECALL_ENABLED=true          # Enable automatic recall
@@ -381,6 +419,7 @@ MEMORY_MEMORIZE_CONSOLIDATION=true  # Merge similar memories
 ```
 
 ### Subdirectories
+
 - Each agent profile can have isolated memory: `memory/{subdir}/`
 - Knowledge base: `knowledge/{subdir}/` (RAG-indexed)
 - Secure partitions: `secure_*` prefixes require auth
@@ -390,6 +429,7 @@ MEMORY_MEMORIZE_CONSOLIDATION=true  # Merge similar memories
 ## Creating Tools
 
 1. Create `python/tools/{tool_name}.py` inheriting from `Tool`:
+
 ```python
 from python.helpers.tool import Tool, Response
 
@@ -423,6 +463,7 @@ class MyExtension(Extension):
 ## Agent Profiles
 
 Override defaults per-profile in `/agents/{profile}/`:
+
 - `prompts/` - Override default prompts
 - `tools/` - Override/add tools (same filename replaces default)
 - `extensions/` - Override/add extensions
@@ -456,7 +497,7 @@ ruff format .                 # Format
 ./scripts/run-ci-local.sh --list    # List jobs
 
 # Docker
-docker build -f DockerfileLocal -t agent-zero-local .
+docker build -f DockerfileLocal -t agent-jumbo-local .
 
 # Pre-commit hooks
 pre-commit install
@@ -491,7 +532,7 @@ pre-commit run --all-files
 
 ```bash
 # Check Docker container status
-docker ps -a | grep agent-zero
+docker ps -a | grep agent-jumbo
 
 # View container logs
 docker logs <container_id>
@@ -504,6 +545,7 @@ LITELLM_LOG=DEBUG python run_ui.py
 ```
 
 ### Tool Execution Flow
+
 1. Agent outputs JSON with `tool_name` and `tool_args`
 2. `DirtyJson` parses (tolerant of minor errors)
 3. Tool class loaded from `/python/tools/` or `/agents/{profile}/tools/`
@@ -511,6 +553,7 @@ LITELLM_LOG=DEBUG python run_ui.py
 5. Response returned to agent context
 
 ### Memory System
+
 - **Save**: `memory_save` tool → FAISS vector DB
 - **Recall**: Triggered by `memory_load` or automatic recall (if enabled)
 - **Areas**: `main`, `solutions`, `fragments`

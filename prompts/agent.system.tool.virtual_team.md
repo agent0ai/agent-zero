@@ -3,7 +3,9 @@
 The **virtual_team** tool coordinates specialized AI agents for collaborative software development workflows.
 
 ## Purpose
+
 Orchestrate a virtual team of specialized agents including:
+
 - **Architect**: System design, architecture patterns, cloud design
 - **Developer**: Backend/frontend development, API design
 - **DBA**: Database schema design, optimization, migrations
@@ -15,6 +17,7 @@ Orchestrate a virtual team of specialized agents including:
 ## Available Actions
 
 ### 1. route_task
+
 **Automatically route task to best-suited agent based on task type**
 
 ```
@@ -30,6 +33,7 @@ Orchestrate a virtual team of specialized agents including:
 ```
 
 **Parameters:**
+
 - `task_name` (required): Task name/title
 - `task_type` (required): Type of task (see task types below)
 - `description` (optional): Detailed description
@@ -38,6 +42,7 @@ Orchestrate a virtual team of specialized agents including:
 - `complexity` (optional): Complexity level
 
 **Task Type → Agent Role Mapping:**
+
 - `architecture_design`, `system_design`, `api_design` → architect
 - `backend_development`, `frontend_development`, `implementation`, `code_review` → developer
 - `schema_design`, `database_optimization`, `migration_planning` → dba
@@ -51,6 +56,7 @@ Orchestrate a virtual team of specialized agents including:
 ---
 
 ### 2. delegate_to_specialist
+
 **Explicitly delegate task to specific specialist role**
 
 ```
@@ -65,6 +71,7 @@ Orchestrate a virtual team of specialized agents including:
 ```
 
 **Parameters:**
+
 - `task_name` (required): Task name
 - `specialist_role` (required): Target role (architect, developer, dba, qa, devops, security, pm)
 - `description` (optional): Task description
@@ -74,6 +81,7 @@ Orchestrate a virtual team of specialized agents including:
 **Returns:** Task ID, assignment details
 
 **Available Specialist Roles:**
+
 - `architect`: System architecture, design patterns, scalability
 - `developer`: Software engineering, coding, APIs
 - `dba`: Database design, optimization, migrations
@@ -85,6 +93,7 @@ Orchestrate a virtual team of specialized agents including:
 ---
 
 ### 3. start_workflow
+
 **Start multi-agent workflow using template or custom tasks**
 
 ```
@@ -99,6 +108,7 @@ Orchestrate a virtual team of specialized agents including:
 ```
 
 **Parameters:**
+
 - `workflow_name` (required): Workflow name
 - `workflow_type` (optional): Type of workflow (default: "custom")
 - `template` (optional): Use predefined template (see templates below)
@@ -109,18 +119,21 @@ Orchestrate a virtual team of specialized agents including:
 **Available Workflow Templates:**
 
 **full_stack_development:**
+
 1. Architect → Architecture design
 2. **Parallel:** DBA → Schema design, Developer → Backend, Developer → Frontend
 3. **Parallel:** QA → Testing, Security → Security review
 4. DevOps → Deployment setup
 
 **api_development:**
+
 1. Architect → API design
 2. Developer → Implementation
 3. **Parallel:** QA → API testing, Security → Security testing
 4. DevOps → Deployment
 
 **database_migration:**
+
 1. DBA → Migration planning
 2. DBA → Schema migration
 3. Developer → Code updates
@@ -128,6 +141,7 @@ Orchestrate a virtual team of specialized agents including:
 5. DevOps → Rollback plan
 
 **Custom Task Sequence Format:**
+
 ```python
 custom_tasks=[
   {"role": "architect", "task_type": "architecture_design", "parallel_group": None},
@@ -141,6 +155,7 @@ custom_tasks=[
 ---
 
 ### 4. get_workflow_progress
+
 **Get workflow progress and status**
 
 ```
@@ -151,6 +166,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `workflow_id` (required): Workflow ID
 
 **Returns:** Workflow status, task list with statuses, progress percentage
@@ -158,6 +174,7 @@ custom_tasks=[
 ---
 
 ### 5. coordinate_parallel_tasks
+
 **Coordinate multiple tasks to run in parallel**
 
 ```
@@ -184,6 +201,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `task_specs` (required): Array of task specifications
 
 **Returns:** Parallel task count, assignment details
@@ -191,6 +209,7 @@ custom_tasks=[
 ---
 
 ### 6. escalate_task
+
 **Escalate task to different agent or higher tier**
 
 ```
@@ -203,6 +222,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `task_id` (required): Task ID to escalate
 - `reason` (required): Escalation reason
 - `target_role` (optional): Target role (defaults to architect)
@@ -212,6 +232,7 @@ custom_tasks=[
 ---
 
 ### 7. get_task_queue
+
 **Get pending task queue, optionally filtered by role**
 
 ```
@@ -222,6 +243,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `role` (optional): Filter by specific role
 
 **Returns:** Total pending, tasks grouped by role
@@ -229,6 +251,7 @@ custom_tasks=[
 ---
 
 ### 8. get_agent_workload
+
 **Get current workload for specific agent or role**
 
 ```
@@ -239,6 +262,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `agent_id` (optional): Specific agent ID
 - `role` (optional): Role to check (must provide agent_id OR role)
 
@@ -247,6 +271,7 @@ custom_tasks=[
 ---
 
 ### 9. get_team_dashboard
+
 **Get team-wide analytics and metrics**
 
 ```
@@ -260,6 +285,7 @@ custom_tasks=[
 ---
 
 ### 10. update_task_status
+
 **Update task status and progress**
 
 ```
@@ -272,6 +298,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `task_id` (required): Task ID
 - `status` (required): New status ("pending", "assigned", "in_progress", "completed", "escalated")
 - `progress_percentage` (optional): Progress 0-100
@@ -281,6 +308,7 @@ custom_tasks=[
 ---
 
 ### 11. get_task_details
+
 **Get detailed task information**
 
 ```
@@ -291,6 +319,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `task_id` (required): Task ID
 
 **Returns:** Complete task details including assignment info
@@ -298,6 +327,7 @@ custom_tasks=[
 ---
 
 ### 12. list_agents
+
 **List all agents with optional filters**
 
 ```
@@ -309,6 +339,7 @@ custom_tasks=[
 ```
 
 **Parameters:**
+
 - `role` (optional): Filter by role
 - `status` (optional): Filter by status (default: "active")
 
@@ -317,6 +348,7 @@ custom_tasks=[
 ---
 
 ### 13. get_available_workflows
+
 **Get list of available workflow templates**
 
 ```
@@ -330,6 +362,7 @@ custom_tasks=[
 ---
 
 ### 14. get_available_roles
+
 **Get all available agent roles with capabilities**
 
 ```
@@ -344,14 +377,16 @@ custom_tasks=[
 
 ## Typical Workflows
 
-### Software Development Workflow:
+### Software Development Workflow
+
 1. **Route architecture task** to architect
 2. **Start full_stack_development workflow**
 3. **Monitor workflow progress**
 4. **Escalate if needed**
 5. **Check team dashboard** for overall status
 
-### Example Complete Flow:
+### Example Complete Flow
+
 ```
 # Step 1: Design system architecture
 {{virtual_team(action="route_task", task_name="Design payment system", task_type="architecture_design")}}
@@ -380,7 +415,8 @@ custom_tasks=[
 
 ## Integration with Other Tools
 
-### With Customer Lifecycle:
+### With Customer Lifecycle
+
 ```
 # Customer requirements gathered
 {{customer_lifecycle(action="design_solution", customer_id=5)}}
@@ -389,10 +425,11 @@ custom_tasks=[
 {{virtual_team(action="start_workflow", workflow_name="Customer Portal", template="full_stack_development", customer_id=5)}}
 ```
 
-### With Portfolio Manager:
+### With Portfolio Manager
+
 ```
 # Create project
-{{portfolio_manager(action="create_project", project_name="E-Commerce Platform")}}
+{{portfolio_manager_tool(action="create_project", project_name="E-Commerce Platform")}}
 # Returns: project_id = 10
 
 # Assign virtual team
@@ -404,36 +441,43 @@ custom_tasks=[
 ## Agent Role Capabilities
 
 ### Architect
+
 - **Expertise**: Architecture patterns, scalability, cloud design, security architecture
 - **Tools**: Diagram tools, documentation, code review
 - **Task Types**: architecture_design, system_design, api_design
 
 ### Developer
+
 - **Expertise**: Backend, frontend, API design, testing, refactoring
 - **Tools**: Code generation, debugging, refactoring
 - **Task Types**: backend_development, frontend_development, implementation, code_review
 
 ### DBA
+
 - **Expertise**: Schema design, query optimization, migrations, indexing
 - **Tools**: Database tools, performance monitoring
 - **Task Types**: schema_design, database_optimization, migration_planning
 
 ### QA
+
 - **Expertise**: Test automation, manual testing, performance testing, security testing
 - **Tools**: Testing frameworks, bug tracking
 - **Task Types**: test_development, testing, quality_assurance
 
 ### DevOps
+
 - **Expertise**: CI/CD, containerization, orchestration, monitoring
 - **Tools**: Docker, Kubernetes, Terraform, CI/CD pipelines
 - **Task Types**: deployment_setup, ci_cd_setup, infrastructure
 
 ### Security
+
 - **Expertise**: Threat modeling, penetration testing, compliance, encryption
 - **Tools**: Security scanners, audit tools
 - **Task Types**: security_review, security_testing, threat_modeling
 
 ### PM
+
 - **Expertise**: Agile, planning, stakeholder management, risk management
 - **Tools**: Project tracking, reporting
 - **Task Types**: project_planning, stakeholder_management
@@ -453,6 +497,7 @@ custom_tasks=[
 ---
 
 ## Notes
+
 - Database auto-creates standard agents on initialization
 - Workflow templates handle task dependencies automatically
 - Parallel task groups (same parallel_group number) run concurrently

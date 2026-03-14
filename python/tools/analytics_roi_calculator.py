@@ -1,7 +1,7 @@
 """
 Analytics ROI Calculator Tool
 
-Converted from Mahoosuc OS /analytics:roi-calculator command to native Agent Zero tool.
+Converted from Mahoosuc OS /analytics:roi-calculator command to native Agent Jumbo tool.
 Calculates Return on Investment with comprehensive financial metrics.
 
 Source: .claude/commands/analytics/roi-calculator.md

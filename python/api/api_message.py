@@ -10,6 +10,7 @@ from initialize import initialize_agent
 from python.helpers import files
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.print_style import PrintStyle
+from python.helpers.strings import redact_sensitive_tokens
 
 
 class ApiMessage(ApiHandler):
@@ -88,10 +89,10 @@ class ApiMessage(ApiHandler):
             # Log the message
             attachment_filenames = [os.path.basename(path) for path in attachment_paths] if attachment_paths else []
 
-            PrintStyle(
-                background_color="#6C3483", font_color="white", bold=True, padding=True
-            ).print("External API message:")
-            PrintStyle(font_color="white", padding=False).print(f"> {message}")
+            PrintStyle(background_color="#6C3483", font_color="white", bold=True, padding=True).print(
+                "External API message:"
+            )
+            PrintStyle(font_color="white", padding=False).print(f"> {redact_sensitive_tokens(message)}")
             if attachment_filenames:
                 PrintStyle(font_color="white", padding=False).print("Attachments:")
                 for filename in attachment_filenames:
@@ -112,10 +113,7 @@ class ApiMessage(ApiHandler):
             # Clean up expired chats
             self._cleanup_expired_chats()
 
-            return {
-                "context_id": context_id,
-                "response": result
-            }
+            return {"context_id": context_id, "response": result}
 
         except Exception as e:
             PrintStyle.error(f"External API error: {e}")
@@ -126,10 +124,7 @@ class ApiMessage(ApiHandler):
         """Clean up expired chats"""
         with cls._cleanup_lock:
             now = datetime.now()
-            expired_contexts = [
-                context_id for context_id, expiry in cls._chat_lifetimes.items()
-                if now > expiry
-            ]
+            expired_contexts = [context_id for context_id, expiry in cls._chat_lifetimes.items() if now > expiry]
 
             for context_id in expired_contexts:
                 try:

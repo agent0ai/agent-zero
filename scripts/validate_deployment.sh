@@ -1,10 +1,10 @@
 #!/bin/bash
-# Validate all Agent Zero customizations deployed to Docker
+# Validate all Agent Jumbo customizations deployed to Docker
 # Run this script to verify all custom features are properly deployed
 
 set -e
 
-CONTAINER="${CONTAINER:-agent-zero}"
+CONTAINER="${CONTAINER:-agent-jumbo}"
 BASE_URL="${BASE_URL:-http://localhost:50080}"
 
 # Colors
@@ -18,7 +18,7 @@ fail() { echo -e "${RED}❌ $1${NC}"; }
 warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 
 echo "=========================================="
-echo " Agent Zero Docker Deployment Validation"
+echo " Agent Jumbo Docker Deployment Validation"
 echo "=========================================="
 echo ""
 

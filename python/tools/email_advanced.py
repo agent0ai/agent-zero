@@ -1,5 +1,5 @@
 """
-Extended Email Tool for Agent Zero - Phase 2/3
+Extended Email Tool for Agent Jumbo - Phase 2/3
 Adds Gmail API OAuth2 and Push Notifications support
 """
 
@@ -50,7 +50,7 @@ class EmailAdvanced(Tool):
         else:
             return Response(
                 message=f"Unknown action: {action}. See documentation for available Gmail API actions.",
-                break_loop=False
+                break_loop=False,
             )
 
     def _resolve_account_name(self, requested_name: str | None):
@@ -65,7 +65,7 @@ class EmailAdvanced(Tool):
         if not gmail_accounts:
             return None, Response(
                 message="❌ No Gmail accounts configured. Add one in Settings → External → Gmail Accounts.",
-                break_loop=False
+                break_loop=False,
             )
 
         if len(gmail_accounts) == 1:
@@ -77,7 +77,7 @@ class EmailAdvanced(Tool):
                 "❌ Multiple Gmail accounts configured. Please specify `account_name`.\n\n"
                 f"**Available:** {account_list}"
             ),
-            break_loop=False
+            break_loop=False,
         )
 
     async def _authenticate_account(self):
@@ -98,9 +98,9 @@ class EmailAdvanced(Tool):
             else:
                 message = "❌ Authentication failed\n\n"
                 message += f"**Error:** {result.get('error')}\n"
-                if result.get('help'):
+                if result.get("help"):
                     message += f"**Help:** {result.get('help')}\n"
-                if result.get('install_command'):
+                if result.get("install_command"):
                     message += f"\n**Install:** `{result.get('install_command')}`\n"
 
             return Response(message=message, break_loop=False)
@@ -108,13 +108,10 @@ class EmailAdvanced(Tool):
         except ImportError:
             return Response(
                 message="❌ Gmail API libraries not installed\n\nRun: `pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client`",
-                break_loop=False
+                break_loop=False,
             )
         except Exception as e:
-            return Response(
-                message=f"❌ Authentication error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Authentication error: {e!s}", break_loop=False)
 
     async def _send_via_gmail_api(self):
         """Send email via Gmail API"""
@@ -140,7 +137,7 @@ class EmailAdvanced(Tool):
                 html=self.args.get("html", False),
                 from_name=self.args.get("from_name"),
                 labels=self.args.get("labels"),
-                thread_id=self.args.get("thread_id")
+                thread_id=self.args.get("thread_id"),
             )
 
             if result.get("success"):
@@ -149,9 +146,9 @@ class EmailAdvanced(Tool):
                 message += f"**To:** {', '.join(result['to'])}\n"
                 message += f"**Subject:** {result['subject']}\n"
                 message += f"**Message ID:** {result['message_id']}\n"
-                if result.get('thread_id'):
+                if result.get("thread_id"):
                     message += f"**Thread ID:** {result['thread_id']}\n"
-                if result.get('labels'):
+                if result.get("labels"):
                     message += f"**Labels:** {', '.join(result['labels'])}\n"
             else:
                 message = "❌ Failed to send email\n\n"
@@ -160,10 +157,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Gmail API send error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Gmail API send error: {e!s}", break_loop=False)
 
     async def _read_via_gmail_api(self):
         """Read emails via Gmail API"""
@@ -179,14 +173,11 @@ class EmailAdvanced(Tool):
                 query=self.args.get("query"),
                 max_results=self.args.get("max_results", 10),
                 label_ids=self.args.get("label_ids"),
-                include_spam_trash=self.args.get("include_spam_trash", False)
+                include_spam_trash=self.args.get("include_spam_trash", False),
             )
 
             if not emails:
-                return Response(
-                    message="No emails found matching criteria.",
-                    break_loop=False
-                )
+                return Response(message="No emails found matching criteria.", break_loop=False)
 
             message = f"📧 Found {len(emails)} email(s) via Gmail API:\n\n"
 
@@ -197,18 +188,15 @@ class EmailAdvanced(Tool):
                 message += f"   **Labels:** {', '.join(email.get('labels', []))}\n"
                 message += f"   **Unread:** {'Yes' if email.get('is_unread') else 'No'}\n"
 
-                snippet = email.get('snippet', '')[:150]
-                if len(email.get('snippet', '')) > 150:
+                snippet = email.get("snippet", "")[:150]
+                if len(email.get("snippet", "")) > 150:
                     snippet += "..."
                 message += f"   **Preview:** {snippet}\n\n"
 
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Gmail API read error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Gmail API read error: {e!s}", break_loop=False)
 
     async def _advanced_search(self):
         """Advanced email search with multiple criteria"""
@@ -229,14 +217,11 @@ class EmailAdvanced(Tool):
                 is_unread=self.args.get("is_unread"),
                 after_date=self.args.get("after_date"),
                 before_date=self.args.get("before_date"),
-                max_results=self.args.get("max_results", 10)
+                max_results=self.args.get("max_results", 10),
             )
 
             if not emails:
-                return Response(
-                    message="No emails found matching search criteria.",
-                    break_loop=False
-                )
+                return Response(message="No emails found matching search criteria.", break_loop=False)
 
             message = f"🔍 Search Results: {len(emails)} email(s)\n\n"
 
@@ -247,10 +232,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Search error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Search error: {e!s}", break_loop=False)
 
     async def _create_label(self):
         """Create Gmail label"""
@@ -264,15 +246,12 @@ class EmailAdvanced(Tool):
 
             label_name = self.args.get("label_name")
             if not label_name:
-                return Response(
-                    message="❌ Missing required parameter: label_name",
-                    break_loop=False
-                )
+                return Response(message="❌ Missing required parameter: label_name", break_loop=False)
 
             result = client.create_label(
                 name=label_name,
                 label_list_visibility=self.args.get("label_list_visibility", "labelShow"),
-                message_list_visibility=self.args.get("message_list_visibility", "show")
+                message_list_visibility=self.args.get("message_list_visibility", "show"),
             )
 
             if result.get("success"):
@@ -285,10 +264,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Label creation error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Label creation error: {e!s}", break_loop=False)
 
     async def _list_labels(self):
         """List all Gmail labels"""
@@ -303,16 +279,13 @@ class EmailAdvanced(Tool):
             labels = client.list_labels()
 
             if not labels:
-                return Response(
-                    message="No labels found.",
-                    break_loop=False
-                )
+                return Response(message="No labels found.", break_loop=False)
 
             message = f"🏷️ Gmail Labels ({len(labels)} total):\n\n"
 
             # Group by type
-            system_labels = [l for l in labels if l['type'] == 'system']
-            user_labels = [l for l in labels if l['type'] == 'user']
+            system_labels = [l for l in labels if l["type"] == "system"]
+            user_labels = [l for l in labels if l["type"] == "user"]
 
             if system_labels:
                 message += "**System Labels:**\n"
@@ -328,10 +301,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Label list error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Label list error: {e!s}", break_loop=False)
 
     async def _apply_labels(self):
         """Apply labels to messages"""
@@ -347,10 +317,7 @@ class EmailAdvanced(Tool):
             label_ids = self.args.get("label_ids", [])
 
             if not message_ids or not label_ids:
-                return Response(
-                    message="❌ Missing required parameters: message_ids and label_ids",
-                    break_loop=False
-                )
+                return Response(message="❌ Missing required parameters: message_ids and label_ids", break_loop=False)
 
             result = client.apply_labels(message_ids, label_ids)
 
@@ -364,10 +331,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Apply labels error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Apply labels error: {e!s}", break_loop=False)
 
     async def _create_draft(self):
         """Create email draft"""
@@ -390,7 +354,7 @@ class EmailAdvanced(Tool):
                 cc=self.args.get("cc"),
                 bcc=self.args.get("bcc"),
                 attachments=self.args.get("attachments"),
-                html=self.args.get("html", False)
+                html=self.args.get("html", False),
             )
 
             if result.get("success"):
@@ -403,10 +367,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Draft creation error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Draft creation error: {e!s}", break_loop=False)
 
     async def _list_drafts(self):
         """List email drafts"""
@@ -421,10 +382,7 @@ class EmailAdvanced(Tool):
             drafts = client.list_drafts(max_results=self.args.get("max_results", 10))
 
             if not drafts:
-                return Response(
-                    message="No drafts found.",
-                    break_loop=False
-                )
+                return Response(message="No drafts found.", break_loop=False)
 
             message = f"📝 Found {len(drafts)} draft(s):\n\n"
 
@@ -435,10 +393,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ List drafts error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ List drafts error: {e!s}", break_loop=False)
 
     async def _send_draft(self):
         """Send existing draft"""
@@ -452,10 +407,7 @@ class EmailAdvanced(Tool):
 
             draft_id = self.args.get("draft_id")
             if not draft_id:
-                return Response(
-                    message="❌ Missing required parameter: draft_id",
-                    break_loop=False
-                )
+                return Response(message="❌ Missing required parameter: draft_id", break_loop=False)
 
             result = client.send_draft(draft_id)
 
@@ -469,10 +421,7 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Send draft error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Send draft error: {e!s}", break_loop=False)
 
     async def _list_accounts(self):
         """List all authenticated Gmail accounts"""
@@ -485,7 +434,7 @@ class EmailAdvanced(Tool):
             if not accounts:
                 return Response(
                     message="No authenticated accounts found.\n\nUse `authenticate` action to add an account.",
-                    break_loop=False
+                    break_loop=False,
                 )
 
             message = f"📧 Authenticated Gmail Accounts ({len(accounts)}):\n\n"
@@ -493,15 +442,14 @@ class EmailAdvanced(Tool):
             for account in accounts:
                 message += f"**Account:** {account['account_name']}\n"
                 message += f"**Email:** {account.get('email', 'Unknown')}\n"
-                message += f"**Status:** {'✅ Authenticated' if account['authenticated'] else '❌ Not authenticated'}\n\n"
+                message += (
+                    f"**Status:** {'✅ Authenticated' if account['authenticated'] else '❌ Not authenticated'}\n\n"
+                )
 
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ List accounts error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ List accounts error: {e!s}", break_loop=False)
 
     async def _enable_push_notifications(self):
         """Enable Gmail push notifications"""
@@ -516,7 +464,7 @@ class EmailAdvanced(Tool):
             if not project_id:
                 return Response(
                     message="❌ Missing Google Cloud project ID\n\nSet GOOGLE_CLOUD_PROJECT_ID environment variable.",
-                    break_loop=False
+                    break_loop=False,
                 )
 
             push = GmailPushNotifications(project_id=project_id)
@@ -524,10 +472,7 @@ class EmailAdvanced(Tool):
             # Setup topic/subscription
             setup_result = push.setup_topic_and_subscription()
             if not setup_result.get("success"):
-                return Response(
-                    message=f"❌ Failed to setup Pub/Sub\n\n{setup_result.get('error')}",
-                    break_loop=False
-                )
+                return Response(message=f"❌ Failed to setup Pub/Sub\n\n{setup_result.get('error')}", break_loop=False)
 
             # Enable push
             result = push.enable_push_notifications(account_name)
@@ -546,13 +491,10 @@ class EmailAdvanced(Tool):
         except ImportError:
             return Response(
                 message="❌ Google Cloud Pub/Sub library not installed\n\nRun: `pip install google-cloud-pubsub`",
-                break_loop=False
+                break_loop=False,
             )
         except Exception as e:
-            return Response(
-                message=f"❌ Push notification error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Push notification error: {e!s}", break_loop=False)
 
     async def _disable_push_notifications(self):
         """Disable Gmail push notifications"""
@@ -575,7 +517,4 @@ class EmailAdvanced(Tool):
             return Response(message=message, break_loop=False)
 
         except Exception as e:
-            return Response(
-                message=f"❌ Disable push error: {e!s}",
-                break_loop=False
-            )
+            return Response(message=f"❌ Disable push error: {e!s}", break_loop=False)

@@ -3,6 +3,7 @@
 ## 🚀 Getting Started (5 minutes)
 
 ### Prerequisites
+
 - Git configured locally
 - Python 3.11+ installed
 - Virtual environment activated
@@ -13,9 +14,10 @@
 ## 📌 Team A: Calendar Hub Integration
 
 ### Workspace Setup
+
 ```bash
 # Your worktree is automatically created at:
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 
 # Verify you're on the correct branch
 git branch  # Should show: feature/pms-calendar-sync
@@ -24,13 +26,15 @@ git branch  # Should show: feature/pms-calendar-sync
 ### Test-Driven Development Approach
 
 **Phase 1: Understand Requirements**
+
 1. Read: `TDD_SWARM_FEATURE_TEAMS.md` (Calendar section)
 2. Read: `README.md` for calendar_hub API
 3. Study: `instruments/custom/pms_hub/canonical_models.py` (Property, Reservation, Calendar)
 
 **Phase 2: Write Failing Tests**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 
 # Open test file
 nano tests/test_pms_calendar_sync.py
@@ -44,6 +48,7 @@ pytest tests/test_pms_calendar_sync.py::TestCalendarSyncServiceInitialization::t
 
 **Phase 3: Implement Features**
 Create these files:
+
 ```
 instruments/custom/pms_hub/calendar_sync.py
     - CalendarSyncService class
@@ -59,6 +64,7 @@ python/api/pms_calendar_sync.py
 ```
 
 **Phase 4: Run Tests**
+
 ```bash
 # Run all calendar sync tests
 pytest tests/test_pms_calendar_sync.py -v
@@ -71,6 +77,7 @@ pytest tests/test_pms_calendar_sync.py::TestCalendarEventCreation -v
 ```
 
 **Phase 5: Code Review & Merge**
+
 ```bash
 # Commit your changes
 git add -A
@@ -93,12 +100,14 @@ git push origin feature/pms-calendar-sync
 | `python/api/pms_calendar_sync.py` | API endpoints | Create |
 
 ### Integration Points
+
 - **EventBus**: Subscribe to `pms.reservation.*` events
 - **Calendar Hub**: Use `CalendarHubManager` for Google/Outlook sync
 - **PMS Hub Registry**: Use `ProviderRegistry` to get providers
 - **Canonical Models**: Transform to/from PMS data models
 
 ### Success Metrics
+
 - ✅ 45+ tests passing (100%)
 - ✅ 95%+ code coverage
 - ✅ All integration tests passing
@@ -110,9 +119,10 @@ git push origin feature/pms-calendar-sync
 ## 🗣️ Team B: Guest Communication Automation
 
 ### Workspace Setup
+
 ```bash
 # Your worktree is automatically created at:
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 
 # Verify you're on the correct branch
 git branch  # Should show: feature/pms-messaging-automation
@@ -121,13 +131,15 @@ git branch  # Should show: feature/pms-messaging-automation
 ### Test-Driven Development Approach
 
 **Phase 1: Understand Requirements**
+
 1. Read: `TDD_SWARM_FEATURE_TEAMS.md` (Messaging section)
 2. Study: `instruments/custom/pms_hub/canonical_models.py` (Message, Guest, Reservation)
 3. Review: Multi-channel delivery patterns in related tools
 
 **Phase 2: Write Failing Tests**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 
 # Open test file
 nano tests/test_pms_communication_workflows.py
@@ -141,6 +153,7 @@ pytest tests/test_pms_communication_workflows.py::TestCommunicationWorkflowIniti
 
 **Phase 3: Implement Features**
 Create these files:
+
 ```
 instruments/custom/pms_hub/communication_workflows.py
     - CommunicationWorkflow class
@@ -165,6 +178,7 @@ python/api/pms_communication_templates.py
 ```
 
 **Phase 4: Run Tests**
+
 ```bash
 # Run all communication tests
 pytest tests/test_pms_communication_workflows.py -v
@@ -180,6 +194,7 @@ pytest tests/test_pms_communication_workflows.py::TestMultiChannelDelivery -vv
 ```
 
 **Phase 5: Code Review & Merge**
+
 ```bash
 # Commit your changes
 git add -A
@@ -204,6 +219,7 @@ git push origin feature/pms-messaging-automation
 | `python/api/pms_communication_templates.py` | Template API | Create |
 
 ### Integration Points
+
 - **EventBus**: Subscribe to `pms.reservation.*` and `pms.issue.*` events
 - **Template Engine**: Render dynamic templates with variables
 - **Multi-channel Gateway**: Send via SMS, Email, Platform Messaging
@@ -211,6 +227,7 @@ git push origin feature/pms-messaging-automation
 - **Canonical Models**: Use Message, Guest, Reservation models
 
 ### Success Metrics
+
 - ✅ 53+ tests passing (100%)
 - ✅ 95%+ code coverage
 - ✅ All workflow types implemented
@@ -224,27 +241,31 @@ git push origin feature/pms-messaging-automation
 ### During Development (Days 1-4)
 
 **Terminal 1: Team A (Calendar)**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 # Implement tests → features → iterate
 pytest tests/test_pms_calendar_sync.py -v --tb=short
 ```
 
 **Terminal 2: Team B (Messaging)**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-messaging
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-messaging
 # Implement tests → features → iterate
 pytest tests/test_pms_communication_workflows.py -v --tb=short
 ```
 
 **Terminal 3: Monitor/Integration**
+
 ```bash
-cd /home/webemo-aaron/projects/agent-zero
+cd /home/webemo-aaron/projects/agent-jumbo
 # Run full test suite periodically
 pytest tests/ -v --tb=short
 ```
 
 ### Communication Checkpoints
+
 - **Daily**: Quick sync on test coverage and blockers
 - **End of Day 2**: Share progress updates
 - **End of Day 4**: Final validation before merge
@@ -254,6 +275,7 @@ pytest tests/ -v --tb=short
 ## 📋 Common Commands
 
 ### Setup
+
 ```bash
 # Initialize worktrees
 ./scripts/setup_feature_teams.sh create
@@ -266,6 +288,7 @@ pytest tests/ -v --tb=short
 ```
 
 ### Development
+
 ```bash
 # Run your team's tests
 pytest tests/test_pms_calendar_sync.py -v
@@ -282,6 +305,7 @@ pytest tests/test_pms_*.py -k "EventBus" -v
 ```
 
 ### Git
+
 ```bash
 # Check your branch
 git branch
@@ -300,6 +324,7 @@ git log --oneline --graph -n 10
 ```
 
 ### Testing
+
 ```bash
 # Run linting
 ruff check instruments/custom/pms_hub/
@@ -322,19 +347,21 @@ pytest tests/test_pms_*.py -v --durations=10
 ## 🆘 Troubleshooting
 
 ### Tests Not Finding Modules
+
 ```bash
 # Ensure you're in the worktree root
-cd /home/webemo-aaron/projects/agent-zero/.worktrees/pms-calendar
+cd /home/webemo-aaron/projects/agent-jumbo/.worktrees/pms-calendar
 
 # Install in development mode
 pip install -e .
 
 # Run with PYTHONPATH
-export PYTHONPATH=/home/webemo-aaron/projects/agent-zero:$PYTHONPATH
+export PYTHONPATH=/home/webemo-aaron/projects/agent-jumbo:$PYTHONPATH
 pytest tests/test_pms_calendar_sync.py -v
 ```
 
 ### Import Errors
+
 ```bash
 # Make sure all files are created
 ls instruments/custom/pms_hub/calendar_sync.py  # Should exist
@@ -344,6 +371,7 @@ head -20 instruments/custom/pms_hub/calendar_sync.py
 ```
 
 ### Git Conflicts
+
 ```bash
 # Check status
 git status
@@ -359,6 +387,7 @@ git push origin feature/pms-calendar-sync --force-with-lease
 ```
 
 ### EventBus Issues
+
 ```bash
 # Check EventBus is available
 python -c "from python.helpers.event_bus import EventBus; print('EventBus OK')"
@@ -376,19 +405,23 @@ print(sync.event_bus.subscribers)
 ## 📚 Reference Documentation
 
 ### Architecture
-- `/home/webemo-aaron/projects/agent-zero/PMS_HUB_IMPLEMENTATION.md`
-- `/home/webemo-aaron/projects/agent-zero/TDD_SWARM_FEATURE_TEAMS.md`
+
+- `/home/webemo-aaron/projects/agent-jumbo/PMS_HUB_IMPLEMENTATION.md`
+- `/home/webemo-aaron/projects/agent-jumbo/TDD_SWARM_FEATURE_TEAMS.md`
 
 ### API Reference
-- `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/README.md`
+
+- `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/README.md`
 - Calendar Hub: `python/tools/calendar_hub.py` (line 23-100)
 
 ### Testing
-- `/home/webemo-aaron/projects/agent-zero/TDD_SWARM_GUIDE.md`
+
+- `/home/webemo-aaron/projects/agent-jumbo/TDD_SWARM_GUIDE.md`
 - Example tests: `tests/test_pms_providers.py`
 
 ### Canonical Models
-- `/home/webemo-aaron/projects/agent-zero/instruments/custom/pms_hub/canonical_models.py`
+
+- `/home/webemo-aaron/projects/agent-jumbo/instruments/custom/pms_hub/canonical_models.py`
 
 ---
 
@@ -413,7 +446,9 @@ Before creating a Pull Request:
 ## 🎯 Success Definition
 
 ### Team A: Calendar Hub Integration
+
 **Deliverables**:
+
 - Calendar sync service with 45+ tests
 - Dynamic pricing rule synchronization
 - Availability blocking management
@@ -421,13 +456,16 @@ Before creating a Pull Request:
 - EventBus event handling
 
 **Quality Gate**:
+
 - 100% test pass rate
 - 95%+ code coverage
 - <500ms per sync operation
 - Zero security issues
 
 ### Team B: Guest Communication Automation
+
 **Deliverables**:
+
 - Communication workflow engine with 53+ tests
 - Pre-arrival workflow implementation
 - Post-checkout workflow implementation
@@ -435,6 +473,7 @@ Before creating a Pull Request:
 - Multi-channel message delivery
 
 **Quality Gate**:
+
 - 100% test pass rate
 - 95%+ code coverage
 - <1s per message send

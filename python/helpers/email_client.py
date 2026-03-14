@@ -21,6 +21,7 @@ from python.helpers.print_style import PrintStyle
 @dataclass
 class Message:
     """Email message representation with sender, subject, body, and attachments."""
+
     sender: str
     subject: str
     body: str
@@ -78,8 +79,7 @@ class EmailClient:
                 await self._connect_exchange()
             else:
                 raise RepairableException(
-                    f"Unsupported account type: {self.account_type}. "
-                    "Supported types: 'imap', 'exchange'"
+                    f"Unsupported account type: {self.account_type}. " "Supported types: 'imap', 'exchange'"
                 )
         except Exception as e:
             err = format_error(e)
@@ -112,18 +112,13 @@ class EmailClient:
                 creds = Credentials(username=self.username, password=self.password)
                 config = Configuration(server=self.server, credentials=creds)
                 return Account(
-                    primary_smtp_address=self.username,
-                    config=config,
-                    autodiscover=False,
-                    access_type=DELEGATE
+                    primary_smtp_address=self.username, config=config, autodiscover=False, access_type=DELEGATE
                 )
 
             self.exchange_account = await loop.run_in_executor(None, _sync_connect)
             PrintStyle.standard(f"Connected to Exchange server: {self.server}")
         except ImportError as e:
-            raise RepairableException(
-                "exchangelib not installed. Install with: pip install exchangelib>=5.4.3"
-            ) from e
+            raise RepairableException("exchangelib not installed. Install with: pip install exchangelib>=5.4.3") from e
 
     async def disconnect(self) -> None:
         """Clean up connection."""
@@ -350,18 +345,14 @@ class EmailClient:
         if ex_msg.attachments:
             for attachment in ex_msg.attachments:
                 if hasattr(attachment, "content"):
-                    path = await self._save_attachment_bytes(
-                        attachment.name,
-                        attachment.content,
-                        download_folder
-                    )
+                    path = await self._save_attachment_bytes(attachment.name, attachment.content, download_folder)
                     attachment_paths.append(path)
 
         return Message(
             sender=str(ex_msg.sender.email_address) if ex_msg.sender else "",
             subject=str(ex_msg.subject or ""),
             body=body,
-            attachments=attachment_paths
+            attachments=attachment_paths,
         )
 
     async def _parse_message(
@@ -401,9 +392,7 @@ class EmailClient:
                         filename = self._decode_header(filename)
                         content = part.get_payload(decode=True)
                         if content:
-                            path = await self._save_attachment_bytes(
-                                filename, content, download_folder
-                            )
+                            path = await self._save_attachment_bytes(filename, content, download_folder)
                             attachment_paths.append(path)
 
                             # Map Content-ID for inline images
@@ -445,12 +434,7 @@ class EmailClient:
                 else:
                     body = content.decode(charset, errors="ignore")
 
-        return Message(
-            sender=sender,
-            subject=subject,
-            body=body,
-            attachments=attachment_paths
-        )
+        return Message(sender=sender, subject=subject, body=body, attachments=attachment_paths)
 
     def _html_to_text(self, html_content: str, cid_map: dict[str, str] | None = None) -> str:
         """
@@ -498,7 +482,7 @@ class EmailClient:
         """
         Save attachment to disk and return absolute path.
 
-        Uses Agent Zero's file helpers for path management.
+        Uses Agent Jumbo's file helpers for path management.
         """
         # Sanitize filename
         filename = files.safe_file_name(filename)

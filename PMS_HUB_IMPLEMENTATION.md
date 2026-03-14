@@ -31,6 +31,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 **Location**: `instruments/custom/pms_hub/providers/`
 
 #### Hostaway Adapter (`hostaway.py`)
+
 - OAuth 2.0 client with 24-month token management
 - Full REST API v1 implementation
 - All core operations: properties, reservations, calendar, messages, reviews
@@ -39,6 +40,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - Pagination support with offset-based cursors
 
 #### Lodgify Adapter (`lodgify.py`)
+
 - REST API with cursor-based pagination
 - SHA256 HMAC signature verification for webhooks
 - Full feature parity with Hostaway
@@ -46,12 +48,14 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - 5 webhook event types
 
 #### Hostify Adapter (`hostify.py`)
+
 - REST API v2 implementation
 - Comprehensive property and reservation management
 - Feature parity with other major providers
 - Clean, maintainable code structure
 
 #### iCal Adapter (`ical.py`)
+
 - Generic iCal feed parser (libical backend)
 - Read-only calendar synchronization
 - Fallback support for any platform with iCal export
@@ -63,6 +67,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 **Location**: `instruments/custom/pms_hub/sync_service.py`
 
 **PMSSyncService** - Bi-directional sync with property_manager
+
 - Maps PMS reservations to short-term leases
 - Creates tenants from guest data
 - Records payments automatically
@@ -71,6 +76,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - Full audit trail through event bus
 
 **Sync Operations**:
+
 - Individual reservation sync
 - Bulk sync of all reservations
 - Property data synchronization
@@ -90,6 +96,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - Event persistence for audit compliance
 
 **Webhook Support**:
+
 - 15+ event types across all providers
 - HMAC-SHA256 signature verification (Lodgify)
 - Automatic payload transformation to canonical format
@@ -98,6 +105,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 ### Phase 5: Tool & API Interfaces ✅
 
 **PMS Hub Tool** (`python/tools/pms_hub_tool.py`)
+
 - Main interface for agent interactions
 - Actions: status, list_providers, register_provider, get_reservations, get_properties, get_calendar, send_message, sync_reservations
 - Async execution model
@@ -126,6 +134,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 ### Phase 6: Documentation ✅
 
 **Complete Documentation**:
+
 - `instruments/custom/pms_hub/README.md` - Comprehensive user guide
 - Architecture diagrams and data flows
 - Configuration examples
@@ -190,6 +199,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 ## 🚀 Key Features
 
 ### 1. Multi-Provider Support (Out-of-Box)
+
 - ✅ Hostaway - Full integration, OAuth 2.0
 - ✅ Lodgify - Airbnb Preferred+, signature verification
 - ✅ Hostify - Complete API v2 support
@@ -197,6 +207,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - 🔮 Future: VRBO, Booking.com, Airbnb native
 
 ### 2. Real-Time Webhooks
+
 - ✅ 15+ event types
 - ✅ Signature verification (HMAC-SHA256)
 - ✅ 3-retry delivery with backoff
@@ -204,6 +215,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - ✅ Full audit trail
 
 ### 3. Bi-Directional Sync
+
 - ✅ PMS → PropertyManager (reservations → leases)
 - ✅ Guest → Tenant mapping
 - ✅ Payment recording
@@ -211,6 +223,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - ✅ Idempotent operations
 
 ### 4. Event-Driven Architecture
+
 - ✅ EventBus integration
 - ✅ Event persistence
 - ✅ Wildcard subscriptions
@@ -218,6 +231,7 @@ A comprehensive, production-ready multi-provider PMS integration system supporti
 - ✅ Handler composition
 
 ### 5. Production-Ready
+
 - ✅ Async/await throughout
 - ✅ Type hints for all code
 - ✅ Comprehensive error handling
@@ -393,6 +407,7 @@ File: `~/.pms_hub/providers.json`
 ## 📚 Documentation
 
 See `instruments/custom/pms_hub/README.md` for:
+
 - Complete API reference
 - Usage examples
 - Webhook event types
@@ -403,6 +418,7 @@ See `instruments/custom/pms_hub/README.md` for:
 ## 🤝 Integration Points
 
 The PMS Hub integrates with:
+
 - **PropertyManager** - Sync reservations to leases
 - **CalendarHub** - Coordinate availability (future)
 - **WorkflowEngine** - Automated guest communication (future)
@@ -419,7 +435,7 @@ You now have a **production-ready, enterprise-grade PMS integration system** tha
 4. ✅ Handles multi-unit properties correctly
 5. ✅ Includes comprehensive error handling and retry logic
 6. ✅ Is fully documented and easy to extend
-7. ✅ Follows agent-zero architecture patterns
+7. ✅ Follows agent-jumbo architecture patterns
 8. ✅ Is async-first for high performance
 
 The system is designed to grow with you - adding new providers, features, and integrations is straightforward thanks to the adapter pattern and event-driven architecture.

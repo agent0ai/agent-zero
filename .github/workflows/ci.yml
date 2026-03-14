@@ -1,4 +1,4 @@
-name: Agent Zero CI
+name: Agent Jumbo CI
 
 on:
   push:
@@ -179,6 +179,6 @@ jobs:
           context: .
           file: ./DockerfileLocal
           push: false
-          tags: agent-zero:test
+          tags: agent-jumbo:test
           cache-from: type=gha
           cache-to: type=gha,mode=max

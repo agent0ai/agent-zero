@@ -15,6 +15,7 @@ const model = {
   projectList: [],
   selectedProject: null,
   editData: null,
+  lifecycleLastError: "",
   colors: [
     "#7b2cbf", // Deep Purple
     "#8338ec", // Blue Violet
@@ -256,6 +257,8 @@ const model = {
       // remove internal fields
       for (const kvp of Object.entries(data))
         if (kvp[0].startsWith("_")) delete data[kvp[0]];
+      delete data.lifecycle;
+      delete data.lifecycleRuns;
 
       // call backend
       const response = await api.callJsonApi("projects", {
@@ -318,13 +321,185 @@ const model = {
         name: name,
       })
     ).data;
+
+    let lifecycle = null;
+    let lifecycleRuns = [];
+    try {
+      const lifecycleResponse = await api.callJsonApi("project_lifecycle", {
+        action: "get",
+        project_name: name,
+      });
+      if (lifecycleResponse?.ok) lifecycle = lifecycleResponse.data;
+
+      const runsResponse = await api.callJsonApi("project_lifecycle", {
+        action: "list_phase_runs",
+        project_name: name,
+        limit: 25,
+      });
+      if (runsResponse?.ok && Array.isArray(runsResponse.data)) {
+        lifecycleRuns = runsResponse.data.map((run) => ({
+          ...run,
+          _started_at_display: this._formatLifecycleRunTime(run.started_at),
+        }));
+      }
+    } catch (error) {
+      console.warn("Could not load project lifecycle data:", error);
+    }
+
     return {
       _meta: {
         creating: false,
       },
       ...projectData,
       _ownMemory: projectData.memory == "own",
+      lifecycle,
+      lifecycleRuns,
+      _lifecycleActor: lifecycle?.access?.owner || "system",
+      _lifecycleRunVisual: true,
     };
+  },
+
+  _formatLifecycleRunTime(value) {
+    if (!value) return "-";
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString();
+    } catch (error) {
+      return String(value);
+    }
+  },
+
+  async refreshSelectedProjectLifecycle() {
+    if (!this.selectedProject?.name) return;
+    try {
+      const response = await api.callJsonApi("project_lifecycle", {
+        action: "get",
+        project_name: this.selectedProject.name,
+      });
+      if (response?.ok) this.selectedProject.lifecycle = response.data;
+      if (response?.ok && this.selectedProject.lifecycle?.access?.owner) {
+        this.selectedProject._lifecycleActor =
+          this.selectedProject.lifecycle.access.owner;
+      }
+
+      const runsResponse = await api.callJsonApi("project_lifecycle", {
+        action: "list_phase_runs",
+        project_name: this.selectedProject.name,
+        limit: 25,
+      });
+      if (runsResponse?.ok && Array.isArray(runsResponse.data)) {
+        this.selectedProject.lifecycleRuns = runsResponse.data.map((run) => ({
+          ...run,
+          _started_at_display: this._formatLifecycleRunTime(run.started_at),
+        }));
+      }
+      this.lifecycleLastError = "";
+    } catch (error) {
+      console.error("Error refreshing project lifecycle:", error);
+      this.lifecycleLastError = String(error);
+    }
+  },
+
+  async saveLifecyclePhaseOnly() {
+    if (!this.selectedProject?.name || !this.selectedProject?.lifecycle) return;
+    try {
+      const response = await api.callJsonApi("project_lifecycle", {
+        action: "set_phase",
+        project_name: this.selectedProject.name,
+        phase: this.selectedProject.lifecycle.current_phase,
+      });
+      if (response?.ok) {
+        this.selectedProject.lifecycle = response.data;
+        notifications.toastFrontendSuccess(
+          "Lifecycle phase updated",
+          "Lifecycle updated",
+          3,
+          "projects",
+          notifications.NotificationPriority.NORMAL,
+          true
+        );
+      } else {
+        notifications.toastFrontendWarning(
+          response?.error || "Could not update lifecycle phase",
+          "Lifecycle update",
+          5,
+          "projects",
+          notifications.NotificationPriority.NORMAL,
+          true
+        );
+      }
+    } catch (error) {
+      console.error("Error updating lifecycle phase:", error);
+      notifications.toastFrontendError(
+        "Error updating lifecycle phase: " + error,
+        "Lifecycle update",
+        5,
+        "projects",
+        notifications.NotificationPriority.NORMAL,
+        true
+      );
+    }
+  },
+
+  async runSelectedLifecyclePhase(runVisual = true) {
+    if (!this.selectedProject?.name || !this.selectedProject?.lifecycle) return;
+    try {
+      const actor = (this.selectedProject._lifecycleActor || "system").trim();
+      const response = await api.callJsonApi("project_lifecycle", {
+        action: "run_phase",
+        project_name: this.selectedProject.name,
+        phase: this.selectedProject.lifecycle.current_phase,
+        run_visual: !!runVisual,
+        actor: actor || "system",
+      });
+      if (response?.ok) {
+        const runStatus = response?.data?.status || response?.data?.run?.status;
+        await this.refreshSelectedProjectLifecycle();
+        if (String(runStatus).toLowerCase() === "failed") {
+          this.lifecycleLastError = response?.data?.error || "Lifecycle run failed";
+          notifications.toastFrontendWarning(
+            this.lifecycleLastError,
+            "Lifecycle run",
+            5,
+            "projects",
+            notifications.NotificationPriority.NORMAL,
+            true
+          );
+        } else {
+          this.lifecycleLastError = "";
+          notifications.toastFrontendSuccess(
+            "Lifecycle run started",
+            "Lifecycle run",
+            3,
+            "projects",
+            notifications.NotificationPriority.NORMAL,
+            true
+          );
+        }
+      } else {
+        this.lifecycleLastError = response?.error || "Lifecycle run failed";
+        notifications.toastFrontendWarning(
+          response?.error || "Lifecycle run failed",
+          "Lifecycle run",
+          5,
+          "projects",
+          notifications.NotificationPriority.NORMAL,
+          true
+        );
+      }
+    } catch (error) {
+      console.error("Error running lifecycle phase:", error);
+      this.lifecycleLastError = String(error);
+      notifications.toastFrontendError(
+        "Error running lifecycle phase: " + error,
+        "Lifecycle run",
+        5,
+        "projects",
+        notifications.NotificationPriority.NORMAL,
+        true
+      );
+    }
   },
 
   async browseSelected(...relPath) {

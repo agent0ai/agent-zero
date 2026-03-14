@@ -1,14 +1,14 @@
-# Using Mahoosuc OS Commands in Agent Zero
+# Using Mahoosuc OS Commands in Agent Jumbo
 
 **Last Updated**: 2026-01-24
 
 ## Overview
 
-Mahoosuc OS provides 400+ slash commands across 95 categories. These commands are designed for Claude Code CLI but can be leveraged in Agent Zero through various integration methods.
+Mahoosuc OS provides 400+ slash commands across 95 categories. These commands are designed for Claude Code CLI but can be leveraged in Agent Jumbo through various integration methods.
 
 ## Native Tools (Recommended)
 
-**5 high-value commands have been converted to native Agent Zero tools** with full test coverage and zero subprocess overhead:
+**5 high-value commands have been converted to native Agent Jumbo tools** with full test coverage and zero subprocess overhead:
 
 1. **DevOps Deploy** (`devops_deploy`) - Multi-environment deployment automation
    - Source: `.claude/commands/devops/deploy.md`
@@ -36,6 +36,7 @@ Mahoosuc OS provides 400+ slash commands across 95 categories. These commands ar
    - Tests: `tests/test_code_review.py` (6 tests)
 
 **Usage Example**:
+
 ```python
 # Use native tools directly - no subprocess, full context
 await agent.use_tool("devops_deploy", environment="staging")
@@ -46,8 +47,9 @@ await agent.use_tool("code_review", file="src/app.py", focus="security")
 ```
 
 **Benefits**:
+
 - 10-100x faster (no subprocess overhead)
-- Full Agent Zero context integration
+- Full Agent Jumbo context integration
 - 100% test coverage (39 tests, all passing)
 - Production-ready with comprehensive error handling
 - No external dependencies
@@ -60,7 +62,7 @@ await agent.use_tool("code_review", file="src/app.py", focus="security")
 
 ### Method 1: Native Tools (Recommended for Converted Commands)
 
-Use the native Agent Zero tools for the 5 converted commands. These provide the best performance and integration:
+Use the native Agent Jumbo tools for the 5 converted commands. These provide the best performance and integration:
 
 ```python
 # DevOps deployment
@@ -80,8 +82,9 @@ await agent.use_tool("code_review", file="src/api.py", focus="security")
 ```
 
 **Advantages**:
+
 - Zero subprocess overhead (10-100x faster)
-- Full Agent Zero context access
+- Full Agent Jumbo context access
 - Comprehensive test coverage (100%)
 - No external dependencies
 - Production-ready
@@ -90,10 +93,10 @@ See `docs/MAHOOSUC_TOOLS.md` for complete documentation.
 
 ### Method 2: Claude Code MCP Integration (For Non-Converted Commands)
 
-If Agent Zero has Claude Code MCP client configured:
+If Agent Jumbo has Claude Code MCP client configured:
 
 ```python
-# Agent Zero can invoke Claude Code commands via MCP
+# Agent Jumbo can invoke Claude Code commands via MCP
 from python.helpers.claude_code_mcp import ClaudeCodeClient
 
 client = ClaudeCodeClient()
@@ -104,10 +107,10 @@ result = await client.execute_command("/devops:deploy production")
 
 ### Method 3: Reference for Tool Development
 
-Use commands as specifications for creating Agent Zero tools:
+Use commands as specifications for creating Agent Jumbo tools:
 
 ```python
-# Example: Convert /finance:report to Agent Zero tool
+# Example: Convert /finance:report to Agent Jumbo tool
 # See .claude/commands/finance/report.md for spec
 
 from python.helpers.tool import Tool, Response
@@ -132,7 +135,7 @@ See `docs/MAHOOSUC_TOOLS.md` for the conversion pattern and examples.
 If Claude Code CLI is installed and authenticated:
 
 ```python
-# From Agent Zero tool
+# From Agent Jumbo tool
 import subprocess
 
 result = subprocess.run(
@@ -234,7 +237,7 @@ category: category-name
 1. **Read Documentation First**: Check `.claude/commands/` for full command specs
 2. **Test in Isolation**: Test commands before integrating into workflows
 3. **Adapt to Context**: Mahoosuc commands may assume Claude Code context
-4. **Create Native Tools**: For frequently used commands, create Agent Zero native tools
+4. **Create Native Tools**: For frequently used commands, create Agent Jumbo native tools
 5. **Reference, Don't Copy**: Use commands as design inspiration, not direct code
 
 ## Troubleshooting
@@ -259,6 +262,7 @@ category: category-name
 **Total**: 39 tests, 100% passing, 100% coverage
 
 **Next Conversion Candidates**:
+
 1. `/devops:monitor` - Production monitoring
 2. `/cicd:pipeline` - CI/CD pipeline generation
 3. `/content:optimize` - Content optimization
@@ -273,5 +277,5 @@ category: category-name
 
 - **`docs/MAHOOSUC_TOOLS.md`** - Complete guide to converted native tools
 - `.claude/docs/COMMANDS_INDEX.md` - Complete command index
-- `.claude/docs/AGENT_ZERO_INTEGRATION.md` - Integration architecture
+- `.claude/docs/AGENT_JUMBO_INTEGRATION.md` - Integration architecture
 - `.claude/docs/mahoosuc-reference/SLASH_COMMANDS_REFERENCE.md` - Full reference

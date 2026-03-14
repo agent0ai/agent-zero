@@ -1,7 +1,7 @@
 [1m============================= test session starts ==============================[0m
 platform linux -- Python 3.10.12, pytest-9.0.2, pluggy-1.6.0 -- /usr/local/bin/python
 cachedir: .pytest_cache
-rootdir: /mnt/wdblack/dev/projects/agent-zero
+rootdir: /mnt/wdblack/dev/projects/agent-jumbo
 configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
 plugins: langsmith-0.3.45, cov-4.1.0, mock-3.15.1, asyncio-1.3.0, anyio-4.12.0
 asyncio: mode=auto, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
@@ -9,7 +9,7 @@ asyncio: mode=auto, debug=False, asyncio_default_fixture_loop_scope=None, asynci
 
 ==================================== ERRORS ====================================
 [31m[1m______________ ERROR collecting tests/test_google_voice_system.py ______________[0m
-[31mImportError while importing test module '/mnt/wdblack/dev/projects/agent-zero/tests/test_google_voice_system.py'.
+[31mImportError while importing test module '/mnt/wdblack/dev/projects/agent-jumbo/tests/test_google_voice_system.py'.
 Hint: make sure your test modules/packages have valid Python names.
 Traceback:
 /home/webemo-aaron/.local/lib/python3.10/site-packages/_pytest/python.py:507: in importtestmodule
@@ -35,11 +35,11 @@ instruments/custom/google_voice/google_voice_manager.py:2: in <module>
 E   ImportError: cannot import name 'UTC' from 'datetime' (/usr/lib/python3.10/datetime.py)[0m
 [33m=============================== warnings summary ===============================[0m
 test_claude_code_ui.py:32
-  /mnt/wdblack/dev/projects/agent-zero/test_claude_code_ui.py:32: PytestCollectionWarning: cannot collect test class 'TestResults' because it has a __init__ constructor (from: test_claude_code_ui.py)
+  /mnt/wdblack/dev/projects/agent-jumbo/test_claude_code_ui.py:32: PytestCollectionWarning: cannot collect test class 'TestResults' because it has a __init__ constructor (from: test_claude_code_ui.py)
     class TestResults:
 
 tests/test_claude_code_integration.py:324
-  /mnt/wdblack/dev/projects/agent-zero/tests/test_claude_code_integration.py:324: PytestUnknownMarkWarning: Unknown pytest.mark.requires_claude_cli - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+  /mnt/wdblack/dev/projects/agent-jumbo/tests/test_claude_code_integration.py:324: PytestUnknownMarkWarning: Unknown pytest.mark.requires_claude_cli - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
     @pytest.mark.requires_claude_cli
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html

@@ -1,9 +1,11 @@
-# Email Tool - Agent Zero Documentation
+# Email Tool - Agent Jumbo Documentation
 
 ## Overview
-The Email tool provides comprehensive email capabilities for Agent Zero, enabling automated communication, customer engagement, and team notifications. It integrates SMTP sending with existing IMAP reading functionality.
+
+The Email tool provides comprehensive email capabilities for Agent Jumbo, enabling automated communication, customer engagement, and team notifications. It integrates SMTP sending with existing IMAP reading functionality.
 
 ## Features
+
 - **Send Emails**: SMTP-based email sending with attachment support
 - **Read Emails**: IMAP-based inbox monitoring and message retrieval
 - **Search Emails**: Advanced filtering and search capabilities
@@ -12,6 +14,7 @@ The Email tool provides comprehensive email capabilities for Agent Zero, enablin
 ## Configuration
 
 ### Environment Variables (Required)
+
 ```bash
 # Gmail SMTP Configuration
 GMAIL_FROM_EMAIL="your-email@gmail.com"
@@ -25,6 +28,7 @@ GMAIL_IMAP_PORT="993"  # Optional, defaults to 993
 ```
 
 ### Gmail App Password Setup
+
 1. Enable 2-Factor Authentication on your Google Account
 2. Go to [Google Account Security](https://myaccount.google.com/security)
 3. Select "App passwords" under "2-Step Verification"
@@ -35,11 +39,13 @@ GMAIL_IMAP_PORT="993"  # Optional, defaults to 993
 ## Available Actions
 
 ### 1. Send Email
+
 Send individual emails with full formatting and attachment support.
 
 **Action:** `send`
 
 **Parameters:**
+
 - `to` (required): Email address(es) - string or list
 - `subject` (required): Email subject line
 - `body` (required): Email content (plain text or HTML)
@@ -47,9 +53,10 @@ Send individual emails with full formatting and attachment support.
 - `bcc` (optional): BCC recipients - string or list
 - `attachments` (optional): List of file paths to attach
 - `html` (optional): Boolean, set to `true` for HTML emails (default: false)
-- `from_name` (optional): Display name for sender (default: "Agent Zero")
+- `from_name` (optional): Display name for sender (default: "Agent Jumbo")
 
 **Example:**
+
 ```json
 {
   "action": "send",
@@ -62,6 +69,7 @@ Send individual emails with full formatting and attachment support.
 ```
 
 **HTML Email Example:**
+
 ```json
 {
   "action": "send",
@@ -74,11 +82,13 @@ Send individual emails with full formatting and attachment support.
 ```
 
 ### 2. Read Emails
+
 Retrieve emails from inbox with filtering options.
 
 **Action:** `read`
 
 **Parameters:**
+
 - `filter` (optional): Dictionary of filter criteria
   - `unread`: Boolean, read only unread messages (default: true)
   - `sender`: Filter by sender email address
@@ -87,6 +97,7 @@ Retrieve emails from inbox with filtering options.
 - `download_folder` (optional): Where to save attachments (default: "tmp/email/inbox")
 
 **Example:**
+
 ```json
 {
   "action": "read",
@@ -99,17 +110,20 @@ Retrieve emails from inbox with filtering options.
 ```
 
 ### 3. Search Emails
+
 Advanced email search with multiple criteria.
 
 **Action:** `search`
 
 **Parameters:**
+
 - `sender` (optional): Filter by sender email
 - `subject` (optional): Filter by subject keywords
 - `unread_only` (optional): Boolean, only unread messages
 - `since_date` (optional): Messages since date
 
 **Example:**
+
 ```json
 {
   "action": "search",
@@ -120,16 +134,19 @@ Advanced email search with multiple criteria.
 ```
 
 ### 4. Send Bulk Emails
+
 Send multiple emails with rate limiting to avoid spam detection.
 
 **Action:** `send_bulk`
 
 **Parameters:**
+
 - `recipients` (required): List of email configurations
   - Each item is a dict with: `to`, `subject`, `body`, `attachments`, `html`
 - `delay_seconds` (optional): Delay between sends (default: 0.5)
 
 **Example:**
+
 ```json
 {
   "action": "send_bulk",
@@ -154,6 +171,7 @@ Send multiple emails with rate limiting to avoid spam detection.
 ## Integration Examples
 
 ### Customer Lifecycle Integration
+
 Automatically send proposals when generated:
 
 ```json
@@ -169,6 +187,7 @@ Automatically send proposals when generated:
 ```
 
 ### Virtual Team Integration
+
 Send task assignment notifications:
 
 ```json
@@ -183,6 +202,7 @@ Send task assignment notifications:
 ```
 
 ### Daily Digest Example
+
 Send summary of activities:
 
 ```json
@@ -199,26 +219,30 @@ Send summary of activities:
 ## Use Cases
 
 ### 1. Automated Proposal Delivery
+
 - Generate proposal document with customer_lifecycle tool
 - Send via email with attachment
 - Track email opens/responses
 - Follow up automatically after 3 days
 
 ### 2. Team Collaboration Notifications
+
 - Task assigned → Email notification to assignee
 - Task completed → Email update to stakeholders
 - Daily digest → Summary to managers
 
 ### 3. Customer Communication
+
 - Welcome emails for new leads
 - Proposal follow-ups
 - Project status updates
 - Invoice delivery
 
 ### 4. Multi-Account Management (Future Phase 2)
-- sales@company.com for client proposals
-- support@company.com for customer service
-- dev@company.com for technical communications
+
+- <sales@company.com> for client proposals
+- <support@company.com> for customer service
+- <dev@company.com> for technical communications
 - Each with separate OAuth2 credentials
 
 ## Error Handling
@@ -233,6 +257,7 @@ The tool provides detailed error messages for common issues:
 ## Rate Limits
 
 Gmail SMTP has built-in limits:
+
 - **Daily limit**: 500 emails per day (personal), 2000 (Google Workspace)
 - **Burst limit**: ~100-150 emails per batch
 - **Recommendation**: Use 0.5-1.0 second delays for bulk sending
@@ -247,6 +272,7 @@ Gmail SMTP has built-in limits:
 ## Future Enhancements (Phase 2 - Gmail API)
 
 Planned features with OAuth2:
+
 - Multi-account support with separate credentials
 - Email labeling and categorization
 - Draft management
@@ -258,27 +284,33 @@ Planned features with OAuth2:
 ## Troubleshooting
 
 ### "Email credentials not configured"
+
 → Add GMAIL_FROM_EMAIL and GMAIL_APP_PASSWORD to .env
 
 ### "Authentication failed"
+
 → Verify app password is correct (16 characters, no spaces)
 → Ensure 2FA is enabled on Google Account
 
 ### "Invalid email addresses"
+
 → Check email format (must contain @ and valid domain)
 
 ### "Connection timeout"
+
 → Check internet connection
 → Verify SMTP server (smtp.gmail.com) and port (587)
 → Check firewall/proxy settings
 
 ### "Quota exceeded"
+
 → You've hit Gmail's daily sending limit (500/day)
 → Wait 24 hours or upgrade to Google Workspace
 
 ## Examples for Common Workflows
 
 ### Send Welcome Email
+
 ```json
 {
   "tool": "email",
@@ -291,6 +323,7 @@ Planned features with OAuth2:
 ```
 
 ### Check for Customer Responses
+
 ```json
 {
   "tool": "email",
@@ -304,6 +337,7 @@ Planned features with OAuth2:
 ```
 
 ### Send Proposal with Attachments
+
 ```json
 {
   "tool": "email",
