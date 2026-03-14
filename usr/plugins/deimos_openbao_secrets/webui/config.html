@@ -181,8 +181,9 @@
                     <div class="field-control">
                         <button class="btn btn-field" @click="
                             testResult = 'Testing...';
-                            globalThis.fetchApi('/api/plugins/deimos_openbao_secrets/health', {
+                            fetch('/api/plugins/deimos_openbao_secrets/health', {
                                 method: 'POST',
+                                credentials: 'same-origin',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     config: {
@@ -334,8 +335,9 @@ DB_PASSWORD=hunter2
                 var self = this;
                 self.loading = true;
                 self.error = '';
-                globalThis.fetchApi('/api/plugins/deimos_openbao_secrets/secrets', {
+                fetch('/api/plugins/deimos_openbao_secrets/secrets', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: HEADERS,
                     body: JSON.stringify({action: 'list'})
                 })
@@ -367,8 +369,9 @@ DB_PASSWORD=hunter2
                 if (!val) return;
                 var self = this;
                 self.error = '';
-                globalThis.fetchApi('/api/plugins/deimos_openbao_secrets/secrets', {
+                fetch('/api/plugins/deimos_openbao_secrets/secrets', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: HEADERS,
                     body: JSON.stringify({action: 'set', pairs: [{key: key, value: val}]})
                 })
@@ -388,8 +391,9 @@ DB_PASSWORD=hunter2
                 if (!window.confirm('Delete secret ' + key + '? This cannot be undone.')) return;
                 var self = this;
                 self.error = '';
-                globalThis.fetchApi('/api/plugins/deimos_openbao_secrets/secrets', {
+                fetch('/api/plugins/deimos_openbao_secrets/secrets', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: HEADERS,
                     body: JSON.stringify({action: 'delete', key: key})
                 })
@@ -417,8 +421,9 @@ DB_PASSWORD=hunter2
                 if (!this.bulkText.trim()) return;
                 var self = this;
                 self.error = '';
-                globalThis.fetchApi('/api/plugins/deimos_openbao_secrets/secrets', {
+                fetch('/api/plugins/deimos_openbao_secrets/secrets', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: HEADERS,
                     body: JSON.stringify({action: 'bulk_set', text: self.bulkText})
                 })
@@ -438,8 +443,9 @@ DB_PASSWORD=hunter2
                 if (!this.newKey.trim()) return;
                 var self = this;
                 self.error = '';
-                globalThis.fetchApi('/api/plugins/deimos_openbao_secrets/secrets', {
+                fetch('/api/plugins/deimos_openbao_secrets/secrets', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: HEADERS,
                     body: JSON.stringify({action: 'set', pairs: [{key: self.newKey.trim(), value: self.newValue}]})
                 })

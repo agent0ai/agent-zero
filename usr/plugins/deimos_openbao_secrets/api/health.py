@@ -2,9 +2,10 @@
 
 Endpoint: POST /api/plugins/deimos_openbao_secrets/health
 
-Verifies both connectivity AND credentials.
+Verifies connectivity AND credentials using ONLY the configured auth method.
 """
 import importlib
+import json
 import logging
 import os
 import subprocess
@@ -14,8 +15,10 @@ from helpers.api import ApiHandler, Request, Response
 
 logger = logging.getLogger(__name__)
 
+_PLUGIN_DIR = Path(__file__).resolve().parent.parent
 
-def _ensure_hvac() -> bool:
+
+def _ensure_hvac():
     try:
         importlib.import_module("hvac")
         return True
@@ -33,22 +36,41 @@ def _ensure_hvac() -> bool:
         return False
 
 
+def _load_plugin_config():
+    """Load plugin config to get auth_method."""
+    import yaml
+    defaults = {}
+    dp = _PLUGIN_DIR / "default_config.yaml"
+    if dp.exists():
+        with open(dp) as f:
+            defaults = yaml.safe_load(f) or {}
+    saved = {}
+    cp = _PLUGIN_DIR / "config.json"
+    if cp.exists():
+        try:
+            with open(cp) as f:
+                saved = json.load(f) or {}
+        except Exception:
+            saved = {}
+    return {**defaults, **saved}
+
+
 class TestConnection(ApiHandler):
     """Test OpenBao connectivity and authentication."""
 
     @classmethod
-    def requires_api_key(cls) -> bool:
+    def requires_api_key(cls):
         return False
 
     @classmethod
-    def requires_auth(cls) -> bool:
+    def requires_auth(cls):
         return True
 
     @classmethod
-    def requires_csrf(cls) -> bool:
+    def requires_csrf(cls):
         return False
 
-    async def process(self, input: dict, request: Request) -> dict | Response:
+    async def process(self, input, request):
         if not _ensure_hvac():
             return {"ok": False, "error": "hvac library not installed"}
 
@@ -78,44 +100,51 @@ class TestConnection(ApiHandler):
                 }
                 if health.get("sealed"):
                     return {
-                        "ok": True,
-                        "data": {"status": "reachable but SEALED", **health_info, "authenticated": False}
+                        "ok": False,
+                        "error": "OpenBao is SEALED",
+                        "data": {**health_info, "authenticated": False}
                     }
 
-            # Step 2: Verify credentials
-            token = os.environ.get("OPENBAO_TOKEN", "")
-            role_id = os.environ.get("OPENBAO_ROLE_ID", "")
-            secret_id = os.environ.get("OPENBAO_SECRET_ID", "")
+            # Step 2: Auth using ONLY the configured method
+            plugin_cfg = _load_plugin_config()
+            auth_method = plugin_cfg.get("auth_method", "token")
 
-            if token:
+            if auth_method == "token":
+                token = os.environ.get("OPENBAO_TOKEN", "")
+                if not token:
+                    return {
+                        "ok": False,
+                        "error": "OPENBAO_TOKEN not set in Docker environment",
+                        "data": {**health_info, "authenticated": False, "auth_method": "token"}
+                    }
                 client.token = token
-                auth_method = "token"
-            elif role_id:
+
+            elif auth_method == "approle":
+                role_id = os.environ.get("OPENBAO_ROLE_ID", "")
+                secret_id = os.environ.get("OPENBAO_SECRET_ID", "")
+                if not role_id:
+                    return {
+                        "ok": False,
+                        "error": "OPENBAO_ROLE_ID not set in Docker environment",
+                        "data": {**health_info, "authenticated": False, "auth_method": "approle"}
+                    }
                 try:
                     result = client.auth.approle.login(role_id=role_id, secret_id=secret_id)
                     client.token = result["auth"]["client_token"]
-                    auth_method = "approle"
                 except Exception as auth_exc:
                     return {
-                        "ok": True,
-                        "data": {
-                            "status": "reachable but auth failed",
-                            **health_info,
-                            "authenticated": False,
-                            "auth_error": str(auth_exc)
-                        }
+                        "ok": False,
+                        "error": "AppRole login failed: " + str(auth_exc),
+                        "data": {**health_info, "authenticated": False, "auth_method": "approle"}
                     }
             else:
                 return {
-                    "ok": True,
-                    "data": {
-                        "status": "reachable but no credentials",
-                        **health_info,
-                        "authenticated": False,
-                        "auth_error": "No OPENBAO_TOKEN or OPENBAO_ROLE_ID set as Docker env vars"
-                    }
+                    "ok": False,
+                    "error": "Unknown auth method: " + str(auth_method),
+                    "data": {**health_info, "authenticated": False}
                 }
 
+            # Verify the token works
             if client.is_authenticated():
                 return {
                     "ok": True,
@@ -123,18 +152,14 @@ class TestConnection(ApiHandler):
                         "status": "connected and authenticated",
                         **health_info,
                         "authenticated": True,
-                        "auth_method": auth_method
+                        "auth_method": auth_method,
                     }
                 }
             else:
                 return {
-                    "ok": True,
-                    "data": {
-                        "status": "reachable but token invalid",
-                        **health_info,
-                        "authenticated": False,
-                        "auth_error": "Token is not valid or has expired"
-                    }
+                    "ok": False,
+                    "error": "Authentication failed (token invalid or expired)",
+                    "data": {**health_info, "authenticated": False, "auth_method": auth_method}
                 }
 
         except Exception as exc:
