@@ -22,6 +22,12 @@ const dashboardRouterModel = {
             label: 'Workflows & Training',
             icon: 'workflow',
             component: 'dashboards/workflows/workflow-dashboard.html'
+        },
+        mos: {
+            id: 'mos',
+            label: 'MOS Integration',
+            icon: 'mos',
+            component: 'dashboards/mos/mos-dashboard.html'
         }
     },
 
@@ -45,7 +51,8 @@ const dashboardRouterModel = {
         try {
             const storeLoader = {
                 portfolio: () => import('/dashboards/portfolio/portfolio-store.js'),
-                workflows: () => import('/dashboards/workflows/workflow-store.js')
+                workflows: () => import('/dashboards/workflows/workflow-store.js'),
+                mos: () => import('/dashboards/mos/mos-store.js')
             }[dashboardId];
             if (storeLoader) {
                 await storeLoader();
@@ -89,6 +96,11 @@ const dashboardRouterModel = {
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
                 <path d="M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>`,
+            mos: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
             </svg>`
         };
         return icons[iconName] || icons.portfolio;

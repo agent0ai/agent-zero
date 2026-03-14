@@ -1,0 +1,361 @@
+<!-- MOS Dashboard - Linear / Motion / Notion integration overview -->
+<div class="dashboard-page" x-data x-init="$store.mosDashboard?.init()">
+
+    <!-- Header -->
+    <div class="dashboard-page-header">
+        <h1>
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+            </svg>
+            MOS Integration
+        </h1>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <button class="dashboard-action-btn" @click="$store.mosDashboard?.init()" :disabled="$store.mosDashboard?.loading">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Refresh
+            </button>
+            <button class="dashboard-back-btn" @click="$store.dashboardRouter?.closeDashboard()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back to Chat
+            </button>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="dashboard-page-body">
+
+        <!-- Stats Row -->
+        <div class="dashboard-stats">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.mosDashboard?.totalLinearIssues"></div>
+                <div class="dashboard-stat-label">Linear Issues</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.mosDashboard?.motionTaskCount"></div>
+                <div class="dashboard-stat-label">Motion Tasks</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-value" x-text="$store.mosDashboard?.pipelineLeads"></div>
+                <div class="dashboard-stat-label">Pipeline Leads</div>
+            </div>
+        </div>
+
+        <!-- Middle Row: Issues by State + Priority -->
+        <div class="mos-grid-row">
+            <!-- Issues by State -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-title">Issues by State</div>
+                </div>
+                <div class="mos-bar-list">
+                    <template x-for="[state, count] in Object.entries($store.mosDashboard?.issuesByState || {})" :key="state">
+                        <div class="mos-bar-item">
+                            <div class="mos-bar-label">
+                                <span class="mos-state-dot" :style="{ background: $store.mosDashboard?.getStateColor(state) }"></span>
+                                <span x-text="state.replace(/_/g, ' ')"></span>
+                            </div>
+                            <div class="mos-bar-track">
+                                <div class="mos-bar-fill" :style="{
+                                    width: Math.min(100, (count / Math.max($store.mosDashboard?.totalLinearIssues, 1)) * 100) + '%',
+                                    background: $store.mosDashboard?.getStateColor(state)
+                                }"></div>
+                            </div>
+                            <span class="mos-bar-count" x-text="count"></span>
+                        </div>
+                    </template>
+                    <div class="dashboard-empty" x-show="!Object.keys($store.mosDashboard?.issuesByState || {}).length">
+                        No issue data available. Connect your Linear API key in Settings.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Issues by Priority -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-title">Issues by Priority</div>
+                </div>
+                <div class="mos-bar-list">
+                    <template x-for="[priority, count] in Object.entries($store.mosDashboard?.issuesByPriority || {})" :key="priority">
+                        <div class="mos-bar-item">
+                            <div class="mos-bar-label">
+                                <span class="mos-state-dot" :style="{ background: $store.mosDashboard?.getPriorityColor(priority) }"></span>
+                                <span x-text="priority.replace(/_/g, ' ')"></span>
+                            </div>
+                            <div class="mos-bar-track">
+                                <div class="mos-bar-fill" :style="{
+                                    width: Math.min(100, (count / Math.max($store.mosDashboard?.totalLinearIssues, 1)) * 100) + '%',
+                                    background: $store.mosDashboard?.getPriorityColor(priority)
+                                }"></div>
+                            </div>
+                            <span class="mos-bar-count" x-text="count"></span>
+                        </div>
+                    </template>
+                    <div class="dashboard-empty" x-show="!Object.keys($store.mosDashboard?.issuesByPriority || {}).length">
+                        No priority data available.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: Sync Status -->
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <div class="dashboard-card-title">Sync Status</div>
+            </div>
+            <div class="mos-sync-grid">
+                <!-- Linear -->
+                <div class="mos-sync-card">
+                    <div class="mos-sync-header">
+                        <span class="mos-sync-name">Linear</span>
+                        <span class="mos-sync-badge" :class="$store.mosDashboard?.getSyncStatusClass($store.mosDashboard?.syncs?.linear)"
+                              x-text="$store.mosDashboard?.getSyncStatusText($store.mosDashboard?.syncs?.linear)"></span>
+                    </div>
+                    <div class="mos-sync-detail">
+                        <span class="mos-sync-label">Last sync:</span>
+                        <span x-text="$store.mosDashboard?.formatDate($store.mosDashboard?.syncs?.linear?.last_sync?.started_at)"></span>
+                    </div>
+                    <div class="mos-sync-counts" x-show="$store.mosDashboard?.syncs?.linear?.last_30_days">
+                        <span class="mos-count-ok" x-text="($store.mosDashboard?.syncs?.linear?.last_30_days?.success || 0) + ' ok'"></span>
+                        <span class="mos-count-fail" x-text="($store.mosDashboard?.syncs?.linear?.last_30_days?.failed || 0) + ' failed'"></span>
+                    </div>
+                    <button class="mos-sync-btn" @click="$store.mosDashboard?.triggerSync('linear')" :disabled="$store.mosDashboard?.loading">
+                        Sync Now
+                    </button>
+                </div>
+
+                <!-- Motion -->
+                <div class="mos-sync-card">
+                    <div class="mos-sync-header">
+                        <span class="mos-sync-name">Motion</span>
+                        <span class="mos-sync-badge" :class="$store.mosDashboard?.getSyncStatusClass($store.mosDashboard?.syncs?.motion)"
+                              x-text="$store.mosDashboard?.getSyncStatusText($store.mosDashboard?.syncs?.motion)"></span>
+                    </div>
+                    <div class="mos-sync-detail">
+                        <span class="mos-sync-label">Last sync:</span>
+                        <span x-text="$store.mosDashboard?.formatDate($store.mosDashboard?.syncs?.motion?.last_sync?.started_at)"></span>
+                    </div>
+                    <div class="mos-sync-counts" x-show="$store.mosDashboard?.syncs?.motion?.last_30_days">
+                        <span class="mos-count-ok" x-text="($store.mosDashboard?.syncs?.motion?.last_30_days?.success || 0) + ' ok'"></span>
+                        <span class="mos-count-fail" x-text="($store.mosDashboard?.syncs?.motion?.last_30_days?.failed || 0) + ' failed'"></span>
+                    </div>
+                    <button class="mos-sync-btn" @click="$store.mosDashboard?.triggerSync('motion')" :disabled="$store.mosDashboard?.loading">
+                        Sync Now
+                    </button>
+                </div>
+
+                <!-- Notion -->
+                <div class="mos-sync-card">
+                    <div class="mos-sync-header">
+                        <span class="mos-sync-name">Notion</span>
+                        <span class="mos-sync-badge" :class="$store.mosDashboard?.getSyncStatusClass($store.mosDashboard?.syncs?.notion)"
+                              x-text="$store.mosDashboard?.getSyncStatusText($store.mosDashboard?.syncs?.notion)"></span>
+                    </div>
+                    <div class="mos-sync-detail">
+                        <span class="mos-sync-label">Last sync:</span>
+                        <span x-text="$store.mosDashboard?.formatDate($store.mosDashboard?.syncs?.notion?.last_sync?.started_at)"></span>
+                    </div>
+                    <div class="mos-sync-counts" x-show="$store.mosDashboard?.syncs?.notion?.last_30_days">
+                        <span class="mos-count-ok" x-text="($store.mosDashboard?.syncs?.notion?.last_30_days?.success || 0) + ' ok'"></span>
+                        <span class="mos-count-fail" x-text="($store.mosDashboard?.syncs?.notion?.last_30_days?.failed || 0) + ' failed'"></span>
+                    </div>
+                    <button class="mos-sync-btn" @click="$store.mosDashboard?.triggerSync('notion')" :disabled="$store.mosDashboard?.loading">
+                        Sync Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="dashboard-loading" x-show="$store.mosDashboard?.loading">
+            Loading...
+        </div>
+
+        <!-- Error State -->
+        <div class="dashboard-error" x-show="$store.mosDashboard?.error" x-text="$store.mosDashboard?.error">
+        </div>
+    </div>
+</div>
+
+<script src="dashboards/mos/mos-store.js"></script>
+
+<style>
+/* MOS Dashboard Specific Styles */
+
+.mos-grid-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+    .mos-grid-row { grid-template-columns: 1fr; }
+}
+
+.mos-bar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mos-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mos-bar-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 110px;
+    font-size: 0.85rem;
+    text-transform: capitalize;
+}
+
+.mos-state-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.mos-bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.mos-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.mos-bar-count {
+    min-width: 30px;
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+/* Sync Status */
+.mos-sync-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+@media (max-width: 768px) {
+    .mos-sync-grid { grid-template-columns: 1fr; }
+}
+
+.mos-sync-card {
+    background: var(--color-message-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mos-sync-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mos-sync-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.mos-sync-badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.sync-ok { background: rgba(72, 187, 120, 0.2); color: #48bb78; }
+.sync-error { background: rgba(229, 62, 62, 0.2); color: #e53e3e; }
+.sync-none { background: rgba(113, 128, 150, 0.2); color: #718096; }
+
+.mos-sync-detail {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.mos-sync-label {
+    margin-right: 4px;
+}
+
+.mos-sync-counts {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8rem;
+}
+
+.mos-count-ok { color: #48bb78; }
+.mos-count-fail { color: #e53e3e; }
+
+.mos-sync-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-text);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 4px;
+}
+
+.mos-sync-btn:hover:not(:disabled) {
+    border-color: var(--color-primary, #4a9eff);
+    color: var(--color-primary, #4a9eff);
+}
+
+.mos-sync-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Action button */
+.dashboard-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-text);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.dashboard-action-btn:hover:not(:disabled) {
+    border-color: var(--color-primary, #4a9eff);
+    color: var(--color-primary, #4a9eff);
+}
+
+.dashboard-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+</style>

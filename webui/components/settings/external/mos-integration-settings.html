@@ -1,0 +1,67 @@
+<html>
+<head>
+    <title>MOS Integration Settings</title>
+</head>
+<body class="modal-medium">
+    <div style="padding: 1em;">
+        <h2>MOS Integration (Linear / Motion / Notion)</h2>
+        <p>Configure API keys for MOS cross-system integration. These keys enable syncing issues, tasks, and notes across Linear, Motion, and Notion.</p>
+
+        <div style="margin-top: 1.5em;">
+            <h3 style="color: var(--c-primary);">Linear</h3>
+            <p style="font-size: 0.85em; opacity: 0.7;">
+                Get your API key from <strong>Linear Settings > API > Personal API Keys</strong>.
+            </p>
+            <div style="margin-top: 0.5em;">
+                <label style="font-size: 0.85em; font-weight: 500;">API Key</label>
+                <input type="password" style="width: 100%; padding: 8px 12px; margin-top: 4px; background: var(--c-input); border: 1px solid var(--c-border); border-radius: 6px; color: var(--c-text); font-size: 0.9em;"
+                       placeholder="lin_api_xxxxx"
+                       x-model="$store.settingsStore?.currentSettings?.linear_api_key"
+                       @change="$store.settingsStore?.markDirty()">
+            </div>
+            <div style="margin-top: 0.75em;">
+                <label style="font-size: 0.85em; font-weight: 500;">Default Team ID</label>
+                <input type="text" style="width: 100%; padding: 8px 12px; margin-top: 4px; background: var(--c-input); border: 1px solid var(--c-border); border-radius: 6px; color: var(--c-text); font-size: 0.9em;"
+                       placeholder="e.g. AJB"
+                       x-model="$store.settingsStore?.currentSettings?.linear_default_team_id"
+                       @change="$store.settingsStore?.markDirty()">
+            </div>
+        </div>
+
+        <div style="margin-top: 1.5em;">
+            <h3 style="color: var(--c-primary);">Motion</h3>
+            <p style="font-size: 0.85em; opacity: 0.7;">
+                Get your API key from <strong>Motion Settings > Integrations > API</strong>.
+            </p>
+            <div style="margin-top: 0.5em;">
+                <label style="font-size: 0.85em; font-weight: 500;">API Key</label>
+                <input type="password" style="width: 100%; padding: 8px 12px; margin-top: 4px; background: var(--c-input); border: 1px solid var(--c-border); border-radius: 6px; color: var(--c-text); font-size: 0.9em;"
+                       placeholder="Motion API key"
+                       x-model="$store.settingsStore?.currentSettings?.motion_api_key"
+                       @change="$store.settingsStore?.markDirty()">
+            </div>
+        </div>
+
+        <div style="margin-top: 1.5em;">
+            <h3 style="color: var(--c-primary);">Notion</h3>
+            <p style="font-size: 0.85em; opacity: 0.7;">
+                Create an internal integration at <strong>notion.so/my-integrations</strong> and share your database with it.
+            </p>
+            <div style="margin-top: 0.5em;">
+                <label style="font-size: 0.85em; font-weight: 500;">API Key</label>
+                <input type="password" style="width: 100%; padding: 8px 12px; margin-top: 4px; background: var(--c-input); border: 1px solid var(--c-border); border-radius: 6px; color: var(--c-text); font-size: 0.9em;"
+                       placeholder="secret_xxxxx"
+                       x-model="$store.settingsStore?.currentSettings?.notion_api_key"
+                       @change="$store.settingsStore?.markDirty()">
+            </div>
+            <div style="margin-top: 0.75em;">
+                <label style="font-size: 0.85em; font-weight: 500;">Default Database ID</label>
+                <input type="text" style="width: 100%; padding: 8px 12px; margin-top: 4px; background: var(--c-input); border: 1px solid var(--c-border); border-radius: 6px; color: var(--c-text); font-size: 0.9em;"
+                       placeholder="32-char hex ID from Notion URL"
+                       x-model="$store.settingsStore?.currentSettings?.notion_default_database_id"
+                       @change="$store.settingsStore?.markDirty()">
+            </div>
+        </div>
+    </div>
+</body>
+</html>

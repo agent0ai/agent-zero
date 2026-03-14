@@ -289,12 +289,58 @@ const settingsModalProxy = {
             openModal("settings/external/gmail-test-utility.html");
         } else if (field.id === "gmail_setup_guide") {
             openModal("settings/external/gmail-setup-guide.html");
+        } else if (field.id === "mos_setup_guide") {
+            openModal("settings/external/mos-integration-settings.html");
         } else if (field.id === "cowork_manage") {
             openModal("settings/cowork/cowork-manager.html");
         } else if (field.id === "observability_open") {
             openModal("settings/observability/observability.html");
         } else if (field.id === "prompt_enhance_view") {
             openModal("settings/prompt/prompt-enhance-details.html");
+        }
+    },
+
+    insertGithubReadOnlyPatTemplate(field) {
+        if (!field || field.id !== "secrets") return;
+        const key = "GITHUB_PAT";
+        const current = String(field.value || "");
+        if (new RegExp(`^\\s*${key}\\s*=`, "m").test(current)) {
+            window.toastFrontendInfo?.("GITHUB_PAT already exists in Secrets Store.", "Secrets");
+            return;
+        }
+        const block = [
+            "",
+            "# GitHub read-only personal access token",
+            '# Create token with minimum read scopes needed for your workflows',
+            '# Use in prompts/tools as §§secret(GITHUB_PAT)',
+            `${key}=""`,
+            "",
+        ].join("\n");
+        field.value = `${current}${block}`;
+        this.validateSecretsField(field, true);
+    },
+
+    validateSecretsField(field, notify = false) {
+        if (!field || field.id !== "secrets") return;
+        const value = String(field.value || "");
+        const patMatch = value.match(/^\s*GITHUB_PAT\s*=\s*["']?([^"'\n\r#]+)["']?\s*$/m);
+        if (!patMatch) {
+            field._tokenWarning = "";
+            return;
+        }
+        const token = (patMatch[1] || "").trim();
+        if (!token || token === "****PSWD****" || token === "************") {
+            field._tokenWarning = "";
+            if (notify) window.toastFrontendInfo?.("GITHUB_PAT placeholder is present. Add token value when ready.", "Secrets");
+            return;
+        }
+        const ok = /^(ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}$/.test(token);
+        if (ok) {
+            field._tokenWarning = "";
+            if (notify) window.toastFrontendInfo?.("GITHUB_PAT format looks valid.", "Secrets");
+        } else {
+            field._tokenWarning = "GITHUB_PAT does not match expected GitHub token format. Confirm it is correct.";
+            if (notify) window.toastFrontendError?.("GITHUB_PAT format looks invalid.", "Secrets");
         }
     }
 };

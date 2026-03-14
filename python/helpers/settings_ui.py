@@ -568,6 +568,66 @@ def convert_out(settings: Settings) -> SettingsOutput:
             "value": settings.get("chat_execution_timeout_seconds", 120),
         }
     )
+    agent_fields.append(
+        {
+            "id": "startup_auto_select_enabled",
+            "title": "Startup auto-select runtime profile",
+            "description": "On startup, automatically choose backend/model/profile using health checks and context priority.",
+            "type": "switch",
+            "value": settings.get("startup_auto_select_enabled", True),
+        }
+    )
+    agent_fields.append(
+        {
+            "id": "startup_selection_goal",
+            "title": "Startup selection goal",
+            "description": "Primary objective for startup profile selection.",
+            "type": "select",
+            "value": settings.get("startup_selection_goal", "reliability"),
+            "options": [
+                {"value": "reliability", "label": "Reliability First"},
+                {"value": "quality", "label": "Best Quality"},
+                {"value": "cost", "label": "Lowest Cost"},
+            ],
+        }
+    )
+    agent_fields.append(
+        {
+            "id": "startup_context_priority",
+            "title": "Startup context priority",
+            "description": "Priority order for startup decisions.",
+            "type": "select",
+            "value": settings.get("startup_context_priority", "project"),
+            "options": [
+                {"value": "project", "label": "Active Project Context"},
+                {"value": "user", "label": "User Defaults"},
+                {"value": "system", "label": "System Defaults"},
+            ],
+        }
+    )
+    agent_fields.append(
+        {
+            "id": "startup_fallback_policy",
+            "title": "Startup fallback policy",
+            "description": "How startup reacts when preferred runtime profile is not ready.",
+            "type": "select",
+            "value": settings.get("startup_fallback_policy", "chain"),
+            "options": [
+                {"value": "chain", "label": "Deterministic Fallback Chain"},
+                {"value": "hard_fail", "label": "Hard Fail"},
+                {"value": "retry", "label": "Retry Preferred"},
+            ],
+        }
+    )
+    agent_fields.append(
+        {
+            "id": "startup_active_project",
+            "title": "Startup active project",
+            "description": "Optional project key used for project-first startup selection (empty = none).",
+            "type": "text",
+            "value": settings.get("startup_active_project", ""),
+        }
+    )
 
     agent_fields.append(
         {
@@ -1557,6 +1617,60 @@ def convert_out(settings: Settings) -> SettingsOutput:
         "tab": "external",
     }
 
+    # MOS Integration section (Linear / Motion / Notion)
+    mos_fields: list[SettingsField] = [
+        {
+            "id": "mos_setup_guide",
+            "title": "MOS Setup Guide",
+            "description": "Configure API keys for cross-system sync between Linear, Motion, and Notion.",
+            "type": "button",
+            "value": "<x-component path='/settings/external/mos-integration-settings.html' />",
+        },
+        {
+            "id": "linear_api_key",
+            "title": "Linear API Key",
+            "description": "Personal API key from Linear Settings > API.",
+            "type": "password",
+            "value": (PASSWORD_PLACEHOLDER if settings.get("linear_api_key") else ""),
+        },
+        {
+            "id": "linear_default_team_id",
+            "title": "Linear Default Team ID",
+            "description": "Team identifier for new issues (e.g. AJB).",
+            "type": "text",
+            "value": settings.get("linear_default_team_id", ""),
+        },
+        {
+            "id": "motion_api_key",
+            "title": "Motion API Key",
+            "description": "API key from Motion Settings > Integrations.",
+            "type": "password",
+            "value": (PASSWORD_PLACEHOLDER if settings.get("motion_api_key") else ""),
+        },
+        {
+            "id": "notion_api_key",
+            "title": "Notion API Key",
+            "description": "Internal integration token from notion.so/my-integrations.",
+            "type": "password",
+            "value": (PASSWORD_PLACEHOLDER if settings.get("notion_api_key") else ""),
+        },
+        {
+            "id": "notion_default_database_id",
+            "title": "Notion Default Database ID",
+            "description": "32-char hex ID of the Notion database to sync with.",
+            "type": "text",
+            "value": settings.get("notion_default_database_id", ""),
+        },
+    ]
+
+    mos_section: SettingsSection = {
+        "id": "mos_integration",
+        "title": "MOS Integration",
+        "description": "Cross-system sync between Linear (issues), Motion (scheduling), and Notion (knowledge).",
+        "fields": mos_fields,
+        "tab": "external",
+    }
+
     # External API section
     external_api_fields: list[SettingsField] = []
 
@@ -1846,6 +1960,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
             gmail_accounts_section,
             google_voice_section,
             twilio_section,
+            mos_section,
             external_api_section,
             update_checker_section,
             backup_section,
