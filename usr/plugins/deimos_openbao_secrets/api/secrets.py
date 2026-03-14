@@ -137,6 +137,10 @@ def _get_path(cfg, project_name: str = "") -> str:
 
 
 class SecretsManager(ApiHandler):
+
+    @classmethod
+    def requires_csrf(cls) -> bool:
+        return False
     """CRUD operations for OpenBao secrets."""
 
     async def process(self, input: dict, request: Request) -> dict | Response:
