@@ -1,6 +1,7 @@
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.memory import Memory, get_existing_memory_subdirs, get_context_memory_subdir
 from python.helpers import files
+from python.helpers.print_style import PrintStyle
 from langchain_core.documents import Document
 from agent import AgentContext
 
@@ -9,6 +10,8 @@ class MemoryDashboard(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         try:
+            from python.helpers.cognee_init import configure_cognee
+            configure_cognee()
             action = input.get("action", "search")
             if action == "get_memory_subdirs":
                 return await self._get_memory_subdirs()
@@ -158,9 +161,11 @@ class MemoryDashboard(ApiHandler):
                             datasets_to_check.append(memory._area_dataset(area.value))
 
                     all_datasets = await cognee.datasets.list_datasets()
+                    PrintStyle.hint(f"[MemoryDashboard] list_datasets returned {len(all_datasets)} datasets, checking for {datasets_to_check}")
                     for ds in all_datasets:
                         if ds.name in datasets_to_check:
                             data_items = await cognee.datasets.list_data(ds.id)
+                            PrintStyle.hint(f"[MemoryDashboard] dataset '{ds.name}' has {len(data_items)} items")
                             for item in data_items:
                                 content = self._read_data_item_content(item)
                                 from python.helpers.memory import _extract_metadata_from_text
@@ -171,8 +176,10 @@ class MemoryDashboard(ApiHandler):
                                 if not meta.get("area"):
                                     meta["area"] = Memory.Area.MAIN.value
                                 memories.append(Document(page_content=text, metadata=meta))
-                except Exception:
-                    pass
+                except Exception as e:
+                    PrintStyle.error(f"[MemoryDashboard] Failed to list Cognee datasets: {e}")
+                    import traceback
+                    traceback.print_exc()
 
                 def get_sort_key(m):
                     return m.metadata.get("timestamp", "0000-00-00 00:00:00")

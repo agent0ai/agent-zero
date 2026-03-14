@@ -26,7 +26,11 @@ COPY ./docker/run/fs/ /
 COPY ./ /git/agent-zero
 
 ARG BRANCH=local
+ARG A0_VERSION=unknown
 ENV BRANCH=$BRANCH
+
+# Embed version for cache-busting when .git is unavailable
+RUN echo "$A0_VERSION" > /git/agent-zero/VERSION
 
 RUN bash /ins/pre_install.sh $BRANCH
 RUN bash /ins/install_A0.sh $BRANCH

@@ -69,9 +69,28 @@ def get_git_info():
 def get_version():
     try:
         git_info = get_git_info()
-        return str(git_info.get("short_tag", "")).strip() or "unknown"
+        ver = str(git_info.get("short_tag", "")).strip()
+        if ver:
+            return ver
     except Exception:
-        return "unknown"
+        pass
+    return _version_from_env_or_file()
+
+
+def _version_from_env_or_file() -> str:
+    ver = os.environ.get("A0_VERSION", "").strip()
+    if ver:
+        return ver
+    version_file = os.path.join(files.get_base_dir(), "VERSION")
+    if os.path.isfile(version_file):
+        try:
+            with open(version_file, "r") as f:
+                ver = f.read().strip()
+            if ver:
+                return ver
+        except Exception:
+            pass
+    return "unknown"
 
 
 def clone_repo(url: str, dest: str, token: str | None = None):

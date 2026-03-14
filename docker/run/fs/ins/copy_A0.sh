@@ -10,3 +10,8 @@ if [ ! -f "$TARGET_DIR/run_ui.py" ]; then
     echo "Copying files from $SOURCE_DIR to $TARGET_DIR..."
     cp -rn --no-preserve=ownership,mode "$SOURCE_DIR/." "$TARGET_DIR"
 fi
+
+# Always update VERSION file so cache-busting works after image upgrades
+if [ -f "$SOURCE_DIR/VERSION" ]; then
+    cp -f --no-preserve=ownership,mode "$SOURCE_DIR/VERSION" "$TARGET_DIR/VERSION"
+fi

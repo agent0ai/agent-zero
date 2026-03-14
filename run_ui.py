@@ -222,8 +222,8 @@ async def serve_index():
         gitinfo = git.get_git_info()
     except Exception:
         gitinfo = {
-            "version": "unknown",
-            "commit_time": "unknown",
+            "version": git._version_from_env_or_file(),
+            "commit_time": "",
         }
     index = files.read_file("webui/index.html")
     index = files.replace_placeholders_text(

@@ -316,9 +316,6 @@ class Memory:
         timestamp = self.get_timestamp()
         from python.helpers.cognee_background import CogneeBackgroundWorker
 
-        state_dir = _state_dir(self.memory_subdir)
-        os.makedirs(state_dir, exist_ok=True)
-
         for doc in docs:
             doc_id = guids.generate_id(10)
             doc.metadata["id"] = doc_id
@@ -535,25 +532,17 @@ def get_context_memory_subdir(context: AgentContext) -> str:
 
 def get_existing_memory_subdirs() -> list[str]:
     try:
-        subdirs = []
-        state_base = files.get_abs_path("usr/cognee_state")
-        if os.path.exists(state_base):
-            subdirs = [d for d in os.listdir(state_base) if os.path.isdir(os.path.join(state_base, d))]
+        subdirs: set[str] = set()
 
         from python.helpers.projects import get_projects_parent_folder
         project_parent = get_projects_parent_folder()
-        if os.path.exists(files.get_abs_path(project_parent)):
-            project_subdirs = files.get_subdirectories(project_parent)
-            for ps in project_subdirs:
-                from python.helpers.projects import get_project_meta_folder
-                cognee_state = files.get_abs_path(get_project_meta_folder(ps), "cognee_state")
-                if os.path.exists(cognee_state):
-                    subdirs.append(f"projects/{ps}")
+        if os.path.exists(project_parent):
+            for name in files.get_subdirectories(project_parent):
+                subdirs.add(f"projects/{name}")
 
-        if "default" not in subdirs:
-            subdirs.insert(0, "default")
-
-        return subdirs
+        result = sorted(subdirs)
+        result.insert(0, "default")
+        return result
     except Exception as e:
         PrintStyle.error(f"Failed to get memory subdirectories: {str(e)}")
         return ["default"]

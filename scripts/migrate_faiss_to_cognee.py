@@ -305,12 +305,18 @@ async def migrate_index(
     if not dry_run:
         save_state(base_dir, state)
 
-    knowledge_import_path = os.path.join(db_dir, "knowledge_import.json")
-    if os.path.exists(knowledge_import_path) and not dry_run:
-        state_dir = os.path.join(base_dir, "usr", "cognee_state", memory_subdir.replace("/", os.sep))
-        os.makedirs(state_dir, exist_ok=True)
-        shutil.copy2(knowledge_import_path, os.path.join(state_dir, "knowledge_import.json"))
-        _log(f"  Copied knowledge_import.json to cognee_state")
+    if not dry_run:
+        knowledge_import_path = os.path.join(db_dir, "knowledge_import.json")
+        if os.path.exists(knowledge_import_path):
+            from python.helpers import files
+            if memory_subdir.startswith("projects/"):
+                from python.helpers.projects import get_project_meta_folder
+                state_dir = files.get_abs_path(get_project_meta_folder(memory_subdir[9:]), "cognee_state")
+            else:
+                state_dir = files.get_abs_path("usr/cognee_state", memory_subdir)
+            os.makedirs(state_dir, exist_ok=True)
+            shutil.copy2(knowledge_import_path, os.path.join(state_dir, "knowledge_import.json"))
+            _log(f"  Copied knowledge_import.json to {state_dir}")
 
     return {
         "subdir": memory_subdir,
