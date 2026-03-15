@@ -1,0 +1,45 @@
+name: Tests
+on:
+  push:
+    branches: [main, develop]
+    paths: ['python/**', 'tests/**', 'requirements*.txt', 'agent.py', 'initialize.py', 'models.py']
+  pull_request:
+    paths: ['python/**', 'tests/**']
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements.dev.txt
+      - name: Run unit tests
+        run: python -m pytest tests/ -m "not integration" --tb=short -q --timeout=30
+        env:
+          PYTHONPATH: .
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements.dev.txt
+      - name: Run integration tests
+        run: python -m pytest tests/integration/ --tb=short -q --timeout=60
+        env:
+          PYTHONPATH: .
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

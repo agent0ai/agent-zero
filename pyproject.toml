@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: requires real external services (skipped in CI by default)",
+    "slow: tests that take >5s",
+]
+filterwarnings = [
+    "ignore::pytest.PytestCollectionWarning",
+]
+timeout = 30
