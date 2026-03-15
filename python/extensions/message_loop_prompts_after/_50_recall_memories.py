@@ -131,19 +131,33 @@ class RecallMemories(Extension):
         )
 
         if memory_results is None:
-            memory_results = await db.search_similarity_threshold(
-                query=query,
-                limit=set["memory_recall_memories_max_search"],
-                threshold=set["memory_recall_similarity_threshold"],
-                filter=f"area == '{Memory.Area.MAIN.value}' or area == '{Memory.Area.FRAGMENTS.value}'",
-            )
+            try:
+                memory_results = await asyncio.wait_for(
+                    db.search_similarity_threshold(
+                        query=query,
+                        limit=set["memory_recall_memories_max_search"],
+                        threshold=set["memory_recall_similarity_threshold"],
+                        filter=f"area == '{Memory.Area.MAIN.value}' or area == '{Memory.Area.FRAGMENTS.value}'",
+                    ),
+                    timeout=PER_SEARCH_TIMEOUT,
+                )
+            except (asyncio.TimeoutError, Exception) as e:
+                PrintStyle.error(f"Memory fallback search failed: {e}")
+                memory_results = []
         if solution_results is None:
-            solution_results = await db.search_similarity_threshold(
-                query=query,
-                limit=set["memory_recall_solutions_max_search"],
-                threshold=set["memory_recall_similarity_threshold"],
-                filter=f"area == '{Memory.Area.SOLUTIONS.value}'",
-            )
+            try:
+                solution_results = await asyncio.wait_for(
+                    db.search_similarity_threshold(
+                        query=query,
+                        limit=set["memory_recall_solutions_max_search"],
+                        threshold=set["memory_recall_similarity_threshold"],
+                        filter=f"area == '{Memory.Area.SOLUTIONS.value}'",
+                    ),
+                    timeout=PER_SEARCH_TIMEOUT,
+                )
+            except (asyncio.TimeoutError, Exception) as e:
+                PrintStyle.error(f"Solutions fallback search failed: {e}")
+                solution_results = []
 
         memories = _extract_texts(memory_results, set["memory_recall_memories_max_result"])
         solutions = _extract_texts(solution_results, set["memory_recall_solutions_max_result"])
@@ -370,22 +384,30 @@ def _resolve_search_types(SearchType):
     return fast, slow
 
 
+PER_SEARCH_TIMEOUT = 15
+
+
 async def _multi_cognee_search(
     cognee, *, search_types, query, top_k, datasets, node_name, session_id
 ):
     all_results = []
     for st in search_types:
         try:
-            results = await cognee.search(
-                query_text=query,
-                query_type=st,
-                top_k=top_k,
-                datasets=datasets,
-                node_name=node_name,
-                session_id=session_id,
+            results = await asyncio.wait_for(
+                cognee.search(
+                    query_text=query,
+                    query_type=st,
+                    top_k=top_k,
+                    datasets=datasets,
+                    node_name=node_name,
+                    session_id=session_id,
+                ),
+                timeout=PER_SEARCH_TIMEOUT,
             )
             if results:
                 all_results.extend(results)
+        except asyncio.TimeoutError:
+            PrintStyle.error(f"Cognee search ({st.name}) timed out after {PER_SEARCH_TIMEOUT}s (likely SQLite lock)")
         except Exception as e:
             PrintStyle.error(f"Cognee search ({st.name}) failed: {e}")
 

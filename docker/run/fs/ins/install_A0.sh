@@ -42,5 +42,4 @@ uv pip install -r /git/agent-zero/requirements2.txt
 # install playwright
 bash /ins/install_playwright.sh "$@"
 
-# Preload A0
-python /git/agent-zero/preload.py --dockerized=true
+# Preload moved to runtime (run_A0.sh) to speed up Docker builds

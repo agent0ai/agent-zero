@@ -1,4 +1,6 @@
+import asyncio
 from python.helpers.extension import Extension
+from python.helpers.print_style import PrintStyle
 from agent import LoopData
 from python.extensions.message_loop_prompts_after._50_recall_memories import DATA_NAME_TASK as DATA_NAME_TASK_MEMORIES, DATA_NAME_ITER as DATA_NAME_ITER_MEMORIES
 # from python.extensions.message_loop_prompts_after._51_recall_solutions import DATA_NAME_TASK as DATA_NAME_TASK_SOLUTIONS
@@ -22,8 +24,14 @@ class RecallWait(Extension):
                     loop_data.extras_temporary["memory_recall_delayed"] = delay_text
                     return
             
-            # otherwise await the task
-            await task
+            try:
+                await task
+            except (TimeoutError, asyncio.TimeoutError):
+                PrintStyle.error("Memory recall timed out, continuing without memories")
+            except asyncio.CancelledError:
+                PrintStyle.error("Memory recall was cancelled")
+            except Exception as e:
+                PrintStyle.error(f"Memory recall failed: {e}")
 
         # task = self.agent.get_data(DATA_NAME_TASK_SOLUTIONS)
         # if task and not task.done():

@@ -51,7 +51,7 @@ COPY ./ /git/agent-zero
 ARG A0_VERSION=unknown
 RUN echo "$A0_VERSION" > /git/agent-zero/VERSION
 
-# Re-run install_A0.sh: pip install is near-instant (cached), only preload runs
+# Verify deps are installed (near-instant, preload moved to runtime)
 RUN bash /ins/install_A0.sh $BRANCH
 
 RUN bash /ins/post_install.sh $BRANCH
