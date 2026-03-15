@@ -382,6 +382,7 @@ class Agent:
 
     async def monologue(self):
         error_retries = 0  # counter for critical error retries
+        duplicate_retries = 0  # counter for duplicate response retries
         while True:
             try:
                 # loop data dictionary to pass to extensions
@@ -473,10 +474,12 @@ class Agent:
                         if (
                             self.loop_data.last_response == agent_response
                         ):  # if assistant_response is the same as last message in history, let him know
+                            # Increment duplicate counter for context
+                            duplicate_retries += 1
                             # Append the assistant's response to the history
                             self.hist_add_ai_response(agent_response)
                             # Append warning message to the history
-                            warning_msg = self.read_prompt("fw.msg_repeat.md")
+                            warning_msg = self.read_prompt("fw.msg_repeat.md", retry_count=duplicate_retries)
                             self.hist_add_warning(message=warning_msg)
                             PrintStyle(font_color="orange", padding=True).print(
                                 warning_msg
@@ -492,6 +495,7 @@ class Agent:
                                 return tools_result  # break the execution if the task is done
 
                         error_retries = 0  # reset retry counter on successful iteration
+                        duplicate_retries = 0  # reset duplicate counter on successful iteration
 
                     # exceptions inside message loop:
                     except InterventionException as e:
