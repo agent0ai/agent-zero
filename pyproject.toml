@@ -4,6 +4,7 @@ testpaths = ["tests"]
 markers = [
     "integration: requires real external services (skipped in CI by default)",
     "slow: tests that take >5s",
+    "regression: regression tests for previously fixed bugs",
 ]
 filterwarnings = [
     "ignore::pytest.PytestCollectionWarning",
