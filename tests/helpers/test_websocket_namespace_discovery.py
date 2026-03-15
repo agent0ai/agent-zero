@@ -223,3 +223,17 @@ def test_discovery_invalid_modules_fail_fast_with_descriptive_errors(tmp_path: P
     message = str(excinfo2.value)
     assert "defines multiple WebSocketHandler subclasses" in message
     assert "A" in message and "B" in message
+
+
+def test_iter_discovered_namespaces() -> None:
+    from python.helpers.websocket_namespace_discovery import (
+        discover_websocket_namespaces,
+        iter_discovered_namespaces,
+        NamespaceDiscovery,
+    )
+
+    result = iter_discovered_namespaces([
+        NamespaceDiscovery(namespace="/a", handler_classes=(), source_files=()),
+        NamespaceDiscovery(namespace="/b", handler_classes=(), source_files=()),
+    ])
+    assert result == ["/a", "/b"]

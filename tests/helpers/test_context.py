@@ -242,3 +242,58 @@ class TestAgentContextThreadName:
                 return
 
         pytest.fail("AgentContext.__init__ not found in agent.py")
+
+
+# ─── Context helpers (python/helpers/context.py) ─────────────────────────────────
+
+class TestContextHelpers:
+    """Tests for set_context_data, get_context_data, delete_context_data, clear_context_data."""
+
+    def test_set_and_get_context_data(self):
+        from python.helpers.context import set_context_data, get_context_data, clear_context_data
+
+        clear_context_data()
+        set_context_data("key1", "value1")
+        assert get_context_data("key1") == "value1"
+        assert get_context_data("missing", default="x") == "x"
+        clear_context_data()
+
+    def test_get_context_data_none_returns_full_dict(self):
+        from python.helpers.context import set_context_data, get_context_data, clear_context_data
+
+        clear_context_data()
+        set_context_data("a", 1)
+        set_context_data("b", 2)
+        full = get_context_data(None)
+        assert isinstance(full, dict)
+        assert full.get("a") == 1
+        assert full.get("b") == 2
+        clear_context_data()
+
+    def test_delete_context_data(self):
+        from python.helpers.context import set_context_data, get_context_data, delete_context_data, clear_context_data
+
+        clear_context_data()
+        set_context_data("k", "v")
+        assert get_context_data("k") == "v"
+        delete_context_data("k")
+        assert get_context_data("k", default=None) is None
+        clear_context_data()
+
+    def test_clear_context_data(self):
+        from python.helpers.context import set_context_data, get_context_data, clear_context_data
+
+        set_context_data("x", 1)
+        clear_context_data()
+        assert get_context_data("x", default=None) is None
+        full = get_context_data(None)
+        assert full == {}
+
+    def test_set_context_data_skips_if_same_value(self):
+        from python.helpers.context import set_context_data, get_context_data, clear_context_data
+
+        clear_context_data()
+        set_context_data("k", "v")
+        set_context_data("k", "v")  # no-op when same
+        assert get_context_data("k") == "v"
+        clear_context_data()
