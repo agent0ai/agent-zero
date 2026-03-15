@@ -1,3 +1,0 @@
-hvac>=2.1.0
-tenacity>=8.2.0
-circuitbreaker>=2.0.0

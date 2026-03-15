@@ -4,3 +4,6 @@
 [submodule "usr/plugins/stop-button"]
 	path = usr/plugins/stop-button
 	url = http://192.168.200.52:3000/deimosAI/deimos-stop-button-plugin.git
+[submodule "usr/plugins/deimos_openbao_secrets"]
+	path = usr/plugins/deimos_openbao_secrets
+	url = http://192.168.200.52:3000/deimosAI/a0-plugin-openbao-secrets.git
