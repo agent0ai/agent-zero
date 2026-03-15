@@ -4,10 +4,23 @@ from python.helpers.memory import Memory
 from agent import LoopData
 from python.helpers import dirty_json, errors, settings, log
 from python.helpers.cognee_init import get_cognee_setting
+from python.helpers.print_style import PrintStyle
 
 DATA_NAME_TASK = "_recall_memories_task"
 DATA_NAME_ITER = "_recall_memories_iter"
 SEARCH_TIMEOUT = 30
+
+_SLOW_SEARCH_NAMES = frozenset({
+    "GRAPH_COMPLETION",
+    "RAG_COMPLETION",
+    "TRIPLET_COMPLETION",
+    "GRAPH_SUMMARY_COMPLETION",
+    "GRAPH_COMPLETION_COT",
+    "GRAPH_COMPLETION_CONTEXT_EXTENSION",
+    "NATURAL_LANGUAGE",
+    "TEMPORAL",
+    "FEELING_LUCKY",
+})
 
 
 class RecallMemories(Extension):
@@ -82,25 +95,41 @@ class RecallMemories(Extension):
             return
 
         db = await Memory.get(self.agent)
-
         session_id = f"context_{id(self.agent.context)}"
 
         from python.helpers.memory import _get_cognee
         cognee, SearchType = _get_cognee()
 
-        search_types = _resolve_search_types(SearchType)
+        fast_types, slow_types = _resolve_search_types(SearchType)
 
-        memory_results = await _multi_cognee_search(
-            cognee, SearchType, search_types,
-            query=query,
-            top_k=set["memory_recall_memories_max_search"],
-            datasets=[
-                db._area_dataset(Memory.Area.MAIN.value),
-                db._area_dataset(Memory.Area.FRAGMENTS.value),
-            ],
-            node_name=[Memory.Area.MAIN.value, Memory.Area.FRAGMENTS.value],
-            session_id=session_id,
+        mem_datasets = [
+            db._area_dataset(Memory.Area.MAIN.value),
+            db._area_dataset(Memory.Area.FRAGMENTS.value),
+        ]
+        sol_datasets = [db._area_dataset(Memory.Area.SOLUTIONS.value)]
+        mem_node_name = [Memory.Area.MAIN.value, Memory.Area.FRAGMENTS.value]
+        sol_node_name = [Memory.Area.SOLUTIONS.value]
+
+        # --- Phase 1: fast search (CHUNKS, CHUNKS_LEXICAL, etc.) ---
+        memory_results, solution_results = await asyncio.gather(
+            _multi_cognee_search(
+                cognee, search_types=fast_types,
+                query=query,
+                top_k=set["memory_recall_memories_max_search"],
+                datasets=mem_datasets,
+                node_name=mem_node_name,
+                session_id=session_id,
+            ),
+            _multi_cognee_search(
+                cognee, search_types=fast_types,
+                query=query,
+                top_k=set["memory_recall_solutions_max_search"],
+                datasets=sol_datasets,
+                node_name=sol_node_name,
+                session_id=session_id,
+            ),
         )
+
         if memory_results is None:
             memory_results = await db.search_similarity_threshold(
                 query=query,
@@ -108,15 +137,6 @@ class RecallMemories(Extension):
                 threshold=set["memory_recall_similarity_threshold"],
                 filter=f"area == '{Memory.Area.MAIN.value}' or area == '{Memory.Area.FRAGMENTS.value}'",
             )
-
-        solution_results = await _multi_cognee_search(
-            cognee, SearchType, search_types,
-            query=query,
-            top_k=set["memory_recall_solutions_max_search"],
-            datasets=[db._area_dataset(Memory.Area.SOLUTIONS.value)],
-            node_name=[Memory.Area.SOLUTIONS.value],
-            session_id=session_id,
-        )
         if solution_results is None:
             solution_results = await db.search_similarity_threshold(
                 query=query,
@@ -129,84 +149,163 @@ class RecallMemories(Extension):
         solutions = _extract_texts(solution_results, set["memory_recall_solutions_max_result"])
 
         if set["memory_recall_post_filter"] and (memories or solutions):
-            all_items = memories + solutions
-            mems_list = {i: text for i, text in enumerate(all_items)}
+            memories, solutions = await self._post_filter(
+                cognee, memories, solutions, history, user_instruction, session_id,
+            )
 
-            try:
-                filter_response = await self.agent.call_utility_model(
-                    system=self.agent.read_prompt("memory.memories_filter.sys.md"),
-                    message=self.agent.read_prompt(
-                        "memory.memories_filter.msg.md",
-                        memories=mems_list,
-                        history=history,
-                        message=user_instruction,
-                    ),
+        _write_extras(self.agent, extras, memories, solutions, log_item)
+
+        # --- Phase 2: slow search in background (GRAPH_COMPLETION, etc.) ---
+        if slow_types:
+            asyncio.create_task(
+                _slow_search_and_merge(
+                    agent=self.agent,
+                    cognee=cognee,
+                    slow_types=slow_types,
+                    query=query,
+                    recall_settings=set,
+                    mem_datasets=mem_datasets,
+                    sol_datasets=sol_datasets,
+                    mem_node_name=mem_node_name,
+                    sol_node_name=sol_node_name,
+                    session_id=session_id,
+                    extras=extras,
+                    log_item=log_item,
+                    existing_memories=memories,
+                    existing_solutions=solutions,
                 )
-                filter_inds = dirty_json.try_parse(filter_response)
+            )
 
-                if isinstance(filter_inds, list):
-                    filtered_memories = []
-                    filtered_solutions = []
-                    mem_len = len(memories)
-                    for idx in filter_inds:
-                        if isinstance(idx, int):
-                            if idx < mem_len:
-                                filtered_memories.append(memories[idx])
-                            else:
-                                sol_idx = idx - mem_len
-                                if sol_idx < len(solutions):
-                                    filtered_solutions.append(solutions[sol_idx])
-                    memories = filtered_memories
-                    solutions = filtered_solutions
+    async def _post_filter(self, cognee, memories, solutions, history, user_instruction, session_id):
+        all_items = memories + solutions
+        mems_list = {i: text for i, text in enumerate(all_items)}
 
-                    feedback_enabled = get_cognee_setting("cognee_feedback_enabled", True)
-                    if feedback_enabled:
-                        try:
-                            entries = await cognee.session.get_session(
-                                session_id=session_id, last_n=1
+        try:
+            filter_response = await self.agent.call_utility_model(
+                system=self.agent.read_prompt("memory.memories_filter.sys.md"),
+                message=self.agent.read_prompt(
+                    "memory.memories_filter.msg.md",
+                    memories=mems_list,
+                    history=history,
+                    message=user_instruction,
+                ),
+            )
+            filter_inds = dirty_json.try_parse(filter_response)
+
+            if isinstance(filter_inds, list):
+                filtered_memories = []
+                filtered_solutions = []
+                mem_len = len(memories)
+                for idx in filter_inds:
+                    if isinstance(idx, int):
+                        if idx < mem_len:
+                            filtered_memories.append(memories[idx])
+                        else:
+                            sol_idx = idx - mem_len
+                            if sol_idx < len(solutions):
+                                filtered_solutions.append(solutions[sol_idx])
+                memories = filtered_memories
+                solutions = filtered_solutions
+
+                feedback_enabled = get_cognee_setting("cognee_feedback_enabled", True)
+                if feedback_enabled:
+                    try:
+                        entries = await cognee.session.get_session(
+                            session_id=session_id, last_n=1
+                        )
+                        if entries:
+                            qa_id = entries[-1].qa_id
+                            score = 5 if (memories or solutions) else 2
+                            await cognee.session.add_feedback(
+                                session_id=session_id,
+                                qa_id=qa_id,
+                                feedback_score=score,
                             )
-                            if entries:
-                                qa_id = entries[-1].qa_id
-                                score = 5 if (memories or solutions) else 2
-                                await cognee.session.add_feedback(
-                                    session_id=session_id,
-                                    qa_id=qa_id,
-                                    feedback_score=score,
-                                )
-                        except Exception as fb_err:
-                            from python.helpers.print_style import PrintStyle
-                            PrintStyle.error(f"Cognee feedback failed: {fb_err}")
+                    except Exception as fb_err:
+                        PrintStyle.error(f"Cognee feedback failed: {fb_err}")
 
-            except Exception as e:
-                err = errors.format_error(e)
-                self.agent.context.log.log(
-                    type="warning", heading="Failed to filter relevant memories", content=err
-                )
+        except Exception as e:
+            err = errors.format_error(e)
+            self.agent.context.log.log(
+                type="warning", heading="Failed to filter relevant memories", content=err
+            )
 
-        if not memories and not solutions:
-            log_item.update(heading="No memories or solutions found")
-            return
+        return memories, solutions
 
-        log_item.update(
-            heading=f"{len(memories)} memories and {len(solutions)} relevant solutions found",
+
+def _write_extras(agent, extras, memories, solutions, log_item):
+    if not memories and not solutions:
+        log_item.update(heading="No memories or solutions found")
+        return
+
+    log_item.update(
+        heading=f"{len(memories)} memories and {len(solutions)} relevant solutions found",
+    )
+
+    memories_txt = "\n\n".join(memories) if memories else ""
+    solutions_txt = "\n\n".join(solutions) if solutions else ""
+
+    if memories_txt:
+        log_item.update(memories=memories_txt)
+    if solutions_txt:
+        log_item.update(solutions=solutions_txt)
+
+    if memories_txt:
+        extras["memories"] = agent.parse_prompt(
+            "agent.system.memories.md", memories=memories_txt
+        )
+    if solutions_txt:
+        extras["solutions"] = agent.parse_prompt(
+            "agent.system.solutions.md", solutions=solutions_txt
         )
 
-        memories_txt = "\n\n".join(memories) if memories else ""
-        solutions_txt = "\n\n".join(solutions) if solutions else ""
 
-        if memories_txt:
-            log_item.update(memories=memories_txt)
-        if solutions_txt:
-            log_item.update(solutions=solutions_txt)
+async def _slow_search_and_merge(
+    *, agent, cognee, slow_types, query, recall_settings,
+    mem_datasets, sol_datasets, mem_node_name, sol_node_name,
+    session_id, extras, log_item, existing_memories, existing_solutions,
+):
+    try:
+        slow_mem, slow_sol = await asyncio.gather(
+            _multi_cognee_search(
+                cognee, search_types=slow_types,
+                query=query,
+                top_k=recall_settings["memory_recall_memories_max_search"],
+                datasets=mem_datasets,
+                node_name=mem_node_name,
+                session_id=session_id,
+            ),
+            _multi_cognee_search(
+                cognee, search_types=slow_types,
+                query=query,
+                top_k=recall_settings["memory_recall_solutions_max_search"],
+                datasets=sol_datasets,
+                node_name=sol_node_name,
+                session_id=session_id,
+            ),
+        )
 
-        if memories_txt:
-            extras["memories"] = self.agent.parse_prompt(
-                "agent.system.memories.md", memories=memories_txt
-            )
-        if solutions_txt:
-            extras["solutions"] = self.agent.parse_prompt(
-                "agent.system.solutions.md", solutions=solutions_txt
-            )
+        new_memories = _extract_texts(
+            slow_mem, recall_settings["memory_recall_memories_max_result"]
+        )
+        new_solutions = _extract_texts(
+            slow_sol, recall_settings["memory_recall_solutions_max_result"]
+        )
+
+        existing_mem_keys = frozenset(existing_memories) if existing_memories else frozenset()
+        existing_sol_keys = frozenset(existing_solutions) if existing_solutions else frozenset()
+        merged_memories = list(existing_memories) + [
+            m for m in new_memories if m not in existing_mem_keys
+        ]
+        merged_solutions = list(existing_solutions) + [
+            s for s in new_solutions if s not in existing_sol_keys
+        ]
+
+        if merged_memories != existing_memories or merged_solutions != existing_solutions:
+            _write_extras(agent, extras, merged_memories, merged_solutions, log_item)
+
+    except Exception as e:
+        PrintStyle.error(f"Background memory search failed: {e}")
 
 
 def _extract_texts(results, limit: int) -> list[str]:
@@ -244,26 +343,35 @@ def _extract_texts(results, limit: int) -> list[str]:
 
 
 def _resolve_search_types(SearchType):
+    """Returns (fast_types, slow_types) tuple."""
     multi_enabled = get_cognee_setting("cognee_multi_search_enabled", True)
     if multi_enabled:
         type_names = get_cognee_setting("cognee_search_types", "GRAPH_COMPLETION,CHUNKS_LEXICAL")
-        types = []
+        all_types = []
         for name in type_names.split(","):
             name = name.strip()
             if hasattr(SearchType, name):
-                types.append(getattr(SearchType, name))
-        if types:
-            return types
+                all_types.append(getattr(SearchType, name))
+        if not all_types:
+            all_types = [SearchType.CHUNKS]
+    else:
+        name = get_cognee_setting("cognee_search_type", "GRAPH_COMPLETION")
+        try:
+            all_types = [getattr(SearchType, name)]
+        except AttributeError:
+            all_types = [SearchType.CHUNKS]
 
-    name = get_cognee_setting("cognee_search_type", "GRAPH_COMPLETION")
-    try:
-        return [getattr(SearchType, name)]
-    except AttributeError:
-        return [SearchType.CHUNKS]
+    fast = [t for t in all_types if t.name not in _SLOW_SEARCH_NAMES]
+    slow = [t for t in all_types if t.name in _SLOW_SEARCH_NAMES]
+
+    if not fast:
+        fast = [SearchType.CHUNKS]
+
+    return fast, slow
 
 
 async def _multi_cognee_search(
-    cognee, SearchType, search_types, *, query, top_k, datasets, node_name, session_id
+    cognee, *, search_types, query, top_k, datasets, node_name, session_id
 ):
     all_results = []
     for st in search_types:
@@ -278,17 +386,17 @@ async def _multi_cognee_search(
             )
             if results:
                 all_results.extend(results)
-        except Exception:
-            pass
+        except Exception as e:
+            PrintStyle.error(f"Cognee search ({st.name}) failed: {e}")
 
     if all_results:
-        seen = set()
+        seen = {}
         unique = []
         for r in all_results:
             raw = r.search_result if hasattr(r, "search_result") else r
             key = str(raw)[:200]
             if key not in seen:
-                seen.add(key)
+                seen[key] = True
                 unique.append(r)
         return unique
     return None
