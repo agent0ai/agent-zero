@@ -240,19 +240,28 @@ async def test_memory_dashboard_handles_db_error_gracefully():
 @pytest.mark.asyncio
 async def test_memory_dashboard_wraps_configure_cognee_failure():
     """When configure_cognee() fails, MemoryDashboard returns structured error, not raw crash."""
+    import python.helpers.memory as mem
 
     from python.api.memory_dashboard import MemoryDashboard
+
+    old_cognee, old_st = mem._cognee, mem._SearchType
+    mem._cognee = None
+    mem._SearchType = None
 
     def failing_configure():
         raise RuntimeError("Cognee config failed: invalid API key")
 
-    with patch("python.helpers.cognee_init.configure_cognee", side_effect=failing_configure):
-        dashboard = MemoryDashboard(app=MagicMock(), thread_lock=MagicMock())
-        result = await dashboard.process({"action": "get_memory_subdirs"}, MagicMock())
+    try:
+        with patch("python.helpers.memory.configure_cognee", side_effect=failing_configure):
+            dashboard = MemoryDashboard(app=MagicMock(), thread_lock=MagicMock())
+            result = await dashboard.process({"action": "get_memory_subdirs"}, MagicMock())
 
-    assert result["success"] is False
-    assert "error" in result
-    assert "Cognee" in result["error"] or "config" in result["error"].lower() or "invalid" in result["error"].lower()
+        assert result["success"] is False
+        assert "error" in result
+        assert "Cognee" in result["error"] or "config" in result["error"].lower() or "invalid" in result["error"].lower()
+    finally:
+        mem._cognee = old_cognee
+        mem._SearchType = old_st
 
 
 @pytest.mark.regression

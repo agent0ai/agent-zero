@@ -261,18 +261,28 @@ class TestDashboardCallsSetup:
     @pytest.mark.asyncio
     async def test_process_calls_ensure_setup_before_action(self):
         """The top-level process() must call configure_cognee() before dispatching."""
+        import python.helpers.memory as mem
+        old_cognee, old_st, old_setup = mem._cognee, mem._SearchType, mem._setup_done
+        mem._cognee = None
+        mem._SearchType = None
+        mem._setup_done = True
+
+        mock_cognee_mod = MagicMock()
+        mock_cognee_mod.SearchType = MagicMock()
+
         dashboard = _make_dashboard()
-        call_order = []
+        try:
+            with patch("python.helpers.memory.configure_cognee") as mock_cfg, \
+                 patch.dict("sys.modules", {"cognee": mock_cognee_mod}), \
+                 patch("python.api.memory_dashboard.get_existing_memory_subdirs", return_value=["default"]):
+                result = await dashboard.process({"action": "get_memory_subdirs"}, MagicMock())
 
-        def mock_setup():
-            call_order.append("configure_cognee")
-
-        with patch("python.helpers.cognee_init.configure_cognee", side_effect=mock_setup) as mock_ecs, \
-             patch("python.api.memory_dashboard.get_existing_memory_subdirs", return_value=["default"]):
-            result = await dashboard.process({"action": "get_memory_subdirs"}, MagicMock())
-
-        mock_ecs.assert_called_once()
-        assert result["success"] is True
+            mock_cfg.assert_called_once()
+            assert result["success"] is True
+        finally:
+            mem._cognee = old_cognee
+            mem._SearchType = old_st
+            mem._setup_done = old_setup
 
     @pytest.mark.asyncio
     async def test_search_memories_works_after_setup(self):
@@ -332,16 +342,28 @@ class TestDashboardCallsSetup:
 
     @pytest.mark.asyncio
     async def test_knowledge_graph_calls_setup_via_process(self):
+        import python.helpers.memory as mem
+        old_cognee, old_st, old_setup = mem._cognee, mem._SearchType, mem._setup_done
+        mem._cognee = None
+        mem._SearchType = None
+        mem._setup_done = True
+
+        mock_cognee_mod = MagicMock()
+        mock_cognee_mod.SearchType = MagicMock()
+        mock_cognee_mod.visualize_graph = AsyncMock(return_value="<html></html>")
+
         dashboard = _make_dashboard()
-        mock_cognee = MagicMock()
-        mock_cognee.visualize_graph = AsyncMock(return_value="<html></html>")
+        try:
+            with patch("python.helpers.memory.configure_cognee") as mock_setup, \
+                 patch.dict("sys.modules", {"cognee": mock_cognee_mod}):
+                result = await dashboard.process({"action": "knowledge_graph"}, MagicMock())
 
-        with patch("python.helpers.cognee_init.configure_cognee") as mock_setup, \
-             patch.dict("sys.modules", {"cognee": mock_cognee}):
-            result = await dashboard.process({"action": "knowledge_graph"}, MagicMock())
-
-        mock_setup.assert_called_once()
-        assert result["success"] is True
+            mock_setup.assert_called_once()
+            assert result["success"] is True
+        finally:
+            mem._cognee = old_cognee
+            mem._SearchType = old_st
+            mem._setup_done = old_setup
 
 
 # --- _delete_memory ---
