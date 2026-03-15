@@ -467,7 +467,7 @@ def get_plugin_config(
     # call plugin hook to modify the standard result if needed
     new_result = call_plugin_hook(
         plugin_name,
-        "save_plugin_config",
+        "get_plugin_config",
         result=result,
         agent=agent,
         project_name=project_name,
