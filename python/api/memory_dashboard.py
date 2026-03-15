@@ -10,8 +10,9 @@ class MemoryDashboard(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         try:
-            from python.helpers.cognee_init import configure_cognee
-            configure_cognee()
+            from python.helpers.memory import _get_cognee, _ensure_cognee_db
+            cognee_mod, _ = _get_cognee()
+            await _ensure_cognee_db(cognee_mod)
             action = input.get("action", "search")
             if action == "get_memory_subdirs":
                 return await self._get_memory_subdirs()
@@ -154,7 +155,7 @@ class MemoryDashboard(ApiHandler):
             else:
                 try:
                     import cognee
-                    from python.helpers.memory import _extract_metadata_from_text
+                    from python.helpers.memory import _extract_metadata_from_text, _with_cognee_setup_retry
                     from python.helpers import guids
                     datasets_to_check = []
                     if area_filter:
@@ -163,7 +164,7 @@ class MemoryDashboard(ApiHandler):
                         for area in Memory.Area:
                             datasets_to_check.append(memory._area_dataset(area.value))
 
-                    all_datasets = await cognee.datasets.list_datasets()
+                    all_datasets = await _with_cognee_setup_retry(cognee, cognee.datasets.list_datasets)
                     target_names = set(datasets_to_check)
                     for ds in all_datasets:
                         if ds.name not in target_names:

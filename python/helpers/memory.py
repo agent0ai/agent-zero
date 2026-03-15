@@ -22,6 +22,35 @@ import threading
 _cognee = None
 _SearchType = None
 _cognee_lock = threading.Lock()
+_setup_done = False
+
+
+async def _ensure_cognee_db(cognee_mod):
+    global _setup_done
+    if _setup_done:
+        return
+    _setup_done = True
+    try:
+        await cognee_mod.setup()
+    except Exception as e:
+        PrintStyle.error(f"cognee.setup() failed: {e}")
+        _setup_done = False
+        raise
+
+
+async def _with_cognee_setup_retry(cognee_mod, coro_fn, *args, **kwargs):
+    try:
+        return await coro_fn(*args, **kwargs)
+    except Exception as err:
+        err_name = type(err).__name__
+        err_str = str(err)
+        if "DatabaseNotCreatedError" in err_name or "unable to open database" in err_str or "no such table" in err_str:
+            PrintStyle.warning(f"[Cognee] DB not ready ({err_name}), running setup and retrying...")
+            global _setup_done
+            _setup_done = False
+            await _ensure_cognee_db(cognee_mod)
+            return await coro_fn(*args, **kwargs)
+        raise
 
 
 def _get_cognee():
@@ -50,6 +79,8 @@ class Memory:
 
     @staticmethod
     async def get(agent: Agent) -> "Memory":
+        cognee, _ = _get_cognee()
+        await _ensure_cognee_db(cognee)
         memory_subdir = get_agent_memory_subdir(agent)
         dataset_name = _subdir_to_dataset(memory_subdir)
         mem = Memory(dataset_name=dataset_name, memory_subdir=memory_subdir)
@@ -72,6 +103,8 @@ class Memory:
         log_item: LogItem | None = None,
         preload_knowledge: bool = True,
     ) -> "Memory":
+        cognee, _ = _get_cognee()
+        await _ensure_cognee_db(cognee)
         dataset_name = _subdir_to_dataset(memory_subdir)
         mem = Memory(dataset_name=dataset_name, memory_subdir=memory_subdir)
         if preload_knowledge:
@@ -136,7 +169,8 @@ class Memory:
                 for doc in entry["documents"]:
                     content = doc.page_content if hasattr(doc, "page_content") else str(doc)
                     try:
-                        await cognee.add(
+                        await _with_cognee_setup_retry(
+                            cognee, cognee.add,
                             content,
                             dataset_name=self._area_dataset(entry.get("metadata", {}).get("area", "main")),
                             node_set=self._build_node_sets("knowledge"),
@@ -205,7 +239,8 @@ class Memory:
             search_type = SearchType.CHUNKS
 
         try:
-            results = await cognee.search(
+            results = await _with_cognee_setup_retry(
+                cognee, cognee.search,
                 query_text=query,
                 query_type=search_type,
                 top_k=limit,
@@ -214,7 +249,8 @@ class Memory:
             )
         except Exception:
             try:
-                results = await cognee.search(
+                results = await _with_cognee_setup_retry(
+                    cognee, cognee.search,
                     query_text=query,
                     query_type=SearchType.CHUNKS,
                     top_k=limit,
@@ -244,7 +280,8 @@ class Memory:
 
         for st in search_types:
             try:
-                results = await cognee.search(
+                results = await _with_cognee_setup_retry(
+                    cognee, cognee.search,
                     query_text=query,
                     query_type=st,
                     top_k=per_type_limit,
@@ -258,7 +295,8 @@ class Memory:
 
         if not all_results:
             try:
-                all_results = await cognee.search(
+                all_results = await _with_cognee_setup_retry(
+                    cognee, cognee.search,
                     query_text=query,
                     query_type=SearchType.CHUNKS,
                     top_k=limit,
@@ -338,7 +376,8 @@ class Memory:
             enriched_text = f"[META:{meta_header}]\n{doc.page_content}"
 
             try:
-                await cognee.add(
+                await _with_cognee_setup_retry(
+                    cognee, cognee.add,
                     enriched_text,
                     dataset_name=dataset,
                     node_set=node_sets,
@@ -465,7 +504,7 @@ def _extract_metadata_from_text(text: str) -> tuple[str, dict]:
 async def _delete_data_by_id(dataset_name: str, data_id: str):
     cognee, _ = _get_cognee()
     try:
-        datasets = await cognee.datasets.list_datasets()
+        datasets = await _with_cognee_setup_retry(cognee, cognee.datasets.list_datasets)
         target = None
         for ds in datasets:
             if ds.name == dataset_name:
