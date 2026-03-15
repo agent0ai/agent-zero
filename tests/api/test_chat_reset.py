@@ -30,7 +30,7 @@ class TestReset:
         with patch.object(handler, "use_context", return_value=mock_ctx), \
              patch("python.api.chat_reset.TaskScheduler") as MockScheduler, \
              patch("python.api.chat_reset.persist_chat") as mock_persist, \
-             patch("python.api.chat_reset.mark_dirty_all"):
+             patch("python.helpers.state_monitor_integration.mark_dirty_all"):
             MockScheduler.get.return_value = mock_scheduler
 
             result = await handler.process({"context": "ctx-123"}, MagicMock())
@@ -51,7 +51,7 @@ class TestReset:
         with patch.object(handler, "use_context", return_value=mock_ctx), \
              patch("python.api.chat_reset.TaskScheduler") as MockScheduler, \
              patch("python.api.chat_reset.persist_chat"), \
-             patch("python.api.chat_reset.mark_dirty_all"):
+             patch("python.helpers.state_monitor_integration.mark_dirty_all"):
             MockScheduler.get.return_value = mock_scheduler
 
             await handler.process({"context": "ctx-456"}, MagicMock())
@@ -66,6 +66,6 @@ class TestReset:
         with patch.object(handler, "use_context", return_value=MagicMock()), \
              patch("python.api.chat_reset.TaskScheduler"), \
              patch("python.api.chat_reset.persist_chat"), \
-             patch("python.api.chat_reset.mark_dirty_all") as mark_dirty:
+             patch("python.helpers.state_monitor_integration.mark_dirty_all") as mark_dirty:
             await handler.process({"context": "ctx-1"}, MagicMock())
             mark_dirty.assert_called_once_with(reason="api.chat_reset.Reset")

@@ -46,10 +46,10 @@ class TestSynthesize:
     async def test_synthesize_use_context_when_ctxid_provided(self):
         handler = _make_handler()
         mock_ctx = MagicMock()
-        with patch.object(handler, "use_context", return_value=mock_ctx), \
+        with patch.object(handler, "use_context", return_value=mock_ctx) as mock_use_ctx, \
              patch("python.api.synthesize.kokoro_tts.synthesize_sentences", new_callable=AsyncMock, return_value=b"audio"):
             await handler.process({"text": "Hi", "ctxid": "ctx-1"}, MagicMock())
-        handler.use_context.assert_called_once_with("ctx-1")
+            mock_use_ctx.assert_called_once_with("ctx-1")
 
     @pytest.mark.asyncio
     async def test_synthesize_returns_error_on_exception(self):

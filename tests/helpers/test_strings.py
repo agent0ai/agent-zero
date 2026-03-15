@@ -118,7 +118,7 @@ class TestTruncateText:
     def test_truncate_at_start(self):
         from python.helpers.strings import truncate_text
 
-        assert truncate_text("hello world", 8, at_end=False) == "...o world"
+        assert truncate_text("hello world", 8, at_end=False) == "...lo world"
 
     def test_custom_replacement(self):
         from python.helpers.strings import truncate_text

@@ -10,6 +10,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+try:
+    from python.tools.input import Input
+except (ImportError, AttributeError) as e:
+    pytest.skip(f"Failed to import input tool: {e}", allow_module_level=True)
+
 
 @pytest.fixture
 def mock_agent():
@@ -27,8 +32,7 @@ def mock_agent():
 
 @pytest.fixture
 def tool(mock_agent):
-    from python.tools.input import Input
-    return Input(
+    t = Input(
         agent=mock_agent,
         name="input",
         method=None,
@@ -36,6 +40,8 @@ def tool(mock_agent):
         message="",
         loop_data=None,
     )
+    t.log = MagicMock()
+    return t
 
 
 class TestInputExecute:

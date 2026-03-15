@@ -352,4 +352,4 @@ async def test_dev_websocket_test_handler_unknown_event_returns_error():
     )
 
     assert response["results"][0]["ok"] is False
-    assert response["results"][0]["error"]["code"] == "HARNESS_UNKNOWN_EVENT"
+    assert response["results"][0]["error"]["code"] == "NO_HANDLERS"

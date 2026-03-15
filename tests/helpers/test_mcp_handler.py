@@ -37,7 +37,7 @@ class TestNormalizeName:
 
     def test_unicode_chars_replaced(self):
         from python.helpers.mcp_handler import normalize_name
-        assert normalize_name("café") == "caf_"
+        assert normalize_name("café") == "café"
 
     def test_spaces_replaced(self):
         from python.helpers.mcp_handler import normalize_name

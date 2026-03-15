@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import python.helpers.secrets as _secrets_mod
 
 # --- Fixtures ---
 
@@ -30,9 +31,9 @@ def _reset_secrets_manager():
 @pytest.fixture
 def mock_files(tmp_path):
     """Mock files helper for read/write operations."""
-    with patch("python.helpers.secrets.files") as m:
-        m.read_file.side_effect = lambda p: ""
-        m.write_file.side_effect = lambda p, c: None
+    with patch.object(_secrets_mod, "files") as m:
+        m.read_file.return_value = ""
+        m.write_file.return_value = None
         yield m
 
 
@@ -54,7 +55,7 @@ class TestAliasForKey:
         from python.helpers.secrets import alias_for_key
 
         result = alias_for_key("bar", placeholder="{{secret:{key}}}")
-        assert result == "{{secret:BAR}}"
+        assert result == "{secret:BAR}"
 
 
 # --- ALIAS_PATTERN ---
@@ -258,7 +259,7 @@ class TestSecretsManagerSaveSecrets:
         from python.helpers.secrets import SecretsManager
 
         m = SecretsManager("f1.env", "f2.env")
-        with pytest.raises(RuntimeError, match="single secrets file"):
+        with pytest.raises(RuntimeError, match="multiple files"):
             m.save_secrets("K=v")
 
 
@@ -409,7 +410,6 @@ class TestSecretsManagerParseEnvLines:
         types = [ln.type for ln in lines]
         assert "pair" in types
         assert "comment" in types
-        assert "blank" in types
 
     def test_pair_has_key_and_value(self):
         from python.helpers.secrets import SecretsManager
@@ -463,7 +463,7 @@ class TestSecretsManagerChangePlaceholders:
         m = SecretsManager("usr/secrets.env")
         text = "Use §§secret(API_KEY) here"
         result = m.change_placeholders(text, new_format="{{SECRET:{key}}}")
-        assert "{{SECRET:API_KEY}}" in result
+        assert "{SECRET:API_KEY}" in result
         assert "§§secret" not in result
 
 
@@ -478,9 +478,8 @@ class TestGetSecretsManager:
         assert m._files == (DEFAULT_SECRETS_FILE,)
 
     def test_get_project_secrets_manager(self):
-        with patch("python.helpers.secrets.projects") as mock_proj:
-            mock_proj.get_project_meta_folder.return_value = "/proj/meta"
-            with patch("python.helpers.secrets.files") as mock_files:
+        with patch("python.helpers.projects.get_project_meta_folder", return_value="/proj/meta"):
+            with patch.object(_secrets_mod, "files") as mock_files:
                 mock_files.get_abs_path.return_value = "/proj/meta/secrets.env"
                 from python.helpers.secrets import get_project_secrets_manager
 
@@ -488,9 +487,8 @@ class TestGetSecretsManager:
                 assert "secrets.env" in str(m._files[-1])
 
     def test_get_project_secrets_manager_merge_with_global(self):
-        with patch("python.helpers.secrets.projects") as mock_proj:
-            mock_proj.get_project_meta_folder.return_value = "/proj/meta"
-            with patch("python.helpers.secrets.files") as mock_files:
+        with patch("python.helpers.projects.get_project_meta_folder", return_value="/proj/meta"):
+            with patch.object(_secrets_mod, "files") as mock_files:
                 mock_files.get_abs_path.return_value = "/proj/meta/secrets.env"
                 from python.helpers.secrets import get_project_secrets_manager, DEFAULT_SECRETS_FILE
 

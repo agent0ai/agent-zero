@@ -55,6 +55,9 @@ class TestBehaviourPrompt:
         mock_agent.read_prompt.return_value = "behaviour rules"
 
         with patch(
+            "python.extensions.system_prompt._20_behaviour_prompt.memory.get_memory_subdir_abs",
+            return_value="/mem",
+        ), patch(
             "python.extensions.system_prompt._20_behaviour_prompt.files.get_abs_path",
             return_value="/mem/behaviour.md",
         ), patch(

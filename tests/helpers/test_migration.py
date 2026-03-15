@@ -61,7 +61,7 @@ class TestMigrateMemory:
     def test_moves_embeddings_to_tmp(self):
         with patch("python.helpers.migration.files") as mf:
             mf.get_subdirectories.return_value = ["embeddings"]
-            mf.exists.side_effect = lambda p: "memory/embeddings" in p or p == "memory"
+            mf.exists.side_effect = lambda p: p == "memory/embeddings" or p == "memory"
             with patch("python.helpers.migration.PrintStyle"):
                 migration._migrate_memory()
         mf.move_dir.assert_called()
@@ -71,7 +71,7 @@ class TestMigrateMemory:
     def test_moves_other_subdirs_to_usr_memory(self):
         with patch("python.helpers.migration.files") as mf:
             mf.get_subdirectories.return_value = ["cognee"]
-            mf.exists.side_effect = lambda p: True
+            mf.exists.side_effect = lambda p: p.startswith("memory/")
             with patch("python.helpers.migration.PrintStyle"):
                 migration._migrate_memory()
         mf.move_dir.assert_called()
@@ -87,4 +87,5 @@ class TestMigrateUserData:
                     with patch("python.helpers.migration._merge_dir_contents"):
                         with patch("python.helpers.migration._cleanup_obsolete"):
                             migration.migrate_user_data()
-        assert mf.move_dir.called or mf.move_file.called
+        # When all source paths don't exist, no moves happen
+        assert not mf.move_dir.called and not mf.move_file.called

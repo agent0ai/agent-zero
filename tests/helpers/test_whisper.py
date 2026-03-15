@@ -15,29 +15,33 @@ class TestWhisperPreload:
     @pytest.mark.asyncio
     async def test_preload_loads_model(self):
         mock_model = MagicMock()
-        with patch("python.helpers.whisper.whisper") as mw:
+        with patch("python.helpers.whisper.whisper") as mw, \
+             patch("python.helpers.whisper.files") as mf, \
+             patch("python.helpers.whisper.PrintStyle"), \
+             patch("python.helpers.whisper.NotificationManager"):
             mw.load_model.return_value = mock_model
-        with patch("python.helpers.whisper.files") as mf:
             mf.get_abs_path.return_value = "/tmp/models/whisper"
-        with patch("python.helpers.whisper.PrintStyle"):
-            with patch("python.helpers.whisper.NotificationManager"):
-                from python.helpers import whisper
-                await whisper.preload("base")
-        mw.load_model.assert_called_once_with(
-            name="base",
-            download_root="/tmp/models/whisper",
-        )
+            from python.helpers import whisper
+            whisper._model = None
+            whisper._model_name = ""
+            await whisper.preload("base")
+            mw.load_model.assert_called_once_with(
+                name="base",
+                download_root="/tmp/models/whisper",
+            )
 
     @pytest.mark.asyncio
     async def test_preload_raises_on_error(self):
-        with patch("python.helpers.whisper.whisper") as mw:
+        with patch("python.helpers.whisper.whisper") as mw, \
+             patch("python.helpers.whisper.files"), \
+             patch("python.helpers.whisper.PrintStyle"), \
+             patch("python.helpers.whisper.NotificationManager"):
             mw.load_model.side_effect = RuntimeError("load failed")
-        with patch("python.helpers.whisper.files"):
-            with patch("python.helpers.whisper.PrintStyle"):
-                with patch("python.helpers.whisper.NotificationManager"):
-                    from python.helpers import whisper
-                    with pytest.raises(RuntimeError):
-                        await whisper.preload("base")
+            from python.helpers import whisper
+            whisper._model = None
+            whisper._model_name = ""
+            with pytest.raises(RuntimeError):
+                await whisper.preload("base")
 
 
 class TestWhisperIsDownloading:

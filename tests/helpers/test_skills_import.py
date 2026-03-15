@@ -216,7 +216,7 @@ class TestImportSkills:
         mock_files, mock_discover, tmp_path = patch_files_and_skills
         (tmp_path / "file.txt").write_text("x")
 
-        with pytest.raises(ValueError, match="directory or .zip"):
+        with pytest.raises(ValueError, match=r"directory or a \.zip"):
             import_skills(str(tmp_path / "file.txt"))
 
     def test_imports_from_directory(self, tmp_skills_source, patch_files_and_skills):

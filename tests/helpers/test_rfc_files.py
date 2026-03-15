@@ -61,7 +61,7 @@ class TestGetAbsPath:
 
         result = get_abs_path()
         assert os.path.isabs(result)
-        assert "rfc_files" in result or "helpers" in result
+        assert "agent-zero" in result
 
     def test_get_abs_path_joins_parts(self):
         from python.helpers.rfc_files import get_abs_path

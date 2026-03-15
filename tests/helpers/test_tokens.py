@@ -40,6 +40,7 @@ class TestCountTokens:
         from python.helpers.tokens import count_tokens
 
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = [0, 1, 2, 3]  # 4 tokens
 
         result = count_tokens("hello world")
@@ -51,6 +52,7 @@ class TestCountTokens:
         from python.helpers.tokens import count_tokens
 
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = [0]
 
         result = count_tokens("x")
@@ -61,6 +63,7 @@ class TestCountTokens:
 
         long_text = "a" * 1000
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = list(range(250))  # 250 tokens
 
         result = count_tokens(long_text)
@@ -70,6 +73,7 @@ class TestCountTokens:
         from python.helpers.tokens import count_tokens
 
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = [0, 1]
 
         count_tokens("test", encoding_name="gpt2")
@@ -92,6 +96,7 @@ class TestApproximateTokens:
         from python.helpers.tokens import approximate_tokens
 
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 10 tokens
 
         result = approximate_tokens("some text here")
@@ -102,6 +107,7 @@ class TestApproximateTokens:
         from python.helpers.tokens import approximate_tokens
 
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = [0]  # 1 token
 
         result = approximate_tokens("x")
@@ -118,6 +124,7 @@ class TestTrimToTokens:
         from python.helpers.tokens import trim_to_tokens
 
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = [0, 1, 2]  # 3 tokens
         text = "short"
 
@@ -133,6 +140,7 @@ class TestTrimToTokens:
         # 100 chars, 25 tokens -> exceeds 10 tokens
         text = "a" * 100
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = list(range(25))
 
         result = trim_to_tokens(text, max_tokens=10, direction="start")
@@ -145,6 +153,7 @@ class TestTrimToTokens:
 
         text = "a" * 100
         mock_encoding = mock_tiktoken.get_encoding.return_value
+        mock_encoding.encode.side_effect = None
         mock_encoding.encode.return_value = list(range(25))
 
         result = trim_to_tokens(text, max_tokens=10, direction="end")

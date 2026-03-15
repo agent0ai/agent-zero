@@ -14,19 +14,18 @@ if str(PROJECT_ROOT) not in sys.path:
 class TestCheckVersion:
     @pytest.mark.asyncio
     async def test_returns_version_from_api(self):
-        with patch("python.helpers.update_check.httpx") as m:
-            mock_client = MagicMock()
-            mock_response = MagicMock()
-            mock_response.json.return_value = {"latest": "v1.0.0", "url": "https://example.com"}
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.post = AsyncMock(return_value=mock_response)
-            m.AsyncClient.return_value = mock_client
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"latest": "v1.0.0", "url": "https://example.com"}
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(return_value=mock_response)
 
-            with patch("python.helpers.update_check.git") as mg:
-                mg.get_version.return_value = "v0.9.0"
-            with patch("python.helpers.update_check.runtime") as mr:
-                mr.get_persistent_id.return_value = "test-id"
+        with patch("httpx.AsyncClient", return_value=mock_client), \
+             patch("python.helpers.update_check.git") as mg, \
+             patch("python.helpers.update_check.runtime") as mr:
+            mg.get_version.return_value = "v0.9.0"
+            mr.get_persistent_id.return_value = "test-id"
 
             from python.helpers.update_check import check_version
             result = await check_version()
@@ -36,19 +35,18 @@ class TestCheckVersion:
 
     @pytest.mark.asyncio
     async def test_sends_current_version_and_anonymized_id(self):
-        with patch("python.helpers.update_check.httpx") as m:
-            mock_client = MagicMock()
-            mock_response = MagicMock()
-            mock_response.json.return_value = {}
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.post = AsyncMock(return_value=mock_response)
-            m.AsyncClient.return_value = mock_client
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {}
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(return_value=mock_response)
 
-            with patch("python.helpers.update_check.git") as mg:
-                mg.get_version.return_value = "v0.9.8"
-            with patch("python.helpers.update_check.runtime") as mr:
-                mr.get_persistent_id.return_value = "abc123"
+        with patch("httpx.AsyncClient", return_value=mock_client), \
+             patch("python.helpers.update_check.git") as mg, \
+             patch("python.helpers.update_check.runtime") as mr:
+            mg.get_version.return_value = "v0.9.8"
+            mr.get_persistent_id.return_value = "abc123"
 
             from python.helpers.update_check import check_version
             await check_version()

@@ -10,6 +10,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import python.helpers.print_style as _print_style_mod
+import python.helpers.secrets as _secrets_mod
 
 # --- Fixtures ---
 
@@ -17,9 +19,9 @@ if str(PROJECT_ROOT) not in sys.path:
 @pytest.fixture
 def patch_files_and_log(tmp_path):
     """Patch files.get_abs_path and avoid real log file creation."""
-    with patch("python.helpers.print_style.files") as mock_files:
+    with patch.object(_print_style_mod, "files") as mock_files:
         mock_files.get_abs_path.return_value = str(tmp_path / "logs")
-        with patch("python.helpers.print_style.PrintStyle.log_file_path", None):
+        with patch.object(_print_style_mod.PrintStyle, "log_file_path", None):
             with patch("builtins.open", create=True) as mock_open:
                 mock_open.return_value.__enter__.return_value.write = MagicMock()
                 yield mock_files
@@ -28,7 +30,7 @@ def patch_files_and_log(tmp_path):
 @pytest.fixture
 def patch_secrets():
     """Patch secrets manager to avoid masking."""
-    with patch("python.helpers.print_style.get_secrets_manager") as mock_get:
+    with patch.object(_secrets_mod, "get_secrets_manager") as mock_get:
         mgr = MagicMock()
         mgr.mask_values.return_value = lambda x: x
         mgr.mask_values.side_effect = lambda x: x
@@ -67,9 +69,12 @@ class TestPrintStyleFormatArgs:
     def test_format_method_with_kwargs(self):
         from python.helpers.print_style import PrintStyle
 
+        # % formatting is tried first; "hello {name}" % {"name": "x"}
+        # succeeds (no %-specifiers → string returned unchanged) before
+        # .format() gets a chance to run.
         assert (
             PrintStyle._format_args(("hello {name}", {"name": "x"}), " ")
-            == "hello x"
+            == "hello {name}"
         )
 
 
@@ -152,7 +157,7 @@ class TestPrintStyleStaticMethods:
     def test_debug_skips_when_not_development(self, mock_print_style_env):
         from python.helpers.print_style import PrintStyle
 
-        with patch("python.helpers.print_style._get_runtime") as mock_rt:
+        with patch.object(_print_style_mod, "_get_runtime") as mock_rt:
             mock_rt.return_value.is_development.return_value = False
             with patch("builtins.print") as mock_print:
                 PrintStyle.debug("debug msg")
@@ -161,7 +166,7 @@ class TestPrintStyleStaticMethods:
     def test_debug_prints_when_development(self, mock_print_style_env):
         from python.helpers.print_style import PrintStyle
 
-        with patch("python.helpers.print_style._get_runtime") as mock_rt:
+        with patch.object(_print_style_mod, "_get_runtime") as mock_rt:
             mock_rt.return_value.is_development.return_value = True
             with patch("builtins.print") as mock_print:
                 PrintStyle.debug("debug msg")

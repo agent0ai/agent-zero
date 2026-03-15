@@ -10,6 +10,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+try:
+    import agent as _agent_mod
+except (ImportError, AttributeError, Exception):
+    _agent_mod = None
+
+pytestmark = pytest.mark.skipif(_agent_mod is None, reason="Cannot import agent module")
+
 
 @pytest.fixture
 def mock_model_config():

@@ -168,7 +168,7 @@ class TestInitializeJobLoop:
     def test_initialize_job_loop_returns_deferred_task(self):
         from initialize import initialize_job_loop
 
-        with patch("initialize.run_loop", AsyncMock()):
+        with patch("python.helpers.job_loop.run_loop", AsyncMock()):
             result = initialize_job_loop()
             assert result is not None
             assert hasattr(result, "start_task")
@@ -178,8 +178,9 @@ class TestInitializePreload:
     def test_initialize_preload_returns_deferred_task(self):
         from initialize import initialize_preload
 
-        with patch("initialize.preload") as mock_preload_mod:
-            mock_preload_mod.preload = MagicMock()
+        mock_preload_mod = MagicMock()
+        mock_preload_mod.preload = AsyncMock()
+        with patch.dict("sys.modules", {"preload": mock_preload_mod}):
             result = initialize_preload()
             assert result is not None
             assert hasattr(result, "start_task")

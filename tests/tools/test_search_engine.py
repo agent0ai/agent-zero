@@ -47,7 +47,7 @@ class TestSearchEngineExecute:
         assert resp.break_loop is False
 
     @pytest.mark.asyncio
-    async def test_handles_search_exception(self, tool):
+    async def test_search_exception_propagates(self, tool):
         with patch("python.tools.search_engine.searxng", new_callable=AsyncMock, side_effect=Exception("Search failed")):
-            resp = await tool.execute(query="test")
-        assert "failed" in resp.message.lower()
+            with pytest.raises(Exception, match="Search failed"):
+                await tool.execute(query="test")

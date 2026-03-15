@@ -26,7 +26,7 @@ def mock_agent():
 @pytest.fixture
 def tool(mock_agent):
     from python.tools.wait import WaitTool
-    return WaitTool(
+    t = WaitTool(
         agent=mock_agent,
         name="wait",
         method=None,
@@ -34,6 +34,8 @@ def tool(mock_agent):
         message="",
         loop_data=None,
     )
+    t.log = MagicMock()
+    return t
 
 
 class TestWaitToolExecute:

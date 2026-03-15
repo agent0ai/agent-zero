@@ -48,5 +48,6 @@ class TestMemorySaveExecute:
         with patch("python.tools.memory_save.Memory.get", new_callable=AsyncMock, return_value=mock_db):
             resp = await tool.execute(text="Data", area="")
         mock_db.insert_text.assert_called_once()
-        call_kw = mock_db.insert_text.call_args[1]
-        assert call_kw.get("metadata", {}).get("area") == "main"
+        call_args = mock_db.insert_text.call_args
+        metadata = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("metadata", {})
+        assert metadata.get("area") == "main"

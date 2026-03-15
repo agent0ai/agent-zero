@@ -47,43 +47,43 @@ class TestGetDefaultValue:
 
     def test_returns_env_value_for_str(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "custom" if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "custom" if "FOO" in k.upper() else d
             result = settings_module.get_default_value("foo", "default")
         assert result == "custom"
 
     def test_returns_env_value_for_int(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "42" if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "42" if "FOO" in k.upper() else d
             result = settings_module.get_default_value("foo", 0)
         assert result == 42
 
     def test_returns_env_value_for_bool_true(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "true" if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "true" if "FOO" in k.upper() else d
             result = settings_module.get_default_value("foo", False)
         assert result is True
 
     def test_returns_env_value_for_bool_yes(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "yes" if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "yes" if "FOO" in k.upper() else d
             result = settings_module.get_default_value("foo", False)
         assert result is True
 
     def test_returns_env_value_for_bool_false(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "false" if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "false" if "FOO" in k.upper() else d
             result = settings_module.get_default_value("foo", True)
         assert result is False
 
     def test_returns_env_value_for_dict(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: '{"a": 1}' if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: '{"a": 1}' if "FOO" in k.upper() else d
             result = settings_module.get_default_value("foo", {})
         assert result == {"a": 1}
 
     def test_invalid_value_returns_default_and_warns(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "not_a_number" if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "not_a_number" if "FOO" in k.upper() else d
             with patch("python.helpers.settings.PrintStyle") as mock_ps:
                 result = settings_module.get_default_value("foo", 100)
         assert result == 100
@@ -91,7 +91,7 @@ class TestGetDefaultValue:
 
     def test_invalid_json_returns_default(self):
         with patch("python.helpers.settings.dotenv") as mock_dotenv:
-            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "{invalid" if "foo" in k.upper() else None
+            mock_dotenv.get_dotenv_value.side_effect = lambda k, d=None: "{invalid" if "FOO" in k.upper() else d
             with patch("python.helpers.settings.PrintStyle"):
                 result = settings_module.get_default_value("foo", {})
         assert result == {}
@@ -153,17 +153,19 @@ class TestNormalizeSettings:
 
 class TestGetDefaultSettings:
     def test_returns_settings_dict_with_required_keys(self):
-        with patch("python.helpers.settings.files") as mock_files:
+        with (
+            patch("python.helpers.settings.files") as mock_files,
+            patch("python.helpers.settings.runtime") as mock_runtime,
+            patch("python.helpers.settings.git") as mock_git,
+            patch("python.helpers.settings.dotenv") as mock_dotenv,
+        ):
             mock_files.read_file.return_value = "# gitignore"
             mock_files.get_abs_path.side_effect = lambda *p: "/a0/" + "/".join(p)
             mock_files.get_abs_path_dockerized.side_effect = lambda *p: "/a0/" + "/".join(p)
-        with patch("python.helpers.settings.runtime") as mock_runtime:
             mock_runtime.is_dockerized.return_value = False
-        with patch("python.helpers.settings.git") as mock_git:
             mock_git.get_version.return_value = "v0.9.0"
-        with patch("python.helpers.settings.dotenv") as mock_dotenv:
             mock_dotenv.get_dotenv_value.return_value = None
-        result = settings_module.get_default_settings()
+            result = settings_module.get_default_settings()
         assert "version" in result
         assert "chat_model_provider" in result
         assert "api_keys" in result
@@ -190,13 +192,15 @@ class TestGetSettings:
         assert result["chat_model_provider"] == "openai"
 
     def test_returns_cached_settings_on_second_call(self):
-        with patch("python.helpers.settings._read_settings_file", return_value=None):
-            with patch("python.helpers.settings.get_default_settings") as mock_def:
-                mock_def.return_value = _minimal_settings()
-            with patch("python.helpers.settings._load_sensitive_settings"):
-                r1 = settings_module.get_settings()
-                r2 = settings_module.get_settings()
-        assert r1 is r2
+        minimal = _minimal_settings()
+        with (
+            patch("python.helpers.settings._read_settings_file", return_value=None),
+            patch("python.helpers.settings.get_default_settings", return_value=minimal),
+            patch("python.helpers.settings._load_sensitive_settings"),
+        ):
+            r1 = settings_module.get_settings()
+            r2 = settings_module.get_settings()
+        assert r1 == r2
 
 
 class TestReloadSettings:

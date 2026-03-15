@@ -260,14 +260,14 @@ class TestDashboardCallsSetup:
 
     @pytest.mark.asyncio
     async def test_process_calls_ensure_setup_before_action(self):
-        """The top-level process() must call ensure_cognee_setup() before dispatching."""
+        """The top-level process() must call configure_cognee() before dispatching."""
         dashboard = _make_dashboard()
         call_order = []
 
-        async def mock_setup():
-            call_order.append("ensure_cognee_setup")
+        def mock_setup():
+            call_order.append("configure_cognee")
 
-        with patch("python.api.memory_dashboard.ensure_cognee_setup", side_effect=mock_setup) as mock_ecs, \
+        with patch("python.helpers.cognee_init.configure_cognee", side_effect=mock_setup) as mock_ecs, \
              patch("python.api.memory_dashboard.get_existing_memory_subdirs", return_value=["default"]):
             result = await dashboard.process({"action": "get_memory_subdirs"}, MagicMock())
 
@@ -276,15 +276,14 @@ class TestDashboardCallsSetup:
 
     @pytest.mark.asyncio
     async def test_search_memories_works_after_setup(self):
-        """Full flow: setup → list_datasets → return memories.
+        """Full flow: setup -> list_datasets -> return memories.
         This test would have caught the production DatabaseNotCreatedError."""
         dashboard = _make_dashboard()
 
         mock_cognee = MagicMock()
         mock_cognee.datasets.list_datasets = AsyncMock(return_value=[])
 
-        with patch("python.api.memory_dashboard.ensure_cognee_setup", new_callable=AsyncMock), \
-             patch.dict("sys.modules", {"cognee": mock_cognee}), \
+        with patch.dict("sys.modules", {"cognee": mock_cognee}), \
              patch("python.api.memory_dashboard.Memory") as MockMem:
             mock_mem_instance = MagicMock()
             mock_mem_instance._area_dataset.side_effect = lambda a: f"default_{a}"
@@ -315,8 +314,7 @@ class TestDashboardCallsSetup:
             side_effect=DatabaseNotCreatedError("DB not created")
         )
 
-        with patch("python.api.memory_dashboard.ensure_cognee_setup", new_callable=AsyncMock), \
-             patch.dict("sys.modules", {"cognee": mock_cognee}), \
+        with patch.dict("sys.modules", {"cognee": mock_cognee}), \
              patch("python.api.memory_dashboard.Memory") as MockMem:
             mock_mem_instance = MagicMock()
             mock_mem_instance._area_dataset.side_effect = lambda a: f"default_{a}"
@@ -338,7 +336,7 @@ class TestDashboardCallsSetup:
         mock_cognee = MagicMock()
         mock_cognee.visualize_graph = AsyncMock(return_value="<html></html>")
 
-        with patch("python.api.memory_dashboard.ensure_cognee_setup", new_callable=AsyncMock) as mock_setup, \
+        with patch("python.helpers.cognee_init.configure_cognee") as mock_setup, \
              patch.dict("sys.modules", {"cognee": mock_cognee}):
             result = await dashboard.process({"action": "knowledge_graph"}, MagicMock())
 

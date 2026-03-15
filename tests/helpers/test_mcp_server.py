@@ -56,13 +56,25 @@ class TestToolModels:
 
 # ─── send_message tool ────────────────────────────────────────────────────────
 
+def _send_message(mcp):
+    """Get the raw send_message async function (unwrap FunctionTool decorator)."""
+    tool = getattr(mcp, "send_message")
+    return tool.fn if hasattr(tool, "fn") else tool
+
+
+def _finish_chat(mcp):
+    """Get the raw finish_chat async function (unwrap FunctionTool decorator)."""
+    tool = getattr(mcp, "finish_chat")
+    return tool.fn if hasattr(tool, "fn") else tool
+
+
 class TestSendMessage:
     @pytest.mark.asyncio
     async def test_empty_message_returns_error(self):
         mcp = _import_mcp_server()
         mcp._mcp_project_name.set(None)
         with patch.object(mcp, "_run_chat", new_callable=AsyncMock):
-            result = await mcp.send_message(message="", chat_id=None, persistent_chat=False)
+            result = await _send_message(mcp)(message="", chat_id=None, persistent_chat=False)
         assert isinstance(result, mcp.ToolError)
         assert "Message is required" in result.error
 
@@ -71,7 +83,7 @@ class TestSendMessage:
         mcp = _import_mcp_server()
         mcp._mcp_project_name.set(None)
         mcp.AgentContext.get.return_value = None
-        result = await mcp.send_message(message="hi", chat_id="nonexistent")
+        result = await _send_message(mcp)(message="hi", chat_id="nonexistent")
         assert isinstance(result, mcp.ToolError)
         assert "Chat not found" in result.error
 
@@ -83,7 +95,7 @@ class TestSendMessage:
         ctx.id = "chat-1"
         ctx.get_data.return_value = "project_b"
         mcp.AgentContext.get.return_value = ctx
-        result = await mcp.send_message(message="hi", chat_id="chat-1")
+        result = await _send_message(mcp)(message="hi", chat_id="chat-1")
         assert isinstance(result, mcp.ToolError)
         assert "Chat belongs to project" in result.error
 
@@ -96,7 +108,7 @@ class TestSendMessage:
         ctx.id = "ctx-1"
         mcp.AgentContext.return_value = ctx
         with patch.object(mcp, "_run_chat", new_callable=AsyncMock, return_value="Done"):
-            result = await mcp.send_message(
+            result = await _send_message(mcp)(
                 message="hello", chat_id=None, persistent_chat=False
             )
         assert isinstance(result, mcp.ToolResponse)
@@ -114,7 +126,7 @@ class TestSendMessage:
         ctx.id = "ctx-1"
         mcp.AgentContext.return_value = ctx
         with patch.object(mcp, "_run_chat", new_callable=AsyncMock, return_value="Done"):
-            result = await mcp.send_message(
+            result = await _send_message(mcp)(
                 message="hello", chat_id=None, persistent_chat=True
             )
         assert result.chat_id == "ctx-1"
@@ -131,7 +143,7 @@ class TestSendMessage:
         with patch.object(
             mcp, "_run_chat", new_callable=AsyncMock, side_effect=ValueError("boom")
         ):
-            result = await mcp.send_message(
+            result = await _send_message(mcp)(
                 message="hello", chat_id=None, persistent_chat=False
             )
         assert isinstance(result, mcp.ToolError)
@@ -146,7 +158,7 @@ class TestSendMessage:
         ctx.id = "ctx-1"
         mcp.AgentContext.return_value = ctx
         mcp.projects.activate_project.side_effect = Exception("Project not found")
-        result = await mcp.send_message(message="hi", chat_id=None)
+        result = await _send_message(mcp)(message="hi", chat_id=None)
         assert isinstance(result, mcp.ToolError)
         assert "Failed to activate project" in result.error
 
@@ -157,7 +169,7 @@ class TestFinishChat:
     @pytest.mark.asyncio
     async def test_empty_chat_id_returns_error(self):
         mcp = _import_mcp_server()
-        result = await mcp.finish_chat(chat_id="")
+        result = await _finish_chat(mcp)(chat_id="")
         assert isinstance(result, mcp.ToolError)
         assert "Chat ID is required" in result.error
 
@@ -165,7 +177,7 @@ class TestFinishChat:
     async def test_chat_not_found_returns_error(self):
         mcp = _import_mcp_server()
         mcp.AgentContext.get.return_value = None
-        result = await mcp.finish_chat(chat_id="missing")
+        result = await _finish_chat(mcp)(chat_id="missing")
         assert isinstance(result, mcp.ToolError)
         assert "Chat not found" in result.error
 
@@ -175,7 +187,7 @@ class TestFinishChat:
         ctx = MagicMock()
         ctx.id = "chat-1"
         mcp.AgentContext.get.return_value = ctx
-        result = await mcp.finish_chat(chat_id="chat-1")
+        result = await _finish_chat(mcp)(chat_id="chat-1")
         assert isinstance(result, mcp.ToolResponse)
         assert result.response == "Chat finished"
         assert result.chat_id == "chat-1"
@@ -371,16 +383,12 @@ class TestMcpMiddleware:
 class TestMcpServerTools:
     def test_send_message_registered(self):
         mcp = _import_mcp_server()
-        if hasattr(mcp.mcp_server, "_get_tools"):
-            tools = [t.name for t in mcp.mcp_server._get_tools()]
-            assert "send_message" in tools
-        else:
-            assert callable(getattr(mcp, "send_message", None))
+        tool = getattr(mcp, "send_message", None)
+        assert tool is not None
+        assert hasattr(tool, "fn") and callable(tool.fn)
 
     def test_finish_chat_registered(self):
         mcp = _import_mcp_server()
-        if hasattr(mcp.mcp_server, "_get_tools"):
-            tools = [t.name for t in mcp.mcp_server._get_tools()]
-            assert "finish_chat" in tools
-        else:
-            assert callable(getattr(mcp, "finish_chat", None))
+        tool = getattr(mcp, "finish_chat", None)
+        assert tool is not None
+        assert hasattr(tool, "fn") and callable(tool.fn)

@@ -44,7 +44,9 @@ class TestUploadWorkDirFiles:
         handler = _make_handler(app, lock)
         storage = _make_file_storage("doc.txt")
         request = MagicMock()
-        request.files = {"files[]": [storage]}
+        request.files = MagicMock()
+        request.files.__contains__ = lambda self, k: k == "files[]"
+        request.files.getlist = MagicMock(return_value=[storage])
         request.form = {"path": "/a0"}
 
         with patch(
@@ -69,7 +71,9 @@ class TestUploadWorkDirFiles:
         handler = _make_handler(app, lock)
         storage = _make_file_storage("doc.txt")
         request = MagicMock()
-        request.files = {"files[]": [storage]}
+        request.files = MagicMock()
+        request.files.__contains__ = lambda self, k: k == "files[]"
+        request.files.getlist = MagicMock(return_value=[storage])
         request.form = {"path": "/a0"}
 
         with patch(
@@ -93,7 +97,9 @@ class TestUploadWorkDirFiles:
         handler = _make_handler(app, lock)
         storage = _make_file_storage("bad.txt")
         request = MagicMock()
-        request.files = {"files[]": [storage]}
+        request.files = MagicMock()
+        request.files.__contains__ = lambda self, k: k == "files[]"
+        request.files.getlist = MagicMock(return_value=[storage])
         request.form = {"path": "/a0"}
 
         with patch(

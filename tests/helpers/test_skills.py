@@ -152,7 +152,7 @@ class TestSplitFrontmatter:
         from python.helpers.skills import split_frontmatter
         text = "No frontmatter here"
         fm, body, errors = split_frontmatter(text)
-        assert "Missing YAML frontmatter" in errors
+        assert "Frontmatter must start at the top of the file" in errors
 
     def test_unterminated_frontmatter(self):
         from python.helpers.skills import split_frontmatter

@@ -25,7 +25,7 @@ def mock_agent():
 @pytest.fixture
 def tool(mock_agent):
     from python.tools.call_subordinate import Delegation
-    return Delegation(
+    t = Delegation(
         agent=mock_agent,
         name="call_subordinate",
         method=None,
@@ -33,6 +33,8 @@ def tool(mock_agent):
         message="",
         loop_data=None,
     )
+    t.log = MagicMock()
+    return t
 
 
 class TestDelegationExecute:
@@ -43,6 +45,11 @@ class TestDelegationExecute:
         mock_sub.monologue = AsyncMock(return_value="Subordinate result")
         mock_sub.history = MagicMock()
         mock_sub.history.new_topic = MagicMock()
+
+        stored = {}
+        tool.agent.get_data = MagicMock(side_effect=lambda k: stored.get(k))
+        tool.agent.set_data = MagicMock(side_effect=lambda k, v: stored.__setitem__(k, v))
+
         with patch("python.tools.call_subordinate.initialize_agent", return_value=MagicMock()):
             with patch("python.tools.call_subordinate.Agent", return_value=mock_sub):
                 resp = await tool.execute(message="Do something", reset="false")
@@ -51,9 +58,11 @@ class TestDelegationExecute:
 
     @pytest.mark.asyncio
     async def test_reset_creates_new_subordinate(self, tool):
-        from agent import Agent
-        old_sub = MagicMock()
-        tool.agent.get_data = MagicMock(side_effect=lambda k: old_sub if k == Agent.DATA_NAME_SUBORDINATE else None)
+        stored = {}
+        tool.agent.get_data = MagicMock(side_effect=lambda k: stored.get(k))
+        tool.agent.set_data = MagicMock(side_effect=lambda k, v: stored.__setitem__(k, v))
+        stored["_subordinate_"] = MagicMock()
+
         with patch("python.tools.call_subordinate.initialize_agent", return_value=MagicMock()):
             with patch("python.tools.call_subordinate.Agent") as MockAgent:
                 new_sub = MagicMock()

@@ -60,7 +60,8 @@ class TestUploadFile:
         storage = _make_file_storage("")
         storage.filename = ""
         request = MagicMock()
-        request.files = {"file": [storage]}
+        request.files = MagicMock()
+        request.files.__contains__ = lambda self, k: k == "file"
         request.files.getlist = MagicMock(return_value=[storage])
 
         with patch("python.api.upload.safe_filename", return_value=""):

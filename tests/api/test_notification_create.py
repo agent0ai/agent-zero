@@ -79,9 +79,9 @@ class TestNotificationCreate:
             await handler.process({"message": "Minimal"}, MagicMock())
 
         mock_send.assert_called_once()
-        call_kw = mock_send.call_args[1]
-        assert call_kw["display_time"] == 3
-        assert call_kw["group"] == ""
+        call_positional = mock_send.call_args[0]
+        assert call_positional[5] == 3   # display_time
+        assert call_positional[6] == ""  # group
 
     @pytest.mark.asyncio
     async def test_process_returns_error_on_exception(self, mock_app):

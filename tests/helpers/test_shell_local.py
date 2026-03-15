@@ -10,6 +10,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+for _stream in (sys.stdin, sys.stdout):
+    if not hasattr(_stream, 'reconfigure'):
+        _stream.reconfigure = lambda **kw: None  # type: ignore
+
 
 class TestLocalInteractiveSession:
     """Tests for LocalInteractiveSession."""

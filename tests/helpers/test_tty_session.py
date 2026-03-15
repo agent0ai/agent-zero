@@ -12,6 +12,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# tty_session.py calls sys.stdin.reconfigure() at module level.
+# Under pytest, sys.stdin is a DontReadFromInput object that lacks
+# reconfigure, so we must stub it before the module is first imported.
+for _stream in (sys.stdin, sys.stdout):
+    if not hasattr(_stream, "reconfigure"):
+        _stream.reconfigure = lambda **_kw: None  # type: ignore[attr-defined]
+
 _IS_WIN = platform.system() == "Windows"
 
 

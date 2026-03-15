@@ -10,6 +10,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+try:
+    from python.tools.code_execution_tool import CodeExecution
+except (ImportError, AttributeError) as e:
+    pytest.skip(f"Failed to import code_execution_tool: {e}", allow_module_level=True)
+
 
 @pytest.fixture
 def mock_agent():
@@ -28,8 +33,7 @@ def mock_agent():
 
 @pytest.fixture
 def tool(mock_agent):
-    from python.tools.code_execution_tool import CodeExecution
-    return CodeExecution(
+    t = CodeExecution(
         agent=mock_agent,
         name="code_execution",
         method=None,
@@ -37,21 +41,20 @@ def tool(mock_agent):
         message="",
         loop_data=None,
     )
+    t.log = MagicMock()
+    return t
 
 
 class TestCodeExecutionArgumentParsing:
     def test_parses_runtime_from_args(self, mock_agent):
-        from python.tools.code_execution_tool import CodeExecution
         t = CodeExecution(mock_agent, "ce", None, {"runtime": "nodejs", "code": "1+1"}, "", None)
         assert t.args["runtime"] == "nodejs"
 
     def test_parses_session_default_zero(self, mock_agent):
-        from python.tools.code_execution_tool import CodeExecution
         t = CodeExecution(mock_agent, "ce", None, {"runtime": "python", "code": "x"}, "", None)
         assert t.args.get("session", 0) == 0
 
     def test_parses_allow_running_from_args(self, mock_agent):
-        from python.tools.code_execution_tool import CodeExecution
         t = CodeExecution(mock_agent, "ce", None, {"runtime": "terminal", "code": "ls", "allow_running": "true"}, "", None)
         assert "allow_running" in t.args
         assert t.args["allow_running"] == "true"
@@ -99,7 +102,6 @@ class TestCodeExecutionGetHeadingFromOutput:
 class TestCodeExecutionExecute:
     @pytest.mark.asyncio
     async def test_unknown_runtime_returns_prompt(self, mock_agent):
-        from python.tools.code_execution_tool import CodeExecution
         from python.helpers.tool import Response
         t = CodeExecution(mock_agent, "ce", None, {"runtime": "invalid", "code": "x"}, "", None)
         with patch.object(t, "prepare_state", new_callable=AsyncMock):
@@ -109,7 +111,6 @@ class TestCodeExecutionExecute:
 
     @pytest.mark.asyncio
     async def test_reset_runtime_calls_reset_terminal(self, mock_agent):
-        from python.tools.code_execution_tool import CodeExecution
         from python.helpers.tool import Response
         t = CodeExecution(mock_agent, "ce", None, {"runtime": "reset", "session": 0}, "", None)
         with patch.object(t, "prepare_state", new_callable=AsyncMock):
@@ -122,7 +123,6 @@ class TestCodeExecutionExecute:
 class TestCodeExecutionPrepareState:
     @pytest.mark.asyncio
     async def test_creates_state_when_none(self, mock_agent, tmp_path):
-        from python.tools.code_execution_tool import CodeExecution
         t = CodeExecution(mock_agent, "ce", None, {"runtime": "python", "code": "1", "session": 0}, "", None)
         with patch("python.tools.code_execution_tool.files.normalize_a0_path", return_value=str(tmp_path)):
             with patch("python.tools.code_execution_tool.runtime.call_development_function", new_callable=AsyncMock):

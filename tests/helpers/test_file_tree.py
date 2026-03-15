@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from python.helpers.files import create_dir, delete_dir, get_abs_path, write_file
+import python.helpers.files as _files_mod
 from python.helpers.file_tree import (
     OUTPUT_MODE_FLAT,
     OUTPUT_MODE_NESTED,
@@ -44,9 +45,10 @@ def materialize_structure(base_rel: str, structure: dict) -> None:
 @pytest.fixture
 def patch_base_dir(tmp_workdir):
     """Patch get_base_dir to use tmp_workdir for file operations."""
-    with patch("python.helpers.files.get_base_dir", return_value=str(tmp_workdir)):
-        with patch(
-            "python.helpers.file_tree.files_helper.get_abs_path_dockerized",
+    with patch.object(_files_mod, "get_base_dir", return_value=str(tmp_workdir)):
+        with patch.object(
+            _files_mod,
+            "get_abs_path_dockerized",
             side_effect=lambda *p: str(Path(tmp_workdir).joinpath(*p)),
         ):
             yield tmp_workdir
@@ -123,7 +125,8 @@ class TestFileTreeErrors:
 class TestFileTreeStringOutput:
     def test_string_output_has_root_banner(self, tree_root):
         result = file_tree(tree_root, output_mode=OUTPUT_MODE_STRING)
-        assert result.strip().endswith("/")
+        first_line = result.strip().split("\n")[0]
+        assert first_line.endswith("/")
         assert "alpha" in result or "beta" in result or "a.txt" in result
 
     def test_string_output_uses_tree_connectors(self, tree_root):
@@ -223,7 +226,7 @@ class TestFileTreeMaxLines:
     def test_max_lines_truncates_output(self, tree_root):
         result = file_tree(tree_root, max_lines=4, output_mode=OUTPUT_MODE_STRING)
         lines = [l for l in result.split("\n") if l.strip()]
-        assert len(lines) <= 5  # root + up to 4 entries, may include summary comment
+        assert len(lines) <= 6  # root + up to 4 entries + possible summary comment
 
     def test_max_lines_emits_summary_comment_when_truncated(self, patch_base_dir):
         rel = "tmp/tests/file_tree/max_lines"

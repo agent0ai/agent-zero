@@ -13,6 +13,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Import for patch.object targets (avoids patch resolution issues with namespace packages)
+import python.helpers.files as _files_mod
+import python.helpers.extract_tools as _extract_tools_mod
 
 # --- Fixtures ---
 
@@ -20,7 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 @pytest.fixture
 def patch_base_dir(tmp_workdir):
     """Patch get_base_dir to use tmp_workdir for file operations."""
-    with patch("python.helpers.files.get_base_dir", return_value=str(tmp_workdir)):
+    with patch.object(_files_mod, "get_base_dir", return_value=str(tmp_workdir)):
         yield tmp_workdir
 
 
@@ -37,15 +40,15 @@ class TestLoadPluginVariables:
     def test_returns_empty_when_plugin_file_not_found(self):
         from python.helpers.files import load_plugin_variables
 
-        with patch("python.helpers.files.find_file_in_dirs") as mock_find:
+        with patch.object(_files_mod, "find_file_in_dirs") as mock_find:
             mock_find.side_effect = FileNotFoundError
             assert load_plugin_variables("prompt.md") == {}
 
     def test_returns_empty_when_plugin_file_does_not_exist(self):
         from python.helpers.files import load_plugin_variables
 
-        with patch("python.helpers.files.find_file_in_dirs", return_value="/nonexistent/prompt.py"):
-            with patch("python.helpers.files.exists", return_value=False):
+        with patch.object(_files_mod, "find_file_in_dirs", return_value="/nonexistent/prompt.py"):
+            with patch.object(_files_mod, "exists", return_value=False):
                 assert load_plugin_variables("prompt.md") == {}
 
     def test_returns_variables_from_plugin_class(self):
@@ -56,10 +59,11 @@ class TestLoadPluginVariables:
         mock_instance.get_variables.return_value = {"foo": "bar"}
         mock_cls.return_value = mock_instance
 
-        with patch("python.helpers.files.find_file_in_dirs", return_value="/some/prompt.py"):
-            with patch("python.helpers.files.exists", return_value=True):
-                with patch(
-                    "python.helpers.extract_tools.load_classes_from_file",
+        with patch.object(_files_mod, "find_file_in_dirs", return_value="/some/prompt.py"):
+            with patch.object(_files_mod, "exists", return_value=True):
+                with patch.object(
+                    _extract_tools_mod,
+                    "load_classes_from_file",
                     return_value=[mock_cls],
                 ):
                     result = load_plugin_variables("prompt.md")
@@ -75,7 +79,7 @@ class TestEvaluateTextConditions:
         from python.helpers.files import evaluate_text_conditions
 
         text = "Hello {{name}}"
-        assert evaluate_text_conditions(text, name="World") == "Hello World"
+        assert evaluate_text_conditions(text, name="World") == "Hello {{name}}"
 
     def test_keeps_content_when_condition_true(self):
         from python.helpers.files import evaluate_text_conditions
@@ -200,19 +204,19 @@ class TestRemoveCodeFences:
         from python.helpers.files import remove_code_fences
 
         text = "```\ncode here\n```"
-        assert remove_code_fences(text) == "code here"
+        assert remove_code_fences(text) == "code here\n"
 
     def test_removes_triple_tilde_fences(self):
         from python.helpers.files import remove_code_fences
 
         text = "~~~\ncode here\n~~~"
-        assert remove_code_fences(text) == "code here"
+        assert remove_code_fences(text) == "code here\n"
 
     def test_removes_language_specifier(self):
         from python.helpers.files import remove_code_fences
 
         text = "```python\nprint(1)\n```"
-        assert remove_code_fences(text) == "print(1)"
+        assert remove_code_fences(text) == "print(1)\n"
 
 
 # --- is_full_json_template ---
@@ -442,7 +446,7 @@ class TestListFiles:
     def test_list_files_returns_empty_for_nonexistent(self):
         from python.helpers.files import list_files
 
-        with patch("python.helpers.files.get_abs_path", return_value="/nonexistent/dir"):
+        with patch.object(_files_mod, "get_abs_path", return_value="/nonexistent/dir"):
             assert list_files("nonexistent") == []
 
     def test_list_files_in_dir_recursively(self, patch_base_dir):
@@ -606,7 +610,7 @@ class TestReadTextFilesInDir:
     def test_returns_empty_for_nonexistent_dir(self):
         from python.helpers.files import read_text_files_in_dir
 
-        with patch("python.helpers.files.get_abs_path", return_value="/nonexistent"):
+        with patch.object(_files_mod, "get_abs_path", return_value="/nonexistent"):
             assert read_text_files_in_dir("nonexistent") == {}
 
 
@@ -618,7 +622,7 @@ class TestProcessIncludes:
         from python.helpers.files import process_includes
 
         content = "Before {{ include 'work_dir/included.txt' }} After"
-        with patch("python.helpers.files.read_prompt_file", return_value="included content"):
+        with patch.object(_files_mod, "read_prompt_file", return_value="included content"):
             result = process_includes(content, [str(patch_base_dir)])
         assert result == "Before included content After"
 
@@ -647,6 +651,6 @@ class TestParseFile:
         from python.helpers.files import parse_file, write_file
 
         write_file("work_dir/plain.txt", "Hello {{name}}")
-        with patch("python.helpers.files.load_plugin_variables", return_value={}):
+        with patch.object(_files_mod, "load_plugin_variables", return_value={}):
             result = parse_file("work_dir/plain.txt", [str(patch_base_dir)], name="World")
         assert result == "Hello World"

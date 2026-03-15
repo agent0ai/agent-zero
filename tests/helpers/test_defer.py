@@ -47,12 +47,13 @@ class TestEventLoopThread:
 
 class TestDeferredTask:
     def test_start_task_runs_coroutine(self):
+        from concurrent.futures import Future
         from python.helpers.defer import DeferredTask
 
         async def sample_task():
             return 42
 
-        mock_future = asyncio.Future()
+        mock_future = Future()
         mock_future.set_result(42)
         mock_elt = MagicMock()
         mock_elt.run_coroutine = MagicMock(return_value=mock_future)

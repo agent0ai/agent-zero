@@ -78,8 +78,8 @@ class TestSubagents:
     async def test_use_context_when_context_id_provided(self):
         handler = _make_handler()
         mock_ctx = MagicMock()
-        with patch.object(handler, "use_context", return_value=mock_ctx), \
+        with patch.object(handler, "use_context", return_value=mock_ctx) as mock_use_ctx, \
              patch.object(handler, "get_subagents_list", return_value=[]):
             result = await handler.process({"action": "list", "context_id": "ctx-123"}, MagicMock())
+            mock_use_ctx.assert_called_once_with("ctx-123")
         assert result["ok"] is True
-        handler.use_context.assert_called_once_with("ctx-123")

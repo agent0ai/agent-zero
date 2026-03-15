@@ -11,9 +11,23 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
+@pytest.fixture(autouse=True)
+def patch_browser_use_config(tmp_path):
+    """Patch browser_use config dir to avoid PermissionError in sandbox."""
+    import os
+    prev = os.environ.get("BROWSER_USE_CONFIG_DIR")
+    os.environ["BROWSER_USE_CONFIG_DIR"] = str(tmp_path / "browseruse")
+    yield
+    if prev is not None:
+        os.environ["BROWSER_USE_CONFIG_DIR"] = prev
+    else:
+        os.environ.pop("BROWSER_USE_CONFIG_DIR", None)
+
+
 @pytest.fixture
 def mock_agent():
     agent = MagicMock()
+    agent.handle_intervention = AsyncMock()
     agent.config = MagicMock()
     agent.config.browser_model = MagicMock()
     agent.config.browser_model.vision = True
@@ -97,19 +111,21 @@ class TestBrowserAgentMask:
 class TestBrowserAgentExecute:
     @pytest.mark.asyncio
     async def test_execute_returns_response_on_timeout(self, tool):
-        with patch.object(tool, "prepare_state", new_callable=AsyncMock):
-            with patch("python.tools.browser_agent.State") as MockState:
-                mock_state = MagicMock()
-                mock_task = MagicMock()
-                mock_task.is_ready = MagicMock(return_value=False)
-                mock_state.start_task = MagicMock(return_value=mock_task)
-                mock_state.use_agent = None
-                mock_state.kill_task = MagicMock()
-                MockState.create = AsyncMock(return_value=mock_state)
-                with patch("python.tools.browser_agent.get_secrets_manager") as mock_sm:
-                    mock_sm.return_value.mask_values = lambda x: x
-                    with patch("python.tools.browser_agent.time.time", side_effect=[0, 0, 400]):
-                        resp = await tool.execute(message="test", reset="false")
+        mock_state = MagicMock()
+        mock_task = MagicMock()
+        mock_task.is_ready = MagicMock(return_value=False)
+        mock_state.start_task = MagicMock(return_value=mock_task)
+        mock_state.use_agent = None
+        mock_state.kill_task = MagicMock()
+
+        async def mock_prepare_state(**kwargs):
+            tool.state = mock_state
+
+        with patch.object(tool, "prepare_state", new_callable=AsyncMock, side_effect=mock_prepare_state):
+            with patch("python.tools.browser_agent.get_secrets_manager") as mock_sm:
+                mock_sm.return_value.mask_values = lambda x, **kw: x
+                with patch("python.tools.browser_agent.time.time", side_effect=[0, 400]):
+                    resp = await tool.execute(message="test", reset="false")
         from python.helpers.tool import Response
         assert isinstance(resp, Response)
         assert resp.break_loop is False

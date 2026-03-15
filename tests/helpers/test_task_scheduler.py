@@ -21,7 +21,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 # ---------------------------------------------------------------------------
-# Stub heavy transitive deps before importing task_scheduler
+# Stub heavy transitive deps before importing task_scheduler.
+# We save originals and restore them after the import so that other test
+# modules collected in the same process are not affected.
 # ---------------------------------------------------------------------------
 _STUB_MODULES = [
     "agent", "initialize",
@@ -41,7 +43,10 @@ _STUB_MODULES = [
     "python.helpers.dirty_json",
     "python.helpers.whisper",
     "python.helpers.git",
+    "python.helpers.files",
 ]
+
+_saved_modules = {name: sys.modules[name] for name in _STUB_MODULES if name in sys.modules}
 
 for mod_name in _STUB_MODULES:
     stub = ModuleType(mod_name)
@@ -74,7 +79,6 @@ sys.modules["python.helpers.localization"].Localization = type("Localization", (
 })
 sys.modules["python.helpers.guids"].generate_id = lambda: "test-" + str(id(object()))
 sys.modules["python.helpers.settings"].get_default_value = lambda name, default: default
-sys.modules["python.helpers.files"] = ModuleType("python.helpers.files")
 sys.modules["python.helpers.files"].get_abs_path = lambda *a: "/tmp/test"
 sys.modules["python.helpers.files"].make_dirs = lambda *a: None
 sys.modules["python.helpers.files"].read_file = lambda *a: "{}"
@@ -101,6 +105,14 @@ from python.helpers.task_scheduler import (
     serialize_tasks,
     deserialize_task,
 )
+
+# Restore original modules so other test files are not poisoned.
+for _mod_name in _STUB_MODULES:
+    if _mod_name in _saved_modules:
+        sys.modules[_mod_name] = _saved_modules[_mod_name]
+    else:
+        sys.modules.pop(_mod_name, None)
+del _saved_modules
 
 
 # ---------------------------------------------------------------------------
@@ -661,6 +673,8 @@ class TestSerializeTasks:
 
 
 class TestDeserializeTask:
+    _NOW = datetime.now(timezone.utc).isoformat()
+
     def test_deserialize_scheduled_task(self):
         d = {
             "type": "scheduled",
@@ -670,6 +684,8 @@ class TestDeserializeTask:
             "prompt": "prompt",
             "schedule": {"minute": "0", "hour": "*", "day": "*", "month": "*", "weekday": "*", "timezone": "UTC"},
             "state": "idle",
+            "created_at": self._NOW,
+            "updated_at": self._NOW,
         }
         t = deserialize_task(d)
         assert isinstance(t, ScheduledTask)
@@ -684,6 +700,8 @@ class TestDeserializeTask:
             "prompt": "prompt",
             "token": "1234567890123456789",
             "state": "idle",
+            "created_at": self._NOW,
+            "updated_at": self._NOW,
         }
         t = deserialize_task(d)
         assert isinstance(t, AdHocTask)
@@ -698,6 +716,8 @@ class TestDeserializeTask:
             "prompt": "prompt",
             "plan": {"todo": [], "in_progress": None, "done": []},
             "state": "idle",
+            "created_at": self._NOW,
+            "updated_at": self._NOW,
         }
         t = deserialize_task(d)
         assert isinstance(t, PlannedTask)

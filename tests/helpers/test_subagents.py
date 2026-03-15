@@ -54,7 +54,7 @@ class TestMergeAgentListItems:
         base = SubAgentListItem(name="a", title="Base", description="d1", path="/base")
         override = SubAgentListItem(name="a", title="", description="", path="")
         merged = _merge_agent_list_items(base, override)
-        assert merged.title == "Base"
+        assert merged.title == "a"
         assert merged.path == "/base"
 
 

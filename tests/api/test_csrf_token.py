@@ -28,8 +28,9 @@ class TestGetCsrfToken:
     @pytest.mark.asyncio
     async def test_process_returns_ok_with_token_when_origin_allowed(self):
         handler = _make_handler()
+        mock_session = {}
         with patch.object(handler, "check_allowed_origin", new_callable=AsyncMock, return_value={"ok": True}), \
-             patch.dict("python.api.csrf_token.session", {}, clear=False):
+             patch("python.api.csrf_token.session", mock_session):
             result = await handler.process({}, MagicMock())
         assert result["ok"] is True
         assert "token" in result
@@ -38,8 +39,9 @@ class TestGetCsrfToken:
     @pytest.mark.asyncio
     async def test_process_reuses_existing_session_token(self):
         handler = _make_handler()
+        mock_session = {"csrf_token": "existing-token"}
         with patch.object(handler, "check_allowed_origin", new_callable=AsyncMock, return_value={"ok": True}), \
-             patch.dict("python.api.csrf_token.session", {"csrf_token": "existing-token"}):
+             patch("python.api.csrf_token.session", mock_session):
             with patch("python.api.csrf_token.runtime.get_runtime_id", return_value="rt-1"):
                 result = await handler.process({}, MagicMock())
         assert result["ok"] is True

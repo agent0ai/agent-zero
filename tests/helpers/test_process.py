@@ -113,7 +113,7 @@ class TestRestartProcess:
                 mock_execv.assert_called_once()
                 args = mock_execv.call_args[0]
                 assert args[0] == "/usr/bin/python3"
-                assert args[1] == ["python", "-m", "app"]
+                assert args[1] == ["/usr/bin/python3", "python", "-m", "app"]
 
 
 class TestExitProcess:

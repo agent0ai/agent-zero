@@ -70,7 +70,7 @@ class TestFileBrowserGetFiles:
     def test_get_files_subdir(self, file_browser, populated_workdir):
         result = file_browser.get_files("subdir")
         assert result["current_path"] == "subdir"
-        assert result["parent_path"] == ""
+        assert result["parent_path"] == "."
         entries = result["entries"]
         names = [e["name"] for e in entries]
         assert "inner.txt" in names

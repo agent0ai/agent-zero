@@ -25,17 +25,29 @@ class TestApiLogout:
     @pytest.mark.asyncio
     async def test_process_clears_session_and_returns_ok(self):
         handler = _make_handler()
-        with patch("python.api.logout.session") as mock_session:
+        mock_session = MagicMock()
+        import python.api.logout as _mod
+        _orig = _mod.session
+        _mod.session = mock_session
+        try:
             result = await handler.process({}, MagicMock())
+        finally:
+            _mod.session = _orig
         mock_session.clear.assert_called_once()
         assert result["ok"] is True
 
     @pytest.mark.asyncio
     async def test_process_pops_keys_on_clear_exception(self):
         handler = _make_handler()
-        with patch("python.api.logout.session") as mock_session:
-            mock_session.clear.side_effect = Exception("clear failed")
+        mock_session = MagicMock()
+        mock_session.clear.side_effect = Exception("clear failed")
+        import python.api.logout as _mod
+        _orig = _mod.session
+        _mod.session = mock_session
+        try:
             result = await handler.process({}, MagicMock())
+        finally:
+            _mod.session = _orig
         mock_session.pop.assert_any_call("authentication", None)
         mock_session.pop.assert_any_call("csrf_token", None)
         assert result["ok"] is True

@@ -33,11 +33,11 @@ class TestTranscribe:
     async def test_transcribe_use_context_when_ctxid_provided(self):
         handler = _make_handler()
         mock_ctx = MagicMock()
-        with patch.object(handler, "use_context", return_value=mock_ctx), \
+        with patch.object(handler, "use_context", return_value=mock_ctx) as mock_use_ctx, \
              patch("python.api.transcribe.settings.get_settings", return_value={"stt_model_size": "base"}), \
              patch("python.api.transcribe.whisper.transcribe", new_callable=AsyncMock, return_value={}):
             await handler.process({"audio": b"data", "ctxid": "ctx-1"}, MagicMock())
-        handler.use_context.assert_called_once_with("ctx-1")
+            mock_use_ctx.assert_called_once_with("ctx-1")
 
     @pytest.mark.asyncio
     async def test_transcribe_passes_settings_to_whisper(self):

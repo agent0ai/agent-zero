@@ -89,7 +89,8 @@ class TestMessage:
     def test_message_output_uses_summary_when_set(self):
         from python.helpers.history import Message
 
-        msg = Message(ai=True, content="original", summary="summarized")
+        msg = Message(ai=True, content="original")
+        msg.summary = "summarized"
         out = msg.output()
         assert len(out) == 1
         assert out[0]["ai"] is True
@@ -105,7 +106,8 @@ class TestMessage:
     def test_message_to_dict_from_dict_roundtrip(self, mock_agent):
         from python.helpers.history import Message, History
 
-        msg = Message(ai=True, content="test", summary="s", tokens=7)
+        msg = Message(ai=True, content="test", tokens=7)
+        msg.summary = "s"
         data = msg.to_dict()
         assert data["_cls"] == "Message"
         assert data["ai"] is True
@@ -318,7 +320,7 @@ class TestHistory:
     def test_history_init(self, mock_agent):
         from python.helpers.history import History
 
-        with patch("python.helpers.history.Agent", MagicMock):
+        with patch("agent.Agent", MagicMock):
             history = History(agent=mock_agent)
         assert history.counter == 0
         assert history.bulks == []

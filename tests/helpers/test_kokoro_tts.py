@@ -16,10 +16,14 @@ class TestKokoroTtsPreload:
     @pytest.mark.asyncio
     async def test_preload_sets_pipeline(self):
         mock_pipeline = MagicMock()
-        with patch("python.helpers.kokoro_tts.KPipeline", return_value=mock_pipeline):
+        mock_kokoro = MagicMock()
+        mock_kokoro.KPipeline.return_value = mock_pipeline
+        with patch.dict("sys.modules", {"kokoro": mock_kokoro}):
             with patch("python.helpers.kokoro_tts.PrintStyle"):
                 with patch("python.helpers.kokoro_tts.NotificationManager"):
                     from python.helpers import kokoro_tts
+                    kokoro_tts._pipeline = None
+                    kokoro_tts.is_updating_model = False
                     try:
                         await kokoro_tts.preload()
                         assert kokoro_tts._pipeline is mock_pipeline
@@ -30,25 +34,37 @@ class TestKokoroTtsPreload:
 class TestKokoroTtsIsDownloading:
     @pytest.mark.asyncio
     async def test_is_downloading_returns_bool(self):
-        with patch("python.helpers.kokoro_tts.is_updating_model", False):
-            from python.helpers import kokoro_tts
+        from python.helpers import kokoro_tts
+        old = kokoro_tts.is_updating_model
+        kokoro_tts.is_updating_model = False
+        try:
             result = await kokoro_tts.is_downloading()
+        finally:
+            kokoro_tts.is_updating_model = old
         assert isinstance(result, bool)
 
 
 class TestKokoroTtsIsDownloaded:
     @pytest.mark.asyncio
     async def test_is_downloaded_false_when_no_pipeline(self):
-        with patch("python.helpers.kokoro_tts._pipeline", None):
-            from python.helpers import kokoro_tts
+        from python.helpers import kokoro_tts
+        old = kokoro_tts._pipeline
+        kokoro_tts._pipeline = None
+        try:
             result = await kokoro_tts.is_downloaded()
+        finally:
+            kokoro_tts._pipeline = old
         assert result is False
 
     @pytest.mark.asyncio
     async def test_is_downloaded_true_when_loaded(self):
-        with patch("python.helpers.kokoro_tts._pipeline", MagicMock()):
-            from python.helpers import kokoro_tts
+        from python.helpers import kokoro_tts
+        old = kokoro_tts._pipeline
+        kokoro_tts._pipeline = MagicMock()
+        try:
             result = await kokoro_tts.is_downloaded()
+        finally:
+            kokoro_tts._pipeline = old
         assert result is True
 
 

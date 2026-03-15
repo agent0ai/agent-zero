@@ -255,10 +255,8 @@ class TestSendAllAggregated:
     def test_send_all_aggregated_combines_and_sends(self, mock_context):
         from python.helpers import message_queue
 
-        mock_context.get_data.side_effect = [
-            [{"id": "1", "text": "A", "attachments": []}, {"id": "2", "text": "B", "attachments": []}],
-            [],
-        ]
+        test_queue = [{"id": "1", "text": "A", "attachments": []}, {"id": "2", "text": "B", "attachments": []}]
+        mock_context.get_data.return_value = test_queue
         mock_context.log = MagicMock()
         mock_context.log.log = MagicMock()
         mock_context.communicate = MagicMock()

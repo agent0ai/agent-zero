@@ -149,14 +149,17 @@ def test_unregister_sid_cancels_pending_handles():
 # --- mark_dirty_all ---
 
 
-def test_mark_dirty_all_marks_all_registered_sids():
+@pytest.mark.asyncio
+async def test_mark_dirty_all_marks_all_registered_sids():
+    import asyncio
     from python.helpers.state_monitor import StateMonitor
     from python.helpers.state_snapshot import StateRequestV1
 
+    loop = asyncio.get_running_loop()
     monitor = StateMonitor()
     monitor.register_sid("/ns", "sid-1")
     monitor.register_sid("/ns", "sid-2")
-    monitor.bind_manager(type("M", (), {"_dispatcher_loop": None})())
+    monitor.bind_manager(type("M", (), {"_dispatcher_loop": loop})())
     monitor.update_projection(
         "/ns", "sid-1",
         request=StateRequestV1(context=None, log_from=0, notifications_from=0, timezone="UTC"),
@@ -186,14 +189,17 @@ def test_mark_dirty_for_context_skips_empty_context_id():
     assert ("/ns", "sid-1") in monitor._projections
 
 
-def test_mark_dirty_for_context_marks_only_matching_context():
+@pytest.mark.asyncio
+async def test_mark_dirty_for_context_marks_only_matching_context():
+    import asyncio
     from python.helpers.state_monitor import StateMonitor
     from python.helpers.state_snapshot import StateRequestV1
 
+    loop = asyncio.get_running_loop()
     monitor = StateMonitor()
     monitor.register_sid("/ns", "sid-a")
     monitor.register_sid("/ns", "sid-b")
-    monitor.bind_manager(type("M", (), {"_dispatcher_loop": None})())
+    monitor.bind_manager(type("M", (), {"_dispatcher_loop": loop})())
     monitor.update_projection(
         "/ns", "sid-a",
         request=StateRequestV1(context="ctx-1", log_from=0, notifications_from=0, timezone="UTC"),

@@ -56,7 +56,7 @@ class TestVectorDB:
         db = VectorDB(mock_agent)
         docs = [Document(page_content="hello", metadata={})]
         with patch("python.helpers.vector_db.configure_cognee"):
-            with patch("python.helpers.vector_db._get_cognee") as m:
+            with patch("python.helpers.memory._get_cognee") as m:
                 cognee = MagicMock()
                 cognee.add = AsyncMock()
                 m.return_value = (cognee, MagicMock())

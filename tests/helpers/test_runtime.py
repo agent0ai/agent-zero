@@ -1,5 +1,6 @@
 """Tests for python/helpers/runtime.py — initialize, get_arg, has_arg, is_dockerized, get_runtime_id, etc."""
 
+import argparse
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -12,25 +13,29 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from python.helpers import runtime
 
+_DEFAULT_NS = argparse.Namespace(port=None, host=None, cloudflare_tunnel=False, development=False)
+
 
 class TestRuntimeInitialize:
+    def setup_method(self):
+        self._orig_parser = runtime.parser
+        runtime.parser = argparse.ArgumentParser()
+
+    def teardown_method(self):
+        runtime.parser = self._orig_parser
+
     def test_initialize_parses_known_args(self):
         runtime.args = {}
-        with patch.object(runtime.parser, "parse_known_args", return_value=([], [])):
+        with patch.object(runtime.parser, "parse_known_args", return_value=(_DEFAULT_NS, [])):
             runtime.initialize()
-        assert "port" in runtime.args or runtime.args != {}
+        assert "port" in runtime.args
 
     def test_initialize_parses_unknown_kv_args(self):
         runtime.args = {}
         with patch.object(runtime.parser, "parse_known_args") as m:
-            known = MagicMock()
-            known.port = None
-            known.host = None
-            known.cloudflare_tunnel = False
-            known.development = False
-            m.return_value = (known, ["foo=bar"])
+            m.return_value = (_DEFAULT_NS, ["foo=bar"])
             runtime.initialize()
-        assert runtime.args.get("foo") == "bar" or "port" in runtime.args
+        assert runtime.args.get("foo") == "bar"
 
 
 class TestGetArg:

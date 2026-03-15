@@ -62,12 +62,11 @@ class TestGetExtensions:
 class TestCallExtensions:
     @pytest.mark.asyncio
     async def test_calls_extensions_in_order(self):
-        with patch("python.helpers.extension.subagents") as ms:
-            ms.get_paths.return_value = ["/a0/python/extensions"]
-        with patch("python.helpers.extension._get_extensions") as mg:
+        with patch("python.helpers.subagents.get_paths", return_value=["/a0/python/extensions"]), \
+             patch("python.helpers.extension._get_extensions") as mg:
             mg.return_value = [ConcreteExtension]
             results = []
-            async def mock_execute(**kwargs):
+            async def mock_execute(self, **kwargs):
                 results.append(kwargs)
                 return None
             with patch.object(ConcreteExtension, "execute", mock_execute):
@@ -86,9 +85,8 @@ class TestCallExtensions:
             async def execute(self, **kwargs):
                 return "B"
 
-        with patch("python.helpers.extension.subagents") as ms:
-            ms.get_paths.return_value = ["/a", "/b"]
-        with patch("python.helpers.extension._get_extensions") as mg:
+        with patch("python.helpers.subagents.get_paths", return_value=["/a", "/b"]), \
+             patch("python.helpers.extension._get_extensions") as mg:
             mg.side_effect = [[ExtA], [ExtB]]
             await call_extensions("test", agent=None)
         assert mg.call_count >= 1

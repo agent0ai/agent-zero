@@ -277,6 +277,9 @@ class TestCallLlm:
         from langchain_core.messages import AIMessageChunk
 
         class FakeStreamModel(Runnable):
+            def invoke(self, input, config=None, **kwargs):
+                return "Hello"
+
             async def astream(self, input, config=None, **kwargs):
                 for c in "Hello":
                     yield c
@@ -293,6 +296,9 @@ class TestCallLlm:
                 self.content = content
 
         class FakeContentModel(Runnable):
+            def invoke(self, input, config=None, **kwargs):
+                return "AB"
+
             async def astream(self, input, config=None, **kwargs):
                 yield Chunk("A")
                 yield Chunk("B")
@@ -305,6 +311,9 @@ class TestCallLlm:
         from langchain_core.runnables import Runnable
 
         class FakeStringModel(Runnable):
+            def invoke(self, input, config=None, **kwargs):
+                return "XYZ"
+
             async def astream(self, input, config=None, **kwargs):
                 yield "X"
                 yield "Y"
@@ -365,6 +374,9 @@ class TestCallLlm:
         from python.helpers.call_llm import call_llm
 
         class FakeOtherModel(Runnable):
+            def invoke(self, input, config=None, **kwargs):
+                return "42None"
+
             async def astream(self, input, config=None, **kwargs):
                 yield 42
                 yield None
@@ -379,6 +391,9 @@ class TestCallLlm:
         from python.helpers.call_llm import call_llm
 
         class FakeEmptyModel(Runnable):
+            def invoke(self, input, config=None, **kwargs):
+                return ""
+
             async def astream(self, input, config=None, **kwargs):
                 if False:
                     yield

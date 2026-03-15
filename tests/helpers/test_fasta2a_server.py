@@ -295,11 +295,11 @@ class TestDynamicA2AProxyCall:
 
     @pytest.mark.asyncio
     async def test_returns_401_when_token_invalid_in_path(self, mock_settings):
-        settings = {"mcp_server_token": "correct-token", "a2a_server_enabled": True}
+        cfg = {"mcp_server_token": "correct-token", "a2a_server_enabled": True}
 
         with patch("python.helpers.fasta2a_server.FASTA2A_AVAILABLE", True):
             with patch("python.helpers.fasta2a_server.settings") as m:
-                m.get_settings.return_value = settings
+                m.get_settings.return_value = cfg
                 with patch("python.helpers.fasta2a_server.FastA2A"):
                     with patch("python.helpers.fasta2a_server.InMemoryBroker"):
                         with patch("python.helpers.fasta2a_server.InMemoryStorage"):
@@ -317,17 +317,18 @@ class TestDynamicA2AProxyCall:
                             scope = {"type": "http", "path": "/t-wrong-token/", "method": "GET"}
                             receive = AsyncMock(return_value={"type": "http.disconnect"})
 
-                            await proxy(scope, receive, send)
+                            with patch("python.helpers.settings.get_settings", return_value=cfg):
+                                await proxy(scope, receive, send)
 
                             assert any(c.get("status") == 401 for c in send_calls if isinstance(c, dict))
 
     @pytest.mark.asyncio
     async def test_accepts_valid_token_in_path(self, mock_settings):
-        settings = {"mcp_server_token": "valid-token-123", "a2a_server_enabled": True}
+        cfg = {"mcp_server_token": "valid-token-123", "a2a_server_enabled": True}
 
         with patch("python.helpers.fasta2a_server.FASTA2A_AVAILABLE", True):
             with patch("python.helpers.fasta2a_server.settings") as m:
-                m.get_settings.return_value = settings
+                m.get_settings.return_value = cfg
                 mock_app = AsyncMock()
                 with patch("python.helpers.fasta2a_server.FastA2A"):
                     with patch("python.helpers.fasta2a_server.InMemoryBroker"):
@@ -338,15 +339,11 @@ class TestDynamicA2AProxyCall:
                             proxy.app = mock_app
                             proxy._startup_done = True
 
-                            send_calls = []
-
-                            async def send(msg):
-                                send_calls.append(msg)
-
                             scope = {"type": "http", "path": "/t-valid-token-123/.well-known/agent.json", "method": "GET"}
                             receive = AsyncMock(return_value={"type": "http.disconnect"})
 
-                            await proxy(scope, receive, send)
+                            with patch("python.helpers.settings.get_settings", return_value=cfg):
+                                await proxy(scope, receive, AsyncMock())
 
                             mock_app.assert_awaited_once()
                             call_scope = mock_app.call_args[0][0]
@@ -354,11 +351,11 @@ class TestDynamicA2AProxyCall:
 
     @pytest.mark.asyncio
     async def test_extracts_project_from_path_and_delegates(self, mock_settings):
-        settings = {"mcp_server_token": "tok", "a2a_server_enabled": True}
+        cfg = {"mcp_server_token": "tok", "a2a_server_enabled": True}
 
         with patch("python.helpers.fasta2a_server.FASTA2A_AVAILABLE", True):
             with patch("python.helpers.fasta2a_server.settings") as m:
-                m.get_settings.return_value = settings
+                m.get_settings.return_value = cfg
                 mock_app = AsyncMock()
                 with patch("python.helpers.fasta2a_server.FastA2A"):
                     with patch("python.helpers.fasta2a_server.InMemoryBroker"):
@@ -387,7 +384,8 @@ class TestDynamicA2AProxyCall:
                                     "path": "/t-tok/p-myproject/tasks/send",
                                     "method": "POST",
                                 }
-                                await proxy(scope, receive, AsyncMock())
+                                with patch("python.helpers.settings.get_settings", return_value=cfg):
+                                    await proxy(scope, receive, AsyncMock())
 
                                 mock_app.assert_awaited_once()
                                 call_scope = mock_app.call_args[0][0]
@@ -395,11 +393,11 @@ class TestDynamicA2AProxyCall:
 
     @pytest.mark.asyncio
     async def test_strips_a2a_prefix_from_path(self, mock_settings):
-        settings = {"mcp_server_token": "tok", "a2a_server_enabled": True}
+        cfg = {"mcp_server_token": "tok", "a2a_server_enabled": True}
 
         with patch("python.helpers.fasta2a_server.FASTA2A_AVAILABLE", True):
             with patch("python.helpers.fasta2a_server.settings") as m:
-                m.get_settings.return_value = settings
+                m.get_settings.return_value = cfg
                 mock_app = AsyncMock()
                 with patch("python.helpers.fasta2a_server.FastA2A"):
                     with patch("python.helpers.fasta2a_server.InMemoryBroker"):
@@ -413,18 +411,19 @@ class TestDynamicA2AProxyCall:
                             scope = {"type": "http", "path": "/a2a/t-tok/foo", "method": "GET"}
                             receive = AsyncMock(return_value={"type": "http.disconnect"})
 
-                            await proxy(scope, receive, AsyncMock())
+                            with patch("python.helpers.settings.get_settings", return_value=cfg):
+                                await proxy(scope, receive, AsyncMock())
 
                             call_scope = mock_app.call_args[0][0]
                             assert call_scope["path"] == "/foo"
 
     @pytest.mark.asyncio
     async def test_returns_401_when_bearer_auth_invalid(self, mock_settings):
-        settings = {"mcp_server_token": "expected-token", "a2a_server_enabled": True}
+        cfg = {"mcp_server_token": "expected-token", "a2a_server_enabled": True}
 
         with patch("python.helpers.fasta2a_server.FASTA2A_AVAILABLE", True):
             with patch("python.helpers.fasta2a_server.settings") as m:
-                m.get_settings.return_value = settings
+                m.get_settings.return_value = cfg
                 with patch("python.helpers.fasta2a_server.FastA2A"):
                     with patch("python.helpers.fasta2a_server.InMemoryBroker"):
                         with patch("python.helpers.fasta2a_server.InMemoryStorage"):
@@ -444,20 +443,22 @@ class TestDynamicA2AProxyCall:
                                 "path": "/",
                                 "method": "GET",
                                 "headers": [[b"authorization", b"Bearer wrong-token"]],
+                                "query_string": b"",
                             }
                             receive = AsyncMock(return_value={"type": "http.disconnect"})
 
-                            await proxy(scope, receive, send)
+                            with patch("python.helpers.settings.get_settings", return_value=cfg):
+                                await proxy(scope, receive, send)
 
                             assert any(c.get("status") == 401 for c in send_calls if isinstance(c, dict))
 
     @pytest.mark.asyncio
     async def test_accepts_bearer_auth(self, mock_settings):
-        settings = {"mcp_server_token": "secret-token", "a2a_server_enabled": True}
+        cfg = {"mcp_server_token": "secret-token", "a2a_server_enabled": True}
 
         with patch("python.helpers.fasta2a_server.FASTA2A_AVAILABLE", True):
             with patch("python.helpers.fasta2a_server.settings") as m:
-                m.get_settings.return_value = settings
+                m.get_settings.return_value = cfg
                 mock_app = AsyncMock()
                 with patch("python.helpers.fasta2a_server.FastA2A"):
                     with patch("python.helpers.fasta2a_server.InMemoryBroker"):
@@ -473,10 +474,12 @@ class TestDynamicA2AProxyCall:
                                 "path": "/",
                                 "method": "GET",
                                 "headers": [[b"authorization", b"Bearer secret-token"]],
+                                "query_string": b"",
                             }
                             receive = AsyncMock(return_value={"type": "http.disconnect"})
 
-                            await proxy(scope, receive, AsyncMock())
+                            with patch("python.helpers.settings.get_settings", return_value=cfg):
+                                await proxy(scope, receive, AsyncMock())
 
                             mock_app.assert_awaited_once()
 

@@ -110,7 +110,7 @@ class TestMissingApiKeyCheck:
 
         assert len(banners) == 1
         assert banners[0]["id"] == "missing-api-key"
-        assert "API key" in banners[0]["title"]
+        assert "API Key" in banners[0]["title"]
 
 
 class TestSystemResourcesCheck:

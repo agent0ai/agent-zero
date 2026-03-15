@@ -59,7 +59,7 @@ class TestEnsurePlaywrightBinary:
     def test_returns_existing_binary_without_install(self):
         """When binary exists, returns it without calling subprocess."""
         fake_bin = Path("/cache/chromium_headless_shell-1/chrome-1/headless_shell")
-        with patch("python.helpers.playwright.get_playwright_binary", side_effect=[fake_bin]):
+        with patch("python.helpers.playwright.get_playwright_binary", return_value=fake_bin):
             with patch("python.helpers.playwright.subprocess") as mock_sub:
                 from python.helpers.playwright import ensure_playwright_binary
 

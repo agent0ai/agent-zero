@@ -52,7 +52,7 @@ def mock_backup_file(tmp_path):
 def valid_backup_zip(tmp_path, tmp_workdir):
     """Create a valid backup zip with metadata.json and sample files."""
     usr = tmp_path / "usr"
-    usr.mkdir()
+    usr.mkdir(exist_ok=True)
     (usr / "data.json").write_text('{"key": "value"}')
     (usr / "settings.json").write_text('{"theme": "dark"}')
 
@@ -140,8 +140,8 @@ class TestGetExplicitPatterns:
     def test_extracts_non_wildcard(self, backup_service):
         inc = ["/foo/bar", "/baz/**"]
         explicit = backup_service._get_explicit_patterns(inc)
-        assert "/foo/bar" in explicit
-        assert "/foo" in explicit
+        assert "foo/bar" in explicit
+        assert "foo" in explicit
         assert "/baz/**" not in explicit
 
     def test_adds_parent_dirs(self, backup_service):
@@ -179,7 +179,7 @@ class TestTranslateRestorePath:
         backup_metadata = {
             "environment_info": {"agent_zero_root": "/old/root"},
         }
-        path = backup_service._translate_restore_path("usr/data.json", backup_metadata)
+        path = backup_service._translate_restore_path("old/root/usr/data.json", backup_metadata)
         assert path.startswith(str(tmp_workdir))
         assert "usr/data.json" in path or path.endswith("usr/data.json")
 
