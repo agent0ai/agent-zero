@@ -174,3 +174,182 @@ async def test_state_sync_handler_registers_and_routes_state_request():
     assert response["correlationId"] == "smoke-1"
     assert response["results"] and response["results"][0]["ok"] is True
     await manager.handle_disconnect(namespace, "sid-1")
+
+
+# --- RootDefaultHandler (_default.py) ---
+
+
+@pytest.mark.asyncio
+async def test_root_default_handler_requires_no_auth_or_csrf():
+    from python.websocket_handlers._default import RootDefaultHandler
+
+    assert RootDefaultHandler.requires_auth() is False
+    assert RootDefaultHandler.requires_csrf() is False
+
+
+@pytest.mark.asyncio
+async def test_root_default_handler_processes_ws_root_echo():
+    from python.helpers.websocket_manager import WebSocketManager
+    from python.websocket_handlers._default import RootDefaultHandler
+
+    RootDefaultHandler._reset_instance_for_testing()
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    manager = WebSocketManager(socketio, lock)
+    handler = RootDefaultHandler.get_instance(socketio, lock)
+    manager.register_handlers({"/": [handler]})
+    await manager.handle_connect("/", "sid-root")
+
+    response = await manager.route_event(
+        "/",
+        "ws_root_echo",
+        {"payload": "test-data", "nested": {"a": 1}},
+        "sid-root",
+    )
+
+    assert response["results"]
+    first = response["results"][0]
+    assert first["ok"] is True
+    data = first["data"]
+    assert data["ok"] is True
+    assert data["namespace"] == "/"
+    assert data["sid"] == "sid-root"
+    echo = data["echo"]
+    assert echo["payload"] == "test-data"
+    assert echo["nested"] == {"a": 1}
+
+
+# --- HelloHandler (hello_handler.py) ---
+
+
+@pytest.mark.asyncio
+async def test_hello_handler_processes_hello_request():
+    from python.helpers.websocket_manager import WebSocketManager
+    from python.websocket_handlers.hello_handler import HelloHandler
+
+    HelloHandler._reset_instance_for_testing()
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    manager = WebSocketManager(socketio, lock)
+    handler = HelloHandler.get_instance(socketio, lock)
+    manager.register_handlers({"/hello": [handler]})
+    await manager.handle_connect("/hello", "sid-hello")
+
+    response = await manager.route_event(
+        "/hello",
+        "hello_request",
+        {"name": "Alice"},
+        "sid-hello",
+    )
+
+    assert response["results"]
+    first = response["results"][0]
+    assert first["ok"] is True
+    data = first["data"]
+    assert data["message"] == "Hello, Alice!"
+    assert "handler" in data
+
+
+@pytest.mark.asyncio
+async def test_hello_handler_defaults_to_stranger_when_no_name():
+    from python.helpers.websocket_manager import WebSocketManager
+    from python.websocket_handlers.hello_handler import HelloHandler
+
+    HelloHandler._reset_instance_for_testing()
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    manager = WebSocketManager(socketio, lock)
+    handler = HelloHandler.get_instance(socketio, lock)
+    manager.register_handlers({"/hello": [handler]})
+    await manager.handle_connect("/hello", "sid-hello")
+
+    response = await manager.route_event(
+        "/hello",
+        "hello_request",
+        {},
+        "sid-hello",
+    )
+
+    assert response["results"][0]["data"]["message"] == "Hello, stranger!"
+
+
+# --- DevWebsocketTestHandler (dev_websocket_test_handler.py) ---
+
+
+@pytest.mark.asyncio
+async def test_dev_websocket_test_handler_ws_tester_request():
+    from python.helpers.websocket_manager import WebSocketManager
+    from python.websocket_handlers.dev_websocket_test_handler import DevWebsocketTestHandler
+
+    DevWebsocketTestHandler._reset_instance_for_testing()
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    manager = WebSocketManager(socketio, lock)
+    manager._schedule_lifecycle_broadcast = lambda *_args, **_kwargs: None
+    handler = DevWebsocketTestHandler.get_instance(socketio, lock)
+    manager.register_handlers({"/dev_websocket_test": [handler]})
+    await manager.handle_connect("/dev_websocket_test", "sid-dev")
+
+    response = await manager.route_event(
+        "/dev_websocket_test",
+        "ws_tester_request",
+        {"value": 42, "correlationId": "cid-1"},
+        "sid-dev",
+    )
+
+    assert response["results"]
+    first = response["results"][0]
+    assert first["ok"] is True
+    assert first["data"]["echo"] == 42
+    assert first["data"]["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_dev_websocket_test_handler_ws_tester_request_delayed():
+    from python.helpers.websocket_manager import WebSocketManager
+    from python.websocket_handlers.dev_websocket_test_handler import DevWebsocketTestHandler
+
+    DevWebsocketTestHandler._reset_instance_for_testing()
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    manager = WebSocketManager(socketio, lock)
+    manager._schedule_lifecycle_broadcast = lambda *_args, **_kwargs: None
+    handler = DevWebsocketTestHandler.get_instance(socketio, lock)
+    manager.register_handlers({"/dev_websocket_test": [handler]})
+    await manager.handle_connect("/dev_websocket_test", "sid-dev")
+
+    response = await manager.route_event(
+        "/dev_websocket_test",
+        "ws_tester_request_delayed",
+        {"delay_ms": 10, "correlationId": "cid-delayed"},
+        "sid-dev",
+    )
+
+    assert response["results"][0]["ok"] is True
+    assert response["results"][0]["data"]["status"] == "delayed"
+    assert response["results"][0]["data"]["delay_ms"] == 10
+
+
+@pytest.mark.asyncio
+async def test_dev_websocket_test_handler_unknown_event_returns_error():
+    from python.helpers.websocket_manager import WebSocketManager
+    from python.websocket_handlers.dev_websocket_test_handler import DevWebsocketTestHandler
+
+    DevWebsocketTestHandler._reset_instance_for_testing()
+    socketio = _FakeSocketIO()
+    lock = threading.RLock()
+    manager = WebSocketManager(socketio, lock)
+    manager._schedule_lifecycle_broadcast = lambda *_args, **_kwargs: None
+    handler = DevWebsocketTestHandler.get_instance(socketio, lock)
+    manager.register_handlers({"/dev_websocket_test": [handler]})
+    await manager.handle_connect("/dev_websocket_test", "sid-dev")
+
+    response = await manager.route_event(
+        "/dev_websocket_test",
+        "unknown_event_type",
+        {},
+        "sid-dev",
+    )
+
+    assert response["results"][0]["ok"] is False
+    assert response["results"][0]["error"]["code"] == "HARNESS_UNKNOWN_EVENT"

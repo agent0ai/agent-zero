@@ -32,8 +32,9 @@ def mock_agent():
 def mock_loop_data(mock_agent):
     ld = MagicMock()
     ld.message = "test user message"
-    ld.extras_temporary = ""
-    ld.extras_persistent = ""
+    ld.extras_temporary = {}
+    ld.extras_persistent = {}
+    ld.params_temporary = {}
     ld.agent = mock_agent
     ld.iteration = 1
     return ld
