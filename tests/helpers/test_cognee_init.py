@@ -17,10 +17,8 @@ def _reset_configured():
     """Reset the _configured flag before each test."""
     import python.helpers.cognee_init as ci
     ci._configured = False
-    ci._setup_done = False
     yield
     ci._configured = False
-    ci._setup_done = False
 
 
 @pytest.fixture
@@ -262,60 +260,81 @@ class TestConfigureCognee:
                 pass  # Expected when cognee module is None in sys.modules
 
 
-@pytest.mark.skip(reason="ensure_cognee_setup not yet implemented in cognee_init.py")
-class TestEnsureCogneeSetup:
-    @pytest.mark.asyncio
-    async def test_calls_setup_once(self):
+class TestConfigureCogneeAdditional:
+    """Additional tests for configure_cognee (formerly ensure_cognee_setup)."""
+
+    def _mock_settings(self):
+        return {
+            "util_model_provider": "openai",
+            "util_model_name": "gpt-4o-mini",
+            "util_model_api_base": "",
+            "embed_model_provider": "huggingface",
+            "embed_model_name": "BAAI/bge-small-en-v1.5",
+            "embed_model_api_base": "",
+            "api_keys": {"openai": "sk-test", "huggingface": "hf-test"},
+        }
+
+    def test_configure_cognee_idempotent_only_runs_once(self):
+        """configure_cognee is idempotent — config APIs called only once."""
         import python.helpers.cognee_init as ci
         mock_cognee = MagicMock()
-        mock_cognee.setup = AsyncMock()
-        with patch("python.helpers.cognee_init.configure_cognee"), \
-             patch.dict("sys.modules", {"cognee": mock_cognee}):
-            await ci.ensure_cognee_setup()
-            await ci.ensure_cognee_setup()
-        mock_cognee.setup.assert_called_once()
-        assert ci._setup_done is True
+        with patch("python.helpers.cognee_init.dotenv") as mock_dotenv, \
+             patch("python.helpers.cognee_init.get_settings", return_value=self._mock_settings()), \
+             patch.dict("sys.modules", {"cognee": mock_cognee}), \
+             patch("python.helpers.cognee_init.files") as mock_files:
+            mock_dotenv.load_dotenv.return_value = None
+            mock_dotenv.get_dotenv_value.return_value = None
+            mock_files.get_abs_path.return_value = "/tmp/test_cognee"
+            ci.configure_cognee()
+            ci.configure_cognee()
+        mock_cognee.config.set_llm_config.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_handles_setup_failure(self):
+    def test_configure_cognee_handles_config_exception(self, _clean_env):
+        """configure_cognee falls back to env vars when config API fails."""
         import python.helpers.cognee_init as ci
         mock_cognee = MagicMock()
-        mock_cognee.setup = AsyncMock(side_effect=Exception("setup failed"))
-        with patch("python.helpers.cognee_init.configure_cognee"), \
-             patch.dict("sys.modules", {"cognee": mock_cognee}):
-            await ci.ensure_cognee_setup()
-        assert ci._setup_done is False
+        mock_cognee.config.set_llm_config.side_effect = Exception("config failed")
+        with patch("python.helpers.cognee_init.dotenv") as mock_dotenv, \
+             patch("python.helpers.cognee_init.get_settings", return_value=self._mock_settings()), \
+             patch.dict("sys.modules", {"cognee": mock_cognee}), \
+             patch("python.helpers.cognee_init.files") as mock_files:
+            mock_dotenv.load_dotenv.return_value = None
+            mock_dotenv.get_dotenv_value.return_value = None
+            mock_files.get_abs_path.return_value = "/tmp/test_cognee"
+            ci.configure_cognee()
+        assert os.environ.get("LLM_PROVIDER") == "openai"
 
-    @pytest.mark.asyncio
-    async def test_retries_after_reset(self):
+    def test_configure_cognee_retries_after_reset(self):
+        """After _configured reset, configure_cognee runs again."""
         import python.helpers.cognee_init as ci
         mock_cognee = MagicMock()
-        mock_cognee.setup = AsyncMock()
-        with patch("python.helpers.cognee_init.configure_cognee"), \
-             patch.dict("sys.modules", {"cognee": mock_cognee}):
-            await ci.ensure_cognee_setup()
-            assert ci._setup_done is True
-            ci._setup_done = False
-            await ci.ensure_cognee_setup()
-        assert mock_cognee.setup.call_count == 2
+        with patch("python.helpers.cognee_init.dotenv") as mock_dotenv, \
+             patch("python.helpers.cognee_init.get_settings", return_value=self._mock_settings()), \
+             patch.dict("sys.modules", {"cognee": mock_cognee}), \
+             patch("python.helpers.cognee_init.files") as mock_files, \
+             patch("os.makedirs"):
+            mock_dotenv.load_dotenv.return_value = None
+            mock_dotenv.get_dotenv_value.return_value = None
+            mock_files.get_abs_path.return_value = "/tmp/test_cognee"
+            ci.configure_cognee()
+            ci._configured = False
+            ci.configure_cognee()
+        assert mock_cognee.config.set_llm_config.call_count == 2
 
-    @pytest.mark.asyncio
-    async def test_calls_configure_first(self):
-        """ensure_cognee_setup must call configure_cognee() before cognee.setup()."""
+    def test_configure_cognee_sets_embedding_for_non_fastembed(self, _clean_env):
+        """configure_cognee sets EMBEDDING_PROVIDER for non-huggingface providers."""
         import python.helpers.cognee_init as ci
-        call_order = []
-
-        def mock_configure():
-            call_order.append("configure")
-
         mock_cognee = MagicMock()
-
-        async def mock_setup():
-            call_order.append("setup")
-
-        mock_cognee.setup = mock_setup
-        with patch("python.helpers.cognee_init.configure_cognee", side_effect=mock_configure), \
-             patch.dict("sys.modules", {"cognee": mock_cognee}):
-            await ci.ensure_cognee_setup()
-
-        assert call_order == ["configure", "setup"]
+        settings = self._mock_settings()
+        settings["embed_model_provider"] = "openai"
+        settings["embed_model_name"] = "text-embedding-3-small"
+        with patch("python.helpers.cognee_init.dotenv") as mock_dotenv, \
+             patch("python.helpers.cognee_init.get_settings", return_value=settings), \
+             patch.dict("sys.modules", {"cognee": mock_cognee}), \
+             patch("python.helpers.cognee_init.files") as mock_files:
+            mock_dotenv.load_dotenv.return_value = None
+            mock_dotenv.get_dotenv_value.return_value = None
+            mock_files.get_abs_path.return_value = "/tmp/test_cognee"
+            ci.configure_cognee()
+        assert os.environ.get("EMBEDDING_PROVIDER") == "openai"
+        assert "openai" in os.environ.get("EMBEDDING_MODEL", "")

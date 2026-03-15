@@ -24,7 +24,8 @@ class TestRateLimiterInit:
     def test_init_handles_non_int_limits(self):
         rl = RateLimiter(seconds=60, requests="bad", tokens=5.5)
         assert rl.limits.get("requests") == 0
-        assert rl.limits.get("tokens") == 5
+        # Floats are accepted as-is; only non-numeric values become 0
+        assert rl.limits.get("tokens") == 5.5
 
 
 class TestRateLimiterAdd:

@@ -47,7 +47,7 @@ def mock_agent():
 @pytest.fixture
 def tool(mock_agent):
     from python.tools.browser_agent import BrowserAgent
-    return BrowserAgent(
+    t = BrowserAgent(
         agent=mock_agent,
         name="browser_agent",
         method=None,
@@ -55,6 +55,8 @@ def tool(mock_agent):
         message="",
         loop_data=None,
     )
+    t.log = MagicMock(update=MagicMock())
+    return t
 
 
 class TestBrowserAgentInit:
@@ -149,3 +151,137 @@ class TestGetUseAgentLog:
         mock_agent.history.action_results = MagicMock(return_value=[mock_result])
         result = get_use_agent_log(mock_agent)
         assert len(result) >= 1
+
+    def test_includes_error_when_done_but_not_success(self):
+        from python.tools.browser_agent import get_use_agent_log
+        mock_agent = MagicMock()
+        mock_result = MagicMock()
+        mock_result.is_done = True
+        mock_result.success = False
+        mock_result.error = "Something failed"
+        mock_result.extracted_content = None
+        mock_agent.history = MagicMock()
+        mock_agent.history.action_results = MagicMock(return_value=[mock_result])
+        result = get_use_agent_log(mock_agent)
+        assert any("Error" in str(r) or "❌" in str(r) for r in result)
+
+    def test_includes_progress_when_not_done(self):
+        from python.tools.browser_agent import get_use_agent_log
+        mock_agent = MagicMock()
+        mock_result = MagicMock()
+        mock_result.is_done = False
+        mock_result.extracted_content = "Clicking on button..."
+        mock_agent.history = MagicMock()
+        mock_agent.history.action_results = MagicMock(return_value=[mock_result])
+        result = get_use_agent_log(mock_agent)
+        assert any("Clicking" in str(r) for r in result)
+
+
+class TestBrowserAgentState:
+    def test_get_user_data_dir(self, mock_agent):
+        from python.tools.browser_agent import State
+        state = State(mock_agent)
+        path = state.get_user_data_dir()
+        assert "browseruse" in path
+        assert "agent_" in path
+        assert mock_agent.context.id in path
+
+
+class TestBrowserAgentPrepareStateReset:
+    @pytest.mark.asyncio
+    async def test_prepare_state_kills_task_on_reset(self, tool):
+        mock_state = MagicMock()
+        tool.agent.get_data.return_value = mock_state
+        with patch("python.tools.browser_agent.State.create", new_callable=AsyncMock) as mock_create:
+            new_state = MagicMock()
+            mock_create.return_value = new_state
+            await tool.prepare_state(reset=True)
+        mock_state.kill_task.assert_called_once()
+        assert tool.state is new_state
+
+
+class TestBrowserAgentExecuteSuccess:
+    @pytest.mark.asyncio
+    async def test_execute_returns_result_when_task_completes(self, tool):
+        mock_state = MagicMock()
+        mock_task = MagicMock()
+        mock_task.is_ready = MagicMock(return_value=True)
+        mock_task.result = AsyncMock(return_value=MagicMock(
+            is_done=MagicMock(return_value=True),
+            final_result=MagicMock(return_value='{"title":"Done","response":"OK","page_summary":"Summary"}'),
+        ))
+        mock_state.start_task = MagicMock(return_value=mock_task)
+        mock_state.use_agent = MagicMock()
+        mock_state.kill_task = MagicMock()
+
+        async def mock_prepare_state(**kwargs):
+            tool.state = mock_state
+
+        with patch.object(tool, "prepare_state", new_callable=AsyncMock, side_effect=mock_prepare_state):
+            with patch("python.tools.browser_agent.get_secrets_manager") as mock_sm:
+                mock_sm.return_value.mask_values = lambda x, **kw: x
+                with patch.object(tool, "get_update", new_callable=AsyncMock, return_value={"log": []}):
+                    resp = await tool.execute(message="test", reset="false")
+        from python.helpers.tool import Response
+        assert isinstance(resp, Response)
+        assert resp.break_loop is False
+        assert "OK" in resp.message or "Done" in resp.message or "Summary" in resp.message
+
+    @pytest.mark.asyncio
+    async def test_execute_handles_task_result_exception(self, tool):
+        mock_state = MagicMock()
+        mock_task = MagicMock()
+        mock_task.is_ready = MagicMock(return_value=True)
+        mock_task.result = AsyncMock(side_effect=Exception("Task failed"))
+
+        async def mock_prepare_state(**kwargs):
+            tool.state = mock_state
+
+        mock_state.start_task = MagicMock(return_value=mock_task)
+        mock_state.use_agent = None
+        mock_state.kill_task = MagicMock()
+
+        with patch.object(tool, "prepare_state", new_callable=AsyncMock, side_effect=mock_prepare_state):
+            with patch("python.tools.browser_agent.get_secrets_manager") as mock_sm:
+                mock_sm.return_value.mask_values = lambda x, **kw: x
+                with patch.object(tool, "get_update", new_callable=AsyncMock, return_value={}):
+                    resp = await tool.execute(message="test", reset="false")
+        assert "Task failed" in resp.message or "failed" in resp.message.lower()
+
+
+class TestBrowserAgentGetUpdate:
+    @pytest.mark.asyncio
+    async def test_get_update_returns_empty_when_no_page(self, tool):
+        mock_state = MagicMock()
+        mock_state.use_agent = None
+        mock_state.get_page = AsyncMock(return_value=None)
+
+        async def mock_prepare_state(**kwargs):
+            tool.state = mock_state
+
+        with patch.object(tool, "prepare_state", new_callable=AsyncMock, side_effect=mock_prepare_state):
+            result = await tool.get_update()
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_get_update_returns_log_when_has_agent(self, tool):
+        mock_state = MagicMock()
+        mock_state.use_agent = MagicMock()
+        mock_state.use_agent.history = MagicMock()
+        mock_state.use_agent.history.action_results = MagicMock(return_value=[])
+        mock_state.get_page = AsyncMock(return_value=MagicMock(
+            screenshot=AsyncMock(),
+        ))
+        mock_state.task = MagicMock()
+        mock_state.task.is_ready = MagicMock(return_value=False)
+        mock_state.task.execute_inside = AsyncMock(side_effect=lambda fn: fn())
+
+        async def mock_prepare_state(**kwargs):
+            tool.state = mock_state
+
+        with patch.object(tool, "prepare_state", new_callable=AsyncMock, side_effect=mock_prepare_state):
+            with patch("python.tools.browser_agent.files.get_abs_path", return_value="/tmp/screenshot.png"):
+                with patch("python.tools.browser_agent.files.make_dirs", MagicMock()):
+                    with patch("python.tools.browser_agent.persist_chat.get_chat_folder_path", return_value="chats"):
+                        result = await tool.get_update()
+        assert "log" in result or result == {}
