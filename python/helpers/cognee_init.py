@@ -3,6 +3,7 @@ from typing import Any, TypeVar
 
 from . import dotenv, files
 from .settings import get_settings
+from .print_style import PrintStyle
 
 T = TypeVar("T")
 
@@ -17,6 +18,9 @@ _COGNEE_DEFAULTS: dict[str, Any] = {
     "cognee_feedback_enabled": True,
     "cognee_session_cache": "filesystem",
     "cognee_data_dir": "usr/cognee",
+    "cognee_chunk_size": 512,
+    "cognee_chunk_overlap": 50,
+    "cognee_search_system_prompt": "",
 }
 
 _PROVIDER_MAP: dict[str, str] = {
@@ -24,6 +28,9 @@ _PROVIDER_MAP: dict[str, str] = {
     "huggingface": "huggingface",
     "openai": "openai",
     "anthropic": "anthropic",
+    "gemini": "gemini",
+    "ollama": "ollama",
+    "lmstudio": "custom",
 }
 
 _EMBED_DIMENSIONS: dict[str, int] = {
@@ -31,7 +38,10 @@ _EMBED_DIMENSIONS: dict[str, int] = {
     "BAAI/bge-small-en-v1.5": 384,
     "BAAI/bge-base-en-v1.5": 768,
     "BAAI/bge-large-en-v1.5": 1024,
+    "nomic-embed-text:latest": 768,
 }
+
+_configured = False
 
 
 def get_cognee_setting(name: str, default: T) -> T:
@@ -66,23 +76,48 @@ def _get_api_key(provider: str, api_keys: dict[str, str] | None = None) -> str:
 
 
 def configure_cognee() -> None:
+    global _configured
+    if _configured:
+        return
+    _configured = True
+
     dotenv.load_dotenv()
     settings = get_settings()
 
-    llm_provider = _map_provider(settings["util_model_provider"])
-    embed_provider = _map_provider(settings["embed_model_provider"])
+    try:
+        import cognee
+    except ImportError:
+        PrintStyle.error("Cognee is not installed — memory features will not work")
+        return
 
     api_keys = settings.get("api_keys", {})
 
-    os.environ["LLM_PROVIDER"] = llm_provider
-    os.environ["LLM_MODEL"] = settings["util_model_name"]
-    os.environ["LLM_API_KEY"] = _get_api_key(settings["util_model_provider"], api_keys)
+    # --- LLM (from Agent Zero util_model_* settings) ---
+    llm_provider = _map_provider(settings["util_model_provider"])
+    llm_api_key = _get_api_key(settings["util_model_provider"], api_keys)
 
-    if settings.get("util_model_api_base"):
-        os.environ["LLM_API_BASE"] = settings["util_model_api_base"]
+    try:
+        cognee.config.set_llm_config({
+            "llm_provider": llm_provider,
+            "llm_model": settings["util_model_name"],
+            "llm_api_key": llm_api_key,
+        })
+        if settings.get("util_model_api_base"):
+            cognee.config.set_llm_endpoint(settings["util_model_api_base"])
+    except Exception as e:
+        PrintStyle.error(f"cognee.config LLM setup failed, falling back to env vars: {e}")
+        os.environ["LLM_PROVIDER"] = llm_provider
+        os.environ["LLM_MODEL"] = settings["util_model_name"]
+        os.environ["LLM_API_KEY"] = llm_api_key
+        if settings.get("util_model_api_base"):
+            os.environ["LLM_API_BASE"] = settings["util_model_api_base"]
 
+    # --- Embedding (from Agent Zero embed_model_* settings) ---
+    embed_provider = _map_provider(settings["embed_model_provider"])
     embed_model = settings["embed_model_name"]
-    if embed_provider == "huggingface":
+    embed_api_key = _get_api_key(settings["embed_model_provider"], api_keys)
+
+    if embed_provider in ("huggingface", "fastembed"):
         os.environ["EMBEDDING_PROVIDER"] = "fastembed"
         os.environ["EMBEDDING_MODEL"] = embed_model
         os.environ["EMBEDDING_DIMENSIONS"] = str(_EMBED_DIMENSIONS.get(embed_model, 384))
@@ -91,15 +126,18 @@ def configure_cognee() -> None:
         if "/" not in embed_model or not embed_model.startswith(embed_provider):
             embed_model = f"{embed_provider}/{embed_model}"
         os.environ["EMBEDDING_MODEL"] = embed_model
-    os.environ["EMBEDDING_API_KEY"] = _get_api_key(settings["embed_model_provider"], api_keys)
-
+    os.environ["EMBEDDING_API_KEY"] = embed_api_key
     if settings.get("embed_model_api_base"):
         os.environ["EMBEDDING_API_BASE"] = settings["embed_model_api_base"]
 
-    os.environ["ENABLE_BACKEND_ACCESS_CONTROL"] = "false"
-    os.environ["CACHING"] = "true"
-    os.environ["CACHE_ADAPTER"] = get_cognee_setting("cognee_session_cache", "filesystem")
+    # --- Chunking ---
+    try:
+        cognee.config.set_chunk_size(get_cognee_setting("cognee_chunk_size", 512))
+        cognee.config.set_chunk_overlap(get_cognee_setting("cognee_chunk_overlap", 50))
+    except Exception as e:
+        PrintStyle.error(f"cognee.config chunk setup failed: {e}")
 
+    # --- Storage directories ---
     data_dir = files.get_abs_path(get_cognee_setting("cognee_data_dir", "usr/cognee"))
     os.makedirs(data_dir, exist_ok=True)
 
@@ -107,13 +145,15 @@ def configure_cognee() -> None:
     system_storage = os.path.join(data_dir, "cognee_system")
     cache_storage = os.path.join(data_dir, "cognee_cache")
 
-    os.environ["DATA_ROOT_DIRECTORY"] = data_storage
-    os.environ["SYSTEM_ROOT_DIRECTORY"] = system_storage
-    os.environ["CACHE_ROOT_DIRECTORY"] = cache_storage
-
     try:
-        import cognee
         cognee.config.set_data_root_directory(data_storage)
         cognee.config.set_system_root_directory(system_storage)
-    except Exception:
-        pass
+    except Exception as e:
+        PrintStyle.error(f"cognee.config directory setup failed, falling back to env vars: {e}")
+        os.environ["DATA_ROOT_DIRECTORY"] = data_storage
+        os.environ["SYSTEM_ROOT_DIRECTORY"] = system_storage
+
+    os.environ["CACHE_ROOT_DIRECTORY"] = cache_storage
+    os.environ["ENABLE_BACKEND_ACCESS_CONTROL"] = "false"
+    os.environ["CACHING"] = "true"
+    os.environ["CACHE_ADAPTER"] = get_cognee_setting("cognee_session_cache", "filesystem")

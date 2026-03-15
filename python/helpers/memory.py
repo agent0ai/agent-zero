@@ -17,18 +17,24 @@ import models
 import logging
 from python.helpers.cognee_init import configure_cognee, get_cognee_setting
 
+import threading
+
 _cognee = None
 _SearchType = None
+_cognee_lock = threading.Lock()
 
 
 def _get_cognee():
     global _cognee, _SearchType
-    if _cognee is None:
-        configure_cognee()
-        import cognee as _c
-        from cognee import SearchType as _st
-        _cognee = _c
-        _SearchType = _st
+    if _cognee is not None:
+        return _cognee, _SearchType
+    with _cognee_lock:
+        if _cognee is None:
+            configure_cognee()
+            import cognee as _c
+            from cognee import SearchType as _st
+            _cognee = _c
+            _SearchType = _st
     return _cognee, _SearchType
 
 
@@ -340,8 +346,7 @@ class Memory:
                 ids.append(doc_id)
                 CogneeBackgroundWorker.get_instance().mark_dirty(dataset)
             except Exception as e:
-                PrintStyle.error(f"Cognee insert failed: {e}")
-                ids.append(doc_id)
+                PrintStyle.error(f"Cognee insert failed for {doc_id}: {e}")
 
         return ids
 
@@ -466,17 +471,19 @@ async def _delete_data_by_id(dataset_name: str, data_id: str):
             if ds.name == dataset_name:
                 target = ds
                 break
-        if target:
-            data_items = await cognee.datasets.list_data(target.id)
-            for item in data_items:
-                if hasattr(item, "name") and data_id in str(item.name):
-                    await cognee.datasets.delete_data(
-                        dataset_id=target.id,
-                        data_id=item.id,
-                    )
-                    return True
-    except Exception:
-        pass
+        if not target:
+            return False
+        data_items = await cognee.datasets.list_data(target.id)
+        for item in data_items:
+            item_text = getattr(item, "raw_data_location", "") or getattr(item, "name", "") or ""
+            if data_id in str(item_text):
+                await cognee.datasets.delete_data(
+                    dataset_id=target.id,
+                    data_id=item.id,
+                )
+                return True
+    except Exception as e:
+        PrintStyle.error(f"Failed to delete data {data_id} from {dataset_name}: {e}")
     return False
 
 
@@ -490,6 +497,8 @@ def get_custom_knowledge_subdir_abs(agent: Agent) -> str:
 
 
 def reload():
+    import python.helpers.cognee_init as ci
+    ci._configured = False
     Memory._initialized = False
     Memory._datasets_cache.clear()
 
@@ -551,7 +560,8 @@ def get_existing_memory_subdirs() -> list[str]:
 def get_knowledge_subdirs_by_memory_subdir(
     memory_subdir: str, default: list[str]
 ) -> list[str]:
+    result = list(default)
     if memory_subdir.startswith("projects/"):
         from python.helpers.projects import get_project_meta_folder
-        default.append(get_project_meta_folder(memory_subdir[9:], "knowledge"))
-    return default
+        result.append(get_project_meta_folder(memory_subdir[9:], "knowledge"))
+    return result

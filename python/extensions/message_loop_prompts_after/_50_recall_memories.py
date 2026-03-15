@@ -102,6 +102,8 @@ class RecallMemories(Extension):
 
         fast_types, slow_types = _resolve_search_types(SearchType)
 
+        search_system_prompt = get_cognee_setting("cognee_search_system_prompt", "")
+
         mem_datasets = [
             db._area_dataset(Memory.Area.MAIN.value),
             db._area_dataset(Memory.Area.FRAGMENTS.value),
@@ -119,6 +121,7 @@ class RecallMemories(Extension):
                 datasets=mem_datasets,
                 node_name=mem_node_name,
                 session_id=session_id,
+                system_prompt=search_system_prompt,
             ),
             _multi_cognee_search(
                 cognee, search_types=fast_types,
@@ -127,6 +130,7 @@ class RecallMemories(Extension):
                 datasets=sol_datasets,
                 node_name=sol_node_name,
                 session_id=session_id,
+                system_prompt=search_system_prompt,
             ),
         )
 
@@ -187,6 +191,7 @@ class RecallMemories(Extension):
                     log_item=log_item,
                     existing_memories=memories,
                     existing_solutions=solutions,
+                    system_prompt=search_system_prompt,
                 )
             )
 
@@ -278,6 +283,7 @@ async def _slow_search_and_merge(
     *, agent, cognee, slow_types, query, recall_settings,
     mem_datasets, sol_datasets, mem_node_name, sol_node_name,
     session_id, extras, log_item, existing_memories, existing_solutions,
+    system_prompt="",
 ):
     try:
         slow_mem, slow_sol = await asyncio.gather(
@@ -288,6 +294,7 @@ async def _slow_search_and_merge(
                 datasets=mem_datasets,
                 node_name=mem_node_name,
                 session_id=session_id,
+                system_prompt=system_prompt,
             ),
             _multi_cognee_search(
                 cognee, search_types=slow_types,
@@ -296,6 +303,7 @@ async def _slow_search_and_merge(
                 datasets=sol_datasets,
                 node_name=sol_node_name,
                 session_id=session_id,
+                system_prompt=system_prompt,
             ),
         )
 
@@ -388,20 +396,24 @@ PER_SEARCH_TIMEOUT = 15
 
 
 async def _multi_cognee_search(
-    cognee, *, search_types, query, top_k, datasets, node_name, session_id
+    cognee, *, search_types, query, top_k, datasets, node_name, session_id,
+    system_prompt="",
 ):
     all_results = []
+    search_kwargs = dict(
+        query_text=query,
+        top_k=top_k,
+        datasets=datasets,
+        node_name=node_name,
+        session_id=session_id,
+    )
+    if system_prompt:
+        search_kwargs["system_prompt"] = system_prompt
+
     for st in search_types:
         try:
             results = await asyncio.wait_for(
-                cognee.search(
-                    query_text=query,
-                    query_type=st,
-                    top_k=top_k,
-                    datasets=datasets,
-                    node_name=node_name,
-                    session_id=session_id,
-                ),
+                cognee.search(query_type=st, **search_kwargs),
                 timeout=PER_SEARCH_TIMEOUT,
             )
             if results:

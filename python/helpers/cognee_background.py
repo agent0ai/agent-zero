@@ -9,7 +9,7 @@ from typing import Set
 
 from python.helpers.defer import DeferredTask, THREAD_BACKGROUND
 from python.helpers.print_style import PrintStyle
-from python.helpers.settings import get_default_value
+from python.helpers.cognee_init import get_cognee_setting
 
 
 class CogneeBackgroundWorker:
@@ -51,10 +51,10 @@ class CogneeBackgroundWorker:
     def _get_config(self) -> dict:
         """Load cognee-related settings."""
         return {
-            "cognify_interval": get_default_value("cognee_cognify_interval", 5),
-            "cognify_after_n_inserts": get_default_value("cognee_cognify_after_n_inserts", 10),
-            "temporal_enabled": get_default_value("cognee_temporal_enabled", True),
-            "memify_enabled": get_default_value("cognee_memify_enabled", True),
+            "cognify_interval": get_cognee_setting("cognee_cognify_interval", 5),
+            "cognify_after_n_inserts": get_cognee_setting("cognee_cognify_after_n_inserts", 10),
+            "temporal_enabled": get_cognee_setting("cognee_temporal_enabled", True),
+            "memify_enabled": get_cognee_setting("cognee_memify_enabled", True),
         }
 
     async def _should_run(self) -> bool:
@@ -105,10 +105,8 @@ class CogneeBackgroundWorker:
                             await cognee.memify(dataset=dataset)
                             PrintStyle.standard(f"Cognee memify completed for dataset: {dataset}")
                         except Exception as e:
-                            PrintStyle.error(f"Cognee memify failed for {dataset}", str(e))
+                            PrintStyle.error(f"Cognee memify failed for {dataset}: {e}")
                             self._last_error = str(e)
-                            self._last_run_success = False
-                            return
 
                 self._dirty_datasets.clear()
                 self._insert_count = 0

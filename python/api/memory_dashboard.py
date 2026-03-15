@@ -136,6 +136,7 @@ class MemoryDashboard(ApiHandler):
             area_filter = input.get("area", "")
             search_query = input.get("search", "")
             limit = input.get("limit", 100)
+            offset = input.get("offset", 0)
             threshold = input.get("threshold", 0.6)
 
             memory = await Memory.get_by_subdir(memory_subdir, preload_knowledge=False)
@@ -153,6 +154,8 @@ class MemoryDashboard(ApiHandler):
             else:
                 try:
                     import cognee
+                    from python.helpers.memory import _extract_metadata_from_text
+                    from python.helpers import guids
                     datasets_to_check = []
                     if area_filter:
                         datasets_to_check.append(memory._area_dataset(area_filter))
@@ -161,31 +164,35 @@ class MemoryDashboard(ApiHandler):
                             datasets_to_check.append(memory._area_dataset(area.value))
 
                     all_datasets = await cognee.datasets.list_datasets()
-                    PrintStyle.hint(f"[MemoryDashboard] list_datasets returned {len(all_datasets)} datasets, checking for {datasets_to_check}")
+                    target_names = set(datasets_to_check)
                     for ds in all_datasets:
-                        if ds.name in datasets_to_check:
+                        if ds.name not in target_names:
+                            continue
+                        try:
                             data_items = await cognee.datasets.list_data(ds.id)
-                            PrintStyle.hint(f"[MemoryDashboard] dataset '{ds.name}' has {len(data_items)} items")
-                            for item in data_items:
-                                content = self._read_data_item_content(item)
-                                from python.helpers.memory import _extract_metadata_from_text
-                                text, meta = _extract_metadata_from_text(content)
-                                if not meta.get("id"):
-                                    from python.helpers import guids
-                                    meta["id"] = guids.generate_id(10)
-                                if not meta.get("area"):
-                                    meta["area"] = Memory.Area.MAIN.value
-                                memories.append(Document(page_content=text, metadata=meta))
+                        except Exception as e:
+                            PrintStyle.error(f"[MemoryDashboard] Failed to list data for '{ds.name}': {e}")
+                            continue
+                        for item in data_items:
+                            content = self._read_data_item_content(item)
+                            text, meta = _extract_metadata_from_text(content)
+                            if not meta.get("id"):
+                                meta["id"] = guids.generate_id(10)
+                            if not meta.get("area"):
+                                meta["area"] = Memory.Area.MAIN.value
+                            memories.append(Document(page_content=text, metadata=meta))
                 except Exception as e:
                     PrintStyle.error(f"[MemoryDashboard] Failed to list Cognee datasets: {e}")
                     import traceback
                     traceback.print_exc()
 
-                def get_sort_key(m):
-                    return m.metadata.get("timestamp", "0000-00-00 00:00:00")
+                memories.sort(
+                    key=lambda m: m.metadata.get("timestamp", "0000-00-00 00:00:00"),
+                    reverse=True,
+                )
 
-                memories.sort(key=get_sort_key, reverse=True)
-
+                if offset:
+                    memories = memories[offset:]
                 if limit and len(memories) > limit:
                     memories = memories[:limit]
 
@@ -278,7 +285,10 @@ class MemoryDashboard(ApiHandler):
     async def _get_knowledge_graph(self) -> dict:
         try:
             import cognee
+            if not hasattr(cognee, "visualize_graph"):
+                return {"success": False, "error": "cognee.visualize_graph() not available in this version"}
             html = await cognee.visualize_graph()
             return {"success": True, "html": html}
         except Exception as e:
+            PrintStyle.error(f"[MemoryDashboard] Knowledge graph visualization failed: {e}")
             return {"success": False, "error": str(e)}
