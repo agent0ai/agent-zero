@@ -31,11 +31,12 @@ async def _ensure_cognee_db(cognee_mod):
         return
     _setup_done = True
     try:
-        await cognee_mod.setup()
+        from cognee.infrastructure.databases.relational import create_db_and_tables
+        await create_db_and_tables()
+        PrintStyle.standard("Cognee DB tables initialized")
     except Exception as e:
-        PrintStyle.error(f"cognee.setup() failed: {e}")
+        PrintStyle.error(f"Cognee DB init failed: {e}")
         _setup_done = False
-        raise
 
 
 async def _with_cognee_setup_retry(cognee_mod, coro_fn, *args, **kwargs):
@@ -45,7 +46,7 @@ async def _with_cognee_setup_retry(cognee_mod, coro_fn, *args, **kwargs):
         err_name = type(err).__name__
         err_str = str(err)
         if "DatabaseNotCreatedError" in err_name or "unable to open database" in err_str or "no such table" in err_str:
-            PrintStyle.warning(f"[Cognee] DB not ready ({err_name}), running setup and retrying...")
+            PrintStyle.warning(f"[Cognee] DB not ready ({err_name}), re-initializing and retrying...")
             global _setup_done
             _setup_done = False
             await _ensure_cognee_db(cognee_mod)
