@@ -1,8 +1,6 @@
 """
-Tests for retry logic helpers and LLM usage callback system from models.py.
-
-Extracts the specific functions under test from the source file to avoid
-importing the full Agent Zero dependency tree (browser_use, litellm, etc.).
+Tests for retry logic helpers and LLM usage callback system from models.py,
+and for python/helpers/call_llm.py (LLM call wrapper with streaming).
 """
 import sys
 import ast
@@ -13,7 +11,11 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 MODELS_PY = PROJECT_ROOT / "models.py"
+HAS_MODELS = MODELS_PY.exists()
 
 
 def _extract_and_compile(source: str, func_names: list[str], global_names: list[str] | None = None):
@@ -51,8 +53,8 @@ def _extract_and_compile(source: str, func_names: list[str], global_names: list[
     return ns
 
 
-# Read models.py source once
-_source = MODELS_PY.read_text()
+# Read models.py source once (skip if file missing, e.g. in submodule layout)
+_source = MODELS_PY.read_text() if HAS_MODELS else ""
 
 # Provide the typing imports that the extracted functions need
 from typing import Any, Callable
@@ -68,33 +70,37 @@ LLMUsageCallback = Callable[[dict[str, Any]], None]
 _llm_usage_callbacks: list[LLMUsageCallback] = []
 """), _ns)
 
-# Manually extract and exec each function
-for _func_name in [
-    "_is_transient_litellm_error",
-    "_extract_retry_after",
-    "register_llm_callback",
-    "unregister_llm_callback",
-    "_emit_usage_event",
-]:
-    tree = ast.parse(_source)
-    for node in ast.iter_child_nodes(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == _func_name:
-            code = ast.get_source_segment(_source, node)
-            if code:
-                exec(compile(code, "<extract>", "exec"), _ns)
-            break
+# Manually extract and exec each function (only when models.py exists)
+if HAS_MODELS:
+    for _func_name in [
+        "_is_transient_litellm_error",
+        "_extract_retry_after",
+        "register_llm_callback",
+        "unregister_llm_callback",
+        "_emit_usage_event",
+    ]:
+        tree = ast.parse(_source)
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == _func_name:
+                code = ast.get_source_segment(_source, node)
+                if code:
+                    exec(compile(code, "<extract>", "exec"), _ns)
+                break
 
-# Make them accessible as module-level names
-_is_transient_litellm_error = _ns["_is_transient_litellm_error"]
-_extract_retry_after = _ns["_extract_retry_after"]
-register_llm_callback = _ns["register_llm_callback"]
-unregister_llm_callback = _ns["unregister_llm_callback"]
-_emit_usage_event = _ns["_emit_usage_event"]
-_llm_usage_callbacks = _ns["_llm_usage_callbacks"]
+# Make them accessible as module-level names (only when models.py exists)
+_is_transient_litellm_error = _ns.get("_is_transient_litellm_error", lambda x: False)
+_extract_retry_after = _ns.get("_extract_retry_after", lambda x: None)
+register_llm_callback = _ns.get("register_llm_callback", lambda x: None)
+unregister_llm_callback = _ns.get("unregister_llm_callback", lambda x: None)
+_emit_usage_event = _ns.get("_emit_usage_event", lambda x: None)
+_llm_usage_callbacks = _ns.get("_llm_usage_callbacks", [])
+
+pytestmark_models = pytest.mark.skipif(not HAS_MODELS, reason="models.py not found")
 
 
 # ─── _extract_retry_after ────────────────────────────────────────────────────
 
+@pytestmark_models
 class TestExtractRetryAfter:
     def test_no_headers(self):
         exc = Exception("plain error")
@@ -131,6 +137,7 @@ class TestExtractRetryAfter:
 
 # ─── _is_transient_litellm_error ──────────────────────────────────────────────
 
+@pytestmark_models
 class TestIsTransientLitellmError:
     @pytest.mark.parametrize("code", [408, 429, 500, 502, 503, 504, 599])
     def test_transient_status_codes(self, code):
@@ -152,6 +159,7 @@ class TestIsTransientLitellmError:
 
 # ─── Callback registration ────────────────────────────────────────────────────
 
+@pytestmark_models
 class TestLLMUsageCallbacks:
     def setup_method(self):
         self._backup = _llm_usage_callbacks.copy()
@@ -205,6 +213,7 @@ class TestLLMUsageCallbacks:
 
 # ─── Exponential backoff formula ──────────────────────────────────────────────
 
+@pytestmark_models
 class TestExponentialBackoffFormula:
     def test_default_params(self):
         kwargs = {}
@@ -254,3 +263,134 @@ class TestExponentialBackoffFormula:
         for _ in range(100):
             jittered = delay * (0.5 + random.random())
             assert 5.0 <= jittered < 15.0
+
+
+# ─── python/helpers/call_llm.py ────────────────────────────────────────────────
+
+class TestCallLlm:
+    """Tests for call_llm from python/helpers/call_llm.py."""
+
+    @pytest.fixture
+    def mock_streaming_model(self):
+        """Model that yields chunks via astream for LCEL chain."""
+        from langchain_core.runnables import Runnable
+        from langchain_core.messages import AIMessageChunk
+
+        class FakeStreamModel(Runnable):
+            async def astream(self, input, config=None, **kwargs):
+                for c in "Hello":
+                    yield c
+
+        return FakeStreamModel()
+
+    @pytest.fixture
+    def model_yielding_content_objects(self):
+        """Model yielding objects with .content attribute."""
+        from langchain_core.runnables import Runnable
+
+        class Chunk:
+            def __init__(self, content):
+                self.content = content
+
+        class FakeContentModel(Runnable):
+            async def astream(self, input, config=None, **kwargs):
+                yield Chunk("A")
+                yield Chunk("B")
+
+        return FakeContentModel()
+
+    @pytest.fixture
+    def model_yielding_strings(self):
+        """Model yielding raw strings."""
+        from langchain_core.runnables import Runnable
+
+        class FakeStringModel(Runnable):
+            async def astream(self, input, config=None, **kwargs):
+                yield "X"
+                yield "Y"
+                yield "Z"
+
+        return FakeStringModel()
+
+    @pytest.mark.asyncio
+    async def test_returns_accumulated_response(self, mock_streaming_model):
+        from python.helpers.call_llm import call_llm
+        result = await call_llm("You are helpful.", mock_streaming_model, "Hi")
+        assert result == "Hello"
+
+    @pytest.mark.asyncio
+    async def test_empty_examples_works(self, mock_streaming_model):
+        from python.helpers.call_llm import call_llm
+        result = await call_llm("System", mock_streaming_model, "msg", examples=[])
+        assert isinstance(result, str)
+
+    @pytest.mark.asyncio
+    async def test_few_shot_examples_included(self, mock_streaming_model):
+        from python.helpers.call_llm import call_llm
+        examples = [{"input": "q1", "output": "a1"}, {"input": "q2", "output": "a2"}]
+        result = await call_llm("System", mock_streaming_model, "msg", examples=examples)
+        assert result == "Hello"
+
+    @pytest.mark.asyncio
+    async def test_callback_invoked_per_chunk(self, mock_streaming_model):
+        from python.helpers.call_llm import call_llm
+        chunks = []
+        result = await call_llm(
+            "System", mock_streaming_model, "msg", callback=chunks.append
+        )
+        assert chunks == ["H", "e", "l", "l", "o"]
+        assert result == "Hello"
+
+    @pytest.mark.asyncio
+    async def test_callback_none_no_error(self, mock_streaming_model):
+        from python.helpers.call_llm import call_llm
+        result = await call_llm("System", mock_streaming_model, "msg", callback=None)
+        assert result == "Hello"
+
+    @pytest.mark.asyncio
+    async def test_handles_content_object_chunks(self, model_yielding_content_objects):
+        from python.helpers.call_llm import call_llm
+        result = await call_llm("System", model_yielding_content_objects, "msg")
+        assert result == "AB"
+
+    @pytest.mark.asyncio
+    async def test_handles_string_chunks(self, model_yielding_strings):
+        from python.helpers.call_llm import call_llm
+        result = await call_llm("System", model_yielding_strings, "msg")
+        assert result == "XYZ"
+
+    @pytest.mark.asyncio
+    async def test_handles_other_chunk_types_via_str(self):
+        from langchain_core.runnables import Runnable
+        from python.helpers.call_llm import call_llm
+
+        class FakeOtherModel(Runnable):
+            async def astream(self, input, config=None, **kwargs):
+                yield 42
+                yield None
+
+        model = FakeOtherModel()
+        result = await call_llm("System", model, "msg")
+        assert result == "42None"
+
+    @pytest.mark.asyncio
+    async def test_empty_stream_returns_empty_string(self):
+        from langchain_core.runnables import Runnable
+        from python.helpers.call_llm import call_llm
+
+        class FakeEmptyModel(Runnable):
+            async def astream(self, input, config=None, **kwargs):
+                if False:
+                    yield
+
+        model = FakeEmptyModel()
+        result = await call_llm("System", model, "msg")
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_system_and_message_passed_to_chain(self, mock_streaming_model):
+        from python.helpers.call_llm import call_llm
+        result = await call_llm(
+            "Custom system prompt", mock_streaming_model, "User question here"
+        )
+        assert result == "Hello"
