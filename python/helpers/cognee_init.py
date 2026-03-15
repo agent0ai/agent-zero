@@ -84,6 +84,30 @@ def configure_cognee() -> None:
     dotenv.load_dotenv()
     settings = get_settings()
 
+    # --- Storage directories (MUST be set BEFORE import cognee) ---
+    data_dir = files.get_abs_path(get_cognee_setting("cognee_data_dir", "usr/cognee"))
+    os.makedirs(data_dir, exist_ok=True)
+
+    data_storage = os.path.join(data_dir, "data_storage")
+    system_storage = os.path.join(data_dir, "cognee_system")
+    cache_storage = os.path.join(data_dir, "cognee_cache")
+
+    os.makedirs(data_storage, exist_ok=True)
+    os.makedirs(system_storage, exist_ok=True)
+    os.makedirs(cache_storage, exist_ok=True)
+
+    os.environ["DATA_ROOT_DIRECTORY"] = data_storage
+    os.environ["SYSTEM_ROOT_DIRECTORY"] = system_storage
+    os.environ["CACHE_ROOT_DIRECTORY"] = cache_storage
+    os.environ["DB_PROVIDER"] = "sqlite"
+    os.environ["DB_NAME"] = "cognee_db"
+    os.environ["ENABLE_BACKEND_ACCESS_CONTROL"] = "false"
+    os.environ["CACHING"] = "true"
+    os.environ["CACHE_ADAPTER"] = get_cognee_setting("cognee_session_cache", "filesystem")
+
+    PrintStyle.standard(f"Cognee env configured: system={system_storage}, data={data_storage}")
+
+    # --- Now safe to import cognee (env vars are set) ---
     try:
         import cognee
     except ImportError:
@@ -137,23 +161,9 @@ def configure_cognee() -> None:
     except Exception as e:
         PrintStyle.error(f"cognee.config chunk setup failed: {e}")
 
-    # --- Storage directories ---
-    data_dir = files.get_abs_path(get_cognee_setting("cognee_data_dir", "usr/cognee"))
-    os.makedirs(data_dir, exist_ok=True)
-
-    data_storage = os.path.join(data_dir, "data_storage")
-    system_storage = os.path.join(data_dir, "cognee_system")
-    cache_storage = os.path.join(data_dir, "cognee_cache")
-
+    # --- Apply directory config via cognee API ---
     try:
         cognee.config.set_data_root_directory(data_storage)
         cognee.config.set_system_root_directory(system_storage)
     except Exception as e:
-        PrintStyle.error(f"cognee.config directory setup failed, falling back to env vars: {e}")
-        os.environ["DATA_ROOT_DIRECTORY"] = data_storage
-        os.environ["SYSTEM_ROOT_DIRECTORY"] = system_storage
-
-    os.environ["CACHE_ROOT_DIRECTORY"] = cache_storage
-    os.environ["ENABLE_BACKEND_ACCESS_CONTROL"] = "false"
-    os.environ["CACHING"] = "true"
-    os.environ["CACHE_ADAPTER"] = get_cognee_setting("cognee_session_cache", "filesystem")
+        PrintStyle.error(f"cognee.config directory setup failed: {e}")

@@ -154,6 +154,18 @@ class Memory:
             with open(index_path, "r") as f:
                 index = json.load(f)
 
+        if index:
+            try:
+                datasets = await _with_cognee_setup_retry(cognee, cognee.datasets.list_datasets)
+                if not datasets:
+                    PrintStyle.warning("Cognee DB is empty but index exists — forcing full re-import")
+                    if log_item:
+                        log_item.stream(progress="\nCognee DB empty, re-importing all knowledge...")
+                    index = {}
+            except Exception:
+                PrintStyle.warning("Cannot check cognee datasets — forcing full re-import")
+                index = {}
+
         index = self._preload_knowledge_folders(log_item, kn_dirs, index)
 
         for file_key in index:
