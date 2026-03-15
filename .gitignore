@@ -41,3 +41,4 @@ agent_history.gif
 .agent/**
 .claude/**
 .venv/
+.coverage
