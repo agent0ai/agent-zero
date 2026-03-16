@@ -399,7 +399,6 @@ async def _multi_cognee_search(
     cognee, *, search_types, query, top_k, datasets, node_name, session_id,
     system_prompt="",
 ):
-    all_results = []
     search_kwargs = dict(
         query_text=query,
         top_k=top_k,
@@ -410,18 +409,25 @@ async def _multi_cognee_search(
     if system_prompt:
         search_kwargs["system_prompt"] = system_prompt
 
-    for st in search_types:
+    async def _search_one(st):
         try:
             results = await asyncio.wait_for(
                 cognee.search(query_type=st, **search_kwargs),
                 timeout=PER_SEARCH_TIMEOUT,
             )
-            if results:
-                all_results.extend(results)
+            return results or []
         except asyncio.TimeoutError:
             PrintStyle.error(f"Cognee search ({st.name}) timed out after {PER_SEARCH_TIMEOUT}s (likely SQLite lock)")
+            return []
         except Exception as e:
             PrintStyle.error(f"Cognee search ({st.name}) failed: {e}")
+            return []
+
+    per_type_results = await asyncio.gather(*[_search_one(st) for st in search_types])
+
+    all_results = []
+    for results in per_type_results:
+        all_results.extend(results)
 
     if all_results:
         seen = {}

@@ -322,6 +322,103 @@ class TestMultiCogneeSearch:
         assert len(results) == 1
         assert results[0] == "good_result"
 
+    @pytest.mark.asyncio
+    async def test_searches_run_in_parallel_not_sequentially(self):
+        async def delayed_search(query_type, **kwargs):
+            await asyncio.sleep(0.5)
+            return [f"result_{query_type.name}"]
+
+        mock_cognee = MagicMock()
+        mock_cognee.search = delayed_search
+        SearchType = _make_search_type_enum()
+
+        loop = asyncio.get_event_loop()
+        start = loop.time()
+        results = await _multi_cognee_search(
+            mock_cognee,
+            search_types=[SearchType.CHUNKS, SearchType.CHUNKS_LEXICAL],
+            query="test",
+            top_k=10,
+            datasets=["ds"],
+            node_name=["main"],
+            session_id="sess",
+        )
+        elapsed = loop.time() - start
+
+        assert results is not None
+        assert len(results) == 2
+        assert elapsed < 0.9, f"Expected parallel execution (<0.9s), took {elapsed:.2f}s"
+
+    @pytest.mark.asyncio
+    async def test_timeout_on_one_type_does_not_block_others(self):
+        async def mixed_search(query_type, **kwargs):
+            if query_type.name == "CHUNKS":
+                return ["good_result"]
+            await asyncio.sleep(5)
+            return ["should_not_appear"]
+
+        mock_cognee = MagicMock()
+        mock_cognee.search = mixed_search
+        SearchType = _make_search_type_enum()
+
+        with patch(
+            "python.extensions.message_loop_prompts_after._50_recall_memories.PER_SEARCH_TIMEOUT",
+            0.3,
+        ):
+            results = await _multi_cognee_search(
+                mock_cognee,
+                search_types=[SearchType.CHUNKS, SearchType.CHUNKS_LEXICAL],
+                query="test",
+                top_k=10,
+                datasets=["ds"],
+                node_name=["main"],
+                session_id="sess",
+            )
+
+        assert results is not None
+        assert any(r == "good_result" for r in results)
+        assert not any(r == "should_not_appear" for r in results)
+
+    @pytest.mark.asyncio
+    async def test_all_types_fail_returns_none(self):
+        mock_cognee = MagicMock()
+        mock_cognee.search = AsyncMock(side_effect=Exception("all fail"))
+        SearchType = _make_search_type_enum()
+
+        results = await _multi_cognee_search(
+            mock_cognee,
+            search_types=[SearchType.CHUNKS, SearchType.CHUNKS_LEXICAL],
+            query="test",
+            top_k=10,
+            datasets=["ds"],
+            node_name=["main"],
+            session_id="sess",
+        )
+        assert results is None
+
+    @pytest.mark.asyncio
+    async def test_deduplicates_results_across_types(self):
+        async def dup_search(query_type, **kwargs):
+            return ["shared_result", f"unique_{query_type.name}"]
+
+        mock_cognee = MagicMock()
+        mock_cognee.search = dup_search
+        SearchType = _make_search_type_enum()
+
+        results = await _multi_cognee_search(
+            mock_cognee,
+            search_types=[SearchType.CHUNKS, SearchType.CHUNKS_LEXICAL],
+            query="test",
+            top_k=10,
+            datasets=["ds"],
+            node_name=["main"],
+            session_id="sess",
+        )
+
+        result_strs = [str(r) for r in results]
+        assert result_strs.count("shared_result") == 1
+        assert len(results) == 3
+
 
 # --- _write_extras ---
 
