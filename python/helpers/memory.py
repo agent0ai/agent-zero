@@ -367,7 +367,6 @@ class Memory:
         ids = [doc.metadata["id"] for doc in docs]
         await self.delete_documents_by_ids(ids)
         result = await self.insert_documents(docs)
-        _invalidate_dashboard_cache()
         return result
 
     @staticmethod
