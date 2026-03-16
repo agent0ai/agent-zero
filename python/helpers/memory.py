@@ -307,6 +307,7 @@ class Memory:
                         await _delete_data_by_id(self._area_dataset(area.value), doc_id)
                     except Exception:
                         pass
+            _invalidate_dashboard_cache()
         return docs
 
     async def delete_documents_by_ids(self, ids: list[str]) -> list[Document]:
@@ -318,6 +319,8 @@ class Memory:
                     removed.append(Document(page_content="", metadata={"id": doc_id}))
                 except Exception:
                     pass
+        if removed:
+            _invalidate_dashboard_cache()
         return removed
 
     async def insert_text(self, text: str, metadata: dict = {}) -> str:
@@ -357,12 +360,15 @@ class Memory:
             except Exception as e:
                 PrintStyle.error(f"Cognee insert failed for {doc_id}: {e}")
 
+        _invalidate_dashboard_cache()
         return ids
 
     async def update_documents(self, docs: list[Document]) -> list:
         ids = [doc.metadata["id"] for doc in docs]
         await self.delete_documents_by_ids(ids)
-        return await self.insert_documents(docs)
+        result = await self.insert_documents(docs)
+        _invalidate_dashboard_cache()
+        return result
 
     @staticmethod
     def format_docs_plain(docs: list[Document]) -> list[str]:
@@ -494,6 +500,14 @@ async def _delete_data_by_id(dataset_name: str, data_id: str):
     except Exception as e:
         PrintStyle.error(f"Failed to delete data {data_id} from {dataset_name}: {e}")
     return False
+
+
+def _invalidate_dashboard_cache():
+    try:
+        from python.api.memory_dashboard import invalidate_dashboard_cache
+        invalidate_dashboard_cache()
+    except Exception:
+        pass
 
 
 def get_custom_knowledge_subdir_abs(agent: Agent) -> str:

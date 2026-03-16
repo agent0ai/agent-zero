@@ -1,3 +1,5 @@
+import time as _time
+
 from python.helpers.api import ApiHandler, Request, Response
 from python.helpers.memory import Memory, get_existing_memory_subdirs, get_context_memory_subdir
 from python.helpers import files
@@ -5,14 +7,21 @@ from python.helpers.print_style import PrintStyle
 from langchain_core.documents import Document
 from agent import AgentContext
 
+_dashboard_cache: dict[str, tuple[float, list]] = {}
+_CACHE_TTL = 60  # seconds
+
+
+def invalidate_dashboard_cache():
+    """Call after insert/delete/update to clear cached data."""
+    _dashboard_cache.clear()
+
 
 class MemoryDashboard(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         try:
-            from python.helpers.memory import _get_cognee, _ensure_cognee_db
-            cognee_mod, _ = _get_cognee()
-            await _ensure_cognee_db(cognee_mod)
+            from python.helpers.memory import _get_cognee
+            _get_cognee()
             action = input.get("action", "search")
             if action == "get_memory_subdirs":
                 return await self._get_memory_subdirs()
@@ -142,8 +151,6 @@ class MemoryDashboard(ApiHandler):
 
             memory = await Memory.get_by_subdir(memory_subdir, preload_knowledge=False)
 
-            memories = []
-
             if search_query:
                 docs = await memory.search_similarity_threshold(
                     query=search_query,
@@ -151,74 +158,103 @@ class MemoryDashboard(ApiHandler):
                     threshold=threshold,
                     filter=f"area == '{area_filter}'" if area_filter else "",
                 )
-                memories = docs
-            else:
-                try:
-                    import cognee
-                    from python.helpers.memory import _extract_metadata_from_text, _with_cognee_setup_retry
-                    from python.helpers import guids
-                    datasets_to_check = []
-                    if area_filter:
-                        datasets_to_check.append(memory._area_dataset(area_filter))
-                    else:
-                        for area in Memory.Area:
-                            datasets_to_check.append(memory._area_dataset(area.value))
+                formatted = [self._format_memory_for_dashboard(m) for m in docs]
+                total = len(formatted)
+                knowledge_count = sum(1 for m in formatted if m["knowledge_source"])
+                return {
+                    "success": True,
+                    "memories": formatted,
+                    "total_count": total,
+                    "total_db_count": total,
+                    "knowledge_count": knowledge_count,
+                    "conversation_count": total - knowledge_count,
+                    "search_query": search_query,
+                    "area_filter": area_filter,
+                    "memory_subdir": memory_subdir,
+                }
 
-                    all_datasets = await _with_cognee_setup_retry(cognee, cognee.datasets.list_datasets)
-                    target_names = set(datasets_to_check)
-                    for ds in all_datasets:
-                        if ds.name not in target_names:
-                            continue
-                        try:
-                            data_items = await cognee.datasets.list_data(ds.id)
-                        except Exception as e:
-                            PrintStyle.error(f"[MemoryDashboard] Failed to list data for '{ds.name}': {e}")
-                            continue
-                        for item in data_items:
-                            content = self._read_data_item_content(item)
-                            text, meta = _extract_metadata_from_text(content)
-                            if not meta.get("id"):
-                                meta["id"] = guids.generate_id(10)
-                            if not meta.get("area"):
-                                meta["area"] = Memory.Area.MAIN.value
-                            memories.append(Document(page_content=text, metadata=meta))
-                except Exception as e:
-                    PrintStyle.error(f"[MemoryDashboard] Failed to list Cognee datasets: {e}")
-                    import traceback
-                    traceback.print_exc()
+            cache_key = f"{memory_subdir}:{area_filter}"
+            now = _time.monotonic()
 
-                memories.sort(
-                    key=lambda m: m.metadata.get("timestamp", "0000-00-00 00:00:00"),
-                    reverse=True,
-                )
+            if cache_key in _dashboard_cache:
+                cached_time, cached_data = _dashboard_cache[cache_key]
+                if now - cached_time < _CACHE_TTL:
+                    return self._paginate_cached(
+                        cached_data, offset, limit,
+                        search_query, area_filter, memory_subdir,
+                    )
 
-                if offset:
-                    memories = memories[offset:]
-                if limit and len(memories) > limit:
-                    memories = memories[:limit]
+            memories = []
+            try:
+                import cognee
+                from python.helpers.memory import _extract_metadata_from_text
+                from python.helpers import guids
 
-            formatted_memories = [self._format_memory_for_dashboard(m) for m in memories]
+                datasets_to_check = []
+                if area_filter:
+                    datasets_to_check.append(memory._area_dataset(area_filter))
+                else:
+                    for area in Memory.Area:
+                        datasets_to_check.append(memory._area_dataset(area.value))
 
-            total_memories = len(formatted_memories)
-            knowledge_count = sum(
-                1 for m in formatted_memories if m["knowledge_source"]
+                all_datasets = await cognee.datasets.list_datasets()
+                target_names = set(datasets_to_check)
+                for ds in all_datasets:
+                    if ds.name not in target_names:
+                        continue
+                    try:
+                        data_items = await cognee.datasets.list_data(ds.id)
+                    except Exception as e:
+                        PrintStyle.error(f"[MemoryDashboard] Failed to list data for '{ds.name}': {e}")
+                        continue
+                    for item in data_items:
+                        content = self._read_data_item_content(item)
+                        text, meta = _extract_metadata_from_text(content)
+                        if not meta.get("id"):
+                            meta["id"] = guids.generate_id(10)
+                        if not meta.get("area"):
+                            meta["area"] = Memory.Area.MAIN.value
+                        memories.append(Document(page_content=text, metadata=meta))
+            except Exception as e:
+                PrintStyle.error(f"[MemoryDashboard] Failed to list Cognee datasets: {e}")
+                import traceback
+                traceback.print_exc()
+
+            memories.sort(
+                key=lambda m: m.metadata.get("timestamp", "0000-00-00 00:00:00"),
+                reverse=True,
             )
-            conversation_count = total_memories - knowledge_count
 
-            return {
-                "success": True,
-                "memories": formatted_memories,
-                "total_count": total_memories,
-                "total_db_count": total_memories,
-                "knowledge_count": knowledge_count,
-                "conversation_count": conversation_count,
-                "search_query": search_query,
-                "area_filter": area_filter,
-                "memory_subdir": memory_subdir,
-            }
+            formatted_all = [self._format_memory_for_dashboard(m) for m in memories]
+            _dashboard_cache[cache_key] = (now, formatted_all)
+
+            return self._paginate_cached(
+                formatted_all, offset, limit,
+                search_query, area_filter, memory_subdir,
+            )
 
         except Exception as e:
             return {"success": False, "error": str(e), "memories": [], "total_count": 0}
+
+    @staticmethod
+    def _paginate_cached(
+        formatted_all: list, offset: int, limit: int,
+        search_query: str, area_filter: str, memory_subdir: str,
+    ) -> dict:
+        total_db = len(formatted_all)
+        page = formatted_all[offset:offset + limit] if limit else formatted_all[offset:]
+        knowledge_count = sum(1 for m in page if m["knowledge_source"])
+        return {
+            "success": True,
+            "memories": page,
+            "total_count": len(page),
+            "total_db_count": total_db,
+            "knowledge_count": knowledge_count,
+            "conversation_count": len(page) - knowledge_count,
+            "search_query": search_query,
+            "area_filter": area_filter,
+            "memory_subdir": memory_subdir,
+        }
 
     @staticmethod
     def _read_data_item_content(item) -> str:
