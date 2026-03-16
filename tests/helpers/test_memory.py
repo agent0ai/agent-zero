@@ -788,3 +788,130 @@ class TestGetCustomKnowledgeSubdirAbs:
         mock_agent.config.knowledge_subdirs = ["default"]
         with pytest.raises(Exception, match="No custom knowledge subdir"):
             get_custom_knowledge_subdir_abs(mock_agent)
+
+
+# --- Memory._multi_search parallel execution ---
+
+def _make_search_type_enum():
+    """Create a mock SearchType enum with common types."""
+    from types import SimpleNamespace
+    st = SimpleNamespace()
+    for name in ["CHUNKS", "CHUNKS_LEXICAL", "GRAPH_COMPLETION"]:
+        member = SimpleNamespace(name=name, value=name)
+        setattr(st, name, member)
+    return st
+
+
+class TestMultiSearchParallel:
+    """Verify _multi_search runs search types in parallel with timeouts."""
+
+    @pytest.mark.asyncio
+    async def test_multi_search_runs_in_parallel(self):
+        """Two search types with 0.5s delay each should complete in <0.9s."""
+        from python.helpers.memory import Memory
+        import python.helpers.memory as mem_mod
+
+        SearchType = _make_search_type_enum()
+
+        async def delayed_search(query_text, query_type, top_k, datasets, node_name, **kw):
+            await asyncio.sleep(0.5)
+            return [f"result_{query_type.name}"]
+
+        mock_cognee = MagicMock()
+        mock_cognee.search = delayed_search
+        mem_mod._cognee = mock_cognee
+        mem_mod._SearchType = SearchType
+
+        memory = Memory(dataset_name="default", memory_subdir="default")
+
+        with patch("python.helpers.memory.get_cognee_setting") as mock_setting:
+            mock_setting.side_effect = lambda name, default: {
+                "cognee_search_types": "CHUNKS,CHUNKS_LEXICAL",
+            }.get(name, default)
+
+            loop = asyncio.get_event_loop()
+            start = loop.time()
+            results = await memory._multi_search(
+                mock_cognee, SearchType, "test query", limit=5,
+                datasets=["ds_main"], node_names=["main"],
+            )
+            elapsed = loop.time() - start
+
+        assert len(results) == 2
+        assert elapsed < 0.9, f"Expected parallel execution (<0.9s), took {elapsed:.2f}s"
+
+    @pytest.mark.asyncio
+    async def test_multi_search_timeout_per_type(self):
+        """One type hangs, other returns results; overall completes without hanging."""
+        from python.helpers.memory import Memory
+        import python.helpers.memory as mem_mod
+
+        SearchType = _make_search_type_enum()
+
+        async def mixed_search(query_text, query_type, top_k, datasets, node_name, **kw):
+            if query_type.name == "CHUNKS":
+                return ["good_result"]
+            await asyncio.sleep(60)
+            return ["should_not_appear"]
+
+        mock_cognee = MagicMock()
+        mock_cognee.search = mixed_search
+        mem_mod._cognee = mock_cognee
+        mem_mod._SearchType = SearchType
+
+        memory = Memory(dataset_name="default", memory_subdir="default")
+
+        with patch("python.helpers.memory.get_cognee_setting") as mock_setting:
+            mock_setting.side_effect = lambda name, default: {
+                "cognee_search_types": "CHUNKS,CHUNKS_LEXICAL",
+            }.get(name, default)
+
+            with patch.object(Memory, "SEARCH_TIMEOUT", 0.3):
+                loop = asyncio.get_event_loop()
+                start = loop.time()
+                results = await memory._multi_search(
+                    mock_cognee, SearchType, "test query", limit=5,
+                    datasets=["ds_main"], node_names=["main"],
+                )
+                elapsed = loop.time() - start
+
+        assert elapsed < 2.0, f"Should not hang, took {elapsed:.2f}s"
+        contents = [doc.page_content for doc in results]
+        assert any("good_result" in c for c in contents)
+        assert not any("should_not_appear" in c for c in contents)
+
+    @pytest.mark.asyncio
+    async def test_multi_search_fallback_on_all_fail(self):
+        """All types fail → fallback to CHUNKS."""
+        from python.helpers.memory import Memory
+        import python.helpers.memory as mem_mod
+
+        SearchType = _make_search_type_enum()
+        call_log = []
+
+        async def failing_then_fallback(query_text, query_type, top_k, **kw):
+            call_log.append(query_type.name)
+            if query_type.name == "CHUNKS" and len(call_log) > 2:
+                return ["fallback_result"]
+            raise Exception(f"{query_type.name} failed")
+
+        mock_cognee = MagicMock()
+        mock_cognee.search = failing_then_fallback
+        mem_mod._cognee = mock_cognee
+        mem_mod._SearchType = SearchType
+
+        memory = Memory(dataset_name="default", memory_subdir="default")
+
+        with patch("python.helpers.memory.get_cognee_setting") as mock_setting:
+            mock_setting.side_effect = lambda name, default: {
+                "cognee_search_types": "CHUNKS,CHUNKS_LEXICAL",
+            }.get(name, default)
+
+            results = await memory._multi_search(
+                mock_cognee, SearchType, "test query", limit=5,
+                datasets=["ds_main"], node_names=["main"],
+            )
+
+        assert len(results) >= 1
+        assert any("fallback_result" in doc.page_content for doc in results)
+        assert "CHUNKS" in call_log

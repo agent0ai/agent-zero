@@ -77,6 +77,7 @@ class Memory:
 
     _initialized: bool = False
     _datasets_cache: dict[str, str] = {}
+    SEARCH_TIMEOUT = 15
 
     @staticmethod
     async def get(agent: Agent) -> "Memory":
@@ -289,22 +290,33 @@ class Memory:
             search_types = [SearchType.CHUNKS]
 
         per_type_limit = max(limit, 10)
-        all_results = []
 
-        for st in search_types:
+        async def _search_one(st):
             try:
-                results = await _with_cognee_setup_retry(
-                    cognee, cognee.search,
-                    query_text=query,
-                    query_type=st,
-                    top_k=per_type_limit,
-                    datasets=datasets if datasets else None,
-                    node_name=node_names if node_names else None,
+                return await asyncio.wait_for(
+                    _with_cognee_setup_retry(
+                        cognee, cognee.search,
+                        query_text=query,
+                        query_type=st,
+                        top_k=per_type_limit,
+                        datasets=datasets if datasets else None,
+                        node_name=node_names if node_names else None,
+                    ),
+                    timeout=self.SEARCH_TIMEOUT,
                 )
-                if results:
-                    all_results.extend(results)
+            except asyncio.TimeoutError:
+                PrintStyle.error(f"Cognee multi-search ({st.name}) timed out after {self.SEARCH_TIMEOUT}s")
+                return []
             except Exception as e:
                 PrintStyle.error(f"Cognee multi-search ({st.name}) failed: {e}")
+                return []
+
+        per_type_results = await asyncio.gather(*[_search_one(st) for st in search_types])
+
+        all_results = []
+        for results in per_type_results:
+            if results:
+                all_results.extend(results)
 
         if not all_results:
             try:
