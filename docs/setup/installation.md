@@ -2,7 +2,7 @@
 
 Click to open a video to learn how to install Agent Zero:
 
-[![Easy Installation guide](../res/easy_ins_vid.png)](https://www.youtube.com/watch?v=w5v5Kjx51hs)
+[![Easy Installation guide](../res/install_guide.png)](https://www.youtube.com/watch?v=2-qFNUvqrXA)
 
 ## **Goal:** Go from zero to a first working chat with minimal setup.
 

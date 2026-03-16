@@ -51,7 +51,7 @@ Or see DeepWiki generated documentation:
 
 Click to open a video to learn how to install Agent Zero:
 
-[![Easy Installation guide](/docs/res/easy_ins_vid.png)](https://www.youtube.com/watch?v=w5v5Kjx51hs)
+[![Easy Installation guide](/docs/res/install_guide.png)](https://www.youtube.com/watch?v=2-qFNUvqrXA)
 
 A detailed setup guide for Windows, macOS, and Linux with a video can be found in the Agent Zero Documentation at [this page](./docs/setup/installation.md).
 

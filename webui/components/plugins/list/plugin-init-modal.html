@@ -17,7 +17,7 @@
                     <span class="material-symbols-outlined idle-icon">terminal</span>
                     <div class="idle-text">
                         <span class="idle-headline">Press <strong>Run</strong> to initialize <strong x-text="$store.pluginInitStore.pluginDisplayName"></strong></span>
-                        <span class="idle-sub">This will execute the plugin's <code>initialize.py</code> setup script.</span>
+                        <span class="idle-sub">This will execute the plugin's <code>execute.py</code> setup script.</span>
                         <template x-if="$store.pluginInitStore.lastExec">
                             <span class="last-exec-info">
                                 Last run:
@@ -36,7 +36,7 @@
 
                 <div class="plugin-init-status" x-show="$store.pluginInitStore.running">
                     <span class="material-symbols-outlined spin">progress_activity</span>
-                    <span>Running initialize.py...</span>
+                    <span>Running execute.py...</span>
                 </div>
 
                 <div class="plugin-init-exit" x-show="!$store.pluginInitStore.running && $store.pluginInitStore.exitCode !== null">

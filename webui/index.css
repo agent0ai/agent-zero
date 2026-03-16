@@ -139,6 +139,19 @@ body {
   -webkit-overscroll-behavior: none;
 }
 
+x-extension:not(:empty) {
+  display: contents;
+}
+
+x-extension:empty {
+  display: none;
+}
+
+x-extension > x-component,
+x-extension > x-component > div[x-data] {
+  display: contents;
+}
+
 p:last-child {
   margin-bottom: 0;
 }

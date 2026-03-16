@@ -1141,7 +1141,9 @@ export function drawMessageTool({
   if (!tool_name) {
     return drawMessageToolSimple({ ...arguments[0] });
   } else if (kvps._tool_name === "skills_tool") {
-    return drawMessageToolSimple({ ...arguments[0], code: "SKL" });
+    const displayKvps = { ...(kvps || {}) };
+    delete displayKvps._tool_name;
+    return drawMessageToolSimple({ ...arguments[0], code: "SKL", displayKvps });
   } else if (kvps._tool_name === "vision_load") {
     return drawMessageToolSimple({ ...arguments[0], code: "EYE" });
   } else if (kvps._tool_name === "search_engine") {

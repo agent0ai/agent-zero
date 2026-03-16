@@ -730,7 +730,8 @@ const model = {
 
   /** Refresh related list views after installer/detail actions. */
   refreshPluginList() {
-    if (pluginListStore.activeTab === "marketplace") {
+    const marketplaceActive = pluginListStore.activeTab === "marketplace";
+    if (marketplaceActive) {
       void this.fetchIndex();
     }
     pluginListStore.refresh();

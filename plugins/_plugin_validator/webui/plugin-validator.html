@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Plugin Validator</title>
+  <script type="module">
+    import { store } from "/plugins/_plugin_validator/webui/plugin-validator-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.pluginValidator">
+      <div x-create="$store.pluginValidator.onOpen()" x-destroy="$store.pluginValidator.cleanup()" class="plugin-validator">
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link"
+              :class="{ active: $store.pluginValidator.source === 'local' }"
+              id="plugin-validator-local-tab"
+              type="button"
+              role="tab"
+              :aria-selected="$store.pluginValidator.source === 'local'"
+              aria-controls="plugin-validator-local-panel"
+              @click="$store.pluginValidator.setSource('local')">
+              <span class="material-symbols-outlined pv-tab-icon">folder</span> Local
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link"
+              :class="{ active: $store.pluginValidator.source === 'git' }"
+              id="plugin-validator-git-tab"
+              type="button"
+              role="tab"
+              :aria-selected="$store.pluginValidator.source === 'git'"
+              aria-controls="plugin-validator-git-panel"
+              @click="$store.pluginValidator.setSource('git')">
+              <span class="material-symbols-outlined pv-tab-icon">terminal</span> Git
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link"
+              :class="{ active: $store.pluginValidator.source === 'zip' }"
+              id="plugin-validator-zip-tab"
+              type="button"
+              role="tab"
+              :aria-selected="$store.pluginValidator.source === 'zip'"
+              aria-controls="plugin-validator-zip-panel"
+              @click="$store.pluginValidator.setSource('zip')">
+              <span class="material-symbols-outlined pv-tab-icon">upload_file</span> ZIP
+            </button>
+          </li>
+        </ul>
+
+        <template x-if="$store.pluginValidator.source === 'local'">
+          <div class="pv-panel" id="plugin-validator-local-panel" role="tabpanel" aria-labelledby="plugin-validator-local-tab">
+            <div class="pv-field">
+              <label>Installed Plugin</label>
+              <select class="pv-select"
+                :value="$store.pluginValidator.localPluginName"
+                @change="$store.pluginValidator.selectLocalPlugin($event.target.value)">
+                <template x-if="$store.pluginValidator.localPlugins.length === 0">
+                  <option value="">No custom plugins found</option>
+                </template>
+                <template x-for="plugin in $store.pluginValidator.localPlugins" :key="plugin.name">
+                  <option :value="plugin.name" x-text="plugin.display_name ? `${plugin.display_name} (${plugin.name})` : plugin.name"></option>
+                </template>
+              </select>
+              <div class="pv-hint">Validates plugins installed under <code>usr/plugins/</code>.</div>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="$store.pluginValidator.source === 'git'">
+          <div class="pv-panel" id="plugin-validator-git-panel" role="tabpanel" aria-labelledby="plugin-validator-git-tab">
+            <div class="pv-field">
+              <label>Git Repository URL</label>
+              <input type="text"
+                class="pv-input"
+                x-model="$store.pluginValidator.gitUrl"
+                @input.debounce.300ms="$store.pluginValidator.buildPrompt()"
+                placeholder="https://github.com/user/plugin-repo.git" />
+              <div class="pv-hint">Validation clones the repository to a temporary directory and cleans it up after review.</div>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="$store.pluginValidator.source === 'zip'">
+          <div class="pv-panel" id="plugin-validator-zip-panel" role="tabpanel" aria-labelledby="plugin-validator-zip-tab">
+            <div class="pv-upload-section">
+              <label for="plugin-validator-zip-file"
+                class="pv-upload-btn button confirm"
+                :class="{ 'pv-has-file': $store.pluginValidator.zipFile }">
+                <span class="icon material-symbols-outlined">upload_file</span>
+                <span x-text="$store.pluginValidator.zipFileName || 'Select Plugin ZIP File'"></span>
+              </label>
+              <input type="file"
+                id="plugin-validator-zip-file"
+                accept=".zip"
+                style="display:none"
+                @change="$store.pluginValidator.handleZipUpload($event)">
+              <div class="pv-hint">The ZIP is extracted to a temporary directory only for validation. It is not installed.</div>
+            </div>
+          </div>
+        </template>
+
+        <div class="pv-field">
+          <label>Validation Phases</label>
+          <div class="pv-checks">
+            <template x-for="[key, meta] of Object.entries($store.pluginValidator.checksMeta)" :key="key">
+              <label class="pv-check">
+                <input type="checkbox"
+                  x-model="$store.pluginValidator.checks[key]"
+                  @change="$store.pluginValidator.buildPrompt()" />
+                <span x-text="meta.label"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <div class="pv-field">
+          <label>Agent Prompt <span class="pv-label-note">(editable)</span></label>
+          <textarea x-model="$store.pluginValidator.prompt" class="pv-textarea"></textarea>
+        </div>
+
+        <div class="pv-actions">
+          <button class="button" @click="$store.pluginValidator.copyPrompt()">Copy Prompt</button>
+          <button class="button confirm"
+            @click="$store.pluginValidator.runValidation()"
+            :disabled="$store.pluginValidator.validating || $store.pluginValidator.queued">
+            <span x-show="$store.pluginValidator.queued"><span class="pv-spinner"></span>Queued...</span>
+            <span x-show="$store.pluginValidator.validating && !$store.pluginValidator.queued"><span class="pv-spinner"></span>Validating...</span>
+            <span x-show="!$store.pluginValidator.validating && !$store.pluginValidator.queued">Run Validation</span>
+          </button>
+          <button class="button"
+            @click="$store.pluginValidator.openChatInNewWindow()"
+            x-show="$store.pluginValidator.validationCtxId"
+            title="Open this validation chat in a new tab">
+            Open in Chat ->
+          </button>
+        </div>
+
+        <div x-show="$store.pluginValidator.output" class="pv-output">
+          <label class="pv-output-label">Validation Results</label>
+          <div class="pv-output-html" x-html="$store.pluginValidator.renderedOutput"></div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    @import url("/plugins/_plugin_installer/webui/install-shared.css");
+
+    .plugin-validator {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0.5rem;
+    }
+
+    .nav {
+      display: flex;
+      padding-left: 0;
+      margin: 0;
+      list-style: none;
+      border-bottom: 1px solid var(--color-border);
+      gap: 0.25rem;
+    }
+
+    .nav-link {
+      font-family: "Rubik", Arial, Helvetica, sans-serif;
+      border: 1px solid transparent;
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+      padding: 0.4rem 0.7rem;
+      background: transparent;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .nav-link.active {
+      color: var(--color-text-primary);
+      border-color: var(--color-border);
+      border-bottom-color: transparent;
+      background: var(--color-background);
+    }
+
+    .pv-tab-icon {
+      font-size: 1.1rem;
+    }
+
+    .pv-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .pv-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .pv-field label,
+    .pv-output-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0.8;
+    }
+
+    .pv-label-note {
+      font-weight: 400;
+      opacity: 0.6;
+    }
+
+    .pv-input,
+    .pv-select,
+    .pv-textarea {
+      width: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      background: var(--color-panel);
+      color: var(--color-text);
+      box-sizing: border-box;
+    }
+
+    .pv-textarea {
+      min-height: 16rem;
+      resize: none;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+
+    .pv-input:focus,
+    .pv-select:focus,
+    .pv-textarea:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    .pv-checks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+    }
+
+    .pv-check {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .pv-check input[type="checkbox"] {
+      accent-color: var(--color-primary);
+    }
+
+    .pv-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pv-output {
+      border-top: 1px solid var(--color-border);
+      padding-top: 1rem;
+    }
+
+    .pv-output-html {
+      line-height: 1.5;
+    }
+
+    .pv-output-html table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.75rem 0;
+    }
+
+    .pv-output-html th,
+    .pv-output-html td {
+      border: 1px solid var(--color-border);
+      padding: 0.4rem 0.6rem;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .pv-output-html th {
+      background: var(--color-panel);
+      font-weight: 600;
+    }
+
+    .pv-output-html hr {
+      border: 1px solid var(--color-border);
+    }
+
+    .pv-output-html pre {
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+
+    .pv-output-html code {
+      font-size: 0.8rem;
+    }
+
+    .pv-upload-section {
+      text-align: center;
+      padding: 2rem 1rem;
+      border: 2px dashed var(--color-border);
+      border-radius: 8px;
+    }
+
+    .pv-upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .pv-upload-btn.pv-has-file {
+      background: var(--color-panel);
+      border-color: var(--color-highlight);
+    }
+
+    .pv-hint {
+      color: var(--color-text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .pv-spinner {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      border: 2px solid var(--color-border);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: pv-spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4em;
+    }
+
+    @keyframes pv-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</body>
+</html>

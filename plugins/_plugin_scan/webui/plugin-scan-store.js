@@ -2,6 +2,7 @@ import { marked } from "/vendor/marked/marked.esm.js";
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import { openModal } from "/js/modals.js";
+import { toastFrontendError } from "/components/notifications/notification-store.js";
 
 const BASE = "/plugins/_plugin_scan/webui";
 
@@ -10,20 +11,44 @@ let _config = null;
 /** @type {string|null} */
 let _templateCache = null;
 
-async function loadConfig() {
-  if (!_config) {
-    const resp = await fetch(`${BASE}/plugin-scan-checks.json`);
-    _config = await resp.json();
+async function fetchText(url, label) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Failed to load ${label}: ${response.status} ${response.statusText}${body ? ` - ${body}` : ""}`);
   }
-  return _config;
+  return response.text();
+}
+
+async function fetchJson(url, label) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Failed to load ${label}: ${response.status} ${response.statusText}${body ? ` - ${body}` : ""}`);
+  }
+  return response.json();
+}
+
+async function loadConfig() {
+  if (_config) return _config;
+  try {
+    _config = await fetchJson(`${BASE}/plugin-scan-checks.json`, "scan checks");
+    return _config;
+  } catch (error) {
+    _config = null;
+    throw error;
+  }
 }
 
 async function loadTemplate() {
-  if (!_templateCache) {
-    const resp = await fetch(`${BASE}/plugin-scan-prompt.md`);
-    _templateCache = await resp.text();
+  if (_templateCache) return _templateCache;
+  try {
+    _templateCache = await fetchText(`${BASE}/plugin-scan-prompt.md`, "scan prompt template");
+    return _templateCache;
+  } catch (error) {
+    _templateCache = null;
+    throw error;
   }
-  return _templateCache;
 }
 
 function formatCriteria(ratings, criteria) {
@@ -47,6 +72,12 @@ let _queue = [];
 /** @type {{ gen: number, ctxId: string } | null} */
 let _running = null;
 const POLL_INTERVAL = 2000;
+const MAX_POLL_MS = 10 * 60 * 1000;
+const SCAN_TITLE = "Plugin Scanner";
+
+function formatErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export const store = createStore("pluginScan", {
   gitUrl: "",
@@ -57,7 +88,6 @@ export const store = createStore("pluginScan", {
   scanning: false,
   queued: false,
   scanCtxId: "",
-  error: "",
 
   get renderedOutput() {
     return this.output ? marked.parse(this.output, { breaks: true }) : "";
@@ -73,7 +103,6 @@ export const store = createStore("pluginScan", {
   },
 
   async onOpen(url) {
-    this.error = "";
     this.output = "";
     this.scanning = false;
     this.queued = false;
@@ -130,12 +159,16 @@ export const store = createStore("pluginScan", {
       this.prompt = text;
     } catch (/** @type {any} */ e) {
       console.error("Failed to build prompt:", e);
-      this.error = "Failed to load prompt template.";
+      void toastFrontendError(`Failed to build prompt: ${formatErrorMessage(e)}`, SCAN_TITLE);
     }
   },
 
   async copyPrompt() {
-    try { await navigator.clipboard.writeText(this.prompt); } catch { /* noop */ }
+    try {
+      await navigator.clipboard.writeText(this.prompt);
+    } catch {
+      void toastFrontendError("Failed to copy the scan prompt", SCAN_TITLE);
+    }
   },
 
   /**
@@ -144,12 +177,14 @@ export const store = createStore("pluginScan", {
    * but the agent is NOT started until it's their turn.
    */
   async runScan() {
-    if (!this.gitUrl) { this.error = "Please enter a Git URL."; return; }
+    if (!this.gitUrl.trim()) {
+      void toastFrontendError("Please enter a Git URL", SCAN_TITLE);
+      return;
+    }
 
     await this.buildPrompt();
     const capturedPrompt = this.prompt;
     const gen = ++_pollGen;
-    this.error = "";
     this.output = "";
 
     let ctxId;
@@ -158,7 +193,7 @@ export const store = createStore("pluginScan", {
       if (!resp.ok) throw new Error("Failed to create chat context");
       ctxId = resp.ctxid;
     } catch (/** @type {any} */ e) {
-      this.error = `Scan failed: ${e.message || e}`;
+      void toastFrontendError(`Scan failed: ${formatErrorMessage(e)}`, SCAN_TITLE);
       return;
     }
     this.scanCtxId = ctxId;
@@ -188,16 +223,21 @@ export const store = createStore("pluginScan", {
       await this._pollLoop(gen, ctxId);
     } catch (/** @type {any} */ e) {
       if (gen === _pollGen) {
-        this.error = `Scan failed: ${e.message || e}`;
+        void toastFrontendError(`Scan failed: ${formatErrorMessage(e)}`, SCAN_TITLE);
         this.scanning = false;
         this.queued = false;
       }
     } finally {
       _running = null;
-      if (_queue.length) {
+      while (_queue.length) {
         const next = /** @type {{ gen: number, ctxId: string, prompt: string }} */ (_queue.shift());
-        if (next.gen === _pollGen) { this.queued = false; this.scanning = true; }
+        if (!next || next.gen !== _pollGen) {
+          continue;
+        }
+        this.queued = false;
+        this.scanning = true;
         this._runNext(next.gen, next.ctxId, next.prompt);
+        break;
       }
     }
   },
@@ -205,7 +245,16 @@ export const store = createStore("pluginScan", {
   /** @param {number} gen  @param {string} ctxId */
   async _pollLoop(gen, ctxId) {
     let started = false;
+    const deadline = Date.now() + MAX_POLL_MS;
     while (true) {
+      if (Date.now() >= deadline) {
+        if (gen === _pollGen) {
+          this.scanning = false;
+          void toastFrontendError("Scan timed out while waiting for the agent response", SCAN_TITLE);
+          console.error(`Scan poll timed out for context ${ctxId}`);
+        }
+        return;
+      }
       await new Promise((r) => setTimeout(r, POLL_INTERVAL));
       try {
         const snap = await api.callJsonApi("/poll", {

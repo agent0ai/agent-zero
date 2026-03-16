@@ -8,8 +8,7 @@
 <body>
     <div x-data>
         <template x-if="$store.pluginToggle">
-            <div x-create="$store.pluginToggle.open($store.pluginListStore?.selectedPlugin || '')"
-                 x-destroy="$store.pluginToggle.cleanup(); $store.pluginListStore?.refresh()">
+            <div x-create="$store.pluginToggle.open($store.pluginListStore?.selectedPlugin || '')">
 
                 <!-- Error -->
                 <div x-show="$store.pluginToggle.error" class="plugin-settings-error">

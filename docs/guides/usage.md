@@ -74,6 +74,27 @@ Access the chat history in JSON format
 > [!TIP]
 > Use the Context and History buttons to understand how the agent interprets your instructions and debug any unexpected behavior.
 
+### Plugins and Marketplace
+Open the **Plugins** dialog from the sidebar quick actions by clicking the plugin icon.
+
+![Plugins](../res/usage/plugins/plugins-list.png)
+
+From this view you can manage installed plugins, review plugin details, open plugin settings, and change activation state.
+
+#### Open the Plugin Marketplace
+There are two ways to reach the marketplace from the Plugins dialog:
+
+1. Click the **Browse** tab after **Custom** and **Builtin** to switch the current dialog into marketplace mode.
+2. Click the **Install** button in the top-right toolbar to open the installer modal, which starts on its own **Browse** tab.
+
+![Plugin Marketplace](../res/usage/plugins/marketplace-main-view.png)
+
+The marketplace lets you search community plugins, filter by tags, sort the listing, and open a plugin card for more context before installing.
+
+![Plugin Details](../res/usage/plugins/marketplace-plugin-detail.png)
+
+Opening a plugin shows its author, tags, README content, and install action. Once you are in the detail view, the next steps are intentionally straightforward.
+
 ### File Attachments
 Agent Zero supports direct file attachments in the chat interface for seamless file operations:
 

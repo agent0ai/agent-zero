@@ -65,7 +65,7 @@ This architecture ensures:
 | `usr/secrets.env` | Secrets store (managed via Settings -> Secrets) |
 | `conf/model_providers.yaml` | Model provider defaults and settings |
 | `agent.py` | Core agent implementation |
-| `initialize.py` | Framework initialization |
+| `execute.py` | Framework initialization |
 | `models.py` | Model providers and configs |
 | `preload.py` | Pre-initialization routines |
 | `prepare.py` | Environment preparation |

@@ -215,3 +215,12 @@ const extensionObserverCallback = (mutations) => {
 /** @type {MutationObserver} */
 const extensionObserver = new MutationObserver(extensionObserverCallback);
 extensionObserver.observe(document.body, { childList: true, subtree: true });
+
+// Do an initial scan for static x-extension tags
+// that already exist in the DOM (index.html), then rely on
+// the observer for dynamically inserted nodes coming from components.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => loadHtmlExtensions());
+} else {
+  loadHtmlExtensions();
+}

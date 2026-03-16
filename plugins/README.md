@@ -41,9 +41,15 @@ per_agent_config: false
 always_enabled: false
 ```
 
-## Plugin Initialization (`initialize.py`)
+## Plugin Script (`execute.py`)
 
-Plugins can include an optional `initialize.py` at the plugin root for one-time setup such as installing dependencies or downloading models. Users trigger it via the **Init** button in the Plugin List UI. The script should return `0` on success and print progress messages for user feedback.
+Plugins can include an optional `execute.py` at the plugin root for user-triggered operations such as setup, post-install steps, maintenance, repairs, migrations, or resource refreshes. Users trigger it from the Plugin List UI.
+
+Guidelines:
+- Treat it as a manual plugin script, not as the primary way to use the plugin
+- Prefer making it safe to rerun, or detect state and explain why a rerun is not appropriate
+- Return `0` on success and print progress messages for user feedback
+- Use `hooks.py` instead when the behavior is framework-internal or should happen automatically
 
 ## Runtime Hooks (`hooks.py`)
 
@@ -62,8 +68,8 @@ The **Plugin Index** at https://github.com/agent0ai/a0-plugins is the community-
 
 To share a plugin with the community:
 
-1. Create a standalone GitHub repository with the plugin contents at the repo root and the runtime `plugin.yaml` there.
-2. Fork `https://github.com/agent0ai/a0-plugins` and add a folder `plugins/<your-plugin-name>/` containing a separate index `plugin.yaml`:
+1. Create a standalone GitHub repository with the plugin contents at the repo root. The runtime `plugin.yaml` must include a `name` field matching the intended index folder name.
+2. Fork `https://github.com/agent0ai/a0-plugins` and add a folder `plugins/<your_plugin_name>/` containing a separate index manifest named `index.yaml` (not `plugin.yaml`):
 
 ```yaml
 title: My Plugin
@@ -73,10 +79,14 @@ tags:
   - tools
 ```
 
+Optional additional fields: `screenshots` (up to 5 image URLs).
+
 3. Open a Pull Request. CI validates the submission; a maintainer reviews and merges.
 
-Note: The index `plugin.yaml` is a **different schema** from the runtime manifest — it contains only `title`, `description`, `github`, and optional `tags`. Do not mix them up.
+Note: The index `index.yaml` is a **different file with a different schema** from the runtime `plugin.yaml`. Folder names use `^[a-z0-9_]+$` (underscores, no hyphens) and must match the `name` field in the remote `plugin.yaml` exactly.
 
-## Plugin Marketplace (Coming Soon)
+## Plugin Marketplace
 
-A built-in **Plugin Marketplace** (always-active plugin) is planned and will allow users to browse the Plugin Index and install community plugins directly from the Agent Zero UI.
+Agent Zero now includes a built-in marketplace flow through the always-enabled **Plugin Installer** plugin. From the **Plugins** dialog, users can either open the **Browse** tab or click **Install**, which opens the installer modal on its own **Browse** tab.
+
+The marketplace surfaces Plugin Index entries directly in the UI and lets users search, filter, inspect, and install community plugins without leaving Agent Zero.

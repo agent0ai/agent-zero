@@ -70,6 +70,7 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 - [User Guides](#user-guides)
   - [Usage Guide](guides/usage.md)
     - [Basic Operations](guides/usage.md#basic-operations)
+    - [Plugins and Marketplace](guides/usage.md#plugins-and-marketplace)
     - [Tool Usage](guides/usage.md#tool-usage)
     - [Projects](guides/usage.md#projects)
       - [What Projects Provide](guides/usage.md#what-projects-provide)

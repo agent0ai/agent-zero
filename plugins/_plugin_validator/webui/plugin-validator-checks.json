@@ -1,0 +1,45 @@
+{
+  "ratings": {
+    "pass": { "icon": "🟢", "label": "Pass" },
+    "warning": { "icon": "🟡", "label": "Warning" },
+    "fail": { "icon": "🔴", "label": "Fail" }
+  },
+  "checks": {
+    "manifest": {
+      "label": "Manifest Validation",
+      "detail": "Validate plugin.yaml at the plugin root. Confirm it is parseable YAML, contains the required name/title/description/version fields, uses a valid plugin name matching ^[a-z0-9_]+$, keeps boolean fields typed correctly, restricts settings_sections to the documented values, and avoids unknown schema keys.",
+      "criteria": {
+        "pass": "plugin.yaml exists, parses, and matches the expected schema with no required fixes",
+        "warning": "Manifest is mostly valid but has extra keys, weak metadata, or non-blocking schema issues",
+        "fail": "plugin.yaml is missing, invalid, or violates required schema or naming rules"
+      }
+    },
+    "structure": {
+      "label": "Structure Validation",
+      "detail": "Inspect the directory layout and role of each top-level file or folder. Check that api/ contains Python ApiHandler files, tools/ contains Tool subclasses, extensions/ follows python/<point>/ or webui/<point>/ conventions, webui/config.html is backed by settings_sections, hooks.py exposes install when expected, execute.py follows the main()/sys.exit(main()) pattern, and the root contains only expected plugin files.",
+      "criteria": {
+        "pass": "Directory layout cleanly matches Agent Zero plugin conventions",
+        "warning": "Structure mostly works but contains unusual files or minor convention drift",
+        "fail": "Layout or required files clearly break plugin loading, installation, or contribution expectations"
+      }
+    },
+    "codePatterns": {
+      "label": "Code Pattern Review",
+      "detail": "Review frontend and backend code against Agent Zero patterns. Frontend must use the store gate pattern, createStore from /js/AlpineStore.js, module imports from plugin webui paths, and the notification system instead of inline error boxes. Backend must use ApiHandler or Tool base classes, import AgentContext from agent, use context.communicate(UserMessage(...)) for agent messaging, and target the correct interpreter in hooks.py when installing runtime dependencies.",
+      "criteria": {
+        "pass": "Frontend and backend patterns match the documented Agent Zero conventions",
+        "warning": "Patterns are mostly correct but contain non-blocking inconsistencies or legacy style",
+        "fail": "One or more implementation patterns are incorrect, unsafe, or incompatible with framework conventions"
+      }
+    },
+    "securityIndex": {
+      "label": "Security + Index Review",
+      "detail": "Check for hardcoded secrets, unsafe eval/exec, path traversal risks, shell injection, unsafe ZIP extraction, and outbound network calls that are not clearly justified. Also fetch the current community index at https://github.com/agent0ai/a0-plugins/releases/download/generated-index/index.json and verify the plugin name is unique, the GitHub URL is not already claimed, and the purpose is not an obvious duplicate of an existing index entry.",
+      "criteria": {
+        "pass": "No material security concerns found and no blocking community index conflicts detected",
+        "warning": "Potentially acceptable security or duplication concerns need review before contribution",
+        "fail": "Clear security issue or definite index conflict makes the plugin unsafe or not contribution-ready"
+      }
+    }
+  }
+}

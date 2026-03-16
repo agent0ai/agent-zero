@@ -8,8 +8,7 @@
 <body>
     <div x-data>
         <template x-if="$store.pluginInstallStore?.selectedPlugin">
-            <div class="pi-detail-container"
-                 x-destroy="$store.pluginInstallStore.refreshPluginList()">
+            <div class="pi-detail-container">
                 <div class="pi-hero">
                     <div class="pi-hero-thumb">
                         <template x-if="$store.pluginInstallStore.getDetailThumbnailUrl()">
@@ -88,7 +87,7 @@
                                     <template x-if="$store.pluginInstallStore.installedPluginInfo.has_init_script">
                                         <button type="button" class="button"
                                             @click="$store.pluginInstallStore.handleOpenInit()">
-                                            <span class="icon material-symbols-outlined">terminal</span> Init
+                                            <span class="icon material-symbols-outlined">terminal</span> Script
                                         </button>
                                     </template>
                                     <button type="button" class="button"
@@ -508,10 +507,10 @@
             flex: 1;
             min-width: 200px;
             padding: 0.85rem 1.5rem;
-            border: 2px solid var(--color-highlight);
+            border: 2px solid var(--color-primary);
             border-radius: 8px;
             background: transparent;
-            color: var(--color-highlight);
+            color: var(--color-text);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
@@ -526,6 +525,7 @@
         .pi-btn-discussion:hover {
             background: var(--color-highlight);
             color: #fff;
+            border: 2px solid var(--color-highlight);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 

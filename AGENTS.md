@@ -88,6 +88,13 @@ When running in Docker, Agent Zero uses two distinct Python runtimes to isolate 
 ├── plugins/              # Core system plugins
 ├── agents/               # Agent profiles (prompts and config)
 ├── prompts/              # System and message prompt templates
+├── knowledge/
+│   └── main/about/       # Agent self-knowledge (indexed into vector DB for runtime recall)
+│       ├── identity.md           # Philosophy, principles, project context
+│       ├── architecture.md       # Agent loop, memory pipeline, multi-agent, extensions
+│       ├── capabilities.md       # Detailed capabilities and limitations
+│       ├── configuration.md      # LLM roles, providers, profiles, plugins, settings
+│       └── setup-and-deployment.md  # Docker deployment, updates, troubleshooting
 └── tests/                # Pytest suite
 ```
 
@@ -96,6 +103,7 @@ Key Files:
 - python/helpers/plugins.py: Plugin discovery and configuration logic.
 - webui/js/AlpineStore.js: Store factory for reactive frontend state.
 - python/helpers/api.py: Base class for all API endpoints.
+- knowledge/main/about/: Agent self-knowledge files, indexed into the vector DB for runtime recall. Not user-facing docs - written for the agent's internal reference.
 - docs/agents/AGENTS.components.md: Deep dive into the frontend component architecture.
 - docs/agents/AGENTS.modals.md: Guide to the stacked modal system.
 - docs/agents/AGENTS.plugins.md: Comprehensive guide to the full-stack plugin system.
@@ -128,11 +136,13 @@ Key Files:
 - Location: Always develop new plugins in usr/plugins/.
 - Manifest: Every plugin requires a plugin.yaml with name, description, version, and optionally settings_sections, per_project_config, per_agent_config, and always_enabled.
 - Discovery: Conventions based on folder names (api/, tools/, webui/, extensions/).
+- Plugin-local Python imports: Prefer `usr.plugins.<plugin_name>...` for code that lives under `usr/plugins/`. Avoid `sys.path` hacks and avoid symlink-dependent `plugins.<plugin_name>...` imports for community plugins.
 - Runtime hooks: Plugins may also expose hooks in hooks.py, callable by the framework through helpers.plugins.call_plugin_hook(...).
 - Hook runtime: hooks.py executes inside the Agent Zero framework Python environment, so sys.executable -m pip installs dependencies into that same framework runtime.
 - Environment targeting: If a plugin needs packages or binaries for the separate agent execution runtime or system environment, it must explicitly switch environments in a subprocess by targeting the correct interpreter, virtualenv, or package manager.
 - Settings: Use get_plugin_config(plugin_name, agent=agent) to retrieve settings. Plugins can expose a UI for settings via webui/config.html. Plugin settings modals instantiate a local context from $store.pluginSettingsPrototype; bind plugin fields to config.* and use context.* for modal-level state and actions. For plugins wrapping core settings, set context.saveMode = 'core' in x-init.
 - Activation: Global and scoped activation rules are stored as .toggle-1 (ON) and .toggle-0 (OFF). Scoped rules are handled via the plugin "Switch" modal.
+- Cleanup rule: Plugins should not permanently modify the system in ways that outlive the plugin. Deleting a plugin should not leave behind symlinks, unmanaged services, or stray files outside plugin-owned paths unless the user explicitly requested that behavior.
 
 ### Lifecycle Synchronization
 | Action | Backend Extension | Frontend Lifecycle |

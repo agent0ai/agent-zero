@@ -284,9 +284,9 @@ class Plugins(ApiHandler):
         if not plugin_dir:
             return Response(status=404, response="Plugin not found")
 
-        init_script = files.get_abs_path(plugin_dir, "initialize.py")
+        init_script = files.get_abs_path(plugin_dir, "execute.py")
         if not files.exists(init_script):
-            return Response(status=404, response="initialize.py not found")
+            return Response(status=404, response="execute.py not found")
 
         executed_at = datetime.now(timezone.utc).isoformat()
         try:

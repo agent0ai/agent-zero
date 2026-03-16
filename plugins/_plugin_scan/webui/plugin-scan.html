@@ -37,10 +37,6 @@
           <label>Agent Prompt <span style="font-weight:400; opacity:0.6">(editable)</span></label>
           <textarea x-model="$store.pluginScan.prompt"></textarea>
         </div>
-
-        <!-- Error -->
-        <div x-show="$store.pluginScan.error" class="scan-error" x-text="$store.pluginScan.error"></div>
-
         <!-- Actions -->
         <div class="scan-actions">
           <button class="button" @click="$store.pluginScan.copyPrompt()">Copy Prompt</button>
@@ -103,8 +99,6 @@
     .scan-output-html hr { border: 1px solid var(--color-border); }
     .scan-output-html pre { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; padding: 0.75rem; overflow-x: auto; }
     .scan-output-html code { font-size: 0.8rem; }
-
-    .scan-error { color: var(--color-error, #e55); font-size: 0.85rem; }
     .scan-spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid var(--color-border);
       border-top-color: var(--color-primary); border-radius: 50%; animation: scan-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.4em; }
     @keyframes scan-spin { to { transform: rotate(360deg); } }

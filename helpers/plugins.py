@@ -162,7 +162,7 @@ def get_enhanced_plugins_list(
                 has_config_screen = files.exists(str(d / "webui" / "config.html"))
                 has_readme = files.exists(str(d / "README.md"))
                 has_license = files.exists(str(d / "LICENSE"))
-                has_init_script = files.exists(str(d / "initialize.py"))
+                has_init_script = files.exists(str(d / "execute.py"))
                 toggle_state = get_toggle_state(d.name)
                 current_commit = ""
                 current_commit_timestamp = ""
