@@ -107,20 +107,34 @@ Cognee provides vector search, knowledge graphs, and document storage. Persisten
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| `cognee_init.py` | `python/helpers/` | Config: env vars (BEFORE `import cognee`), LLM/embedding, storage dirs |
-| `memory.py` | `python/helpers/` | Memory class: search, insert, delete, knowledge preload, auto re-import |
+| `cognee_init.py` | `python/helpers/` | Config, env vars, `init_cognee()` startup, `get_cognee()` getter |
+| `memory.py` | `python/helpers/` | Memory class: parallel search, insert, bulk delete, knowledge preload |
 | `cognee_background.py` | `python/helpers/` | Background cognify/memify pipeline on dirty datasets |
-| `memory_dashboard.py` | `python/api/` | Dashboard API for browsing/editing memories |
+| `memory_dashboard.py` | `python/api/` | Dashboard API with in-memory cache (60s TTL) and server-side pagination |
 
 Memory areas: `MAIN`, `FRAGMENTS`, `SOLUTIONS`. Per-agent subdirs (`default`, `projects/<name>`).
 
 Knowledge files in `usr/knowledge/` are auto-imported into Cognee on first agent use. If Cognee DB is empty but knowledge index exists, full re-import is triggered automatically.
 
+### Initialization
+
+Cognee is initialized **once at startup** in `prepare.py` via `init_cognee()`. This sets env vars, imports cognee, creates DB tables, and starts the background worker. Runtime code uses `get_cognee()` which returns the cached module or raises `RuntimeError` if not initialized. No lazy init or retry wrappers in the runtime path.
+
 **Env var order matters:** `SYSTEM_ROOT_DIRECTORY`, `DB_PROVIDER`, `DB_NAME` must be set before `import cognee`. See `cognee_init.py`.
 
-Search types: `GRAPH_COMPLETION`, `CHUNKS_LEXICAL`, `RAG_COMPLETION`, `TRIPLET_COMPLETION`, and more. Multi-search enabled by default — queries multiple search types and deduplicates results.
+### Search
 
-Background worker (`CogneeBackgroundWorker`) runs `cognify` + `memify` on dirty datasets, triggered by time interval or insert count threshold.
+Search types: `GRAPH_COMPLETION`, `CHUNKS_LEXICAL`, `RAG_COMPLETION`, `TRIPLET_COMPLETION`, and more. Multi-search enabled by default — queries multiple search types **in parallel** via `asyncio.gather` and deduplicates results. Each search type has a 15-second timeout; failed/timed-out types don't block others.
+
+In auto-recall (`_50_recall_memories.py`), fast types (CHUNKS, CHUNKS_LEXICAL) run first, slow types (GRAPH_COMPLETION) run in background and merge results later.
+
+### Dashboard
+
+Memory dashboard caches listing results in-memory with 60s TTL. Cache is invalidated on insert/delete/update. Server-side pagination via `offset`/`limit` — only the requested page is returned, not all records.
+
+### Background Worker
+
+`CogneeBackgroundWorker` runs `cognify` + `memify` on dirty datasets, triggered by time interval or insert count threshold. Started at application startup from `prepare.py`.
 
 ## MCP Integration
 
@@ -141,8 +155,11 @@ Git-based projects with clone authentication for public/private repositories. Ea
 
 Key additions over [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero):
 - Cognee memory persistence on addon volume (env vars before import)
+- Cognee startup initialization (`init_cognee()` in `prepare.py`, no runtime lazy init)
+- Parallel multi-search via `asyncio.gather` with per-type timeouts
+- Dashboard in-memory cache (60s TTL) with server-side pagination
+- Optimized bulk delete (single scan per area instead of per ID)
 - Auto re-import knowledge when Cognee DB is empty
-- `cognee.setup()` with retry on `DatabaseNotCreatedError`
 - Task self-recovery (ERROR and stuck RUNNING states)
 - Skill installation via `/skill-install` chat command
 - Structured RFC 3339 logging
