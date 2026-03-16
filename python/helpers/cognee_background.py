@@ -92,11 +92,10 @@ class CogneeBackgroundWorker:
             self._last_error = None
             self._last_run_datasets = datasets
             try:
-                from python.helpers.memory import _with_cognee_setup_retry
                 if config["temporal_enabled"]:
-                    await _with_cognee_setup_retry(cognee, cognee.cognify, datasets=datasets, temporal_cognify=True)
+                    await cognee.cognify(datasets=datasets, temporal_cognify=True)
                 else:
-                    await _with_cognee_setup_retry(cognee, cognee.cognify, datasets=datasets, temporal_cognify=False)
+                    await cognee.cognify(datasets=datasets, temporal_cognify=False)
 
                 PrintStyle.standard(f"Cognee cognify completed for datasets: {datasets}")
 

@@ -15,57 +15,12 @@ from enum import Enum
 from agent import Agent, AgentContext
 import models
 import logging
-from python.helpers.cognee_init import configure_cognee, get_cognee_setting
-
-import threading
-
-_cognee = None
-_SearchType = None
-_cognee_lock = threading.Lock()
-_setup_done = False
-
-
-async def _ensure_cognee_db(cognee_mod):
-    global _setup_done
-    if _setup_done:
-        return
-    _setup_done = True
-    try:
-        from cognee.infrastructure.databases.relational import create_db_and_tables
-        await create_db_and_tables()
-        PrintStyle.standard("Cognee DB tables initialized")
-    except Exception as e:
-        PrintStyle.error(f"Cognee DB init failed: {e}")
-        _setup_done = False
-
-
-async def _with_cognee_setup_retry(cognee_mod, coro_fn, *args, **kwargs):
-    try:
-        return await coro_fn(*args, **kwargs)
-    except Exception as err:
-        err_name = type(err).__name__
-        err_str = str(err)
-        if "DatabaseNotCreatedError" in err_name or "unable to open database" in err_str or "no such table" in err_str:
-            PrintStyle.warning(f"[Cognee] DB not ready ({err_name}), re-initializing and retrying...")
-            global _setup_done
-            _setup_done = False
-            await _ensure_cognee_db(cognee_mod)
-            return await coro_fn(*args, **kwargs)
-        raise
+from python.helpers.cognee_init import get_cognee_setting
 
 
 def _get_cognee():
-    global _cognee, _SearchType
-    if _cognee is not None:
-        return _cognee, _SearchType
-    with _cognee_lock:
-        if _cognee is None:
-            configure_cognee()
-            import cognee as _c
-            from cognee import SearchType as _st
-            _cognee = _c
-            _SearchType = _st
-    return _cognee, _SearchType
+    from python.helpers.cognee_init import get_cognee
+    return get_cognee()
 
 
 class Memory:
@@ -81,8 +36,6 @@ class Memory:
 
     @staticmethod
     async def get(agent: Agent) -> "Memory":
-        cognee, _ = _get_cognee()
-        await _ensure_cognee_db(cognee)
         memory_subdir = get_agent_memory_subdir(agent)
         dataset_name = _subdir_to_dataset(memory_subdir)
         mem = Memory(dataset_name=dataset_name, memory_subdir=memory_subdir)
@@ -105,8 +58,6 @@ class Memory:
         log_item: LogItem | None = None,
         preload_knowledge: bool = True,
     ) -> "Memory":
-        cognee, _ = _get_cognee()
-        await _ensure_cognee_db(cognee)
         dataset_name = _subdir_to_dataset(memory_subdir)
         mem = Memory(dataset_name=dataset_name, memory_subdir=memory_subdir)
         if preload_knowledge:
@@ -158,7 +109,7 @@ class Memory:
 
         if index:
             try:
-                datasets = await _with_cognee_setup_retry(cognee, cognee.datasets.list_datasets)
+                datasets = await cognee.datasets.list_datasets()
                 if not datasets:
                     PrintStyle.warning("Cognee DB is empty but index exists — forcing full re-import")
                     if log_item:
@@ -183,8 +134,7 @@ class Memory:
                 for doc in entry["documents"]:
                     content = doc.page_content if hasattr(doc, "page_content") else str(doc)
                     try:
-                        await _with_cognee_setup_retry(
-                            cognee, cognee.add,
+                        await cognee.add(
                             content,
                             dataset_name=self._area_dataset(entry.get("metadata", {}).get("area", "main")),
                             node_set=self._build_node_sets("knowledge"),
@@ -253,8 +203,7 @@ class Memory:
             search_type = SearchType.CHUNKS
 
         try:
-            results = await _with_cognee_setup_retry(
-                cognee, cognee.search,
+            results = await cognee.search(
                 query_text=query,
                 query_type=search_type,
                 top_k=limit,
@@ -263,8 +212,7 @@ class Memory:
             )
         except Exception:
             try:
-                results = await _with_cognee_setup_retry(
-                    cognee, cognee.search,
+                results = await cognee.search(
                     query_text=query,
                     query_type=SearchType.CHUNKS,
                     top_k=limit,
@@ -294,8 +242,7 @@ class Memory:
         async def _search_one(st):
             try:
                 return await asyncio.wait_for(
-                    _with_cognee_setup_retry(
-                        cognee, cognee.search,
+                    cognee.search(
                         query_text=query,
                         query_type=st,
                         top_k=per_type_limit,
@@ -320,8 +267,7 @@ class Memory:
 
         if not all_results:
             try:
-                all_results = await _with_cognee_setup_retry(
-                    cognee, cognee.search,
+                all_results = await cognee.search(
                     query_text=query,
                     query_type=SearchType.CHUNKS,
                     top_k=limit,
@@ -401,8 +347,7 @@ class Memory:
             enriched_text = f"[META:{meta_header}]\n{doc.page_content}"
 
             try:
-                await _with_cognee_setup_retry(
-                    cognee, cognee.add,
+                await cognee.add(
                     enriched_text,
                     dataset_name=dataset,
                     node_set=node_sets,
@@ -529,7 +474,7 @@ def _extract_metadata_from_text(text: str) -> tuple[str, dict]:
 async def _delete_data_by_id(dataset_name: str, data_id: str):
     cognee, _ = _get_cognee()
     try:
-        datasets = await _with_cognee_setup_retry(cognee, cognee.datasets.list_datasets)
+        datasets = await cognee.datasets.list_datasets()
         target = None
         for ds in datasets:
             if ds.name == dataset_name:
@@ -563,6 +508,8 @@ def get_custom_knowledge_subdir_abs(agent: Agent) -> str:
 def reload():
     import python.helpers.cognee_init as ci
     ci._configured = False
+    ci._cognee_module = None
+    ci._search_type_class = None
     Memory._initialized = False
     Memory._datasets_cache.clear()
 

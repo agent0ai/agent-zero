@@ -14,11 +14,15 @@ if str(PROJECT_ROOT) not in sys.path:
 
 @pytest.fixture(autouse=True)
 def _reset_configured():
-    """Reset the _configured flag before each test."""
+    """Reset the _configured flag and module-level state before each test."""
     import python.helpers.cognee_init as ci
     ci._configured = False
+    ci._cognee_module = None
+    ci._search_type_class = None
     yield
     ci._configured = False
+    ci._cognee_module = None
+    ci._search_type_class = None
 
 
 @pytest.fixture
@@ -338,3 +342,72 @@ class TestConfigureCogneeAdditional:
             ci.configure_cognee()
         assert os.environ.get("EMBEDDING_PROVIDER") == "openai"
         assert "openai" in os.environ.get("EMBEDDING_MODEL", "")
+
+
+# --- init_cognee / get_cognee ---
+
+class TestInitCognee:
+    def _mock_settings(self):
+        return {
+            "util_model_provider": "openai",
+            "util_model_name": "gpt-4o-mini",
+            "util_model_api_base": "",
+            "embed_model_provider": "huggingface",
+            "embed_model_name": "BAAI/bge-small-en-v1.5",
+            "embed_model_api_base": "",
+            "api_keys": {"openai": "sk-test", "huggingface": "hf-test"},
+        }
+
+    @pytest.mark.asyncio
+    async def test_init_cognee_calls_configure_and_create_tables(self):
+        """init_cognee calls configure_cognee and creates DB tables."""
+        import python.helpers.cognee_init as ci
+
+        mock_cognee = MagicMock()
+        mock_search_type = MagicMock()
+        mock_cognee.SearchType = mock_search_type
+        mock_create_tables = AsyncMock()
+
+        with patch("python.helpers.cognee_init.configure_cognee") as mock_configure, \
+             patch.dict("sys.modules", {
+                 "cognee": mock_cognee,
+                 "cognee.infrastructure.databases.relational": MagicMock(
+                     create_db_and_tables=mock_create_tables
+                 ),
+             }):
+            await ci.init_cognee()
+
+        mock_configure.assert_called_once()
+        mock_create_tables.assert_awaited_once()
+        assert ci._cognee_module is mock_cognee
+        assert ci._search_type_class is mock_search_type
+
+    @pytest.mark.asyncio
+    async def test_get_cognee_raises_if_not_initialized(self):
+        """get_cognee raises RuntimeError when init_cognee hasn't been called."""
+        import python.helpers.cognee_init as ci
+        with pytest.raises(RuntimeError, match="Cognee not initialized"):
+            ci.get_cognee()
+
+    @pytest.mark.asyncio
+    async def test_get_cognee_returns_modules_after_init(self):
+        """get_cognee returns (cognee, SearchType) tuple after init_cognee."""
+        import python.helpers.cognee_init as ci
+
+        mock_cognee = MagicMock()
+        mock_search_type = MagicMock()
+        mock_cognee.SearchType = mock_search_type
+        mock_create_tables = AsyncMock()
+
+        with patch("python.helpers.cognee_init.configure_cognee"), \
+             patch.dict("sys.modules", {
+                 "cognee": mock_cognee,
+                 "cognee.infrastructure.databases.relational": MagicMock(
+                     create_db_and_tables=mock_create_tables
+                 ),
+             }):
+            await ci.init_cognee()
+
+        cognee_mod, search_type = ci.get_cognee()
+        assert cognee_mod is mock_cognee
+        assert search_type is mock_search_type

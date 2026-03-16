@@ -42,6 +42,8 @@ _EMBED_DIMENSIONS: dict[str, int] = {
 }
 
 _configured = False
+_cognee_module = None
+_search_type_class = None
 
 
 def get_cognee_setting(name: str, default: T) -> T:
@@ -167,3 +169,28 @@ def configure_cognee() -> None:
         cognee.config.set_system_root_directory(system_storage)
     except Exception as e:
         PrintStyle.error(f"cognee.config directory setup failed: {e}")
+
+
+async def _create_db_tables():
+    from cognee.infrastructure.databases.relational import create_db_and_tables
+    await create_db_and_tables()
+    PrintStyle.standard("Cognee DB tables initialized")
+
+
+async def init_cognee() -> None:
+    """One-time startup initialization. Call after settings are loaded."""
+    global _cognee_module, _search_type_class
+    configure_cognee()
+    import cognee
+    from cognee import SearchType
+    _cognee_module = cognee
+    _search_type_class = SearchType
+    await _create_db_tables()
+    PrintStyle.standard("Cognee fully initialized")
+
+
+def get_cognee():
+    """Get initialized cognee module. Raises RuntimeError if not initialized."""
+    if _cognee_module is None:
+        raise RuntimeError("Cognee not initialized — call init_cognee() at startup")
+    return _cognee_module, _search_type_class
