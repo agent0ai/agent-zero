@@ -311,14 +311,42 @@ class Memory:
         return docs
 
     async def delete_documents_by_ids(self, ids: list[str]) -> list[Document]:
+        if not ids:
+            return []
+
+        cognee, _ = _get_cognee()
         removed = []
-        for doc_id in ids:
-            for area in Memory.Area:
-                try:
-                    await _delete_data_by_id(self._area_dataset(area.value), doc_id)
-                    removed.append(Document(page_content="", metadata={"id": doc_id}))
-                except Exception:
-                    pass
+        id_set = set(ids)
+
+        for area in Memory.Area:
+            if not id_set:
+                break
+            dataset_name = self._area_dataset(area.value)
+            try:
+                datasets = await cognee.datasets.list_datasets()
+                target = None
+                for ds in datasets:
+                    if ds.name == dataset_name:
+                        target = ds
+                        break
+                if not target:
+                    continue
+                data_items = await cognee.datasets.list_data(target.id)
+                for item in data_items:
+                    item_text = getattr(item, "raw_data_location", "") or getattr(item, "name", "") or ""
+                    item_str = str(item_text)
+                    for doc_id in list(id_set):
+                        if doc_id in item_str:
+                            await cognee.datasets.delete_data(
+                                dataset_id=target.id,
+                                data_id=item.id,
+                            )
+                            removed.append(Document(page_content="", metadata={"id": doc_id}))
+                            id_set.discard(doc_id)
+                            break
+            except Exception as e:
+                PrintStyle.error(f"Failed to delete from {dataset_name}: {e}")
+
         if removed:
             _invalidate_dashboard_cache()
         return removed

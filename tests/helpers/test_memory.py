@@ -881,3 +881,114 @@ class TestMultiSearchParallel:
         assert len(results) >= 1
         assert any("fallback_result" in doc.page_content for doc in results)
         assert "CHUNKS" in call_log
+
+
+# --- Bulk delete optimization ---
+
+class TestDeleteOptimization:
+    """Verify optimized delete_documents_by_ids scans once per area, not once per ID."""
+
+    def _setup_cognee(self, ci, datasets_by_area: dict[str, list]):
+        """Wire mock cognee with datasets keyed by area name."""
+        mock_cognee = MagicMock()
+
+        all_datasets = []
+        data_by_ds_id = {}
+        for area_suffix, items in datasets_by_area.items():
+            ds = MagicMock()
+            ds.name = f"default_{area_suffix}"
+            ds.id = f"ds_{area_suffix}"
+            all_datasets.append(ds)
+            data_by_ds_id[ds.id] = items
+
+        mock_cognee.datasets.list_datasets = AsyncMock(return_value=all_datasets)
+        mock_cognee.datasets.list_data = AsyncMock(
+            side_effect=lambda ds_id: data_by_ds_id.get(ds_id, [])
+        )
+        mock_cognee.datasets.delete_data = AsyncMock()
+
+        ci._cognee_module = mock_cognee
+        ci._search_type_class = MagicMock()
+        return mock_cognee
+
+    @staticmethod
+    def _make_item(raw_loc: str, item_id: str):
+        item = MagicMock()
+        item.raw_data_location = raw_loc
+        item.name = raw_loc
+        item.id = item_id
+        return item
+
+    @pytest.mark.asyncio
+    async def test_bulk_delete_single_scan_per_area(self):
+        """Deleting 3 IDs calls list_data at most 3 times (once per area), not 9."""
+        from python.helpers.memory import Memory
+        import python.helpers.cognee_init as ci
+
+        items_main = [
+            self._make_item("doc_id1_file.txt", "item1"),
+            self._make_item("doc_id2_file.txt", "item2"),
+            self._make_item("doc_id3_file.txt", "item3"),
+        ]
+        mock_cognee = self._setup_cognee(ci, {
+            "main": items_main,
+            "fragments": [],
+            "solutions": [],
+        })
+
+        memory = Memory(dataset_name="default", memory_subdir="default")
+        removed = await memory.delete_documents_by_ids(["id1", "id2", "id3"])
+
+        assert len(removed) == 3
+        assert mock_cognee.datasets.list_data.call_count <= 3
+
+    @pytest.mark.asyncio
+    async def test_bulk_delete_finds_ids_across_areas(self):
+        """IDs spread across different areas are all found and deleted."""
+        from python.helpers.memory import Memory
+        import python.helpers.cognee_init as ci
+
+        mock_cognee = self._setup_cognee(ci, {
+            "main": [self._make_item("alpha_file.txt", "item_a")],
+            "fragments": [self._make_item("beta_file.txt", "item_b")],
+            "solutions": [self._make_item("gamma_file.txt", "item_c")],
+        })
+
+        memory = Memory(dataset_name="default", memory_subdir="default")
+        removed = await memory.delete_documents_by_ids(["alpha", "beta", "gamma"])
+
+        deleted_ids = {doc.metadata["id"] for doc in removed}
+        assert deleted_ids == {"alpha", "beta", "gamma"}
+        assert mock_cognee.datasets.delete_data.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_bulk_delete_missing_ids_returns_partial(self):
+        """Some IDs not found — returns only those that were actually deleted."""
+        from python.helpers.memory import Memory
+        import python.helpers.cognee_init as ci
+
+        mock_cognee = self._setup_cognee(ci, {
+            "main": [self._make_item("found_one.txt", "item_f")],
+            "fragments": [],
+            "solutions": [],
+        })
+
+        memory = Memory(dataset_name="default", memory_subdir="default")
+        removed = await memory.delete_documents_by_ids(["found_one", "missing_two"])
+
+        assert len(removed) == 1
+        assert removed[0].metadata["id"] == "found_one"
+
+    @pytest.mark.asyncio
+    async def test_bulk_delete_empty_ids_returns_empty(self):
+        """Empty input list returns empty output without calling cognee."""
+        from python.helpers.memory import Memory
+        import python.helpers.cognee_init as ci
+
+        mock_cognee = self._setup_cognee(ci, {"main": [], "fragments": [], "solutions": []})
+
+        memory = Memory(dataset_name="default", memory_subdir="default")
+        removed = await memory.delete_documents_by_ids([])
+
+        assert removed == []
+        mock_cognee.datasets.list_datasets.assert_not_called()
