@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Survey Demo</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; }
+      label { display:block; margin-top: 1rem; font-weight: 600; }
+      input, select, textarea, button { width: 420px; max-width: 100%; padding: .6rem; margin-top:.4rem; }
+      .row { margin-top: .6rem; }
+      .row input { width: auto; margin-right:.4rem; }
+      .card { border: 1px solid #ddd; padding: 1.25rem; border-radius: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Local Survey Demo</h1>
+    <div class="card">
+      <p>This is a local HTML survey used for testing the Agent Zero `survey_fill` tool.</p>
+      <form id="survey">
+        <label>Full name
+          <input name="full_name" type="text" placeholder="Jane Doe" />
+        </label>
+
+        <label>Email
+          <input name="email" type="email" placeholder="jane@example.com" />
+        </label>
+
+        <label>Country
+          <select name="country">
+            <option value="">Select…</option>
+            <option>United States</option>
+            <option>Germany</option>
+            <option>United Kingdom</option>
+            <option>Canada</option>
+          </select>
+        </label>
+
+        <label>Preferred mobile platform</label>
+        <div class="row">
+          <input type="radio" name="mobile" value="Android" /> Android
+        </div>
+        <div class="row">
+          <input type="radio" name="mobile" value="iOS" /> iOS
+        </div>
+
+        <label>Which topics do you like? (select any)</label>
+        <div class="row">
+          <input type="checkbox" name="topics" value="Technology" /> Technology
+        </div>
+        <div class="row">
+          <input type="checkbox" name="topics" value="Sports" /> Sports
+        </div>
+        <div class="row">
+          <input type="checkbox" name="topics" value="Music" /> Music
+        </div>
+
+        <label>Any additional comments?
+          <textarea name="comments" rows="4" placeholder="Optional"></textarea>
+        </label>
+
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+
+    <script>
+      const form = document.getElementById("survey");
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        document.body.innerHTML = "<h1>Thank you!</h1><p>Your response has been recorded.</p>";
+      });
+    </script>
+  </body>
+</html>
+

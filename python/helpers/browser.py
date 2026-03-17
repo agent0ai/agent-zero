@@ -275,6 +275,10 @@ class Browser:
         clean_dom = self.strip_html_dom(full_dom)
         return self.process_html_with_selectors(clean_dom)
 
+    async def get_url(self) -> str:
+        await self._check_page()
+        return self.page.url
+
     async def click(self, selector: str):
         await self._check_page()
         ctx, selector = self._parse_selector(selector)
@@ -308,6 +312,23 @@ class Browser:
         except Exception as e:
             pass
         await ctx.fill(selector, text, force=True, timeout=Browser.interact_timeout)
+        await self.wait_tick()
+
+    async def select(self, selector: str, value_or_label: str):
+        """Select option in <select> by value or label text."""
+        await self._check_page()
+        ctx, selector = self._parse_selector(selector)
+        self.last_selector = selector
+        try:
+            await self.click(selector)
+        except Exception:
+            pass
+
+        # Prefer selecting by label; fall back to value.
+        try:
+            await ctx.select_option(selector, label=value_or_label, timeout=Browser.interact_timeout)  # type: ignore[arg-type]
+        except Exception:
+            await ctx.select_option(selector, value=value_or_label, timeout=Browser.interact_timeout)  # type: ignore[arg-type]
         await self.wait_tick()
 
     async def execute(self, js_code: str):
