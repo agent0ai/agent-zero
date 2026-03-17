@@ -74,6 +74,16 @@ class TTYSession:
     async def sendline(self, line: str):
         await self.send(line + "\n")
 
+    def resize(self, cols: int, rows: int) -> None:
+        """Resize the PTY window (POSIX only)."""
+        import fcntl, struct, termios
+        master_fd = getattr(self._proc, "master_fd", None)
+        if master_fd is not None:
+            try:
+                fcntl.ioctl(master_fd, termios.TIOCSWINSZ,
+                            struct.pack("HHHH", rows, cols, 0, 0))
+            except Exception:
+                pass
     async def wait(self):
         if self._proc is None:
             raise RuntimeError("TTYSpawn is not started")
@@ -160,6 +170,10 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
         attrs[3] &= ~termios.ECHO  # lflag
         termios.tcsetattr(slave, termios.TCSANOW, attrs)
 
+    def _set_ctty():
+        import os, fcntl, termios
+        os.setsid()                          # new session → process is session leader
+        fcntl.ioctl(slave, termios.TIOCSCTTY, 0)  # slave PTY becomes controlling terminal
     proc = await asyncio.create_subprocess_shell(
         cmd,
         stdin=slave,
@@ -168,8 +182,10 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
         cwd=cwd,
         env=env,
         close_fds=True,
+        preexec_fn=_set_ctty,
     )
     os.close(slave)
+    proc.master_fd = master  # expose for resize
 
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader()

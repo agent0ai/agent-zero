@@ -7,6 +7,8 @@ import { registerAlpineMagic } from "./confirmClick.js";
 await initializer.initialize();
 
 // import alpine library
+await import("./terminal-store.js");
+// @ts-ignore
 await import("../vendor/alpine/alpine.min.js");
 
 // register $confirmClick magic helper for inline button confirmations

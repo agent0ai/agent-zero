@@ -31,6 +31,15 @@
         <span class="material-symbols-outlined">settings</span>
       </button>
 
+<x-extension id="sidebar-quick-actions-main-end"></x-extension>
+
+      <!-- Terminal -->
+      <button class="config-button" id="terminal-btn"
+        @click="$store.terminalView.toggle()"
+        :class="{ active: $store.terminalView && $store.terminalView.open }"
+        title="Terminal">
+        <span class="material-symbols-outlined">terminal</span>
+      </button>
       <!-- Dropdown Toggle -->
       <button class="config-button dropdown-toggle" @click="dropdownOpen = !dropdownOpen" title="More options">
         <span class="material-symbols-outlined" :class="dropdownOpen ? 'rotated' : ''">expand_more</span>
@@ -251,4 +260,18 @@
   .translate-y-0 { transform: translateY(0); }
 </style>
 
+
+<script>
+(function() {
+    function registerStore() {
+        if (typeof Alpine === 'undefined') { setTimeout(registerStore, 50); return; }
+        if (Alpine.store('terminalView')) return;
+        Alpine.store('terminalView', {
+            open: false,
+            toggle() { this.open = !this.open; }
+        });
+    }
+    registerStore();
+})();
+</script>
 </html>

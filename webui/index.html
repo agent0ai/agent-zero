@@ -52,6 +52,11 @@
 
     <!-- QR Code Library -->
     <script src="vendor/qrcode.min.js"></script>
+    <link rel="stylesheet" href="vendor/xterm/xterm.css">
+    <script src="vendor/xterm/xterm.js"></script>
+    <script src="vendor/xterm/xterm-addon-fit.js"></script>
+    <script src="vendor/xterm/xterm-addon-web-links.js"></script>
+    <script src="vendor/xterm/xterm-addon-canvas.js"></script>
 
     <!-- Google Icons -->
     <link rel="stylesheet" href="vendor/google/google-icons.css" />
@@ -91,11 +96,11 @@
             <x-component path="chat/top-section/chat-top.html"></x-component>
 
             <!-- Welcome Screen Component -->
-            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
+            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible && !($store.terminalView && $store.terminalView.open)">
                 <x-component path="welcome/welcome-screen.html"></x-component>
             </div>
             <!-- Message History (actual messages) -->
-            <div id="chat-history" x-data x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible"></div>
+            <div id="chat-history" x-data x-show="(!$store.welcomeStore || !$store.welcomeStore.isVisible) && !($store.terminalView && $store.terminalView.open)"></div>
 
             <!-- NEW: Toast Stack Component -->
             <div style="position: relative; height: 0;">
@@ -112,11 +117,16 @@
                 <button class="toast__close">Close</button>
             </div>
             <!-- Chat Input Area -->
-            <div x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible">
+            <div x-show="(!$store.welcomeStore || !$store.welcomeStore.isVisible) && !($store.terminalView && $store.terminalView.open)">
                 <!-- Progress Bar -->
                 <x-component path="chat/input/progress.html"></x-component>
                 <!-- Input Section -->
                 <x-component path="chat/input/chat-bar.html"></x-component>
+            </div>
+            <!-- Terminal View -->
+            <div x-data x-show="$store.terminalView && $store.terminalView.open"
+                 style="flex:1 1 0;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+                <x-component path="terminal/terminal.html"></x-component>
             </div>
         </div>
                         </div>

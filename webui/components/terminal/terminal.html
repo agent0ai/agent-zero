@@ -1,0 +1,367 @@
+<html>
+<head>
+  <script type="module">
+    import { getNamespacedClient } from "/js/websocket.js";
+    window._terminalWs = getNamespacedClient("/terminal");
+    document.addEventListener('alpine:init', () => {
+      if (window.Alpine && Alpine.store('terminalView')) {
+        Alpine.store('terminalView')._loadTabs();
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <div x-data="terminalManager()" x-init="init()"
+       style="display:flex;flex-direction:column;height:100%;width:100%;">
+
+    <!-- Tab bar -->
+    <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--color-border);
+                flex-shrink:0;background:var(--color-panel);overflow-x:auto;min-height:36px;">
+
+      <template x-for="tab in $store.terminalView.tabs" :key="tab.id">
+        <div style="display:flex;align-items:stretch;flex-shrink:0;">
+          <!-- Tab button -->
+          <div @click="activateTab(tab.id)"
+               @touchend.prevent="activateTab(tab.id)"
+               style="display:flex;align-items:center;gap:6px;padding:0 14px;cursor:pointer;
+                      font-size:12px;font-weight:500;color:var(--color-text);white-space:nowrap;
+                      border-bottom:2px solid transparent;transition:border-color 0.15s;
+                      border-right:1px solid var(--color-border);-webkit-tap-highlight-color:transparent;"
+               :style="tab.id === $store.terminalView.activeTabId
+                 ? 'border-bottom-color:var(--color-accent);'
+                 : 'opacity:0.55;'"
+               role="button" tabindex="0"
+               @keydown.enter="activateTab(tab.id)"
+               @keydown.space.prevent="activateTab(tab.id)">
+
+            <span class="material-symbols-outlined" style="font-size:13px;flex-shrink:0;">terminal</span>
+
+            <!-- Name display — dblclick to rename -->
+            <span x-show="!tab.renaming"
+                  @dblclick.prevent.stop="beginRename(tab)"
+                  x-text="tab.name"
+                  style="max-width:110px;overflow:hidden;text-overflow:ellipsis;
+                         user-select:none;-webkit-user-select:none;"></span>
+
+            <!-- Inline rename input -->
+            <input x-show="tab.renaming"
+                   x-ref="renameInput"
+                   :value="tab.name"
+                   @mousedown.stop
+                   @click.stop
+                   @keydown.enter.prevent.stop="commitRename(tab, $event.target.value)"
+                   @keydown.escape.prevent.stop="tab.renaming = false"
+                   @blur="commitRename(tab, $event.target.value)"
+                   style="width:80px;font-size:12px;font-family:inherit;
+                          background:var(--color-input);color:var(--color-text);
+                          border:1px solid var(--color-border);border-radius:3px;
+                          padding:1px 4px;outline:none;flex-shrink:0;">
+
+            <!-- Close -->
+            <button @click.prevent.stop="closeTab(tab.id)"
+                    style="background:none;border:none;cursor:pointer;padding:0 2px;
+                           color:var(--color-text);opacity:0.4;display:flex;align-items:center;
+                           -webkit-appearance:none;line-height:1;flex-shrink:0;"
+                    title="Close tab">
+              <span class="material-symbols-outlined" style="font-size:13px;">close</span>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- New tab -->
+      <button @click.prevent="newTab()"
+              style="background:none;border:none;cursor:pointer;padding:0 10px;
+                     color:var(--color-text);opacity:0.6;display:flex;align-items:center;
+                     flex-shrink:0;-webkit-appearance:none;"
+              title="New terminal">
+        <span class="material-symbols-outlined" style="font-size:18px;">add</span>
+      </button>
+
+      <div style="flex:1;"></div>
+    </div>
+
+    <!-- Terminal panes -->
+    <div style="flex:1;min-height:0;position:relative;">
+      <template x-for="tab in $store.terminalView.tabs" :key="tab.id">
+        <div :id="'tp-' + tab.id"
+             x-show="tab.id === $store.terminalView.activeTabId"
+             style="position:absolute;inset:0;padding:4px;box-sizing:border-box;">
+        </div>
+      </template>
+    </div>
+
+  </div>
+</body>
+
+<script>
+window.terminalManager = function() {
+  return {
+    _inst: {},   // tabId -> {term, fitAddon, connected}
+
+    async init() {
+      let tries = 0;
+      while (!window._terminalWs && tries++ < 30)
+        await new Promise(r => setTimeout(r, 100));
+      if (!window._terminalWs) return;
+
+      // When active tab changes, ensure that tab is mounted
+      this.$watch('$store.terminalView.activeTabId', id => {
+        if (id) this.$nextTick(() => this._ensure(id));
+      });
+
+      // When tabs array changes (new tab added), mount the active one
+      this.$watch('$store.terminalView.tabs', () => {
+        const id = this.$store.terminalView.activeTabId;
+        if (id) this.$nextTick(() => this._ensure(id));
+      });
+
+      await this.$nextTick();
+      const id = this.$store.terminalView.activeTabId;
+      if (id) this._ensure(id);
+    },
+
+    _ensure(tabId) {
+      if (this._inst[tabId]) {
+        // Already mounted — focus it
+        setTimeout(() => this._inst[tabId]?.term?.focus(), 50);
+        return;
+      }
+      this._mount(tabId);
+    },
+
+    async _mount(tabId) {
+      const tab = this.$store.terminalView.getTab(tabId);
+      if (!tab) return;
+      const container = document.getElementById('tp-' + tabId);
+      if (!container) return;
+
+      const inst = { term: null, fitAddon: null, connected: false };
+      this._inst[tabId] = inst;
+
+      const theme = this._theme();
+      inst.term = new Terminal({
+        theme,
+        fontSize: 14,
+        fontFamily: 'Consolas, Menlo, Monaco, "Courier New", monospace',
+        scrollback: 100000,
+        cursorBlink: true,
+      });
+
+      inst.term.loadAddon(new CanvasAddon.CanvasAddon());
+      inst.fitAddon = new FitAddon.FitAddon();
+      inst.term.loadAddon(inst.fitAddon);
+      inst.term.loadAddon(new WebLinksAddon.WebLinksAddon());
+
+      // Wait for container to be visible and have real dimensions
+      await document.fonts.ready;
+      let waited = 0;
+      while (container.offsetWidth === 0 && waited < 2000) {
+        await new Promise(r => setTimeout(r, 30));
+        waited += 30;
+      }
+
+      inst.term.open(container);
+      // Two rAF passes to let layout settle before fitting
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      inst.fitAddon.fit();
+      inst.term.reset();
+
+      // Debounced resize observer — don't fire during initial mount
+      let resizeTimer = null;
+      let _connecting = true;
+      new ResizeObserver(() => {
+        if (_connecting) return; // ignore resizes during connect
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          try {
+            inst.fitAddon.fit();
+            window._terminalWs.emit('terminal_resize', {
+              session_id: tab.sessionId,
+              cols: inst.term.cols, rows: inst.term.rows
+            });
+          } catch(e) {}
+        }, 100);
+      }).observe(container);
+      inst._setConnecting = v => { _connecting = v; };
+
+      // Input → PTY
+      inst.term.onData(d => window._terminalWs.emit('terminal_input', {
+        session_id: tab.sessionId, input: d
+      }));
+
+      // Output from PTY
+      window._terminalWs.on('terminal_output', env => {
+        const d = env.data || env;
+        if (d.session_id && d.session_id !== tab.sessionId) return;
+        const out = d.output;
+        inst.term?.write(out);
+        // When an app exits alternate screen, reset terminal attributes
+        if (out && out.includes('1049l')) {
+          setTimeout(() => inst.term?.write('\x1b[m\x1b[?25h'), 50);
+        }
+      });
+
+      window._terminalWs.on('terminal_exit', env => {
+        const d = env.data || env;
+        if (d.session_id && d.session_id !== tab.sessionId) return;
+        inst.connected = false;
+        inst.term?.writeln('\r\n\x1b[33m[session ended]\x1b[0m');
+      });
+
+      // Watch theme changes
+      this._watchTheme(inst);
+
+      // Start / reattach
+      await this._connect(tab, inst);
+    },
+
+    async _connect(tab, inst) {
+      inst.term.options.cursorBlink = false;
+      inst.term.options.cursorStyle = 'underline';
+      // Final fit with accurate dimensions
+      try { inst.fitAddon.fit(); } catch(e) {}
+      try {
+        const result = await window._terminalWs.request('terminal_start', {
+          session_id: tab.sessionId,
+          shell: '/bin/bash',
+          cols: inst.term.cols,
+          rows: inst.term.rows,
+        });
+        inst.connected = true;
+        inst.term.options.cursorBlink = true;
+        inst.term.options.cursorStyle = 'block';
+        // Now allow ResizeObserver to fire
+        if (inst._setConnecting) inst._setConnecting(false);
+        const status = result?.results?.[0]?.data?.status;
+        const mouseEnabled = result?.results?.[0]?.data?.mouse_enabled;
+        if (status === 'reattached') {
+          try { inst.fitAddon.fit(); } catch(e) {}
+          const cols = inst.term.cols, rows = inst.term.rows;
+          try {
+            // Resize to different dims to force htop full repaint, then restore correct size
+            await window._terminalWs.emit('terminal_resize', {
+              session_id: tab.sessionId, cols: cols, rows: rows - 1,
+            });
+            await new Promise(r => setTimeout(r, 150));
+            await window._terminalWs.emit('terminal_resize', {
+              session_id: tab.sessionId, cols, rows,
+            });
+          } catch(e) { console.warn('[terminal] post-reattach resize failed:', e); }
+          if (inst._setConnecting) inst._setConnecting(false);
+          if (mouseEnabled) {
+            inst.term.write('\x1b[?1000h\x1b[?1002h\x1b[?1006h');
+          }
+          inst.term.focus();
+        } else {
+          setTimeout(() => {
+            inst.term.clear();
+            if (inst._setConnecting) inst._setConnecting(false);
+            inst.term.focus();
+          }, 200);
+        }
+      } catch(e) {
+        if (inst._setConnecting) inst._setConnecting(false);
+        inst.term.writeln('\x1b[31m[failed: ' + e + ']\x1b[0m');
+      }
+    },
+
+    activateTab(id) {
+      this.$store.terminalView.setActive(id);
+    },
+
+    beginRename(tab) {
+      tab.renaming = true;
+      this.$nextTick(() => {
+        // Find the input inside the tab and focus+select it
+        const el = document.querySelector('#tp-' + tab.id.replace('term_','') + ' input') ||
+                   document.querySelector('input[style*="80px"]');
+        // Use a more reliable selector via the tab id in the for loop context
+        const inputs = document.querySelectorAll('input');
+        for (const inp of inputs) {
+          if (inp.offsetParent !== null) { inp.focus(); inp.select(); break; }
+        }
+      });
+    },
+
+    commitRename(tab, value) {
+      this.$store.terminalView.commitRename(tab.id, value);
+    },
+
+    async newTab() {
+      this.$store.terminalView.addTab();
+      // _ensure is called via the $watch on activeTabId
+    },
+
+    closeTab(tabId) {
+      const tab = this.$store.terminalView.getTab(tabId);
+      const inst = this._inst[tabId];
+      if (inst?.term) {
+        try { inst.term.dispose(); } catch(e) {}
+      }
+      delete this._inst[tabId];
+      if (tab) {
+        window._terminalWs.emit('terminal_stop', { session_id: tab.sessionId });
+      }
+      this.$store.terminalView.removeTab(tabId);
+    },
+
+    reconnectActive() {
+      const id = this.$store.terminalView.activeTabId;
+      const tab = this.$store.terminalView.getTab(id);
+      const inst = this._inst[id];
+      if (!tab || !inst?.term) return;
+      // New session id = fresh shell
+      const sid = 'sid_' + Math.random().toString(36).slice(2);
+      localStorage.setItem('a0_term_session_' + id, sid);
+      tab.sessionId = sid;
+      this.$store.terminalView._saveTabs();
+      inst.term.clear();
+      this._connect(tab, inst);
+    },
+
+    _theme() {
+      const light = document.body.classList.contains('light-mode');
+      const s = getComputedStyle(document.documentElement);
+      const g = v => s.getPropertyValue(v).trim();
+      return {
+        background: light ? (g('--color-chat-background-light') || '#fafafa')
+                          : (g('--color-chat-background-dark')  || '#212121'),
+        foreground: light ? (g('--color-message-text-light')    || '#333333')
+                          : (g('--color-message-text-dark')     || '#e0e0e0'),
+        cursor:     light ? (g('--color-accent-light')          || '#b00020')
+                          : (g('--color-accent-dark')           || '#cf6679'),
+        selectionBackground: light ? 'rgba(176,0,32,0.2)' : 'rgba(207,102,121,0.3)',
+        black:'#000000',red:'#e06c75',green:'#98c379',yellow:'#e5c07b',
+        blue:'#61afef',magenta:'#c678dd',cyan:'#56b6c2',white:'#abb2bf',
+        brightBlack:'#5c6370',brightRed:'#e06c75',brightGreen:'#98c379',
+        brightYellow:'#e5c07b',brightBlue:'#61afef',brightMagenta:'#c678dd',
+        brightCyan:'#56b6c2',brightWhite:'#ffffff',
+      };
+    },
+
+    _watchTheme(inst) {
+      const obs = new MutationObserver(() => {
+        if (inst.term) inst.term.options.theme = this._theme();
+      });
+      obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      const orig = inst.term.dispose.bind(inst.term);
+      inst.term.dispose = () => { obs.disconnect(); orig(); };
+    },
+  };
+};
+</script>
+
+<style>
+  body { margin:0;padding:0;height:100%;width:100%;overflow:hidden;
+         background:var(--color-chat-background); }
+  [id^="tp-"] .xterm { height:100%; }
+  [id^="tp-"] .xterm-viewport { overflow-y:auto !important; }
+  [id^="tp-"] .xterm-selection div { background:rgba(207,102,121,0.3) !important; }
+  .xterm-char-measure-element { visibility:hidden !important; }
+  .xterm-helper-textarea { opacity:0 !important; background:transparent !important; }
+  .xterm-helpers { position:absolute !important; top:0 !important; left:0 !important; }
+  .light-mode [id^="tp-"] { background:var(--color-chat-background-light,#fafafa); }
+</style>
+</html>

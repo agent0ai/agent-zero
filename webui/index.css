@@ -1626,3 +1626,233 @@ body *::-webkit-scrollbar-thumb:active {
 .light-mode *::-webkit-scrollbar-thumb:active {
   background-color: #8a8a8a;
 }
+/* === Terminal Tab CSS === */
+/* ============================================================================
+   terminal-tab.css
+   Append the contents of this file to /a0/webui/index.css
+   (or @import it from there)
+   ============================================================================ */
+
+/* ── Sidebar tab bar ──────────────────────────────────────────────────────── */
+
+.sidebar-tabs {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--color-border, #2a2a3e);
+    background: var(--color-surface, #12122a);
+    gap: 2px;
+    padding: 4px 4px 0;
+}
+
+.sidebar-tabs button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 4px 8px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 6px 6px 0 0;
+    background: transparent;
+    color: var(--color-text-muted, #888);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.sidebar-tabs button i {
+    font-size: 15px;
+}
+
+.sidebar-tabs button:hover {
+    color: var(--color-text, #e0e0e0);
+    background: var(--color-hover, rgba(255,255,255,0.05));
+}
+
+.sidebar-tabs button.active {
+    color: var(--color-primary, #7c8cf8);
+    border-bottom-color: var(--color-primary, #7c8cf8);
+    background: var(--color-surface-raised, rgba(124,140,248,0.08));
+}
+
+/* ── Sidebar panels ───────────────────────────────────────────────────────── */
+
+.sidebar-panel {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* ── Terminal panel ───────────────────────────────────────────────────────── */
+
+.terminal-panel {
+    background: #0d0d1a;
+    position: relative;
+}
+
+.terminal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 10px;
+    background: var(--color-surface, #12122a);
+    border-bottom: 1px solid var(--color-border, #2a2a3e);
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+.terminal-toolbar-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted, #888);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.terminal-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.terminal-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border, #2a2a3e);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-text-muted, #888);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.terminal-btn:hover {
+    color: var(--color-text, #e0e0e0);
+    border-color: var(--color-primary, #7c8cf8);
+    background: rgba(124,140,248,0.1);
+}
+
+.terminal-btn-retry {
+    margin-top: 12px;
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+/* Terminal toolbar buttons */
+.terminal-toolbar-actions button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border, #2a2a3e);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-text-muted, #888);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.terminal-toolbar-actions button:hover {
+    color: var(--color-text, #e0e0e0);
+    border-color: var(--color-primary, #7c8cf8);
+    background: rgba(124,140,248,0.1);
+}
+
+.terminal-toolbar-actions button span {
+    font-size: 14px;
+}
+
+/* Status dot */
+.terminal-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.terminal-status-ok   { background: #4caf50; box-shadow: 0 0 4px #4caf50aa; }
+.terminal-status-wait { background: #ff9800; animation: pulse-dot 1.2s ease-in-out infinite; }
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+}
+
+/* The iframe itself */
+.terminal-iframe {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+    background: #0d0d1a;
+    min-height: 0;
+}
+
+/* Error / unavailable overlay */
+.terminal-unavailable {
+    position: absolute;
+    inset: 40px 0 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(13,13,26,0.95);
+    color: var(--color-text-muted, #888);
+    padding: 24px;
+    text-align: center;
+}
+
+.terminal-unavailable i {
+    font-size: 32px;
+    color: #ff7043;
+    margin-bottom: 4px;
+}
+
+.terminal-unavailable p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.terminal-unavailable-hint {
+    font-size: 12px !important;
+    color: var(--color-text-muted, #666) !important;
+    line-height: 1.6;
+}
+
+.terminal-unavailable code {
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+/* Light mode overrides */
+.light-mode .terminal-panel,
+.light-mode .terminal-iframe {
+    background: #f5f5f5;
+}
+
+.light-mode .terminal-unavailable {
+    background: rgba(245,245,245,0.95);
+}
+
+.light-mode .terminal-toolbar {
+    background: #e8e8f0;
+    border-color: #d0d0e0;
+}
