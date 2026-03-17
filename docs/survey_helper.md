@@ -4,7 +4,7 @@ This feature helps you **review** a survey page, **extract** form questions, and
 
 It is intentionally designed to be human-in-the-loop:
 - It **does not** automatically submit surveys.
-- It **does not** fabricate personal details; if your profile doesn’t contain needed info, suggestions should return **UNKNOWN**.
+- It **does not** fabricate personal details; if your profile doesn’t contain needed info, predictions are flagged as **needs_clarification=true** for later review.
 
 ## How it works
 
@@ -24,11 +24,22 @@ It is intentionally designed to be human-in-the-loop:
 - **3) Suggest answers (optional)**
   - If you have **Ollama** running locally, the tool can generate answer suggestions using your saved profile.
   - Suggestions are only a draft for you to copy/paste and review.
+  - If the profile doesn’t contain enough info, the tool will still provide **educated guesses** but will mark them as **needs_clarification=true** so you can review later.
 
 ## Profile storage
 
 - Stored at `memory/survey_profile.json`
 - You can edit it in the GUI under **“Profile (editable JSON)”**.
+
+## Prediction dataset (review later)
+
+When you enable recording, any predicted answers that require clarification are appended to:
+- `memory/survey_predictions.jsonl`
+
+You can review/export pending items and store clarifications with:
+- `python3 run_survey_helper_review.py --list`
+- `python3 run_survey_helper_review.py --export-json`
+- `python3 run_survey_helper_review.py --id q_... --answer "..." --save-to-profile`
 
 ## Ways to use it
 
@@ -62,6 +73,12 @@ Or directly:
 
 ```bash
 python3 run_survey_helper_cli.py "https://example.com/survey" --json
+```
+
+To generate predictions and record items that need clarification:
+
+```bash
+python3 run_survey_helper_cli.py "https://example.com/survey" --predict --record --top-k 3 --json
 ```
 
 ### B) Inside Agent Zero (tool mode)

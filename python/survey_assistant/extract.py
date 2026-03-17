@@ -76,6 +76,32 @@ def _infer_label(soup: BeautifulSoup, field_tag: Tag) -> str | None:
         field_tag.get("name"),
     )
 
+def _infer_group_label(soup: BeautifulSoup, first_input: Tag) -> str | None:
+    # Prefer <fieldset><legend>Question</legend>...</fieldset>
+    fs = first_input.find_parent("fieldset")
+    if isinstance(fs, Tag):
+        legend = fs.find("legend")
+        if isinstance(legend, Tag):
+            txt = _text(legend)
+            if txt:
+                return txt
+
+    # Try previous meaningful text near the input (common in survey builders)
+    probe: Tag | None = first_input
+    for _ in range(6):
+        if not probe:
+            break
+        prev = probe.find_previous(
+            ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "span", "label"]
+        )
+        if isinstance(prev, Tag):
+            txt = _text(prev)
+            # Avoid using option labels (very short) as question label
+            if txt and len(txt) >= 4:
+                return txt
+        probe = probe.parent if isinstance(probe.parent, Tag) else None
+
+    return _first_non_empty(first_input.get("name"), first_input.get("aria-label"))
 
 def _iter_controls(soup: BeautifulSoup) -> Iterable[Tag]:
     for tag in soup.find_all(["input", "textarea", "select"]):
@@ -144,13 +170,14 @@ def extract_form_fields(html: str, *, max_fields: int = 200) -> list[ExtractedFi
                         "value": opt.get("value"),
                     }
                 )
+            group_label = _infer_group_label(soup, c)
             out.append(
                 ExtractedField(
                     kind="input",
                     input_type=input_type,
                     name=name,
                     id=cid,
-                    label=_infer_label(soup, c),
+                    label=group_label or _infer_label(soup, c),
                     required=required,
                     options=options,
                 )
