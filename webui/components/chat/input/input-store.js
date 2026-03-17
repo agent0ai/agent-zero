@@ -67,6 +67,8 @@ const model = {
       if (!this.message) chatInput.value = "";
       chatInput.style.height = "auto";
       chatInput.style.height = chatInput.scrollHeight + "px";
+      // pick up any layout shift triggered by the height assignment
+      chatInput.style.height = Math.max(chatInput.scrollHeight, parseInt(chatInput.style.height)) + "px";
     }
   },
 

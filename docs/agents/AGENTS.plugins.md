@@ -302,14 +302,14 @@ Index submission rules:
 - `tags`: optional, up to 5, use recommended tags from https://github.com/agent0ai/a0-plugins/blob/main/TAGS.md
 - `screenshots`: optional, up to 5 full image URLs (png/jpg/webp, each ≤ 2 MB)
 
-### Plugin Marketplace
+### Plugin Hub
 
-The marketplace is provided by the always-enabled `_plugin_installer` plugin. Users can reach it from the **Plugins** dialog in two ways:
+The Plugin Hub is provided by the always-enabled `_plugin_installer` plugin. Users can reach it from the **Plugins** dialog in two ways:
 
 - the **Browse** tab in `webui/components/plugins/list/plugin-list.html`
 - the **Install** toolbar action injected by `plugins/_plugin_installer/extensions/webui/plugins-list-header-buttons/install-buttons.html`, which opens `plugins/_plugin_installer/webui/main.html` on its own **Browse** tab
 
-Both routes surface Plugin Index entries inside Agent Zero. The marketplace supports search, filtering, sorting, and a detail view with README content and installation actions.
+Both routes surface Plugin Index entries inside Agent Zero. The Plugin Hub supports search, filtering, sorting, and a detail view with README content and installation actions.
 
 ---
 

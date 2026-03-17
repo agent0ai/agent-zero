@@ -203,6 +203,10 @@ save_plugin_config(
     <profile>/agent.yaml # Optional plugin-distributed agent profile
   api/                  # API Handlers (ApiHandler base class)
   tools/                # Tool subclasses
+  helpers/              # Shared Python logic
+  prompts/              # Prompt templates
+  conf/
+    model_providers.yaml # Optional: add or override model providers
   extensions/
     python/agent_init/  # Python lifecycle extensions
     webui/<point>/      # HTML/JS hook extensions
@@ -373,8 +377,8 @@ For a fully guided contribution flow (including git operations), read `/a0/skill
 
 ---
 
-## Plugin Index & Marketplace
+## Plugin Index & Plugin Hub
 
 The **Plugin Index** is the community hub at https://github.com/agent0ai/a0-plugins.
 
-Agent Zero now exposes indexed plugins through the built-in **Plugin Marketplace**. Users can open it from the **Plugins** dialog either through the **Browse** tab or through the **Install** button, then inspect plugin details and install directly from the UI.
+Agent Zero now exposes indexed plugins through the built-in **Plugin Hub**. Users can open it from the **Plugins** dialog either through the **Browse** tab or through the **Install** button, then inspect plugin details and install directly from the UI.

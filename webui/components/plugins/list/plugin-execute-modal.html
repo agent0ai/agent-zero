@@ -1,55 +1,55 @@
 <html>
 <head>
-    <title>Plugin Init</title>
+    <title>Plugin Execute</title>
     <script type="module">
-        import { store } from "/components/plugins/list/plugin-init-store.js";
+        import { store } from "/components/plugins/list/plugin-execute-store.js";
     </script>
 </head>
 <body>
     <div x-data>
-        <template x-if="$store.pluginInitStore">
-            <div x-destroy="$store.pluginInitStore.cleanup()"
-                 x-create="$el.closest('.modal')?.querySelector('.modal-title') && ($el.closest('.modal').querySelector('.modal-title').textContent = 'Init: ' + $store.pluginInitStore.pluginDisplayName)"
-                 class="plugin-init-root">
+        <template x-if="$store.pluginExecuteStore">
+            <div x-destroy="$store.pluginExecuteStore.cleanup()"
+                 x-create="$el.closest('.modal')?.querySelector('.modal-title') && ($el.closest('.modal').querySelector('.modal-title').textContent = 'Execute: ' + $store.pluginExecuteStore.pluginDisplayName)"
+                 class="plugin-execute-root">
 
-                <div class="plugin-init-idle"
-                     x-show="!$store.pluginInitStore.running && $store.pluginInitStore.exitCode === null && !$store.pluginInitStore.output">
+                <div class="plugin-execute-idle"
+                     x-show="!$store.pluginExecuteStore.running && $store.pluginExecuteStore.exitCode === null && !$store.pluginExecuteStore.output">
                     <span class="material-symbols-outlined idle-icon">terminal</span>
                     <div class="idle-text">
-                        <span class="idle-headline">Press <strong>Run</strong> to initialize <strong x-text="$store.pluginInitStore.pluginDisplayName"></strong></span>
-                        <span class="idle-sub">This will execute the plugin's <code>execute.py</code> setup script.</span>
-                        <template x-if="$store.pluginInitStore.lastExec">
+                        <span class="idle-headline">Press <strong>Run</strong> to execute <strong x-text="$store.pluginExecuteStore.pluginDisplayName"></strong></span>
+                        <span class="idle-sub">This will run the plugin's <code>execute.py</code> script.</span>
+                        <template x-if="$store.pluginExecuteStore.lastExecution">
                             <span class="last-exec-info">
                                 Last run:
-                                <span x-text="new Date($store.pluginInitStore.lastExec.executed_at).toLocaleString()"></span>
+                                <span x-text="new Date($store.pluginExecuteStore.lastExecution.executed_at).toLocaleString()"></span>
                                 &nbsp;&mdash;&nbsp;
-                                <span :class="$store.pluginInitStore.lastExec.exit_code === 0 ? 'exit-ok' : 'exit-err'"
-                                      x-text="$store.pluginInitStore.lastExec.exit_code === 0 ? 'succeeded' : 'failed (exit ' + $store.pluginInitStore.lastExec.exit_code + ')'">
+                                <span :class="$store.pluginExecuteStore.lastExecution.exit_code === 0 ? 'exit-ok' : 'exit-err'"
+                                      x-text="$store.pluginExecuteStore.lastExecution.exit_code === 0 ? 'succeeded' : 'failed (exit ' + $store.pluginExecuteStore.lastExecution.exit_code + ')'">
                                 </span>
                             </span>
                         </template>
-                        <template x-if="!$store.pluginInitStore.lastExec">
-                            <span class="last-exec-info never-run">Never initialized</span>
+                        <template x-if="!$store.pluginExecuteStore.lastExecution">
+                            <span class="last-exec-info never-run">Never executed</span>
                         </template>
                     </div>
                 </div>
 
-                <div class="plugin-init-status" x-show="$store.pluginInitStore.running">
+                <div class="plugin-execute-status" x-show="$store.pluginExecuteStore.running">
                     <span class="material-symbols-outlined spin">progress_activity</span>
                     <span>Running execute.py...</span>
                 </div>
 
-                <div class="plugin-init-exit" x-show="!$store.pluginInitStore.running && $store.pluginInitStore.exitCode !== null">
+                <div class="plugin-execute-exit" x-show="!$store.pluginExecuteStore.running && $store.pluginExecuteStore.exitCode !== null">
                     <span class="material-symbols-outlined"
-                          :class="$store.pluginInitStore.exitCode === 0 ? 'exit-ok' : 'exit-err'"
-                          x-text="$store.pluginInitStore.exitCode === 0 ? 'check_circle' : 'error'">
+                          :class="$store.pluginExecuteStore.exitCode === 0 ? 'exit-ok' : 'exit-err'"
+                          x-text="$store.pluginExecuteStore.exitCode === 0 ? 'check_circle' : 'error'">
                     </span>
-                    <span x-text="$store.pluginInitStore.exitCode === 0 ? 'Completed successfully (exit 0)' : 'Exited with code ' + $store.pluginInitStore.exitCode"></span>
+                    <span x-text="$store.pluginExecuteStore.exitCode === 0 ? 'Completed successfully (exit 0)' : 'Exited with code ' + $store.pluginExecuteStore.exitCode"></span>
                 </div>
 
-                <pre class="plugin-init-output"
-                     x-show="$store.pluginInitStore.output || $store.pluginInitStore.running"
-                     x-text="$store.pluginInitStore.output || ''"></pre>
+                <pre class="plugin-execute-output"
+                     x-show="$store.pluginExecuteStore.output || $store.pluginExecuteStore.running"
+                     x-text="$store.pluginExecuteStore.output || ''"></pre>
             </div>
         </template>
     </div>
@@ -57,22 +57,22 @@
     <div class="modal-footer" data-modal-footer>
         <button class="btn btn-action footer-btn"
                 x-data
-                :disabled="$store.pluginInitStore?.running"
-                @click="$store.pluginInitStore?.run()">
+                :disabled="$store.pluginExecuteStore?.running"
+                @click="$store.pluginExecuteStore?.run()">
             <span class="icon material-symbols-outlined">play_arrow</span>
-            <span x-text="$store.pluginInitStore?.exitCode !== null || $store.pluginInitStore?.output ? 'Rerun' : 'Run'">Run</span>
+            <span x-text="$store.pluginExecuteStore?.exitCode !== null || $store.pluginExecuteStore?.output ? 'Rerun' : 'Run'">Run</span>
         </button>
         <button class="btn btn-cancel footer-btn" @click="window.closeModal?.()">Close</button>
     </div>
 
     <style>
-        .plugin-init-root {
+        .plugin-execute-root {
             display: flex;
             flex-direction: column;
             width: 100%;
         }
 
-        .plugin-init-idle {
+        .plugin-execute-idle {
             display: flex;
             align-items: flex-start;
             gap: 1rem;
@@ -114,7 +114,7 @@
             font-style: italic;
         }
 
-        .plugin-init-status {
+        .plugin-execute-status {
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -123,7 +123,7 @@
             font-size: var(--font-size-small);
         }
 
-        .plugin-init-exit {
+        .plugin-execute-exit {
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -139,7 +139,7 @@
             color: var(--color-error, #e74c3c);
         }
 
-        .plugin-init-output {
+        .plugin-execute-output {
             font-family: "Courier New", Courier, monospace;
             font-size: 0.82rem;
             background: var(--color-bg-secondary, #1e1e1e);

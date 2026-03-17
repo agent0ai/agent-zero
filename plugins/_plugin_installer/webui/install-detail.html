@@ -84,9 +84,9 @@
                                             <span class="icon material-symbols-outlined">gavel</span> License
                                         </button>
                                     </template>
-                                    <template x-if="$store.pluginInstallStore.installedPluginInfo.has_init_script">
+                                    <template x-if="$store.pluginInstallStore.installedPluginInfo.has_execute_script">
                                         <button type="button" class="button"
-                                            @click="$store.pluginInstallStore.handleOpenInit()">
+                                            @click="$store.pluginInstallStore.handleOpenExecute()">
                                             <span class="icon material-symbols-outlined">terminal</span> Script
                                         </button>
                                     </template>
@@ -186,7 +186,7 @@
                 </div>
 
                 <div class="pi-version-section"
-                     x-show="$store.pluginInstallStore.getCurrentInstalledVersion() || $store.pluginInstallStore.getCurrentInstalledCommit() || $store.pluginInstallStore.getLatestMarketplaceVersion() || $store.pluginInstallStore.getLatestMarketplaceCommit()">
+                     x-show="$store.pluginInstallStore.getCurrentInstalledVersion() || $store.pluginInstallStore.getCurrentInstalledCommit() || $store.pluginInstallStore.getLatestPluginHubVersion() || $store.pluginInstallStore.getLatestPluginHubCommit()">
                     <div class="pi-version-header">Version</div>
                     <div class="pi-version-grid">
                         <div class="pi-version-card"
@@ -209,23 +209,23 @@
                                  x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getCurrentInstalledCommitTimestamp()) || 'Timestamp unavailable'"></div>
                         </div>
                         <div class="pi-version-card"
-                             x-show="$store.pluginInstallStore.getLatestMarketplaceVersion() || $store.pluginInstallStore.getLatestMarketplaceCommit()">
+                             x-show="$store.pluginInstallStore.getLatestPluginHubVersion() || $store.pluginInstallStore.getLatestPluginHubCommit()">
                             <div class="pi-version-label">Latest</div>
                             <div class="pi-version-name"
-                                 x-text="$store.pluginInstallStore.getLatestMarketplaceVersion() || 'Unknown version'"></div>
-                            <template x-if="$store.pluginInstallStore.getLatestMarketplaceCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit())">
+                                 x-text="$store.pluginInstallStore.getLatestPluginHubVersion() || 'Unknown version'"></div>
+                            <template x-if="$store.pluginInstallStore.getLatestPluginHubCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestPluginHubCommit())">
                                 <a class="pi-version-commit"
-                                   :href="$store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit())"
+                                   :href="$store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestPluginHubCommit())"
                                    target="_blank"
                                    rel="noopener noreferrer"
-                                   x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestMarketplaceCommit())"></a>
+                                   x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestPluginHubCommit())"></a>
                             </template>
-                            <template x-if="!($store.pluginInstallStore.getLatestMarketplaceCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit()))">
+                            <template x-if="!($store.pluginInstallStore.getLatestPluginHubCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestPluginHubCommit()))">
                                 <div class="pi-version-commit"
-                                     x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestMarketplaceCommit()) || 'Unknown'"></div>
+                                     x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestPluginHubCommit()) || 'Unknown'"></div>
                             </template>
                             <div class="pi-version-time"
-                                 x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getLatestMarketplaceCommitTimestamp()) || 'Timestamp unavailable'"></div>
+                                 x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getLatestPluginHubCommitTimestamp()) || 'Timestamp unavailable'"></div>
                         </div>
                     </div>
                 </div>
@@ -243,6 +243,12 @@
                             <a :href="$store.pluginInstallStore.getIndexUrl($store.pluginInstallStore.selectedPlugin.key)" target="_blank" class="pi-dev-link">
                                 <span class="material-symbols-outlined">inventory_2</span>
                                 <span>Plugin Index</span>
+                            </a>
+                        </template>
+                        <template x-if="$store.pluginInstallStore.getReportUrl($store.pluginInstallStore.selectedPlugin)">
+                            <a :href="$store.pluginInstallStore.getReportUrl($store.pluginInstallStore.selectedPlugin)" target="_blank" class="pi-dev-link pi-report-link">
+                                <span class="material-symbols-outlined">report</span>
+                                <span>Report malicious plugin</span>
                             </a>
                         </template>
                     </div>
@@ -307,7 +313,7 @@
 
         .pi-hero-title-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) clamp(18rem, 42%, 32rem);
+            grid-template-columns: minmax(0, 1fr) clamp(15rem, 42%, 28rem);
             align-items: flex-start;
             column-gap: 1rem;
             row-gap: 0.5rem;
@@ -796,11 +802,18 @@
             color: var(--color-highlight);
         }
 
+        .pi-dev-link.pi-report-link,
+        .pi-dev-link.pi-report-link:hover,
+        .pi-dev-link.pi-report-link .material-symbols-outlined,
+        .pi-dev-link.pi-report-link:hover .material-symbols-outlined {
+            color: var(--color-error-text);
+        }
+
         .pi-footer .buttons-container {
             width: 100%;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             .pi-hero {
                 flex-direction: column;
                 align-items: center;
@@ -836,6 +849,13 @@
 
             .pi-hero-tags {
                 justify-content: center;
+            }
+
+            .pi-card-installed-pill {
+                position: absolute;
+                top: unset;
+                right: unset;
+                margin: 0 auto var(--spacing-sm) auto;
             }
 
             .pi-actions-primary {

@@ -1,0 +1,11 @@
+<div x-data>
+    <template x-if="$store.pluginInstallStore && plugin.pluginHub?.key">
+        <button type="button"
+            class="dropdown-item"
+            title="Open in Plugin Hub"
+            @click="$store.pluginInstallStore.openPluginHubDetailByKey(plugin.pluginHub.key); actionsOpen = false">
+            <span class="material-symbols-outlined">storefront</span>
+            <span>Plugin Hub</span>
+        </button>
+    </template>
+</div>

@@ -85,8 +85,8 @@ Optional additional fields: `screenshots` (up to 5 image URLs).
 
 Note: The index `index.yaml` is a **different file with a different schema** from the runtime `plugin.yaml`. Folder names use `^[a-z0-9_]+$` (underscores, no hyphens) and must match the `name` field in the remote `plugin.yaml` exactly.
 
-## Plugin Marketplace
+## Plugin Hub
 
-Agent Zero now includes a built-in marketplace flow through the always-enabled **Plugin Installer** plugin. From the **Plugins** dialog, users can either open the **Browse** tab or click **Install**, which opens the installer modal on its own **Browse** tab.
+Agent Zero now includes a built-in Plugin Hub flow through the always-enabled **Plugin Installer** plugin. From the **Plugins** dialog, users can either open the **Browse** tab or click **Install**, which opens the installer modal on its own **Browse** tab.
 
-The marketplace surfaces Plugin Index entries directly in the UI and lets users search, filter, inspect, and install community plugins without leaving Agent Zero.
+The Plugin Hub surfaces Plugin Index entries directly in the UI and lets users search, filter, inspect, and install community plugins without leaving Agent Zero.

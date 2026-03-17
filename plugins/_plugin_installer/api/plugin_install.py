@@ -4,7 +4,7 @@ from helpers.api import ApiHandler, Input, Output, Request
 from werkzeug.datastructures import FileStorage
 
 from plugins._plugin_installer.helpers.install import (
-    get_marketplace_index,
+    get_plugin_hub_index,
     install_from_git,
     install_uploaded_zip,
     update_from_git,
@@ -55,4 +55,4 @@ class PluginInstall(ApiHandler):
         return update_from_git(input.get("plugin_name", ""))
 
     def _fetch_index(self, input: dict) -> dict:
-        return {"success": True, **get_marketplace_index()}
+        return {"success": True, **get_plugin_hub_index()}

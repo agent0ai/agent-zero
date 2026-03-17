@@ -287,16 +287,16 @@ Submission rules:
 - `tags`: optional, up to 5, see https://github.com/agent0ai/a0-plugins/blob/main/TAGS.md
 - `screenshots`: optional, up to 5 full image URLs (png/jpg/webp, each ≤ 2 MB)
 
-### Plugin Marketplace
+### Plugin Hub
 
-Agent Zero now exposes the community **Plugin Marketplace** through the always-enabled **Plugin Installer** plugin. Users can browse Plugin Index entries directly from the Plugins UI without leaving the application.
+Agent Zero now exposes the community **Plugin Hub** through the always-enabled **Plugin Installer** plugin. Users can browse Plugin Index entries directly from the Plugins UI without leaving the application.
 
-Users can open the marketplace from the **Plugins** dialog in two ways:
+Users can open the Plugin Hub from the **Plugins** dialog in two ways:
 
 - click the **Browse** tab after **Custom** and **Builtin**
 - click **Install** in the plugin list toolbar to open the installer modal, which starts on its own **Browse** tab
 
-The marketplace supports search, filtering, sorting, and a plugin detail view with README content and the install action.
+The Plugin Hub supports search, filtering, sorting, and a plugin detail view with README content and the install action.
 
 ## User Feedback in Plugin UI (Notifications)
 

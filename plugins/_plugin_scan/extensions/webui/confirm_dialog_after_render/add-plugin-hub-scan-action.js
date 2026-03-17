@@ -4,18 +4,18 @@ const NOTE_CLASS = "confirm-dialog-extension-note";
 const BUTTON_CLASS = "confirm-dialog-plugin-scan-button";
 const DIALOG_CLOSE_DELAY_MS = 220;
 
-function isMarketplaceInstallWarning(extensionContext) {
+function isPluginHubInstallWarning(extensionContext) {
   return (
-    extensionContext?.kind === "marketplace_plugin_install_warning"
+    extensionContext?.kind === "plugin_hub_plugin_install_warning"
     && extensionContext?.source === "plugin_installer"
     && typeof extensionContext?.gitUrl === "string"
     && extensionContext.gitUrl.trim().length > 0
   );
 }
 
-export default async function addMarketplaceScanAction(context) {
+export default async function addPluginHubScanAction(context) {
   const extensionContext = context?.extensionContext;
-  if (!isMarketplaceInstallWarning(extensionContext)) return;
+  if (!isPluginHubInstallWarning(extensionContext)) return;
 
   const bodyElement = context?.bodyElement;
   const footerElement = context?.footerElement;

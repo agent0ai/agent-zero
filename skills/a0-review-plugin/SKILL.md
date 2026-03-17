@@ -47,11 +47,17 @@ Inspect the plugin directory layout:
 - [ ] If `api/` exists: contains Python files only; each should subclass `ApiHandler`
 - [ ] If `tools/` exists: contains Python files only; each should subclass `Tool`
 - [ ] If `extensions/` exists: check subdirs follow `python/<point>/` or `webui/<point>/` pattern
+- [ ] If `helpers/` exists: shared Python logic (standard directory)
+- [ ] If `prompts/` exists: prompt templates (standard directory)
+- [ ] If `agents/` exists: agent profiles with `<profile>/agent.yaml` (standard directory)
+- [ ] If `conf/` exists: configuration files such as `model_providers.yaml` (standard directory)
 - [ ] If `webui/config.html` exists: plugin must declare at least one `settings_sections` entry
 - [ ] If `hooks.py` exists: warn if it does NOT contain an `install` function (common oversight)
 - [ ] If `execute.py` exists: check it has a `main()` function and `if __name__ == "__main__": sys.exit(main())`
 - [ ] `default_config.yaml` (if present): valid YAML
-- [ ] No unexpected top-level files (anything not in the standard layout is a WARN)
+- [ ] No unexpected top-level entries (WARN for anything outside the standard layout)
+
+Standard top-level layout: `plugin.yaml`, `execute.py`, `hooks.py`, `default_config.yaml`, `README.md`, `LICENSE`, `__init__.py`, `api/`, `tools/`, `extensions/`, `webui/`, `helpers/`, `prompts/`, `agents/`, `conf/`
 
 ---
 

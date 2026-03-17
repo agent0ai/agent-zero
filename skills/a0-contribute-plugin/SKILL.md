@@ -1,14 +1,14 @@
 ---
 name: a0-contribute-plugin
-description: Guide for publishing an Agent Zero plugin to the community Plugin Index (a0-plugins repo). Covers GitHub repo setup, index.yaml creation, CI validation rules, and PR submission. Use when the user wants to share, publish, submit, or contribute a plugin to the marketplace so other Agent Zero users can find and install it.
+description: Guide for publishing an Agent Zero plugin to the community Plugin Index (a0-plugins repo). Covers GitHub repo setup, index.yaml creation, CI validation rules, and PR submission. Use when the user wants to share, publish, submit, or contribute a plugin to the Plugin Hub so other Agent Zero users can find and install it.
 version: 1.0.0
-tags: ["plugins", "contribute", "publish", "marketplace", "community", "index", "PR"]
+tags: ["plugins", "contribute", "publish", "plugin-hub", "community", "index", "PR"]
 trigger_patterns:
   - "contribute plugin"
   - "publish plugin"
   - "share plugin"
   - "submit plugin"
-  - "plugin marketplace"
+  - "contribute to plugin hub"
   - "plugin index"
   - "community plugin"
   - "open source plugin"
@@ -51,13 +51,17 @@ The plugin must live in its **own standalone GitHub repository** with plugin con
 ```text
 your-plugin-repo/           <- GitHub repository root
 ├── plugin.yaml             <- runtime manifest (REQUIRED)
-├── README.md               <- strongly recommended (shown in marketplace detail view)
+├── README.md               <- strongly recommended (shown in Plugin Hub detail view)
 ├── LICENSE                 <- strongly recommended
 ├── default_config.yaml     <- optional
-├── api/
-├── tools/
-├── extensions/
-└── webui/
+├── api/                    <- API handlers
+├── tools/                  <- agent tools
+├── helpers/                <- shared Python logic
+├── prompts/                <- prompt templates
+├── agents/                 <- agent profiles
+├── conf/                   <- config files (e.g. model_providers.yaml)
+├── extensions/             <- lifecycle and UI extensions
+└── webui/                  <- frontend pages, stores, components
 ```
 
 ### Runtime `plugin.yaml` requirements

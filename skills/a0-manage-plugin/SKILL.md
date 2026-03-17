@@ -1,8 +1,8 @@
 ---
 name: a0-manage-plugin
-description: Manage Agent Zero plugins lifecycle: browse the marketplace, scan for security, install from Git/ZIP/marketplace, update, uninstall, enable, disable, debug, and troubleshoot. Use when asked to install, update, uninstall, remove, scan, find, search, enable, disable, debug, or troubleshoot a plugin.
+description: Manage Agent Zero plugins lifecycle: browse the Plugin Hub, scan for security, install from Git/ZIP/Plugin Hub, update, uninstall, enable, disable, debug, and troubleshoot. Use when asked to install, update, uninstall, remove, scan, find, search, enable, disable, debug, or troubleshoot a plugin.
 version: 1.2.0
-tags: ["plugins", "install", "uninstall", "update", "scan", "security", "debug", "troubleshoot", "marketplace", "manage"]
+tags: ["plugins", "install", "uninstall", "update", "scan", "security", "debug", "troubleshoot", "plugin-hub", "manage"]
 trigger_patterns:
   - "install plugin"
   - "uninstall plugin"
@@ -17,7 +17,7 @@ trigger_patterns:
   - "plugin not working"
   - "enable plugin"
   - "disable plugin"
-  - "plugin marketplace"
+  - "plugin hub"
   - "list plugins"
 ---
 
@@ -29,7 +29,7 @@ Identify what the user needs and jump to the relevant section:
 
 | User need | Section |
 |---|---|
-| Find / search / browse available plugins | [Browse Marketplace](#browse-marketplace) |
+| Find / search / browse available plugins | [Browse Plugin Hub](#browse-plugin-hub) |
 | Scan a plugin for security issues | [Security Scan](#security-scan) |
 | Install a plugin | [Install a Plugin](#install-a-plugin) |
 | Update an installed plugin | [Update a Plugin](#update-a-plugin) |
@@ -40,7 +40,7 @@ Identify what the user needs and jump to the relevant section:
 
 ---
 
-## Browse Marketplace
+## Browse Plugin Hub
 
 Fetch the current community index:
 
@@ -63,7 +63,7 @@ Each entry in `plugins` is keyed by plugin name with fields: `title`, `descripti
 ls /a0/usr/plugins/
 ```
 
-**Alternatively via UI**: Open the Plugins dialog in Agent Zero and switch to the **Browse** tab (or click **Install** in the toolbar to open the marketplace).
+**Alternatively via UI**: Open the Plugins dialog in Agent Zero and switch to the **Browse** tab (or click **Install** in the toolbar to open the Plugin Hub).
 
 ---
 
@@ -125,10 +125,10 @@ If the scan times out or errors (500), inform the user and ask whether to procee
 
 ### How installed state works
 
-The marketplace marks a plugin as **Installed** by cross-referencing marketplace keys against `usr/plugins/` directory names at request time. To appear installed:
+The Plugin Hub marks a plugin as **Installed** by cross-referencing Plugin Hub keys against `usr/plugins/` directory names at request time. To appear installed:
 - The plugin directory must exist at `usr/plugins/<name>/` with a valid `plugin.yaml`
 - The framework plugin cache must be cleared (the API handles this automatically)
-- Re-fetching the marketplace index will then show it as installed
+- Re-fetching the Plugin Hub index will then show it as installed
 
 ### API authentication (required for all HTTP calls)
 
@@ -182,15 +182,15 @@ resp = s.post(
 print(resp.json())
 ```
 
-This runs the full pipeline in the framework runtime: clone → validate → place in `usr/plugins/` → run `install` hook → clear plugin cache → notify frontend. The marketplace will show the plugin as installed on the next index fetch.
+This runs the full pipeline in the framework runtime: clone → validate → place in `usr/plugins/` → run `install` hook → clear plugin cache → notify frontend. The Plugin Hub will show the plugin as installed on the next index fetch.
 
-### Method 2: From the Marketplace (UI) - preferred for interactive use
+### Method 2: From the Plugin Hub (UI) - preferred for interactive use
 
 1. Open the Plugins dialog
 2. Go to the **Browse** tab (or click **Install**)
 3. Find the plugin, click it, click **Install**
 
-The UI handles everything including marking the plugin as installed in the marketplace view.
+The UI handles everything including marking the plugin as installed in the Plugin Hub view.
 
 ### Method 3: From a ZIP file (via HTTP API)
 

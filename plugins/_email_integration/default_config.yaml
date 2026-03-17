@@ -1,0 +1,20 @@
+handlers: []
+# Example handler:
+# - name: support
+#   enabled: true
+#   account_type: imap
+#   imap_server: imap.gmail.com
+#   imap_port: 993
+#   smtp_server: smtp.gmail.com
+#   smtp_port: 587
+#   username: ""
+#   password: ""
+#   poll_mode: seconds
+#   poll_interval_seconds: 15
+#   poll_interval_cron: "*/2 * * * *"
+#   process_unread_days: 0
+#   sender_whitelist: []
+#   project: ""
+#   dispatcher_model: utility
+#   dispatcher_instructions: ""
+#   agent_instructions: ""

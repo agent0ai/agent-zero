@@ -1,8 +1,8 @@
 ---
 name: a0-plugin-router
-description: Main entry point for all Agent Zero plugin tasks. Routes to specialist skills for creating, reviewing, contributing, managing, or debugging plugins. Use when the user mentions plugins, asks how the plugin system works, wants to build/install/uninstall/publish/debug a plugin, or asks about the Plugin Marketplace.
+description: Main entry point for all Agent Zero plugin tasks. Routes to specialist skills for creating, reviewing, contributing, managing, or debugging plugins. Use when the user mentions plugins, asks how the plugin system works, wants to build/install/uninstall/publish/debug a plugin, or asks about the Plugin Hub.
 version: 1.0.0
-tags: ["plugins", "router", "meta", "create", "review", "contribute", "manage", "marketplace"]
+tags: ["plugins", "router", "meta", "create", "review", "contribute", "manage", "plugin-hub"]
 trigger_patterns:
   - "plugin"
   - "create plugin"
@@ -12,7 +12,7 @@ trigger_patterns:
   - "publish plugin"
   - "install plugin"
   - "manage plugin"
-  - "marketplace"
+  - "plugin hub"
   - "plugin index"
   - "how does the plugin system work"
 ---

@@ -11,7 +11,7 @@ const model = {
   output: "",
   running: false,
   exitCode: null,
-  lastExec: null,
+  lastExecution: null,
 
   async open(plugin) {
     if (!plugin?.name) return;
@@ -19,20 +19,20 @@ const model = {
     this.pluginDisplayName = plugin.display_name || plugin.name;
     this.output = "";
     this.exitCode = null;
-    this.lastExec = null;
-    window.openModal?.("components/plugins/list/plugin-init-modal.html");
-    await this.fetchLastExec();
+    this.lastExecution = null;
+    window.openModal?.("components/plugins/list/plugin-execute-modal.html");
+    await this.fetchLastExecution();
   },
 
-  async fetchLastExec() {
+  async fetchLastExecution() {
     try {
       const response = await api.callJsonApi("plugins", {
-        action: "get_init_exec",
+        action: "get_execute_record",
         plugin_name: this.pluginName,
       });
-      this.lastExec = response.data || null;
+      this.lastExecution = response.data || null;
     } catch (e) {
-      this.lastExec = null;
+      this.lastExecution = null;
     }
   },
 
@@ -43,22 +43,25 @@ const model = {
     this.running = true;
     try {
       const response = await api.callJsonApi("plugins", {
-        action: "run_init_script",
+        action: "run_execute_script",
         plugin_name: this.pluginName,
       });
       this.output = response.output || "";
       this.exitCode = response.exit_code ?? null;
       if (response.executed_at) {
-        this.lastExec = { executed_at: response.executed_at, exit_code: response.exit_code ?? null };
+        this.lastExecution = {
+          executed_at: response.executed_at,
+          exit_code: response.exit_code ?? null,
+        };
       }
     } catch (e) {
       this.output = e.message || String(e);
       this.exitCode = -1;
       notificationStore.frontendError(
         e.message || String(e),
-        "Failed to run init script",
+        "Failed to run execute script",
         3,
-        "pluginInit",
+        "pluginExecute",
         defaultPriority,
         true,
       );
@@ -73,8 +76,8 @@ const model = {
     this.output = "";
     this.running = false;
     this.exitCode = null;
-    this.lastExec = null;
+    this.lastExecution = null;
   },
 };
 
-export const store = createStore("pluginInitStore", model);
+export const store = createStore("pluginExecuteStore", model);
