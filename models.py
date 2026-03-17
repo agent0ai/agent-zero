@@ -850,6 +850,18 @@ def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):
     if provider_name == "other":
         provider_name = "openai"
 
+    # MiniMax requires temperature in (0.0, 1.0]; clamp if needed
+    if "minimax" in model_name.lower() or (
+        kwargs.get("api_base", "") and "minimax" in kwargs["api_base"]
+    ):
+        temp = kwargs.get("temperature")
+        if temp is not None:
+            temp = float(temp)
+            if temp <= 0.0:
+                kwargs["temperature"] = 0.01
+            elif temp > 1.0:
+                kwargs["temperature"] = 1.0
+
     return provider_name, model_name, kwargs
 
 
