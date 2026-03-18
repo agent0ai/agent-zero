@@ -126,39 +126,52 @@ class TestMiniMaxTemperatureClamping:
 
     def test_zero_temperature_clamped(self):
         result = _adjust_call_args_temp_logic(
-            "MiniMax-M2.5", {"temperature": 0.0}
+            "MiniMax-M2.7", {"temperature": 0.0}
         )
         assert result["temperature"] > 0.0
 
     def test_negative_temperature_clamped(self):
         result = _adjust_call_args_temp_logic(
-            "MiniMax-M2.5", {"temperature": -1.0}
+            "MiniMax-M2.7", {"temperature": -1.0}
         )
         assert result["temperature"] > 0.0
 
     def test_high_temperature_clamped_to_one(self):
         result = _adjust_call_args_temp_logic(
-            "MiniMax-M2.5", {"temperature": 2.0}
+            "MiniMax-M2.7", {"temperature": 2.0}
         )
         assert result["temperature"] == 1.0
 
     def test_valid_temperature_unchanged(self):
         result = _adjust_call_args_temp_logic(
-            "MiniMax-M2.5", {"temperature": 0.7}
+            "MiniMax-M2.7", {"temperature": 0.7}
         )
         assert result["temperature"] == 0.7
 
     def test_boundary_temperature_one_unchanged(self):
         result = _adjust_call_args_temp_logic(
-            "MiniMax-M2.5", {"temperature": 1.0}
+            "MiniMax-M2.7", {"temperature": 1.0}
         )
         assert result["temperature"] == 1.0
 
     def test_no_temperature_no_error(self):
-        result = _adjust_call_args_temp_logic("MiniMax-M2.5", {})
+        result = _adjust_call_args_temp_logic("MiniMax-M2.7", {})
         assert "temperature" not in result
 
-    def test_clamping_by_model_name_highspeed(self):
+    def test_clamping_by_model_name_m27_highspeed(self):
+        result = _adjust_call_args_temp_logic(
+            "MiniMax-M2.7-highspeed", {"temperature": 0.0}
+        )
+        assert result["temperature"] > 0.0
+
+    def test_clamping_by_model_name_m25(self):
+        """Older M2.5 model should still have temperature clamping."""
+        result = _adjust_call_args_temp_logic(
+            "MiniMax-M2.5", {"temperature": 0.0}
+        )
+        assert result["temperature"] > 0.0
+
+    def test_clamping_by_model_name_m25_highspeed(self):
         result = _adjust_call_args_temp_logic(
             "MiniMax-M2.5-highspeed", {"temperature": 0.0}
         )

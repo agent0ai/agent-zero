@@ -33,9 +33,9 @@ def openai_client():
 class TestMiniMaxChatCompletion:
     """Verify MiniMax chat completion via OpenAI-compatible API."""
 
-    def test_basic_chat(self, openai_client):
+    def test_basic_chat_m27(self, openai_client):
         response = openai_client.chat.completions.create(
-            model="MiniMax-M2.5",
+            model="MiniMax-M2.7",
             messages=[{"role": "user", "content": "Say 'hello' and nothing else."}],
             max_tokens=20,
             temperature=1.0,
@@ -45,7 +45,28 @@ class TestMiniMaxChatCompletion:
         assert content, "Response should not be empty"
         assert len(content) > 0
 
-    def test_highspeed_model(self, openai_client):
+    def test_m27_highspeed_model(self, openai_client):
+        response = openai_client.chat.completions.create(
+            model="MiniMax-M2.7-highspeed",
+            messages=[{"role": "user", "content": "Reply with 'ok'."}],
+            max_tokens=10,
+            temperature=1.0,
+        )
+        assert response.choices
+        assert response.choices[0].message.content
+
+    def test_m25_model(self, openai_client):
+        """Verify older M2.5 model still works."""
+        response = openai_client.chat.completions.create(
+            model="MiniMax-M2.5",
+            messages=[{"role": "user", "content": "Reply with 'ok'."}],
+            max_tokens=10,
+            temperature=1.0,
+        )
+        assert response.choices
+        assert response.choices[0].message.content
+
+    def test_m25_highspeed_model(self, openai_client):
         response = openai_client.chat.completions.create(
             model="MiniMax-M2.5-highspeed",
             messages=[{"role": "user", "content": "Reply with 'ok'."}],
@@ -57,7 +78,7 @@ class TestMiniMaxChatCompletion:
 
     def test_streaming(self, openai_client):
         stream = openai_client.chat.completions.create(
-            model="MiniMax-M2.5",
+            model="MiniMax-M2.7",
             messages=[{"role": "user", "content": "Count from 1 to 3."}],
             max_tokens=50,
             temperature=1.0,
@@ -68,7 +89,7 @@ class TestMiniMaxChatCompletion:
 
     def test_system_message(self, openai_client):
         response = openai_client.chat.completions.create(
-            model="MiniMax-M2.5",
+            model="MiniMax-M2.7",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": "Say 'test passed'."},
@@ -81,7 +102,7 @@ class TestMiniMaxChatCompletion:
     def test_temperature_near_zero(self, openai_client):
         """Verify that a near-zero temperature (but > 0) works."""
         response = openai_client.chat.completions.create(
-            model="MiniMax-M2.5",
+            model="MiniMax-M2.7",
             messages=[{"role": "user", "content": "Say 'deterministic'."}],
             max_tokens=10,
             temperature=0.01,
