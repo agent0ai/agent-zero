@@ -230,6 +230,7 @@ class MCPServerRemote(BaseModel):
     disabled: bool = Field(default=False)
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
+    __async_lock: ClassVar[asyncio.Lock] = PrivateAttr(default_factory=asyncio.Lock)
     __client: Optional["MCPClientRemote"] = PrivateAttr(default=None)
 
     def __init__(self, config: dict[str, Any]):
@@ -308,6 +309,7 @@ class MCPServerLocal(BaseModel):
     disabled: bool = Field(default=False)
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
+    __async_lock: ClassVar[asyncio.Lock] = PrivateAttr(default_factory=asyncio.Lock)
     __client: Optional["MCPClientLocal"] = PrivateAttr(default=None)
 
     def __init__(self, config: dict[str, Any]):
@@ -811,7 +813,7 @@ class MCPClientBase(ABC):
     # tools: List[dict[str, Any]] # Defined in __init__
     # No self.session, self.exit_stack, self.stdio, self.write as persistent instance fields
 
-    __lock: ClassVar[threading.Lock] = threading.Lock()
+    __lock: ClassVar[asyncio.Lock] = asyncio.Lock()
 
     def __init__(self, server: Union[MCPServerLocal, MCPServerRemote]):
         self.server = server
@@ -899,7 +901,7 @@ class MCPClientBase(ABC):
 
         async def list_tools_op(current_session: ClientSession):
             response: ListToolsResult = await current_session.list_tools()
-            with self.__lock:
+            async with self.__lock:
                 self.tools = [
                     {
                         "name": tool.name,

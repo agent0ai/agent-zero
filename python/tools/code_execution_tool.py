@@ -44,7 +44,7 @@ class CodeExecution(Tool):
 
     # Common shell prompt regex patterns (add more as needed)
     prompt_patterns = [
-        re.compile(r"\\(venv\\).+[$#] ?$"),  # (venv) ...$ or (venv) ...#
+        re.compile(r"\(venv\).+[$#] ?$"),  # (venv) ...$ or (venv) ...#
         re.compile(r"root@[^:]+:[^#]+# ?$"),  # root@container:~#
         re.compile(r"[a-zA-Z0-9_.-]+@[^:]+:[^$#]+[$#] ?$"),  # user@host:~$
         re.compile(r"\(?.*\)?\s*PS\s+[^>]+> ?$"),  # PowerShell prompt like (base) PS C:\...>
