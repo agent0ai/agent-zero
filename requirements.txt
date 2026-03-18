@@ -51,3 +51,7 @@ pywinpty==3.0.2; sys_platform == "win32"
 python-socketio>=5.14.2
 uvicorn>=0.38.0
 wsproto>=1.2.0
+cryptography>=41.0.0
+keyring>=24.0.0
+prometheus-client>=0.19.0
+psutil>=5.9.0
