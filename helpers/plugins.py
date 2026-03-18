@@ -57,6 +57,10 @@ TOGGLE_FILE_PATTERN = ".toggle-[01]"
 
 HOOKS_SCRIPT = "hooks.py"
 HOOKS_CACHE_AREA = "plugin_hooks(plugins)"
+PLUGINS_LIST_CACHE_AREA = "plugins_list(plugins)"
+ENABLED_PLUGINS_LIST_CACHE_AREA = "enabled_plugins(plugins)"
+ENABLED_PLUGINS_PATHS_CACHE_AREA = "enabled_plugins_paths(plugins)"
+
 
 _last_frontend_reload_notification_at = 0.0
 
@@ -114,6 +118,8 @@ def after_plugin_change(plugin_names: list[str] | None = None):
 
 def clear_plugin_cache():
     cache.clear("*(plugins)*")
+    cache.clear("*(extensions)*")
+    cache.clear("*(api)*")
 
 
 def get_plugin_roots(plugin_name: str = "") -> List[str]:
@@ -125,6 +131,9 @@ def get_plugin_roots(plugin_name: str = "") -> List[str]:
 
 
 def get_plugins_list():
+    if cached := cache.get(PLUGINS_LIST_CACHE_AREA, ""):
+        return cached
+
     result: list[str] = []
     seen_names: set[str] = set()
     for root in get_plugin_roots():
@@ -137,6 +146,8 @@ def get_plugins_list():
                 seen_names.add(dir.name)
                 result.append(dir.name)
     result.sort(key=lambda p: Path(p).name)
+
+    cache.add(PLUGINS_LIST_CACHE_AREA, "", result)
     return result
 
 
@@ -291,6 +302,9 @@ def get_plugin_paths(*subpaths: str) -> List[str]:
 
 
 def get_enabled_plugin_paths(agent: Agent | None, *subpaths: str) -> List[str]:
+    if cached := cache.get(ENABLED_PLUGINS_PATHS_CACHE_AREA, cache.determine_cache_key(agent, *subpaths)):
+        return cached
+
     enabled = get_enabled_plugins(agent)
     paths: list[str] = []
 
@@ -307,10 +321,16 @@ def get_enabled_plugin_paths(agent: Agent | None, *subpaths: str) -> List[str]:
         path_pattern = files.get_abs_path(base_dir, *subpaths)
         paths.extend(files.find_existing_paths_by_pattern(path_pattern))
 
+
+    cache.add(ENABLED_PLUGINS_PATHS_CACHE_AREA, cache.determine_cache_key(agent, *subpaths), paths)
+
     return paths
 
 
 def get_enabled_plugins(agent: Agent | None):
+    if cached := cache.get(ENABLED_PLUGINS_LIST_CACHE_AREA, cache.determine_cache_key(agent)):
+        return cached
+
     plugins = get_plugins_list()
     active = []
 
@@ -343,6 +363,8 @@ def get_enabled_plugins(agent: Agent | None):
 
         if enabled:
             active.append(plugin)
+
+    cache.add(ENABLED_PLUGINS_LIST_CACHE_AREA, cache.determine_cache_key(agent), active)
 
     return active
 

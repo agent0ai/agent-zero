@@ -176,7 +176,7 @@ class AgentContext:
         # recursive is not used now, prepared for context hierarchy
         self.output_data[key] = value
 
-    @extension.extensible
+    # @extension.extensible
     def output(self):
         return {
             "id": self.id,

@@ -184,6 +184,7 @@
   .quick-actions-dropdown {
     position: fixed;
     z-index: 9999;
+    margin-top: 0;
   }
 
   /* Unified scrollbar styling for dropdown */
@@ -209,7 +210,12 @@
   }
 
   /* Dropdown item icon sizing */
-  .dropdown-item .material-symbols-outlined {
+  .quick-actions-dropdown .dropdown-item,
+  .quick-actions-dropdown .dropdown-item .material-symbols-outlined {
+    opacity: 1;
+  }
+
+  .quick-actions-dropdown .dropdown-item .material-symbols-outlined {
     font-size: 18px;
   }
 

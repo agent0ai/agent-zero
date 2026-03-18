@@ -57,6 +57,7 @@ export async function importComponent(path, targetElement) {
     ];
 
     const loadPromises = [];
+    const deferredNodes = [];
     let blobCounter = 0;
 
     for (const node of allNodes) {
@@ -156,13 +157,16 @@ export async function importComponent(path, targetElement) {
 
         targetElement.appendChild(clone);
       } else {
-        const clone = node.cloneNode(true);
-        targetElement.appendChild(clone);
+        deferredNodes.push(node.cloneNode(true));
       }
     }
 
     // Wait for all tracked external scripts/styles to finish loading
     await Promise.all(loadPromises);
+
+    for (const deferred of deferredNodes) {
+      targetElement.appendChild(deferred);
+    }
 
     // Remove loading indicator
     const loadingEl = targetElement.querySelector(':scope > .loading');

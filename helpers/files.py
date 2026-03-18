@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from fnmatch import fnmatch
 import json
-from ntpath import isabs
 import os
 import re
 import base64
@@ -19,7 +18,7 @@ PLUGINS_DIR = "plugins"
 PROJECTS_DIR = "projects"
 USER_DIR = "usr"
 TEMP_DIR = "tmp"
-
+_base_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, "../")))
 
 class VariablesPlugin(ABC):
     @abstractmethod
@@ -529,9 +528,15 @@ def make_dirs(relative_path: str):
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
 
 
+def _resolve_path(*relative_paths):
+    if len(relative_paths) == 1 and os.path.isabs(relative_paths[0]):
+        return relative_paths[0]
+    return os.path.join(_base_dir, *relative_paths)
+
+
 def get_abs_path(*relative_paths):
     "Convert relative paths to absolute paths based on the base directory."
-    return os.path.join(get_base_dir(), *relative_paths)
+    return _resolve_path(*relative_paths)
 
 
 def get_abs_path_dockerized(*relative_paths):
@@ -574,24 +579,22 @@ def normalize_a0_path(path: str):
 
 
 def exists(*relative_paths):
-    path = get_abs_path(*relative_paths)
+    path = _resolve_path(*relative_paths)
     return os.path.exists(path)
 
 
 def is_file(*relative_paths):
-    path = get_abs_path(*relative_paths)
+    path = _resolve_path(*relative_paths)
     return os.path.isfile(path)
 
 
 def is_dir(*relative_paths):
-    path = get_abs_path(*relative_paths)
+    path = _resolve_path(*relative_paths)
     return os.path.isdir(path)
 
 
 def get_base_dir():
-    # Get the base directory from the current file path
-    base_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, "../")))
-    return base_dir
+    return _base_dir
 
 
 def basename(path: str, suffix: str | None = None):

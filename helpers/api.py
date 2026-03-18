@@ -16,7 +16,7 @@ from helpers import files, cache
 
 ThreadLockType = Union[threading.Lock, threading.RLock]
 
-CACHE_AREA = "api_handlers(api)(plugins)(extensions)"
+CACHE_AREA = "api_handlers(api)"
 cache.toggle_area(CACHE_AREA, False) # cache off for now
 
 Input = dict

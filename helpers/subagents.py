@@ -1,15 +1,18 @@
 from helpers import files
+from helpers import cache
 from helpers import yaml as yaml_helper
-from typing import TypedDict, TYPE_CHECKING
+from typing import TypedDict, TYPE_CHECKING, Literal
 from pydantic import BaseModel, model_validator
 import json
-from typing import Literal
 import os
 
 GLOBAL_DIR = "."
 USER_DIR = "usr"
 DEFAULT_AGENTS_DIR = "agents"
 USER_AGENTS_DIR = "usr/agents"
+PATHS_CACHE_AREA = "subagent_paths(plugins)"
+
+cache.toggle_area(PATHS_CACHE_AREA, False)
 
 type Origin = Literal["default", "user", "project", "plugin"]
 
@@ -345,6 +348,20 @@ def get_paths(
 ) -> list[str]:
     """Returns list of file paths for the given agent and subpaths, searched in order of priority:
     project/agents/, project/, usr/agents/, plugin agents/, agents/, usr/, plugins/, default."""
+    cache_key = cache.determine_cache_key(
+        agent,
+        *subpaths,
+        must_exist_completely,
+        include_project,
+        include_user,
+        include_default,
+        include_plugins,
+        default_root,
+    )
+    cached = cache.get(PATHS_CACHE_AREA, cache_key)
+    if cached is not None:
+        return cached
+
     paths: list[str] = []
     check_subpaths = subpaths if must_exist_completely else []
     profile_name = agent.config.profile if agent and agent.config.profile else ""
@@ -411,6 +428,7 @@ def get_paths(
         if (not must_exist_completely) or files.exists(path):
             paths.append(path)
 
+    cache.add(PATHS_CACHE_AREA, cache_key, paths)
     return paths
 
 
