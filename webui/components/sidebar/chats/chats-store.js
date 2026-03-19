@@ -91,6 +91,14 @@ const model = {
     }
   },
 
+  // Open per-chat model settings modal
+  async openChatModelSettings(id) {
+    const { store: chatModelStore } = await import(
+      "/components/modals/chat-model/chat-model-store.js"
+    );
+    await chatModelStore.open(id);
+  },
+
   // Delete a chat
   async killChat(id) {
     if (!id) {
