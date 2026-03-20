@@ -6,7 +6,6 @@ import re
 import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
-import models
 from helpers import runtime, whisper, defer, git, subagents
 from . import files, dotenv
 from helpers.print_style import PrintStyle
@@ -185,6 +184,7 @@ def _ensure_option_present(options: list[OptionT] | None, current_value: str | N
     return opts
 
 def convert_out(settings: Settings) -> SettingsOutput:
+    import models  # deferred to avoid circular import with models.py
     out = SettingsOutput(
         settings = settings.copy(),
         additional = SettingsOutputAdditional(
@@ -267,6 +267,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     return out
 
 def _get_api_key_field(settings: Settings, provider: str, title: str) -> SettingsField:
+    import models  # deferred to avoid circular import with models.py
     key = settings["api_keys"].get(provider, models.get_api_key(provider))
     # For API keys, use simple asterisk placeholder for existing keys
     return {
@@ -376,6 +377,7 @@ def _adjust_to_version(settings: Settings, default: Settings):
 
 
 def _load_sensitive_settings(settings: Settings):
+    import models  # deferred to avoid circular import with models.py
     # load api keys from .env
     providers = get_providers("chat") + get_providers("embedding")
     for provider in providers:
