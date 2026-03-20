@@ -55,7 +55,7 @@ pyenv install 3.12.4
 source /opt/venv-a0/bin/activate
 
 # upgrade pip and install static packages
-pip install --no-cache-dir --upgrade pip
+pip install --no-cache-dir --upgrade pip pipx
 
 # Install some packages in specific variants
 pip install --no-cache-dir \

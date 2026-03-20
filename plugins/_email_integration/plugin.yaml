@@ -4,5 +4,5 @@ description: Communicate with Agent Zero via email. Supports IMAP/Exchange inbox
 version: 1.0.0
 settings_sections:
   - external
-per_project_config: true
+per_project_config: false
 per_agent_config: false

@@ -589,14 +589,19 @@ input[type="range"]::-moz-range-thumb {
   margin: 0;
 }
 
-.confirm-dialog-body .confirm-dialog-extension-note {
-  margin-top: 0.75em;
-}
-
 .confirm-dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 0.75em;
   padding: 1em 1.25em;
   border-top: 1px solid var(--color-border);
+}
+
+.confirm-dialog-footer .confirm-dialog-install-button {
+  padding-inline: 1.1rem;
+}
+
+.confirm-dialog-footer .confirm-dialog-plugin-scan-button {
+  padding-inline: 1.65rem;
+  font-size: 1rem;
 }

@@ -1,4 +1,4 @@
-[Email from {{sender}}]
+[Email from {{sender}} to {{recipient}}]
 Subject: {{subject}}
 
 {{body}}

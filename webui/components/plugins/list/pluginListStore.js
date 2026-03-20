@@ -79,21 +79,10 @@ const model = {
   async openPluginConfig(plugin) {
     if (!plugin?.name || !plugin?.has_config_screen) return;
     try {
-      // Initialize toggle store for activation state UI in settings modal
-      if (pluginToggleStore?.open) await pluginToggleStore.open(plugin);
-
-      if (!pluginSettingsStore?.open) {
+      if (!pluginSettingsStore?.openConfig) {
         throw new Error("Plugin settings store is unavailable.");
       }
-      await pluginSettingsStore.open(plugin.name, {
-        perProjectConfig: !!plugin.per_project_config,
-        perAgentConfig: !!plugin.per_agent_config,
-      });
-      // Set saveMode after open() (open resets it to 'plugin')
-      if (plugin.settings_sections?.includes('core')) {
-        pluginSettingsStore.saveMode = 'core';
-      }
-      window.openModal?.("components/plugins/plugin-settings.html");
+      await pluginSettingsStore.openConfig(plugin.name);
     } catch (e) {
       showErrorNotification(e, "Failed to open plugin config");
     }

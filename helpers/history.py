@@ -159,10 +159,13 @@ class Topic(Record):
         return self.summary
 
     def compress_large_messages(self, message_ratio: float = CURRENT_TOPIC_RATIO * LARGE_MESSAGE_TO_CURRENT_TOPIC_RATIO) -> bool:
-        set = settings.get_settings()
+        from plugins._model_config.helpers.model_config import get_chat_model_config
+        chat_cfg = get_chat_model_config()
+        ctx_length = int(chat_cfg.get("ctx_length", 128000))
+        ctx_history = float(chat_cfg.get("ctx_history", 0.7))
         msg_max_size = (
-            set["chat_model_ctx_length"]
-            * set["chat_model_ctx_history"]
+            ctx_length
+            * ctx_history
             * message_ratio
         )
         large_msgs = []
@@ -479,8 +482,11 @@ def deserialize_history(json_data: str, agent) -> History:
 
 
 def _get_ctx_size_for_history() -> int:
-    set = settings.get_settings()
-    return int(set["chat_model_ctx_length"] * set["chat_model_ctx_history"])
+    from plugins._model_config.helpers.model_config import get_chat_model_config
+    chat_cfg = get_chat_model_config()
+    ctx_length = int(chat_cfg.get("ctx_length", 128000))
+    ctx_history = float(chat_cfg.get("ctx_history", 0.7))
+    return int(ctx_length * ctx_history)
 
 
 def _stringify_output(output: OutputMessage, ai_label="ai", human_label="human"):

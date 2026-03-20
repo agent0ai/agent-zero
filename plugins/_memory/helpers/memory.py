@@ -61,6 +61,11 @@ class Memory:
     index: dict[str, "MyFaiss"] = {}
 
     @staticmethod
+    def _get_embedding_config(agent=None):
+        from plugins._model_config.helpers.model_config import get_embedding_model_config_object
+        return get_embedding_model_config_object(agent)
+
+    @staticmethod
     async def get(agent: Agent):
         memory_subdir = get_agent_memory_subdir(agent)
         if Memory.index.get(memory_subdir) is None:
@@ -70,7 +75,7 @@ class Memory:
             )
             db, created = Memory.initialize(
                 log_item,
-                agent.config.embeddings_model,
+                Memory._get_embedding_config(agent),
                 memory_subdir,
                 False,
             )
@@ -98,7 +103,7 @@ class Memory:
             import initialize
 
             agent_config = initialize.initialize_agent()
-            model_config = agent_config.embeddings_model
+            model_config = Memory._get_embedding_config()
             db, _created = Memory.initialize(
                 log_item=log_item,
                 model_config=model_config,

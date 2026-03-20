@@ -188,13 +188,6 @@ save_plugin_config(
 </html>
 ```
 
-Use `saveMode = 'core'` if exposing core settings instead of plugin-specific ones:
-```html
-<div x-data x-init="context.saveMode = 'core'">
-  <!-- core settings component -->
-</div>
-```
-
 ---
 
 ## Sidebar Button (extension point)

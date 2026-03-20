@@ -132,19 +132,6 @@ The modal provides Project + Agent profile context selectors. The plugin setting
 
 The modal's Save button persists `config` to `config.json` in the correct scope (project/agent/global).
 
-### Surfacing core settings (e.g. memory pattern)
-
-If your plugin exposes existing core settings rather than plugin-specific ones, set `saveMode = 'core'` so Save delegates to the core settings API:
-
-```html
-<div x-data x-init="
-    context.saveMode = 'core';
-    if ($store.settings && !$store.settings.settings) $store.settings.onOpen();
-">
-  <x-component path="settings/agent/memory.html"></x-component>
-</div>
-```
-
 ### Sidebar Button (sidebar entry point)
 - Extension point: `sidebar-quick-actions-main-start`
 - Class: `class="config-button"`

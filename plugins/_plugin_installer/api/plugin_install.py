@@ -46,10 +46,11 @@ class PluginInstall(ApiHandler):
         git_url = (input.get("git_url", "") or "").strip()
         git_token = (input.get("git_token", "") or "").strip() or None
         plugin_name = input.get("plugin_name", "")
+        thumbnail_url = (input.get("thumbnail_url") or "").strip()
         if not git_url:
             return {"success": False, "error": "Git URL is required"}
 
-        return install_from_git(url=git_url, token=git_token, plugin_name=plugin_name)
+        return install_from_git(url=git_url, token=git_token, plugin_name=plugin_name, thumbnail_url=thumbnail_url)
 
     def _update_git(self, input: dict) -> dict:
         return update_from_git(input.get("plugin_name", ""))

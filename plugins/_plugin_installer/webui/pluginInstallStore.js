@@ -7,6 +7,7 @@ import { showConfirmDialog } from "/js/confirmDialog.js";
 import { store as imageViewerStore } from "/components/modals/image-viewer/image-viewer-store.js";
 import { store as pluginListStore } from "/components/plugins/list/pluginListStore.js";
 import { store as pluginExecuteStore } from "/components/plugins/list/plugin-execute-store.js";
+import { store as pluginSettingsStore } from "/components/plugins/plugin-settings-store.js";
 
 const PLUGIN_API = "plugins/_plugin_installer/plugin_install";
 const PER_PAGE = 20;
@@ -14,13 +15,8 @@ const PER_PAGE = 20;
 const SECURITY_WARNING = {
   title: "Security Warning",
   message: `
-    <p><strong>Plugins from third parties can be a great risk, keep in mind that:</strong></p>
-    <ul style="margin: 0.75em 0; padding-left: 1.5em;">
-      <li>You can be hacked the moment you install it</li>
-      <li>We can not prevent it or help you</li>
-      <li>It is your responsibility</li>
-    </ul>
-    <p style="margin-top: 0.75em;">We can never fully guarantee that plugins are safe because there are many ways to obfuscate malicious code.</p>
+    <p><strong>Third-party plugins may contain malicious code.</strong> <br> We can't guarantee their safety &mdash; install at your own risk.</p>
+    <p style="margin-top: 0.75em;">We recommend scanning all plugins with A0 first.</p>
   `,
   type: "warning",
   confirmText: "Install Anyway",
@@ -519,6 +515,7 @@ const model = {
         action: "install_git",
         git_url: plugin.github,
         plugin_name: plugin.key,
+        thumbnail_url: this.getThumbnailUrl(plugin) || "",
       });
 
       if (!data.success) {
@@ -595,7 +592,12 @@ const model = {
 
   async handleOpenConfig() {
     if (this.installedPluginInfo) {
-      await pluginListStore.openPluginConfig(this.installedPluginInfo);
+      try {
+        await pluginSettingsStore.openConfig(this.installedPluginInfo.name);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        void toastFrontendError(message, "Plugin Installer");
+      }
     }
   },
 
@@ -652,7 +654,14 @@ const model = {
   formatUserLocaleDateTime(value) {
     if (!value || typeof value !== "string") return "";
 
-    const normalizedValue = /t/i.test(value) ? value : value.replace(" ", "T");
+    const trimmedValue = value.trim();
+    const hasExplicitTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmedValue);
+    let normalizedValue = /t/i.test(trimmedValue) ? trimmedValue : trimmedValue.replace(" ", "T");
+
+    if (!hasExplicitTimezone && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(normalizedValue)) {
+      normalizedValue = `${normalizedValue}Z`;
+    }
+
     const date = new Date(normalizedValue);
     if (Number.isNaN(date.getTime())) return value;
 

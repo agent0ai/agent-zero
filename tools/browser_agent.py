@@ -43,6 +43,15 @@ class State:
             / f"agent_{self.agent.context.id}"
         )
 
+    def _get_browser_http_headers(self):
+        from plugins._model_config.helpers.model_config import get_browser_http_headers
+        return get_browser_http_headers(self.agent) or {}
+
+    def _get_browser_vision(self):
+        from plugins._model_config.helpers.model_config import get_chat_model_config
+        cfg = get_chat_model_config(self.agent)
+        return cfg.get("vision", False)
+
     async def _initialize(self):
         if self.browser_session:
             return
@@ -70,7 +79,7 @@ class State:
                 args=["--headless=new"],
                 # Use a unique user data directory to avoid conflicts
                 user_data_dir=self.get_user_data_dir(),
-                extra_http_headers=self.agent.config.browser_http_headers or {},
+                extra_http_headers=self._get_browser_http_headers(),
                 )
         )
 
@@ -160,7 +169,7 @@ class State:
                 task=task,
                 browser_session=self.browser_session,
                 llm=model,
-                use_vision=self.agent.config.browser_model.vision,
+                use_vision=self._get_browser_vision(),
                 extend_system_message=self.agent.read_prompt(
                     "prompts/browser_agent.system.md"
                 ),

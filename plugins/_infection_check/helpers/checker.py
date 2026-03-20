@@ -120,12 +120,19 @@ class InfectionChecker:
             PrintStyle(font_color="red", padding=True).print(
                 f"Infection check error (non-fatal): {e}"
             )
+            try:
+                agent.context.log.set_progress("Infection check: error (non-fatal)")
+            except Exception:
+                pass
 
     async def _gate_inner(self, agent: "Agent", tool_name: str, tool_args: dict | None):
         if agent.get_data(DATA_KEY_PASSED):
             return
         if not self.reasoning_log and not self.response_log:
             return
+
+        _log = agent.context.log
+        _log.set_progress("Infection check: analyzing...")
 
         # Attach tool context for _build_log()
         if tool_name:
@@ -144,11 +151,13 @@ class InfectionChecker:
         if self._task is not None and self._task.done():
             try:
                 action, detail, cot = self._task.result()
+                _log.set_progress("Infection check: evaluating result...")
             except Exception:
                 pass
 
         # Slow path: rebuild with full tool context.
         if action is None:
+            _log.set_progress("Infection check: analyzing with tool context...")
             if self._task is not None:
                 self._task.cancel()
                 try:
@@ -170,6 +179,7 @@ class InfectionChecker:
                 return
 
         if action == "ok":
+            _log.set_progress("Infection check: passed")
             agent.set_data(DATA_KEY_PASSED, True)
             return
 
@@ -235,16 +245,9 @@ class InfectionChecker:
             HumanMessage(content=user_msg),
         ]
 
-        cot = ""
-
-        async def _cb(chunk: str, full: str):
-            nonlocal cot
-            cot = full
-
         model = self._get_model(agent)
         response, _ = await model.unified_call(
             messages=list(self._check_msgs),
-            response_callback=_cb,
         )
         self._check_msgs.append(AIMessage(content=response))
 

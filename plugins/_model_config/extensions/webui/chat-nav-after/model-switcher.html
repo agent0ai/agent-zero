@@ -1,0 +1,205 @@
+<!-- Model Switcher - Floating Preset Selector -->
+<script type="module">
+  import { store } from "/plugins/_model_config/webui/model-config-store.js";
+</script>
+
+<div x-data>
+<template x-if="$store.modelConfig">
+<div x-data="{ showDropdown: false }"
+     x-init="
+       await $store.modelConfig.refreshSwitcher($store.chats?.selected || '');
+       $watch('$store.chats.selected', v => $store.modelConfig.refreshSwitcher(v || ''));
+     ">
+  <template x-if="$store.modelConfig.switcherAllowed && !$store.modelConfig.switcherLoading">
+    <div class="model-switcher-container">
+      <div class="model-switcher-anchor">
+        <button class="btn-icon-action model-switcher-btn"
+                :class="{ 'has-override': !!$store.modelConfig.switcherOverride }"
+                @click="showDropdown = !showDropdown"
+                @click.outside="showDropdown = false">
+          <span class="material-symbols-outlined">neurology</span>
+          <span class="model-switcher-label" x-text="$store.modelConfig.getSwitcherLabel()"></span>
+          <span class="material-symbols-outlined" style="font-size: 0.75rem;"
+                x-text="showDropdown ? 'expand_less' : 'expand_more'"></span>
+        </button>
+
+        <div class="model-switcher-dropdown" x-show="showDropdown" x-transition.opacity>
+          <!-- Use Default -->
+          <template x-if="$store.modelConfig.switcherOverride">
+            <div class="model-switcher-item revert" @click="
+              $store.modelConfig.clearOverrideSwitch($store.chats?.selected || '');
+              showDropdown = false;
+            ">
+              <span class="material-symbols-outlined" style="font-size: 15px;">undo</span>
+              <span>Use Default</span>
+            </div>
+          </template>
+          <div class="model-switcher-divider" x-show="$store.modelConfig.switcherOverride"></div>
+
+          <!-- No presets message -->
+          <template x-if="$store.modelConfig.switcherPresets.length === 0">
+            <div class="model-switcher-item disabled">No presets configured</div>
+          </template>
+
+          <!-- Preset list -->
+          <template x-for="preset in $store.modelConfig.switcherPresets" :key="preset.name">
+            <div class="model-switcher-item"
+                 :class="{ 'active': $store.modelConfig.switcherOverride?.preset_name === preset.name }"
+                 @click="
+                   $store.modelConfig.selectPresetSwitch($store.chats?.selected || '', preset.name);
+                   showDropdown = false;
+                 ">
+              <div class="model-switcher-preset-name" x-text="preset.name"></div>
+              <div class="model-switcher-preset-models">
+                <template x-if="preset.chat?.name">
+                  <div class="model-switcher-model-row">
+                    <span class="model-switcher-model-label">Main</span>
+                    <span class="model-switcher-model-value">
+                      <span x-text="preset.chat.provider" style="opacity:0.5;"></span>
+                      <span style="opacity:0.3; margin:0 3px;">/</span>
+                      <span x-text="preset.chat.name"></span>
+                    </span>
+                  </div>
+                </template>
+                <template x-if="preset.utility?.name">
+                  <div class="model-switcher-model-row">
+                    <span class="model-switcher-model-label">Utility</span>
+                    <span class="model-switcher-model-value">
+                      <span x-text="preset.utility.provider" style="opacity:0.5;"></span>
+                      <span style="opacity:0.3; margin:0 3px;">/</span>
+                      <span x-text="preset.utility.name"></span>
+                    </span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- Edit Presets shortcut -->
+          <div class="model-switcher-divider" style="opacity:0.2;"></div>
+          <div class="model-switcher-item model-switcher-edit" @click="
+            openModal('/plugins/_model_config/webui/main.html');
+            showDropdown = false;
+          ">
+            <span class="material-symbols-outlined" style="font-size: 14px;">tune</span>
+            <span>Edit Presets</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+</template>
+</div>
+
+<style>
+  .model-switcher-container {
+    position: relative;
+    z-index: 10;
+  }
+  .model-switcher-anchor {
+    position: relative;
+  }
+  .model-switcher-btn {
+    width: auto;
+    height: auto;
+    gap: 4px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: none;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .model-switcher-btn:hover {
+    border: none;
+  }
+  .model-switcher-btn.has-override {
+    /* color: var(--color-text); */
+  }
+  .model-switcher-label {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .model-switcher-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    min-width: 250px;
+    max-height: 550px;
+    overflow-y: auto;
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+  }
+  .model-switcher-item {
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.1s ease;
+  }
+  .model-switcher-item:hover {
+    background: var(--color-background-hover, rgba(255,255,255,0.06));
+  }
+  .model-switcher-item.active {
+    background: color-mix(in srgb, var(--color-highlight) 12%, transparent);
+  }
+  .model-switcher-item.revert {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.8;
+  }
+  .model-switcher-item.disabled {
+    opacity: 0.4;
+    cursor: default;
+    font-style: italic;
+  }
+  .model-switcher-item.disabled:hover {
+    background: transparent;
+  }
+  .model-switcher-divider {
+    border-top: 1px solid var(--color-border);
+    margin: 4px 0;
+    opacity: 0.3;
+  }
+  .model-switcher-preset-name {
+    font-weight: 500;
+  }
+  .model-switcher-preset-models {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 4px;
+  }
+  .model-switcher-model-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    opacity: 0.7;
+  }
+  .model-switcher-model-label {
+    width: 40px;
+    flex-shrink: 0;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+  .model-switcher-model-value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .model-switcher-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.6;
+    font-size: 0.75rem;
+  }
+</style>

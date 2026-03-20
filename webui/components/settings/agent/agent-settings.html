@@ -16,27 +16,9 @@
                 </a>
               </li>
               <li>
-                <a href="#section-chat-model">
-                  <img src="/public/chat_model.svg" alt="Chat Model" />
-                  <span>Chat Model</span>
-                </a>
-              </li>
-              <li>
-                <a href="#section-util-model">
-                  <img src="/public/util_model.svg" alt="Utility Model" />
-                  <span>Utility Model</span>
-                </a>
-              </li>
-              <li>
-                <a href="#section-browser-model">
-                  <img src="/public/browser_model.svg" alt="Browser Model" />
-                  <span>Browser Model</span>
-                </a>
-              </li>
-              <li>
-                <a href="#section-embed-model">
-                  <img src="/public/embed_model.svg" alt="Embedding Model" />
-                  <span>Embedding Model</span>
+                <a href="#section-models-summary">
+                  <img src="/public/chat_model.svg" alt="Models" />
+                  <span>Models</span>
                 </a>
               </li>
               <li>
@@ -58,21 +40,8 @@
             <x-component path="settings/agent/agent.html"></x-component>
           </div>
 
-
-          <div id="section-chat-model" class="section">
-            <x-component path="settings/agent/chat_model.html"></x-component>
-          </div>
-
-          <div id="section-util-model" class="section">
-            <x-component path="settings/agent/util_model.html"></x-component>
-          </div>
-
-          <div id="section-browser-model" class="section">
-            <x-component path="settings/agent/browser_model.html"></x-component>
-          </div>
-
-          <div id="section-embed-model" class="section">
-            <x-component path="settings/agent/embed_model.html"></x-component>
+          <div id="section-models-summary" class="section">
+            <x-component path="/plugins/_model_config/webui/models-summary.html"></x-component>
           </div>
 
           <div id="section-speech" class="section">

@@ -17,7 +17,7 @@
     })()">
         <template x-if="context">
             <div>
-            <div x-create="context.onModalOpen(); (() => { const modal = $el.closest('.modal'); if (modal) modal.__pluginSettingsContext = context; })()"
+            <div x-create="(() => { const modal = $el.closest('.modal'); if (modal) modal.__pluginSettingsContext = context; })()"
                  x-destroy="context.cleanup()">
 
                 <!-- Context toolbar: Project + Agent profile (only when at least one scope is configurable) -->

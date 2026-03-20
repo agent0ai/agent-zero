@@ -69,37 +69,43 @@
                     class="pi-grid">
                     <template x-for="plugin in $store.pluginInstallStore.paginatedPlugins" :key="plugin.key">
                         <button type="button" class="pi-card" @click="$store.pluginInstallStore.openDetail(plugin)">
-                            <div class="pi-card-thumb">
-                                <template x-if="plugin.thumbnail">
-                                    <img :src="plugin.thumbnail" :alt="plugin.title" loading="lazy">
-                                </template>
-                                <template x-if="!plugin.thumbnail">
-                                    <span class="material-symbols-outlined pi-card-placeholder">extension</span>
-                                </template>
+                            <div class="pi-card-header">
+                                <div class="pi-card-thumb">
+                                    <template x-if="plugin.thumbnail">
+                                        <img :src="plugin.thumbnail" :alt="plugin.title" loading="lazy">
+                                    </template>
+                                    <template x-if="!plugin.thumbnail">
+                                        <span class="material-symbols-outlined pi-card-placeholder">extension</span>
+                                    </template>
+                                </div>
 
-                                <template x-if="plugin.installed">
-                                    <span class="pi-card-installed-pill">Installed</span>
-                                </template>
+                                <div class="pi-card-heading">
+                                    <h3 class="pi-card-title" x-text="plugin.title || plugin.key"></h3>
+                                    
+                                    <div class="pi-card-subtitle"
+                                        x-text="$store.pluginInstallStore.getBrowseSubtitle(plugin)">
+                                    </div>
 
-                                <template x-if="plugin.has_update">
-                                    <span class="pi-card-update-pill" :class="{ 'pi-card-update-pill-offset': plugin.installed }">New version</span>
-                                </template>
+                                    <div class="pi-card-pills">
+                                        <template x-if="plugin.installed">
+                                            <span class="pi-card-installed-pill">Installed</span>
+                                        </template>
+                                        <template x-if="plugin.has_update">
+                                            <span class="pi-card-update-pill">New version</span>
+                                        </template>
+                                    </div>
+
+                                </div>
+
+                                <span class="material-symbols-outlined pi-card-arrow">arrow_outward</span>
                             </div>
 
                             <div class="pi-card-body">
-                                <div class="pi-card-head">
-                                    <div class="pi-card-heading">
-                                        <h3 class="pi-card-title" x-text="plugin.title || plugin.key"></h3>
-                                        <div class="pi-card-subtitle"
-                                            x-text="$store.pluginInstallStore.getBrowseSubtitle(plugin)">
-                                        </div>
-                                    </div>
-                                    <span class="material-symbols-outlined pi-card-arrow">arrow_outward</span>
-                                </div>
-
+                                
                                 <div class="pi-card-desc"
                                     x-text="$store.pluginInstallStore.truncate(plugin.description, 110)">
                                 </div>
+
                             </div>
 
                             <div class="pi-card-footer">
@@ -403,17 +409,24 @@
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
         }
 
+        .pi-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem;
+        }
+
         .pi-card-thumb {
-            position: relative;
+            width: 56px;
+            height: 56px;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 148px;
-            padding: 0.5rem;
-            background:
-                radial-gradient(circle at top, #6b728089, var(--color-panel)),
-                var(--color-panel);
-            border-bottom: 1px solid var(--color-border);
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
         }
 
         .pi-card-thumb img {
@@ -423,14 +436,62 @@
         }
 
         .pi-card-placeholder {
-            font-size: 4rem;
+            font-size: 2rem;
             color: var(--color-text-muted);
         }
 
+        .pi-card-heading {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .pi-card-title {
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.25;
+            color: var(--color-text-primary);
+        }
+
+        .pi-card-subtitle {
+            margin-top: 0.2rem;
+            font-size: 0.82rem;
+            color: var(--color-text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pi-card-arrow {
+            font-size: 1rem;
+            color: var(--color-text-muted);
+            flex-shrink: 0;
+        }
+
+        .pi-card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            padding: 0 0.85rem 0.85rem;
+        }
+
+        .pi-card-desc {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: var(--color-text-secondary);
+        }
+
+        .pi-card-pills {
+            display: flex;
+            flex-wrap: wrap;
+            padding: var(--spacing-xs) 0;
+            gap: 0.4rem;
+        }
+
+        .pi-card-pills 
+
         .pi-card-installed-pill {
-            position: absolute;
-            top: 0.75rem;
-            right: 0.75rem;
+            display: inline-flex;
             padding: 0.24rem 0.5rem;
             border-radius: 0.5rem;
             background: rgba(34, 197, 94, 0.15);
@@ -445,9 +506,7 @@
         }
 
         .pi-card-update-pill {
-            position: absolute;
-            top: 0.75rem;
-            right: 0.75rem;
+            display: inline-flex;
             padding: 0.24rem 0.5rem;
             border-radius: 0.5rem;
             background: rgba(59, 130, 246, 0.16);
@@ -459,57 +518,6 @@
         body.light-mode .pi-card-update-pill {
             background: rgba(59, 130, 246, 0.2);
             color: #1d4ed8;
-        }
-
-        .pi-card-update-pill-offset {
-            top: 2.35rem;
-        }
-
-        .pi-card-body {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-            padding: 1rem;
-        }
-
-        .pi-card-head {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.75rem;
-        }
-
-        .pi-card-heading {
-            min-width: 0;
-        }
-
-        .pi-card-title {
-            margin: 0;
-            font-size: 1rem;
-            line-height: 1.25;
-            color: var(--color-text-primary);
-        }
-
-        .pi-card-subtitle {
-            margin-top: 0.25rem;
-            font-size: 0.82rem;
-            color: var(--color-text-muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .pi-card-arrow {
-            font-size: 1rem;
-            color: var(--color-text-muted);
-            flex-shrink: 0;
-        }
-
-        .pi-card-desc {
-            font-size: 0.88rem;
-            line-height: 1.5;
-            color: var(--color-text-secondary);
         }
 
         .pi-card-footer {
@@ -574,10 +582,6 @@
         @media (max-width: 500px) {
             .pi-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .pi-card-thumb {
-                height: 164px;
             }
         }
     </style>

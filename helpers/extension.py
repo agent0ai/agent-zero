@@ -7,6 +7,8 @@ from functools import wraps
 import inspect
 import os
 
+from helpers.print_style import PrintStyle
+
 if TYPE_CHECKING:
     from agent import Agent
 
@@ -26,6 +28,7 @@ class _Unset:
 
 _UNSET = _Unset()
 _EXTENSIONS_LOG_COUNTS: dict[str, int] = {}
+
 
 # debug - extensions call counter
 def _log_extension_call(name: str):
@@ -295,3 +298,41 @@ def _get_extensions(folder: str):
     classes = extract_tools.load_classes_from_folder(folder, "*", Extension)
     cache.add(_EXTENSIONS_CACHE_AREA, folder, classes)
     return classes
+
+
+def register_extensions_watchdogs():
+    from helpers import watchdog, projects
+
+    def extensions_changed(items: list[watchdog.WatchItem]):
+        cache.clear(_EXTENSIONS_CACHE_AREA)
+        cache.clear(_CLASSES_CACHE_AREA)
+        PrintStyle.debug("Extensions watchdog triggered:", items)
+
+    # extensions and usr/extensions
+    watchdog.add_watchdog(
+        id="extensions_base",
+        roots=[
+            files.get_abs_path(files.EXTENSIONS_DIR),
+            files.get_abs_path(files.USER_DIR, files.EXTENSIONS_DIR),
+        ],
+        handler=extensions_changed,
+    )
+
+    # usr/projects/**/extensions
+    watchdog.add_watchdog(
+        id="extensions_projects",
+        roots=[projects.PROJECTS_PARENT_DIR],
+        patterns=[f"*/{projects.PROJECT_META_DIR}/**/{files.EXTENSIONS_DIR}/**/*"],
+        handler=extensions_changed,
+    )
+
+    # agents and usr/agents
+    watchdog.add_watchdog(
+        id="extensions_agents",
+        roots=[
+            files.get_abs_path(files.AGENTS_DIR),
+            files.get_abs_path(files.USER_DIR, files.AGENTS_DIR),
+        ],
+        patterns=[f"*/{files.EXTENSIONS_DIR}/**/*"],
+        handler=extensions_changed,
+    )

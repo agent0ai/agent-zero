@@ -39,7 +39,6 @@ class LoadProfileSettings(Extension):
             for override_key, config_attr in (
                 ("agent_profile", "profile"),
                 ("mcp_servers", "mcp_servers"),
-                ("browser_http_headers", "browser_http_headers"),
             ):
                 if override_key not in settings_override:
                     setattr(new_config, config_attr, getattr(current_config, config_attr))

@@ -83,7 +83,7 @@ class CodeExecution(Tool):
             text = f"{self.name} - {self.args['runtime'] if 'runtime' in self.args else 'unknown'}"
         session = self.args.get("session", None)
         session_text = f"[{session}] " if session or session == 0 else ""
-        return f"icon://terminal {session_text}{text}"
+        return f"icon://terminal {session_text}{truncate_text_string(text, 200)}"
 
     async def after_execution(self, response, **kwargs):
         self.agent.hist_add_tool_result(self.name, response.message, **(response.additional or {}))
@@ -265,8 +265,10 @@ class CodeExecution(Tool):
                 )
                 last_lines.reverse()
                 for idx, line in enumerate(last_lines):
+                    line = line.strip()
+                    line = line if len(line) <= 500 else line[:250] + line[-250:] # only check start and end on long lines
                     for pat in prompt_patterns:
-                        if pat.search(line.strip()):
+                        if pat.search(line):
                             PrintStyle.info(
                                 "Detected shell prompt, returning output early."
                             )

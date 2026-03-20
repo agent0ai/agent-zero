@@ -18,16 +18,17 @@ async def preload():
 
         # preload embedding model
         async def preload_embedding():
-            if set["embed_model_provider"].lower() == "huggingface":
-                try:
-                    # Use the new LiteLLM-based model system
+            try:
+                from plugins._model_config.helpers.model_config import get_embedding_model_config_object
+                emb_cfg = get_embedding_model_config_object()
+                if emb_cfg.provider.lower() == "huggingface":
                     emb_mod = models.get_embedding_model(
-                        "huggingface", set["embed_model_name"]
+                        "huggingface", emb_cfg.name
                     )
                     emb_txt = await emb_mod.aembed_query("test")
                     return emb_txt
-                except Exception as e:
-                    PrintStyle().error(f"Error in preload_embedding: {e}")
+            except Exception as e:
+                PrintStyle().error(f"Error in preload_embedding: {e}")
 
         # preload kokoro tts model if enabled
         async def preload_kokoro():

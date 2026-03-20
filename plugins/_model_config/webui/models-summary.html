@@ -1,0 +1,149 @@
+<html>
+
+<head>
+  <title>Model Configuration</title>
+</head>
+
+<body>
+  <script type="module">
+    import { store } from "/plugins/_model_config/webui/model-config-store.js";
+    import { store as pluginListStore } from "/components/plugins/list/pluginListStore.js";
+  </script>
+
+  <div x-data>
+    <template x-if="$store.modelConfig">
+      <div>
+        <div class="section-title">Model Configuration</div>
+        <div class="section-description">
+          AI models can be configured globally, per project, per agent and using quick-switch presets as well.
+        </div>
+
+        <!-- Read-only model config summary -->
+        <div x-data="{ loading: true, models: [] }" x-init="
+           models = await $store.modelConfig.loadModelsSummary().catch(() => []);
+           loading = false;
+         " class="model-summary">
+          <div class="model-summary-header">
+            <div class="field-title">Current Models</div>
+            <div class="field-description">Active model configuration resolved from global, project, and agent profile
+              scopes.</div>
+          </div>
+          <div x-show="loading" style="text-align:center; padding:12px;">
+            <span class="material-symbols-outlined spinning" style="font-size:18px;">progress_activity</span>
+          </div>
+          <template x-if="!loading && models.length">
+            <div class="model-summary-grid">
+              <template x-for="m in models" :key="m.title">
+                <div class="model-summary-row">
+                  <span class="material-symbols-outlined model-summary-icon" x-text="m.icon"></span>
+                  <span class="model-summary-label" x-text="m.title"></span>
+                  <span class="model-summary-value">
+                    <span x-text="m.provider" style="opacity:0.6;"></span>
+                    <span style="opacity:0.3; margin:0 4px;">/</span>
+                    <span x-text="m.name"></span>
+                  </span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+          <button class="btn btn-field" @click="$store.pluginListStore.openPluginConfig({ name: '_model_config', has_config_screen: true })">
+            Configure Models
+          </button>
+          <button class="btn btn-field" @click="openModal('/plugins/_model_config/webui/main.html')">
+            Configure Presets
+          </button>
+          <button class="btn btn-field" @click="openModal('/plugins/_model_config/webui/api-keys.html')">
+            Configure API Keys
+          </button>
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .model-summary {
+      margin-top: 14px;
+    }
+
+    .model-summary-header {
+      margin-bottom: 8px;
+    }
+
+    .model-summary-grid {
+      display: flex;
+      flex-direction: column;
+      background: var(--color-input);
+      /* border: 1px solid var(--color-border);
+      border-radius: 8px; */
+      /* padding: 0.75em 1em; */
+      max-width: 100%;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    .model-summary-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      font-size: 0.82rem;
+      min-width: 0;
+    }
+
+    .model-summary-row:not(:last-child) {
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .model-summary-icon {
+      font-size: 16px;
+      opacity: 0.45;
+      flex-shrink: 0;
+    }
+
+    .model-summary-label {
+      width: 80px;
+      flex-shrink: 0;
+      font-weight: 500;
+      opacity: 0.7;
+    }
+
+    .model-summary-value {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
+      .model-summary-grid {
+        padding: 0.5em 0.5em;
+      }
+
+      .model-summary-row {
+        flex-wrap: wrap;
+        padding: 8px 8px;
+        gap: 4px;
+      }
+
+      .model-summary-label {
+        width: auto;
+      }
+
+      .model-summary-value {
+        width: 100%;
+        flex-basis: 100%;
+        padding-left: 24px;
+        font-size: 0.78rem;
+        white-space: normal;
+        word-break: break-all;
+      }
+    }
+  </style>
+</body>
+
+</html>

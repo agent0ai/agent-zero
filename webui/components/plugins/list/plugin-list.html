@@ -86,6 +86,12 @@
                             }))" :key="plugin.path || plugin.name">
                                 <div class="plugin-card">
                                     <div class="plugin-header">
+                                        <template x-if="plugin.thumbnail_url">
+                                            <img class="plugin-thumb"
+                                                :src="plugin.thumbnail_url"
+                                                :alt="plugin.display_name || plugin.name"
+                                                loading="lazy">
+                                        </template>
                                         <div class="plugin-heading">
                                             <div class="plugin-title" x-text="plugin.display_name || plugin.name || '(unnamed plugin)'"></div>
                                             <code class="plugin-path" x-text="plugin.path"></code>
@@ -305,6 +311,16 @@
             flex-direction: column;
             min-width: 0;
             flex: 1 1 auto;
+        }
+
+        .plugin-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 0.5rem;
+            object-fit: contain;
+            flex-shrink: 0;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
         }
 
         .plugin-title {

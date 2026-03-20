@@ -31,6 +31,7 @@
               <span class="material-symbols-outlined">vertical_align_bottom</span>
             </button>
           </div>
+          <x-extension id="chat-nav-after"></x-extension>
         </div>
         <x-extension id="chat-input-progress-end"></x-extension>
     </div>
@@ -43,6 +44,7 @@
     #progress-bar-h { color: var(--color-primary); display: flex; align-items: left; justify-content: flex-start; height: 1.2em; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; font-weight: normal; }
     #progress-bar-i { font-weight: bold; padding-right: 0.5em; color: var(--color-secondary); }
     #progress-bar-right { display: flex; align-items: center; gap: var(--spacing-sm); flex-shrink: 0; }
+    #progress-bar-right > x-extension { display: contents; }
     #chat-nav-buttons { display: flex; align-items: center; gap: 2px; opacity: 0.85; }
     #chat-nav-buttons .btn-icon-action { padding: var(--spacing-xs); }
     #chat-nav-buttons .btn-icon-action {

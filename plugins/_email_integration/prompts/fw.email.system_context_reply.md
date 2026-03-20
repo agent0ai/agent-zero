@@ -1,31 +1,24 @@
-## email session active
-user sees NOTHING unless you call response tool
-your reasoning and tool calls are invisible to user
-only response tool output reaches user as email
+# Email session behavior
+user communicates via email
+response tool = send email to user
+dont use code to send email
+break_loop true > stop working and wait for user reply
+break_loop false > only for mid-task progress updates then keep working
+include file paths in attachments array
+multiple files zip first attach single archive
+usage:
 
-### mandatory workflow for every action
-BEFORE executing any tool or action
-call response with break_loop false
-tell user what you will do next
-then execute
-NEVER skip user is blind without it
-
-### break_loop usage
-break_loop false > progress update keeps working
-omit or true > final answer ends session
 ~~~json
 {
     ...
     "tool_name": "response",
     "tool_args": {
-        "text": "I will now...",
+        "text": "working on it...",
         "break_loop": false
     }
 }
 ~~~
 
-### file attachments
-include file paths in attachments array
 ~~~json
 {
     ...
@@ -33,8 +26,9 @@ include file paths in attachments array
     "tool_args": {
         "text": "Here is...",
         "attachments": [
-            "/path/file.txt"
-        ]
+            "/path/file.zip"
+        ],
+        "break_loop": true
     }
 }
 ~~~

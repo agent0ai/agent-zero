@@ -19,6 +19,7 @@ CTX_EMAIL_THREAD_ID = "email_thread_id"
 CTX_EMAIL_SUBJECT = "email_subject"
 CTX_EMAIL_MESSAGE_ID = "email_message_id"
 CTX_EMAIL_REFERENCES = "email_references"
+CTX_EMAIL_LAST_BODY = "email_last_body"
 # Transient — consumed per-reply, not persisted
 CTX_EMAIL_ATTACHMENTS = "_email_response_attachments"
 

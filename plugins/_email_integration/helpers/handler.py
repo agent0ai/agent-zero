@@ -141,8 +141,16 @@ async def _fetch_exchange(
 
 
 async def _dispatch_all(handler_cfg: dict, messages: list[InboundMessage]):
-    # Need an agent for dispatcher AI calls — use first available or create temp
-    ctx = AgentContext.first()
+    own_address = (handler_cfg.get("username") or "").lower()
+
+    # Need an agent for dispatcher AI calls 
+    # find existing dispatcher or create new background context
+    ctx = None
+    for c in AgentContext._contexts.values():
+        if isinstance(c, AgentContext) and c.name == "Email Dispatcher":
+            ctx = c
+            break
+
     if not ctx:
         agent_config = initialize_agent()
         ctx = AgentContext(agent_config, name="Email Dispatcher",
@@ -150,6 +158,9 @@ async def _dispatch_all(handler_cfg: dict, messages: list[InboundMessage]):
     agent = ctx.agent0
 
     for msg in messages:
+        if own_address and _is_own_email(msg.sender, own_address):
+            PrintStyle.info(f"Email: skipping self-sent from {msg.sender}")
+            continue
         try:
             await _dispatch_message(agent, handler_cfg, msg)
         except Exception as e:
@@ -258,8 +269,18 @@ async def _start_new_chat(agent: Agent, handler_cfg: dict, msg: InboundMessage):
     context.data[disp.CTX_EMAIL_SENDER] = msg.sender
     context.data[disp.CTX_EMAIL_THREAD_ID] = thread_id
     context.data[disp.CTX_EMAIL_SUBJECT] = msg.subject
+    context.data[disp.CTX_EMAIL_LAST_BODY] = msg.body
     context.data[disp.CTX_EMAIL_MESSAGE_ID] = msg.message_id
-    context.data[disp.CTX_EMAIL_REFERENCES] = msg.references
+    
+    refs_list = []
+    if msg.references:
+        for r in msg.references.split():
+            if r not in refs_list:
+                refs_list.append(r)
+    if msg.message_id and msg.message_id not in refs_list:
+        refs_list.append(msg.message_id)
+        
+    context.data[disp.CTX_EMAIL_REFERENCES] = " ".join(refs_list)
 
     project = handler_cfg.get("project", "")
     if project:
@@ -291,8 +312,20 @@ async def _route_to_chat(
         return
 
     context.data[disp.CTX_EMAIL_MESSAGE_ID] = msg.message_id
+    context.data[disp.CTX_EMAIL_LAST_BODY] = msg.body
+    
+    refs = context.data.get(disp.CTX_EMAIL_REFERENCES, "")
+    refs_list = refs.split() if refs else []
+    
     if msg.references:
-        context.data[disp.CTX_EMAIL_REFERENCES] = msg.references
+        for r in msg.references.split():
+            if r not in refs_list:
+                refs_list.append(r)
+                
+    if msg.message_id and msg.message_id not in refs_list:
+        refs_list.append(msg.message_id)
+        
+    context.data[disp.CTX_EMAIL_REFERENCES] = " ".join(refs_list)
 
     user_msg = _build_user_message(agent, msg, handler_cfg)
     mq.log_user_message(context, user_msg, msg.attachments or [], source=" (email)")
@@ -344,13 +377,28 @@ def _get_history_preview(ctx: AgentContext) -> str:
 
 
 # ------------------------------------------------------------------
+# Sender helpers
+# ------------------------------------------------------------------
+
+def _is_own_email(sender: str, own_address: str) -> bool:
+    sender_lower = sender.lower()
+    if "<" in sender_lower:
+        start = sender_lower.index("<") + 1
+        end = sender_lower.index(">", start)
+        return sender_lower[start:end].strip() == own_address
+    return sender_lower.strip() == own_address
+
+
+# ------------------------------------------------------------------
 # Message builders
 # ------------------------------------------------------------------
 
 def _build_user_message(agent: Agent, msg: InboundMessage, handler_cfg: dict) -> str:
+    recipient = handler_cfg.get("username", "")
     text = agent.read_prompt(
         "fw.email.user_message.md",
         sender=msg.sender,
+        recipient=recipient,
         subject=msg.subject,
         body=msg.body,
     )
@@ -396,6 +444,11 @@ async def send_email_reply(
 
     # Read attachment files via RFC (they live in the execution runtime)
     attachment_data = await _read_attachments_via_rfc(attachments)
+
+    last_body = context.data.get(disp.CTX_EMAIL_LAST_BODY, "").strip()
+    if last_body:
+        quoted = "\n> " + "\n> ".join(last_body.splitlines())
+        response_text = f"{response_text}\n\nOn previous message:\n{quoted}"
 
     return await send_reply(
         config=smtp_cfg,

@@ -25,6 +25,14 @@ class CreateChat(ApiHandler):
             if current_data_2:
                 new_context.set_output_data(projects.CONTEXT_DATA_KEY_PROJECT, current_data_2)
 
+        # copy model override from current context (only if override is allowed)
+        if current_context:
+            model_override = current_context.get_data("chat_model_override")
+            if model_override:
+                from plugins._model_config.helpers.model_config import is_chat_override_allowed
+                if is_chat_override_allowed(new_context.agent0):
+                    new_context.set_data("chat_model_override", model_override)
+
         # New context should appear in other tabs' chat lists via state_push.
         from helpers.state_monitor_integration import mark_dirty_all
         mark_dirty_all(reason="api.chat_create.CreateChat")

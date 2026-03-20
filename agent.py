@@ -309,16 +309,9 @@ class AgentContext:
 
 @dataclass
 class AgentConfig:
-    chat_model: models.ModelConfig
-    utility_model: models.ModelConfig
-    embeddings_model: models.ModelConfig
-    browser_model: models.ModelConfig
     mcp_servers: str
     profile: str = ""
     knowledge_subdirs: list[str] = field(default_factory=lambda: ["default", "custom"])
-    browser_http_headers: dict[str, str] = field(
-        default_factory=dict
-    )  # Custom HTTP headers for browser requests
     additional: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -713,39 +706,19 @@ class Agent:
 
     @extension.extensible
     def get_chat_model(self):
-        return models.get_chat_model(
-            self.config.chat_model.provider,
-            self.config.chat_model.name,
-            model_config=self.config.chat_model,
-            **self.config.chat_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     def get_utility_model(self):
-        return models.get_chat_model(
-            self.config.utility_model.provider,
-            self.config.utility_model.name,
-            model_config=self.config.utility_model,
-            **self.config.utility_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     def get_browser_model(self):
-        return models.get_browser_model(
-            self.config.browser_model.provider,
-            self.config.browser_model.name,
-            model_config=self.config.browser_model,
-            **self.config.browser_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     def get_embedding_model(self):
-        return models.get_embedding_model(
-            self.config.embeddings_model.provider,
-            self.config.embeddings_model.name,
-            model_config=self.config.embeddings_model,
-            **self.config.embeddings_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     async def call_utility_model(
@@ -803,15 +776,32 @@ class Agent:
         # model class
         model = self.get_chat_model()
 
+        # call extensions before
+        call_data = {
+            "model": model,
+            "messages": messages,
+            "response_callback": response_callback,
+            "reasoning_callback": reasoning_callback,
+            "background": background,
+            "explicit_caching": explicit_caching,
+        }
+        await extension.call_extensions_async(
+            "chat_model_call_before", self, call_data=call_data
+        )
+
         # call model
-        response, reasoning = await model.unified_call(
-            messages=messages,
-            reasoning_callback=reasoning_callback,
-            response_callback=response_callback,
+        response, reasoning = await call_data["model"].unified_call(
+            messages=call_data["messages"],
+            reasoning_callback=call_data["reasoning_callback"],
+            response_callback=call_data["response_callback"],
             rate_limiter_callback=(
-                self.rate_limiter_callback if not background else None
+                self.rate_limiter_callback if not call_data["background"] else None
             ),
-            explicit_caching=explicit_caching,
+            explicit_caching=call_data["explicit_caching"],
+        )
+
+        await extension.call_extensions_async(
+            "chat_model_call_after", self, call_data=call_data, response=response, reasoning=reasoning
         )
 
         return response, reasoning

@@ -16,8 +16,10 @@ from helpers import yaml
 AGENTS_DIR = "agents"
 PLUGINS_DIR = "plugins"
 PROJECTS_DIR = "projects"
+EXTENSIONS_DIR = "extensions"
 USER_DIR = "usr"
 TEMP_DIR = "tmp"
+API_DIR = "api"
 _base_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, "../")))
 
 class VariablesPlugin(ABC):
@@ -485,8 +487,10 @@ def move_dir(old_path: str, new_path: str):
 
     try:
         os.rename(abs_old, abs_new)
-    except Exception:
-        pass  # suppress all errors, keep behavior consistent
+    except OSError:
+        # os.rename fails across Docker volume mount points
+        import shutil
+        shutil.move(abs_old, abs_new)
 
 
 # move dir safely, remove with number if needed
