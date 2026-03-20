@@ -3,6 +3,7 @@
 To begin with Agent Zero, follow the links below for detailed guides on various topics:
 
 - **[Installation](installation.md):** Set up (or [update](installation.md#how-to-update-agent-zero)) Agent Zero on your system.
+- **[Swarm + Tailnet Deployment](swarm-tailnet-deployment.md):** Deploy Agent Zero on Docker Swarm and expose it on your Tailscale tailnet.
 - **[Usage Guide](usage.md):** Explore GUI features and usage scenarios.
 - **[Architecture Overview](architecture.md):** Understand the internal workings of the framework.
 - **[Token Compression Protocol](token_compression_protocol.md):** Run the TCP service and integrate it with clients (including browser extensions).
@@ -29,6 +30,7 @@ To begin with Agent Zero, follow the links below for detailed guides on various 
   - [Using Agent Zero on Mobile](installation.md#using-agent-zero-on-your-mobile-device)
   - [How to Update Agent Zero](installation.md#how-to-update-agent-zero)
   - [Full Binaries Installation](installation.md#in-depth-guide-for-full-binaries-installation)
+- [Swarm + Tailnet Deployment](swarm-tailnet-deployment.md)
 - [Usage Guide](usage.md)
   - [Basic Operations](usage.md#basic-operations)
     - [Restart Framework](usage.md#restart-framework)

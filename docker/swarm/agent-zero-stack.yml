@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  agent-zero:
+    image: ${AGENT_ZERO_IMAGE:-frdel/agent-zero-run:latest}
+    networks:
+      - agent_zero_overlay
+    volumes:
+      - agent_zero_data:/a0
+    ports:
+      - target: 80
+        published: ${AGENT_ZERO_PUBLISHED_PORT:-5000}
+        protocol: tcp
+        mode: ingress
+    deploy:
+      mode: replicated
+      replicas: ${AGENT_ZERO_REPLICAS:-1}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+
+networks:
+  agent_zero_overlay:
+    driver: overlay
+    attachable: true
+
+volumes:
+  agent_zero_data:
