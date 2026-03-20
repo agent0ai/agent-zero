@@ -826,8 +826,7 @@ def call_plugin_hook(
             if files.exists(hooks_script)
             else None
         )
-        if hooks is not None:
-            cache.add(HOOKS_CACHE_AREA, plugin_name, hooks)
+        cache.add(HOOKS_CACHE_AREA, plugin_name, hooks)
     else:
         hooks = cache.get(HOOKS_CACHE_AREA, plugin_name)
 
