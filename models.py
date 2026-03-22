@@ -26,6 +26,7 @@ from helpers.providers import ModelType as ProviderModelType, get_provider_confi
 from helpers.rate_limiter import RateLimiter
 from helpers.tokens import approximate_tokens
 from helpers import dirty_json, browser_use_monkeypatch
+from helpers.extension import extensible
 
 from langchain_core.language_models.chat_models import SimpleChatModel
 from langchain_core.outputs.chat_generation import ChatGenerationChunk
@@ -198,6 +199,7 @@ rate_limiters: dict[str, RateLimiter] = {}
 api_keys_round_robin: dict[str, int] = {}
 
 
+@extensible
 def get_api_key(service: str) -> str:
     # get api key for the service
     key = (
