@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent import Agent, LoopData
+from helpers.extension import call_extensions_async
 from helpers.print_style import PrintStyle
 from helpers.strings import sanitize_string
 
@@ -28,8 +29,10 @@ class Tool:
     async def execute(self,**kwargs) -> Response:
         pass
 
-    def set_progress(self, content: str | None):
-        self.progress = content or ""
+    async def set_progress(self, content: str | None):
+        ctx = {"content": content or ""}
+        await call_extensions_async("tool_output_update", self.agent, ctx=ctx)
+        self.progress = ctx["content"]
 
     def add_progress(self, content: str | None):
         if not content:
@@ -41,8 +44,11 @@ class Tool:
         self.log = self.get_log_object()
         if self.args and isinstance(self.args, dict):
             for key, value in self.args.items():
+                ctx = {"content": str(value) if not isinstance(value, str) else value}
+                await call_extensions_async("tool_output_update", self.agent, ctx=ctx)
+                display_value = ctx["content"]
                 PrintStyle(font_color="#85C1E9", bold=True).stream(self.nice_key(key)+": ")
-                PrintStyle(font_color="#85C1E9", padding=isinstance(value,str) and "\n" in value).stream(value)
+                PrintStyle(font_color="#85C1E9", padding=isinstance(value,str) and "\n" in value).stream(display_value)
                 PrintStyle().print()
 
     async def after_execution(self, response: Response, **kwargs):
