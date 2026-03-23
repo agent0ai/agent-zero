@@ -334,6 +334,7 @@ class LoopData:
         self.params_temporary: dict = {}
         self.params_persistent: dict = {}
         self.current_tool = None
+        self.consecutive_misformat = 0
 
         # override values with kwargs
         for key, value in kwargs.items():
@@ -844,10 +845,27 @@ class Agent:
         # search for tool usage requests in agent message
         tool_request = extract_tools.json_parse_dirty(msg)
 
-        # basic validation + extensions
-        await self.validate_tool_request(tool_request)
+        # Validate tool request — catches both Case A (None) and Case B (invalid dict).
+        # RepairableException from validation counts toward the circuit breaker:
+        # the _50_handle_repairable_exception extension swallows RepairableException
+        # and continues the loop, so without counting here, the agent loops forever
+        # on models that produce parseable-but-invalid JSON (e.g., missing tool_name).
+        try:
+            await self.validate_tool_request(tool_request)
+        except RepairableException:
+            self.loop_data.consecutive_misformat += 1
+            if self.loop_data.consecutive_misformat >= 5:
+                raise HandledException(
+                    "Too many consecutive misformat errors (5/5). Stopping to prevent infinite loop."
+                )
+            raise  # propagate to handle_exception for the standard warning
 
         if tool_request is not None:
+            # Validation passed — the model produced correctly-formatted JSON.
+            # Reset the misformat counter regardless of whether the tool is found,
+            # since format correctness (not tool existence) is what we're tracking.
+            self.loop_data.consecutive_misformat = 0
+
             raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
             tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
 
@@ -933,22 +951,34 @@ class Agent:
                     type="warning", content=f"{self.agent_name}: {error_detail}"
                 )
         else:
-            warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
+            self.loop_data.consecutive_misformat += 1
+            warning_msg_misformat = self.read_prompt(
+                "fw.msg_misformat.md",
+                attempt=self.loop_data.consecutive_misformat,
+                max_attempts=5,
+            )
             self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: Message misformat, no valid tool request found.",
+                content=f"{self.agent_name}: Message misformat ({self.loop_data.consecutive_misformat}/5), no valid tool request found.",
             )
+            if self.loop_data.consecutive_misformat >= 5:
+                raise HandledException(
+                    "Too many consecutive misformat errors (5/5). Stopping to prevent infinite loop."
+                )
+            return
 
     @extension.extensible
     async def validate_tool_request(self, tool_request: Any):
+        if tool_request is None:
+            return  # let process_tools handle the misformat case
         if not isinstance(tool_request, dict):
-            raise ValueError("Tool request must be a dictionary")
+            raise RepairableException("Tool request must be a dictionary")
         if not tool_request.get("tool_name") or not isinstance(tool_request.get("tool_name"), str):
-            raise ValueError("Tool request must have a tool_name (type string) field")
+            raise RepairableException("Tool request must have a tool_name (type string) field")
         if not tool_request.get("tool_args") or not isinstance(tool_request.get("tool_args"), dict):
-            raise ValueError("Tool request must have a tool_args (type dictionary) field")
+            raise RepairableException("Tool request must have a tool_args (type dictionary) field")
 
 
 
