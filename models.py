@@ -83,6 +83,18 @@ class ModelConfig:
         kwargs = self.kwargs.copy() or {}
         if self.api_base and "api_base" not in kwargs:
             kwargs["api_base"] = self.api_base
+        
+        # Handle Anthropic OAuth (Claude Code) session tokens
+        if self.provider == "anthropic_oauth":
+            session_token = get_api_key("anthropic_oauth")
+            if session_token and session_token != "None":
+                if "extra_headers" not in kwargs:
+                    kwargs["extra_headers"] = {}
+                kwargs["extra_headers"]["Authorization"] = f"Bearer {session_token}"
+                # LiteLLM still requires an api_key field for Anthropic, but will use the header if provided.
+                # Setting it to a dummy value to satisfy the requirement without overriding the header.
+                kwargs["api_key"] = "oauth-session-token"
+                
         return kwargs
 
 
@@ -204,8 +216,15 @@ def get_api_key(service: str) -> str:
         dotenv.get_dotenv_value(f"API_KEY_{service.upper()}")
         or dotenv.get_dotenv_value(f"{service.upper()}_API_KEY")
         or dotenv.get_dotenv_value(f"{service.upper()}_API_TOKEN")
-        or "None"
     )
+    
+    # Special case for Anthropic Session Tokens
+    if not key and service.lower() in ["anthropic", "anthropic_oauth"]:
+        key = dotenv.get_dotenv_value("ANTHROPIC_SESSION_TOKEN")
+        
+    if not key:
+        key = "None"
+        
     # if the key contains a comma, use round-robin
     if "," in key:
         api_keys = [k.strip() for k in key.split(",") if k.strip()]
