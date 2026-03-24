@@ -53,6 +53,11 @@ chat:
   lm_studio:
     name: LM Studio
     litellm_provider: lm_studio
+  minimax:
+    name: MiniMax
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.minimax.io/v1
   mistral:
     name: Mistral AI
     litellm_provider: mistral
