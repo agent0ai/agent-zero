@@ -67,6 +67,12 @@ async def poll_messages(config: dict) -> None:
 
 async def _dispatch_message(config: dict, msg: dict) -> None:
     chat_id = msg.get("chatId", "")
+
+    # Show typing indicator immediately so user sees activity
+    port = int(config.get("bridge_port", 3100))
+    base_url = bridge_manager.get_bridge_url(port)
+    await wa_client.send_typing(base_url, chat_id)
+
     existing = _find_chats_by_jid(chat_id)
 
     if existing:
