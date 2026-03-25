@@ -176,7 +176,7 @@ class Memory:
             db = MyFaiss.load_local(
                 folder_path=db_dir,
                 embeddings=embedder,
-                allow_dangerous_deserialization=True,
+                allow_dangerous_deserialization=False,
                 distance_strategy=DistanceStrategy.COSINE,
                 # normalize_L2=True,
                 relevance_score_fn=Memory._cosine_normalizer,
