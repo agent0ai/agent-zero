@@ -57,14 +57,26 @@ A detailed setup guide for Windows, macOS, and Linux with a video can be found i
 
 ### ⚡ Quick Start
 
+**For Production (Docker):**
 ```bash
-# Pull and run with Docker
-
 docker pull agent0ai/agent-zero
 docker run -p 50001:80 agent0ai/agent-zero
-
 # Visit http://localhost:50001 to start
 ```
+
+**For Development (One command with uv):**
+```bash
+# Install uv first: pip install uv
+
+# Windows
+run_dev.bat
+
+# Linux/Mac
+chmod +x run_dev.sh && ./run_dev.sh
+
+# Visit http://localhost:5000 to start
+```
+See [QUICKSTART_DEV.md](./QUICKSTART_DEV.md) for detailed development setup guide.
 
 
 # 💡 Key Features

@@ -945,6 +945,9 @@ class Agent:
                 type="warning",
                 content=f"{self.agent_name}: Message misformat, no valid tool request found.",
             )
+            # Set misformat flag for loop detection
+            from python.extensions.message_loop_start._15_loop_detection import set_misformat_flag
+            set_misformat_flag(self)
 
     async def handle_reasoning_stream(self, stream: str):
         await self.handle_intervention()

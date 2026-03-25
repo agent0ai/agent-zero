@@ -1,0 +1,31 @@
+<html>
+  <head>
+    <title>Telegram Bot</title>
+  </head>
+
+  <body>
+    <div x-data="{ get settings() { return $store.settings.settings } }">
+      <template x-if="settings">
+        <div>
+          <div class="section-title">Telegram Bot</div>
+          <div class="section-description">
+            Chat with Agent Zero through a Telegram bot. Add your bot token and allowed user IDs in the Secrets section below, then enable the bot here.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Enable Telegram Bot</div>
+              <div class="field-description">Enable the Telegram bot interface. Requires TELEGRAM_BOT_TOKEN in Secrets.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="settings.telegram_bot_enabled" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

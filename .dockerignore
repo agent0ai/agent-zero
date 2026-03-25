@@ -1,50 +1,53 @@
-###############################################################################
-# Project‑specific exclusions / re‑includes
-###############################################################################
+# Git
+.git
+.gitignore
 
-# Obsolete
-memory/**
-instruments/**
-knowledge/custom/**
+# Python
+.venv
+venv
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
 
-# Logs, tmp, usr
-logs/*
-tmp/*
-usr/*
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
 
+# Node modules (if any)
+node_modules
 
-# Keep .gitkeep markers anywhere
-!**/.gitkeep
+# Development files
+*.md
+.cursor
+.claude
+.codex
 
+# Environment files (use Coolify's env vars instead)
+.env
+.env.*
+!.env.example
 
-###############################################################################
-# Environment / tooling
-###############################################################################
-.conda/
-.cursor/
-.venv/
-.git/
+# Test files
+tests/
+test_*.py
+*_test.py
 
+# Logs
+*.log
 
-###############################################################################
-# Tests (root‑level only)
-###############################################################################
-/*.test.py
+# OS files
+.DS_Store
+Thumbs.db
 
+# Temporary files
+tmp/
+temp/
 
-###############################################################################
-# ─── LAST SECTION: universal junk / caches (MUST BE LAST) ───
-#   Put these at the *bottom* so they override any ! re‑includes above
-###############################################################################
-# OS / editor junk
-**/.DS_Store
-**/Thumbs.db
-
-# Python caches / compiled artefacts
-**/__pycache__/
-**/*.py[cod]
-**/*.pyo
-**/*.pyd
-
-# Environment files anywhere
-*.env
+# Don't exclude docker folder - we need it for build scripts!
+# docker/

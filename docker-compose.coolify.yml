@@ -1,0 +1,79 @@
+# Agent Zero - Docker Compose for Coolify
+# Deploy from source code using Kali Linux base image
+
+services:
+  agent-zero:
+    build:
+      context: .
+      dockerfile: Dockerfile.coolify
+    image: agent-zero-custom:latest
+    container_name: agent-zero
+    ports:
+      # Web UI - Container listens on port 80
+      - "7080:80"
+      # MCP/A2A ports (optional, for agent tools)
+      - "9000-9009:9000-9009"
+    volumes:
+      # Persist agent data and work directory
+      - agent-zero-data:/a0
+      # Persist memory/knowledge
+      - agent-zero-memory:/a0/memory
+
+    environment:
+      # Web UI configuration
+      WEB_UI_PORT: 80
+      WEB_UI_HOST: 0.0.0.0
+
+      # Allowed origins for CORS (add your domain here)
+      # Format: *://your-domain.com:* or https://your-domain.com
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*://localhost:*,*://127.0.0.1:*,*://0.0.0.0:*}
+
+      # ============================================================
+      # OPTIONAL: Authentication
+      # Can also be configured in the web UI under Settings > Authentication
+      # ============================================================
+      AUTH_LOGIN: ${AUTH_LOGIN:-}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-}
+
+      # ============================================================
+      # OPTIONAL: LLM API Keys
+      # Can also be configured in the web UI under Settings > API Keys
+      # ============================================================
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      API_KEY_OPENAI: ${API_KEY_OPENAI:-}
+
+      # ============================================================
+      # OPTIONAL: Telegram Bot Integration
+      # Get your token from @BotFather on Telegram
+      # Can also be configured in Settings > External Services > Telegram Bot
+      # ============================================================
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_ALLOWED_USERS: ${TELEGRAM_BOT_ALLOWED_USERS:-}
+
+      # ============================================================
+      # OPTIONAL: Verbose startup logs
+      # ============================================================
+      VERBOSE_SETUP: ${VERBOSE_SETUP:-true}
+
+    restart: unless-stopped
+
+    # Required for browser automation
+    shm_size: '2gb'
+
+    # Health check for Coolify monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Traefik labels for Coolify proxy
+    # These tell Coolify's Traefik proxy how to route traffic
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.agent-zero.loadbalancer.server.port=80
+
+volumes:
+  agent-zero-data:
+  agent-zero-memory:

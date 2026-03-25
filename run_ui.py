@@ -16,7 +16,7 @@ from werkzeug.wrappers.response import Response as BaseResponse
 from werkzeug.wrappers.request import Request as WerkzeugRequest
 
 import initialize
-from python.helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper
+from python.helpers import files, git, mcp_server, fasta2a_server, telegram_bot, settings as settings_helper
 from python.helpers.files import get_abs_path
 from python.helpers import runtime, dotenv, process
 from python.helpers.websocket import WebSocketHandler, validate_ws_origin
@@ -498,6 +498,9 @@ def run():
         except Exception as e:
             PrintStyle.warning(f"Shutdown flush failed ({reason}): {e}")
 
+    # Enable hot reload in development mode
+    reload_enabled = runtime.is_development() and dotenv.get_dotenv_value("HOT_RELOAD", "true").lower() == "true"
+
     config = uvicorn.Config(
         asgi_app,
         host=host,
@@ -505,6 +508,7 @@ def run():
         log_level="info",
         access_log=_settings.get("uvicorn_access_logs_enabled", False),
         ws="wsproto",
+        reload=reload_enabled,
     )
     server = uvicorn.Server(config)
 
@@ -550,6 +554,9 @@ def init_a0():
     initialize.initialize_job_loop()
     # preload
     initialize.initialize_preload()
+
+    # start telegram bot
+    telegram_bot.initialize_telegram_bot()
 
 
 # run the internal server
