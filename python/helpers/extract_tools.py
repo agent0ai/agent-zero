@@ -20,20 +20,55 @@ def json_parse_dirty(json:str) -> dict[str,Any] | None:
             return None
     return None
 
-def extract_json_object_string(content):
+def extract_json_object_string(content: str) -> str:
+    """Extract the first valid JSON object from content, handling nested braces properly."""
     start = content.find('{')
     if start == -1:
         return ""
 
-    # Find the first '{'
-    end = content.rfind('}')
-    if end == -1:
-        # If there's no closing '}', return from start to the end
-        return content[start:]
-    else:
-        # If there's a closing '}', return the substring from start to end
-        return content[start:end+1]
+    # Track nested braces to find the matching closing brace
+    depth = 0
+    in_string = False
+    escape_next = False
 
+    i = start
+    while i < len(content):
+        char = content[i]
+
+        if escape_next:
+            # This character is escaped - still check if it's a quote to toggle in_string
+            # but don't treat it as a string delimiter
+            escape_next = False
+            if char == '"':
+                # Escaped quote - toggle in_string but don't treat as string delimiter
+                in_string = not in_string
+            i += 1
+            continue
+
+        if char == '\\':
+            escape_next = True
+            i += 1
+            continue
+
+        if char == '"':
+            in_string = not in_string
+            i += 1
+            continue
+
+        # Only count braces outside of strings
+        if not in_string:
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    # Found matching closing brace
+                    return content[start:i+1]
+
+        i += 1
+
+    # No matching closing brace found - return what we have from start
+    return content[start:]
 def extract_json_string(content):
     # Regular expression pattern to match a JSON object
     pattern = r'\{(?:[^{}]|(?R))*\}|\[(?:[^\[\]]|(?R))*\]|"(?:\\.|[^"\\])*"|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?'
