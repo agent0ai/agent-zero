@@ -22,7 +22,7 @@ The WhatsApp session persists across restarts in `usr/whatsapp/sessions/`. No re
 | Setting | Description | Default |
 |---------|-------------|---------|
 | `enabled` | Enable bridge and polling | `false` |
-| `mode` | `bot` (separate number) or `self-chat` (personal number) | `bot` |
+| `mode` | `dedicated` (separate number) or `self-chat` (personal number) | `dedicated` |
 | `bridge_port` | Local HTTP port for bridge | `3100` |
 | `poll_interval_seconds` | Poll frequency (min 2) | `3` |
 | `allowed_users` | Phone numbers without + prefix | `[]` (all) |

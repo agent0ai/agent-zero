@@ -109,22 +109,22 @@
                     </div>
                     <div class="field-control">
                         <select x-model="config.mode">
-                            <option value="bot">Separate bot number</option>
+                            <option value="dedicated">Separate number (dedicated)</option>
                             <option value="self-chat">Personal number (self-chat)</option>
                         </select>
                     </div>
                 </div>
 
-                <template x-if="config.mode === 'bot'">
+                <template x-if="config.mode === 'dedicated'">
                     <div style="padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; opacity: 0.7;
                                 border: 1px solid var(--border-color, #333); margin-bottom: 8px;">
-                        People message the bot's number directly. Requires a second phone number with WhatsApp.
+                        Uses a second phone number. Others message it directly.
                     </div>
                 </template>
                 <template x-if="config.mode === 'self-chat'">
                     <div style="padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; opacity: 0.7;
                                 border: 1px solid var(--border-color, #333); margin-bottom: 8px;">
-                        You message yourself to talk to the agent. Quick to set up but less intuitive UX.
+                        Message yourself to talk to the agent. No extra number needed.
                     </div>
                 </template>
 

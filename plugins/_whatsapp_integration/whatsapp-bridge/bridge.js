@@ -45,7 +45,7 @@ const PORT = parseInt(getArg('port', '3100'), 10);
 const SESSION_DIR = getArg('session', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'session'));
 const CACHE_DIR = getArg('cache-dir', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'media'));
 const PAIR_ONLY = args.includes('--pair-only');
-const MODE = getArg('mode', 'bot'); // "bot" or "self-chat"
+const MODE = getArg('mode', 'dedicated'); // "dedicated" or "self-chat"
 const ALLOWED_USERS = (getArg('allowed-users', '') || '').split(',').map(s => s.trim()).filter(Boolean);
 
 mkdirSync(SESSION_DIR, { recursive: true });
@@ -163,8 +163,8 @@ async function startSocket() {
       if (msg.key.fromMe) {
         if (isGroup || chatId.includes('status')) continue;
 
-        if (MODE === 'bot') {
-          // Bot mode: separate number — all fromMe are echo-backs, skip
+        if (MODE === 'dedicated') {
+          // Dedicated mode: separate number — all fromMe are echo-backs, skip
           continue;
         }
 

@@ -1,6 +1,6 @@
 enabled: false
-mode: bot
-# bot: separate phone number — people message the bot directly
+mode: dedicated
+# dedicated: separate phone number — people message it directly
 # self-chat: personal number — you message yourself to talk to the agent
 bridge_port: 3100
 poll_interval_seconds: 3

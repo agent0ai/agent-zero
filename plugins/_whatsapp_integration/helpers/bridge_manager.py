@@ -31,7 +31,7 @@ async def start_bridge(
     session_dir: str,
     cache_dir: str,
     allowed_users: list[str] | None = None,
-    mode: str = "bot",
+    mode: str = "dedicated",
 ) -> bool:
     global _bridge_process
     async with _bridge_lock:
@@ -109,7 +109,7 @@ async def ensure_bridge_http_up(
     session_dir: str,
     cache_dir: str,
     allowed_users: list[str] | None = None,
-    mode: str = "bot",
+    mode: str = "dedicated",
 ) -> bool:
     """Start bridge if needed and wait for HTTP server only (not WA connection)."""
     global _bridge_process

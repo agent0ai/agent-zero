@@ -16,7 +16,7 @@ class QrCode(ApiHandler):
         session_dir = files.get_abs_path("usr/whatsapp/sessions")
         cache_dir = files.get_abs_path("usr/whatsapp/media")
         allowed_users = config.get("allowed_users") or []
-        mode = config.get("mode", "bot")
+        mode = config.get("mode", "dedicated")
 
         from plugins._whatsapp_integration.helpers.bridge_manager import (
             ensure_bridge_http_up,

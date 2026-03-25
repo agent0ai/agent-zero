@@ -55,7 +55,7 @@ async def _poll_loop() -> None:
         session_dir = files.get_abs_path("usr/whatsapp/sessions")
         cache_dir = files.get_abs_path("usr/whatsapp/media")
         allowed_users = config.get("allowed_users") or []
-        mode = config.get("mode", "bot")
+        mode = config.get("mode", "dedicated")
 
         # Detect config changes that require bridge restart
         desired = {"port": port, "mode": mode, "allowed_users": sorted(allowed_users)}
