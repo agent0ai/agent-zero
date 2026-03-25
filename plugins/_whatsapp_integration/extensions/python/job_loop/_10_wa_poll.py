@@ -57,6 +57,14 @@ async def _poll_loop() -> None:
         allowed_users = config.get("allowed_users") or []
         mode = config.get("mode", "bot")
 
+        # Detect config changes that require bridge restart
+        desired = {"port": port, "mode": mode, "allowed_users": sorted(allowed_users)}
+        running = bridge_manager.get_running_config()
+        if bridge_started and bridge_manager.is_process_alive() and running and running != desired:
+            PrintStyle.info(f"WhatsApp: config changed, restarting bridge")
+            await bridge_manager.stop_bridge()
+            bridge_started = False
+
         # Start bridge if needed
         if not bridge_started or not bridge_manager.is_process_alive():
             try:

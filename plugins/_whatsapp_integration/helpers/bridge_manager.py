@@ -15,6 +15,7 @@ from helpers.print_style import PrintStyle
 
 _bridge_process: subprocess.Popen | None = None
 _bridge_lock = asyncio.Lock()
+_bridge_config: dict = {}  # config the running bridge was started with
 
 BRIDGE_DIR = str(Path(__file__).parent.parent / "whatsapp-bridge")
 BRIDGE_SCRIPT = os.path.join(BRIDGE_DIR, "bridge.js")
@@ -57,6 +58,8 @@ async def start_bridge(
             cwd=BRIDGE_DIR,
         )
         _start_log_reader(_bridge_process)
+        _bridge_config.clear()
+        _bridge_config.update({"port": port, "mode": mode, "allowed_users": sorted(allowed_users or [])})
 
         # Wait for bridge to become healthy
         for _ in range(20):
@@ -85,6 +88,7 @@ async def stop_bridge() -> None:
         except Exception:
             pass
         _bridge_process = None
+        _bridge_config.clear()
         PrintStyle.info("WhatsApp: bridge stopped")
 
 
@@ -146,6 +150,10 @@ async def ensure_bridge_http_up(
 
 def is_process_alive() -> bool:
     return _bridge_process is not None and _bridge_process.poll() is None
+
+
+def get_running_config() -> dict:
+    return dict(_bridge_config)
 
 
 # ------------------------------------------------------------------
