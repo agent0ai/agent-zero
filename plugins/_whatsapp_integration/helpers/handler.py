@@ -67,6 +67,16 @@ async def poll_messages(config: dict) -> None:
 
 async def _dispatch_message(config: dict, msg: dict) -> None:
     chat_id = msg.get("chatId", "")
+    is_group = msg.get("isGroup", False)
+
+    # Group filtering: skip unless allow_group enabled AND bot was mentioned
+    if is_group:
+        if not config.get("allow_group", False):
+            PrintStyle.debug(f"WhatsApp: skipping group message (allow_group disabled)")
+            return
+        if not msg.get("mentionedMe", False):
+            PrintStyle.debug(f"WhatsApp: skipping group message (not mentioned)")
+            return
 
     # Show typing indicator immediately so user sees activity
     port = int(config.get("bridge_port", 3100))
@@ -179,10 +189,13 @@ def _find_chats_by_jid(chat_id: str) -> list[str]:
 def _build_user_message(agent: Agent, msg: dict, config: dict) -> str:
     sender_name = msg.get("senderName", "Unknown")
     sender_number = msg.get("senderId", "").replace("@s.whatsapp.net", "").replace("@lid", "")
+    is_group = msg.get("isGroup", False)
+    prompt = "fw.wa.user_message_group.md" if is_group else "fw.wa.user_message.md"
     text = agent.read_prompt(
-        "fw.wa.user_message.md",
+        prompt,
         sender_name=sender_name,
         sender_number=sender_number,
+        group_name=msg.get("chatName", ""),
         body=msg.get("body", ""),
     )
     instructions = config.get("agent_instructions", "")

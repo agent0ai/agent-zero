@@ -246,6 +246,33 @@ async function startSocket() {
         continue;
       }
 
+      // Detect if the bot was mentioned in a group message
+      let mentionedMe = false;
+      if (isGroup && sock.user) {
+        const contextInfo = msg.message.extendedTextMessage?.contextInfo
+          || msg.message.imageMessage?.contextInfo
+          || msg.message.videoMessage?.contextInfo
+          || msg.message.documentMessage?.contextInfo
+          || null;
+        const mentionedJids = contextInfo?.mentionedJid || [];
+        // Compare by raw number (before : and @) to handle phone/LID format mismatches
+        const numOf = (jid) => (jid || '').split('@')[0].split(':')[0];
+        const myNums = new Set();
+        if (sock.user.id) myNums.add(numOf(sock.user.id));
+        if (sock.user.lid) myNums.add(numOf(sock.user.lid));
+        // Include reverse LID mappings so either format matches
+        for (const [lid, phone] of Object.entries(lidToPhone)) {
+          if (myNums.has(lid)) myNums.add(String(phone));
+          if (myNums.has(String(phone))) myNums.add(lid);
+        }
+        for (const jid of mentionedJids) {
+          if (myNums.has(numOf(jid))) { mentionedMe = true; break; }
+        }
+        if (WHATSAPP_DEBUG && mentionedJids.length > 0) {
+          try { console.log(JSON.stringify({ event: 'mention_check', myNums: [...myNums], mentionedJids, mentionedMe })); } catch {}
+        }
+      }
+
       const event = {
         messageId: msg.key.id,
         chatId,
@@ -253,6 +280,7 @@ async function startSocket() {
         senderName: msg.pushName || senderNumber,
         chatName: isGroup ? (chatId.split('@')[0]) : (msg.pushName || senderNumber),
         isGroup,
+        mentionedMe,
         body,
         hasMedia,
         mediaType,

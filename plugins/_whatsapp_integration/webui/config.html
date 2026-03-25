@@ -128,6 +128,19 @@
                     </div>
                 </template>
 
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Allow Group</div>
+                        <div class="field-description">Respond in group chats when mentioned</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.allow_group" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- WhatsApp Link section (shown when enabled) -->
                 <template x-if="config.enabled">
                     <div style="margin: 12px 0;">
