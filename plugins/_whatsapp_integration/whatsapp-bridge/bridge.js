@@ -1,0 +1,471 @@
+#!/usr/bin/env node
+/**
+ * Agent Zero WhatsApp Bridge
+ *
+ * Standalone Node.js process that connects to WhatsApp via Baileys
+ * and exposes HTTP endpoints for the Python plugin.
+ *
+ * Endpoints:
+ *   GET  /messages       - Poll for new incoming messages
+ *   POST /send           - Send a message { chatId, message, replyTo? }
+ *   POST /edit           - Edit a sent message { chatId, messageId, message }
+ *   POST /send-media     - Send media { chatId, filePath, mediaType?, caption?, fileName? }
+ *   POST /typing         - Send typing indicator { chatId }
+ *   GET  /chat/:id       - Get chat info
+ *   GET  /health         - Health check
+ *
+ * Usage:
+ *   node bridge.js --port 3100 --session /path/to/session --cache-dir /path/to/media
+ */
+
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage } from '@whiskeysockets/baileys';
+import express from 'express';
+import { Boom } from '@hapi/boom';
+import pino from 'pino';
+import path from 'path';
+import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
+import { randomBytes } from 'crypto';
+import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
+
+// Parse CLI args
+const args = process.argv.slice(2);
+function getArg(name, defaultVal) {
+  const idx = args.indexOf(`--${name}`);
+  return idx !== -1 && args[idx + 1] ? args[idx + 1] : defaultVal;
+}
+
+const WHATSAPP_DEBUG =
+  typeof process !== 'undefined' &&
+  process.env &&
+  typeof process.env.WHATSAPP_DEBUG === 'string' &&
+  ['1', 'true', 'yes', 'on'].includes(process.env.WHATSAPP_DEBUG.toLowerCase());
+
+const PORT = parseInt(getArg('port', '3100'), 10);
+const SESSION_DIR = getArg('session', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'session'));
+const CACHE_DIR = getArg('cache-dir', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'media'));
+const PAIR_ONLY = args.includes('--pair-only');
+const ALLOWED_USERS = (getArg('allowed-users', '') || '').split(',').map(s => s.trim()).filter(Boolean);
+
+mkdirSync(SESSION_DIR, { recursive: true });
+mkdirSync(CACHE_DIR, { recursive: true });
+
+// Build LID -> phone reverse map from session files (lid-mapping-{phone}.json)
+function buildLidMap() {
+  const map = {};
+  try {
+    for (const f of readdirSync(SESSION_DIR)) {
+      const m = f.match(/^lid-mapping-(\d+)\.json$/);
+      if (!m) continue;
+      const phone = m[1];
+      const lid = JSON.parse(readFileSync(path.join(SESSION_DIR, f), 'utf8'));
+      if (lid) map[String(lid)] = phone;
+    }
+  } catch {}
+  return map;
+}
+let lidToPhone = buildLidMap();
+
+const logger = pino({ level: 'warn' });
+
+// Message queue for polling
+const messageQueue = [];
+const MAX_QUEUE_SIZE = 100;
+
+// Track recently sent message IDs to prevent echo-back loops
+const recentlySentIds = new Set();
+const MAX_RECENT_IDS = 50;
+
+let sock = null;
+let connectionState = 'disconnected';
+let latestQrDataUrl = null;
+
+async function startSocket() {
+  const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+  const { version } = await fetchLatestBaileysVersion();
+
+  sock = makeWASocket({
+    version,
+    auth: state,
+    logger,
+    printQRInTerminal: false,
+    browser: ['Agent Zero', 'Chrome', '120.0'],
+    syncFullHistory: false,
+    markOnlineOnConnect: false,
+    getMessage: async (key) => {
+      return { conversation: '' };
+    },
+  });
+
+  sock.ev.on('creds.update', () => { saveCreds(); lidToPhone = buildLidMap(); });
+
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      console.log('\n[bridge] Scan this QR code with WhatsApp on your phone:\n');
+      qrcode.generate(qr, { small: true });
+      console.log('\n[bridge] Waiting for scan...\n');
+      QRCode.toDataURL(qr, { width: 256, margin: 2 }).then(url => {
+        latestQrDataUrl = url;
+      }).catch(() => {});
+    }
+
+    if (connection === 'close') {
+      const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+      connectionState = 'disconnected';
+
+      if (reason === DisconnectReason.loggedOut) {
+        console.log('[bridge] Logged out. Delete session and restart to re-authenticate.');
+        process.exit(1);
+      } else {
+        if (reason === 515) {
+          console.log('[bridge] WhatsApp requested restart (code 515). Reconnecting...');
+        } else {
+          console.log(`[bridge] Connection closed (reason: ${reason}). Reconnecting in 3s...`);
+        }
+        setTimeout(startSocket, reason === 515 ? 1000 : 3000);
+      }
+    } else if (connection === 'open') {
+      connectionState = 'connected';
+      latestQrDataUrl = null;
+      console.log('[bridge] WhatsApp connected');
+      if (PAIR_ONLY) {
+        console.log('[bridge] Pairing complete. Credentials saved.');
+        setTimeout(() => process.exit(0), 2000);
+      }
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type !== 'notify' && type !== 'append') return;
+
+    for (const msg of messages) {
+      if (!msg.message) continue;
+
+      const chatId = msg.key.remoteJid;
+      if (WHATSAPP_DEBUG) {
+        try {
+          console.log(JSON.stringify({
+            event: 'upsert', type,
+            fromMe: !!msg.key.fromMe, chatId,
+            senderId: msg.key.participant || chatId,
+            messageKeys: Object.keys(msg.message || {}),
+          }));
+        } catch {}
+      }
+      const senderId = msg.key.participant || chatId;
+      const isGroup = chatId.endsWith('@g.us');
+      const senderNumber = senderId.replace(/@.*/, '');
+
+      // Bot mode: all fromMe messages are echo-backs — skip
+      if (msg.key.fromMe) continue;
+
+      // Skip status broadcasts
+      if (chatId === 'status@broadcast') continue;
+
+      // Check allowlist (resolve LID -> phone if needed)
+      if (ALLOWED_USERS.length > 0) {
+        const resolvedNumber = lidToPhone[senderNumber] || senderNumber;
+        if (!ALLOWED_USERS.includes(resolvedNumber)) continue;
+      }
+
+      // Extract message body
+      let body = '';
+      let hasMedia = false;
+      let mediaType = '';
+      const mediaUrls = [];
+
+      if (msg.message.conversation) {
+        body = msg.message.conversation;
+      } else if (msg.message.extendedTextMessage?.text) {
+        body = msg.message.extendedTextMessage.text;
+      } else if (msg.message.imageMessage) {
+        body = msg.message.imageMessage.caption || '';
+        hasMedia = true;
+        mediaType = 'image';
+        try {
+          const buf = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
+          const mime = msg.message.imageMessage.mimetype || 'image/jpeg';
+          const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
+          const ext = extMap[mime] || '.jpg';
+          const filePath = path.join(CACHE_DIR, `img_${randomBytes(6).toString('hex')}${ext}`);
+          writeFileSync(filePath, buf);
+          mediaUrls.push(filePath);
+        } catch (err) {
+          console.error('[bridge] Failed to download image:', err.message);
+        }
+      } else if (msg.message.videoMessage) {
+        body = msg.message.videoMessage.caption || '';
+        hasMedia = true;
+        mediaType = 'video';
+      } else if (msg.message.audioMessage || msg.message.pttMessage) {
+        hasMedia = true;
+        mediaType = msg.message.pttMessage ? 'ptt' : 'audio';
+      } else if (msg.message.documentMessage) {
+        body = msg.message.documentMessage.caption || msg.message.documentMessage.fileName || '';
+        hasMedia = true;
+        mediaType = 'document';
+      }
+
+      // For media without caption, use a placeholder
+      if (hasMedia && !body) {
+        body = `[${mediaType} received]`;
+      }
+
+      // Skip echo-backs via recently sent IDs
+      if (recentlySentIds.has(msg.key.id)) {
+        if (WHATSAPP_DEBUG) {
+          try { console.log(JSON.stringify({ event: 'ignored', reason: 'agent_echo', chatId, messageId: msg.key.id })); } catch {}
+        }
+        continue;
+      }
+
+      // Skip empty messages
+      if (!body && !hasMedia) {
+        if (WHATSAPP_DEBUG) {
+          try {
+            console.log(JSON.stringify({ event: 'ignored', reason: 'empty', chatId, messageKeys: Object.keys(msg.message || {}) }));
+          } catch {}
+        }
+        continue;
+      }
+
+      const event = {
+        messageId: msg.key.id,
+        chatId,
+        senderId,
+        senderName: msg.pushName || senderNumber,
+        chatName: isGroup ? (chatId.split('@')[0]) : (msg.pushName || senderNumber),
+        isGroup,
+        body,
+        hasMedia,
+        mediaType,
+        mediaUrls,
+        timestamp: msg.messageTimestamp,
+      };
+
+      messageQueue.push(event);
+      if (messageQueue.length > MAX_QUEUE_SIZE) {
+        messageQueue.shift();
+      }
+    }
+  });
+}
+
+// HTTP server
+const app = express();
+app.use(express.json());
+
+// Poll for new messages
+app.get('/messages', (req, res) => {
+  const msgs = messageQueue.splice(0, messageQueue.length);
+  res.json(msgs);
+});
+
+// Send a message
+app.post('/send', async (req, res) => {
+  if (!sock || connectionState !== 'connected') {
+    return res.status(503).json({ error: 'Not connected to WhatsApp' });
+  }
+
+  const { chatId, message, replyTo } = req.body;
+  if (!chatId || !message) {
+    return res.status(400).json({ error: 'chatId and message are required' });
+  }
+
+  try {
+    const sent = await sock.sendMessage(chatId, { text: message });
+
+    if (sent?.key?.id) {
+      recentlySentIds.add(sent.key.id);
+      if (recentlySentIds.size > MAX_RECENT_IDS) {
+        recentlySentIds.delete(recentlySentIds.values().next().value);
+      }
+    }
+
+    res.json({ success: true, messageId: sent?.key?.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Edit a previously sent message
+app.post('/edit', async (req, res) => {
+  if (!sock || connectionState !== 'connected') {
+    return res.status(503).json({ error: 'Not connected to WhatsApp' });
+  }
+
+  const { chatId, messageId, message } = req.body;
+  if (!chatId || !messageId || !message) {
+    return res.status(400).json({ error: 'chatId, messageId, and message are required' });
+  }
+
+  try {
+    const key = { id: messageId, fromMe: true, remoteJid: chatId };
+    await sock.sendMessage(chatId, { text: message, edit: key });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// MIME type map and media type inference
+const MIME_MAP = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+  webp: 'image/webp', gif: 'image/gif',
+  mp4: 'video/mp4', mov: 'video/quicktime', avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska', '3gp': 'video/3gpp',
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+function inferMediaType(ext) {
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'image';
+  if (['mp4', 'mov', 'avi', 'mkv', '3gp'].includes(ext)) return 'video';
+  if (['ogg', 'opus', 'mp3', 'wav', 'm4a'].includes(ext)) return 'audio';
+  return 'document';
+}
+
+// Send media natively
+app.post('/send-media', async (req, res) => {
+  if (!sock || connectionState !== 'connected') {
+    return res.status(503).json({ error: 'Not connected to WhatsApp' });
+  }
+
+  const { chatId, filePath, mediaType, caption, fileName } = req.body;
+  if (!chatId || !filePath) {
+    return res.status(400).json({ error: 'chatId and filePath are required' });
+  }
+
+  try {
+    if (!existsSync(filePath)) {
+      return res.status(404).json({ error: `File not found: ${filePath}` });
+    }
+
+    const buffer = readFileSync(filePath);
+    const ext = filePath.toLowerCase().split('.').pop();
+    const type = mediaType || inferMediaType(ext);
+    let msgPayload;
+
+    switch (type) {
+      case 'image':
+        msgPayload = { image: buffer, caption: caption || undefined, mimetype: MIME_MAP[ext] || 'image/jpeg' };
+        break;
+      case 'video':
+        msgPayload = { video: buffer, caption: caption || undefined, mimetype: MIME_MAP[ext] || 'video/mp4' };
+        break;
+      case 'audio': {
+        const audioMime = (ext === 'ogg' || ext === 'opus') ? 'audio/ogg; codecs=opus' : 'audio/mpeg';
+        msgPayload = { audio: buffer, mimetype: audioMime, ptt: ext === 'ogg' || ext === 'opus' };
+        break;
+      }
+      case 'document':
+      default:
+        msgPayload = {
+          document: buffer,
+          fileName: fileName || path.basename(filePath),
+          caption: caption || undefined,
+          mimetype: MIME_MAP[ext] || 'application/octet-stream',
+        };
+        break;
+    }
+
+    const sent = await sock.sendMessage(chatId, msgPayload);
+
+    if (sent?.key?.id) {
+      recentlySentIds.add(sent.key.id);
+      if (recentlySentIds.size > MAX_RECENT_IDS) {
+        recentlySentIds.delete(recentlySentIds.values().next().value);
+      }
+    }
+
+    res.json({ success: true, messageId: sent?.key?.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Typing indicator
+app.post('/typing', async (req, res) => {
+  if (!sock || connectionState !== 'connected') {
+    return res.status(503).json({ error: 'Not connected' });
+  }
+
+  const { chatId } = req.body;
+  if (!chatId) return res.status(400).json({ error: 'chatId required' });
+
+  try {
+    await sock.sendPresenceUpdate('composing', chatId);
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: false });
+  }
+});
+
+// Chat info
+app.get('/chat/:id', async (req, res) => {
+  const chatId = req.params.id;
+  const isGroup = chatId.endsWith('@g.us');
+
+  if (isGroup && sock) {
+    try {
+      const metadata = await sock.groupMetadata(chatId);
+      return res.json({
+        name: metadata.subject,
+        isGroup: true,
+        participants: metadata.participants.map(p => p.id),
+      });
+    } catch {
+      // Fall through to default
+    }
+  }
+
+  res.json({
+    name: chatId.replace(/@.*/, ''),
+    isGroup,
+    participants: [],
+  });
+});
+
+// QR code for web UI pairing
+app.get('/qr', (req, res) => {
+  if (connectionState === 'connected') {
+    return res.json({ status: 'connected', qr: null });
+  }
+  if (latestQrDataUrl) {
+    return res.json({ status: 'waiting_scan', qr: latestQrDataUrl });
+  }
+  res.json({ status: 'waiting_qr', qr: null });
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({
+    status: connectionState,
+    queueLength: messageQueue.length,
+    uptime: process.uptime(),
+  });
+});
+
+// Start
+if (PAIR_ONLY) {
+  console.log('[bridge] WhatsApp pairing mode');
+  console.log(`[bridge] Session: ${SESSION_DIR}`);
+  console.log();
+  startSocket();
+} else {
+  app.listen(PORT, '127.0.0.1', () => {
+    console.log(`[bridge] WhatsApp bridge listening on port ${PORT}`);
+    console.log(`[bridge] Session: ${SESSION_DIR}`);
+    if (ALLOWED_USERS.length > 0) {
+      console.log(`[bridge] Allowed users: ${ALLOWED_USERS.join(', ')}`);
+    } else {
+      console.log('[bridge] No allowed users set — all messages will be processed');
+    }
+    console.log();
+    startSocket();
+  });
+}

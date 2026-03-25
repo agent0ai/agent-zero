@@ -1,0 +1,8 @@
+name: _whatsapp_integration
+title: WhatsApp Integration
+description: Communicate with Agent Zero via WhatsApp. Uses Baileys bridge for message sending and receiving.
+version: 1.0.0
+settings_sections:
+  - external
+per_project_config: false
+per_agent_config: false
