@@ -1,6 +1,7 @@
 import glob
 import os
 import hashlib
+from pathlib import Path
 from typing import Any, Dict, Literal, TypedDict
 from langchain_community.document_loaders import (
     CSVLoader,
@@ -8,8 +9,10 @@ from langchain_community.document_loaders import (
     TextLoader,
     UnstructuredHTMLLoader,
 )
+from langchain_core.documents import Document
 from helpers.log import LogItem
 from helpers.print_style import PrintStyle
+from helpers import yaml as yaml_helper
 
 text_loader_kwargs = {"autodetect_encoding": True}
 
@@ -149,18 +152,24 @@ def load_knowledge(
             # Process changed files
             if file_data["state"] == "changed":
                 file_data["checksum"] = checksum
-                loader_cls = file_types_loaders[ext]
+                autodream_metadata: dict[str, Any] = {}
 
                 try:
-                    loader = loader_cls(
-                        file_path,
-                        **(
-                            text_loader_kwargs
-                            if ext in ["txt", "csv", "html", "md"]
-                            else {}
-                        ),
-                    )
-                    documents = loader.load_and_split()
+                    if ext == "md" and metadata.get("autodream_source"):
+                        documents, autodream_metadata = (
+                            load_autodream_markdown_documents(file_path)
+                        )
+                    else:
+                        loader_cls = file_types_loaders[ext]
+                        loader = loader_cls(
+                            file_path,
+                            **(
+                                text_loader_kwargs
+                                if ext in ["txt", "csv", "html", "md"]
+                                else {}
+                            ),
+                        )
+                        documents = loader.load_and_split()
 
                     # Enhanced metadata for better consolidation compatibility
                     enhanced_metadata = {
@@ -168,8 +177,11 @@ def load_knowledge(
                         "source_file": os.path.basename(file_path),
                         "source_path": file_path,
                         "file_type": ext,
-                        "knowledge_source": True,  # Flag to distinguish from conversation memories
+                        "knowledge_source": metadata.get(
+                            "knowledge_source", True
+                        ),  # File-backed by default, but callers may override.
                         "import_timestamp": None,  # Will be set when inserted into memory
+                        **autodream_metadata,
                     }
 
                     # Apply metadata to all documents
@@ -208,3 +220,62 @@ def load_knowledge(
             )
 
     return index
+
+
+def load_autodream_markdown_documents(
+    file_path: str,
+) -> tuple[list[Document], dict[str, Any]]:
+    text = Path(file_path).read_text(encoding="utf-8")
+    frontmatter, body = parse_markdown_frontmatter(text)
+    metadata = extract_autodream_frontmatter_metadata(frontmatter)
+    page_content = body.strip() or text.strip()
+    return [Document(page_content=page_content, metadata={})], metadata
+
+
+def parse_markdown_frontmatter(text: str) -> tuple[dict[str, Any], str]:
+    lines = text.splitlines()
+    if len(lines) >= 3 and lines[0].strip() == "---":
+        end_index = -1
+        for i, line in enumerate(lines[1:], start=1):
+            if line.strip() == "---":
+                end_index = i
+                break
+        if end_index > 0:
+            metadata_text = "\n".join(lines[1:end_index])
+            body_text = "\n".join(lines[end_index + 1 :]).strip()
+            metadata = yaml_helper.loads(metadata_text) or {}
+            if isinstance(metadata, dict):
+                return metadata, body_text
+    return {}, text.strip()
+
+
+def extract_autodream_frontmatter_metadata(frontmatter: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(frontmatter, dict):
+        return {}
+
+    metadata: dict[str, Any] = {"autodream_file": True}
+    for key in [
+        "title",
+        "description",
+        "updated_at",
+        "grounding",
+        "memory_scope",
+        "canonical_scope_name",
+        "project_title",
+    ]:
+        value = frontmatter.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            metadata[key] = text
+
+    for key in ["source_context_ids", "source_first_prompts", "source_memory_ids"]:
+        value = frontmatter.get(key)
+        if not isinstance(value, list):
+            continue
+        normalized = [str(item).strip() for item in value if str(item).strip()]
+        if normalized:
+            metadata[key] = normalized
+
+    return metadata

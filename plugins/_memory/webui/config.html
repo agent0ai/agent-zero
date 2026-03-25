@@ -264,6 +264,64 @@
                             x-text="config.memory_memorize_replace_threshold"></span>
                     </div>
                 </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">AutoDream enabled</div>
+                        <div class="field-description">
+                            Periodically performs a reflective maintenance pass over recent sessions and durable memory
+                            files, then updates a compact <code>MEMORY.md</code> index plus consolidated memory notes.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox"
+                                x-model="config.memory_auto_dream_enabled" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">AutoDream minimum hours</div>
+                        <div class="field-description">
+                            AutoDream may run when at least this many hours have passed since the last dream and new
+                            session activity exists.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number"
+                            x-model.number="config.memory_auto_dream_min_hours" min="1" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">AutoDream minimum sessions</div>
+                        <div class="field-description">
+                            AutoDream may also run earlier when this many sessions have accumulated since the last dream.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number"
+                            x-model.number="config.memory_auto_dream_min_sessions" min="1" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">AutoDream index line limit</div>
+                        <div class="field-description">
+                            Maximum line count for the generated <code>MEMORY.md</code> index. The index links to memory
+                            files instead of storing memory content inline.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number"
+                            x-model.number="config.memory_auto_dream_line_limit" min="20" />
+                    </div>
+                </div>
             </div>
         </template>
     </div>

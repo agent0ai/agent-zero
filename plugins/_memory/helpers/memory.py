@@ -327,6 +327,21 @@ class Memory:
                     recursive=True,
                 )
 
+        from plugins._memory.helpers.auto_dream import get_autodream_memories_dir
+
+        index = knowledge_import.load_knowledge(
+            log_item,
+            get_autodream_memories_dir(self.memory_subdir),
+            index,
+            {
+                "area": Memory.Area.MAIN.value,
+                "knowledge_source": False,
+                "autodream_source": True,
+            },
+            filename_pattern="*.md",
+            recursive=True,
+        )
+
         return index
 
     def get_document_by_id(self, id: str) -> Document | None:

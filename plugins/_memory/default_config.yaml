@@ -13,4 +13,8 @@ memory_recall_post_filter: false
 memory_memorize_enabled: true
 memory_memorize_consolidation: true
 memory_memorize_replace_threshold: 0.9
+memory_auto_dream_enabled: false
+memory_auto_dream_min_hours: 8
+memory_auto_dream_min_sessions: 3
+memory_auto_dream_line_limit: 120
 agent_memory_subdir: default

@@ -73,6 +73,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 - Agent Zero is not pre-programmed for specific tasks (but can be). It is meant to be a general-purpose personal assistant. Give it a task, and it will gather information, execute commands and code, cooperate with other agent instances, and do its best to accomplish it.
 - It has a persistent memory, allowing it to memorize previous solutions, code, facts, instructions, etc., to solve tasks faster and more reliably in the future.
+- Its AutoDream layer also maintains a Claude Code-style `MEMORY.md` index for each memory scope or project, backed by durable markdown memories and synchronized with the vector database so symbolic navigation and semantic recall stay aligned.
 
 ![Agent 0 Working](/docs/res/ui_screen2.png)
 

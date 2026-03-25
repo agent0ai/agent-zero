@@ -1,7 +1,7 @@
 name: _memory
 title: Memory
 description: Provides persistent memory capabilities to Agent Zero agents.
-version: 1.0.0
+version: 1.1.1
 settings_sections:
   - agent
 per_project_config: true
