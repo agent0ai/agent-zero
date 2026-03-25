@@ -6,6 +6,7 @@ No agent/tool dependencies.
 
 import asyncio
 import os
+import platform
 import subprocess
 import threading
 from pathlib import Path
@@ -50,6 +51,7 @@ async def start_bridge(
         if allowed_users:
             cmd += ["--allowed-users", ",".join(allowed_users)]
 
+        _kill_port_process(port)
         PrintStyle.info("WhatsApp: starting bridge")
         _bridge_process = subprocess.Popen(
             cmd,
@@ -128,6 +130,7 @@ async def ensure_bridge_http_up(
         if allowed_users:
             cmd += ["--allowed-users", ",".join(allowed_users)]
 
+        _kill_port_process(port)
         PrintStyle.info("WhatsApp: starting bridge for pairing")
         _bridge_process = subprocess.Popen(
             cmd,
@@ -193,6 +196,39 @@ async def _ensure_npm_install() -> None:
     if proc.returncode != 0:
         PrintStyle.error(f"WhatsApp: npm install failed: {stdout.decode()}")
         raise RuntimeError("npm install failed")
+
+
+def _kill_port_process(port: int) -> None:
+    """Kill any orphaned process listening on the given TCP port."""
+    try:
+        if platform.system() == "Windows":
+            result = subprocess.run(
+                ["netstat", "-ano", "-p", "TCP"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 5 and parts[3] == "LISTENING":
+                    if parts[1].endswith(f":{port}"):
+                        try:
+                            subprocess.run(
+                                ["taskkill", "/PID", parts[4], "/F"],
+                                capture_output=True, timeout=5,
+                            )
+                        except subprocess.SubprocessError:
+                            pass
+        else:
+            result = subprocess.run(
+                ["fuser", f"{port}/tcp"],
+                capture_output=True, timeout=5,
+            )
+            if result.returncode == 0:
+                subprocess.run(
+                    ["fuser", "-k", f"{port}/tcp"],
+                    capture_output=True, timeout=5,
+                )
+    except Exception:
+        pass
 
 
 def _start_log_reader(process: subprocess.Popen) -> None:
