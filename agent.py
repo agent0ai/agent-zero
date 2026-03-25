@@ -382,6 +382,7 @@ class Agent:
 
     async def monologue(self):
         error_retries = 0  # counter for critical error retries
+        duplicate_retries = 0  # counter for duplicate response retries
         while True:
             try:
                 # loop data dictionary to pass to extensions
@@ -473,6 +474,17 @@ class Agent:
                         if (
                             self.loop_data.last_response == agent_response
                         ):  # if assistant_response is the same as last message in history, let him know
+                            # Increment duplicate counter
+                            duplicate_retries += 1
+
+                            # Check if max duplicates reached - break the loop
+                            if duplicate_retries >= 3:
+                                from python.helpers.errors import HandledException
+                                error_msg = "Agent stuck in duplicate response loop (3 consecutive identical responses). Breaking loop."
+                                PrintStyle(font_color="red", padding=True).print(error_msg)
+                                self.context.log.log(type="error", content=error_msg)
+                                raise HandledException(Exception(error_msg))
+
                             # Append the assistant's response to the history
                             self.hist_add_ai_response(agent_response)
                             # Append warning message to the history
@@ -492,6 +504,7 @@ class Agent:
                                 return tools_result  # break the execution if the task is done
 
                         error_retries = 0  # reset retry counter on successful iteration
+                        duplicate_retries = 0  # reset duplicate counter on successful iteration
 
                     # exceptions inside message loop:
                     except InterventionException as e:
