@@ -55,12 +55,13 @@ async def _poll_loop() -> None:
         session_dir = files.get_abs_path("usr/whatsapp/sessions")
         cache_dir = files.get_abs_path("usr/whatsapp/media")
         allowed_users = config.get("allowed_users") or []
+        mode = config.get("mode", "bot")
 
         # Start bridge if needed
         if not bridge_started or not bridge_manager.is_process_alive():
             try:
                 bridge_started = await bridge_manager.start_bridge(
-                    port, session_dir, cache_dir, allowed_users,
+                    port, session_dir, cache_dir, allowed_users, mode=mode,
                 )
             except Exception as e:
                 PrintStyle.error(f"WhatsApp bridge start error: {format_error(e)}")

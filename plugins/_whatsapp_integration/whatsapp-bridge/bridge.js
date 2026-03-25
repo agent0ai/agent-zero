@@ -45,6 +45,7 @@ const PORT = parseInt(getArg('port', '3100'), 10);
 const SESSION_DIR = getArg('session', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'session'));
 const CACHE_DIR = getArg('cache-dir', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'media'));
 const PAIR_ONLY = args.includes('--pair-only');
+const MODE = getArg('mode', 'bot'); // "bot" or "self-chat"
 const ALLOWED_USERS = (getArg('allowed-users', '') || '').split(',').map(s => s.trim()).filter(Boolean);
 
 mkdirSync(SESSION_DIR, { recursive: true });
@@ -158,14 +159,28 @@ async function startSocket() {
       const isGroup = chatId.endsWith('@g.us');
       const senderNumber = senderId.replace(/@.*/, '');
 
-      // Bot mode: all fromMe messages are echo-backs — skip
-      if (msg.key.fromMe) continue;
+      // Handle fromMe messages based on mode
+      if (msg.key.fromMe) {
+        if (isGroup || chatId.includes('status')) continue;
+
+        if (MODE === 'bot') {
+          // Bot mode: separate number — all fromMe are echo-backs, skip
+          continue;
+        }
+
+        // Self-chat mode: only accept messages in the user's own self-chat
+        const myNumber = (sock.user?.id || '').replace(/:.*@/, '@').replace(/@.*/, '');
+        const myLid = (sock.user?.lid || '').replace(/:.*@/, '@').replace(/@.*/, '');
+        const chatNumber = chatId.replace(/@.*/, '');
+        const isSelfChat = (myNumber && chatNumber === myNumber) || (myLid && chatNumber === myLid);
+        if (!isSelfChat) continue;
+      }
 
       // Skip status broadcasts
       if (chatId === 'status@broadcast') continue;
 
       // Check allowlist (resolve LID -> phone if needed)
-      if (ALLOWED_USERS.length > 0) {
+      if (!msg.key.fromMe && ALLOWED_USERS.length > 0) {
         const resolvedNumber = lidToPhone[senderNumber] || senderNumber;
         if (!ALLOWED_USERS.includes(resolvedNumber)) continue;
       }
@@ -458,7 +473,7 @@ if (PAIR_ONLY) {
   startSocket();
 } else {
   app.listen(PORT, '127.0.0.1', () => {
-    console.log(`[bridge] WhatsApp bridge listening on port ${PORT}`);
+    console.log(`[bridge] WhatsApp bridge listening on port ${PORT} (mode: ${MODE})`);
     console.log(`[bridge] Session: ${SESSION_DIR}`);
     if (ALLOWED_USERS.length > 0) {
       console.log(`[bridge] Allowed users: ${ALLOWED_USERS.join(', ')}`);
