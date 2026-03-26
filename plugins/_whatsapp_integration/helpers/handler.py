@@ -7,6 +7,7 @@ Requires agent context.
 import asyncio
 import base64
 import os
+import re
 import uuid
 
 from agent import Agent, AgentContext, UserMessage
@@ -209,6 +210,46 @@ def _find_chats_by_jid(chat_id: str) -> list[str]:
 
 
 # ------------------------------------------------------------------
+# Markdown to WhatsApp formatting
+# ------------------------------------------------------------------
+
+def _md_to_whatsapp(text: str) -> str:
+    """Convert markdown formatting to WhatsApp formatting."""
+    # Protect code blocks from conversion
+    code_blocks: list[str] = []
+    def _save_code(m: re.Match) -> str:
+        code_blocks.append(m.group(0))
+        return f"\x00CB{len(code_blocks) - 1}\x00"
+    text = re.sub(r"```[\s\S]*?```", _save_code, text)
+
+    # Protect inline code
+    inline_codes: list[str] = []
+    def _save_inline(m: re.Match) -> str:
+        inline_codes.append(m.group(0))
+        return f"\x00IC{len(inline_codes) - 1}\x00"
+    text = re.sub(r"`[^`]+`", _save_inline, text)
+
+    # Bold+italic ***text*** → *_text_*
+    text = re.sub(r"\*{3}(.+?)\*{3}", r"*_\1_*", text)
+    # Bold **text** or __text__ → *text*
+    text = re.sub(r"\*{2}(.+?)\*{2}", r"*\1*", text)
+    text = re.sub(r"__(.+?)__", r"*\1*", text)
+    # Italic _text_ stays _text_ (same in WhatsApp)
+    # Strikethrough ~~text~~ → ~text~
+    text = re.sub(r"~~(.+?)~~", r"~\1~", text)
+    # Headings → bold
+    text = re.sub(r"^#{1,6}\s+(.+)$", r"*\1*", text, flags=re.MULTILINE)
+
+    # Restore code blocks and inline code
+    for i, block in enumerate(code_blocks):
+        text = text.replace(f"\x00CB{i}\x00", block)
+    for i, code in enumerate(inline_codes):
+        text = text.replace(f"\x00IC{i}\x00", code)
+
+    return text
+
+
+# ------------------------------------------------------------------
 # Message builders
 # ------------------------------------------------------------------
 
@@ -255,6 +296,9 @@ async def send_wa_reply(
     # For group chats, auto-reply to last received message if no explicit reply_to
     if not reply_to and context.data.get(CTX_WA_IS_GROUP):
         reply_to = context.data.get(CTX_WA_LAST_MSG_ID, "")
+
+    # Convert markdown to WhatsApp formatting
+    response_text = _md_to_whatsapp(response_text)
 
     # Prefix response in self-chat mode so user can distinguish agent messages
     mode = config.get("mode", "dedicated")
