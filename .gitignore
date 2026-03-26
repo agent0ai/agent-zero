@@ -16,9 +16,9 @@
 .venv/
 
 # obsolete folders
-memory/
-knowledge/custom/
-instruments/
+/memory/
+/knowledge/custom/
+/instruments/
 
 # Handle logs directory
 logs/**
@@ -40,3 +40,7 @@ agent_history.gif
 
 .agent/**
 .claude/**
+tools
+goals
+context
+data

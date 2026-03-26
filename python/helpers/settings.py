@@ -7,7 +7,7 @@ import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
-from python.helpers import runtime, whisper, defer, git
+from python.helpers import runtime, whisper, defer, git, subagents
 from . import files, dotenv
 from python.helpers.print_style import PrintStyle
 from python.helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -158,6 +158,14 @@ class Settings(TypedDict):
 
     update_check_enabled: bool
 
+    # TEMPORARY: Telegram bridge settings — remove when plugin-scoped settings land (Phase 2)
+    telegram_enabled: bool
+    telegram_voice_reply_mode: str
+    telegram_default_project: str
+    telegram_context_lifetime: int
+    telegram_message_timeout: int
+    telegram_allowed_chat_ids: str
+
 
 class PartialSettings(Settings, total=False):
     pass
@@ -248,9 +256,9 @@ def convert_out(settings: Settings) -> SettingsOutput:
             embedding_providers=get_providers("embedding"),
             shell_interfaces=[{"value": "local", "label": "Local Python TTY"}, {"value": "ssh", "label": "SSH"}],
             is_dockerized=runtime.is_dockerized(),
-            agent_subdirs=[{"value": subdir, "label": subdir}
-                for subdir in files.get_subdirectories("agents")
-                if subdir != "_example"],
+            agent_subdirs=[{"value": item["key"], "label": item["label"]}
+                for item in subagents.get_all_agents_list()
+                if item["key"] != "_example"],
             knowledge_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")],
             stt_models=[
@@ -599,6 +607,13 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
+        # TEMPORARY: Telegram bridge settings — remove when plugin-scoped settings land (Phase 2)
+        telegram_enabled=get_default_value("telegram_enabled", False),
+        telegram_voice_reply_mode=get_default_value("telegram_voice_reply_mode", "text"),
+        telegram_default_project=get_default_value("telegram_default_project", ""),
+        telegram_context_lifetime=get_default_value("telegram_context_lifetime", 24),
+        telegram_message_timeout=get_default_value("telegram_message_timeout", 300),
+        telegram_allowed_chat_ids=get_default_value("telegram_allowed_chat_ids", ""),
     )
 
 
@@ -623,15 +638,17 @@ def _apply_settings(previous: Settings | None):
                 whisper.preload, _settings["stt_model_size"]
             )  # TODO overkill, replace with background task
 
-        # force memory reload on embedding model change
+        # notify plugins of embedding model change
         if not previous or (
             _settings["embed_model_name"] != previous["embed_model_name"]
             or _settings["embed_model_provider"] != previous["embed_model_provider"]
             or _settings["embed_model_kwargs"] != previous["embed_model_kwargs"]
         ):
-            from python.helpers.memory import reload as memory_reload
+            from python.helpers.extension import call_extensions
 
-            memory_reload()
+            defer.DeferredTask().start_task(
+                call_extensions, "embedding_model_changed"
+            )
 
         # update mcp settings if necessary
         if not previous or _settings["mcp_servers"] != previous["mcp_servers"]:
@@ -716,6 +733,34 @@ def _apply_settings(previous: Settings | None):
             task4 = defer.DeferredTask().start_task(
                 update_a2a_token, current_token
             )  # TODO overkill, replace with background task
+
+        # TEMPORARY: Hot-reload Telegram bridge — remove when plugin-scoped settings land (Phase 2)
+        telegram_keys = [
+            "telegram_enabled", "telegram_voice_reply_mode",
+            "telegram_allowed_chat_ids", "telegram_default_project",
+            "telegram_context_lifetime", "telegram_message_timeout",
+        ]
+        telegram_changed = not previous or any(
+            _settings.get(k) != previous.get(k) for k in telegram_keys
+        )
+        if telegram_changed:
+            async def _reconfigure_telegram():
+                try:
+                    from plugins.telegram.helpers.telegram_bridge import TelegramBridge
+                    bridge = TelegramBridge.get_instance()
+                    if bridge.is_running:
+                        await bridge.stop()
+                    if _settings.get("telegram_enabled"):
+                        bridge.reload_config()
+                        await bridge.start()
+                        PrintStyle(
+                            font_color="white", background_color="#0088cc",
+                            bold=True, padding=True,
+                        ).print("Telegram bridge restarted with new settings")
+                except Exception as e:
+                    PrintStyle.error(f"Telegram bridge reconfiguration failed: {e}")
+
+            defer.DeferredTask().start_task(_reconfigure_telegram)
 
 
 def _env_to_dict(data: str):
@@ -813,4 +858,3 @@ def create_auth_token() -> str:
 
 def _get_version():
     return git.get_version()
-

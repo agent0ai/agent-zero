@@ -805,12 +805,14 @@ def test_debug_logging_respects_runtime_flag(monkeypatch):
         logs.append(message)
 
     monkeypatch.setattr("python.helpers.print_style.PrintStyle.debug", staticmethod(capture))
-    monkeypatch.setattr("python.helpers.websocket_manager.runtime.is_development", lambda: False)
+
+    # _debug() gates on the A0_WS_DEBUG env var, not runtime.is_development()
+    monkeypatch.delenv("A0_WS_DEBUG", raising=False)
 
     manager._debug("should-not-log")  # noqa: SLF001
     assert logs == []
 
-    monkeypatch.setattr("python.helpers.websocket_manager.runtime.is_development", lambda: True)
+    monkeypatch.setenv("A0_WS_DEBUG", "1")
     manager._debug("should-log")  # noqa: SLF001
     assert logs == ["should-log"]
 

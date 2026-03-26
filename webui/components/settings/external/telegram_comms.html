@@ -1,0 +1,137 @@
+<html>
+  <head>
+    <title>Telegram Bot</title>
+  </head>
+
+  <body>
+    <!-- TEMPORARY: Replace with plugin-scoped settings when available (Phase 2) -->
+    <div x-data="{ get settings() { return $store.settings.settings }, expanded: false }">
+      <template x-if="settings">
+        <div>
+          <div class="section-title">Telegram Bot</div>
+          <div class="section-description">
+            Connect Agent Zero to Telegram via the Bot API. Create a bot with
+            <a href="https://t.me/BotFather" target="_blank">@BotFather</a>,
+            add the token to Secrets Management as <code>TELEGRAM_BOT_TOKEN</code>,
+            and enable the bridge below.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Enable Telegram Bridge</div>
+              <div class="field-description">
+                Start the Telegram bot when Agent Zero initialises.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="switch">
+                <input type="checkbox" x-model="settings.telegram_enabled" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <template x-if="settings.telegram_enabled">
+            <div>
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Allowed Chat IDs</div>
+                  <div class="field-description">
+                    Comma-separated list of authorised Telegram chat IDs.
+                    Leave empty to allow all. Use the <code>/id</code> command
+                    in Telegram to find your chat ID.
+                  </div>
+                </div>
+                <div class="field-control">
+                  <input
+                    type="text"
+                    x-model="settings.telegram_allowed_chat_ids"
+                    placeholder="e.g. 123456789, 987654321"
+                  />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Voice Reply Mode</div>
+                  <div class="field-description">
+                    How the agent responds to voice notes (Sprint 2).
+                  </div>
+                </div>
+                <div class="field-control">
+                  <select x-model="settings.telegram_voice_reply_mode">
+                    <option value="text">Text only</option>
+                    <option value="voice">Voice only</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+              </div>
+
+              <template x-if="expanded">
+                <div>
+                  <div class="field">
+                    <div class="field-label">
+                      <div class="field-title">Default Project</div>
+                      <div class="field-description">
+                        A0 project for Telegram conversations (optional).
+                      </div>
+                    </div>
+                    <div class="field-control">
+                      <input
+                        type="text"
+                        x-model="settings.telegram_default_project"
+                        placeholder="Optional"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <div class="field-label">
+                      <div class="field-title">Context Lifetime (hours)</div>
+                      <div class="field-description">
+                        Hours before idle contexts are cleaned up.
+                      </div>
+                    </div>
+                    <div class="field-control">
+                      <input
+                        type="number"
+                        x-model.number="settings.telegram_context_lifetime"
+                        min="1"
+                        max="168"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <div class="field-label">
+                      <div class="field-title">Message Timeout (seconds)</div>
+                      <div class="field-description">
+                        Seconds before agent response times out.
+                      </div>
+                    </div>
+                    <div class="field-control">
+                      <input
+                        type="number"
+                        x-model.number="settings.telegram_message_timeout"
+                        min="30"
+                        max="600"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <div class="field">
+                <div class="field-control">
+                  <button class="btn btn-sm" @click="expanded = !expanded">
+                    <span x-text="expanded ? 'Less options' : 'More options'"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

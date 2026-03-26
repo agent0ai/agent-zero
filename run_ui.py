@@ -237,6 +237,41 @@ async def serve_index():
     return index
 
 
+# Serve plugin assets
+@webapp.route("/plugins/<plugin_id>/<path:asset_path>", methods=["GET"])
+@requires_auth
+async def serve_plugin_asset(plugin_id, asset_path):
+    """
+    Serve static assets from plugin directories.
+    Resolves using the plugin system (with overrides).
+    """
+    from python.helpers import plugins
+    from flask import send_file
+    
+    # Use the new find_plugin helper
+    plugin = plugins.find_plugin(plugin_id)
+    if not plugin:
+        return Response("Plugin not found", 404)
+    
+    # Resolve the plugin asset path with security checks
+    try:
+        # Construct path using plugin root
+        asset_file = (plugin.path / asset_path).resolve()
+        plugin_root = plugin.path.resolve()
+        
+        # Security: ensure the resolved path is within the plugin directory
+        if not str(asset_file).startswith(str(plugin_root) + os.sep) and str(asset_file) != str(plugin_root):
+            return Response("Access denied", 403)
+            
+        if not asset_file.is_file():
+            return Response("Asset not found", 404)
+            
+        return send_file(str(asset_file))
+    except Exception as e:
+        PrintStyle.error(f"Error serving plugin asset: {e}")
+        return Response("Error serving asset", 500)
+
+
 def _build_websocket_handlers_by_namespace(
     socketio_server: socketio.AsyncServer,
     lock: threading.RLock,
@@ -433,7 +468,7 @@ def run():
         runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     )
 
-    def register_api_handler(app, handler: type[ApiHandler]):
+    def register_api_handler(app, handler: type[ApiHandler], url_prefix: str = ""):
         name = handler.__module__.split(".")[-1]
         instance = handler(app, lock)
 
@@ -449,9 +484,10 @@ def run():
         if handler.requires_csrf():
             handler_wrap = csrf_protect(handler_wrap)
 
+        route = f"{url_prefix}/{name}"
         app.add_url_rule(
-            f"/{name}",
-            f"/{name}",
+            route,
+            route,
             handler_wrap,
             methods=handler.get_methods(),
         )
@@ -459,6 +495,21 @@ def run():
     handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)
     for handler in handlers:
         register_api_handler(webapp, handler)
+    
+    # Load API handlers from plugins (prefixed with /plugins/{plugin_id}/)
+    from python.helpers import plugins
+
+    for plugin in plugins.list_plugins():
+        api_path = plugin.path / "api"
+        if not api_path.exists() or not api_path.is_dir():
+            continue
+
+        plugin_handlers = load_classes_from_folder(str(api_path), "*.py", ApiHandler)
+        for handler in plugin_handlers:
+            # prefixed route for explicit namespacing
+            register_api_handler(webapp, handler, url_prefix=f"/plugins/{plugin.id}")
+            # bare route so callers don't need to know the plugin prefix
+            register_api_handler(webapp, handler)
 
     handlers_by_namespace = _build_websocket_handlers_by_namespace(socketio_server, lock)
     configure_websocket_namespaces(

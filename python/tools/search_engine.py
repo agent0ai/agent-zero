@@ -1,6 +1,6 @@
 import os
 import asyncio
-from python.helpers import dotenv, memory, perplexity_search, duckduckgo_search
+from python.helpers import dotenv, perplexity_search, duckduckgo_search
 from python.helpers.tool import Tool, Response
 from python.helpers.print_style import PrintStyle
 from python.helpers.errors import handle_error

@@ -644,14 +644,16 @@ class Agent:
         return system_prompt
 
     def parse_prompt(self, _prompt_file: str, **kwargs):
-        dirs = subagents.get_paths(self, "prompts")
+        dirs = subagents.get_paths(self, "prompts", include_plugins=True)
+
         prompt = files.parse_file(
             _prompt_file, _directories=dirs, _agent=self, **kwargs
         )
         return prompt
 
     def read_prompt(self, file: str, **kwargs) -> str:
-        dirs = subagents.get_paths(self, "prompts")
+        dirs = subagents.get_paths(self, "prompts", include_plugins=True)
+
         prompt = files.read_prompt_file(file, _directories=dirs, _agent=self, **kwargs)
         if files.is_full_json_template(prompt):
             prompt = files.remove_code_fences(prompt)
@@ -986,7 +988,8 @@ class Agent:
         classes = []
 
         # search for tools in agent's folder hierarchy
-        paths = subagents.get_paths(self, "tools", name + ".py", default_root="python")
+        paths = subagents.get_paths(self, "tools", name + ".py", default_root="python", include_plugins=True)
+
         for path in paths:
             try:
                 classes = extract_tools.load_classes_from_file(path, Tool)  # type: ignore[arg-type]
