@@ -4,18 +4,28 @@ Communicate with Agent Zero via WhatsApp using a Baileys-based Node.js bridge.
 
 ## Requirements
 
-- **Node.js** (v18+) installed on the system
+- **Node.js** (v18+) and npm installed on the system
 - A WhatsApp account on a phone (for QR code pairing)
 
 ## Setup
 
+### Install bridge dependencies
+
+```bash
+cd plugins/_whatsapp_integration/whatsapp-bridge
+npm install --production
+```
+
+Dependencies are auto-installed on first bridge start if missing.
+
+### Configure and pair
+
 1. Enable the plugin in Settings > External > WhatsApp Integration
 2. Configure allowed phone numbers (optional)
-3. Start Agent Zero — the bridge will auto-start and display a QR code in the logs
-4. Scan the QR code with WhatsApp on your phone
-5. Send a message from an allowed number to start a chat
+3. Click Show QR Code and scan with WhatsApp on your phone
+4. Send a message from an allowed number to start a chat
 
-The WhatsApp session persists across restarts in `usr/whatsapp/sessions/`. No re-pairing needed unless you manually unlink the device from WhatsApp.
+The WhatsApp session persists across restarts in `usr/whatsapp/sessions/`. No re-pairing needed unless you disconnect via settings.
 
 ## Configuration
 
