@@ -69,13 +69,13 @@ async def _dispatch_message(config: dict, msg: dict) -> None:
     chat_id = msg.get("chatId", "")
     is_group = msg.get("isGroup", False)
 
-    # Group filtering: skip unless allow_group enabled AND bot was mentioned
+    # Group filtering: skip unless allow_group enabled AND bot was mentioned or replied to
     if is_group:
         if not config.get("allow_group", False):
             PrintStyle.debug(f"WhatsApp: skipping group message (allow_group disabled)")
             return
-        if not msg.get("mentionedMe", False):
-            PrintStyle.debug(f"WhatsApp: skipping group message (not mentioned)")
+        if not msg.get("mentionedMe", False) and not msg.get("repliedToMe", False):
+            PrintStyle.debug(f"WhatsApp: skipping group message (not mentioned or replied to)")
             return
 
     # Show typing indicator immediately so user sees activity

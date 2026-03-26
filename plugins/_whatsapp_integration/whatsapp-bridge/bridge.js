@@ -260,28 +260,43 @@ async function startSocket() {
         continue;
       }
 
-      // Detect if the bot was mentioned in a group message
+      // Detect if the bot was mentioned or replied to in a group message
       let mentionedMe = false;
+      let repliedToMe = false;
       if (isGroup && sock.user) {
         const contextInfo = msg.message.extendedTextMessage?.contextInfo
           || msg.message.imageMessage?.contextInfo
           || msg.message.videoMessage?.contextInfo
           || msg.message.documentMessage?.contextInfo
           || null;
-        const mentionedJids = contextInfo?.mentionedJid || [];
+
+        // Build set of bot's own numbers for comparison
         const myNums = new Set();
         if (sock.user.id) myNums.add(numOf(sock.user.id));
         if (sock.user.lid) myNums.add(numOf(sock.user.lid));
-        // Include reverse LID mappings so either format matches
         for (const [lid, phone] of Object.entries(lidToPhone)) {
           if (myNums.has(lid)) myNums.add(String(phone));
           if (myNums.has(String(phone))) myNums.add(lid);
         }
+
+        // Check @mentions
+        const mentionedJids = contextInfo?.mentionedJid || [];
         for (const jid of mentionedJids) {
           if (myNums.has(numOf(jid))) { mentionedMe = true; break; }
         }
-        if (WHATSAPP_DEBUG && mentionedJids.length > 0) {
-          try { console.log(JSON.stringify({ event: 'mention_check', myNums: [...myNums], mentionedJids, mentionedMe })); } catch {}
+
+        // Check if replying to a bot message
+        if (contextInfo?.stanzaId) {
+          const replyParticipant = contextInfo.participant || '';
+          if (replyParticipant && myNums.has(numOf(replyParticipant))) {
+            repliedToMe = true;
+          } else if (recentlySentIds.has(contextInfo.stanzaId)) {
+            repliedToMe = true;
+          }
+        }
+
+        if (WHATSAPP_DEBUG && (mentionedJids.length > 0 || repliedToMe)) {
+          try { console.log(JSON.stringify({ event: 'mention_reply_check', myNums: [...myNums], mentionedJids, mentionedMe, repliedToMe, stanzaId: contextInfo?.stanzaId })); } catch {}
         }
       }
 
@@ -325,6 +340,7 @@ async function startSocket() {
         chatName,
         isGroup,
         mentionedMe,
+        repliedToMe,
         body: cleanBody,
         hasMedia,
         mediaType,
