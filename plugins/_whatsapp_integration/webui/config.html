@@ -105,39 +105,17 @@
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Mode</div>
-                        <div class="field-description">How the agent connects to WhatsApp</div>
+                        <div class="field-description"
+                             x-text="config.mode === 'self-chat'
+                                 ? 'Message yourself to talk to the agent — no extra number needed'
+                                 : 'Uses a second phone number — others message it directly'">
+                        </div>
                     </div>
                     <div class="field-control">
                         <select x-model="config.mode">
                             <option value="dedicated">Separate number (dedicated)</option>
                             <option value="self-chat">Personal number (self-chat)</option>
                         </select>
-                    </div>
-                </div>
-
-                <template x-if="config.mode === 'dedicated'">
-                    <div style="padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; opacity: 0.7;
-                                border: 1px solid var(--border-color, #333); margin-bottom: 8px;">
-                        Uses a second phone number. Others message it directly.
-                    </div>
-                </template>
-                <template x-if="config.mode === 'self-chat'">
-                    <div style="padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; opacity: 0.7;
-                                border: 1px solid var(--border-color, #333); margin-bottom: 8px;">
-                        Message yourself to talk to the agent. No extra number needed.
-                    </div>
-                </template>
-
-                <div class="field">
-                    <div class="field-label">
-                        <div class="field-title">Allow Group</div>
-                        <div class="field-description">Respond in group chats when mentioned or replied to</div>
-                    </div>
-                    <div class="field-control">
-                        <label class="toggle">
-                            <input type="checkbox" x-model="config.allow_group" />
-                            <span class="toggler"></span>
-                        </label>
                     </div>
                 </div>
 
@@ -240,6 +218,19 @@
                     </div>
                     <div class="field-control">
                         <input type="text" :value="allowed_text()" @input="set_allowed($event.target.value)" placeholder="34652029134, 1234567890" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Allow Group</div>
+                        <div class="field-description">Respond in group chats when mentioned or replied to</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.allow_group" />
+                            <span class="toggler"></span>
+                        </label>
                     </div>
                 </div>
 
