@@ -15,6 +15,9 @@
         qr_data_url: null,
         qr_poll_timer: null,
 
+        disconnecting: false,
+        disconnect_message: '',
+
         async init() {
             try {
                 const { callJsonApi } = await import('/js/api.js');
@@ -79,6 +82,19 @@
                 this.qr_message = String(e);
                 this.qr_data_url = null;
             }
+        },
+        async disconnect_account() {
+            if (!confirm('Disconnect this WhatsApp account? You will need to scan a new QR code to reconnect.')) return;
+            this.disconnecting = true;
+            this.disconnect_message = '';
+            try {
+                const { callJsonApi } = await import('/js/api.js');
+                const res = await callJsonApi('/plugins/_whatsapp_integration/disconnect', {});
+                this.disconnect_message = res.success ? 'Account disconnected' : (res.message || 'Failed');
+            } catch (e) {
+                this.disconnect_message = String(e);
+            }
+            this.disconnecting = false;
         }
     }">
         <template x-if="config">
@@ -188,6 +204,26 @@
                                 </template>
                             </div>
                         </template>
+                    </div>
+                </template>
+
+                <!-- Disconnect account (shown when enabled) -->
+                <template x-if="config.enabled">
+                    <div class="field">
+                        <div class="field-label">
+                            <div class="field-title">WhatsApp Account</div>
+                            <div class="field-description">
+                                <span x-show="!disconnect_message">Disconnect to switch to a different WhatsApp account</span>
+                                <span x-show="disconnect_message" x-text="disconnect_message"
+                                      :style="'color:' + (disconnect_message === 'Account disconnected' ? '#4caf50' : '#f44336')"></span>
+                            </div>
+                        </div>
+                        <div class="field-control">
+                            <button class="btn btn-field" @click="disconnect_account()" :disabled="disconnecting">
+                                <span x-show="!disconnecting">Disconnect</span>
+                                <span x-show="disconnecting">Disconnecting...</span>
+                            </button>
+                        </div>
                     </div>
                 </template>
 
