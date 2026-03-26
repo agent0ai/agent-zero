@@ -18,12 +18,15 @@ async def get_messages(base_url: str) -> list[dict]:
 
 
 async def send_message(
-    base_url: str, chat_id: str, message: str,
+    base_url: str, chat_id: str, message: str, reply_to: str = "",
 ) -> dict:
+    payload: dict = {"chatId": chat_id, "message": message}
+    if reply_to:
+        payload["replyTo"] = reply_to
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{base_url}/send",
-            json={"chatId": chat_id, "message": message},
+            json=payload,
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             return await resp.json()

@@ -4,7 +4,7 @@ import asyncio
 from helpers.extension import Extension
 from helpers.print_style import PrintStyle
 from agent import AgentContext, LoopData, UserMessage
-from plugins._whatsapp_integration.helpers.handler import CTX_WA_CHAT_ID, CTX_WA_ATTACHMENTS
+from plugins._whatsapp_integration.helpers.handler import CTX_WA_CHAT_ID, CTX_WA_ATTACHMENTS, CTX_WA_REPLY_TO
 
 MAX_SEND_RETRIES: int = 2
 CTX_SEND_FAILURES: str = "_wa_send_failures"
@@ -25,15 +25,17 @@ class WhatsAppAutoReply(Extension):
             return
 
         attachments = context.data.pop(CTX_WA_ATTACHMENTS, [])
+        reply_to = context.data.pop(CTX_WA_REPLY_TO, "")
         if attachments:
             PrintStyle.info(f"WhatsApp: sending reply with {len(attachments)} attachment(s)")
-        asyncio.create_task(self._send_reply(context, response_text, attachments))
+        asyncio.create_task(self._send_reply(context, response_text, attachments, reply_to))
 
     async def _send_reply(
         self, context: AgentContext, response_text: str, attachments: list[str],
+        reply_to: str = "",
     ):
         from plugins._whatsapp_integration.helpers.handler import send_wa_reply
-        error = await send_wa_reply(context, response_text, attachments)
+        error = await send_wa_reply(context, response_text, attachments, reply_to=reply_to)
         if not error:
             context.data[CTX_SEND_FAILURES] = 0
             return

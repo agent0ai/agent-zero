@@ -28,8 +28,10 @@ CTX_WA_SENDER_NAME = "wa_sender_name"
 CTX_WA_SENDER_NUMBER = "wa_sender_number"
 CTX_WA_IS_GROUP = "wa_is_group"
 CTX_WA_LAST_BODY = "wa_last_body"
+CTX_WA_LAST_MSG_ID = "wa_last_msg_id"
 # Transient — consumed per-reply, not persisted
 CTX_WA_ATTACHMENTS = "_wa_response_attachments"
+CTX_WA_REPLY_TO = "_wa_reply_to"
 
 # Poll task — lives here (not in extension module) because
 # extension modules are re-executed on each job_loop tick,
@@ -112,6 +114,7 @@ async def _start_new_chat(config: dict, msg: dict) -> None:
     context.data[CTX_WA_SENDER_NUMBER] = sender_number
     context.data[CTX_WA_IS_GROUP] = is_group
     context.data[CTX_WA_LAST_BODY] = msg.get("body", "")
+    context.data[CTX_WA_LAST_MSG_ID] = msg.get("messageId", "")
 
     project = config.get("project", "")
     if project:
@@ -147,6 +150,7 @@ async def _route_to_chat(
         return
 
     context.data[CTX_WA_LAST_BODY] = msg.get("body", "")
+    context.data[CTX_WA_LAST_MSG_ID] = msg.get("messageId", "")
 
     user_msg = _build_user_message(context.agent0, msg, config)
     msg_id = str(uuid.uuid4())
@@ -196,6 +200,7 @@ def _build_user_message(agent: Agent, msg: dict, config: dict) -> str:
         sender_name=sender_name,
         sender_number=sender_number,
         group_name=msg.get("chatName", ""),
+        message_id=msg.get("messageId", ""),
         body=msg.get("body", ""),
     )
     instructions = config.get("agent_instructions", "")
@@ -214,6 +219,7 @@ async def send_wa_reply(
     context: AgentContext,
     response_text: str,
     attachments: list[str] | None = None,
+    reply_to: str = "",
 ) -> str | None:
     chat_id = context.data.get(CTX_WA_CHAT_ID)
     if not chat_id:
@@ -223,12 +229,16 @@ async def send_wa_reply(
     port = int(config.get("bridge_port", 3100))
     base_url = bridge_manager.get_bridge_url(port)
 
+    # For group chats, auto-reply to last received message if no explicit reply_to
+    if not reply_to and context.data.get(CTX_WA_IS_GROUP):
+        reply_to = context.data.get(CTX_WA_LAST_MSG_ID, "")
+
     # Typing indicator
     await wa_client.send_typing(base_url, chat_id)
 
     # Send text
     try:
-        result = await wa_client.send_message(base_url, chat_id, response_text)
+        result = await wa_client.send_message(base_url, chat_id, response_text, reply_to=reply_to)
         if result.get("error"):
             return result["error"]
     except Exception as e:

@@ -91,6 +91,10 @@ const MAX_QUEUE_SIZE = 100;
 const recentlySentIds = new Set();
 const MAX_RECENT_IDS = 50;
 
+// Store received messages for reply quoting
+const messageStore = new Map();
+const MAX_STORED_MESSAGES = 200;
+
 let sock = null;
 let connectionState = 'disconnected';
 let latestQrDataUrl = null;
@@ -348,6 +352,12 @@ async function startSocket() {
         timestamp: msg.messageTimestamp,
       };
 
+      // Store raw message for reply quoting
+      messageStore.set(msg.key.id, msg);
+      if (messageStore.size > MAX_STORED_MESSAGES) {
+        messageStore.delete(messageStore.keys().next().value);
+      }
+
       messageQueue.push(event);
       if (messageQueue.length > MAX_QUEUE_SIZE) {
         messageQueue.shift();
@@ -378,7 +388,11 @@ app.post('/send', async (req, res) => {
   }
 
   try {
-    const sent = await sock.sendMessage(chatId, { text: message });
+    const opts = {};
+    if (replyTo && messageStore.has(replyTo)) {
+      opts.quoted = messageStore.get(replyTo);
+    }
+    const sent = await sock.sendMessage(chatId, { text: message }, opts);
 
     if (sent?.key?.id) {
       recentlySentIds.add(sent.key.id);
