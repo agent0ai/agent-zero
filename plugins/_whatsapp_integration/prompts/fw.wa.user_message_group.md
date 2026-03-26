@@ -1,3 +1,3 @@
-[WhatsApp group "{{group_name}}" from {{sender_name}} ({{sender_number}})]
+[WhatsApp group "{{group_name}}" from {{sender_name}}]
 
 {{body}}

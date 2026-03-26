@@ -67,6 +67,20 @@ function buildLidMap() {
 }
 let lidToPhone = buildLidMap();
 
+// Cache group names to avoid repeated metadata fetches
+const groupNameCache = {};
+
+// Extract raw number from a JID (strips @domain and :device)
+function numOf(jid) {
+  return (jid || '').split('@')[0].split(':')[0];
+}
+
+// Resolve LID-based number to phone number using lidToPhone map
+function resolveNumber(num) {
+  const raw = num.split(':')[0];
+  return lidToPhone[raw] || lidToPhone[num] || raw;
+}
+
 const logger = pino({ level: 'warn' });
 
 // Message queue for polling
@@ -255,8 +269,6 @@ async function startSocket() {
           || msg.message.documentMessage?.contextInfo
           || null;
         const mentionedJids = contextInfo?.mentionedJid || [];
-        // Compare by raw number (before : and @) to handle phone/LID format mismatches
-        const numOf = (jid) => (jid || '').split('@')[0].split(':')[0];
         const myNums = new Set();
         if (sock.user.id) myNums.add(numOf(sock.user.id));
         if (sock.user.lid) myNums.add(numOf(sock.user.lid));
@@ -273,15 +285,47 @@ async function startSocket() {
         }
       }
 
+      // Resolve sender number (LID -> phone if possible)
+      const resolvedSender = resolveNumber(senderNumber);
+
+      // Resolve group name from metadata cache or fetch
+      let chatName;
+      if (isGroup) {
+        if (groupNameCache[chatId]) {
+          chatName = groupNameCache[chatId];
+        } else {
+          try {
+            const meta = await sock.groupMetadata(chatId);
+            chatName = meta.subject || chatId.split('@')[0];
+            groupNameCache[chatId] = chatName;
+          } catch {
+            chatName = chatId.split('@')[0];
+          }
+        }
+      } else {
+        chatName = msg.pushName || resolvedSender;
+      }
+
+      // Strip bot's own @mention from body so agent gets clean text
+      let cleanBody = body;
+      if (isGroup && mentionedMe && sock.user) {
+        const myNum = numOf(sock.user.id || '');
+        const myLidNum = numOf(sock.user.lid || '');
+        // Remove @number or @lid patterns matching the bot
+        for (const n of [myNum, myLidNum, resolveNumber(myNum), resolveNumber(myLidNum)]) {
+          if (n) cleanBody = cleanBody.replace(new RegExp(`@${n}\\b`, 'g'), '').trim();
+        }
+      }
+
       const event = {
         messageId: msg.key.id,
         chatId,
         senderId,
-        senderName: msg.pushName || senderNumber,
-        chatName: isGroup ? (chatId.split('@')[0]) : (msg.pushName || senderNumber),
+        senderName: msg.pushName || resolvedSender,
+        chatName,
         isGroup,
         mentionedMe,
-        body,
+        body: cleanBody,
         hasMedia,
         mediaType,
         mediaUrls,
