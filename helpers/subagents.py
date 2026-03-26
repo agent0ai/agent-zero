@@ -83,6 +83,10 @@ def get_agents_dict(
         project_agents = _get_agents_list_from_dir(project_agents_dir, origin="project")
         merged = _merge_agent_dicts(merged, project_agents)
 
+    # Exclude 'default' agent if other agents exist
+    if "default" in merged and len(merged) > 1:
+        del merged["default"]
+
     return merged
 
 
@@ -255,8 +259,6 @@ def _merge_agent_list_items(
 
 
 def get_agents_roots() -> list[str]:
-    # from helpers import plugins
-
     plugin_agents = plugins.get_enabled_plugin_paths(None, "agents")
     project_agents = files.find_existing_paths_by_pattern("usr/projects/*/.a0proj/agents")
     paths = [
@@ -300,8 +302,13 @@ def get_all_agents_list() -> list[dict[str, str]]:
             else:
                 merged[name] = item
 
+    keys = sorted(merged)
+    # Exclude 'default' agent if other agents exist
+    if len(keys) > 1:
+        keys = [k for k in keys if k != "default"]
+
     result: list[dict[str, str]] = []
-    for key in sorted(merged.keys()):
+    for key in keys:
         item = merged[key]
         result.append({"key": key, "label": item.title or key})
     return result
