@@ -1,3 +1,3 @@
-[WhatsApp from {{sender_name}} ({{sender_number}})]
+[WhatsApp from {{sender_name}}]
 
 {{body}}
