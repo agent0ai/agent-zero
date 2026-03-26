@@ -203,6 +203,11 @@ async function startSocket() {
         if (!ALLOWED_USERS.includes(resolvedNumber)) continue;
       }
 
+      // Unwrap documentWithCaptionMessage (Baileys wraps captioned docs)
+      if (msg.message.documentWithCaptionMessage?.message?.documentMessage) {
+        msg.message.documentMessage = msg.message.documentWithCaptionMessage.message.documentMessage;
+      }
+
       // Extract message body
       let body = '';
       let hasMedia = false;
