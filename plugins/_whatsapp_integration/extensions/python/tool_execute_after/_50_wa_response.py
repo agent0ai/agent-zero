@@ -51,7 +51,7 @@ class WhatsAppResponseIntercept(Extension):
         if attachments:
             PrintStyle.info(f"WhatsApp: sending update with {len(attachments)} attachment(s)")
 
-        error = await send_wa_reply(context, text, attachments or None, reply_to=reply_to)
+        error = await send_wa_reply(context, text, attachments or None, reply_to=reply_to, keep_typing=True)
 
         if error:
             result = agent.read_prompt("fw.wa.update_error.md", error=error)

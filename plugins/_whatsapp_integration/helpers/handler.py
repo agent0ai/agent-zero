@@ -34,6 +34,7 @@ CTX_WA_LAST_MSG_ID = "wa_last_msg_id"
 # Transient — consumed per-reply, not persisted
 CTX_WA_ATTACHMENTS = "_wa_response_attachments"
 CTX_WA_REPLY_TO = "_wa_reply_to"
+CTX_WA_TYPING_ACTIVE = "_wa_typing_active"
 
 # Poll task — lives here (not in extension module) because
 # extension modules are re-executed on each job_loop tick,
@@ -45,9 +46,24 @@ _poll_task: asyncio.Task | None = None  # type: ignore[type-arg]
 # Poll loop
 # ------------------------------------------------------------------
 
+async def _refresh_typing(base_url: str) -> None:
+    """Re-send composing for all contexts with active typing flag."""
+    for ctx in AgentContext._contexts.values():
+        if not isinstance(ctx, AgentContext):
+            continue
+        if not ctx.data.get(CTX_WA_TYPING_ACTIVE):
+            continue
+        chat_id = ctx.data.get(CTX_WA_CHAT_ID, "")
+        if chat_id:
+            await wa_client.send_typing(base_url, chat_id)
+
+
 async def poll_messages(config: dict) -> None:
     port = int(config.get("bridge_port", 3100))
     base_url = bridge_manager.get_bridge_url(port)
+
+    # Refresh typing indicator for active sessions (beats 25s WhatsApp timeout)
+    await _refresh_typing(base_url)
 
     try:
         messages = await wa_client.get_messages(base_url)
@@ -117,6 +133,7 @@ async def _start_new_chat(config: dict, msg: dict) -> None:
     context.data[CTX_WA_IS_GROUP] = is_group
     context.data[CTX_WA_LAST_BODY] = msg.get("body", "")
     context.data[CTX_WA_LAST_MSG_ID] = msg.get("messageId", "")
+    context.data[CTX_WA_TYPING_ACTIVE] = True
 
     project = config.get("project", "")
     if project:
@@ -154,6 +171,7 @@ async def _route_to_chat(
 
     context.data[CTX_WA_LAST_BODY] = msg.get("body", "")
     context.data[CTX_WA_LAST_MSG_ID] = msg.get("messageId", "")
+    context.data[CTX_WA_TYPING_ACTIVE] = True
 
     user_msg = _build_user_message(context.agent0, msg, config)
     msg_id = str(uuid.uuid4())
@@ -224,6 +242,7 @@ async def send_wa_reply(
     response_text: str,
     attachments: list[str] | None = None,
     reply_to: str = "",
+    keep_typing: bool = False,
 ) -> str | None:
     chat_id = context.data.get(CTX_WA_CHAT_ID)
     if not chat_id:
@@ -265,8 +284,12 @@ async def send_wa_reply(
             except Exception as e:
                 PrintStyle.warning(f"WhatsApp: attachment error: {e}")
 
-    # Clear typing indicator
-    await wa_client.send_typing(base_url, chat_id, paused=True)
+    # Typing: restart if agent is still working, stop if final reply
+    if keep_typing:
+        await wa_client.send_typing(base_url, chat_id)
+    else:
+        await wa_client.send_typing(base_url, chat_id, paused=True)
+        context.data[CTX_WA_TYPING_ACTIVE] = False
 
     return None
 
