@@ -237,6 +237,13 @@ async def send_wa_reply(
     if not reply_to and context.data.get(CTX_WA_IS_GROUP):
         reply_to = context.data.get(CTX_WA_LAST_MSG_ID, "")
 
+    # Prefix response in self-chat mode so user can distinguish agent messages
+    mode = config.get("mode", "dedicated")
+    if mode == "self-chat":
+        response_text = context.agent0.read_prompt(
+            "fw.wa.self_chat_prefix.md", response_text=response_text,
+        )
+
     # Send text
     try:
         result = await wa_client.send_message(base_url, chat_id, response_text, reply_to=reply_to)
