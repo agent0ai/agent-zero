@@ -135,22 +135,30 @@
                     </div>
                 </div>
 
-                <!-- WhatsApp Link section (shown when enabled) -->
+                <!-- WhatsApp Account (shown when enabled) -->
                 <template x-if="config.enabled">
-                    <div style="margin: 12px 0;">
+                    <div>
                         <div class="field">
                             <div class="field-label">
-                                <div class="field-title">WhatsApp Link</div>
-                                <div class="field-description">Pair your WhatsApp account by scanning a QR code</div>
+                                <div class="field-title">WhatsApp Account</div>
+                                <div class="field-description">
+                                    <span x-show="!disconnect_message">Pair or switch your WhatsApp account</span>
+                                    <span x-show="disconnect_message" x-text="disconnect_message"
+                                          :style="'color:' + (disconnect_message === 'Account disconnected' ? '#4caf50' : '#f44336')"></span>
+                                </div>
                             </div>
-                            <div class="field-control">
+                            <div class="field-control" style="display: flex; gap: 8px;">
                                 <button class="btn btn-field" @click="show_qr()">
                                     Show QR Code
+                                </button>
+                                <button class="btn btn-field" @click="disconnect_account()" :disabled="disconnecting">
+                                    <span x-show="!disconnecting">Disconnect</span>
+                                    <span x-show="disconnecting">Disconnecting...</span>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- QR Code modal -->
+                        <!-- QR Code panel -->
                         <template x-if="qr_visible">
                             <div style="margin-top: 8px; padding: 16px; border-radius: 8px;
                                         border: 1px solid var(--border-color, #333);
@@ -204,26 +212,6 @@
                                 </template>
                             </div>
                         </template>
-                    </div>
-                </template>
-
-                <!-- Disconnect account (shown when enabled) -->
-                <template x-if="config.enabled">
-                    <div class="field">
-                        <div class="field-label">
-                            <div class="field-title">WhatsApp Account</div>
-                            <div class="field-description">
-                                <span x-show="!disconnect_message">Disconnect to switch to a different WhatsApp account</span>
-                                <span x-show="disconnect_message" x-text="disconnect_message"
-                                      :style="'color:' + (disconnect_message === 'Account disconnected' ? '#4caf50' : '#f44336')"></span>
-                            </div>
-                        </div>
-                        <div class="field-control">
-                            <button class="btn btn-field" @click="disconnect_account()" :disabled="disconnecting">
-                                <span x-show="!disconnecting">Disconnect</span>
-                                <span x-show="disconnecting">Disconnecting...</span>
-                            </button>
-                        </div>
                     </div>
                 </template>
 
