@@ -238,10 +238,10 @@
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Allowed Users</div>
-                        <div class="field-description">Comma-separated phone numbers without + prefix. Empty = allow all</div>
+                        <div class="field-description">International format without + or leading 0<br>e.g. 14155551234 for US +1. Empty = allow all</div>
                     </div>
                     <div class="field-control">
-                        <input type="text" :value="allowed_text()" @input="set_allowed($event.target.value)" placeholder="34652029134, 1234567890" />
+                        <input type="text" :value="allowed_text()" @input="set_allowed($event.target.value)" placeholder="14155551234, 447911123456" />
                     </div>
                 </div>
 
