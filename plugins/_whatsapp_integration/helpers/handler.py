@@ -258,6 +258,9 @@ async def send_wa_reply(
             except Exception as e:
                 PrintStyle.warning(f"WhatsApp: attachment error: {e}")
 
+    # Clear typing indicator
+    await wa_client.send_typing(base_url, chat_id, paused=True)
+
     return None
 
 

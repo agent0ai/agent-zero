@@ -547,11 +547,11 @@ app.post('/typing', async (req, res) => {
     return res.status(503).json({ error: 'Not connected' });
   }
 
-  const { chatId } = req.body;
+  const { chatId, status } = req.body;
   if (!chatId) return res.status(400).json({ error: 'chatId required' });
 
   try {
-    await sock.sendPresenceUpdate('composing', chatId);
+    await sock.sendPresenceUpdate(status === 'paused' ? 'paused' : 'composing', chatId);
     res.json({ success: true });
   } catch (err) {
     res.json({ success: false });

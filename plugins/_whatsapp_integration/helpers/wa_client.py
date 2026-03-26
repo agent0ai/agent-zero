@@ -56,12 +56,15 @@ async def send_media(
             return await resp.json()
 
 
-async def send_typing(base_url: str, chat_id: str) -> None:
+async def send_typing(base_url: str, chat_id: str, paused: bool = False) -> None:
     try:
+        payload: dict = {"chatId": chat_id}
+        if paused:
+            payload["status"] = "paused"
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{base_url}/typing",
-                json={"chatId": chat_id},
+                json=payload,
                 timeout=aiohttp.ClientTimeout(total=5),
             ) as resp:
                 await resp.json()
