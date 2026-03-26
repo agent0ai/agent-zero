@@ -86,6 +86,13 @@ chat:
     litellm_provider: openai
     kwargs:
       api_base: https://api.venice.ai/api/v1
+  copilot:
+    name: GitHub Copilot
+    litellm_provider: github_copilot
+    kwargs:
+      extra_headers:
+        Editor-Version: vscode/1.90.0
+        Copilot-Integration-Id: vscode-chat
       venice_parameters:
         include_venice_system_prompt: false
   xai:
