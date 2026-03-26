@@ -25,7 +25,7 @@ Send messages to Agent Zero and receive responses. Supports text messages, file 
 *   `message` (string, required): The message to send
 *   `attachments` (array, optional): Array of `{filename, base64}` objects
 *   `lifetime_hours` (number, optional): Chat lifetime in hours (default: 24)
-*   `project` (string, optional): Project name to activate (only on first message)
+*   `project_name` (string, optional): Project name to activate (only on first message)
 
 **Headers:**
 *   `X-API-KEY` (required)
@@ -185,7 +185,7 @@ async function sendMessageWithProject() {
             },
             body: JSON.stringify({
                 message: "Analyze the project structure",
-                project: "my-web-app"  // Activates this project
+                project_name: "my-web-app"  // Activates this project
             })
         });
 
@@ -206,7 +206,7 @@ async function sendMessageWithProject() {
                 body: JSON.stringify({
                     context_id: data.context_id,
                     message: "What files are in the project?"
-                    // Do NOT include project field here - already set on first message
+                    // Do NOT include project_name here - already set on first message
                 })
             });
 

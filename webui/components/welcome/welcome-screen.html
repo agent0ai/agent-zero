@@ -37,6 +37,10 @@
                             <span class="material-symbols-outlined welcome-action-icon">settings</span>
                             <h3 class="welcome-action-title">Settings</h3>
                         </div>
+                        <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('plugins')">
+                            <span class="material-symbols-outlined welcome-action-icon">extension</span>
+                            <h3 class="welcome-action-title">Plugins</h3>
+                        </div>
 
                         <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('files')">
                             <span class="material-symbols-outlined welcome-action-icon">folder_open</span>
@@ -45,10 +49,6 @@
                         <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('website')">
                             <span class="material-symbols-outlined welcome-action-icon">language</span>
                             <h3 class="welcome-action-title">Visit Website</h3>
-                        </div>
-                        <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('github')">
-                            <span class="material-symbols-outlined welcome-action-icon">code</span>
-                            <h3 class="welcome-action-title">Visit GitHub</h3>
                         </div>
                         <x-extension id="welcome-actions-end"></x-extension>
                     </div>

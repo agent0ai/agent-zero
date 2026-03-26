@@ -6,7 +6,17 @@ import threading
 from functools import wraps
 from pathlib import Path
 from typing import Union, TypedDict, Dict, Any
-from flask import Request, Response, jsonify, Flask, session, request, send_file, redirect, url_for
+from flask import (
+    Request,
+    Response,
+    jsonify,
+    Flask,
+    session,
+    request,
+    send_file,
+    redirect,
+    url_for,
+)
 from werkzeug.wrappers.response import Response as BaseResponse
 from agent import AgentContext
 from initialize import initialize_agent
@@ -16,8 +26,8 @@ from helpers import files, cache
 
 ThreadLockType = Union[threading.Lock, threading.RLock]
 
-CACHE_AREA = "api_handlers(api)(plugins)(extensions)"
-cache.toggle_area(CACHE_AREA, False) # cache off for now
+CACHE_AREA = "api_handlers(api)"
+cache.toggle_area(CACHE_AREA, False)  # cache off for now
 
 Input = dict
 Output = Union[Dict[str, Any], Response, TypedDict]  # type: ignore
@@ -69,7 +79,6 @@ class ApiHandler:
                 # input_data = {"data": request.get_data(as_text=True)}
                 input_data = {}
 
-
             # process via handler
             output = await self.process(input_data, request)
 
@@ -102,19 +111,20 @@ class ApiHandler:
             if got:
                 return got
             if create_if_not_exists:
-                context = AgentContext(config=initialize_agent(), id=ctxid, set_current=True)
+                context = AgentContext(
+                    config=initialize_agent(), id=ctxid, set_current=True
+                )
                 return context
             else:
                 raise Exception(f"Context {ctxid} not found")
-            
-
 
 
 def is_loopback_address(address: str) -> bool:
     loopback_checker = {
         socket.AF_INET: lambda x: (
             struct.unpack("!I", socket.inet_aton(x))[0] >> (32 - 8)
-        ) == 127,
+        )
+        == 127,
         socket.AF_INET6: lambda x: x == "::1",
     }
     address_type = "hostname"
@@ -148,6 +158,7 @@ def requires_api_key(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
         from helpers.settings import get_settings
+
         valid_api_key = get_settings()["mcp_server_token"]
 
         if api_key := request.headers.get("X-API-KEY"):
@@ -178,6 +189,7 @@ def requires_auth(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
         from helpers import login
+
         user_pass_hash = login.get_credentials_hash()
         if not user_pass_hash:
             return await f(*args, **kwargs)
@@ -192,6 +204,7 @@ def csrf_protect(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
         from helpers import runtime
+
         token = session.get("csrf_token")
         header = request.headers.get("X-CSRF-Token")
         cookie = request.cookies.get("csrf_token_" + runtime.get_runtime_id())
@@ -204,7 +217,7 @@ def csrf_protect(f):
 
 
 def register_api_route(app: Flask, lock: ThreadLockType) -> None:
-    from helpers.extract_tools import load_classes_from_file
+    from helpers.modules import load_classes_from_file
     from helpers import plugins
 
     async def _dispatch(path: str) -> BaseResponse:
@@ -219,7 +232,9 @@ def register_api_route(app: Flask, lock: ThreadLockType) -> None:
 
         # Check built-in python/api/<path>.py
         builtin_file = files.get_abs_path(f"api/{path}.py")
-        if files.is_in_dir(builtin_file, files.get_abs_path("api")) and files.exists(builtin_file):
+        if files.is_in_dir(builtin_file, files.get_abs_path("api")) and files.exists(
+            builtin_file
+        ):
             classes = load_classes_from_file(builtin_file, ApiHandler)
             if classes:
                 handler_cls = classes[0]
@@ -269,3 +284,20 @@ def register_api_route(app: Flask, lock: ThreadLockType) -> None:
         methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     )
 
+
+def register_watchdogs():
+    from helpers import watchdog
+
+    def on_api_change(items: list[watchdog.WatchItem]):
+        PrintStyle.debug("API endpoint watchdog triggered:", items)
+        cache.clear(CACHE_AREA)
+
+    watchdog.add_watchdog(
+        "api_handlers",
+        roots=[
+            files.get_abs_path(files.API_DIR),
+            files.get_abs_path(files.USER_DIR, files.API_DIR),
+        ],
+        patterns=["*.py"],
+        handler=on_api_change,
+    )

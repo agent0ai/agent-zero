@@ -94,8 +94,6 @@ export async function getMessageHandler(type) {
       return drawMessageResponse;
     case "tool":
       return drawMessageTool;
-    case "browser":
-      return drawMessageBrowser;
     case "progress":
       return drawMessageProgress;
     case "mcp":
@@ -1124,9 +1122,9 @@ export function drawMessageUser({
 
 /**
  * @param {MessageHandlerArgs & Record<string, any>} param0
- * @returns {MessageHandlerResult}
+ * @returns {Promise<MessageHandlerResult>}
  */
-export function drawMessageTool({
+export async function drawMessageTool({
   id,
   type,
   heading,
@@ -1141,18 +1139,28 @@ export function drawMessageTool({
   if (!tool_name) {
     return drawMessageToolSimple({ ...arguments[0] });
   } else if (kvps._tool_name === "skills_tool") {
-    return drawMessageToolSimple({ ...arguments[0], code: "SKL" });
+    const displayKvps = { ...(kvps || {}) };
+    delete displayKvps._tool_name;
+    return drawMessageToolSimple({ ...arguments[0], code: "SKL", displayKvps });
   } else if (kvps._tool_name === "vision_load") {
     return drawMessageToolSimple({ ...arguments[0], code: "EYE" });
   } else if (kvps._tool_name === "search_engine") {
     return drawMessageToolSimple({ ...arguments[0], code: "WEB" });
-  } else if (kvps._tool_name === "browser_agent") {
-    return drawMessageToolSimple({ ...arguments[0], code: "WWW" });
   } else if (kvps._tool_name.startsWith("memory_")) {
     return drawMessageToolSimple({ ...arguments[0], code: "MEM" });
-  } else {
-    return drawMessageToolSimple({ ...arguments[0] });
   }
+
+  /** @type {{ tool_name: string, kvps: any, handler: Function | undefined }} */
+  const extData = {
+    tool_name,
+    kvps,
+    handler: undefined,
+  };
+  await callJsExtensions("get_tool_message_handler", extData);
+  if (typeof extData.handler === "function") {
+    return extData.handler(arguments[0]);
+  }
+  return drawMessageToolSimple({ ...arguments[0] });
 }
 
 /**
@@ -1193,48 +1201,6 @@ export function drawMessageToolSimple({
     id,
     title,
     code: code || "USE",
-    classes: undefined,
-    kvps: displayKvps,
-    content,
-    // contentClasses: [],
-    actionButtons,
-    log: arguments[0],
-  });
-}
-
-/**
- * @param {MessageHandlerArgs & Record<string, any>} param0
- * @returns {MessageHandlerResult}
- */
-export function drawMessageBrowser({
-  id,
-  type,
-  heading,
-  content,
-  kvps,
-  timestamp,
-  agentno = 0,
-  ...additional
-}) {
-  const title = cleanStepTitle(heading);
-  let displayKvps = { ...kvps };
-  const answerText = String(kvps?.answer ?? "");
-  const actionButtons = answerText.trim()
-    ? [
-        createActionButton("detail", "", () =>
-          stepDetailStore.showStepDetail(
-            buildDetailPayload(arguments[0], { headerLabels: [] }),
-          ),
-        ),
-        createActionButton("speak", "", () => speechStore.speak(answerText)),
-        createActionButton("copy", "", () => copyToClipboard(answerText)),
-      ].filter(Boolean)
-    : [];
-
-  return drawProcessStep({
-    id,
-    title,
-    code: "WWW",
     classes: undefined,
     kvps: displayKvps,
     content,

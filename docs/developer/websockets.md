@@ -139,7 +139,7 @@ These expanded flows complement the operation matrix later in the guide, ensurin
 
 Handlers are discovered deterministically from `python/websocket_handlers/`:
 
-- **File entry**: `python/websocket_handlers/state_sync_handler.py` → namespace `/state_sync`
+- **File entry**: `python/websocket_handlers/webui_handler.py` → namespace `/webui`
 - **Folder entry**: `python/websocket_handlers/orders/` or `python/websocket_handlers/orders_handler/` → namespace `/orders` (loads `*.py` one level deep; ignores `__init__.py` and deeper nesting)
 - **Reserved root**: `python/websocket_handlers/_default.py` → namespace `/` (diagnostics-only by default)
 
@@ -273,7 +273,7 @@ console.log(window.runtimeInfo.id, window.runtimeInfo.isDevelopment);
 
 ### Namespaces (end-state)
 
-- The root namespace (`/`) is reserved and intentionally unhandled by default for application events. Feature code should connect to an explicit namespace (for example `/state_sync`).
+- The root namespace (`/`) is reserved and intentionally unhandled by default for application events. Feature code should connect to an explicit namespace (for example `/webui`).
 - The frontend exposes `createNamespacedClient(namespace)` and `getNamespacedClient(namespace)` (one client instance per namespace per tab). Namespaced clients expose the same minimal API: `emit`, `request`, `on`, `off`.
 - Unknown namespaces are rejected deterministically during the Socket.IO connect handshake with a `connect_error` payload:
   - `err.message === "UNKNOWN_NAMESPACE"`
@@ -342,7 +342,7 @@ Example:
 ```javascript
 import { getNamespacedClient, createCorrelationId, validateServerEnvelope } from '/js/websocket.js';
 
-const websocket = getNamespacedClient('/state_sync');
+const websocket = getNamespacedClient('/webui');
 
 const { results } = await websocket.request(
   'hello_request',
@@ -381,7 +381,7 @@ Example – request()
 ```javascript
 import { getNamespacedClient } from '/js/websocket.js'
 
-const websocket = getNamespacedClient('/state_sync')
+const websocket = getNamespacedClient('/webui')
 
 function renderError(code, message) {
   // Map codes to UI copy; keep messages concise
@@ -409,7 +409,7 @@ Subscriptions – envelope handler
 ```javascript
 import { getNamespacedClient } from '/js/websocket.js'
 
-const websocket = getNamespacedClient('/state_sync')
+const websocket = getNamespacedClient('/webui')
 
 websocket.on('example_broadcast', ({ data, handlerId, eventId, correlationId }) => {
   // handle data; errors should not typically arrive via broadcast

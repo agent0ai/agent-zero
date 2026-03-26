@@ -4,8 +4,9 @@ import { invalidateCsrfToken } from "/js/api.js";
 import { applySnapshot, buildStateRequestPayload } from "/index.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+import * as Extensions from "/js/extensions.js"
 
-const stateSocket = getNamespacedClient("/state_sync");
+const stateSocket = getNamespacedClient("/webui");
 
 const SYNC_MODES = {
   DISCONNECTED: "DISCONNECTED",
@@ -314,12 +315,22 @@ const model = {
       });
       debug("[syncStore] subscribed to server_restart");
 
+      // handle all requests with extensions
+      await stateSocket.on("*", (eventType, envelope) => {
+        // console.log(`[syncStore] *${eventType} received`);
+        this.handleEvent(eventType, envelope)
+      });
+
       await this.sendStateRequest({ forceFull: true });
     } catch (error) {
       console.error("[syncStore] init failed:", error);
       // Initialization failures often mean the socket can't connect; treat as disconnected.
       this._setMode(SYNC_MODES.DISCONNECTED, "init failed");
     }
+  },
+
+  async handleEvent(eventType, envelope){
+    await Extensions.callJsExtensions("webui_ws_push", eventType, envelope);
   },
 
   async sendStateRequest(options = {}) {

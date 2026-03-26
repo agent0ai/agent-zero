@@ -88,7 +88,7 @@ async def test_root_namespace_request_style_calls_resolve_with_no_handlers() -> 
         socketio_server=sio,
         websocket_manager=manager,
         handlers_by_namespace={
-            "/state_sync": [HelloHandler.get_instance(sio, lock)],
+            "/webui": [HelloHandler.get_instance(sio, lock)],
         },
     )
 
@@ -161,7 +161,7 @@ async def test_root_namespace_fire_and_forget_does_not_invoke_application_handle
         socketio_server=sio,
         websocket_manager=manager,
         handlers_by_namespace={
-            "/state_sync": [SideEffectHandler.get_instance(sio, lock)],
+            "/webui": [SideEffectHandler.get_instance(sio, lock)],
         },
     )
 

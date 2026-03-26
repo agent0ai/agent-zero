@@ -1,0 +1,13 @@
+<span x-data>
+    <script type="module">
+        import { store } from "/plugins/_plugin_validator/webui/plugin-validator-store.js";
+    </script>
+
+    <button type="button"
+        class="button"
+        title="Validate this ZIP plugin before installing"
+        @click="$store.pluginValidator.openModal({ source: 'zip', zipFile: $store.pluginInstallStore.zipFile, zipFileName: $store.pluginInstallStore.zipFileName })"
+        :disabled="$store.pluginInstallStore.loading || !$store.pluginInstallStore.zipFile">
+        <span class="icon material-symbols-outlined">fact_check</span> Validate
+    </button>
+</span>

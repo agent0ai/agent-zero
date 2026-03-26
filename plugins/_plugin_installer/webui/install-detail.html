@@ -8,8 +8,7 @@
 <body>
     <div x-data>
         <template x-if="$store.pluginInstallStore?.selectedPlugin">
-            <div class="pi-detail-container"
-                 x-destroy="$store.pluginInstallStore.refreshPluginList()">
+            <div class="pi-detail-container">
                 <div class="pi-hero">
                     <div class="pi-hero-thumb">
                         <template x-if="$store.pluginInstallStore.getDetailThumbnailUrl()">
@@ -85,10 +84,10 @@
                                             <span class="icon material-symbols-outlined">gavel</span> License
                                         </button>
                                     </template>
-                                    <template x-if="$store.pluginInstallStore.installedPluginInfo.has_init_script">
+                                    <template x-if="$store.pluginInstallStore.installedPluginInfo.has_execute_script">
                                         <button type="button" class="button"
-                                            @click="$store.pluginInstallStore.handleOpenInit()">
-                                            <span class="icon material-symbols-outlined">terminal</span> Init
+                                            @click="$store.pluginInstallStore.handleOpenExecute()">
+                                            <span class="icon material-symbols-outlined">terminal</span> Script
                                         </button>
                                     </template>
                                     <button type="button" class="button"
@@ -187,7 +186,7 @@
                 </div>
 
                 <div class="pi-version-section"
-                     x-show="$store.pluginInstallStore.getCurrentInstalledVersion() || $store.pluginInstallStore.getCurrentInstalledCommit() || $store.pluginInstallStore.getLatestMarketplaceVersion() || $store.pluginInstallStore.getLatestMarketplaceCommit()">
+                     x-show="$store.pluginInstallStore.getCurrentInstalledVersion() || $store.pluginInstallStore.getCurrentInstalledCommit() || $store.pluginInstallStore.getLatestPluginHubVersion() || $store.pluginInstallStore.getLatestPluginHubCommit()">
                     <div class="pi-version-header">Version</div>
                     <div class="pi-version-grid">
                         <div class="pi-version-card"
@@ -210,23 +209,23 @@
                                  x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getCurrentInstalledCommitTimestamp()) || 'Timestamp unavailable'"></div>
                         </div>
                         <div class="pi-version-card"
-                             x-show="$store.pluginInstallStore.getLatestMarketplaceVersion() || $store.pluginInstallStore.getLatestMarketplaceCommit()">
+                             x-show="$store.pluginInstallStore.getLatestPluginHubVersion() || $store.pluginInstallStore.getLatestPluginHubCommit()">
                             <div class="pi-version-label">Latest</div>
                             <div class="pi-version-name"
-                                 x-text="$store.pluginInstallStore.getLatestMarketplaceVersion() || 'Unknown version'"></div>
-                            <template x-if="$store.pluginInstallStore.getLatestMarketplaceCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit())">
+                                 x-text="$store.pluginInstallStore.getLatestPluginHubVersion() || 'Unknown version'"></div>
+                            <template x-if="$store.pluginInstallStore.getLatestPluginHubCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestPluginHubCommit())">
                                 <a class="pi-version-commit"
-                                   :href="$store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit())"
+                                   :href="$store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestPluginHubCommit())"
                                    target="_blank"
                                    rel="noopener noreferrer"
-                                   x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestMarketplaceCommit())"></a>
+                                   x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestPluginHubCommit())"></a>
                             </template>
-                            <template x-if="!($store.pluginInstallStore.getLatestMarketplaceCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestMarketplaceCommit()))">
+                            <template x-if="!($store.pluginInstallStore.getLatestPluginHubCommit() && $store.pluginInstallStore.getRepoCommitUrl($store.pluginInstallStore.selectedPlugin, $store.pluginInstallStore.getLatestPluginHubCommit()))">
                                 <div class="pi-version-commit"
-                                     x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestMarketplaceCommit()) || 'Unknown'"></div>
+                                     x-text="$store.pluginInstallStore.getCommitShortHash($store.pluginInstallStore.getLatestPluginHubCommit()) || 'Unknown'"></div>
                             </template>
                             <div class="pi-version-time"
-                                 x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getLatestMarketplaceCommitTimestamp()) || 'Timestamp unavailable'"></div>
+                                 x-text="$store.pluginInstallStore.formatUserLocaleDateTime($store.pluginInstallStore.getLatestPluginHubCommitTimestamp()) || 'Timestamp unavailable'"></div>
                         </div>
                     </div>
                 </div>
@@ -244,6 +243,12 @@
                             <a :href="$store.pluginInstallStore.getIndexUrl($store.pluginInstallStore.selectedPlugin.key)" target="_blank" class="pi-dev-link">
                                 <span class="material-symbols-outlined">inventory_2</span>
                                 <span>Plugin Index</span>
+                            </a>
+                        </template>
+                        <template x-if="$store.pluginInstallStore.getReportUrl($store.pluginInstallStore.selectedPlugin)">
+                            <a :href="$store.pluginInstallStore.getReportUrl($store.pluginInstallStore.selectedPlugin)" target="_blank" class="pi-dev-link pi-report-link">
+                                <span class="material-symbols-outlined">report</span>
+                                <span>Report malicious plugin</span>
                             </a>
                         </template>
                     </div>
@@ -285,7 +290,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--color-panel);
+            background: radial-gradient(circle at top, #6b728089, var(--color-panel)),
+                var(--color-panel);
             border: 1px solid var(--color-border);
         }
 
@@ -308,7 +314,7 @@
 
         .pi-hero-title-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) clamp(18rem, 42%, 32rem);
+            grid-template-columns: minmax(0, 1fr) clamp(15rem, 42%, 28rem);
             align-items: flex-start;
             column-gap: 1rem;
             row-gap: 0.5rem;
@@ -397,6 +403,36 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.4rem;
+        }
+
+        .pi-card-installed-pill {
+            display: inline-flex;
+            padding: 0.24rem 0.5rem;
+            border-radius: 0.5rem;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        body.light-mode .pi-card-installed-pill {
+            background: rgba(34, 197, 94, 0.22);
+            color: #166534;
+        }
+
+        .pi-card-update-pill {
+            display: inline-flex;
+            padding: 0.24rem 0.5rem;
+            border-radius: 0.5rem;
+            background: rgba(59, 130, 246, 0.16);
+            color: #60a5fa;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        body.light-mode .pi-card-update-pill {
+            background: rgba(59, 130, 246, 0.2);
+            color: #1d4ed8;
         }
 
         .pi-status-badges .pi-card-installed-pill {
@@ -508,10 +544,10 @@
             flex: 1;
             min-width: 200px;
             padding: 0.85rem 1.5rem;
-            border: 2px solid var(--color-highlight);
+            border: 2px solid var(--color-primary);
             border-radius: 8px;
             background: transparent;
-            color: var(--color-highlight);
+            color: var(--color-text);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
@@ -526,6 +562,7 @@
         .pi-btn-discussion:hover {
             background: var(--color-highlight);
             color: #fff;
+            border: 2px solid var(--color-highlight);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
@@ -796,11 +833,18 @@
             color: var(--color-highlight);
         }
 
+        .pi-dev-link.pi-report-link,
+        .pi-dev-link.pi-report-link:hover,
+        .pi-dev-link.pi-report-link .material-symbols-outlined,
+        .pi-dev-link.pi-report-link:hover .material-symbols-outlined {
+            color: var(--color-error-text);
+        }
+
         .pi-footer .buttons-container {
             width: 100%;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             .pi-hero {
                 flex-direction: column;
                 align-items: center;
@@ -836,6 +880,13 @@
 
             .pi-hero-tags {
                 justify-content: center;
+            }
+
+            .pi-card-installed-pill {
+                position: absolute;
+                top: unset;
+                right: unset;
+                margin: 0 auto var(--spacing-sm) auto;
             }
 
             .pi-actions-primary {

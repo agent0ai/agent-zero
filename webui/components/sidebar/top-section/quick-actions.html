@@ -1,119 +1,27 @@
 <html>
 
-<head>
-  <script type="module">
-    import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
-    import { store as projectsStore } from "/components/projects/projects-store.js";
-    import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
-  </script>
-</head>
+<head></head>
 
 <body>
-  <div class="wrapper" x-data="{ dropdownOpen: false }" @click.outside="dropdownOpen = false" @keydown.escape.window="dropdownOpen = false" x-init="$watch('dropdownOpen', v => v && $store.sidebar.updateDropdownPosition($el))">
-    <div id="quick-actions">
-
-      <x-extension id="sidebar-quick-actions-main-start"></x-extension>
-
-      <!-- Dashboard -->
-      <button class="config-button" id="dashboard" @click="deselectChat()" title="Dashboard">
-        <span class="material-symbols-outlined">home</span>
-      </button>
-
-      <!-- Scheduler -->
-      <button class="config-button" id="plugins" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins">
-        <span class="material-symbols-outlined">extension</span>
-      </button>
-
-      <!-- Settings -->
-      <button class="config-button" id="settings" @click="openModal('settings/settings.html')" title="Settings">
-        <span class="material-symbols-outlined">settings</span>
-      </button>
-
-      <x-extension id="sidebar-quick-actions-main-end"></x-extension>
-
-      <!-- Dropdown Toggle -->
-      <button class="config-button dropdown-toggle" @click="dropdownOpen = !dropdownOpen" title="More options">
-        <span class="material-symbols-outlined" :class="dropdownOpen ? 'rotated' : ''">expand_more</span>
-      </button>
-    </div>
-
-    <!-- Dropdown Menu -->
-    <div class="dropdown-menu quick-actions-dropdown" 
-         x-show="dropdownOpen"
-         :style="$store.sidebar.dropdownStyle">
-      
+  <div class="quick-actions-surface-host" x-data>
+    <template x-teleport="#sidebar-quick-actions-dropdown-slot-start">
       <x-extension id="sidebar-quick-actions-dropdown-start"></x-extension>
+    </template>
 
-      <div class="dropdown-header">Navigation</div>
-      
-      <button class="dropdown-item" @click="deselectChat(); dropdownOpen = false">
-        <span class="material-symbols-outlined">home</span>
-        <span>Dashboard</span>
-      </button>
-
-      <button class="dropdown-item" @click="$store.projects.openProjectsModal(); dropdownOpen = false">
-        <span class="material-symbols-outlined">snippet_folder</span>
-        <span>Projects</span>
-      </button>
-            
-      <button class="dropdown-item" @click="openModal('components/modals/scheduler/scheduler-modal.html'); dropdownOpen = false">
-        <span class="material-symbols-outlined">schedule</span>
-        <span>Scheduler</span>
-      </button>
-      
-      <button class="dropdown-item" @click="openModal('settings/settings.html'); dropdownOpen = false">
-        <span class="material-symbols-outlined">settings</span>
-        <span>Settings</span>
-      </button>
-      
-      <div class="dropdown-separator"></div>
-      <div class="dropdown-header">Chat Actions</div>
-      
-      <button class="dropdown-item" @click="$store.chats.newChat(); dropdownOpen = false">
-        <span class="material-symbols-outlined">edit_square</span>
-        <span>New Chat</span>
-      </button>
-      
-      <button class="dropdown-item" @click="$store.chats.loadChats(); dropdownOpen = false">
-        <span class="material-symbols-outlined">folder_open</span>
-        <span>Load Chat</span>
-      </button>
-      
-      <button class="dropdown-item" @click="$store.chats.saveChat(); dropdownOpen = false" :disabled="!$store.chats.selected">
-        <span class="material-symbols-outlined">save</span>
-        <span>Save Chat</span>
-      </button>
-
-      <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.resetChat(); dropdownOpen = false })" :disabled="!$store.chats.selected">
-        <span class="material-symbols-outlined">delete_sweep</span>
-        <span>Clear Chat</span>
-      </button>
-      
-      <div class="dropdown-separator"></div>
-      
-
-      <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.logout(); dropdownOpen = false })" :disabled="!$store.chats.loggedIn">
-        <span class="material-symbols-outlined">logout</span>
-        <span>Logout</span>
-      </button>
-
-      <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); dropdownOpen = false })">
-        <span class="material-symbols-outlined">restart_alt</span>
-        <span>Restart A0</span>
-      </button>
-
-      <x-extension id="sidebar-quick-actions-dropdown-end"></x-extension>
+    <div id="quick-actions">
+      <x-extension id="sidebar-quick-actions-main-start"></x-extension>
+      <x-extension id="sidebar-quick-actions-main-end"></x-extension>
     </div>
+
+    <template x-teleport="#sidebar-quick-actions-dropdown-slot-end">
+      <x-extension id="sidebar-quick-actions-dropdown-end"></x-extension>
+    </template>
   </div>
 </body>
 
 <style>
-  /* Wrapper container for icon toolbar */
-  .wrapper {
-    position: relative;
-    border-radius: 0.6rem;
-    z-index: 100;
-    /* Ensure dropdown appears above all sidebar content */
+  .quick-actions-surface-host {
+    display: contents;
   }
 
   /* Icon toolbar layout – grid for extension-friendly wrapping */
@@ -124,6 +32,10 @@
     width: 100%;
     padding: 0;
     gap: var(--spacing-xs);
+  }
+
+  #quick-actions:not(:has(> x-extension:not(:empty))) {
+    display: none;
   }
 
   #quick-actions > x-extension:not(:empty) {
@@ -184,6 +96,7 @@
   .quick-actions-dropdown {
     position: fixed;
     z-index: 9999;
+    margin-top: 0;
   }
 
   /* Unified scrollbar styling for dropdown */
@@ -209,7 +122,12 @@
   }
 
   /* Dropdown item icon sizing */
-  .dropdown-item .material-symbols-outlined {
+  .quick-actions-dropdown .dropdown-item,
+  .quick-actions-dropdown .dropdown-item .material-symbols-outlined {
+    opacity: 1;
+  }
+
+  .quick-actions-dropdown .dropdown-item .material-symbols-outlined {
     font-size: 18px;
   }
 

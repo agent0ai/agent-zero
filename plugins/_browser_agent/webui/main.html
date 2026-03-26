@@ -1,0 +1,204 @@
+<html>
+<head>
+  <title>Browser Agent</title>
+  <script type="module">
+    import { callJsonApi } from "/js/api.js";
+    import "/components/plugins/list/pluginListStore.js";
+
+    globalThis.browserAgentStatusApi = { callJsonApi };
+  </script>
+</head>
+<body>
+  <div
+    x-data="{
+      loading: true,
+      error: '',
+      status: null,
+      async init() {
+        try {
+          this.status = await browserAgentStatusApi.callJsonApi('/plugins/_browser_agent/status', {});
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : String(error);
+        } finally {
+          this.loading = false;
+        }
+      }
+    }"
+    x-init="init()"
+    class="browser-agent-page"
+  >
+    <div class="section-title">Browser Agent</div>
+    <div class="section-description">
+      Built-in browser automation plugin backed by `browser-use` and Playwright.
+      Model selection stays in `_model_config`; the browser agent follows the effective Main Model.
+    </div>
+
+    <div class="browser-agent-card" x-show="loading">
+      <div class="status-row">
+        <span class="material-symbols-outlined spinning">progress_activity</span>
+        <span>Loading browser status...</span>
+      </div>
+    </div>
+
+    <div class="browser-agent-card error" x-show="!loading && error">
+      <div class="field-title">Status check failed</div>
+      <div class="field-description" x-text="error"></div>
+    </div>
+
+    <template x-if="!loading && status">
+      <div class="browser-agent-grid">
+        <div class="browser-agent-card">
+          <div class="field-title">Model Source</div>
+          <div class="field-description" x-text="status.model_source"></div>
+        </div>
+
+        <div class="browser-agent-card">
+          <div class="field-title">Resolved Main Model</div>
+          <div class="status-row">
+            <span class="status-key">Provider</span>
+            <span class="status-value" x-text="status.model.provider || 'Not configured'"></span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">Model</span>
+            <span class="status-value" x-text="status.model.name || 'Not configured'"></span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">Vision</span>
+            <span class="status-badge" :class="status.model.vision ? 'ok' : 'warn'" x-text="status.model.vision ? 'Enabled' : 'Disabled'"></span>
+          </div>
+        </div>
+
+        <div class="browser-agent-card">
+          <div class="field-title">Playwright Runtime</div>
+          <div class="status-row">
+            <span class="status-key">Binary</span>
+            <span class="status-badge" :class="status.playwright.binary_found ? 'ok' : 'fail'" x-text="status.playwright.binary_found ? 'Found' : 'Missing'"></span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">Cache</span>
+            <span class="status-value mono" x-text="status.playwright.cache_dir"></span>
+          </div>
+          <div class="status-row" x-show="status.playwright.binary_path">
+            <span class="status-key">Path</span>
+            <span class="status-value mono" x-text="status.playwright.binary_path"></span>
+          </div>
+          <div class="field-description" x-show="!status.playwright.binary_found">
+            Docker images ship the Playwright Chromium shell preinstalled. In local development, the first run installs it on demand via <span class="mono">ensure_playwright_binary()</span> if missing.
+          </div>
+        </div>
+
+        <div class="browser-agent-card">
+          <div class="field-title">browser-use</div>
+          <div class="status-row">
+            <span class="status-key">Import</span>
+            <span class="status-badge" :class="status.browser_use.import_ok ? 'ok' : 'fail'" x-text="status.browser_use.import_ok ? 'Ready' : 'Error'"></span>
+          </div>
+          <div class="status-row" x-show="status.browser_use.version">
+            <span class="status-key">Version</span>
+            <span class="status-value" x-text="status.browser_use.version"></span>
+          </div>
+          <div class="field-description mono" x-show="status.browser_use.error" x-text="status.browser_use.error"></div>
+        </div>
+      </div>
+    </template>
+
+    <div class="browser-agent-actions">
+      <button
+        class="btn btn-field"
+        @click="$store.pluginListStore.openPluginConfig({ name: '_model_config', has_config_screen: true })"
+      >
+        Open Model Settings
+      </button>
+      <button class="btn btn-field" @click="openModal('/plugins/_model_config/webui/main.html')">
+        Open Presets
+      </button>
+      <button class="btn btn-field" @click="openModal('/plugins/_model_config/webui/api-keys.html')">
+        Open API Keys
+      </button>
+    </div>
+  </div>
+
+  <style>
+    .browser-agent-page {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .browser-agent-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .browser-agent-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+      background: var(--color-input);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+    }
+
+    .browser-agent-card.error {
+      border-color: rgba(214, 40, 40, 0.35);
+    }
+
+    .browser-agent-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.84rem;
+    }
+
+    .status-key {
+      opacity: 0.7;
+      min-width: 64px;
+    }
+
+    .status-value {
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .status-badge.ok {
+      color: #1b5e20;
+      background: rgba(46, 125, 50, 0.14);
+      border-color: rgba(46, 125, 50, 0.24);
+    }
+
+    .status-badge.warn {
+      color: #8a6100;
+      background: rgba(191, 144, 0, 0.14);
+      border-color: rgba(191, 144, 0, 0.24);
+    }
+
+    .status-badge.fail {
+      color: #9f1239;
+      background: rgba(190, 24, 93, 0.12);
+      border-color: rgba(190, 24, 93, 0.24);
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+  </style>
+</body>
+</html>

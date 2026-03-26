@@ -10,14 +10,24 @@
         <template x-if="$store.pluginListStore && $store.pluginListStore.selectedPlugin">
             <div class="plugin-info-view">
                 <div class="plugin-info-header">
-                    <h2 class="plugin-info-title"
-                        x-text="$store.pluginListStore.selectedPlugin.display_name || $store.pluginListStore.selectedPlugin.name"></h2>
-                    <div class="plugin-info-source"
-                        x-text="$store.pluginListStore.selectedPlugin.is_custom ? 'Custom plugin' : 'Builtin plugin'"></div>
-                </div>
+                    <template x-if="$store.pluginListStore.selectedPlugin.thumbnail_url">
+                        <div class="plugin-info-thumb">
+                            <img :src="$store.pluginListStore.selectedPlugin.thumbnail_url"
+                                :alt="$store.pluginListStore.selectedPlugin.display_name || $store.pluginListStore.selectedPlugin.name">
+                        </div>
+                    </template>
+                    <div class="plugin-info-header-main">
+                        <div class="plugin-info-heading">
+                            <h2 class="plugin-info-title"
+                                x-text="$store.pluginListStore.selectedPlugin.display_name || $store.pluginListStore.selectedPlugin.name"></h2>
+                            <div class="plugin-info-source"
+                                x-text="$store.pluginListStore.selectedPlugin.is_custom ? 'Custom plugin' : 'Builtin plugin'"></div>
+                        </div>
 
-                <div class="plugin-info-description"
-                    x-text="$store.pluginListStore.selectedPlugin.description || 'No description provided.'"></div>
+                        <div class="plugin-info-description"
+                            x-text="$store.pluginListStore.selectedPlugin.description || 'No description provided.'"></div>
+                    </div>
+                </div>
 
                 <div class="plugin-info-grid">
                     <div class="plugin-info-label">Plugin ID:</div>
@@ -28,6 +38,15 @@
                     <div class="plugin-info-label">Version:</div>
                     <div class="plugin-info-value"
                         x-text="$store.pluginListStore.selectedPlugin.version || 'n/a'"></div>
+
+                    <template x-if="$store.pluginListStore.selectedPlugin.author && $store.pluginListStore.selectedPlugin.repo">
+                        <div class="plugin-info-grid-pair">
+                            <div class="plugin-info-label">Repository:</div>
+                            <div class="plugin-info-value">
+                                <code x-text="`${$store.pluginListStore.selectedPlugin.author}/${$store.pluginListStore.selectedPlugin.repo}`"></code>
+                            </div>
+                        </div>
+                    </template>
 
                     <div class="plugin-info-label">Path:</div>
                     <div class="plugin-info-value">
@@ -54,12 +73,60 @@
                     <div class="plugin-info-value"
                         x-text="$store.pluginListStore.selectedPlugin.has_config_screen ? 'Available' : 'Not available'"></div>
                 </div>
+
+                <div class="plugin-info-readme-section"
+                    x-show="$store.pluginListStore.selectedPlugin.has_readme || $store.pluginListStore.readmeLoading || $store.pluginListStore.readmeError || $store.pluginListStore.readmeContent">
+                    <button type="button"
+                        class="plugin-info-readme-toggle"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#plugin-info-readme-collapse"
+                        aria-expanded="false"
+                        aria-controls="plugin-info-readme-collapse">
+                        <span>README</span>
+                        <span class="material-symbols-outlined plugin-info-readme-toggle-icon">expand_more</span>
+                    </button>
+                    <div class="collapse" id="plugin-info-readme-collapse">
+                        <div class="plugin-info-readme-body">
+                            <div x-show="$store.pluginListStore.readmeLoading" class="plugin-info-loading-text">
+                                Loading readme...
+                            </div>
+                            <div x-show="$store.pluginListStore.readmeError && !$store.pluginListStore.readmeLoading"
+                                class="plugin-info-readme-error"
+                                x-text="$store.pluginListStore.readmeError"></div>
+                            <div x-show="$store.pluginListStore.readmeContent && !$store.pluginListStore.readmeLoading"
+                                class="plugin-info-readme-content"
+                                x-html="$store.pluginListStore.readmeContent"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </template>
-    </div>
 
-    <div class="modal-footer" data-modal-footer>
-        <button class="btn btn-cancel" @click="window.closeModal?.()">Close</button>
+        <template x-if="$store.pluginListStore?.selectedPlugin">
+            <div class="modal-footer plugin-info-footer" data-modal-footer>
+                <div class="plugin-info-footer-row">
+                    <div class="plugin-info-footer-left">
+                        <button type="button"
+                            class="button"
+                            title="Open plugin files"
+                            @click="$store.pluginListStore.openPluginFolder($store.pluginListStore.selectedPlugin)">
+                            <span class="icon material-symbols-outlined">folder_open</span> Files
+                        </button>
+                        <template x-if="$store.pluginListStore.selectedPlugin.pluginHub?.key">
+                            <button type="button"
+                                class="button"
+                                title="Open in Plugin Hub"
+                                @click="$store.pluginListStore.openPluginHub($store.pluginListStore.selectedPlugin)">
+                                <span class="icon material-symbols-outlined">storefront</span> Hub
+                            </button>
+                        </template>
+                    </div>
+                    <div class="plugin-info-footer-right">
+                        <button class="btn btn-cancel" @click="window.closeModal?.()">Close</button>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 
     <style>
@@ -68,6 +135,38 @@
         }
         
         .plugin-info-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .plugin-info-thumb {
+            width: 96px;
+            height: 96px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            background: var(--color-panel);
+        }
+
+        .plugin-info-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 0.5rem;
+        }
+
+        .plugin-info-header-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .plugin-info-heading {
             display: flex;
             flex-wrap: wrap;
             align-items: baseline;
@@ -97,6 +196,150 @@
             gap: 0.5rem 0.75rem;
         }
 
+        .plugin-info-readme-section {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .plugin-info-readme-toggle {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: var(--color-text-primary);
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .plugin-info-readme-toggle-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .plugin-info-readme-toggle[aria-expanded="true"] .plugin-info-readme-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .plugin-info-readme-body {
+            padding-top: 0.85rem;
+        }
+
+        .plugin-info-loading-text,
+        .plugin-info-readme-error {
+            color: var(--color-text-secondary);
+        }
+
+        .plugin-info-readme-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--color-text-primary);
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .plugin-info-readme-content::-webkit-scrollbar {
+            display: none;
+        }
+
+        .plugin-info-readme-content h1,
+        .plugin-info-readme-content h2,
+        .plugin-info-readme-content h3,
+        .plugin-info-readme-content h4 {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--color-text-primary);
+        }
+
+        .plugin-info-readme-content h1 { font-size: 1.5rem; }
+        .plugin-info-readme-content h2 { font-size: 1.25rem; }
+        .plugin-info-readme-content h3 { font-size: 1.1rem; }
+        .plugin-info-readme-content h4 { font-size: 1rem; }
+
+        .plugin-info-readme-content p {
+            margin-bottom: 0.75rem;
+        }
+
+        .plugin-info-readme-content code {
+            background: var(--color-panel);
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+            font-family: var(--font-family-mono);
+            font-size: 0.85em;
+        }
+
+        .plugin-info-readme-content pre {
+            background: var(--color-panel);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+
+        .plugin-info-readme-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .plugin-info-readme-content ul,
+        .plugin-info-readme-content ol {
+            margin-bottom: 0.75rem;
+            padding-left: 1.5rem;
+        }
+
+        .plugin-info-readme-content li {
+            margin-bottom: 0.25rem;
+        }
+
+        .plugin-info-readme-content a {
+            color: var(--color-highlight);
+            text-decoration: none;
+        }
+
+        .plugin-info-readme-content a:hover {
+            text-decoration: underline;
+        }
+
+        .plugin-info-readme-content img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+
+        .plugin-info-readme-content blockquote {
+            border-left: 3px solid var(--color-border);
+            padding-left: 1rem;
+            margin-left: 0;
+            color: var(--color-text-secondary);
+        }
+
+        .plugin-info-readme-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .plugin-info-readme-content th,
+        .plugin-info-readme-content td {
+            border: 1px solid var(--color-border);
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        .plugin-info-readme-content th {
+            background: var(--color-panel);
+        }
+
+        .plugin-info-grid-pair {
+            display: contents;
+        }
+
         .plugin-info-label {
             font-weight: 600;
             color: var(--color-text-secondary);
@@ -108,7 +351,27 @@
             overflow-wrap: anywhere;
         }
 
+        .plugin-info-footer-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .plugin-info-footer-left,
+        .plugin-info-footer-right {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         @media (max-width: 640px) {
+            .plugin-info-header {
+                flex-direction: column;
+            }
+
             .plugin-info-grid {
                 grid-template-columns: 1fr;
                 gap: 0.25rem;
@@ -116,6 +379,16 @@
 
             .plugin-info-label {
                 margin-top: 0.5rem;
+            }
+
+            .plugin-info-footer-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .plugin-info-footer-left,
+            .plugin-info-footer-right {
+                width: 100%;
             }
         }
     </style>

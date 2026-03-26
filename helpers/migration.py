@@ -1,7 +1,7 @@
 import os
 import json
 from helpers import files
-from helpers import subagents
+from helpers import subagents, extension
 from helpers import yaml as yaml_helper
 from helpers.print_style import PrintStyle
 
@@ -9,6 +9,10 @@ from helpers.print_style import PrintStyle
 def startup_migration() -> None:
     migrate_user_data()
     convert_agents_json_yaml()
+
+    extension.call_extensions_sync("startup_migration", None)
+
+
 
 def migrate_user_data() -> None:
     """

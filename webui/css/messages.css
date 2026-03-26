@@ -735,6 +735,19 @@
   opacity: 0;
 }
 
+/* ALL detail mode: force full response bodies and hide the expand control */
+#chat-history[data-detail-mode="expanded"] .message.message-collapsible .message-body {
+  max-height: none !important;
+}
+
+#chat-history[data-detail-mode="expanded"] .message.message-collapsible .message-body::after {
+  opacity: 0;
+}
+
+#chat-history[data-detail-mode="expanded"] .message.message-collapsible .expand-btn {
+  display: none !important;
+}
+
 /* Smooth Render */
 .smooth-render-visible,
 .smooth-render-invisible {

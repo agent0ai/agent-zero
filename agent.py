@@ -176,7 +176,7 @@ class AgentContext:
         # recursive is not used now, prepared for context hierarchy
         self.output_data[key] = value
 
-    @extension.extensible
+    # @extension.extensible
     def output(self):
         return {
             "id": self.id,
@@ -309,16 +309,9 @@ class AgentContext:
 
 @dataclass
 class AgentConfig:
-    chat_model: models.ModelConfig
-    utility_model: models.ModelConfig
-    embeddings_model: models.ModelConfig
-    browser_model: models.ModelConfig
     mcp_servers: str
     profile: str = ""
     knowledge_subdirs: list[str] = field(default_factory=lambda: ["default", "custom"])
-    browser_http_headers: dict[str, str] = field(
-        default_factory=dict
-    )  # Custom HTTP headers for browser requests
     additional: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -327,6 +320,7 @@ class UserMessage:
     message: str
     attachments: list[str] = field(default_factory=list[str])
     system_message: list[str] = field(default_factory=list[str])
+    id: str = ""
 
 
 class LoopData:
@@ -473,18 +467,20 @@ class Agent:
                             self.loop_data.last_response == agent_response
                         ):  # if assistant_response is the same as last message in history, let him know
                             # Append the assistant's response to the history
-                            self.hist_add_ai_response(agent_response)
+                            log_item = self.loop_data.params_temporary.get("log_item_generating")
+                            self.hist_add_ai_response(agent_response, id=log_item.id if log_item else "")
                             # Append warning message to the history
                             warning_msg = self.read_prompt("fw.msg_repeat.md")
-                            self.hist_add_warning(message=warning_msg)
+                            wmsg = self.hist_add_warning(message=warning_msg)
                             PrintStyle(font_color="orange", padding=True).print(
                                 warning_msg
                             )
-                            self.context.log.log(type="warning", content=warning_msg)
+                            self.context.log.log(type="warning", content=warning_msg, id=wmsg.id)
 
                         else:  # otherwise proceed with tool
                             # Append the assistant's response to the history
-                            self.hist_add_ai_response(agent_response)
+                            log_item = self.loop_data.params_temporary.get("log_item_generating")
+                            self.hist_add_ai_response(agent_response, id=log_item.id if log_item else "")
                             # process tools requested in agent message
                             tools_result = await self.process_tools(agent_response)
                             if tools_result:  # final response of message loop available
@@ -644,7 +640,7 @@ class Agent:
 
     @extension.extensible
     def hist_add_message(
-        self, ai: bool, content: history.MessageContent, tokens: int = 0
+        self, ai: bool, content: history.MessageContent, tokens: int = 0, id: str = ""
     ):
         self.last_message = datetime.now(timezone.utc)
         # Allow extensions to process content before adding to history
@@ -653,7 +649,7 @@ class Agent:
             "hist_add_before", self, content_data=content_data, ai=ai
         )
         return self.history.add_message(
-            ai=ai, content=content_data["content"], tokens=tokens
+            ai=ai, content=content_data["content"], tokens=tokens, id=id
         )
 
     @extension.extensible
@@ -681,30 +677,31 @@ class Agent:
             content = {k: v for k, v in content.items() if v}
 
         # add to history
-        msg = self.hist_add_message(False, content=content)  # type: ignore
+        msg = self.hist_add_message(False, content=content, id=message.id)  # type: ignore
         self.last_user_message = msg
         return msg
 
     @extension.extensible
-    def hist_add_ai_response(self, message: str):
+    def hist_add_ai_response(self, message: str, id: str = ""):
         self.loop_data.last_response = message
         content = self.parse_prompt("fw.ai_response.md", message=message)
-        return self.hist_add_message(True, content=content)
+        return self.hist_add_message(True, content=content, id=id)
 
     @extension.extensible
-    def hist_add_warning(self, message: history.MessageContent):
+    def hist_add_warning(self, message: history.MessageContent, id: str = ""):
         content = self.parse_prompt("fw.warning.md", message=message)
-        return self.hist_add_message(False, content=content)
+        return self.hist_add_message(False, content=content, id=id)
 
     @extension.extensible
     def hist_add_tool_result(self, tool_name: str, tool_result: str, **kwargs):
+        msg_id = kwargs.pop("id", "")
         data = {
             "tool_name": tool_name,
             "tool_result": tool_result,
             **kwargs,
         }
         extension.call_extensions_sync("hist_add_tool_result", self, data=data)
-        return self.hist_add_message(False, content=data)
+        return self.hist_add_message(False, content=data, id=msg_id)
 
     def concat_messages(
         self, messages
@@ -713,39 +710,19 @@ class Agent:
 
     @extension.extensible
     def get_chat_model(self):
-        return models.get_chat_model(
-            self.config.chat_model.provider,
-            self.config.chat_model.name,
-            model_config=self.config.chat_model,
-            **self.config.chat_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     def get_utility_model(self):
-        return models.get_chat_model(
-            self.config.utility_model.provider,
-            self.config.utility_model.name,
-            model_config=self.config.utility_model,
-            **self.config.utility_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     def get_browser_model(self):
-        return models.get_browser_model(
-            self.config.browser_model.provider,
-            self.config.browser_model.name,
-            model_config=self.config.browser_model,
-            **self.config.browser_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     def get_embedding_model(self):
-        return models.get_embedding_model(
-            self.config.embeddings_model.provider,
-            self.config.embeddings_model.name,
-            model_config=self.config.embeddings_model,
-            **self.config.embeddings_model.build_kwargs(),
-        )
+        return None
 
     @extension.extensible
     async def call_utility_model(
@@ -803,15 +780,32 @@ class Agent:
         # model class
         model = self.get_chat_model()
 
+        # call extensions before
+        call_data = {
+            "model": model,
+            "messages": messages,
+            "response_callback": response_callback,
+            "reasoning_callback": reasoning_callback,
+            "background": background,
+            "explicit_caching": explicit_caching,
+        }
+        await extension.call_extensions_async(
+            "chat_model_call_before", self, call_data=call_data
+        )
+
         # call model
-        response, reasoning = await model.unified_call(
-            messages=messages,
-            reasoning_callback=reasoning_callback,
-            response_callback=response_callback,
+        response, reasoning = await call_data["model"].unified_call(
+            messages=call_data["messages"],
+            reasoning_callback=call_data["reasoning_callback"],
+            response_callback=call_data["response_callback"],
             rate_limiter_callback=(
-                self.rate_limiter_callback if not background else None
+                self.rate_limiter_callback if not call_data["background"] else None
             ),
-            explicit_caching=explicit_caching,
+            explicit_caching=call_data["explicit_caching"],
+        )
+
+        await extension.call_extensions_async(
+            "chat_model_call_after", self, call_data=call_data, response=response, reasoning=reasoning
         )
 
         return response, reasoning
@@ -937,18 +931,19 @@ class Agent:
                 error_detail = (
                     f"Tool '{raw_tool_name}' not found or could not be initialized."
                 )
-                self.hist_add_warning(error_detail)
+                wmsg = self.hist_add_warning(error_detail)
                 PrintStyle(font_color="red", padding=True).print(error_detail)
                 self.context.log.log(
-                    type="warning", content=f"{self.agent_name}: {error_detail}"
+                    type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
                 )
         else:
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
-            self.hist_add_warning(warning_msg_misformat)
+            wmsg = self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
             self.context.log.log(
                 type="warning",
                 content=f"{self.agent_name}: Message misformat, no valid tool request found.",
+                id=wmsg.id,
             )
 
     @extension.extensible

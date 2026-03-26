@@ -9,7 +9,7 @@ export default async function injectBranchButtons(context) {
   if (!context?.results?.length) return;
 
   for (const { args, result } of context.results) {
-    if (!result?.element || args.no == null) continue;
+    if (!result?.element || args.no == null || !args.id) continue;
 
     const logNo = args.no;
     for (const bar of result.element.querySelectorAll(".step-action-buttons")) {

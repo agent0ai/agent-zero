@@ -1,7 +1,7 @@
 import base64
 from helpers.print_style import PrintStyle
 from helpers.tool import Tool, Response
-from helpers import runtime, files, images
+from helpers import runtime, files, images, plugins
 from mimetypes import guess_type
 from helpers import history
 
@@ -15,9 +15,15 @@ class VisionLoad(Tool):
     async def execute(self, paths: list[str] = [], **kwargs) -> Response:
 
         self.images_dict = {}
+        self.loaded_paths: list[str] = []
+        self.skipped_paths: list[str] = []
         template: list[dict[str, str]] = []  # type: ignore
 
-        for path in paths:
+        max_embeds = self._get_max_embeds()
+        limited_paths = paths if max_embeds <= 0 else paths[-max_embeds:]
+        self.skipped_paths = paths[:-max_embeds] if max_embeds > 0 and len(paths) > max_embeds else []
+
+        for path in limited_paths:
             if not await runtime.call_development_function(files.exists, str(path)):
                 continue
 
@@ -44,6 +50,7 @@ class VisionLoad(Tool):
 
                         # Construct the data URL (always JPEG after compression)
                         self.images_dict[path] = file_content_b64
+                        self.loaded_paths.append(path)
                     except Exception as e:
                         self.images_dict[path] = None
                         PrintStyle().error(f"Error processing image {path}: {e}")
@@ -51,11 +58,24 @@ class VisionLoad(Tool):
 
         return Response(message="dummy", break_loop=False)
 
+    def _get_max_embeds(self) -> int:
+        cfg = plugins.get_plugin_config("_model_config", agent=self.agent) or {}
+        chat_cfg = cfg.get("chat_model", {})
+        max_embeds = chat_cfg.get("max_embeds", 10)
+        return int(max_embeds or 0)
+
     async def after_execution(self, response: Response, **kwargs):
 
         # build image data messages for LLMs, or error message
         content = []
+        loaded_summary = "\n".join(self.loaded_paths) if self.loaded_paths else "none"
+        skipped_summary = "\n".join(self.skipped_paths) if self.skipped_paths else "none"
+        summary = (
+            f"Loaded images:\n{loaded_summary}\n\n"
+            f"Skipped images (max {self._get_max_embeds()} loaded at a time according to model configuration):\n{skipped_summary}"
+        )
         if self.images_dict:
+            self.agent.hist_add_tool_result(self.name, summary, id=self.log.id if self.log else "")
             for path, image in self.images_dict.items():
                 if image:
                     content.append(
@@ -77,13 +97,13 @@ class VisionLoad(Tool):
                 False, content=msg, tokens=TOKENS_ESTIMATE * len(content)
             )
         else:
-            self.agent.hist_add_tool_result(self.name, "No images processed")
+            self.agent.hist_add_tool_result(self.name, summary if self.skipped_paths else "No images processed", id=self.log.id if self.log else "")
 
         # print and log short version
         message = (
             "No images processed"
-            if not self.images_dict
-            else f"{len(self.images_dict)} images processed"
+            if not self.images_dict and not self.skipped_paths
+            else f"{len(self.loaded_paths)} images loaded, {len(self.skipped_paths)} skipped"
         )
         PrintStyle(
             font_color="#1B4F72", background_color="white", padding=True, bold=True

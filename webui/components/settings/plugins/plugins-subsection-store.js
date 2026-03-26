@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
-import { store as pluginListStore } from "/components/plugins/list/pluginListStore.js";
+import { toastFrontendError } from "/components/notifications/notification-store.js";
+import { store as pluginSettingsStore } from "/components/plugins/plugin-settings-store.js";
 
 const model = {
   tab: "",
@@ -51,7 +52,13 @@ const model = {
   },
 
   async openPluginConfig(plugin) {
-    await pluginListStore.openPluginConfig(plugin);
+    if (!plugin?.name) return;
+    try {
+      await pluginSettingsStore.openConfig(plugin.name);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      void toastFrontendError(message, "Plugin Settings");
+    }
   },
 };
 

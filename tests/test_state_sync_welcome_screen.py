@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from helpers.websocket_manager import WebSocketManager
 
-NAMESPACE = "/state_sync"
+NAMESPACE = "/webui"
 
 
 class FakeSocketIOServer:
@@ -32,14 +32,14 @@ async def test_state_sync_handshake_and_initial_snapshot_work_with_no_selected_c
 
     from helpers.state_snapshot import validate_snapshot_schema_v1
     from helpers.state_monitor import _reset_state_monitor_for_testing
-    from python.websocket_handlers.state_sync_handler import StateSyncHandler
+    from python.websocket_handlers.webui_handler import WebuiHandler
 
     socketio = FakeSocketIOServer()
     manager = WebSocketManager(socketio, threading.RLock())
 
     _reset_state_monitor_for_testing()
-    StateSyncHandler._reset_instance_for_testing()
-    handler = StateSyncHandler.get_instance(socketio, threading.RLock())
+    WebuiHandler._reset_instance_for_testing()
+    handler = WebuiHandler.get_instance(socketio, threading.RLock())
     manager.register_handlers({NAMESPACE: [handler]})
     await manager.handle_connect(NAMESPACE, "sid-1")
 

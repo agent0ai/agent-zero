@@ -1,6 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
+import * as api from "/js/api.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
-import { store as settingsStore } from "/components/settings/settings-store.js";
 import { store as pluginToggleStore } from "/components/plugins/toggle/plugin-toggle-store.js";
 
 const fetchApi = globalThis.fetchApi;
@@ -41,6 +41,64 @@ const model = {
         return window.confirm("You have unsaved changes that will be lost. Continue?");
     },
 
+    async _loadPluginMeta(pluginName) {
+        const response = await api.callJsonApi("plugins_list", {
+            filter: { custom: true, builtin: true, search: "" },
+        });
+        const plugins = Array.isArray(response?.plugins) ? response.plugins : [];
+        return plugins.find((plugin) => plugin?.name === pluginName) || null;
+    },
+
+    _hasProject(projectName) {
+        if (!projectName) return false;
+        return (this.projects || []).some((project) => project?.key === projectName);
+    },
+
+    _hasAgentProfile(agentProfileKey) {
+        if (!agentProfileKey) return false;
+        return (this.agentProfiles || []).some((profile) => profile?.key === agentProfileKey);
+    },
+
+    _resolveScope(pluginMeta, projectName = "", agentProfileKey = "") {
+        const resolvedProjectName =
+            pluginMeta?.per_project_config && this._hasProject(projectName)
+                ? projectName
+                : "";
+        const resolvedAgentProfileKey =
+            pluginMeta?.per_agent_config && this._hasAgentProfile(agentProfileKey)
+                ? agentProfileKey
+                : "";
+
+        return {
+            projectName: resolvedProjectName,
+            agentProfileKey: resolvedAgentProfileKey,
+        };
+    },
+
+    _applyPluginState(pluginMeta, { projectName = "", agentProfileKey = "" } = {}) {
+        this.pluginName = pluginMeta?.name || null;
+        this.pluginMeta = pluginMeta || null;
+        this.settings = {};
+        this.settingsSnapshotJson = "";
+        this.error = null;
+        this.projectName = projectName;
+        this.agentProfileKey = agentProfileKey;
+        this.previousProjectName = projectName;
+        this.previousAgentProfileKey = agentProfileKey;
+        this.loadedPath = "";
+        this.loadedProjectName = "";
+        this.loadedAgentProfile = "";
+        this.perProjectConfig = !!pluginMeta?.per_project_config;
+        this.perAgentConfig = !!pluginMeta?.per_agent_config;
+    },
+
+    async _syncToggleScope(projectName = "", agentProfileKey = "") {
+        if (!pluginToggleStore?.loadToggleStatus) return;
+        pluginToggleStore.projectName = projectName;
+        pluginToggleStore.agentProfileKey = agentProfileKey;
+        await pluginToggleStore.loadToggleStatus();
+    },
+
     async onScopeChanged() {
         const nextProject = this.projectName || "";
         const nextProfile = this.agentProfileKey || "";
@@ -56,13 +114,7 @@ const model = {
         }
 
         await this.loadSettings();
-
-        // Mirror scope change to pluginToggle so activation state stays in sync
-        if (pluginToggleStore?.loadToggleStatus) {
-            pluginToggleStore.projectName = nextProject;
-            pluginToggleStore.agentProfileKey = nextProfile;
-            await pluginToggleStore.loadToggleStatus();
-        }
+        await this._syncToggleScope(nextProject, nextProfile);
     },
 
     // where the settings were actually loaded from
@@ -131,6 +183,7 @@ const model = {
         this.projectName = projectName || "";
         this.agentProfileKey = agentProfile || "";
         await this.loadSettings();
+        await this._syncToggleScope(this.projectName, this.agentProfileKey);
         await window.closeModal?.();
     },
 
@@ -168,10 +221,6 @@ const model = {
         }
     },
 
-    // 'plugin' = save to plugin settings API
-    // 'core'   = save via $store.settings.saveSettings() (for plugins that surface core settings)
-    saveMode: 'plugin',
-
     perProjectConfig: true,
     perAgentConfig: true,
 
@@ -179,32 +228,30 @@ const model = {
     isSaving: false,
     error: null,
 
-    // Called by the subsection button before openModal()
-    // Optional scope: { projectName, agentProfileKey } — skips redundant global loadSettings()
-    // when the caller already knows which scope to open at.
-    async open(pluginName, { projectName = "", agentProfileKey = "", perProjectConfig = true, perAgentConfig = true } = {}) {
-        this.pluginName = pluginName;
-        this.pluginMeta = null;
-        this.settings = {};
-        this.settingsSnapshotJson = "";
-        this.error = null;
-        this.saveMode = 'plugin';
-        this.perProjectConfig = perProjectConfig;
-        this.perAgentConfig = perAgentConfig;
-        this.projectName = projectName;
-        this.agentProfileKey = agentProfileKey;
-        this.previousProjectName = projectName;
-        this.previousAgentProfileKey = agentProfileKey;
-        this.loadedPath = "";
-        this.loadedProjectName = "";
-        this.loadedAgentProfile = "";
-        await Promise.all([this.loadProjects(), this.loadAgentProfiles()]);
-        await this.loadSettings();
-    },
+    async openConfig(pluginName, projectName = "", agentProfile = "") {
+        if (!pluginName) {
+            throw new Error("Missing plugin name.");
+        }
 
-    // Called by x-create inside the modal on every open
-    async onModalOpen() {
-        if (this.pluginName) await this.loadSettings();
+        this.cleanup();
+        const pluginMeta = await this._loadPluginMeta(pluginName);
+        if (!pluginMeta) {
+            throw new Error(`Plugin "${pluginName}" not found.`);
+        }
+        if (!pluginMeta.has_config_screen) {
+            throw new Error(`Plugin "${pluginName}" has no config screen.`);
+        }
+
+        await Promise.all([this.loadProjects(), this.loadAgentProfiles()]);
+        const resolvedScope = this._resolveScope(pluginMeta, projectName || "", agentProfile || "");
+        this._applyPluginState(pluginMeta, resolvedScope);
+        await this.loadSettings();
+
+        if (!pluginToggleStore?.open) {
+            throw new Error("Plugin toggle store is unavailable.");
+        }
+        await pluginToggleStore.open(pluginMeta, resolvedScope);
+        await window.openModal?.("/components/plugins/plugin-settings.html");
     },
 
     async loadAgentProfiles() {
@@ -290,17 +337,6 @@ const model = {
 
     async save() {
         if (!this.pluginName) return;
-
-        // Core-backed plugins (e.g. memory) delegate to the settings store
-        if (this.saveMode === 'core') {
-            if (settingsStore?.saveSettings) {
-                const ok = await settingsStore.saveSettings();
-                if (ok) window.closeModal?.();
-            }
-            return;
-        }
-
-        // Plugin-specific settings: persist to plugin settings API
         this.isSaving = true;
         this.error = null;
         try {
@@ -331,6 +367,10 @@ const model = {
     cleanup() {
         this.pluginName = null;
         this.pluginMeta = null;
+        this.projects = [];
+        this.agentProfiles = [];
+        this.projectName = "";
+        this.agentProfileKey = "";
         this.settings = {};
         this.settingsSnapshotJson = "";
         this.previousProjectName = "";

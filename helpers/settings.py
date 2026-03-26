@@ -53,44 +53,6 @@ def get_default_value(name: str, value: T) -> T:
 class Settings(TypedDict):
     version: str
 
-    chat_model_provider: str
-    chat_model_name: str
-    chat_model_api_base: str
-    chat_model_kwargs: dict[str, Any]
-    chat_model_ctx_length: int
-    chat_model_ctx_history: float
-    chat_model_vision: bool
-    chat_model_rl_requests: int
-    chat_model_rl_input: int
-    chat_model_rl_output: int
-
-    util_model_provider: str
-    util_model_name: str
-    util_model_api_base: str
-    util_model_kwargs: dict[str, Any]
-    util_model_ctx_length: int
-    util_model_ctx_input: float
-    util_model_rl_requests: int
-    util_model_rl_input: int
-    util_model_rl_output: int
-
-    embed_model_provider: str
-    embed_model_name: str
-    embed_model_api_base: str
-    embed_model_kwargs: dict[str, Any]
-    embed_model_rl_requests: int
-    embed_model_rl_input: int
-
-    browser_model_provider: str
-    browser_model_name: str
-    browser_model_api_base: str
-    browser_model_vision: bool
-    browser_model_rl_requests: int
-    browser_model_rl_input: int
-    browser_model_rl_output: int
-    browser_model_kwargs: dict[str, Any]
-    browser_http_headers: dict[str, Any]
-
     agent_profile: str
     agent_knowledge_subdir: str
 
@@ -261,10 +223,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
         ),
     }
 
-    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("chat_model_provider"))
-    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("util_model_provider"))
-    additional["chat_providers"] = _ensure_option_present(additional.get("chat_providers"), current.get("browser_model_provider"))
-    additional["embedding_providers"] = _ensure_option_present(additional.get("embedding_providers"), current.get("embed_model_provider"))
     additional["agent_subdirs"] = _ensure_option_present(additional.get("agent_subdirs"), current.get("agent_profile"))
     additional["knowledge_subdirs"] = _ensure_option_present(additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir"))
     additional["stt_models"] = _ensure_option_present(additional.get("stt_models"), current.get("stt_model_size"))
@@ -304,7 +262,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     # normalize certain fields
     for key, value in list(out["settings"].items()):
         # convert kwargs dicts to .env format
-        if (key.endswith("_kwargs") or key=="browser_http_headers") and isinstance(value, dict):
+        if (key.endswith("_kwargs")) and isinstance(value, dict):
             out["settings"][key] = _dict_to_env(value)
     return out
 
@@ -323,8 +281,8 @@ def convert_in(settings: Settings) -> Settings:
     current = get_settings()
 
     for key, value in settings.items():
-        # Special handling for browser_http_headers and *_kwargs (stored as .env text)
-        if (key == "browser_http_headers" or key.endswith("_kwargs")) and isinstance(value, str):
+        # Special handling for *_kwargs (stored as .env text)
+        if (key.endswith("_kwargs")) and isinstance(value, str):
             current[key] = _env_to_dict(value)
             continue
 
@@ -493,40 +451,6 @@ def get_default_settings() -> Settings:
     gitignore = files.read_file(files.get_abs_path("conf/workdir.gitignore"))
     return Settings(
         version=_get_version(),
-        chat_model_provider=get_default_value("chat_model_provider", "openrouter"),
-        chat_model_name=get_default_value("chat_model_name", "anthropic/claude-sonnet-4.6"),
-        chat_model_api_base=get_default_value("chat_model_api_base", ""),
-        chat_model_kwargs=get_default_value("chat_model_kwargs", {}),
-        chat_model_ctx_length=get_default_value("chat_model_ctx_length", 100000),
-        chat_model_ctx_history=get_default_value("chat_model_ctx_history", 0.7),
-        chat_model_vision=get_default_value("chat_model_vision", True),
-        chat_model_rl_requests=get_default_value("chat_model_rl_requests", 0),
-        chat_model_rl_input=get_default_value("chat_model_rl_input", 0),
-        chat_model_rl_output=get_default_value("chat_model_rl_output", 0),
-        util_model_provider=get_default_value("util_model_provider", "openrouter"),
-        util_model_name=get_default_value("util_model_name", "google/gemini-3-flash-preview"),
-        util_model_api_base=get_default_value("util_model_api_base", ""),
-        util_model_ctx_length=get_default_value("util_model_ctx_length", 100000),
-        util_model_ctx_input=get_default_value("util_model_ctx_input", 0.7),
-        util_model_kwargs=get_default_value("util_model_kwargs", {}),
-        util_model_rl_requests=get_default_value("util_model_rl_requests", 0),
-        util_model_rl_input=get_default_value("util_model_rl_input", 0),
-        util_model_rl_output=get_default_value("util_model_rl_output", 0),
-        embed_model_provider=get_default_value("embed_model_provider", "huggingface"),
-        embed_model_name=get_default_value("embed_model_name", "sentence-transformers/all-MiniLM-L6-v2"),
-        embed_model_api_base=get_default_value("embed_model_api_base", ""),
-        embed_model_kwargs=get_default_value("embed_model_kwargs", {}),
-        embed_model_rl_requests=get_default_value("embed_model_rl_requests", 0),
-        embed_model_rl_input=get_default_value("embed_model_rl_input", 0),
-        browser_model_provider=get_default_value("browser_model_provider", "openrouter"),
-        browser_model_name=get_default_value("browser_model_name", "anthropic/claude-sonnet-4.6"),
-        browser_model_api_base=get_default_value("browser_model_api_base", ""),
-        browser_model_vision=get_default_value("browser_model_vision", True),
-        browser_model_rl_requests=get_default_value("browser_model_rl_requests", 0),
-        browser_model_rl_input=get_default_value("browser_model_rl_input", 0),
-        browser_model_rl_output=get_default_value("browser_model_rl_output", 0),
-        browser_model_kwargs=get_default_value("browser_model_kwargs", {}),
-        browser_http_headers=get_default_value("browser_http_headers", {}),
         api_keys={},
         auth_login="",
         auth_password="",
@@ -586,18 +510,6 @@ def _apply_settings(previous: Settings | None):
             task = defer.DeferredTask().start_task(
                 whisper.preload, _settings["stt_model_size"]
             )  # TODO overkill, replace with background task
-
-        # notify plugins of embedding model change
-        if not previous or (
-            _settings["embed_model_name"] != previous["embed_model_name"]
-            or _settings["embed_model_provider"] != previous["embed_model_provider"]
-            or _settings["embed_model_kwargs"] != previous["embed_model_kwargs"]
-        ):
-            from helpers.extension import call_extensions_async
-
-            defer.DeferredTask().start_task(
-                call_extensions_async, "embedding_model_changed"
-            )
 
         # update mcp settings if necessary
         if not previous or _settings["mcp_servers"] != previous["mcp_servers"]:

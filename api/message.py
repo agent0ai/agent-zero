@@ -68,4 +68,4 @@ class Message(ApiHandler):
         # Log to console and UI using helper function
         mq.log_user_message(context, message, attachment_paths, message_id)
 
-        return context.communicate(UserMessage(message, attachment_paths)), context
+        return context.communicate(UserMessage(message=message, attachments=attachment_paths, id=message_id or "")), context

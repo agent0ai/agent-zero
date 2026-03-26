@@ -115,6 +115,15 @@ function normalizeNamespace(value) {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
+function hasWildcardPattern(value) {
+  return typeof value === "string" && value.includes("*");
+}
+
+function compileEventPattern(value) {
+  const escaped = value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+  return new RegExp(`^${escaped.replaceAll("*", ".*")}$`);
+}
+
 /**
  * Generate a correlation identifier using UUIDv4 semantics.
  *
@@ -487,9 +496,18 @@ class WebSocketClient {
     await this.connect();
 
     if (!this.subscriptions.has(eventType)) {
-      const handler = (payload) => {
+      const isWildcard = hasWildcardPattern(eventType);
+      const eventPattern = isWildcard ? compileEventPattern(eventType) : null;
+      const handler = (...args) => {
         const entry = this.subscriptions.get(eventType);
         if (!entry) return;
+        const currentIsWildcard = Boolean(entry.eventPattern);
+        const payload = isWildcard ? args[1] : args[0];
+        const incomingEventType = isWildcard ? args[0] : eventType;
+        if (currentIsWildcard) {
+          if (typeof incomingEventType !== "string") return;
+          if (!entry.eventPattern.test(incomingEventType)) return;
+        }
         let envelope;
         try {
           envelope = validateServerEnvelope(payload);
@@ -501,6 +519,10 @@ class WebSocketClient {
 
         entry.callbacks.forEach((cb) => {
           try {
+            if (currentIsWildcard) {
+              cb(incomingEventType, envelope);
+              return;
+            }
             cb(envelope);
           } catch (error) {
             console.error("WebSocket callback error:", error);
@@ -509,11 +531,16 @@ class WebSocketClient {
       };
 
       this.subscriptions.set(eventType, {
+        eventPattern,
         handler,
         callbacks: new Set(),
       });
 
-      this.socket.on(eventType, handler);
+      if (isWildcard) {
+        this.socket.onAny(handler);
+      } else {
+        this.socket.on(eventType, handler);
+      }
     }
 
     const entry = this.subscriptions.get(eventType);
@@ -532,7 +559,11 @@ class WebSocketClient {
 
     if (entry.callbacks.size === 0) {
       if (this.socket) {
-        this.socket.off(eventType, entry.handler);
+        if (entry.eventPattern) {
+          this.socket.offAny(entry.handler);
+        } else {
+          this.socket.off(eventType, entry.handler);
+        }
       }
       this.subscriptions.delete(eventType);
     }

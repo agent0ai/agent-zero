@@ -5,7 +5,7 @@ import shlex
 import time
 
 from helpers.tool import Tool, Response
-from helpers import files, rfc_exchange, projects, runtime, settings
+from helpers import files, rfc_exchange, projects, runtime, secrets, settings
 from helpers.print_style import PrintStyle
 from helpers.strings import truncate_text as truncate_text_string
 from helpers.messages import truncate_text as truncate_text_agent
@@ -71,11 +71,13 @@ class CodeExecution(Tool):
         return Response(message=response, break_loop=False)
 
     def get_log_object(self):
+        import uuid
         return self.agent.context.log.log(
             type="code_exe",
             heading=self.get_heading(),
             content="",
             kvps=self.args,
+            id=str(uuid.uuid4()),
         )
 
     def get_heading(self, text: str = ""):
@@ -83,10 +85,10 @@ class CodeExecution(Tool):
             text = f"{self.name} - {self.args['runtime'] if 'runtime' in self.args else 'unknown'}"
         session = self.args.get("session", None)
         session_text = f"[{session}] " if session or session == 0 else ""
-        return f"icon://terminal {session_text}{text}"
+        return f"icon://terminal {session_text}{truncate_text_string(text, 200)}"
 
     async def after_execution(self, response, **kwargs):
-        self.agent.hist_add_tool_result(self.name, response.message, **(response.additional or {}))
+        self.agent.hist_add_tool_result(self.name, response.message, id=self.log.id if self.log else "", **(response.additional or {}))
 
     async def prepare_state(self, cfg: dict, reset=False, session: int | None = None):
         self.state: State | None = self.agent.get_data("_cet_state")
@@ -200,8 +202,9 @@ class CodeExecution(Tool):
                     raise e
 
     def format_command_for_output(self, command: str):
-        short_cmd = command[:200]
+        short_cmd = command[:250]
         short_cmd = " ".join(short_cmd.split())
+        short_cmd = secrets.get_secrets_manager(self.agent.context).mask_values(short_cmd)
         short_cmd = truncate_text_string(short_cmd, 100)
         return f"{short_cmd}"
 
@@ -265,8 +268,10 @@ class CodeExecution(Tool):
                 )
                 last_lines.reverse()
                 for idx, line in enumerate(last_lines):
+                    line = line.strip()
+                    line = line if len(line) <= 500 else line[:250] + line[-250:] # only check start and end on long lines
                     for pat in prompt_patterns:
-                        if pat.search(line.strip()):
+                        if pat.search(line):
                             PrintStyle.info(
                                 "Detected shell prompt, returning output early."
                             )

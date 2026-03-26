@@ -17,15 +17,29 @@
     })()">
         <template x-if="context">
             <div>
-            <div x-create="context.onModalOpen(); (() => { const modal = $el.closest('.modal'); if (modal) modal.__pluginSettingsContext = context; })()"
-                 x-destroy="context.cleanup(); $store.pluginListStore?.refresh()">
+            <div x-create="(() => { const modal = $el.closest('.modal'); if (modal) modal.__pluginSettingsContext = context; })()"
+                 x-destroy="context.cleanup()">
 
                 <!-- Context toolbar: Project + Agent profile (only when at least one scope is configurable) -->
                 <div class="plugin-settings-scope-section"
                      x-show="context.perProjectConfig || context.perAgentConfig">
                     <div class="plugin-settings-scope-header">
-                        <div class="plugin-settings-scope-title">Settings scope</div>
-                        <div class="plugin-settings-scope-desc">This plugin supports settings per project or agent profile.</div>
+                        <div class="plugin-settings-scope-header-copy">
+                            <div class="plugin-settings-scope-title">Settings scope</div>
+                            <div class="plugin-settings-scope-desc">This plugin supports settings per project or agent profile.</div>
+                        </div>
+                        <div class="plugin-settings-scope-header-toggle"
+                             x-show="$store.pluginToggle && !$store.pluginToggle.alwaysEnabled">
+                            <span class="plugin-settings-toolbar-label">Enabled</span>
+                            <label class="toggle">
+                                <input type="checkbox"
+                                       :checked="$store.pluginToggle?.status === 'enabled'"
+                                       :disabled="$store.pluginToggle?.isSaving"
+                                       @change="$store.pluginToggle.setEnabled($event.target.checked)">
+                                <span class="toggler"></span>
+                            </label>
+                            <span class="plugin-toggle-status-text" x-text="$store.pluginToggle?.statusLabel"></span>
+                        </div>
                     </div>
                     <div class="plugin-settings-toolbar">
                     <div class="plugin-settings-toolbar-row">
@@ -60,22 +74,6 @@
                             <span class="icon material-symbols-outlined">list</span>
                         </button>
 
-                    </div>
-
-                    <!-- Activation row: ON/OFF toggle -->
-                    <div class="plugin-settings-toolbar plugin-activation-toolbar" x-show="$store.pluginToggle">
-                        <div class="plugin-settings-toolbar-row">
-                            <div class="plugin-activation-toggle-group">
-                                <label class="toggle">
-                                    <input type="checkbox"
-                                           :checked="$store.pluginToggle?.status === 'enabled'"
-                                           :disabled="$store.pluginToggle?.alwaysEnabled || $store.pluginToggle?.isSaving"
-                                           @change="$store.pluginToggle.setEnabled($event.target.checked)">
-                                    <span class="toggler"></span>
-                                </label>
-                                <span class="plugin-toggle-status-text" x-text="$store.pluginToggle?.statusLabel"></span>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -223,9 +221,26 @@
         }
 
         .plugin-settings-scope-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
             padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--color-border);
             background: var(--color-bg-secondary);
+        }
+
+        .plugin-settings-scope-header-copy {
+            min-width: 0;
+        }
+
+        .plugin-settings-scope-header-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-left: auto;
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
 
         .plugin-settings-scope-title {
@@ -240,21 +255,23 @@
             margin-top: 0.25rem;
         }
 
-        .plugin-activation-toolbar {
-            padding-top: 0.75rem;
-            padding-bottom: 0.75rem;
-        }
-
-        .plugin-activation-toggle-group {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
         .plugin-toggle-status-text {
             font-weight: 600;
             color: var(--color-text-primary);
             min-width: 2rem;
+        }
+
+        @media (max-width: 640px) {
+            .plugin-settings-scope-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .plugin-settings-scope-header-toggle {
+                margin-left: 0;
+                justify-content: flex-start;
+                white-space: normal;
+            }
         }
     </style>
 </body>

@@ -19,10 +19,34 @@ from helpers.state_monitor import _ws_debug_enabled
 
 BUFFER_MAX_SIZE = 100
 BUFFER_TTL = timedelta(hours=1)
+_shared_websocket_manager: WebSocketManager | None = None
+
+
+async def send_data(
+    event_name: str,
+    data: dict[str, Any],
+    endpoint_name: str = "/webui",
+    connection_id: str | None = None,
+) -> None:
+    manager = get_shared_websocket_manager()
+    print(f"Sending data to {endpoint_name}/{event_name} with data {data}")
+    await manager.send_data(endpoint_name, event_name, data, connection_id)
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def set_shared_websocket_manager(manager: "WebSocketManager") -> None:
+    global _shared_websocket_manager
+    _shared_websocket_manager = manager
+
+
+def get_shared_websocket_manager() -> "WebSocketManager":
+    manager = _shared_websocket_manager
+    if manager is None:
+        raise RuntimeError("Shared WebSocketManager has not been initialized")
+    return manager
 
 
 @dataclass
@@ -61,11 +85,11 @@ class WebSocketManager:
     def __init__(self, socketio: socketio.AsyncServer, lock) -> None:
         self.socketio = socketio
         self.lock = lock
-        self.handlers: defaultdict[str, defaultdict[str, List[WebSocketHandler]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
+        self.handlers: defaultdict[str, List[WebSocketHandler]] = defaultdict(list)
         self.connections: Dict[ConnectionIdentity, ConnectionInfo] = {}
-        self.buffers: defaultdict[ConnectionIdentity, Deque[BufferedEvent]] = defaultdict(deque)
+        self.buffers: defaultdict[ConnectionIdentity, Deque[BufferedEvent]] = (
+            defaultdict(deque)
+        )
         self._known_sids: Set[ConnectionIdentity] = set()
         self._identifier: str = f"{self.__class__.__module__}.{self.__class__.__name__}"
         # Session tracking (single-user default)
@@ -237,9 +261,7 @@ class WebSocketManager:
 
         asyncio.create_task(_broadcast())
 
-    def _normalize_handler_filter(
-        self, value: Any, field_name: str
-    ) -> Set[str] | None:
+    def _normalize_handler_filter(self, value: Any, field_name: str) -> Set[str] | None:
         if value is None:
             return None
         if isinstance(value, str):
@@ -247,7 +269,9 @@ class WebSocketManager:
         try:
             iterator = iter(value)
         except TypeError as exc:  # pragma: no cover - defensive
-            raise ValueError(f"{field_name} must be an array of handler identifiers") from exc
+            raise ValueError(
+                f"{field_name} must be an array of handler identifiers"
+            ) from exc
 
         normalized: Set[str] = set()
         for item in iterator:
@@ -258,9 +282,7 @@ class WebSocketManager:
             normalized.add(item)
         return normalized
 
-    def _normalize_sid_filter(
-        self, value: str | Iterable[str] | None
-    ) -> Set[str]:
+    def _normalize_sid_filter(self, value: str | Iterable[str] | None) -> Set[str]:
         if value is None:
             return set()
         if isinstance(value, str):
@@ -273,12 +295,11 @@ class WebSocketManager:
     def _select_handlers(
         self,
         namespace: str,
-        event_type: str,
         *,
         include: Set[str] | None,
         exclude: Set[str] | None,
     ) -> tuple[list[WebSocketHandler], Set[str]]:
-        registered = self.handlers.get(namespace, {}).get(event_type, [])
+        registered = self.handlers.get(namespace, [])
         available_ids = {handler.identifier for handler in registered}
 
         if include is not None:
@@ -322,33 +343,23 @@ class WebSocketManager:
         for namespace, handlers in handlers_by_namespace.items():
             for handler in handlers:
                 handler.bind_manager(self, namespace=namespace)
-                declared = handler.get_event_types()
-                try:
-                    validated_events = handler.validate_event_types(declared)
-                except Exception as exc:
-                    PrintStyle.error(
-                        f"Failed to register handler {handler.identifier}: {exc}"
-                    )
-                    raise
-                
                 if _ws_debug_enabled():
                     PrintStyle.info(
-                        "Registered WebSocket handler %s namespace=%s for events: %s"
-                        % (handler.identifier, namespace, ", ".join(validated_events))
+                        "Registered WebSocket handler %s namespace=%s"
+                        % (handler.identifier, namespace)
                     )
-                for event_type in validated_events:
-                    existing = self.handlers[namespace].get(event_type)
-                    if existing:
-                        PrintStyle.warning(
-                            f"Duplicate handler registration for namespace '{namespace}' event '{event_type}'"
-                        )
-                    self.handlers[namespace][event_type].append(handler)
-                    self._debug(
-                        f"Registered handler {handler.identifier} namespace={namespace} event='{event_type}'"
+                existing = self.handlers.get(namespace, [])
+                if handler in existing:
+                    PrintStyle.warning(
+                        f"Duplicate handler registration for namespace '{namespace}'"
                     )
+                self.handlers[namespace].append(handler)
+                self._debug(
+                    f"Registered handler {handler.identifier} namespace={namespace}"
+                )
 
     def iter_event_types(self, namespace: str) -> Iterable[str]:
-        return list(self.handlers.get(namespace, {}).keys())
+        return []
 
     def iter_namespaces(self) -> list[str]:
         return list(self.handlers.keys())
@@ -568,13 +579,26 @@ class WebSocketManager:
         include = include_handlers or include_meta
         exclude = exclude_handlers or (exclude_meta if allow_exclude else None)
 
-        registered = self.handlers.get(namespace, {}).get(event_type, [])
+        try:
+            WebSocketHandler.validate_event_type(event_type)
+        except (TypeError, ValueError) as exc:
+            error = self._build_error_result(
+                handler_id=handler_id or self._identifier,
+                code="INVALID_EVENT",
+                message=str(exc),
+                correlation_id=correlation_id,
+            )
+            if ack:
+                ack({"correlationId": correlation_id, "results": [error]})
+            return {"correlationId": correlation_id, "results": [error]}
+
+        registered = self.handlers.get(namespace, [])
         if not registered:
-            PrintStyle.warning(f"No handlers registered for event '{event_type}'")
+            PrintStyle.warning(f"No handlers registered for namespace '{namespace}'")
             error = self._build_error_result(
                 handler_id=handler_id or self._identifier,
                 code="NO_HANDLERS",
-                message=f"No handler for namespace '{namespace}' event '{event_type}'",
+                message=f"No handler for namespace '{namespace}'",
                 correlation_id=correlation_id,
             )
             if ack:
@@ -583,7 +607,7 @@ class WebSocketManager:
 
         try:
             selected_handlers, _ = self._select_handlers(
-                namespace, event_type, include=include, exclude=exclude
+                namespace, include=include, exclude=exclude
             )
         except ValueError as exc:
             error = self._build_error_result(
@@ -838,7 +862,9 @@ class WebSocketManager:
 
             try:
                 task = asyncio.create_task(_dispatch())
-                return await asyncio.wait_for(asyncio.shield(task), timeout=timeout_seconds)
+                return await asyncio.wait_for(
+                    asyncio.shield(task), timeout=timeout_seconds
+                )
             except asyncio.TimeoutError:
                 PrintStyle.warning(
                     f"requestAll timeout for sid {target_sid} correlation={correlation_id}"
@@ -861,9 +887,7 @@ class WebSocketManager:
                     ],
                 }
 
-        tasks = {
-            sid: asyncio.create_task(_invoke_for_sid(sid)) for sid in active_sids
-        }
+        tasks = {sid: asyncio.create_task(_invoke_for_sid(sid)) for sid in active_sids}
 
         aggregated: list[dict[str, Any]] = []
         for sid, task in tasks.items():
@@ -979,6 +1003,18 @@ class WebSocketManager:
                 }
             )
 
+    async def send_data(
+        self,
+        endpoint_name: str,
+        event_name: str,
+        data: dict[str, Any],
+        connection_id: str | None = None,
+    ) -> None:
+        if connection_id is not None:
+            await self.emit_to(endpoint_name, connection_id, event_name, data)
+            return
+        await self.broadcast(endpoint_name, event_name, data)
+
     async def broadcast(
         self,
         namespace: str,
@@ -1028,15 +1064,16 @@ class WebSocketManager:
                 }
             )
 
-    async def _run_lifecycle(self, namespace: str, fn: Callable[[WebSocketHandler], Any]) -> None:
+    async def _run_lifecycle(
+        self, namespace: str, fn: Callable[[WebSocketHandler], Any]
+    ) -> None:
         seen: Set[WebSocketHandler] = set()
         coros: list[Any] = []
-        for handler_list in self.handlers.get(namespace, {}).values():
-            for handler in handler_list:
-                if handler in seen:
-                    continue
-                seen.add(handler)
-                coros.append(self._get_handler_worker().execute_inside(fn, handler))
+        for handler in self.handlers.get(namespace, []):
+            if handler in seen:
+                continue
+            seen.add(handler)
+            coros.append(self._get_handler_worker().execute_inside(fn, handler))
         if coros:
             await asyncio.gather(*coros, return_exceptions=True)
 
@@ -1139,12 +1176,12 @@ class WebSocketManager:
         """Return SIDs for a user; single-user default returns all active SIDs."""
         with self.lock:
             bucket = self._ALL_USERS_BUCKET if user is None else user
-            return list(self.user_to_sids.get(bucket, set())) # type: ignore
+            return list(self.user_to_sids.get(bucket, set()))  # type: ignore
 
     def get_user_for_sid(self, sid: str) -> str | None:
         """Return user identifier for a SID or None."""
         with self.lock:
-            return self.sid_to_user.get(sid) # type: ignore
+            return self.sid_to_user.get(sid)  # type: ignore
 
     def set_server_restart_broadcast(self, enabled: bool) -> None:
         """Enable or disable automatic server restart broadcasts."""

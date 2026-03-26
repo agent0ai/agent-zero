@@ -7,7 +7,6 @@ import platform
 from typing import List, Dict, Any, Optional
 
 from pathspec import PathSpec
-from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 
 from helpers import files, runtime, git
 from helpers.print_style import PrintStyle
@@ -262,7 +261,7 @@ class BackupService:
         processed_count = 0
 
         try:
-            spec = PathSpec.from_lines(GitWildMatchPattern, pattern_lines)
+            spec = PathSpec.from_lines("gitwildmatch", pattern_lines)
 
             # Walk through base directories
             for base_pattern_path, base_real_path in self.base_paths.items():
@@ -508,8 +507,7 @@ class BackupService:
 
                     if pattern_lines:
                         from pathspec import PathSpec
-                        from pathspec.patterns.gitwildmatch import GitWildMatchPattern
-                        restore_spec = PathSpec.from_lines(GitWildMatchPattern, pattern_lines)
+                        restore_spec = PathSpec.from_lines("gitwildmatch", pattern_lines)
 
                 # Process each file in archive
                 for archive_path in archive_files:
@@ -665,8 +663,7 @@ class BackupService:
 
                     if pattern_lines:
                         from pathspec import PathSpec
-                        from pathspec.patterns.gitwildmatch import GitWildMatchPattern
-                        restore_spec = PathSpec.from_lines(GitWildMatchPattern, pattern_lines)
+                        restore_spec = PathSpec.from_lines("gitwildmatch", pattern_lines)
 
                 # Process each file in archive
                 for archive_path in archive_files:

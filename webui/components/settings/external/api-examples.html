@@ -35,7 +35,7 @@
                     • <code>message</code> (string, required): The message to send<br>
                     • <code>attachments</code> (array, optional): Array of {filename, base64} objects<br>
                     • <code>lifetime_hours</code> (number, optional): Chat lifetime in hours (default: 24)<br>
-                    • <code>project</code> (string, optional): Project name to activate (only on first message)
+                    • <code>project_name</code> (string, optional): Project name to activate (only on first message)
                 </p>
                 <p style="margin: 0; color: var(--color-text-secondary); font-size: 14px;">
                     <strong>Headers:</strong> <code>X-API-KEY</code> (required), <code>Content-Type: application/json</code>
@@ -629,7 +629,7 @@ async function sendMessageWithProject() {
             },
             body: JSON.stringify({
                 message: "Analyze the project structure",
-                project: "my-web-app"  // Activates this project
+                project_name: "my-web-app"  // Activates this project
             })
         });
 
@@ -650,7 +650,7 @@ async function sendMessageWithProject() {
                 body: JSON.stringify({
                     context_id: data.context_id,
                     message: "What files are in the project?"
-                    // Do NOT include project field here - already set on first message
+                    // Do NOT include project_name here - already set on first message
                 })
             });
 

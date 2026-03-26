@@ -8,8 +8,7 @@
 <body>
     <div x-data>
         <template x-if="$store.pluginToggle">
-            <div x-create="$store.pluginToggle.open($store.pluginListStore?.selectedPlugin || '')"
-                 x-destroy="$store.pluginToggle.cleanup(); $store.pluginListStore?.refresh()">
+            <div x-create="$store.pluginToggle.open($store.pluginListStore?.selectedPlugin || '')">
 
                 <!-- Error -->
                 <div x-show="$store.pluginToggle.error" class="plugin-settings-error">
@@ -29,8 +28,21 @@
                     <!-- Scope selector + per-scope ON/OFF -->
                     <div class="plugin-settings-scope-section">
                         <div class="plugin-settings-scope-header">
-                            <div class="plugin-settings-scope-title">Scope</div>
-                            <div class="plugin-settings-scope-desc">Select which project or agent profile to configure.</div>
+                            <div class="plugin-settings-scope-header-copy">
+                                <div class="plugin-settings-scope-title">Scope</div>
+                                <div class="plugin-settings-scope-desc">Select which project or agent profile to configure.</div>
+                            </div>
+                            <div class="plugin-settings-scope-header-toggle">
+                                <span class="plugin-settings-toolbar-label">Enabled</span>
+                                <label class="toggle" :class="{ 'disabled-appearance': $store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving }">
+                                    <input type="checkbox"
+                                           :checked="$store.pluginToggle.status === 'enabled'"
+                                           :disabled="$store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving"
+                                           @change="$store.pluginToggle.setEnabled($event.target.checked)">
+                                    <span class="toggler"></span>
+                                </label>
+                                <span class="plugin-toggle-status-text" x-text="$store.pluginToggle.statusLabel"></span>
+                            </div>
                         </div>
                         <div class="plugin-settings-toolbar">
                             <div class="plugin-settings-toolbar-row">
@@ -58,17 +70,6 @@
                                         </template>
                                     </select>
                                 </label>
-
-                                <div class="plugin-settings-toolbar-item plugin-status-toggle-item">
-                                    <label class="toggle" :class="{ 'disabled-appearance': $store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving }">
-                                        <input type="checkbox"
-                                               :checked="$store.pluginToggle.status === 'enabled'"
-                                               :disabled="$store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving"
-                                               @change="$store.pluginToggle.setEnabled($event.target.checked)">
-                                        <span class="toggler"></span>
-                                    </label>
-                                    <span class="plugin-toggle-status-text" x-text="$store.pluginToggle.statusLabel"></span>
-                                </div>
 
                                 <button type="button" class="button plugin-settings-toolbar-button" title="View all scope configs" @click="$store.pluginToggle.openConfigListModal()">
                                     <span class="icon material-symbols-outlined">list</span>
@@ -118,9 +119,26 @@
         }
 
         .plugin-settings-scope-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
             padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--color-border);
             background: var(--color-bg-secondary);
+        }
+
+        .plugin-settings-scope-header-copy {
+            min-width: 0;
+        }
+
+        .plugin-settings-scope-header-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-left: auto;
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
 
         .plugin-settings-scope-title {
@@ -182,6 +200,17 @@
         }
 
         @media (max-width: 640px) {
+            .plugin-settings-scope-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .plugin-settings-scope-header-toggle {
+                margin-left: 0;
+                justify-content: flex-start;
+                white-space: normal;
+            }
+
             .plugin-settings-toolbar-item {
                 flex-basis: 100%;
                 min-width: 0;
@@ -216,13 +245,6 @@
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
-        }
-
-        .plugin-status-toggle-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex: 0 0 auto;
         }
 
         .disabled-appearance {

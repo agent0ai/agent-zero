@@ -38,19 +38,19 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link"
-                            :class="{ active: $store.pluginListStore.activeTab === 'marketplace' }"
-                            id="plugins-marketplace-tab"
+                            :class="{ active: $store.pluginListStore.activeTab === 'pluginHub' }"
+                            id="plugins-plugin-hub-tab"
                             type="button"
                             role="tab"
-                            aria-controls="plugins-marketplace"
-                            :aria-selected="$store.pluginListStore.activeTab === 'marketplace'"
-                            @click="$store.pluginListStore.setTab('marketplace')">
+                            aria-controls="plugins-plugin-hub"
+                            :aria-selected="$store.pluginListStore.activeTab === 'pluginHub'"
+                            @click="$store.pluginListStore.setTab('pluginHub')">
                             <span class="material-symbols-outlined pi-tab-icon">store</span> Browse
                         </button>
                     </li>
                 </ul>
 
-                <template x-if="$store.pluginListStore.activeTab !== 'marketplace'">
+                <template x-if="$store.pluginListStore.activeTab !== 'pluginHub'">
                     <div>
                         <div class="plugins-toolbar">
                             <div class="plugins-toolbar-search">
@@ -86,11 +86,17 @@
                             }))" :key="plugin.path || plugin.name">
                                 <div class="plugin-card">
                                     <div class="plugin-header">
+                                        <template x-if="plugin.thumbnail_url">
+                                            <img class="plugin-thumb"
+                                                :src="plugin.thumbnail_url"
+                                                :alt="plugin.display_name || plugin.name"
+                                                loading="lazy">
+                                        </template>
                                         <div class="plugin-heading">
                                             <div class="plugin-title" x-text="plugin.display_name || plugin.name || '(unnamed plugin)'"></div>
                                             <code class="plugin-path" x-text="plugin.path"></code>
                                         </div>
-                                        <div class="plugin-actions">
+                                        <div class="plugin-actions" x-data="{ actionsOpen: false }">
                                             <template x-if="plugin.has_main_screen">
                                                 <button type="button"
                                                     class="button"
@@ -107,44 +113,67 @@
                                                     <span class="icon material-symbols-outlined">settings</span> Config
                                                 </button>
                                             </template>
-                                            <template x-if="plugin.has_readme">
+                                            <template x-if="plugin.has_execute_script">
                                                 <button type="button"
                                                     class="button"
-                                                    title="README"
-                                                    @click="$store.pluginListStore.openPluginDoc(plugin, 'readme')">
-                                                    <span class="icon material-symbols-outlined">description</span> README
-                                                </button>
-                                            </template>
-                                            <template x-if="plugin.has_license">
-                                                <button type="button"
-                                                    class="button"
-                                                    title="LICENSE"
-                                                    @click="$store.pluginListStore.openPluginDoc(plugin, 'license')">
-                                                    <span class="icon material-symbols-outlined">gavel</span> License
-                                                </button>
-                                            </template>
-                                            <template x-if="plugin.has_init_script">
-                                                <button type="button"
-                                                    class="button"
-                                                    title="Run initializer script"
-                                                    @click="$store.pluginListStore.openPluginInit(plugin)">
-                                                    <span class="icon material-symbols-outlined">terminal</span> Init
+                                                    title="Execute"
+                                                    @click="$store.pluginListStore.openPluginExecute(plugin)">
+                                                    <span class="icon material-symbols-outlined">terminal</span> Execute
                                                 </button>
                                             </template>
                                             <button type="button"
-                                                class="button"
+                                                class="button icon-button"
                                                 title="Info"
+                                                aria-label="Info"
                                                 @click="$store.pluginListStore.openPluginInfo(plugin)">
                                                 <span class="icon material-symbols-outlined">info</span>
                                             </button>
-                                            <template x-if="plugin.is_custom">
+                                            <div class="dropdown plugin-actions-dropdown"
+                                                @click.outside="actionsOpen = false"
+                                                @keydown.escape.window="if (actionsOpen) actionsOpen = false">
                                                 <button type="button"
-                                                    class="button cancel icon-button"
-                                                    title="Delete"
-                                                    @click="$confirmClick($event, () => $store.pluginListStore.deletePlugin(plugin))">
-                                                    <span class="icon material-symbols-outlined">delete</span>
+                                                    class="btn-icon-action dropdown-trigger"
+                                                    title="More actions"
+                                                    aria-label="More actions"
+                                                    @click.stop="actionsOpen = !actionsOpen"
+                                                    :aria-expanded="actionsOpen.toString()">
+                                                    <span class="material-symbols-outlined">more_vert</span>
                                                 </button>
-                                            </template>
+                                                <div class="dropdown-menu"
+                                                    x-show="actionsOpen"
+                                                    x-transition
+                                                    style="display: none;">
+                                                    <x-extension id="plugins-list-dropdown-start"></x-extension>
+                                                    <template x-if="plugin.has_readme">
+                                                        <button type="button"
+                                                            class="dropdown-item"
+                                                            title="README"
+                                                            @click="$store.pluginListStore.openPluginDoc(plugin, 'readme'); actionsOpen = false">
+                                                            <span class="material-symbols-outlined">description</span>
+                                                            <span>README</span>
+                                                        </button>
+                                                    </template>
+                                                    <template x-if="plugin.has_license">
+                                                        <button type="button"
+                                                            class="dropdown-item"
+                                                            title="License"
+                                                            @click="$store.pluginListStore.openPluginDoc(plugin, 'license'); actionsOpen = false">
+                                                            <span class="material-symbols-outlined">gavel</span>
+                                                            <span>License</span>
+                                                        </button>
+                                                    </template>
+                                                    <x-extension id="plugins-list-dropdown-end"></x-extension>
+                                                    <template x-if="plugin.is_custom">
+                                                        <button type="button"
+                                                            class="dropdown-item plugin-dropdown-delete"
+                                                            title="Delete"
+                                                            @click="$confirmClick($event, () => { $store.pluginListStore.deletePlugin(plugin); actionsOpen = false; })">
+                                                            <span class="material-symbols-outlined">delete</span>
+                                                            <span>Delete</span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -177,7 +206,7 @@
                     </div>
                 </template>
 
-                <template x-if="$store.pluginListStore.activeTab === 'marketplace'">
+                <template x-if="$store.pluginListStore.activeTab === 'pluginHub'">
                     <x-component path="/plugins/_plugin_installer/webui/install-index.html"></x-component>
                 </template>
             </div>
@@ -262,7 +291,7 @@
 
         .plugin-card {
             border: 1px solid var(--color-border);
-            border-radius: 0.5rem;
+            border-radius: 10px;
             padding: 0.75rem;
             margin-top: 0.75rem;
             background: var(--color-background);
@@ -282,6 +311,16 @@
             flex-direction: column;
             min-width: 0;
             flex: 1 1 auto;
+        }
+
+        .plugin-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 0.5rem;
+            object-fit: contain;
+            flex-shrink: 0;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
         }
 
         .plugin-title {
@@ -310,6 +349,29 @@
 
         .plugin-actions .button .icon {
             font-size: 1.1rem;
+        }
+
+        .plugin-actions-dropdown {
+            flex: 0 0 auto;
+        }
+
+        .plugin-actions-dropdown:not(:has(.dropdown-menu .dropdown-item)) {
+            display: none;
+        }
+
+        .plugin-actions-dropdown .dropdown-menu {
+            margin-top: 0;
+            top: calc(100% - 1px);
+        }
+
+        .plugin-actions-dropdown .plugin-dropdown-delete,
+        .plugin-actions-dropdown .plugin-dropdown-delete .material-symbols-outlined {
+            color: var(--color-accent);
+            opacity: 1;
+        }
+
+        .plugin-actions-dropdown .plugin-dropdown-delete:hover {
+            background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
         }
 
         .plugin-footer-row {

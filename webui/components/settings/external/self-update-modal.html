@@ -1,0 +1,551 @@
+<html>
+  <head>
+    <title>Self Update</title>
+    <script type="module">
+      import { store } from "/components/settings/external/self-update-store.js";
+    </script>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.selfUpdateStore">
+        <div
+          x-init="$store.selfUpdateStore.init()"
+          x-destroy="$store.selfUpdateStore.cleanup()"
+          class="self-update-modal"
+        >
+          <div class="self-update-howto">
+            <button
+              type="button"
+              class="self-update-howto-toggle"
+              data-bs-toggle="collapse"
+              data-bs-target="#self-update-howto-collapse"
+              aria-expanded="false"
+              aria-controls="self-update-howto-collapse"
+            >
+              <span>How it works?</span>
+              <span class="material-symbols-outlined self-update-howto-toggle-icon">expand_more</span>
+            </button>
+            <div class="collapse" id="self-update-howto-collapse">
+              <div class="self-update-howto-body self-update-copy">
+                <p>
+                  Agent Zero saves this request into
+                  <code x-text="$store.selfUpdateStore.info?.paths?.update_file || '/exe/a0-self-update.yaml'"></code>,
+                  restarts once, applies the requested branch and release tag before the UI
+                  starts again, then reloads this page when <code>/api/health</code> is healthy.
+                </p>
+                <p>
+                  If the updated UI does not become healthy within 2 minutes, the bootstrap
+                  manager in <code>/exe</code> restores the previous checkout and starts that
+                  version again, so even an older downgraded <code>/a0</code> can be upgraded back
+                  by creating the YAML file manually.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="self-update-summary-grid">
+            <div class="self-update-summary-card">
+              <div class="summary-label">Current version</div>
+              <div class="summary-value" x-text="$store.selfUpdateStore.currentVersion"></div>
+              <div class="summary-meta" x-text="$store.selfUpdateStore.info?.current?.short_commit || ''"></div>
+              <div class="summary-meta" x-text="$store.selfUpdateStore.currentBranch || ''"></div>
+            </div>
+
+            <div class="self-update-summary-card" x-show="$store.selfUpdateStore.info?.pending">
+              <div class="summary-label">Pending request</div>
+              <div
+                class="summary-value"
+                x-text="$store.selfUpdateStore.formatBranchTag($store.selfUpdateStore.info?.pending?.branch, $store.selfUpdateStore.info?.pending?.tag)"
+              ></div>
+              <div
+                class="summary-meta"
+                x-text="$store.selfUpdateStore.formatTimestamp($store.selfUpdateStore.info?.pending?.requested_at)"
+              ></div>
+            </div>
+          </div>
+
+          <template x-if="!$store.selfUpdateStore.isSupported">
+            <div class="self-update-warning">
+              Self-update is currently available only in dockerized Agent Zero deployments
+              that boot through <code>/exe/run_A0.sh</code>.
+            </div>
+          </template>
+
+          <template x-if="$store.selfUpdateStore.info?.last_status">
+            <div class="self-update-status-card">
+              <div class="section-title">Last Attempt</div>
+              <div class="status-pill" x-text="$store.selfUpdateStore.info?.last_status?.status || 'unknown'"></div>
+              <div class="status-message" x-text="$store.selfUpdateStore.info?.last_status?.message || ''"></div>
+              <div class="summary-meta">
+                Trigger:
+                <code x-text="$store.selfUpdateStore.info?.paths?.update_file || '/exe/a0-self-update.yaml'"></code>
+              </div>
+              <div class="summary-meta">
+                Log:
+                <code x-text="$store.selfUpdateStore.info?.paths?.log_file || '/exe/a0-self-update.log'"></code>
+              </div>
+              <div
+                class="summary-meta"
+                x-text="$store.selfUpdateStore.formatTimestamp($store.selfUpdateStore.info?.last_status?.finished_at)"
+              ></div>
+              <template x-if="$store.selfUpdateStore.info?.last_status?.backup_zip_path">
+                <div class="status-path">
+                  Backup:
+                  <code x-text="$store.selfUpdateStore.info?.last_status?.backup_zip_path"></code>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="$store.selfUpdateStore.isSupported">
+            <div>
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Target branch</div>
+                  <div class="field-description">
+                    Choose which official branch context should be used when resolving the requested tag.
+                  </div>
+                </div>
+                <div class="field-control">
+                  <select
+                    x-model="$store.selfUpdateStore.form.branch"
+                    x-effect="$nextTick(() => { $el.value = $store.selfUpdateStore.form.branch || 'main'; })"
+                    @change="$store.selfUpdateStore.onBranchChanged()"
+                    :disabled="$store.selfUpdateStore.isBusy"
+                  >
+                    <template x-for="branch in ($store.selfUpdateStore.info?.branches || [])" :key="branch.value">
+                      <option :value="branch.value" x-text="branch.label"></option>
+                    </template>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Version</div>
+                  <div class="field-description">
+                    Enter a version tag from the
+                    <a href="https://github.com/agent0ai/agent-zero" target="_blank" rel="noreferrer">Agent Zero repository</a>.
+                    Start typing to filter, or use the search button to fetch versions from the selected branch. Only <code>vX.Y</code> tags at <code>v1.0</code> or newer are supported. Exact text entry is still allowed, including downgrades.
+                  </div>
+                  <template x-if="$store.selfUpdateStore.tagsError">
+                    <div class="field-description">
+                      Tag lookup failed:
+                      <span x-text="$store.selfUpdateStore.tagsError"></span>
+                    </div>
+                  </template>
+                </div>
+                <div class="field-control self-update-tag-search" @click.outside="$store.selfUpdateStore.closeTagDropdown()">
+                  <input
+                    type="text"
+                    x-model="$store.selfUpdateStore.form.tag"
+                    @input="$store.selfUpdateStore.onTagInput()"
+                    @focus="$store.selfUpdateStore.openTagDropdown()"
+                    @blur="$store.selfUpdateStore.onTagBlur()"
+                    @keydown.enter.prevent="$store.selfUpdateStore.searchTags()"
+                    placeholder="v1.0"
+                    :disabled="$store.selfUpdateStore.isBusy"
+                    style="padding-right: 32px;"
+                  />
+                  <span
+                    class="material-symbols-outlined self-update-tag-search-btn"
+                    :class="{ 'spinning': $store.selfUpdateStore.tagsLoading }"
+                    @click="if (!$store.selfUpdateStore.isBusy) $store.selfUpdateStore.searchTags()"
+                    title="Search tags from selected branch"
+                    x-text="$store.selfUpdateStore.tagsLoading ? 'progress_activity' : 'search'"
+                  ></span>
+                  <div
+                    class="self-update-tag-results"
+                    x-show="$store.selfUpdateStore.tagDropdownOpen"
+                    x-transition.opacity
+                  >
+                    <template x-if="$store.selfUpdateStore.tagsLoading">
+                      <div class="self-update-tag-item disabled">Loading tags...</div>
+                    </template>
+                    <template x-if="!$store.selfUpdateStore.tagsLoading && $store.selfUpdateStore.tagSuggestions.length === 0">
+                      <div class="self-update-tag-item disabled">No matching tags found</div>
+                    </template>
+                    <template x-for="tag in $store.selfUpdateStore.groupedTagSuggestions.matched" :key="`match-${tag}`">
+                      <div
+                        class="self-update-tag-item"
+                        @mousedown.prevent="$store.selfUpdateStore.selectTag(tag)"
+                        x-text="tag"
+                      ></div>
+                    </template>
+                    <div
+                      class="self-update-tag-separator"
+                      x-show="$store.selfUpdateStore.groupedTagSuggestions.matched.length > 0 && $store.selfUpdateStore.groupedTagSuggestions.rest.length > 0"
+                    >
+                      Other versions
+                    </div>
+                    <template x-for="tag in $store.selfUpdateStore.groupedTagSuggestions.rest" :key="`rest-${tag}`">
+                      <div
+                        class="self-update-tag-item"
+                        @mousedown.prevent="$store.selfUpdateStore.selectTag(tag)"
+                        x-text="tag"
+                      ></div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+              <div class="self-update-warning-banner" x-show="$store.selfUpdateStore.versionCompatibilityWarning">
+                <span x-text="$store.selfUpdateStore.versionCompatibilityWarning"></span>
+              </div>
+
+              <div class="self-update-warning-banner" x-show="$store.selfUpdateStore.tagExistenceWarning">
+                <span x-text="$store.selfUpdateStore.tagExistenceWarning"></span>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Back up <code>/a0/usr</code> first</div>
+                  <div class="field-description">
+                    Creates a zip backup before the release files are replaced.
+                  </div>
+                </div>
+                <div class="field-control">
+                  <label class="toggle">
+                    <input
+                      type="checkbox"
+                      x-model="$store.selfUpdateStore.form.backup_usr"
+                      :disabled="$store.selfUpdateStore.isBusy"
+                    />
+                    <span class="toggler"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div x-show="$store.selfUpdateStore.form.backup_usr">
+                <div class="field">
+                  <div class="field-label">
+                    <div class="field-title">Backup directory</div>
+                    <div class="field-description">
+                      Absolute or repo-relative path where the <code>usr</code> zip should be written.
+                    </div>
+                  </div>
+                  <div class="field-control">
+                    <input
+                      type="text"
+                      x-model="$store.selfUpdateStore.form.backup_path"
+                      :disabled="$store.selfUpdateStore.isBusy"
+                    />
+                  </div>
+                </div>
+
+                <div class="field">
+                  <div class="field-label">
+                    <div class="field-title">Backup filename</div>
+                    <div class="field-description">
+                      The manager normalizes this into a safe <code>.zip</code> filename. Leave it as-is for the default <code>usr-timestamp.zip</code> format.
+                    </div>
+                  </div>
+                  <div class="field-control">
+                    <input
+                      type="text"
+                      x-model="$store.selfUpdateStore.form.backup_name"
+                      :disabled="$store.selfUpdateStore.isBusy"
+                    />
+                  </div>
+                </div>
+
+                <div class="field">
+                  <div class="field-label">
+                    <div class="field-title">If the filename already exists</div>
+                    <div class="field-description">
+                      Choose whether to rename the backup, replace it, or stop the update.
+                    </div>
+                  </div>
+                  <div class="field-control">
+                    <select
+                      x-model="$store.selfUpdateStore.form.backup_conflict_policy"
+                      :disabled="$store.selfUpdateStore.isBusy"
+                    >
+                      <option value="rename">Rename with suffix</option>
+                      <option value="overwrite">Overwrite existing zip</option>
+                      <option value="fail">Fail before restart</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="self-update-file-hint">
+                The durable trigger, status, and log files live outside <code>/a0</code>:
+                <code x-text="$store.selfUpdateStore.info?.paths?.update_file || '/exe/a0-self-update.yaml'"></code>,
+                <code x-text="$store.selfUpdateStore.info?.paths?.status_file || '/exe/a0-self-update-status.yaml'"></code>,
+                <code x-text="$store.selfUpdateStore.info?.paths?.log_file || '/exe/a0-self-update.log'"></code>.
+              </div>
+            </div>
+          </template>
+
+          <div class="self-update-error" x-show="$store.selfUpdateStore.error">
+            <span x-text="$store.selfUpdateStore.error"></span>
+          </div>
+
+          <div class="self-update-loading" x-show="$store.selfUpdateStore.loading">
+            Loading update status...
+          </div>
+          <div class="self-update-progress-state" x-show="$store.selfUpdateStore.restarting">
+            <div class="self-update-progress-spinner"></div>
+            <div>
+              <div class="self-update-progress-title" x-text="$store.selfUpdateStore.restartStatusText || 'Update in progress'"></div>
+              <div class="self-update-progress-copy" x-text="$store.selfUpdateStore.restartDetailText || 'Waiting for Agent Zero to restart and become healthy again.'"></div>
+            </div>
+          </div>
+
+          <div class="modal-footer" data-modal-footer>
+            <button
+              type="button"
+              class="btn btn-ok"
+              @click="$store.selfUpdateStore.scheduleUpdate()"
+              :disabled="!$store.selfUpdateStore.canScheduleUpdate"
+            >
+              Schedule Update And Restart
+            </button>
+            <button
+              type="button"
+              class="btn btn-field"
+              @click="$store.selfUpdateStore.refresh()"
+              :disabled="$store.selfUpdateStore.isBusy"
+            >
+              Refresh Status
+            </button>
+            <button
+              type="button"
+              class="btn btn-cancel"
+              @click="$store.selfUpdateStore.close()"
+              :disabled="$store.selfUpdateStore.restarting"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <style>
+      .self-update-modal {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .self-update-tag-search {
+        position: relative;
+      }
+
+      .self-update-tag-search-btn {
+        position: absolute;
+        right: 0.5rem;
+        top: 0.55rem;
+        cursor: pointer;
+        color: var(--color-text-muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .self-update-tag-results {
+        position: absolute;
+        inset: calc(100% + 0.35rem) 0 auto 0;
+        max-height: 14rem;
+        overflow-y: auto;
+        z-index: 20;
+        border: 1px solid var(--color-border);
+        border-radius: 0.75rem;
+        background: var(--color-panel);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      }
+
+      .self-update-tag-item {
+        padding: 0.65rem 0.85rem;
+        cursor: pointer;
+        color: var(--color-text);
+      }
+
+      .self-update-tag-item:hover {
+        background: var(--color-background-hover);
+      }
+
+      .self-update-tag-item.disabled {
+        cursor: default;
+        color: var(--color-text-muted);
+      }
+
+      .self-update-tag-item.disabled:hover {
+        background: transparent;
+      }
+
+      .self-update-tag-separator {
+        padding: 0.45rem 0.85rem;
+        border-top: 1px solid var(--color-border);
+        color: var(--color-text-muted);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .self-update-copy {
+        color: var(--color-text-muted);
+        line-height: 1.5;
+      }
+
+      .self-update-copy p {
+        margin: 0 0 0.75rem;
+      }
+
+      .self-update-howto {
+        border: 1px solid var(--color-border);
+        border-radius: 0.9rem;
+        background: var(--color-panel);
+      }
+
+      .self-update-howto-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.9rem 1rem;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        font-weight: 700;
+        color: var(--color-text);
+        text-align: left;
+      }
+
+      .self-update-howto-toggle-icon {
+        transition: transform 0.2s ease;
+      }
+
+      .self-update-howto-toggle[aria-expanded="true"] .self-update-howto-toggle-icon {
+        transform: rotate(180deg);
+      }
+
+      .self-update-howto-body {
+        padding: 0 1rem 1rem;
+      }
+
+      .self-update-progress-state {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        padding: 1rem 1.1rem;
+        border-radius: 0.9rem;
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--color-text);
+      }
+
+      .self-update-progress-spinner {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        border: 3px solid rgba(37, 99, 235, 0.18);
+        border-top-color: var(--color-primary, #2563eb);
+        animation: spin 1s linear infinite;
+      }
+
+      .self-update-progress-title {
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+      }
+
+      .self-update-progress-copy {
+        color: var(--color-text-muted);
+        line-height: 1.45;
+      }
+
+      .self-update-warning-banner {
+        padding: 0.85rem 0.95rem;
+        border: 1px solid var(--color-warning-text);
+        border-radius: 0.8rem;
+        background: color-mix(in srgb, var(--color-warning-text) 12%, transparent);
+        color: var(--color-warning-text);
+        line-height: 1.5;
+      }
+
+      .self-update-summary-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .self-update-summary-card,
+      .self-update-status-card {
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        padding: 0.9rem 1rem;
+        background: var(--color-panel);
+      }
+
+      .summary-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-muted);
+      }
+
+      .summary-value {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 0.35rem;
+      }
+
+      .summary-meta,
+      .status-path {
+        margin-top: 0.35rem;
+        color: var(--color-text-muted);
+        font-size: 0.9rem;
+        word-break: break-word;
+      }
+
+      .self-update-warning,
+      .self-update-error,
+      .self-update-loading {
+        padding: 0.8rem 0.9rem;
+        border-radius: 8px;
+      }
+
+      .self-update-warning {
+        background: var(--color-warning-bg);
+        color: var(--color-warning);
+      }
+
+      .self-update-error {
+        background: var(--color-error-bg);
+        color: var(--color-error);
+      }
+
+      .self-update-loading {
+        background: var(--color-panel);
+        color: var(--color-text-muted);
+      }
+
+      .self-update-file-hint {
+        color: var(--color-text-muted);
+        line-height: 1.5;
+        font-size: 0.95rem;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--color-border);
+        border-radius: 999px;
+        padding: 0.2rem 0.55rem;
+        margin-top: 0.35rem;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .status-message {
+        margin-top: 0.7rem;
+        line-height: 1.5;
+      }
+    </style>
+  </body>
+</html>

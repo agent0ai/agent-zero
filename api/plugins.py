@@ -17,7 +17,6 @@ class Plugins(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         action = input.get("action", "")
 
-        # Accept legacy aliases during migration.
         if action == "get_config":
             return self._get_config(input)
 
@@ -45,11 +44,11 @@ class Plugins(ApiHandler):
         if action == "get_doc":
             return self._get_doc(input)
 
-        if action == "run_init_script":
-            return self._run_init_script(input)
+        if action == "run_execute_script":
+            return self._run_execute_script(input)
 
-        if action == "get_init_exec":
-            return self._get_init_exec(input)
+        if action == "get_execute_record":
+            return self._get_execute_record(input)
 
         return Response(status=400, response=f"Unknown action: {action}")
 
@@ -275,7 +274,7 @@ class Plugins(ApiHandler):
         return {"ok": True, "content": files.read_file(file_path), "filename": filename}
 
     @extension.extensible
-    def _run_init_script(self, input: dict) -> dict | Response:
+    def _run_execute_script(self, input: dict) -> dict | Response:
         plugin_name = input.get("plugin_name", "")
         if not plugin_name:
             return Response(status=400, response="Missing plugin_name")
@@ -284,14 +283,14 @@ class Plugins(ApiHandler):
         if not plugin_dir:
             return Response(status=404, response="Plugin not found")
 
-        init_script = files.get_abs_path(plugin_dir, "initialize.py")
-        if not files.exists(init_script):
-            return Response(status=404, response="initialize.py not found")
+        execute_script = files.get_abs_path(plugin_dir, "execute.py")
+        if not files.exists(execute_script):
+            return Response(status=404, response="execute.py not found")
 
         executed_at = datetime.now(timezone.utc).isoformat()
         try:
             result = subprocess.run(
-                [sys.executable, init_script],
+                [sys.executable, execute_script],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -307,12 +306,12 @@ class Plugins(ApiHandler):
             exit_code = -1
             output = f"Error: {str(e)}"
 
-        exec_record = {"executed_at": executed_at, "exit_code": exit_code}
-        exec_path = plugins.determine_plugin_asset_path(
-            plugin_name, "", "", "init_exec.json"
+        execute_record = {"executed_at": executed_at, "exit_code": exit_code}
+        execute_record_path = plugins.determine_plugin_asset_path(
+            plugin_name, "", "", "execute_record.json"
         )
-        if exec_path:
-            files.write_file(exec_path, json.dumps(exec_record))
+        if execute_record_path:
+            files.write_file(execute_record_path, json.dumps(execute_record))
 
         return {
             "ok": exit_code == 0,
@@ -322,17 +321,17 @@ class Plugins(ApiHandler):
         }
 
     @extension.extensible
-    def _get_init_exec(self, input: dict) -> dict | Response:
+    def _get_execute_record(self, input: dict) -> dict | Response:
         plugin_name = input.get("plugin_name", "")
         if not plugin_name:
             return Response(status=400, response="Missing plugin_name")
 
-        exec_path = plugins.determine_plugin_asset_path(
-            plugin_name, "", "", "init_exec.json"
+        execute_record_path = plugins.determine_plugin_asset_path(
+            plugin_name, "", "", "execute_record.json"
         )
-        if exec_path and files.exists(exec_path):
+        if execute_record_path and files.exists(execute_record_path):
             try:
-                data = json.loads(files.read_file(exec_path))
+                data = json.loads(files.read_file(execute_record_path))
                 return {"ok": True, "data": data}
             except Exception:
                 pass

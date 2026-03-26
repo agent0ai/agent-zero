@@ -28,7 +28,7 @@ class InitialMessage(Extension):
         self.agent.loop_data = LoopData(user_message=None)
 
         # Add the message to history as an AI response
-        self.agent.hist_add_ai_response(initial_message)
+        msg = self.agent.hist_add_ai_response(initial_message)
 
         # json parse the message, get the tool_args text
         initial_message_json = json.loads(initial_message)
@@ -40,4 +40,5 @@ class InitialMessage(Extension):
             content=initial_message_text,
             finished=True,
             update_progress="none",
+            id=msg.id,
         )

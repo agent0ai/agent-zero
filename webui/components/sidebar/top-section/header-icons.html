@@ -3,74 +3,384 @@
   <script type="module">
     import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
     import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+    import { store as projectsStore } from "/components/projects/projects-store.js";
   </script>
 </head>
 <body>
-  <div class="icons-section" id="hide-button" x-data>
-    <!-- Sidebar Toggle Button -->
-    <button id="toggle-sidebar" class="toggle-sidebar-button" @click="$store.sidebar.toggle()" aria-label="Toggle Sidebar" aria-expanded="false">
-      <span class="material-symbols-outlined" aria-hidden="true">menu</span>
-    </button>
+  <div
+    class="sidebar-header-stack"
+    x-data
+    @click.window="$store.sidebar.menuClick($event, $refs.headerPanel)"
+    @keydown.escape.window="$store.sidebar.menuClose()"
+  >
+    <!-- Fixed panel that expands on hover -->
+    <div
+      id="sidebar-header-panel"
+      class="sidebar-header-panel"
+      x-ref="headerPanel"
+      :class="{ 'sidebar-header-panel-open': $store.sidebar.headOpen() }"
+    >
+      <div id="logo-bar">
+        <a href="https://github.com/agent0ai/agent-zero" target="_blank" rel="noopener noreferrer" aria-label="Agent Zero on GitHub">
+          <div class="logo-container">
+            <span id="a0-logo" class="logo-expanded" role="img" aria-label="Agent Zero"></span>
+            <!-- Placeholder for the single 'A' logo asset -->
+            <span id="a0-logo-collapsed" class="logo-collapsed" role="img" aria-label="Agent Zero"></span>
+          </div>
+        </a>
+      </div>
 
-    <div id="logo-container">
-      <a href="https://github.com/agent0ai/agent-zero" target="_blank" rel="noopener noreferrer">
-        <img src="./public/splash.jpg" alt="a0" width="22" height="22">
-      </a>
+      <div class="icons-section" id="hide-button">
+        <!-- Sidebar Toggle Button -->
+        <button id="toggle-sidebar" class="toggle-sidebar-button" @click="$store.sidebar.toggle()" aria-label="Toggle Sidebar" aria-expanded="false">
+          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+        </button>
+
+        <button class="config-button header-action-button" id="header-dashboard" @click="deselectChat()" title="Dashboard" aria-label="Dashboard" tabindex="-1">
+          <span class="material-symbols-outlined" aria-hidden="true">home</span>
+        </button>
+
+        <button class="config-button header-action-button" id="header-plugins" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins" aria-label="Plugins" tabindex="-1">
+          <span class="material-symbols-outlined" aria-hidden="true">extension</span>
+        </button>
+
+        <button class="config-button header-action-button" id="header-settings" @click="openModal('settings/settings.html')" title="Settings" aria-label="Settings" tabindex="-1">
+          <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+        </button>
+
+        <button
+          class="config-button header-action-button dropdown-toggle"
+          id="header-more"
+          x-ref="menuButton"
+          @click="$store.sidebar.menuToggle($refs.menuButton)"
+          title="More options"
+          aria-label="More options"
+          tabindex="-1"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true" :class="$store.sidebar.menuOpen ? 'rotated' : ''">expand_more</span>
+        </button>
+      </div>
+
+      <div class="dropdown-menu quick-actions-dropdown" x-show="$store.sidebar.menuOpen" :style="$store.sidebar.dropdownStyle">
+        <div id="sidebar-quick-actions-dropdown-slot-start"></div>
+
+        <div class="dropdown-header">Navigation</div>
+
+        <button class="dropdown-item" @click="deselectChat(); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">home</span>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="dropdown-item" @click="$store.projects.openProjectsModal(); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">snippet_folder</span>
+          <span>Projects</span>
+        </button>
+
+        <button class="dropdown-item" @click="openModal('components/modals/scheduler/scheduler-modal.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Scheduler</span>
+        </button>
+
+        <button class="dropdown-item" @click="openModal('settings/settings.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </button>
+
+        <div class="dropdown-separator"></div>
+        <div class="dropdown-header">Chat Actions</div>
+
+        <button class="dropdown-item" @click="$store.chats.newChat(); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">chat_add_on</span>
+          <span>New Chat</span>
+        </button>
+
+        <button class="dropdown-item" @click="$store.chats.loadChats(); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">folder_open</span>
+          <span>Load Chat</span>
+        </button>
+
+        <button class="dropdown-item" @click="$store.chats.saveChat(); $store.sidebar.menuClose()" :disabled="!$store.chats.selected">
+          <span class="material-symbols-outlined">save</span>
+          <span>Save Chat</span>
+        </button>
+
+        <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.resetChat(); $store.sidebar.menuClose() })" :disabled="!$store.chats.selected">
+          <span class="material-symbols-outlined">delete_sweep</span>
+          <span>Clear Chat</span>
+        </button>
+
+        <div class="dropdown-separator"></div>
+
+        <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.logout(); $store.sidebar.menuClose() })" :disabled="!$store.chats.loggedIn">
+          <span class="material-symbols-outlined">logout</span>
+          <span>Logout</span>
+        </button>
+
+        <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); $store.sidebar.menuClose() })">
+          <span class="material-symbols-outlined">restart_alt</span>
+          <span>Restart A0</span>
+        </button>
+
+        <div id="sidebar-quick-actions-dropdown-slot-end"></div>
+      </div>
     </div>
   </div>
 
 
   <style>
-    /* Sidebar toggle button + logo container (migrated) */
+    :root {
+      --header-panel-expanded-width: calc(250px - (var(--spacing-md) * 2));
+      /* Padding left (0.625rem) + hamburger width (2.2rem) + padding right (0.625rem) = 3.45rem */
+      --header-panel-collapsed-width: 3.45rem;
+    }
+
+    /* Shell: fixed panel with hover expansion */
+    .sidebar-header-panel {
+      position: fixed;
+      top: var(--spacing-md);
+      left: var(--spacing-md);
+      width: var(--header-panel-collapsed-width);
+      box-sizing: border-box;
+      z-index: 1004;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: var(--spacing-xs) var(--spacing-sm);
+      background-color: var(--color-chat-background);
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 2px 13px 2px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      white-space: nowrap;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                  background-color var(--transition-speed),
+                  border-color var(--transition-speed), 
+                  box-shadow var(--transition-speed);
+    }
+
+    #logo-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: calc(var(--header-panel-expanded-width) - (var(--spacing-sm) * 2));
+      padding-top: var(--spacing-xxs);
+      /* Align logo with the center of the 2.2rem hamburger */
+      padding-left: 0.1rem;
+    }
+
+    #logo-bar a {
+      color: inherit;
+      text-decoration: none;
+      width: min(100%, 11.75rem);
+    }
+
+    .logo-container {
+      position: relative;
+      width: 100%;
+      height: 1.64rem;
+    }
+
+    #a0-logo, #a0-logo-collapsed {
+      position: absolute;
+      top: 0; left: 8px;
+      height: 100%;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      background-color: var(--color-text);
+      transition: opacity 0.3s ease;
+    }
+
+    /* Expanded wordmark logo */
+    #a0-logo {
+      width: 100%;
+      left: 8px;
+      -webkit-mask-image: url(/public/a0-fullDark.svg);
+      mask-image: url(/public/a0-fullDark.svg);
+      -webkit-mask-size: contain;
+      mask-size: contain;
+      -webkit-mask-position: left center;
+      mask-position: left center;
+      opacity: 0;
+    }
+
+    /* Collapsed symbol logo placeholder */
+    #a0-logo-collapsed {
+      width: 2.0rem; /* Scale to fit nicely above hamburger */
+      -webkit-mask-image: url(/public/a0-collapsed.svg);
+      mask-image: url(/public/a0-collapsed.svg);
+      -webkit-mask-size: contain;
+      mask-size: contain;
+      -webkit-mask-position: left center;
+      mask-position: left center;
+      opacity: 0.8;
+    }
+
+    #hide-button {
+      display: flex;
+      gap: var(--spacing-xs);
+      width: max-content;
+      margin-top: var(--spacing-xs);
+    }
+
+    /* Toolbar icons */
+    .sidebar-header-panel #hide-button .config-button,
+    .sidebar-header-panel .toggle-sidebar-button {
+      background-color: transparent;
+      border: none;
+      border-radius: 4px;
+      box-shadow: none;
+      flex: 0 0 auto;
+    }
+
+    .sidebar-header-panel #hide-button .config-button {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-xs);
+      width: 2.2rem;
+      height: 2.2rem;
+      opacity: 0;
+      transform: translateX(-10px);
+      pointer-events: none; /* Disable when collapsed */
+      transition: background-color var(--transition-speed),
+                  box-shadow var(--transition-speed),
+                  opacity 0.3s ease, 
+                  transform 0.3s ease;
+    }
+
+    .sidebar-header-panel #hide-button .config-button .material-symbols-outlined {
+      font-size: 22px;
+      transition: transform 0.2s ease;
+    }
+
+    .sidebar-header-panel #hide-button .config-button .material-symbols-outlined.rotated {
+      transform: rotate(180deg);
+    }
+
+    .sidebar-header-panel #hide-button .config-button:hover {
+      background-color: var(--color-background-hover);
+      opacity: 1 !important;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
+    }
+
+    .sidebar-header-panel #hide-button .config-button:active {
+      opacity: 0.5 !important;
+      box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.06);
+    }
+
     .toggle-sidebar-button {
-      height: 2.6rem;
-      width: 2.6rem;
-      background-color: var(--color-background);
-      border: 0.1rem solid var(--color-border);
-      border-radius: var(--spacing-xs);
       color: var(--color-text);
       opacity: 0.8;
       cursor: pointer;
-      left: var(--spacing-md);
-      padding: 0.47rem 0.56rem;
-      position: absolute;
-      top: var(--spacing-md);
-      z-index: 999;
-      -webkit-transition: all var(--transition-speed) ease-in-out;
-      transition: all var(--transition-speed) ease-in-out;
-    }
-    .toggle-sidebar-button:hover { background-color: var(--color-background-hover); opacity: 1; }
-    .toggle-sidebar-button:active { opacity: 0.5; }
-    .toggle-sidebar-button .material-symbols-outlined { 
-      font-size: 22px;
-      -webkit-transition: all var(--transition-speed) ease; 
-      transition: all var(--transition-speed) ease; 
-    }
-    .toggle-sidebar-button:active .material-symbols-outlined { -webkit-transform: scaleY(0.8); transform: scaleY(0.8); }
-
-    #logo-container {
-      display: -webkit-flex;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      position: fixed;
-      left: 4.6rem;
-      top: var(--spacing-md);
-      z-index: 1004;
-      -webkit-transition: margin-left var(--transition-speed) ease-in-out;
-      transition: margin-left var(--transition-speed) ease-in-out;
+      justify-content: center;
+      width: 2.2rem;
+      height: 2.2rem;
+      padding: var(--spacing-xs);
+      transition: all var(--transition-speed) ease-in-out;
     }
-    #logo-container a { color: inherit; text-decoration: none; }
-    #logo-container img { border-radius: var(--spacing-xs); width: auto; height: 2.6rem; -webkit-transition: filter 0.3s ease; transition: filter 0.3s ease; }
 
-    .light-mode #logo-container img { -webkit-filter: invert(100%) grayscale(100%); filter: invert(100%) grayscale(100%); }
+    .toggle-sidebar-button:hover {
+      background-color: var(--color-background-hover);
+      opacity: 1;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
+    }
 
+    .toggle-sidebar-button:active {
+      opacity: 0.5;
+      box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.06);
+    }
+
+    .toggle-sidebar-button .material-symbols-outlined {
+      font-size: 22px;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .toggle-sidebar-button:active .material-symbols-outlined {
+      transform: scaleY(0.8);
+    }
+
+    /* --- Desktop Hover Expand --- */
+    @media (min-width: 769px) {
+      .sidebar-header-panel.sidebar-header-panel-open,
+      .sidebar-header-panel:hover,
+      .sidebar-header-panel:focus-within {
+        width: var(--header-panel-expanded-width);
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open #a0-logo,
+      .sidebar-header-panel:hover #a0-logo,
+      .sidebar-header-panel:focus-within #a0-logo {
+        opacity: 0.8;
+      }
+      
+      .sidebar-header-panel.sidebar-header-panel-open #logo-bar a:hover #a0-logo,
+      .sidebar-header-panel:hover #logo-bar a:hover #a0-logo,
+      .sidebar-header-panel:focus-within #logo-bar a:hover #a0-logo {
+        opacity: 1;
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open #a0-logo-collapsed,
+      .sidebar-header-panel:hover #a0-logo-collapsed,
+      .sidebar-header-panel:focus-within #a0-logo-collapsed {
+        opacity: 0;
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open #hide-button .config-button,
+      .sidebar-header-panel:hover #hide-button .config-button,
+      .sidebar-header-panel:focus-within #hide-button .config-button {
+        opacity: 0.8;
+        transform: translateX(0);
+        pointer-events: auto;
+      }
+    }
+
+    /* --- Mobile: open only when header state says so --- */
     @media (max-width: 768px) {
-      .toggle-sidebar-button { position: fixed; left: var(--spacing-md); z-index: 1004; }
-      #logo-container { -webkit-transition: all 0.3s ease; transition: all 0.3s ease; z-index: 1004; }
+      .sidebar-header-panel {
+        transition: all 0.3s ease;
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open {
+        width: var(--header-panel-expanded-width);
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open #a0-logo {
+        opacity: 0.8;
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open #logo-bar a:hover #a0-logo {
+        opacity: 1;
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open #a0-logo-collapsed {
+        opacity: 0;
+      }
+
+      .sidebar-header-panel.sidebar-header-panel-open #hide-button .config-button {
+        opacity: 0.8 !important;
+        transform: translateX(0) !important;
+        pointer-events: auto !important;
+      }
+    }
+    
+    /* Light mode fixes */
+    .light-mode .sidebar-header-panel {
+      background-color: var(--color-background);
+      color: #333333;
+    }
+
+    .light-mode .sidebar-header-panel #hide-button .config-button:hover,
+    .light-mode .sidebar-header-panel .toggle-sidebar-button:hover {
+      background-color: var(--color-background-hover);
+    }
+
+    .light-mode .sidebar-header-panel #hide-button .config-button:active,
+    .light-mode .sidebar-header-panel .toggle-sidebar-button:active {
+      background-color: var(--color-background-hover);
     }
   </style>
 </body>
 </html>
-
-

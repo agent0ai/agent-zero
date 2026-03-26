@@ -24,6 +24,21 @@
                             x-model.number="config.retries" />
                     </div>
                 </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Try clearing embedded media</div>
+                        <div class="field-description">
+                            If LiteLLM errors keep happening, the framework can remove embedded media from history and try again to help recover from stuck states.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.try_clear_embeds" x-init="if (config.try_clear_embeds === undefined || config.try_clear_embeds === null) config.try_clear_embeds = true" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </template>
     </div>

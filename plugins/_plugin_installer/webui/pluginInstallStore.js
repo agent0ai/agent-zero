@@ -1,26 +1,23 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
+import { addBlankTargetsToLinks } from "/js/messages.js";
 import { openModal } from "/js/modals.js";
 import { marked } from "/vendor/marked/marked.esm.js";
 import { toastFrontendSuccess, toastFrontendError } from "/components/notifications/notification-store.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
 import { store as imageViewerStore } from "/components/modals/image-viewer/image-viewer-store.js";
 import { store as pluginListStore } from "/components/plugins/list/pluginListStore.js";
-import { store as pluginInitStore } from "/components/plugins/list/plugin-init-store.js";
+import { store as pluginExecuteStore } from "/components/plugins/list/plugin-execute-store.js";
+import { store as pluginSettingsStore } from "/components/plugins/plugin-settings-store.js";
 
 const PLUGIN_API = "plugins/_plugin_installer/plugin_install";
-const PER_PAGE = 20;
+const PER_PAGE = 24;
 
 const SECURITY_WARNING = {
   title: "Security Warning",
   message: `
-    <p><strong>Plugins from third parties can be a great risk, keep in mind that:</strong></p>
-    <ul style="margin: 0.75em 0; padding-left: 1.5em;">
-      <li>You can be hacked the moment you install it</li>
-      <li>We can not prevent it or help you</li>
-      <li>It is your responsibility</li>
-    </ul>
-    <p style="margin-top: 0.75em;">We can never fully guarantee that plugins are safe because there are many ways to obfuscate malicious code.</p>
+    <p><strong>Third-party plugins may contain malicious code.</strong> <br> We can't guarantee their safety &mdash; install at your own risk.</p>
+    <p style="margin-top: 0.75em;">We recommend scanning all plugins with A0 first.</p>
   `,
   type: "warning",
   confirmText: "Install Anyway",
@@ -38,6 +35,7 @@ const model = {
 
   // Index state
   index: { authors: {}, plugins: {} },
+  indexLoadPromise: null,
   installedPlugins: [],
   installedPluginDetails: {},
   search: "",
@@ -66,6 +64,10 @@ const model = {
   setTab(tab) {
     this.activeTab = tab;
     this.result = null;
+    if (tab === "store") {
+      this.resetIndex();
+      void this.fetchIndex();
+    }
   },
 
   setBrowseFilter(filter) {
@@ -79,6 +81,52 @@ const model = {
     let url = githubUrl.trim().replace(/\.git$/i, "");
     if (!url.includes("github.com")) return null;
     return url.replace("https://github.com/", "https://raw.githubusercontent.com/");
+  },
+
+  _rebaseReadmeLinks(html, githubUrl, branch) {
+    if (!html || typeof html !== "string" || !githubUrl || !branch) return html;
+
+    let repoUrl;
+    try {
+      repoUrl = new URL(githubUrl.trim().replace(/\.git$/i, ""));
+    } catch {
+      return html;
+    }
+
+    if (repoUrl.hostname !== "github.com") return html;
+
+    const [owner, repo] = repoUrl.pathname
+      .replace(/^\/+|\/+$/g, "")
+      .split("/");
+    if (!owner || !repo) return html;
+
+    const repoBlobBase = `https://github.com/${owner}/${repo}/blob/${branch}`;
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    doc.querySelectorAll("a[href]").forEach((anchor) => {
+      const href = (anchor.getAttribute("href") || "").trim();
+      if (
+        !href ||
+        href.startsWith("#") ||
+        href.startsWith("//") ||
+        /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(href)
+      ) {
+        return;
+      }
+
+      try {
+        const resolved = new URL(href, "https://repo-root.invalid/");
+        const repoPath = resolved.pathname.replace(/^\/+/, "");
+        anchor.setAttribute(
+          "href",
+          `${repoBlobBase}/${repoPath}${resolved.search}${resolved.hash}`,
+        );
+      } catch {
+        // Leave malformed links unchanged.
+      }
+    });
+
+    return doc.body.innerHTML;
   },
 
   _pluginPrimaryTag(plugin) {
@@ -99,7 +147,7 @@ const model = {
     if (!filterKey || filterKey === "all") return true;
     if (filterKey === "installed") return !!plugin?.installed;
     if (filterKey === "update") return !!plugin?.has_update;
-    if (filterKey === "popular") return (plugin?.stars || 0) > 0;
+    if (filterKey === "popular") return (plugin?.stars || 0) >= 3;
     if (filterKey.startsWith("tag:")) {
       return this._pluginPrimaryTag(plugin) === filterKey.slice(4);
     }
@@ -114,7 +162,7 @@ const model = {
     return aTime > bTime ? 1 : -1;
   },
 
-  _hasMarketplaceUpdate(indexPlugin, installedPlugin) {
+  _hasPluginHubUpdate(indexPlugin, installedPlugin) {
     const latestCommit = (indexPlugin?.commit || "").trim();
     const currentCommit = (installedPlugin?.current_commit || "").trim();
     if (!latestCommit || !currentCommit) return false;
@@ -227,18 +275,34 @@ const model = {
 
   // ── Index Browse ─────────────────────────────
 
-  async fetchIndex() {
+  hasIndexData() {
+    const plugins = this.index?.plugins;
+    return !!plugins && typeof plugins === "object" && Object.keys(plugins).length > 0;
+  },
+
+  async fetchIndex(options = {}) {
+    const background = !!options?.background;
+    const suppressErrors = !!options?.suppressErrors;
+    if (this.indexLoadPromise) {
+      return this.indexLoadPromise;
+    }
+
+    const loadPromise = (async () => {
     try {
-      this.loading = true;
-      this.loadingMessage = "Loading plugin index...";
+      if (!background) {
+        this.loading = true;
+        this.loadingMessage = "Loading plugin index...";
+      }
 
       const data = await api.callJsonApi(PLUGIN_API, {
         action: "fetch_index",
       });
 
       if (!data.success) {
-        void toastFrontendError(data.error || "Failed to load index", "Plugin Installer");
-        return;
+        if (!suppressErrors) {
+          void toastFrontendError(data.error || "Failed to load index", "Plugin Installer");
+        }
+        return false;
       }
 
       this.index = data.index;
@@ -251,13 +315,40 @@ const model = {
         installedList.map((plugin) => [plugin.name, plugin])
       );
       this.page = 1;
+      return true;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      void toastFrontendError(`Failed to load plugin index: ${message}`, "Plugin Installer");
+      if (!suppressErrors) {
+        void toastFrontendError(`Failed to load plugin index: ${message}`, "Plugin Installer");
+      }
+      return false;
     } finally {
-      this.loading = false;
-      this.loadingMessage = "";
+      if (!background) {
+        this.loading = false;
+        this.loadingMessage = "";
+      }
     }
+    })();
+
+    this.indexLoadPromise = loadPromise.finally(() => {
+      if (this.indexLoadPromise === loadPromise) {
+        this.indexLoadPromise = null;
+      }
+    });
+
+    return this.indexLoadPromise;
+  },
+
+  async ensureIndexLoaded(options = {}) {
+    if (this.hasIndexData()) {
+      return true;
+    }
+
+    await this.fetchIndex({
+      background: !!options?.background,
+      suppressErrors: !!options?.background,
+    });
+    return this.hasIndexData();
   },
 
   get pluginsList() {
@@ -278,7 +369,7 @@ const model = {
         ...plugin,
         current_commit: installedPlugin?.current_commit || "",
         current_commit_timestamp: installedPlugin?.current_commit_timestamp || "",
-        has_update: this._hasMarketplaceUpdate(plugin, installedPlugin),
+        has_update: this._hasPluginHubUpdate(plugin, installedPlugin),
       };
     });
   },
@@ -380,6 +471,32 @@ const model = {
     this.page = Math.max(1, Math.min(p, this.totalPages));
   },
 
+  getPluginHubPluginByKey(pluginKey) {
+    const key = typeof pluginKey === "string" ? pluginKey.trim() : "";
+    if (!key) return null;
+    return this.pluginsList.find((plugin) => plugin.key === key) || null;
+  },
+
+  async openPluginHubDetailByKey(pluginKey) {
+    const key = typeof pluginKey === "string" ? pluginKey.trim() : "";
+    if (!key) return false;
+
+    const loaded = await this.ensureIndexLoaded();
+    if (!loaded) return false;
+
+    const plugin = this.getPluginHubPluginByKey(key);
+    if (!plugin) {
+      void toastFrontendError(
+        `Plugin "${key}" is not available in the Plugin Hub index`,
+        "Plugin Installer"
+      );
+      return false;
+    }
+
+    this.openDetail(plugin);
+    return true;
+  },
+
   openDetail(plugin) {
     this.selectedPlugin = { ...plugin, name: plugin?.key || "" };
     this.result = null;
@@ -408,7 +525,9 @@ const model = {
           if (!response.ok) continue;
 
           const readme = await response.text();
-          this.readmeContent = marked.parse(readme, { breaks: true });
+          let html = marked.parse(readme, { breaks: true });
+          html = this._rebaseReadmeLinks(html, plugin?.github, branch);
+          this.readmeContent = addBlankTargetsToLinks(html);
           return;
         } catch (error) {
           lastError = error;
@@ -432,7 +551,7 @@ const model = {
     const confirmed = await showConfirmDialog({
       ...SECURITY_WARNING,
       extensionContext: {
-        kind: "marketplace_plugin_install_warning",
+        kind: "plugin_hub_plugin_install_warning",
         source: "plugin_installer",
         pluginKey: plugin.key || "",
         pluginTitle: plugin.title || plugin.key || "",
@@ -449,6 +568,7 @@ const model = {
         action: "install_git",
         git_url: plugin.github,
         plugin_name: plugin.key,
+        thumbnail_url: this.getThumbnailUrl(plugin) || "",
       });
 
       if (!data.success) {
@@ -496,7 +616,7 @@ const model = {
       installed: true,
       current_commit: latestInstalled?.["current_commit"] || indexPlugin["current_commit"] || "",
       current_commit_timestamp: latestInstalled?.["current_commit_timestamp"] || indexPlugin["current_commit_timestamp"] || "",
-      has_update: this._hasMarketplaceUpdate(indexPlugin, latestInstalled),
+      has_update: this._hasPluginHubUpdate(indexPlugin, latestInstalled),
     };
     this.detailThumbnailUrl = this.getThumbnailUrl(this.selectedPlugin);
   },
@@ -525,7 +645,12 @@ const model = {
 
   async handleOpenConfig() {
     if (this.installedPluginInfo) {
-      await pluginListStore.openPluginConfig(this.installedPluginInfo);
+      try {
+        await pluginSettingsStore.openConfig(this.installedPluginInfo.name);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        void toastFrontendError(message, "Plugin Installer");
+      }
     }
   },
 
@@ -536,14 +661,26 @@ const model = {
   },
 
   handleOpenInfo() {
-    if (this.installedPluginInfo) {
-      pluginListStore.openPluginInfo(this.installedPluginInfo);
-    }
+    if (!this.installedPluginInfo) return;
+    const pluginHubKey = (this.selectedPlugin?.key || "").trim();
+    const plugin = pluginHubKey
+      ? {
+          ...this.installedPluginInfo,
+          pluginHub: {
+            key: pluginHubKey,
+            title:
+              this.selectedPlugin?.title ||
+              this.installedPluginInfo.display_name ||
+              this.installedPluginInfo.name,
+          },
+        }
+      : this.installedPluginInfo;
+    pluginListStore.openPluginInfo(plugin);
   },
 
-  handleOpenInit() {
+  handleOpenExecute() {
     if (this.installedPluginInfo) {
-      pluginInitStore.open(this.installedPluginInfo);
+      pluginExecuteStore.open(this.installedPluginInfo);
     }
   },
 
@@ -582,7 +719,14 @@ const model = {
   formatUserLocaleDateTime(value) {
     if (!value || typeof value !== "string") return "";
 
-    const normalizedValue = /t/i.test(value) ? value : value.replace(" ", "T");
+    const trimmedValue = value.trim();
+    const hasExplicitTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmedValue);
+    let normalizedValue = /t/i.test(trimmedValue) ? trimmedValue : trimmedValue.replace(" ", "T");
+
+    if (!hasExplicitTimezone && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(normalizedValue)) {
+      normalizedValue = `${normalizedValue}Z`;
+    }
+
     const date = new Date(normalizedValue);
     if (Number.isNaN(date.getTime())) return value;
 
@@ -614,15 +758,15 @@ const model = {
     return this.installedPluginInfo?.["current_commit_timestamp"] || this.selectedPlugin?.["current_commit_timestamp"] || "";
   },
 
-  getLatestMarketplaceVersion() {
+  getLatestPluginHubVersion() {
     return this.selectedPlugin?.["version"] || "";
   },
 
-  getLatestMarketplaceCommit() {
+  getLatestPluginHubCommit() {
     return this.selectedPlugin?.["commit"] || "";
   },
 
-  getLatestMarketplaceCommitTimestamp() {
+  getLatestPluginHubCommitTimestamp() {
     return this.selectedPlugin?.["updated"] || "";
   },
 
@@ -638,7 +782,7 @@ const model = {
     const confirmed = await showConfirmDialog({
       ...SECURITY_WARNING,
       extensionContext: {
-        kind: "marketplace_plugin_install_warning",
+        kind: "plugin_hub_plugin_install_warning",
         source: "plugin_installer",
         pluginKey,
         pluginTitle: pluginRecord["title"] || pluginKey,
@@ -705,6 +849,25 @@ const model = {
     });
   },
 
+  getReportUrl(plugin) {
+    const githubUrl = plugin?.github;
+    if (!githubUrl || typeof githubUrl !== "string") return "";
+    try {
+      const url = new URL(githubUrl.trim().replace(/\.git$/i, ""));
+      if (!url.hostname.includes("github.com")) return "";
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts.length >= 1) {
+        const username = parts[0];
+        const contentUrl = encodeURIComponent(githubUrl);
+        const report = encodeURIComponent(`${username} (user)`);
+        return `https://github.com/contact/report-content?content_url=${contentUrl}&report=${report}`;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return "";
+  },
+
   // ── Shared ───────────────────────────────────
 
   resetZip() {
@@ -730,7 +893,8 @@ const model = {
 
   /** Refresh related list views after installer/detail actions. */
   refreshPluginList() {
-    if (pluginListStore.activeTab === "marketplace") {
+    const pluginHubActive = pluginListStore.activeTab === "pluginHub";
+    if (pluginHubActive) {
       void this.fetchIndex();
     }
     pluginListStore.refresh();

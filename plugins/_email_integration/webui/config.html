@@ -1,0 +1,331 @@
+<html>
+<head>
+    <title>Email Integration</title>
+</head>
+
+<body>
+    <div x-data="{
+        get handlers() { return config?.handlers || [] },
+        editing: null,
+        testing: null,
+        test_results: null,
+        projects: [],
+        async init() {
+            try {
+                const { callJsonApi } = await import('/js/api.js');
+                const res = await callJsonApi('projects', { action: 'list' });
+                this.projects = res.data || [];
+            } catch (e) { this.projects = []; }
+        },
+        add_handler() {
+            if (!config.handlers) config.handlers = [];
+            config.handlers.push({
+                name: 'handler_' + (config.handlers.length + 1),
+                enabled: false,
+                account_type: 'imap',
+                imap_server: '',
+                imap_port: 993,
+                smtp_server: '',
+                smtp_port: 587,
+                username: '',
+                password: '',
+                poll_mode: 'seconds',
+                poll_interval_seconds: 15,
+                poll_interval_cron: '*/2 * * * *',
+                process_unread_days: 0,
+                sender_whitelist: [],
+                project: '',
+                dispatcher_model: 'utility',
+                dispatcher_instructions: '',
+                agent_instructions: ''
+            });
+            this.editing = config.handlers.length - 1;
+        },
+        remove_handler(idx) {
+            config.handlers.splice(idx, 1);
+            this.editing = null;
+        },
+        whitelist_text(handler) {
+            return (handler.sender_whitelist || []).join(', ');
+        },
+        set_whitelist(handler, val) {
+            handler.sender_whitelist = val.split(',').map(s => s.trim()).filter(s => s);
+        },
+        async test_connection(idx) {
+            this.testing = idx;
+            this.test_results = null;
+            try {
+                const { callJsonApi } = await import('/js/api.js');
+                const res = await callJsonApi('/plugins/_email_integration/test_connection', {
+                    handler: this.handlers[idx]
+                });
+                this.test_results = res;
+            } catch (e) {
+                this.test_results = { success: false, results: [{ test: 'Connection', ok: false, message: String(e) }] };
+            }
+            this.testing = null;
+        }
+    }">
+        <template x-if="config">
+            <div>
+                <div class="section-title">Email Integration</div>
+                <div class="section-description">
+                    Configure email handlers to communicate with Agent Zero via email.
+                    Each handler connects to an email account and polls for new messages.
+                </div>
+
+                <!-- Handler list -->
+                <template x-for="(handler, idx) in handlers" :key="idx">
+                    <div style="border: 1px solid var(--border-color, #333); border-radius: 8px; padding: 12px; margin-bottom: 8px; margin-top: 8px;">
+
+                        <!-- Header row -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;"
+                             @click="editing = editing === idx ? null : idx">
+                            <div>
+                                <span style="font-weight: bold;" x-text="handler.name"></span>
+                                <span style="opacity: 0.6; margin-left: 8px;" x-text="handler.enabled ? 'Enabled' : 'Disabled'"></span>
+                            </div>
+                            <button class="btn btn-action delete" @click.stop="$confirmClick($event, () => remove_handler(idx))" title="Remove handler">
+                                <span class="material-symbols-outlined">delete</span>
+                            </button>
+                        </div>
+
+                        <!-- Expanded editor -->
+                        <template x-if="editing === idx">
+                            <div style="margin-top: 16px;">
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Enabled</div>
+                                        <div class="field-description">Enable or disable inbox polling for this handler</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <label class="toggle">
+                                            <input type="checkbox" x-model="handler.enabled" />
+                                            <span class="toggler"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Handler Name</div>
+                                        <div class="field-description">Unique identifier for this email handler</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text" x-model="handler.name" placeholder="e.g. support" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Account Type</div>
+                                        <div class="field-description">IMAP for most providers, Exchange for Microsoft Exchange/Office 365</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <select x-model="handler.account_type">
+                                            <option value="imap">IMAP</option>
+                                            <option value="exchange">Exchange</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">IMAP Server</div>
+                                        <div class="field-description">Incoming mail server hostname</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text" x-model="handler.imap_server" placeholder="imap.gmail.com" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">IMAP Port</div>
+                                        <div class="field-description">SSL port for incoming mail, usually 993</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="number" x-model.number="handler.imap_port" placeholder="993" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">SMTP Server</div>
+                                        <div class="field-description">Outgoing mail server hostname. Defaults to IMAP server if empty</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text" x-model="handler.smtp_server" placeholder="smtp.gmail.com" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">SMTP Port</div>
+                                        <div class="field-description">TLS port for outgoing mail, usually 587</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="number" x-model.number="handler.smtp_port" placeholder="587" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Username</div>
+                                        <div class="field-description">Email account login, usually the full email address</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text" x-model="handler.username" placeholder="user@domain.com" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Password</div>
+                                        <div class="field-description">Account password or app-specific password</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="password" x-model="handler.password" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Poll Mode</div>
+                                        <div class="field-description">How to schedule inbox checks</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <select x-model="handler.poll_mode">
+                                            <option value="seconds">Interval (seconds)</option>
+                                            <option value="cron">Cron expression</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="field" x-show="handler.poll_mode === 'seconds'">
+                                    <div class="field-label">
+                                        <div class="field-title">Poll Interval (seconds)</div>
+                                        <div class="field-description">How often to check for new emails</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="number" x-model.number="handler.poll_interval_seconds" min="5" placeholder="15" />
+                                    </div>
+                                </div>
+
+                                <div class="field" x-show="handler.poll_mode !== 'seconds'">
+                                    <div class="field-label">
+                                        <div class="field-title">Cron Expression</div>
+                                        <div class="field-description">e.g. */2 * * * * for every 2 minutes</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text" x-model="handler.poll_interval_cron" placeholder="*/2 * * * *" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Process Unread (days)</div>
+                                        <div class="field-description">Process unread emails from the last N days on every startup. 0 = only track new emails</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="number" x-model.number="handler.process_unread_days" min="0" placeholder="0" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Sender Whitelist</div>
+                                        <div class="field-description">Comma-separated. Empty = allow all. Wildcards supported (e.g. *@company.com)</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text" :value="whitelist_text(handler)" @input="set_whitelist(handler, $event.target.value)" placeholder="*@company.com, boss@other.com" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Project</div>
+                                        <div class="field-description">Project to activate for email chats</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <select :value="handler.project" @change="handler.project = $event.target.value">
+                                            <option value="">No project</option>
+                                            <template x-for="proj in projects" :key="proj.name">
+                                                <option :value="proj.name" x-text="proj.title || proj.name" :selected="handler.project === proj.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Dispatcher Model</div>
+                                        <div class="field-description">LLM model used to route incoming emails to chats. Utility is faster, chat is more capable</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <select x-model="handler.dispatcher_model">
+                                            <option value="utility">Utility</option>
+                                            <option value="chat">Chat</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Dispatcher Instructions</div>
+                                        <div class="field-description">Extra instructions for the AI that routes emails to chats</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <textarea x-model="handler.dispatcher_instructions" rows="3" placeholder="e.g. Always start a new chat for emails from support@..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Agent Instructions</div>
+                                        <div class="field-description">Extra instructions for the agent in email chats</div>
+                                    </div>
+                                    <div class="field-control">
+                                        <textarea x-model="handler.agent_instructions" rows="3" placeholder="e.g. Always respond in formal English..."></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- Test connection -->
+                                <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
+                                    <button class="btn btn-field" @click.stop="test_connection(idx)"
+                                            :disabled="testing === idx">
+                                        <span x-show="testing !== idx">Test Connection</span>
+                                        <span x-show="testing === idx">Testing...</span>
+                                    </button>
+                                </div>
+
+                                <!-- Test results -->
+                                <template x-if="test_results && editing === idx">
+                                    <div style="margin-top: 8px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem;
+                                                border: 1px solid var(--border-color, #333);">
+                                        <template x-for="r in test_results.results" :key="r.test">
+                                            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+                                                <span x-text="r.ok ? '✓' : '✗'"
+                                                      :style="'font-weight: bold; color:' + (r.ok ? '#4caf50' : '#f44336')"></span>
+                                                <span style="font-weight: 500; min-width: 50px;" x-text="r.test"></span>
+                                                <span style="opacity: 0.8;" x-text="r.message"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <button class="btn btn-field" @click="add_handler()" style="margin-top: 8px;">
+                    Add Handler
+                </button>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

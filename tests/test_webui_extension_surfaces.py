@@ -48,6 +48,8 @@ SURFACE_SCENARIOS: list[tuple[str, str]] = [
     ("welcome-actions-end", "webui/components/welcome/welcome-screen.html"),
     ("welcome-banners-start", "webui/components/welcome/welcome-screen.html"),
     ("welcome-banners-end", "webui/components/welcome/welcome-screen.html"),
+    ("plugins-list-dropdown-start", "webui/components/plugins/list/plugin-list.html"),
+    ("plugins-list-dropdown-end", "webui/components/plugins/list/plugin-list.html"),
     ("modal-shell-start", "webui/js/modals.js"),
     ("modal-shell-end", "webui/js/modals.js"),
 ]

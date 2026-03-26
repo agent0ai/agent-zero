@@ -10,8 +10,7 @@
 <body>
     <div x-data>
         <template x-if="$store.pluginInstallStore">
-            <div x-create="$store.pluginInstallStore.setTab('store')"
-                x-destroy="$store.pluginInstallStore.refreshPluginList()">
+            <div x-create="$store.pluginInstallStore.setTab('store')">
 
                 <ul class="nav nav-tabs" role="tablist">
                     <li class="nav-item" role="presentation">

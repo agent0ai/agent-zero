@@ -1,0 +1,152 @@
+<html>
+<head>
+  <title>Manage API Keys</title>
+</head>
+
+<body>
+<script type="module">
+  import { store } from "/plugins/_model_config/webui/model-config-store.js";
+</script>
+
+<div x-data>
+<template x-if="$store.modelConfig">
+<div x-data="{
+       keys: {},
+       originalKeys: {},
+       touched: {},
+       loading: true,
+       saving: false,
+       error: '',
+       get hasChanges() {
+         return Object.keys(this.touched).some((provider) => this.touched[provider]);
+       },
+       async init() {
+         await $store.modelConfig.ensureLoaded();
+         $store.modelConfig.resetApiKeyDrafts();
+         await $store.modelConfig.refreshApiKeyStatus();
+         $store.modelConfig.allProviders.forEach((provider) => {
+           this.keys[provider.value] = '';
+           this.originalKeys[provider.value] = '';
+           this.touched[provider.value] = false;
+         });
+         this.loading = false;
+       },
+       markChanged(provider) {
+         this.touched[provider] = this.keys[provider] !== this.originalKeys[provider];
+       },
+       async reveal(provider) {
+         try {
+           const value = await $store.modelConfig.revealApiKey(provider);
+           this.keys[provider] = value || '';
+           this.originalKeys[provider] = value || '';
+           this.touched[provider] = false;
+         } catch (e) {
+           this.error = e?.message || 'Failed to reveal API key.';
+         }
+       },
+       async saveAndClose() {
+         this.saving = true;
+         this.error = '';
+         try {
+           const updates = {};
+           for (const provider of Object.keys(this.touched)) {
+             if (!this.touched[provider]) continue;
+             updates[provider] = this.keys[provider] || '';
+           }
+           await $store.modelConfig.saveApiKeys(updates);
+           await $store.modelConfig.refreshApiKeyStatus();
+           window.closeModal?.();
+         } catch (e) {
+           this.error = e?.message || 'Failed to save API keys.';
+         } finally {
+           this.saving = false;
+         }
+       }
+     }"
+     x-init="init()">
+
+  <div class="api-keys-section">
+    <div class="section-title">API Keys</div>
+    <div class="section-description">
+      API keys for model providers and services used by Agent Zero. You can set multiple API keys separated by a comma (,). They will be used in round-robin fashion.<br>
+      For more information about Agent Zero Venice provider, see <a href="http://agent-zero.ai/?community/api-dashboard/about" target="_blank">Agent Zero Venice</a>.
+    </div>
+
+    <div x-show="error" class="plugin-settings-error" style="margin-top: 1rem;">
+      <span class="material-symbols-outlined">error</span>
+      <span x-text="error"></span>
+    </div>
+
+    <div x-show="loading" style="text-align:center; padding: 20px;">
+      <span class="material-symbols-outlined spinning">progress_activity</span>
+    </div>
+
+    <div x-show="!loading">
+      <template x-for="provider in $store.modelConfig.allProviders" :key="provider.value">
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title" x-text="provider.label"></div>
+          </div>
+          <div class="field-control" style="position:relative;" x-data="{ showKey: false }">
+            <input :type="showKey ? 'text' : 'password'"
+                   x-model="keys[provider.value]"
+                   :placeholder="provider.has_key ? '••••••••••••' : ''"
+                   autocomplete="off"
+                   @input="markChanged(provider.value)"
+                   style="padding-right:32px;" />
+            <span class="material-symbols-outlined eye-toggle"
+                  @click="
+                    showKey = !showKey;
+                    if (showKey && !keys[provider.value] && provider.has_key) {
+                      reveal(provider.value);
+                    }
+                  "
+                  x-text="showKey ? 'visibility' : 'visibility_off'"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <div class="modal-footer" data-modal-footer>
+    <button class="btn btn-ok"
+            @click="saveAndClose()"
+            :disabled="loading || saving || !hasChanges">
+      Save
+    </button>
+    <button class="btn btn-cancel"
+            @click="window.closeModal?.()"
+            :disabled="saving">
+      Close
+    </button>
+  </div>
+</div>
+</template>
+</div>
+
+<style>
+  .api-keys-section {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .api-keys-section .section-title {
+    margin-top: 0;
+  }
+  .eye-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    cursor: pointer;
+    user-select: none;
+    opacity: 0.6;
+    z-index: 1;
+  }
+  .eye-toggle:hover {
+    opacity: 1;
+  }
+</style>
+</body>
+</html>

@@ -1,0 +1,8 @@
+name: _telegram_integration
+title: Telegram Integration
+description: Communicate with Agent Zero via Telegram. Supports polling and webhook modes with per-user chat sessions.
+version: 1.0.0
+settings_sections:
+  - external
+per_project_config: false
+per_agent_config: false

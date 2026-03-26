@@ -41,7 +41,7 @@ Verify all of the following. If any is false, go back and fix it:
 
 ## Output Format
 
-Your ENTIRE response must be a single markdown document with EXACTLY this structure. No preamble, no commentary, no extra sections. Start your response directly with the `#` heading.
+Submit your final report using the **`response` tool**. The `text` argument must be a single markdown document with EXACTLY this structure. No preamble, no commentary, no extra sections. Start your response directly with the `#` heading.
 
 **Section 1** — Title line: `# 🛡️ Security Scan Report: {plugin title}`
 
@@ -65,7 +65,7 @@ Status icons: {{STATUS_LEGEND}}
 
 ## Constraints
 
-- Do NOT output any text before the `#` title heading
+- The `text` argument of the `response` tool must start directly with the `#` title heading — no text before it
 - Do NOT include your internal analysis process in the report
 - Do NOT add checks beyond the list above
 - Do NOT summarize multiple files into one finding

@@ -16,6 +16,7 @@ from helpers.files import get_abs_path
 from helpers import runtime, dotenv, process
 from helpers.websocket import WebSocketHandler, validate_ws_origin
 from helpers.api import register_api_route, requires_auth, csrf_protect
+from helpers.ws import register_ws_namespace
 from helpers.print_style import PrintStyle
 from helpers import login
 import socketio  # type: ignore[import-untyped]
@@ -23,7 +24,7 @@ from socketio import ASGIApp, packet
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from uvicorn.middleware.wsgi import WSGIMiddleware
-from helpers.websocket_manager import WebSocketManager
+from helpers.websocket_manager import WebSocketManager, set_shared_websocket_manager
 from helpers.websocket_namespace_discovery import discover_websocket_namespaces
 from flask import send_file
 
@@ -73,6 +74,7 @@ socketio_server = socketio.AsyncServer(
 )
 
 websocket_manager = WebSocketManager(socketio_server, lock)
+set_shared_websocket_manager(websocket_manager)
 _settings = settings_helper.get_settings()
 settings_helper.set_runtime_settings_snapshot(_settings)
 websocket_manager.set_server_restart_broadcast(
@@ -148,9 +150,10 @@ async def serve_plugin_asset(plugin_name, asset_path):
 @webapp.route("/extensions/webui/<path:asset_path>", methods=["GET"])
 @requires_auth
 async def serve_extension_asset(asset_path):
-    path = files.get_abs_path("extensions/webui", asset_path)
-    if not files.is_in_dir(path, "extensions/webui"):
-        return Response("Access denied", 403)
+    exts = files.get_abs_path("extensions/webui")
+    path = files.get_abs_path(exts, asset_path)
+    if not files.is_in_dir(path, exts):
+        return Response(f"Access denied", 403)
     return send_file(path)
 
 
@@ -333,22 +336,6 @@ def configure_websocket_namespaces(
         async def _disconnect(sid, _namespace: str = namespace):  # type: ignore[override]
             await websocket_manager.handle_disconnect(_namespace, sid)
 
-        def _register_socketio_event(event_type: str) -> None:
-            @socketio_server.on(event_type, namespace=namespace)
-            async def _event_handler(
-                sid,
-                data,
-                _event_type: str = event_type,
-                _namespace: str = namespace,
-            ):
-                payload = data or {}
-                return await websocket_manager.route_event(
-                    _namespace, _event_type, payload, sid
-                )
-
-        for _event_type in websocket_manager.iter_event_types(namespace):
-            _register_socketio_event(_event_type)
-
         @socketio_server.on("*", namespace=namespace)
         async def _catch_all(event, sid, data, _namespace: str = namespace):
             payload = data or {}
@@ -387,12 +374,15 @@ def run():
     register_api_route(webapp, lock)
 
     handlers_by_namespace = _build_websocket_handlers_by_namespace(socketio_server, lock)
-    configure_websocket_namespaces(
+    allowed_namespaces = configure_websocket_namespaces(
         webapp=webapp,
         socketio_server=socketio_server,
         websocket_manager=websocket_manager,
         handlers_by_namespace=handlers_by_namespace,
     )
+
+    register_ws_namespace(socketio_server, webapp, lock)
+    allowed_namespaces.add("/ws")
 
     init_a0()
 

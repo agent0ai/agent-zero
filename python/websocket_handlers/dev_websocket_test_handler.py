@@ -11,19 +11,6 @@ from helpers.websocket import WebSocketHandler, WebSocketResult
 class DevWebsocketTestHandler(WebSocketHandler):
     """Test harness handler powering the developer WebSocket validation component."""
 
-    @classmethod
-    def get_event_types(cls) -> list[str]:
-        return [
-            "ws_tester_emit",
-            "ws_tester_request",
-            "ws_tester_request_delayed",
-            "ws_tester_trigger_persistence",
-            "ws_tester_request_all",
-            "ws_tester_broadcast_demo_trigger",
-            "ws_event_console_subscribe",
-            "ws_event_console_unsubscribe",
-        ]
-
     async def process_event(
         self, event_type: str, data: Dict[str, Any], sid: str
     ) -> dict[str, Any] | WebSocketResult | None:

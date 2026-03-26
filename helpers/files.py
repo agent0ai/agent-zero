@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from fnmatch import fnmatch
 import json
-from ntpath import isabs
 import os
 import re
 import base64
@@ -17,9 +16,11 @@ from helpers import yaml
 AGENTS_DIR = "agents"
 PLUGINS_DIR = "plugins"
 PROJECTS_DIR = "projects"
+EXTENSIONS_DIR = "extensions"
 USER_DIR = "usr"
 TEMP_DIR = "tmp"
-
+API_DIR = "api"
+_base_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, "../")))
 
 class VariablesPlugin(ABC):
     @abstractmethod
@@ -46,9 +47,9 @@ def load_plugin_variables(
 
     if plugin_file and exists(plugin_file):
 
-        from helpers import extract_tools
+        from helpers import modules
 
-        classes = extract_tools.load_classes_from_file(
+        classes = modules.load_classes_from_file(
             plugin_file, VariablesPlugin, one_per_file=False
         )
         for cls in classes:
@@ -133,10 +134,10 @@ def read_prompt_file(
 
     # Find the file in the directories
     absolute_path = find_file_in_dirs(_file, _directories)
+    source_dir = os.path.dirname(absolute_path)
 
     # Read the file content
     with open(absolute_path, "r", encoding=_encoding) as f:
-        # content = remove_code_fences(f.read())
         content = f.read()
 
     variables = load_plugin_variables(_file, _directories, **kwargs) or {}  # type: ignore
@@ -148,11 +149,13 @@ def read_prompt_file(
     # Replace placeholders with values from kwargs
     content = replace_placeholders_text(content, **variables)
 
-    # Process include statements
+    # Process include statements (with source tracking for {{include original}})
     content = process_includes(
         # here we use kwargs, the plugin variables are not inherited
         content,
         _directories,
+        _source_file=_file,
+        _source_dir=source_dir,
         **kwargs,
     )
 
@@ -326,24 +329,56 @@ def replace_placeholders_dict(_content: dict, **kwargs):
     return replace_value(_content)
 
 
-def process_includes(_content: str, _directories: list[str], **kwargs):
-    # Regex to find {{ include 'path' }} or {{include'path'}}
+def process_includes(
+    _content: str,
+    _directories: list[str],
+    _source_file: str = "",
+    _source_dir: str = "",
+    **kwargs,
+):
+    # {{include original}} — include same file from lower-priority directory
+    original_pattern = re.compile(r"{{\s*include\s+original\s*}}")
+
+    def replace_original(match):
+        if not _source_file or not _source_dir:
+            return match.group(0)
+        remaining_dirs = _get_dirs_after(_directories, _source_dir)
+        if not remaining_dirs:
+            return ""
+        try:
+            return read_prompt_file(_source_file, remaining_dirs, **kwargs)
+        except FileNotFoundError:
+            return ""
+
+    _content = re.sub(original_pattern, replace_original, _content)
+
+    # {{ include 'path' }} — include a named file
     include_pattern = re.compile(r"{{\s*include\s*['\"](.*?)['\"]\s*}}")
 
     def replace_include(match):
         include_path = match.group(1)
-        # if the path is absolute, do not process it
         if os.path.isabs(include_path):
             return match.group(0)
-        # Search for the include file in the directories
         try:
-            included_content = read_prompt_file(include_path, _directories, **kwargs)
-            return included_content
+            return read_prompt_file(include_path, _directories, **kwargs)
         except FileNotFoundError:
-            return match.group(0)  # Return original if file not found
+            return match.group(0)
 
-    # Replace all includes with the file content
     return re.sub(include_pattern, replace_include, _content)
+
+
+def _get_dirs_after(_directories: list[str], _source_dir: str) -> list[str]:
+    """Return directories after _source_dir in the priority list."""
+    source_abs = os.path.normpath(os.path.abspath(_source_dir))
+    found = False
+    result: list[str] = []
+    for d in _directories:
+        d_abs = os.path.normpath(os.path.abspath(get_abs_path(d)))
+        if found:
+            result.append(d)
+        elif d_abs == source_abs:
+            found = True
+    return result
 
 
 def find_file_in_dirs(_filename: str, _directories: list[str]):
@@ -486,8 +521,10 @@ def move_dir(old_path: str, new_path: str):
 
     try:
         os.rename(abs_old, abs_new)
-    except Exception:
-        pass  # suppress all errors, keep behavior consistent
+    except OSError:
+        # os.rename fails across Docker volume mount points
+        import shutil
+        shutil.move(abs_old, abs_new)
 
 
 # move dir safely, remove with number if needed
@@ -529,9 +566,15 @@ def make_dirs(relative_path: str):
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
 
 
+def _resolve_path(*relative_paths):
+    if len(relative_paths) == 1 and os.path.isabs(relative_paths[0]):
+        return relative_paths[0]
+    return os.path.join(_base_dir, *relative_paths)
+
+
 def get_abs_path(*relative_paths):
     "Convert relative paths to absolute paths based on the base directory."
-    return os.path.join(get_base_dir(), *relative_paths)
+    return _resolve_path(*relative_paths)
 
 
 def get_abs_path_dockerized(*relative_paths):
@@ -574,24 +617,22 @@ def normalize_a0_path(path: str):
 
 
 def exists(*relative_paths):
-    path = get_abs_path(*relative_paths)
+    path = _resolve_path(*relative_paths)
     return os.path.exists(path)
 
 
 def is_file(*relative_paths):
-    path = get_abs_path(*relative_paths)
+    path = _resolve_path(*relative_paths)
     return os.path.isfile(path)
 
 
 def is_dir(*relative_paths):
-    path = get_abs_path(*relative_paths)
+    path = _resolve_path(*relative_paths)
     return os.path.isdir(path)
 
 
 def get_base_dir():
-    # Get the base directory from the current file path
-    base_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, "../")))
-    return base_dir
+    return _base_dir
 
 
 def basename(path: str, suffix: str | None = None):

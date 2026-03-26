@@ -5,6 +5,7 @@ import asyncio
 from helpers.log import LogItem
 from helpers import log
 import math
+import uuid
 
 
 class LogForStream(Extension):
@@ -19,6 +20,7 @@ class LogForStream(Extension):
                 self.agent.context.log.log(
                     type="agent",
                     heading=build_default_heading(self.agent),
+                    id=str(uuid.uuid4()),
                 )
             )
 

@@ -25,7 +25,7 @@ Agent Zero provides several extension points where custom code can be injected:
 - **monologue_end**: Executed at the end of agent monologue
 - **reasoning_stream**: Executed when reasoning stream data is received
 - **response_stream**: Executed when response stream data is received
-- **system_prompt**: Executed when system prompts are processed
+- **system_prompt**: Executed when system prompts are processed — split into focused extensions (see below)
 
 #### Extension Mechanism
 The extension mechanism in Agent Zero works through the `call_extensions` function in `agent.py`, which:
@@ -64,6 +64,49 @@ For example, if both these files exist:
 - `/agents/my_agent/extensions/agent_init/example.py`
 
 The version in `/agents/my_agent/extensions/agent_init/example.py` will be used, completely replacing the default version.
+
+#### System Prompt Extensions
+The system prompt is built by multiple focused extensions in `extensions/python/system_prompt/`, each handling one concern:
+
+| Extension | Section | Decorator |
+|-----------|---------|-----------|
+| `_10_main_prompt.py` | Main system manual | `@extensible` |
+| `_11_tools_prompt.py` | Tool instructions + vision | `@extensible` |
+| `_12_mcp_prompt.py` | MCP server tools | `@extensible` |
+| `_13_skills_prompt.py` | Available skills | `@extensible` |
+| `_13_secrets_prompt.py` | Secrets and variables | `@extensible` |
+| `_14_project_prompt.py` | Project context | `@extensible` |
+
+Each extension exposes a top-level `build_prompt(agent)` function decorated with `@extensible`, which auto-creates implicit `start` and `end` extension folders. Plugins can hook into these to modify the prompt before or after it's built.
+
+The implicit path is composed from the function's full module path and full nested `__qualname__` path:
+
+- `_functions/<module path>/<qualname path>/start`
+- `_functions/<module path>/<qualname path>/end`
+
+For example, a top-level function `build_prompt` in module `extensions.python.system_prompt._10_main_prompt` maps to:
+
+- `extensions/python/_functions/extensions/python/system_prompt/_10_main_prompt/build_prompt/start/`
+- `extensions/python/_functions/extensions/python/system_prompt/_10_main_prompt/build_prompt/end/`
+
+For nested callables, every namespace-like segment is kept. For example, `helpers.something -> Outer.Inner.__init__` maps to:
+
+- `_functions/helpers/something/Outer/Inner/__init__/start`
+- `_functions/helpers/something/Outer/Inner/__init__/end`
+
+This deep directory structure avoids collisions between functions that previously would have been flattened into the same extension point name.
+
+Numbers `_10`–`_14` run before plugin extensions (which start at `_15`+), ensuring core prompt sections are built first.
+
+**Tool prompt collection:** `_11_tools_prompt.py` collects all `agent.system.tool.*.md` files from the full directory hierarchy via `subagents.get_paths`. Plugins that need to pass config values to their tool prompts can register per-file kwargs on `agent.data["_tool_prompt_kwargs"]` from an earlier-numbered extension:
+
+```python
+# plugins/my_plugin/extensions/python/system_prompt/_09_my_config.py
+class MyConfig(Extension):
+    async def execute(self, **kwargs):
+        tool_kwargs = self.agent.data.setdefault("_tool_prompt_kwargs", {})
+        tool_kwargs["agent.system.tool.my_tool.md"] = {"my_var": "value"}
+```
 
 ### Tools
 Tools are modular components that provide specific functionality to agents. They are invoked by the agent through tool calls in the LLM response. Tools are discovered dynamically and can be extended or overridden.
@@ -186,6 +229,42 @@ Prompts can include content from other prompt files using the `{{ include "path/
 {{ include "agent.system.main.environment.md" }}
 
 {{ include "agent.system.main.communication.md" }}
+```
+
+##### Include Original
+When overriding a prompt file, you can **extend** the original instead of replacing it entirely using `{{include original}}`. This finds the same filename in the next lower-priority directory and includes its content.
+
+**Example:** Override `agents/developer/prompts/agent.system.main.communication.md`:
+```markdown
+{{include original}}
+
+- always explain your reasoning
+- include code snippets in responses
+```
+
+This resolves to: find `agent.system.main.communication.md` in the next directory up the hierarchy → finds the default in `prompts/` → includes it. Result:
+
+```markdown
+## Communication
+- be concise
+- use markdown formatting
+- ask clarifying questions when unsure
+
+- always explain your reasoning
+- include code snippets in responses
+```
+
+The override stays small and automatically inherits any future changes to the default file. Works at any level of the hierarchy — if multiple overrides each use `{{include original}}`, they chain together from highest to lowest priority.
+
+##### Agent Specifics File
+The default `agent.system.main.md` includes `agent.system.main.specifics.md` — an empty file by default. Subagent profiles can override just this file to add profile-specific instructions without touching role, communication, or other sections.
+
+**Example:** `agents/developer/prompts/agent.system.main.specifics.md`:
+```markdown
+## Developer specifics
+- always use git branches for new features
+- prefer Python 3.12+ syntax
+- run tests before committing
 ```
 
 #### Prompt Override Logic

@@ -114,4 +114,4 @@ Community-tested and reliable MCP servers:
 - **VSCode MCP** - IDE workflows
 
 > [!TIP]
-> For browser automation tasks, MCP-based browser tools are more reliable than the built-in browser agent.
+> For browser automation tasks, the built-in Browser Agent plugin covers the default workflow. MCP-based browser tools are still useful when you need a different browser stack, remote browser control, or an alternative to the built-in Playwright Chromium (preinstalled in Docker; on demand via `ensure_playwright_binary()` in local dev).

@@ -882,19 +882,21 @@ class TaskScheduler:
                     task_prompt = f"## Task:\n{current_task.prompt}"
 
                 # Log the message with message_id and attachments
+                msg_id = str(uuid.uuid4())
                 context.log.log(
                     type="user",
                     heading="",
                     content=task_prompt,
                     kvps={"attachments": attachment_filenames},
-                    id=str(uuid.uuid4()),
+                    id=msg_id,
                 )
 
                 agent.hist_add_user_message(
                     UserMessage(
                         message=task_prompt,
                         system_message=[current_task.system_prompt],
-                        attachments=attachment_filenames))
+                        attachments=attachment_filenames,
+                        id=msg_id))
 
                 # Persist after setting up the context but before running the agent
                 # This ensures the task context is saved and can be found by polling

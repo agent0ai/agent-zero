@@ -51,7 +51,7 @@ Or see DeepWiki generated documentation:
 
 Click to open a video to learn how to install Agent Zero:
 
-[![Easy Installation guide](/docs/res/easy_ins_vid.png)](https://www.youtube.com/watch?v=w5v5Kjx51hs)
+[![Easy Installation guide](/docs/res/install_guide.png)](https://www.youtube.com/watch?v=2-qFNUvqrXA)
 
 A detailed setup guide for Windows, macOS, and Linux with a video can be found in the Agent Zero Documentation at [this page](./docs/setup/installation.md).
 
@@ -93,13 +93,20 @@ docker run -p 50001:80 agent0ai/agent-zero
 
 ![Multi-agent](docs/res/usage/multi-agent.png)
 
+### Browser Agent
+
+- Browser automation is provided by the built-in `_browser_agent` plugin.
+- It uses the effective Main Model resolved by `_model_config`; there is no separate browser model slot.
+- Browser vision follows the Main Model's vision setting.
+- Playwright Chromium: **Docker** images ship the headless shell preinstalled. **Local development** installs it on first Browser Agent use via `ensure_playwright_binary()` in `plugins/_browser_agent/helpers/playwright.py` (into `tmp/playwright`); you can pre-install manually (see [Development Setup](docs/setup/dev-setup.md)) to skip the wait.
+
 4. **Completely Customizable and Extensible**
 
 - Almost nothing in this framework is hard-coded. Nothing is hidden. Everything can be extended or changed by the user.
 - The whole behavior is defined by a system prompt in the **prompts/default/agent.system.md** file. Change this prompt and change the framework dramatically.
 - The framework does not guide or limit the agent in any way. There are no hard-coded rails that agents have to follow.
 - Every prompt, every small message template sent to the agent in its communication loop can be found in the **prompts/** folder and changed.
-- Every default tool can be found in the **python/tools/** folder and changed or copied to create new predefined tools.
+- Built-in tools live in the core **tools/** folder or in built-in plugins under **plugins/** and can be adapted or extended.
 - **Automated configuration** via `A0_SET_` environment variables for deployment automation and easy setup.
 
 ![Prompts](/docs/res/profiles.png)
@@ -163,9 +170,12 @@ docker run -p 50001:80 agent0ai/agent-zero
 | [Architecture](./docs/developer/architecture.md) | System design and components |
 | [Contributing](./docs/guides/contribution.md) | How to contribute |
 | [Troubleshooting](./docs/guides/troubleshooting.md) | Common issues and their solutions |
+| [Release Notes](./docs/release_notes/README.md) | Release note format used by the automated Docker and GitHub release workflow |
 
 
 ## 🎯 Changelog
+
+New release-note files for current releases live in [docs/release_notes](./docs/release_notes/README.md). The latest eligible `main` tag uses `docs/release_notes/vX.Y.md` for the GitHub release body.
 
 ### v0.9.8 - Skills, UI Redesign & Git projects
 [Release video](https://youtu.be/NV7s78yn6DY)
@@ -238,7 +248,7 @@ docker run -p 50001:80 agent0ai/agent-zero
 - Secrets management - agent can use credentials without seeing them
 - Agent can copy paste messages and files without rewriting them
 - LiteLLM global configuration field
-- Custom HTTP headers field for browser agent
+- Browser agent configuration improvements
 - Progressive web app support
 - Extra model params support for JSON
 - Short IDs for files and memories to prevent LLM errors

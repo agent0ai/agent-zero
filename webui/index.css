@@ -139,6 +139,19 @@ body {
   -webkit-overscroll-behavior: none;
 }
 
+x-extension:not(:empty) {
+  display: contents;
+}
+
+x-extension:empty {
+  display: none;
+}
+
+x-extension > x-component,
+x-extension > x-component > div[x-data] {
+  display: contents;
+}
+
 p:last-child {
   margin-bottom: 0;
 }
@@ -1009,6 +1022,10 @@ input:checked + .slider:before {
 /* Media Queries */
 @media (max-width: 640px) {
   /* Responsive tiles for mobile */
+  #time-date {
+    display: none;
+  }
+
   .preview-section {
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: 8px;

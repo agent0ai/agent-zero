@@ -40,6 +40,10 @@ async def scheduler_tick():
     # Run the scheduler tick
     await scheduler.tick()
 
+    # Run job_loop extensions (e.g. email polling)
+    from helpers.extension import call_extensions_async
+    await call_extensions_async("job_loop")
+
 
 def pause_loop():
     global keep_running, pause_time

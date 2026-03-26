@@ -74,6 +74,27 @@ Access the chat history in JSON format
 > [!TIP]
 > Use the Context and History buttons to understand how the agent interprets your instructions and debug any unexpected behavior.
 
+### Plugins and Plugin Hub
+Open the **Plugins** dialog from the sidebar quick actions by clicking the plugin icon.
+
+![Plugins](../res/usage/plugins/plugins-list.png)
+
+From this view you can manage installed plugins, review plugin details, open plugin settings, and change activation state.
+
+#### Open the Plugin Hub
+There are two ways to reach the Plugin Hub from the Plugins dialog:
+
+1. Click the **Browse** tab after **Custom** and **Builtin** to switch the current dialog into the Plugin Hub view.
+2. Click the **Install** button in the top-right toolbar to open the installer modal, which starts on its own **Browse** tab.
+
+![Plugin Hub](../res/usage/plugins/plugin-hub-main-view.png)
+
+The Plugin Hub lets you search community plugins, filter by tags, sort the listing, and open a plugin card for more context before installing.
+
+![Plugin Details](../res/usage/plugins/plugin-hub-plugin-detail.png)
+
+Opening a plugin shows its author, tags, README content, and install action. Once you are in the detail view, the next steps are intentionally straightforward.
+
 ### File Attachments
 Agent Zero supports direct file attachments in the chat interface for seamless file operations:
 
@@ -106,7 +127,9 @@ Agent Zero's power comes from its ability to use [tools](../developer/architectu
 - **Understand Tools:** Agent Zero includes default tools like knowledge (powered by SearXNG), code execution, and communication. Understand the capabilities of these tools and how to invoke them.
 
 ### Browser Agent Status & MCP Alternatives
-The built-in browser agent currently has dependency issues on some systems. If web automation is critical, prefer MCP-based browser tools instead:
+The built-in Browser Agent is provided by the `_browser_agent` plugin. It uses the effective Main Model from `_model_config`, including per-chat overrides and the Main Model vision flag. Playwright Chromium is preinstalled in **Docker**; in **local development** it is installed on demand when needed via `ensure_playwright_binary()` (see [Development Setup](../setup/dev-setup.md) to pre-install).
+
+If you need a different browser stack or want external browser tooling, MCP-based browser tools are still a strong option:
 
 - **Browser OS MCP**
 - **Chrome DevTools MCP**
@@ -172,7 +195,7 @@ Each project includes:
 
 There are two ways to access project management:
 
-1. **Dashboard Access**: Click **Projects** in the sidebar to open the Projects modal
+1. **Dashboard Access**: Click **Projects** from the Dashboard to open the Projects modal
 2. **Quick Access**: Click the project dropdown in the top-right corner (shows "No project" when none is active)
 
 ![Project Creation](../res/usage/projects/projects-creation.png)

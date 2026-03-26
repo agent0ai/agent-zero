@@ -29,6 +29,7 @@
                         :disabled="$store.pluginInstallStore.loading">
                         <span class="icon material-symbols-outlined">download</span> Install Plugin
                     </button>
+                    <x-extension id="install-zip-actions"></x-extension>
                 </div>
 
                 <div x-show="$store.pluginInstallStore.loading" class="pi-loading">

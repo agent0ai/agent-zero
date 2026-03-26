@@ -1,0 +1,222 @@
+name: Build And Publish Docker Images
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional release tag to rebuild, for example v1.21"
+        required: false
+        type: string
+
+env:
+  # Non-main branches publish a Docker tag with the same name as the branch.
+  ALLOWED_BRANCHES: "testing main"
+  MAIN_BRANCH: "main"
+  RELEASE_TAG_REGEX: "^v([0-9]+)\\.([0-9]+)$"
+  MIN_RELEASE_MAJOR: "1"
+  MIN_RELEASE_MINOR: "0"
+  RELEASE_NOTES_DIR: "docs/release_notes"
+  DOCKERFILE_DIR: "docker/run"
+  DOCKERFILE_PATH: "docker/run/Dockerfile"
+  DOCKER_IMAGE_NAME: "agent-zero"
+  DOCKER_PLATFORMS: "linux/amd64,linux/arm64"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    if: github.repository == 'agent0ai/agent-zero'
+    runs-on: ubuntu-latest
+    outputs:
+      has_work: ${{ steps.plan.outputs.has_work }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Validate Docker Hub secrets
+        env:
+          DOCKERHUB_ORG: ${{ secrets.DOCKERHUB_ORG }}
+          DOCKERHUB_OAT_TOKEN: ${{ secrets.DOCKERHUB_OAT_TOKEN }}
+        run: |
+          if [[ -z "$DOCKERHUB_ORG" || -z "$DOCKERHUB_OAT_TOKEN" ]]; then
+            echo "::error::Missing DOCKERHUB_ORG or DOCKERHUB_OAT_TOKEN secret."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch remote branches and tags
+        run: git fetch --force --tags origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_ORG }}
+          password: ${{ secrets.DOCKERHUB_OAT_TOKEN }}
+
+      - name: Plan Docker publish targets
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_TAG: ${{ github.ref_name }}
+          MANUAL_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+          DOCKER_IMAGE_REPO: ${{ format('{0}/{1}', secrets.DOCKERHUB_ORG, env.DOCKER_IMAGE_NAME) }}
+        run: python3 .github/scripts/docker_release_plan.py plan
+
+  build:
+    if: needs.plan.outputs.has_work == 'true'
+    needs: plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    concurrency:
+      group: docker-publish-${{ github.repository }}-${{ matrix.branch }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch remote branches and tags
+        run: git fetch --force --tags origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Validate Docker Hub secrets
+        env:
+          DOCKERHUB_ORG: ${{ secrets.DOCKERHUB_ORG }}
+          DOCKERHUB_OAT_TOKEN: ${{ secrets.DOCKERHUB_OAT_TOKEN }}
+        run: |
+          if [[ -z "$DOCKERHUB_ORG" || -z "$DOCKERHUB_OAT_TOKEN" ]]; then
+            echo "::error::Missing DOCKERHUB_ORG or DOCKERHUB_OAT_TOKEN secret."
+            exit 1
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_ORG }}
+          password: ${{ secrets.DOCKERHUB_OAT_TOKEN }}
+
+      - name: Re-resolve Docker tags for this build
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_TAG: ${{ github.ref_name }}
+          MANUAL_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+          DOCKER_IMAGE_REPO: ${{ format('{0}/{1}', secrets.DOCKERHUB_ORG, env.DOCKER_IMAGE_NAME) }}
+          TARGET_BRANCH: ${{ matrix.branch }}
+          TARGET_TAG: ${{ matrix.source_tag }}
+          TARGET_MODE: ${{ matrix.mode }}
+          TARGET_PUBLISH_VERSION: ${{ matrix.publish_version }}
+          TARGET_PUBLISH_BRANCH_TAG: ${{ matrix.publish_branch_tag }}
+        run: python3 .github/scripts/docker_release_plan.py resolve-build
+
+      - name: Skip when target is no longer eligible
+        if: steps.resolve.outputs.should_build != 'true'
+        run: echo "${{ steps.resolve.outputs.skip_reason }}"
+
+      - name: Set cache date
+        if: steps.resolve.outputs.should_build == 'true'
+        id: cache_date
+        run: echo "value=$(date -u +%Y-%m-%d:%H:%M:%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Docker image
+        if: steps.resolve.outputs.should_build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.DOCKERFILE_DIR }}
+          file: ${{ env.DOCKERFILE_PATH }}
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          push: true
+          tags: ${{ steps.resolve.outputs.tags }}
+          build-args: |
+            BRANCH=${{ matrix.branch }}
+            CACHE_DATE=${{ steps.cache_date.outputs.value }}
+
+      - name: Resolve GitHub release target
+        if: steps.resolve.outputs.should_build == 'true'
+        id: release_plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_TAG: ${{ github.ref_name }}
+          MANUAL_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+          DOCKER_IMAGE_REPO: ${{ format('{0}/{1}', secrets.DOCKERHUB_ORG, env.DOCKER_IMAGE_NAME) }}
+          TARGET_BRANCH: ${{ matrix.branch }}
+          TARGET_TAG: ${{ matrix.source_tag }}
+          RELEASE_NOTES_DIR: ${{ env.RELEASE_NOTES_DIR }}
+        run: python3 .github/scripts/docker_release_plan.py resolve-release
+
+      - name: Skip GitHub release
+        if: steps.resolve.outputs.should_build == 'true' && steps.release_plan.outputs.should_release != 'true'
+        run: echo "${{ steps.release_plan.outputs.skip_reason }}"
+
+      - name: Create or update GitHub release
+        if: steps.resolve.outputs.should_build == 'true' && steps.release_plan.outputs.should_release == 'true'
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ steps.release_plan.outputs.release_tag }}
+          RELEASE_NAME: ${{ steps.release_plan.outputs.release_name }}
+          RELEASE_BODY: ${{ steps.release_plan.outputs.release_body }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tag = process.env.RELEASE_TAG;
+            const name = process.env.RELEASE_NAME;
+            const body = process.env.RELEASE_BODY;
+
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({
+                owner,
+                repo,
+                tag,
+              });
+
+              await github.rest.repos.updateRelease({
+                owner,
+                repo,
+                release_id: existing.data.id,
+                tag_name: tag,
+                name,
+                body,
+                draft: false,
+                prerelease: false,
+                make_latest: "true",
+              });
+
+              core.info(`Updated release ${tag}`);
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+
+              await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name,
+                body,
+                draft: false,
+                prerelease: false,
+                make_latest: "true",
+              });
+
+              core.info(`Created release ${tag}`);
+            }

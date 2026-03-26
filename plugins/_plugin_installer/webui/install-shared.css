@@ -11,6 +11,7 @@
 
 .pi-actions-start {
     justify-content: flex-start;
+    gap: var(--spacing-sm);
 }
 
 .pi-actions-center {

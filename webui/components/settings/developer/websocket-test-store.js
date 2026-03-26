@@ -12,7 +12,7 @@ const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024;
 const TOAST_DURATION = 5;
 
 const websocket = getNamespacedClient("/dev_websocket_test");
-const stateSocket = getNamespacedClient("/state_sync");
+const stateSocket = getNamespacedClient("/webui");
 
 function now() {
   return new Date().toISOString();

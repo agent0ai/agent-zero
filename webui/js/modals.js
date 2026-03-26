@@ -5,6 +5,32 @@ import { callJsExtensions } from "/js/extensions.js";
 // Modal functionality
 const modalStack = [];
 
+function getModalScrollElement(modal) {
+  return modal?.element?.querySelector(".modal-scroll");
+}
+
+function captureModalScrollSnapshot(modal) {
+  const modalScroll = getModalScrollElement(modal);
+  if (!modalScroll) return null;
+  return {
+    scrollTop: modalScroll.scrollTop,
+    scrollLeft: modalScroll.scrollLeft,
+  };
+}
+
+function restoreModalScrollSnapshot(modal) {
+  const snapshot = modal?.savedScrollSnapshot;
+  if (!snapshot) return;
+
+  requestAnimationFrame(() => {
+    const modalScroll = getModalScrollElement(modal);
+    if (!modalScroll) return;
+    modalScroll.scrollTop = snapshot.scrollTop;
+    modalScroll.scrollLeft = snapshot.scrollLeft;
+    modal.savedScrollSnapshot = null;
+  });
+}
+
 // Create a single backdrop for all modals
 const backdrop = document.createElement("div");
 backdrop.className = "modal-backdrop";
@@ -103,6 +129,7 @@ function createModalElement(path) {
     styles: [],
     scripts: [],
     beforeClose: null,
+    savedScrollSnapshot: null,
   };
 }
 
@@ -115,6 +142,11 @@ export async function openModal(modalPath, beforeClose = null) {
 
   return new Promise((resolve) => {
     try {
+      const currentTopModal = modalStack[modalStack.length - 1];
+      if (currentTopModal) {
+        currentTopModal.savedScrollSnapshot = captureModalScrollSnapshot(currentTopModal);
+      }
+
       // Create new modal instance
       const modal = createModalElement(modalPath);
       modal.beforeClose = beforeClose;
@@ -271,7 +303,17 @@ export async function closeModal(modalPath = null) {
     } else {
       // Update modal z-indexes
       updateModalZIndexes();
+      restoreModalScrollSnapshot(modalStack[modalStack.length - 1]);
     }
+
+    document.dispatchEvent(
+      new CustomEvent("modal-closed", {
+        detail: {
+          modalPath: modal.path ?? null,
+          remainingModalCount: modalStack.length,
+        },
+      }),
+    );
 
     return true;
   });

@@ -153,8 +153,9 @@ def send_message(context: "AgentContext", item: dict, source: str = " (from queu
     
     message = item.get("text", "")
     attachments = item.get("attachments", [])
-    log_user_message(context, message, attachments, source=source)
-    context.communicate(UserMessage(message, attachments))
+    msg_id = str(uuid.uuid4())
+    log_user_message(context, message, attachments, message_id=msg_id, source=source)
+    context.communicate(UserMessage(message, attachments, id=msg_id))
 
 
 def send_next(context: "AgentContext") -> bool:
@@ -183,6 +184,7 @@ def send_all_aggregated(context: "AgentContext") -> int:
     text = "\n\n---\n\n".join(i["text"] for i in items if i["text"])
     attachments = [a for i in items for a in i.get("attachments", [])]
     
-    log_user_message(context, text, attachments, source=" (queued batch)")
-    context.communicate(UserMessage(text, attachments))
+    msg_id = str(uuid.uuid4())
+    log_user_message(context, text, attachments, message_id=msg_id, source=" (queued batch)")
+    context.communicate(UserMessage(text, attachments, id=msg_id))
     return len(items)

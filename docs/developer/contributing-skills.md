@@ -318,13 +318,13 @@ One skill = one expertise area. If your skill is getting too long, split it:
    - Title: `feat(skills): add my-skill-name skill`
    - Description: Explain what the skill does and why it's useful
 
-### Publishing to Skills Marketplace
+### Publishing Skills
 
-Share your skills on [skillsmp.com](https://skillsmp.com):
+Share your skills on [skillsmp.com](https://skillsmp.com) or [skills.sh](https://skills.sh):
 
 1. Create a GitHub repository for your skill
 2. Ensure it follows the SKILL.md standard
-3. Submit to the marketplace via their contribution process
+3. Submit via their contribution process
 
 ### Creating a Skills Collection
 

@@ -134,7 +134,11 @@ def install_from_zip(zip_path: str, original_filename: str | None = None) -> dic
             files.delete_dir(dest)
             raise
 
-        after_plugin_change([plugin_name])
+
+        # does it have python files?
+        python_change = bool(files.find_existing_paths_by_pattern(dest+"/**/*.py"))
+
+        after_plugin_change([plugin_name], python_change=python_change)
 
         return {
             "success": True,
@@ -151,7 +155,31 @@ def install_from_zip(zip_path: str, original_filename: str | None = None) -> dic
             pass
 
 
-def install_from_git(url: str, token: str | None = None, plugin_name: str = "") -> dict:
+def _download_thumbnail(thumbnail_url: str, plugin_dir: str) -> None:
+    """Download thumbnail from URL to plugin_dir/webui/thumbnail.<ext>. Non-fatal."""
+    try:
+        if not thumbnail_url:
+            return
+        from urllib.parse import urlparse
+        parsed = urlparse(thumbnail_url)
+        if parsed.scheme not in ("http", "https"):
+            return
+        _allowed_exts = {"png", "jpg", "jpeg", "gif", "webp"}
+        url_path = parsed.path.lower()
+        ext = url_path.rsplit(".", 1)[-1] if "." in url_path else ""
+        if ext not in _allowed_exts:
+            ext = "png"
+        webui_dir = Path(plugin_dir) / "webui"
+        webui_dir.mkdir(parents=True, exist_ok=True)
+        dest = webui_dir / f"thumbnail.{ext}"
+        req = urllib.request.Request(thumbnail_url, headers={"User-Agent": "AgentZero"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            dest.write_bytes(resp.read())
+    except Exception as e:
+        print_style.PrintStyle.warning(f"Failed to download plugin thumbnail: {e}")
+
+
+def install_from_git(url: str, token: str | None = None, plugin_name: str = "", thumbnail_url: str = "") -> dict:
     """Clone git repo into usr/plugins/, validate plugin.yaml.
     Returns dict with plugin name and metadata."""
     from helpers.git import clone_repo
@@ -173,6 +201,8 @@ def install_from_git(url: str, token: str | None = None, plugin_name: str = "") 
         files.delete_dir(git_dir)
         raise
 
+    _download_thumbnail(thumbnail_url, final_dir)
+
     # run installation hook
     try:
         run_install_hook(plugin_name)
@@ -183,7 +213,10 @@ def install_from_git(url: str, token: str | None = None, plugin_name: str = "") 
         files.delete_dir(final_dir)
         raise
 
-    after_plugin_change([plugin_name])
+    # does it have python files?
+    python_change = bool(files.find_existing_paths_by_pattern(final_dir+"/**/*.py"))
+
+    after_plugin_change([plugin_name],python_change=python_change)
 
     return {
         "success": True,
@@ -205,6 +238,14 @@ def update_from_git(plugin_name: str) -> dict:
     custom_plugins_dir = files.get_abs_path(files.USER_DIR, files.PLUGINS_DIR)
     if not files.is_in_dir(plugin_dir, custom_plugins_dir):
         raise ValueError("Only custom plugins can be updated")
+
+    try:
+        run_pre_update_hook(plugin_name)
+    except Exception as e:
+        print_style.PrintStyle.error(
+            f"Failed to run pre-update hook for {plugin_name}: {e}"
+        )
+        raise
 
     try:
         repo = git.update_repo(plugin_dir)
@@ -242,9 +283,11 @@ def update_from_git(plugin_name: str) -> dict:
 def run_install_hook(plugin_name: str):
     return plugins.call_plugin_hook(plugin_name, "install")
 
+def run_pre_update_hook(plugin_name: str):
+    return plugins.call_plugin_hook(plugin_name, "pre_update")
 
-def get_marketplace_index() -> dict[str, Any]:
-    """Return the plugin index plus installed marketplace keys."""
+def get_plugin_hub_index() -> dict[str, Any]:
+    """Return the plugin index plus installed Plugin Hub keys."""
     index_data = fetch_plugin_index()
     if not isinstance(index_data, dict):
         raise ValueError("Plugin index response was not a JSON object")
@@ -253,13 +296,45 @@ def get_marketplace_index() -> dict[str, Any]:
     if not isinstance(plugins, dict):
         raise ValueError("Plugin index payload is missing a valid 'plugins' map")
 
+    from helpers.plugins import find_plugin_dir
+
     installed_dirs = set(get_plugins_list())
     installed_keys: list[str] = []
+    _thumb_exts = ("png", "jpg", "jpeg", "gif", "webp")
+
     for key, plugin_data in plugins.items():
         if not isinstance(plugin_data, dict):
             continue
-        if key in installed_dirs:
-            installed_keys.append(key)
+        if key not in installed_dirs:
+            continue
+        installed_keys.append(key)
+
+        # Backfill thumbnail for plugins installed before this feature existed
+        plugin_dir = find_plugin_dir(key)
+        if not plugin_dir:
+            continue
+        webui_dir = Path(plugin_dir) / "webui"
+        has_thumb = any((webui_dir / f"thumbnail.{ext}").is_file() for ext in _thumb_exts)
+        if has_thumb:
+            continue
+        thumb_url = plugin_data.get("thumbnail") or ""
+        if not thumb_url:
+            from urllib.parse import urlparse
+            raw_base = None
+            github = plugin_data.get("github") or ""
+            if github:
+                try:
+                    parsed = urlparse(github)
+                    if parsed.netloc == "github.com":
+                        parts = parsed.path.strip("/").split("/")
+                        if len(parts) >= 2:
+                            raw_base = f"https://raw.githubusercontent.com/{parts[0]}/{parts[1]}"
+                except Exception:
+                    pass
+            if raw_base:
+                thumb_url = f"{raw_base}/main/thumbnail.png"
+        if thumb_url:
+            _download_thumbnail(thumb_url, plugin_dir)
 
     return {"index": index_data, "installed_plugins": installed_keys}
 

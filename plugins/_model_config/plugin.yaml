@@ -1,0 +1,9 @@
+name: _model_config
+title: Model Configuration
+description: Manages LLM model selection and configuration for chat, utility, and embedding models. Supports per-project and per-agent overrides with optional per-chat model switching.
+version: 1.0.0
+always_enabled: true
+settings_sections:
+  - agent
+per_project_config: true
+per_agent_config: true

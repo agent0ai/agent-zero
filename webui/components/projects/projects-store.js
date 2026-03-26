@@ -459,7 +459,7 @@ const model = {
       });
 
       // call reindex knowledge
-      const reindexCall = api.callJsonApi("/knowledge_reindex", {
+      const reindexCall = api.callJsonApi("/plugins/_memory/knowledge_reindex", {
         ctxid: shortcuts.getCurrentContextId(),
       });
 

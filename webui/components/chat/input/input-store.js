@@ -67,6 +67,8 @@ const model = {
       if (!this.message) chatInput.value = "";
       chatInput.style.height = "auto";
       chatInput.style.height = chatInput.scrollHeight + "px";
+      // pick up any layout shift triggered by the height assignment
+      chatInput.style.height = Math.max(chatInput.scrollHeight, parseInt(chatInput.style.height)) + "px";
     }
   },
 
@@ -99,9 +101,10 @@ const model = {
 
   async loadKnowledge() {
     try {
-      const resp = await shortcuts.callJsonApi("/knowledge_path_get", {
-        ctxid: shortcuts.getCurrentContextId(),
-      });
+      const resp = await shortcuts.callJsonApi(
+        "/plugins/_memory/knowledge_path_get",
+        { ctxid: shortcuts.getCurrentContextId() }
+      );
       if (!resp.ok) throw new Error("Error getting knowledge path");
       const path = resp.path;
 
@@ -119,7 +122,7 @@ const model = {
       });
 
       // then reindex knowledge
-      await globalThis.sendJsonData("/knowledge_reindex", {
+      await globalThis.sendJsonData("/plugins/_memory/knowledge_reindex", {
         ctxid: shortcuts.getCurrentContextId(),
       });
 

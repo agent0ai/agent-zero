@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>Backup & Restore</title>
+    <title>Update</title>
   </head>
 
   <body>
@@ -10,6 +10,12 @@
           <nav>
             <ul>
               <li>
+                <a href="#section-self-update">
+                  <img src="/public/update_checker.svg" alt="Self Update" />
+                  <span>Self Update</span>
+                </a>
+              </li>
+              <li>
                 <a href="#section-backup-restore">
                   <img src="/public/backup_restore.svg" alt="Backup & Restore" />
                   <span>Backup & Restore</span>
@@ -17,6 +23,10 @@
               </li>
             </ul>
           </nav>
+
+          <div id="section-self-update" class="section">
+            <x-component path="settings/backup/self-update.html"></x-component>
+          </div>
 
           <div id="section-backup-restore" class="section">
             <x-component path="settings/backup/backup_restore.html"></x-component>

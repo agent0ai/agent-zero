@@ -102,11 +102,13 @@ class MCPTool(Tool):
     """MCP Tool wrapper"""
 
     def get_log_object(self) -> LogItem:
+        import uuid
         return self.agent.context.log.log(
             type="mcp",
             heading=f"icon://extension {self.agent.agent_name}: Using MCP tool '{self.name}'",
             content="",
             kvps={"tool_name": self.name, **self.args},
+            id=str(uuid.uuid4()),
         )
 
     async def execute(self, **kwargs: Any):
@@ -198,7 +200,7 @@ class MCPTool(Tool):
 
         final_text_for_agent = raw_tool_response
 
-        self.agent.hist_add_tool_result(self.name, final_text_for_agent)
+        self.agent.hist_add_tool_result(self.name, final_text_for_agent, id=self.log.id if self.log else "")
         (
             PrintStyle(
                 font_color="#1B4F72", background_color="white", padding=True, bold=True

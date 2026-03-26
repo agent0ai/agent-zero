@@ -1,5 +1,6 @@
 import base64
 import os
+import uuid
 from datetime import datetime, timedelta
 from agent import AgentContext, UserMessage, AgentContextType
 from helpers.api import ApiHandler, Request, Response
@@ -134,15 +135,17 @@ class ApiMessage(ApiHandler):
                     PrintStyle(font_color="white", padding=False).print(f"- {filename}")
 
             # Add user message to chat history so it's visible in the UI
+            msg_id = str(uuid.uuid4())
             context.log.log(
                 type="user",
                 heading="",
                 content=message,
                 kvps={"attachments": attachment_filenames},
+                id=msg_id,
             )
 
             # Send message to agent
-            task = context.communicate(UserMessage(message, attachment_paths))
+            task = context.communicate(UserMessage(message=message, attachments=attachment_paths, id=msg_id))
             result = await task.result()
 
             # Clean up expired chats

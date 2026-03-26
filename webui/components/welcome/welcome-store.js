@@ -18,9 +18,11 @@ const model = {
   },
 
   init() {
-    // Reload banners when settings change
-    document.addEventListener("settings-updated", () => {
-      this.refreshBanners(true);
+    // Reload banners when a modal closes while the welcome screen is visible.
+    document.addEventListener("modal-closed", () => {
+      if (this.isVisible) {
+        this.refreshBanners(true);
+      }
     });
   },
 
@@ -200,11 +202,10 @@ const model = {
         window.openModal("modals/scheduler/scheduler-modal.html");
         break;
       case "settings":
-        // Open settings modal
-        const settingsButton = document.getElementById("settings");
-        if (settingsButton) {
-          settingsButton.click();
-        }
+        window.openModal("settings/settings.html");
+        break;
+      case "plugins":
+        window.openModal("components/plugins/list/plugin-list.html");
         break;
       case "projects":
         projectsStore.openProjectsModal();
@@ -217,9 +218,6 @@ const model = {
         break;
       case "website":
         window.open("https://agent-zero.ai", "_blank");
-        break;
-      case "github":
-        window.open("https://github.com/agent0ai/agent-zero", "_blank");
         break;
     }
   },

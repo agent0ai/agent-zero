@@ -32,13 +32,13 @@ const model = {
 
     configs: [],
 
-    async open(plugin) {
+    async open(plugin, { projectName = "", agentProfileKey = "" } = {}) {
         this.isLoading = true;
         this.error = null;
         this.projects = [];
         this.agentProfiles = [];
-        this.projectName = "";
-        this.agentProfileKey = "";
+        this.projectName = projectName || "";
+        this.agentProfileKey = agentProfileKey || "";
         this.configs = [];
         this.status = 'enabled';
         this.hasExplicitRuleForScope = false;
@@ -172,19 +172,16 @@ const model = {
 
     async openConfigWithScope() {
         if (!this.pluginName) return;
-
-        if (settingsStore.pluginName !== this.pluginName) {
-            // Different plugin — full init with current scope
-            await settingsStore.open(this.pluginName, {
-                projectName: this.projectName || "",
-                agentProfileKey: this.agentProfileKey || "",
-            });
-        } else {
-            // Same plugin — push current scope explicitly.
-            settingsStore.projectName = this.projectName || "";
-            settingsStore.agentProfileKey = this.agentProfileKey || "";
+        this.error = null;
+        try {
+            await settingsStore.openConfig(
+                this.pluginName,
+                this.projectName || "",
+                this.agentProfileKey || ""
+            );
+        } catch (e) {
+            this.error = e?.message || "Failed to open plugin config";
         }
-        await window.openModal?.("/components/plugins/plugin-settings.html");
     },
 
     async openConfigListModal() {

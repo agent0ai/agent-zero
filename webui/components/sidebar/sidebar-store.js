@@ -3,6 +3,7 @@ import { createStore } from "/js/AlpineStore.js";
 // This store manages the visibility and state of the main sidebar panel.
 const model = {
   isOpen: true,
+  menuOpen: false,
   _initialized: false,
 
   // Centralized collapse state for all sidebar sections (persisted in localStorage)
@@ -79,7 +80,10 @@ const model = {
 
   // Handle browser resize to show/hide sidebar based on viewport width
   handleResize() {
-    this.isOpen = !this.isMobile();
+    if (this.isMobile()) {
+      this.isOpen = false;
+    }
+    this.menuClose();
   },
 
   // Check if the current viewport is mobile
@@ -89,14 +93,41 @@ const model = {
 
   // Dropdown positioning for quick-actions (fixed position to escape overflow:hidden)
   dropdownStyle: {},
-  
-  updateDropdownPosition(triggerElement) {
+
+  headOpen() {
+    return this.isOpen || this.menuOpen;
+  },
+
+  menuToggle(triggerElement) {
+    this.menuOpen = !this.menuOpen;
+    if (this.menuOpen) {
+      this.menuPos(triggerElement);
+    }
+  },
+
+  menuClose() {
+    this.menuOpen = false;
+  },
+
+  menuClick(event, panelElement) {
+    if (this.menuOpen && panelElement && !panelElement.contains(event.target)) {
+      this.menuClose();
+    }
+  },
+
+  menuPos(triggerElement) {
     if (!triggerElement) return;
     const rect = triggerElement.getBoundingClientRect();
+    const menuWidth = Math.max(rect.width, 180);
+    const viewportPadding = 8;
+    const maxLeft = Math.max(
+      viewportPadding,
+      window.innerWidth - menuWidth - viewportPadding,
+    );
     this.dropdownStyle = {
       top: `${rect.bottom + 8}px`,
-      left: `${rect.left}px`,
-      width: `${rect.width}px`
+      left: `${Math.min(Math.max(rect.left, viewportPadding), maxLeft)}px`,
+      width: `${menuWidth}px`
     };
   },
 };

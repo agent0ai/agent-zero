@@ -10,27 +10,30 @@
 <body>
   <div x-data>
     <template x-if="$store.sidebar">
-      <div id="left-panel" class="panel" x-data :class="{'hidden': !$store.sidebar.isOpen}">
-        <x-extension id="sidebar-start"></x-extension>
-        <!--Sidebar upper elements-->
-        <div class="left-panel-top no-scrollbar">
-          <!-- Top Section: Header Icons + Quick Actions -->
-          <x-component path="sidebar/top-section/sidebar-top.html"></x-component>
-          <!-- Chats List -->
-          <div class="config-section" id="chats-section">
-            <x-component path="sidebar/chats/chats-list.html"></x-component>
-          </div>
+      <div class="sidebar-shell">
+        <x-component path="sidebar/top-section/header-icons.html"></x-component>
+        <div id="left-panel" class="panel" x-data :class="{'hidden': !$store.sidebar.isOpen}">
+          <x-extension id="sidebar-start"></x-extension>
+          <!--Sidebar upper elements-->
+          <div class="left-panel-top no-scrollbar">
+            <!-- Top Section: Quick Actions -->
+            <x-component path="sidebar/top-section/sidebar-top.html"></x-component>
+            <!-- Chats List -->
+            <div class="config-section" id="chats-section">
+              <x-component path="sidebar/chats/chats-list.html"></x-component>
+            </div>
 
-          <!-- Tasks List -->
-          <div class="config-section" id="tasks-section">
-            <x-component path="sidebar/tasks/tasks-list.html"></x-component>
+            <!-- Tasks List -->
+            <div class="config-section" id="tasks-section">
+              <x-component path="sidebar/tasks/tasks-list.html"></x-component>
+            </div>
           </div>
+          <!--Sidebar lower elements-->
+          <div class="left-panel-bottom">
+            <x-component path="sidebar/bottom/sidebar-bottom.html"></x-component>
+          </div>
+          <x-extension id="sidebar-end"></x-extension>
         </div>
-        <!--Sidebar lower elements-->
-        <div class="left-panel-bottom">
-          <x-component path="sidebar/bottom/sidebar-bottom.html"></x-component>
-        </div>
-        <x-extension id="sidebar-end"></x-extension>
       </div>
     </template>
   </div>
@@ -85,7 +88,7 @@
       /* Critical for allowing flex children to shrink */
       overflow: hidden;
       justify-content: space-between;
-      margin-top: 3.5rem;
+      margin-top: 6.5rem;
       padding: var(--spacing-md) var(--spacing-md) 0 var(--spacing-md);
     }
 

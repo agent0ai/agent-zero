@@ -1,0 +1,33 @@
+allow_chat_override: true
+
+chat_model:
+  provider: "openrouter"
+  name: "anthropic/claude-sonnet-4.6"
+  api_base: ""
+  ctx_length: 200000
+  ctx_history: 0.7
+  vision: true
+  max_embeds: 10
+  rl_requests: 0
+  rl_input: 0
+  rl_output: 0
+  kwargs: {}
+
+utility_model:
+  provider: "openrouter"
+  name: "google/gemini-3.1-flash-lite-preview"
+  api_base: ""
+  ctx_length: 128000
+  ctx_input: 0.7
+  rl_requests: 0
+  rl_input: 0
+  rl_output: 0
+  kwargs: {}
+
+embedding_model:
+  provider: "huggingface"
+  name: "sentence-transformers/all-MiniLM-L6-v2"
+  api_base: ""
+  rl_requests: 0
+  rl_input: 0
+  kwargs: {}

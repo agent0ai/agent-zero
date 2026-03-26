@@ -65,7 +65,7 @@ This architecture ensures:
 | `usr/secrets.env` | Secrets store (managed via Settings -> Secrets) |
 | `conf/model_providers.yaml` | Model provider defaults and settings |
 | `agent.py` | Core agent implementation |
-| `initialize.py` | Framework initialization |
+| `execute.py` | Framework initialization |
 | `models.py` | Model providers and configs |
 | `preload.py` | Pre-initialization routines |
 | `prepare.py` | Environment preparation |
@@ -206,6 +206,7 @@ The `prompts` directory contains various Markdown files that control agent behav
 | agent.system.main.communication.md | Specifies how the agent should communicate |
 | agent.system.main.solving.md | Describes the agent's approach to tasks |
 | agent.system.main.tips.md | Provides additional tips or guidance |
+| agent.system.main.specifics.md | Empty by default — override per profile for agent-specific instructions |
 | agent.system.main.behaviour.md | Controls dynamic behavior adjustments and rules |
 | agent.system.main.environment.md | Defines the runtime environment context |
 | agent.system.tools.md | Organizes and calls the individual tool prompt files |
@@ -222,6 +223,31 @@ The `prompts` directory contains various Markdown files that control agent behav
 2. Add only the prompt files you want to override in `agents/<agent_profile>/prompts/`
 3. Agent Zero merges these overrides with the default prompts automatically
 4. Select the **Agent Profile** in Settings to activate the overrides
+
+#### Prompt Inheritance with `{{include original}}`
+When overriding a prompt, you can extend the original instead of replacing it entirely. Use `{{include original}}` to pull in the default version and add your changes on top:
+
+**Example:** `agents/developer/prompts/agent.system.main.communication.md`:
+```markdown
+{{include original}}
+
+- always explain your reasoning
+- include code snippets in responses
+```
+
+This finds `agent.system.main.communication.md` in the next directory up the hierarchy → includes the default from `prompts/` → appends the additions. Result:
+
+```markdown
+## Communication
+- be concise
+- use markdown formatting
+- ask clarifying questions when unsure
+
+- always explain your reasoning
+- include code snippets in responses
+```
+
+Overrides stay small and automatically inherit any future changes to the default.
 
 #### Dynamic Behavior System
 - **Behavior Adjustment**: 

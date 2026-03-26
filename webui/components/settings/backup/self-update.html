@@ -1,0 +1,56 @@
+<html>
+  <head>
+    <title>Self Update</title>
+    <script type="module">
+      import { store } from "/components/settings/external/self-update-store.js";
+    </script>
+  </head>
+
+  <body>
+    <div x-data="{ get settings() { return $store.settings.settings } }">
+      <template x-if="settings">
+        <div>
+        <div class="section-title">Self Update</div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Open Self Update</div>
+            <div class="field-description">
+              Choose the target branch and tag, decide whether to zip <code>/a0/usr</code> first, and review the durable trigger, status, and log file locations used across restarts.
+            </div>
+            <template x-if="!$store.settings.additional?.is_dockerized">
+              <div class="field-description">
+                This action is currently available only in dockerized installs.
+              </div>
+            </template>
+          </div>
+          <div class="field-control">
+            <button
+              class="btn btn-field"
+              @click="$store.selfUpdateStore.openModal()"
+              :disabled="!$store.settings.additional?.is_dockerized"
+            >
+              Open Self Update
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Enable Update Checker</div>
+            <div class="field-description">
+              Periodically check for newer Agent Zero releases and show a notification when an update is recommended.
+            </div>
+          </div>
+          <div class="field-control">
+            <label class="toggle">
+              <input type="checkbox" x-model="settings.update_check_enabled" />
+              <span class="toggler"></span>
+            </label>
+          </div>
+        </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

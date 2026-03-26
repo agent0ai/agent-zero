@@ -12,14 +12,17 @@ export function applyModeSteps(detailMode, showUtils) {
   const chatHistory = document.getElementById("chat-history");
   if (!chatHistory) return;
 
+  chatHistory.dataset.detailMode = mode;
+
   const shouldExpand = mode !== "collapsed";
+  const allMode = mode === "expanded";
   const messages = chatHistory.querySelectorAll(".process-group");
   for (let i = 0; i < messages.length; i += 1) {
     messages[i].classList.toggle("expanded", shouldExpand);
 
     const steps = messages[i].querySelectorAll(".process-step");
     for (let si = 0; si < steps.length; si += 1) {
-      steps[si].classList.toggle("expanded", mode === "expanded");
+      steps[si].classList.toggle("expanded", allMode);
     }
   }
 }

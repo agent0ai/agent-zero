@@ -9,9 +9,6 @@
     <template x-if="$store.sidebar">
       <div class="sidebar-top-wrapper">
         <x-extension id="sidebar-top-wrapper-start"></x-extension>
-        <!-- Header Icons (Toggle + Logo) -->
-        <x-component path="sidebar/top-section/header-icons.html"></x-component>
-        
         <!-- Quick Actions Buttons -->
         <x-component path="sidebar/top-section/quick-actions.html"></x-component>
         <x-extension id="sidebar-top-wrapper-end"></x-extension>
@@ -26,6 +23,11 @@
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+    }
+
+    .sidebar-top-wrapper > x-component,
+    .sidebar-top-wrapper > x-component > .quick-actions-surface-host {
+      display: contents;
     }
   </style>
 </body>

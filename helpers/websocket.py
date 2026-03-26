@@ -273,8 +273,9 @@ class WebSocketHandler(ABC):
     """Base class for WebSocket event handlers.
 
     The interface mirrors :class:`helpers.api.ApiHandler` with declarative
-    security configuration and lifecycle hooks while enforcing event-naming
-    conventions.
+    security configuration and lifecycle hooks. Handlers are namespace-wide:
+    every inbound event for the bound namespace is dispatched to
+    :meth:`process_event`, which decides whether and how to respond.
     """
 
     _instances: dict[type["WebSocketHandler"], "WebSocketHandler"] = {}
@@ -343,39 +344,20 @@ class WebSocketHandler(ABC):
             WebSocketHandler._construction_tokens.pop(cls, None)
 
     @classmethod
-    @abstractmethod
-    def get_event_types(cls) -> list[str]:
-        """Return the list of event types this handler subscribes to."""
+    def validate_event_type(cls, event_type: str) -> str:
+        """Validate a runtime event name before dispatch."""
 
-    @classmethod
-    def validate_event_types(cls, event_types: Iterable[str]) -> list[str]:
-        """Validate event type declarations.
-
-        Ensures that every event name follows ``lowercase_snake_case`` naming,
-        does not collide with Socket.IO reserved events, and that the handler
-        does not declare duplicates.
-        """
-
-        validated: list[str] = []
-        seen: set[str] = set()
-        for event in event_types:
-            if not isinstance(event, str):
-                raise TypeError("Event type declarations must be strings")
-            if not _EVENT_NAME_PATTERN.fullmatch(event):
-                raise ValueError(
-                    f"Invalid event type '{event}' – must match lowercase_snake_case"
-                )
-            if event in _RESERVED_EVENT_NAMES:
-                raise ValueError(
-                    f"Event type '{event}' is reserved by Socket.IO and cannot be used"
-                )
-            if event in seen:
-                raise ValueError(f"Duplicate event type '{event}' declared in handler")
-            seen.add(event)
-            validated.append(event)
-        if not validated:
-            raise ValueError("Handlers must declare at least one event type")
-        return validated
+        if not isinstance(event_type, str):
+            raise TypeError("Event type must be a string")
+        if not _EVENT_NAME_PATTERN.fullmatch(event_type):
+            raise ValueError(
+                f"Invalid event type '{event_type}' – must match lowercase_snake_case"
+            )
+        if event_type in _RESERVED_EVENT_NAMES:
+            raise ValueError(
+                f"Event type '{event_type}' is reserved by Socket.IO and cannot be used"
+            )
+        return event_type
 
     @classmethod
     def requires_auth(cls) -> bool:

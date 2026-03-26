@@ -20,7 +20,7 @@ Frontend Deep Dives: [Component System](docs/agents/AGENTS.components.md) | [Mod
 6. [Safety and Permissions](#safety-and-permissions)
 7. [Code Examples](#code-examples)
 8. [Git Workflow](#git-workflow)
-9. [API Documentation](#api-documentation)
+9. [Release Notes](#release-notes)
 10. [Troubleshooting](#troubleshooting)
 
 ---
@@ -88,14 +88,23 @@ When running in Docker, Agent Zero uses two distinct Python runtimes to isolate 
 ├── plugins/              # Core system plugins
 ├── agents/               # Agent profiles (prompts and config)
 ├── prompts/              # System and message prompt templates
+├── knowledge/
+│   └── main/about/       # Agent self-knowledge (indexed into vector DB for runtime recall)
+│       ├── identity.md           # Philosophy, principles, project context
+│       ├── architecture.md       # Agent loop, memory pipeline, multi-agent, extensions
+│       ├── capabilities.md       # Detailed capabilities and limitations
+│       ├── configuration.md      # LLM roles, providers, profiles, plugins, settings
+│       └── setup-and-deployment.md  # Docker deployment, updates, troubleshooting
 └── tests/                # Pytest suite
 ```
 
 Key Files:
 - agent.py: Defines AgentContext and the main Agent class.
-- python/helpers/plugins.py: Plugin discovery and configuration logic.
+- helpers/plugins.py: Plugin discovery and configuration logic.
 - webui/js/AlpineStore.js: Store factory for reactive frontend state.
-- python/helpers/api.py: Base class for all API endpoints.
+- helpers/api.py: Base class for all API endpoints.
+- docs/release_notes/: Markdown files used by the release workflow to populate GitHub releases for the latest `main` tag.
+- knowledge/main/about/: Agent self-knowledge files, indexed into the vector DB for runtime recall. Not user-facing docs - written for the agent's internal reference.
 - docs/agents/AGENTS.components.md: Deep dive into the frontend component architecture.
 - docs/agents/AGENTS.modals.md: Guide to the stacked modal system.
 - docs/agents/AGENTS.plugins.md: Comprehensive guide to the full-stack plugin system.
@@ -108,8 +117,8 @@ Key Files:
 - Context Access: Use from agent import AgentContext, AgentContextType (not helpers.context).
 - Communication: Use mq from helpers.messages to log proactive UI messages:
   mq.log_user_message(context.id, "Message", source="Plugin")
-- API Handlers: Derive from ApiHandler in python/helpers/api.py.
-- Extensions: Use the extension framework in python/helpers/extension.py for lifecycle hooks.
+- API Handlers: Derive from ApiHandler in helpers/api.py.
+- Extensions: Use the extension framework in helpers/extension.py for lifecycle hooks.
 - Error Handling: Use RepairableException for errors the LLM might be able to fix.
 
 ### Frontend (Alpine.js)
@@ -128,11 +137,22 @@ Key Files:
 - Location: Always develop new plugins in usr/plugins/.
 - Manifest: Every plugin requires a plugin.yaml with name, description, version, and optionally settings_sections, per_project_config, per_agent_config, and always_enabled.
 - Discovery: Conventions based on folder names (api/, tools/, webui/, extensions/).
+- Plugin-local Python imports: Prefer `usr.plugins.<plugin_name>...` for code that lives under `usr/plugins/`. Avoid `sys.path` hacks and avoid symlink-dependent `plugins.<plugin_name>...` imports for community plugins.
 - Runtime hooks: Plugins may also expose hooks in hooks.py, callable by the framework through helpers.plugins.call_plugin_hook(...).
 - Hook runtime: hooks.py executes inside the Agent Zero framework Python environment, so sys.executable -m pip installs dependencies into that same framework runtime.
 - Environment targeting: If a plugin needs packages or binaries for the separate agent execution runtime or system environment, it must explicitly switch environments in a subprocess by targeting the correct interpreter, virtualenv, or package manager.
-- Settings: Use get_plugin_config(plugin_name, agent=agent) to retrieve settings. Plugins can expose a UI for settings via webui/config.html. Plugin settings modals instantiate a local context from $store.pluginSettingsPrototype; bind plugin fields to config.* and use context.* for modal-level state and actions. For plugins wrapping core settings, set context.saveMode = 'core' in x-init.
+- Settings: Use get_plugin_config(plugin_name, agent=agent) to retrieve settings. Plugins can expose a UI for settings via webui/config.html. Plugin settings modals instantiate a local context from $store.pluginSettingsPrototype; bind plugin fields to config.* and use context.* for modal-level state and actions.
 - Activation: Global and scoped activation rules are stored as .toggle-1 (ON) and .toggle-0 (OFF). Scoped rules are handled via the plugin "Switch" modal.
+- Cleanup rule: Plugins should not permanently modify the system in ways that outlive the plugin. Deleting a plugin should not leave behind symlinks, unmanaged services, or stray files outside plugin-owned paths unless the user explicitly requested that behavior.
+
+### Releases
+- Docker publishing automation lives in `.github/workflows/docker-publish.yml`.
+- Releasable tags follow `v{X}.{Y}` and only tags `>= v1.0` are considered by the workflow.
+- The latest eligible tag on `main` also creates or updates a GitHub release after the Docker image push succeeds.
+- Release notes live in `docs/release_notes/<tag>.md`.
+- When asked to prepare release notes, compare the repo changes against the previous release notes tag in `docs/release_notes/` and write a concise Markdown summary of the meaningful changes since that release.
+- Prioritize user-visible features, important fixes, infra or packaging changes, and breaking notes. Skip low-signal churn.
+- If no notes are needed, an empty `docs/release_notes/<tag>.md` is valid and publishes `No release notes.`
 
 ### Lifecycle Synchronization
 | Action | Backend Extension | Frontend Lifecycle |
@@ -189,15 +209,30 @@ export const store = createStore("myStore", {
 
 ### Tool Definition (Good)
 ```python
-from helpers.tool import Tool, ToolResult
+from helpers.tool import Tool, Response
 
 class MyTool(Tool):
-    async def execute(self, arg1: str):
+    async def execute(self, **kwargs):
         # Tool logic
-        return ToolResult("Success")
+        return Response(message="Success", break_loop=False)
 ```
 
 ---
+
+## Git Workflow
+
+- Docker publish automation lives in `.github/workflows/docker-publish.yml`.
+- Release tags handled by automation must match `vX.Y` and be `>= v1.0`.
+- Allowed release branches are configured at the top of the workflow. `main` publishes `<tag>` and `latest`; other allowed branches publish only the branch tag.
+- Manual dispatch accepts an optional tag. Without a tag it backfills missing Docker Hub tags. With a tag it rebuilds that exact target and only refreshes `latest` and the GitHub release when that tag is still the newest eligible tag on `main`.
+
+---
+
+## Release Notes
+
+- Store release notes in `docs/release_notes/` as `vX.Y.md`.
+- Keep them concise and summarize changes since the previous release notes tag.
+- The latest eligible `main` tag uses that file for the GitHub release body after Docker publish succeeds.
 
 ## Troubleshooting
 
@@ -216,5 +251,5 @@ pip install -r requirements2.txt
 
 ---
 
-*Last updated: 2026-02-22*
+*Last updated: 2026-03-25*
 *Maintained by: Agent Zero Core Team*

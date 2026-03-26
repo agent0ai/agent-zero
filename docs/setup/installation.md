@@ -2,7 +2,7 @@
 
 Click to open a video to learn how to install Agent Zero:
 
-[![Easy Installation guide](../res/easy_ins_vid.png)](https://www.youtube.com/watch?v=w5v5Kjx51hs)
+[![Easy Installation guide](../res/install_guide.png)](https://www.youtube.com/watch?v=2-qFNUvqrXA)
 
 ## **Goal:** Go from zero to a first working chat with minimal setup.
 
@@ -330,16 +330,18 @@ The Settings page is the control center for selecting the Large Language Models 
 
 | LLM Role | Description |
 | --- | --- |
-| `chat_llm` | This is the primary LLM used for conversations and generating responses. |
+| `chat_llm` | This is the primary LLM used for conversations, agent reasoning, tool use, and the built-in browser agent. Vision support controls browser vision and image understanding. |
 | `utility_llm` | This LLM handles internal tasks like summarizing messages, managing memory, and processing internal prompts. Using a smaller, less expensive model here can improve efficiency. |
-| `browser_llm` | This LLM powers the browser agent for web navigation and interaction tasks. Vision support is recommended for better page understanding. |
 | `embedding_llm` | The embedding model shipped with A0 runs on CPU and is responsible for generating embeddings used for memory retrieval and knowledge base lookups. Changing the `embedding_llm` will re-index all of A0's memory. |
 
 **How to Change:**
 
 1. Open Settings page in the Web UI.
-2. Choose the provider for the LLM for each role (Chat model, Utility model, Browser model, Embedding model) and write the model name.
+2. Choose the provider for the LLM for each role (Main Model, Utility Model, Embedding Model) and write the model name.
 3. Click "Save" to apply the changes.
+
+> [!NOTE]
+> The Browser Agent does not have a separate model slot. It uses the effective Main Model resolved by `_model_config`, including per-chat overrides and the Main Model vision flag.
 
 ### Important Considerations
 

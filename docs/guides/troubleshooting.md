@@ -26,8 +26,8 @@ Refer to the [Choosing your LLMs](../setup/installation.md#installing-and-using-
 **7. How can I make Agent Zero retain memory between sessions?**
 Use **Settings → Backup & Restore** and avoid mapping the entire `/a0` directory. See [How to update Agent Zero](../setup/installation.md#how-to-update-agent-zero).
 
-**8. My browser agent fails or is unreliable. What now?**
-The built-in browser agent is currently unstable on some systems. Use Skills or MCP alternatives such as Browser OS, Chrome DevTools, or Vercel's Agent Browser. See [MCP Setup](mcp-setup.md).
+**8. My browser agent fails or says Playwright is missing. What now?**
+The built-in Browser Agent is a plugin that uses the Main Model from `_model_config`. **Docker:** the Chromium headless shell is shipped preinstalled (typically under `/a0/tmp/playwright`). **Local development:** if the binary is missing, `ensure_playwright_binary()` in `plugins/_browser_agent/helpers/playwright.py` runs `playwright install chromium --only-shell` into `tmp/playwright` on first Browser Agent use (you may see UI notifications). To install ahead of time, run `PLAYWRIGHT_BROWSERS_PATH=tmp/playwright playwright install chromium --only-shell` after `pip install -r requirements.txt`. If you prefer an external browser stack, use MCP alternatives such as Browser OS, Chrome DevTools, or Playwright MCP. See [MCP Setup](mcp-setup.md).
 
 **9. My secrets disappeared after a backup restore.**
 Secrets are stored in `/a0/usr/secrets.env` and are not always included in backup archives. Copy them manually.
@@ -36,7 +36,7 @@ Secrets are stored in `/a0/usr/secrets.env` and are not always included in backu
 - Join the Agent Zero [Skool](https://www.skool.com/agent-zero) or [Discord](https://discord.gg/B8KZKNsPpj) community.
 
 **11. How do I adjust API rate limits?**
-Use the model rate limit fields in Settings (Chat/Utility/Browser model sections) to set request/input/output limits. These map to the model config limits (for example `limit_requests`, `limit_input`, `limit_output`).
+Use the model rate limit fields in Settings (Main Model and Utility Model sections) to set request/input/output limits. The Browser Agent inherits the Main Model limits. These map to the model config limits (for example `limit_requests`, `limit_input`, `limit_output`).
 
 **12. My `code_execution_tool` doesn't work, what's wrong?**
 - Ensure Docker is installed and running.

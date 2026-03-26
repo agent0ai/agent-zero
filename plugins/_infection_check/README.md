@@ -1,8 +1,12 @@
 # Infection Check
 
-Safety middleware that scans agent outputs for prompt injection, credential leaks, and malicious behavior before allowing tool execution.
+Safety middleware that analyzes agent output for prompt injection and suspicious external influence before allowing tool execution.
 
-## How it Works
+## What It Does
+
+This plugin collects streamed reasoning and response text, analyzes that content with a configurable audit model, and blocks tool execution until the safety check either passes, requests clarification, or terminates the agent.
+
+## How It Works
 
 1. **Collection** — During streaming, the plugin collects the agent's reasoning and response text via `reasoning_stream_chunk` and `response_stream_chunk` extensions.
 2. **Analysis** — A security audit model analyzes the collected text against the configurable prompt.
@@ -49,6 +53,17 @@ When the check results in `<terminate/>` (directly or after exhausting clarifica
 | History Size | `10` | Recent messages included as context |
 | Prompt | *(built-in)* | Fully customizable security audit system prompt |
 
+## Key Files
+
+- **Checker logic**
+  - `helpers/checker.py` implements stream collection, background analysis, gating, clarification, and termination.
+- **Extensions**
+  - `extensions/python/reasoning_stream_chunk/_50_infection_collect.py`
+  - `extensions/python/response_stream_chunk/_50_infection_collect.py`
+  - `extensions/python/response_stream/_50_infection_analyze.py`
+  - `extensions/python/response_stream_end/_50_infection_analyze.py`
+  - `extensions/python/tool_execute_before/_50_infection_check.py`
+
 ## Extension Points Used
 
 | Extension Point | File | Purpose |
@@ -58,3 +73,15 @@ When the check results in `<terminate/>` (directly or after exhausting clarifica
 | `response_stream` | `_50_infection_analyze.py` | Detect thoughts complete → start background analysis |
 | `response_stream_end` | `_50_infection_analyze.py` | Start analysis (complete mode / fallback) |
 | `tool_execute_before` | `_50_infection_check.py` | Await check result → gate tool execution |
+
+## Configuration Scope
+
+- **Settings section**: `agent`
+- **Per-project config**: `true`
+- **Per-agent config**: `true`
+
+## Plugin Metadata
+
+- **Name**: `_infection_check`
+- **Title**: `Infection Check`
+- **Description**: Safety check for prompt injection from external sources.

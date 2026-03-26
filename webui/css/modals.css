@@ -176,7 +176,7 @@ some classes like modal-header are shared between the old and the new system */
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 0.6rem 2rem 0.6rem 0;
+  padding: var(--spacing-sm) var(--spacing-lg);
   border-top: 1px solid var(--color-border);
   background: var(--color-background);
   gap: 1rem;
@@ -589,14 +589,19 @@ input[type="range"]::-moz-range-thumb {
   margin: 0;
 }
 
-.confirm-dialog-body .confirm-dialog-extension-note {
-  margin-top: 0.75em;
-}
-
 .confirm-dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 0.75em;
   padding: 1em 1.25em;
   border-top: 1px solid var(--color-border);
+}
+
+.confirm-dialog-footer .confirm-dialog-install-button {
+  padding-inline: 1.1rem;
+}
+
+.confirm-dialog-footer .confirm-dialog-plugin-scan-button {
+  padding-inline: 1.65rem;
+  font-size: 1rem;
 }

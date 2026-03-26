@@ -20,11 +20,6 @@ class RootDefaultHandler(WebSocketHandler):
     def requires_csrf(cls) -> bool:
         return False
 
-    @classmethod
-    def get_event_types(cls) -> list[str]:
-        # Diagnostics-only noop endpoint.
-        return ["ws_root_echo"]
-
     async def process_event(
         self, event_type: str, data: dict[str, Any], sid: str
     ) -> dict[str, Any] | WebSocketResult | None:

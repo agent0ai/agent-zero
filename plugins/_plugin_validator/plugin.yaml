@@ -1,0 +1,7 @@
+name: _plugin_validator
+title: Plugin Validator
+description: Validate Agent Zero plugins against manifest, structure, code pattern, and security conventions.
+version: 1.0.0
+settings_sections: []
+per_project_config: false
+per_agent_config: false

@@ -1,0 +1,8 @@
+name: _email_integration
+title: Email Integration
+description: Communicate with Agent Zero via email. Supports IMAP/Exchange inbox polling with SMTP replies.
+version: 1.0.0
+settings_sections:
+  - external
+per_project_config: false
+per_agent_config: false

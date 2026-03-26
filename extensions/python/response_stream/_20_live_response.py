@@ -30,10 +30,14 @@ class LiveResponse(Extension):
 
             # create log message and store it in loop data temporary params
             if "log_item_response" not in loop_data.params_temporary:
+                # Share id with the agent log item so branching covers the response bubble
+                gen_item = loop_data.params_temporary.get("log_item_generating")
+                shared_id = gen_item.id if gen_item and gen_item.id else ""
                 loop_data.params_temporary["log_item_response"] = (
                     self.agent.context.log.log(
                         type="response",
                         heading=f"icon://chat {self.agent.agent_name}: Responding",
+                        id=shared_id,
                     )
                 )
 

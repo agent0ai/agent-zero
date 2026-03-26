@@ -1,0 +1,8 @@
+name: _browser_agent
+title: Browser Agent
+description: Built-in browser-use automation tool.
+version: 1.0.0
+always_enabled: false
+settings_sections: []
+per_project_config: false
+per_agent_config: false
