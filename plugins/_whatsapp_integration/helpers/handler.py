@@ -237,9 +237,6 @@ async def send_wa_reply(
     if not reply_to and context.data.get(CTX_WA_IS_GROUP):
         reply_to = context.data.get(CTX_WA_LAST_MSG_ID, "")
 
-    # Typing indicator
-    await wa_client.send_typing(base_url, chat_id)
-
     # Send text
     try:
         result = await wa_client.send_message(base_url, chat_id, response_text, reply_to=reply_to)
