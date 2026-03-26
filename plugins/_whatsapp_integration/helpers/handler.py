@@ -5,10 +5,12 @@ Requires agent context.
 """
 
 import asyncio
+import base64
+import os
 import uuid
 
 from agent import Agent, AgentContext, UserMessage
-from helpers import plugins
+from helpers import plugins, files, runtime
 from helpers import message_queue as mq
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
@@ -126,7 +128,8 @@ async def _start_new_chat(config: dict, msg: dict) -> None:
     system_ctx = context.agent0.read_prompt("fw.wa.system_context.md")
 
     msg_id = str(uuid.uuid4())
-    attachments = msg.get("mediaUrls", [])
+    media_urls = msg.get("mediaUrls", [])
+    attachments = await _save_incoming_media(media_urls) if media_urls else []
     mq.log_user_message(
         context, user_msg, attachments, message_id=msg_id, source=" (whatsapp)",
     )
@@ -154,7 +157,8 @@ async def _route_to_chat(
 
     user_msg = _build_user_message(context.agent0, msg, config)
     msg_id = str(uuid.uuid4())
-    attachments = msg.get("mediaUrls", [])
+    media_urls = msg.get("mediaUrls", [])
+    attachments = await _save_incoming_media(media_urls) if media_urls else []
     mq.log_user_message(
         context, user_msg, attachments, message_id=msg_id, source=" (whatsapp)",
     )
@@ -244,12 +248,13 @@ async def send_wa_reply(
     except Exception as e:
         return str(e)
 
-    # Send attachments
+    # Send attachments via RFC (files may live in execution runtime)
     if attachments:
-        for file_path in attachments:
+        host_paths = await _read_attachments_to_host(attachments)
+        for host_path in host_paths:
             try:
                 result = await wa_client.send_media(
-                    base_url, chat_id, file_path,
+                    base_url, chat_id, host_path,
                 )
                 if result.get("error"):
                     PrintStyle.warning(f"WhatsApp: attachment error: {result['error']}")
@@ -257,3 +262,55 @@ async def send_wa_reply(
                 PrintStyle.warning(f"WhatsApp: attachment error: {e}")
 
     return None
+
+
+# ------------------------------------------------------------------
+# Attachment reading (via RFC into execution runtime)
+# ------------------------------------------------------------------
+
+async def _read_attachments_to_host(
+    paths: list[str],
+) -> list[str]:
+    """Read files from execution runtime and write to host media cache."""
+    from plugins._whatsapp_integration.helpers.attachment_reader import read_attachment
+
+    host_paths: list[str] = []
+    for path in paths:
+        data = await runtime.call_development_function(read_attachment, path)
+        if data["error"]:
+            PrintStyle.warning(f"WhatsApp attachment: {data['error']}")
+            continue
+        # Write decoded bytes to host-side media cache
+        host_path = os.path.join(
+            files.get_abs_path(MEDIA_FOLDER), data["name"],
+        )
+        os.makedirs(os.path.dirname(host_path), exist_ok=True)
+        with open(host_path, "wb") as f:
+            f.write(base64.b64decode(data["content_b64"]))
+        host_paths.append(host_path)
+    return host_paths
+
+
+async def _save_incoming_media(
+    media_urls: list[str],
+) -> list[str]:
+    """Save incoming media files into execution runtime via RFC."""
+    from plugins._whatsapp_integration.helpers.attachment_writer import write_attachment
+
+    runtime_paths: list[str] = []
+    for host_path in media_urls:
+        if not os.path.isfile(host_path):
+            continue
+        name = os.path.basename(host_path)
+        with open(host_path, "rb") as f:
+            content_b64 = base64.b64encode(f.read()).decode()
+        rel_path = os.path.join(MEDIA_FOLDER, name)
+        result = await runtime.call_development_function(
+            write_attachment, rel_path, content_b64,
+        )
+        if result.get("error"):
+            PrintStyle.warning(f"WhatsApp media save: {result['error']}")
+            runtime_paths.append(host_path)  # fallback to host path
+        else:
+            runtime_paths.append(result["path"])
+    return runtime_paths

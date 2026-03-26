@@ -217,17 +217,6 @@ async function startSocket() {
         body = msg.message.imageMessage.caption || '';
         hasMedia = true;
         mediaType = 'image';
-        try {
-          const buf = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
-          const mime = msg.message.imageMessage.mimetype || 'image/jpeg';
-          const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
-          const ext = extMap[mime] || '.jpg';
-          const filePath = path.join(CACHE_DIR, `img_${randomBytes(6).toString('hex')}${ext}`);
-          writeFileSync(filePath, buf);
-          mediaUrls.push(filePath);
-        } catch (err) {
-          console.error('[bridge] Failed to download image:', err.message);
-        }
       } else if (msg.message.videoMessage) {
         body = msg.message.videoMessage.caption || '';
         hasMedia = true;
@@ -236,9 +225,51 @@ async function startSocket() {
         hasMedia = true;
         mediaType = msg.message.pttMessage ? 'ptt' : 'audio';
       } else if (msg.message.documentMessage) {
-        body = msg.message.documentMessage.caption || msg.message.documentMessage.fileName || '';
+        body = msg.message.documentMessage.caption || '';
         hasMedia = true;
         mediaType = 'document';
+      }
+
+      // Download media to disk
+      if (hasMedia) {
+        try {
+          const buf = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
+          let ext = '.bin';
+          let prefix = mediaType;
+          if (mediaType === 'image') {
+            const mime = msg.message.imageMessage?.mimetype || 'image/jpeg';
+            const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
+            ext = extMap[mime] || '.jpg';
+          } else if (mediaType === 'video') {
+            const mime = msg.message.videoMessage?.mimetype || 'video/mp4';
+            ext = mime.includes('mp4') ? '.mp4' : '.mkv';
+          } else if (mediaType === 'audio' || mediaType === 'ptt') {
+            const mime = msg.message.audioMessage?.mimetype || msg.message.pttMessage?.mimetype || 'audio/ogg';
+            ext = mime.includes('opus') || mime.includes('ogg') ? '.ogg' : '.mp3';
+          } else if (mediaType === 'document') {
+            const docMsg = msg.message.documentMessage;
+            const fileName = docMsg?.fileName || '';
+            if (fileName) {
+              // Use original filename for documents
+              const filePath = path.join(CACHE_DIR, `${randomBytes(4).toString('hex')}_${fileName}`);
+              writeFileSync(filePath, buf);
+              mediaUrls.push(filePath);
+              if (!body) body = fileName;
+            } else {
+              const mime = docMsg?.mimetype || 'application/octet-stream';
+              const docExtMap = { 'application/pdf': '.pdf', 'application/msword': '.doc' };
+              ext = docExtMap[mime] || '.bin';
+            }
+          }
+          // Write file if not already handled (document with fileName)
+          if (mediaUrls.length === 0) {
+            const filePath = path.join(CACHE_DIR, `${prefix}_${randomBytes(6).toString('hex')}${ext}`);
+            writeFileSync(filePath, buf);
+            mediaUrls.push(filePath);
+          }
+        } catch (err) {
+          console.error(`[bridge] Failed to download ${mediaType}:`, err.message);
+        }
       }
 
       // For media without caption, use a placeholder
