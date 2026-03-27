@@ -22,7 +22,6 @@ class WhatsAppAutoPoll(Extension):
 
     async def execute(self, **kwargs: Any) -> None:
         import plugins._whatsapp_integration.helpers.handler as handler_mod
-        from plugins._whatsapp_integration.helpers import bridge_manager
 
         config = plugins.get_plugin_config(PLUGIN_NAME) or {}
         enabled = config.get("enabled", False)
@@ -31,8 +30,6 @@ class WhatsAppAutoPoll(Extension):
             if handler_mod._poll_task and not handler_mod._poll_task.done():
                 handler_mod._poll_task.cancel()
                 handler_mod._poll_task = None
-            if bridge_manager.is_process_alive():
-                await bridge_manager.stop_bridge()
             return
 
         if not handler_mod._poll_task or handler_mod._poll_task.done():
