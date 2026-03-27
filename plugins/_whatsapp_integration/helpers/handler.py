@@ -60,6 +60,11 @@ async def _refresh_typing(base_url: str) -> None:
 
 
 async def poll_messages(config: dict) -> None:
+    if not config.get("enabled", False):
+        return
+    if PLUGIN_NAME not in plugins.get_enabled_plugins(None):
+        return
+
     port = int(config.get("bridge_port", 3100))
     base_url = bridge_manager.get_bridge_url(port)
 

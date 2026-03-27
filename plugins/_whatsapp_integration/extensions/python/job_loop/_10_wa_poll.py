@@ -22,6 +22,7 @@ class WhatsAppAutoPoll(Extension):
 
     async def execute(self, **kwargs: Any) -> None:
         import plugins._whatsapp_integration.helpers.handler as handler_mod
+        from plugins._whatsapp_integration.helpers import bridge_manager
 
         config = plugins.get_plugin_config(PLUGIN_NAME) or {}
         enabled = config.get("enabled", False)
@@ -30,6 +31,8 @@ class WhatsAppAutoPoll(Extension):
             if handler_mod._poll_task and not handler_mod._poll_task.done():
                 handler_mod._poll_task.cancel()
                 handler_mod._poll_task = None
+            if bridge_manager.is_process_alive():
+                await bridge_manager.stop_bridge()
             return
 
         if not handler_mod._poll_task or handler_mod._poll_task.done():
@@ -46,40 +49,50 @@ async def _poll_loop() -> None:
 
     bridge_started = False
 
-    while True:
-        config = plugins.get_plugin_config(PLUGIN_NAME) or {}
-        if not config.get("enabled", False):
-            break
+    try:
+        while True:
+            config = plugins.get_plugin_config(PLUGIN_NAME) or {}
+            if not config.get("enabled", False):
+                break
+            if PLUGIN_NAME not in plugins.get_enabled_plugins(None):
+                break
 
-        port = int(config.get("bridge_port", 3100))
-        session_dir = files.get_abs_path("usr/whatsapp/sessions")
-        cache_dir = files.get_abs_path("usr/whatsapp/media")
-        allowed_users = config.get("allowed_users") or []
-        mode = config.get("mode", "dedicated")
+            port = int(config.get("bridge_port", 3100))
+            session_dir = files.get_abs_path("usr/whatsapp/sessions")
+            cache_dir = files.get_abs_path("usr/whatsapp/media")
+            allowed_users = config.get("allowed_users") or []
+            mode = config.get("mode", "dedicated")
 
-        # Detect config changes that require bridge restart
-        desired = {"port": port, "mode": mode, "allowed_users": sorted(allowed_users)}
-        running = bridge_manager.get_running_config()
-        if bridge_started and bridge_manager.is_process_alive() and running and running != desired:
-            PrintStyle.info(f"WhatsApp: config changed, restarting bridge")
-            await bridge_manager.stop_bridge()
-            bridge_started = False
+            # Detect config changes that require bridge restart
+            desired = {"port": port, "mode": mode, "allowed_users": sorted(allowed_users)}
+            running = bridge_manager.get_running_config()
+            if bridge_started and bridge_manager.is_process_alive() and running and running != desired:
+                PrintStyle.info(f"WhatsApp: config changed, restarting bridge")
+                await bridge_manager.stop_bridge()
+                bridge_started = False
 
-        # Start bridge if needed
-        if not bridge_started or not bridge_manager.is_process_alive():
+            # Start bridge if needed
+            if not bridge_started or not bridge_manager.is_process_alive():
+                try:
+                    bridge_started = await bridge_manager.start_bridge(
+                        port, session_dir, cache_dir, allowed_users, mode=mode,
+                    )
+                except Exception as e:
+                    PrintStyle.error(f"WhatsApp bridge start error: {format_error(e)}")
+                    await asyncio.sleep(10)
+                    continue
+
             try:
-                bridge_started = await bridge_manager.start_bridge(
-                    port, session_dir, cache_dir, allowed_users, mode=mode,
-                )
+                await poll_messages(config)
             except Exception as e:
-                PrintStyle.error(f"WhatsApp bridge start error: {format_error(e)}")
-                await asyncio.sleep(10)
-                continue
+                PrintStyle.error(f"WhatsApp poll error: {format_error(e)}")
 
+            sleep_sec = max(config.get("poll_interval_seconds", DEFAULT_INTERVAL), MIN_INTERVAL)
+            await asyncio.sleep(sleep_sec)
+    finally:
+        # Ensure bridge stops when poll loop exits (plugin disabled or task cancelled)
         try:
-            await poll_messages(config)
-        except Exception as e:
-            PrintStyle.error(f"WhatsApp poll error: {format_error(e)}")
-
-        sleep_sec = max(config.get("poll_interval_seconds", DEFAULT_INTERVAL), MIN_INTERVAL)
-        await asyncio.sleep(sleep_sec)
+            if bridge_manager.is_process_alive():
+                await bridge_manager.stop_bridge()
+        except Exception:
+            pass
