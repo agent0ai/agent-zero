@@ -113,7 +113,7 @@ async def _dispatch_message(config: dict, msg: dict) -> None:
 
     if existing:
         # Continue most recent chat for this JID
-        await _route_to_chat(config, msg, existing[0])
+        await _route_to_chat(msg, existing[0])
     else:
         await _start_new_chat(config, msg)
 
@@ -147,7 +147,7 @@ async def _start_new_chat(config: dict, msg: dict) -> None:
 
     save_tmp_chat(context)
 
-    user_msg = _build_user_message(context.agent0, msg, config)
+    user_msg = _build_user_message(context.agent0, msg)
     system_ctx = context.agent0.read_prompt("fw.wa.system_context.md")
 
     msg_id = str(uuid.uuid4())
@@ -169,7 +169,7 @@ async def _start_new_chat(config: dict, msg: dict) -> None:
 
 
 async def _route_to_chat(
-    config: dict, msg: dict, context_id: str,
+    msg: dict, context_id: str,
 ) -> None:
     context = AgentContext.get(context_id)
     if not context:
@@ -179,7 +179,7 @@ async def _route_to_chat(
     context.data[CTX_WA_LAST_MSG_ID] = msg.get("messageId", "")
     context.data[CTX_WA_TYPING_ACTIVE] = True
 
-    user_msg = _build_user_message(context.agent0, msg, config)
+    user_msg = _build_user_message(context.agent0, msg)
     msg_id = str(uuid.uuid4())
     media_urls = msg.get("mediaUrls", [])
     attachments = await _save_incoming_media(media_urls) if media_urls else []
@@ -258,7 +258,7 @@ def _md_to_whatsapp(text: str) -> str:
 # Message builders
 # ------------------------------------------------------------------
 
-def _build_user_message(agent: Agent, msg: dict, config: dict) -> str:
+def _build_user_message(agent: Agent, msg: dict) -> str:
     sender_name = msg.get("senderName", "Unknown")
     sender_number = msg.get("senderId", "").replace("@s.whatsapp.net", "").replace("@lid", "")
     is_group = msg.get("isGroup", False)
@@ -271,11 +271,6 @@ def _build_user_message(agent: Agent, msg: dict, config: dict) -> str:
         message_id=msg.get("messageId", ""),
         body=msg.get("body", ""),
     )
-    instructions = config.get("agent_instructions", "")
-    if instructions:
-        text += agent.read_prompt(
-            "fw.wa.user_message_instructions.md", instructions=instructions,
-        )
     return text
 
 

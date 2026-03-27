@@ -1,8 +1,9 @@
 """Inject WhatsApp conversation context into system prompt."""
 
 from helpers.extension import Extension
+from helpers import plugins
 from agent import LoopData
-from plugins._whatsapp_integration.helpers.handler import CTX_WA_CHAT_ID
+from plugins._whatsapp_integration.helpers.handler import CTX_WA_CHAT_ID, PLUGIN_NAME
 
 
 class WhatsAppContextPrompt(Extension):
@@ -20,3 +21,12 @@ class WhatsAppContextPrompt(Extension):
             system_prompt.append(
                 self.agent.read_prompt("fw.wa.system_context_reply.md")
             )
+            config = plugins.get_plugin_config(PLUGIN_NAME) or {}
+            instructions = config.get("agent_instructions", "")
+            if instructions:
+                system_prompt.append(
+                    self.agent.read_prompt(
+                        "fw.wa.user_message_instructions.md",
+                        instructions=instructions,
+                    )
+                )

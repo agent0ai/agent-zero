@@ -1,2 +1,2 @@
-
-[Handler instructions: {{instructions}}]
+# WhatsApp custom rules
+{{instructions}}
