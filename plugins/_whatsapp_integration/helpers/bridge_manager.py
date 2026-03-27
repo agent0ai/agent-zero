@@ -14,9 +14,52 @@ from pathlib import Path
 from helpers.print_style import PrintStyle
 
 
-_bridge_process: subprocess.Popen | None = None
 _bridge_lock = asyncio.Lock()
 _bridge_config: dict = {}  # config the running bridge was started with
+
+
+# ------------------------------------------------------------------
+# Process wrapper with destructor
+# ------------------------------------------------------------------
+
+class _BridgeProcess:
+    """Thin wrapper around Popen — kills the process on garbage collection."""
+
+    def __init__(self, process: subprocess.Popen, port: int):
+        self._process = process
+        self._port = port
+
+    def poll(self) -> int | None:
+        return self._process.poll()
+
+    def terminate(self) -> None:
+        self._process.terminate()
+
+    def wait(self, timeout: float | None = None) -> int:
+        return self._process.wait(timeout=timeout)
+
+    def kill(self) -> None:
+        self._process.kill()
+
+    @property
+    def stdout(self):
+        return self._process.stdout
+
+    def __del__(self) -> None:
+        try:
+            if self._process.poll() is None:
+                PrintStyle.error("WhatsApp: bridge still running on GC, killing")
+                self._process.terminate()
+                try:
+                    self._process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._process.kill()
+                _kill_port_process(self._port)
+        except Exception as e:
+            PrintStyle.error(f"WhatsApp: bridge destructor error: {e}")
+
+
+_bridge_process: _BridgeProcess | None = None
 
 BRIDGE_DIR = str(Path(__file__).parent.parent / "whatsapp-bridge")
 BRIDGE_SCRIPT = os.path.join(BRIDGE_DIR, "bridge.js")
@@ -53,12 +96,12 @@ async def start_bridge(
 
         _kill_port_process(port)
         PrintStyle.info("WhatsApp: starting bridge")
-        _bridge_process = subprocess.Popen(
+        _bridge_process = _BridgeProcess(subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             cwd=BRIDGE_DIR,
-        )
+        ), port)
         _start_log_reader(_bridge_process)
         _bridge_config.clear()
         _bridge_config.update({"port": port, "mode": mode, "allowed_users": sorted(allowed_users or [])})
@@ -132,12 +175,12 @@ async def ensure_bridge_http_up(
 
         _kill_port_process(port)
         PrintStyle.info("WhatsApp: starting bridge for pairing")
-        _bridge_process = subprocess.Popen(
+        _bridge_process = _BridgeProcess(subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             cwd=BRIDGE_DIR,
-        )
+        ), port)
         _start_log_reader(_bridge_process)
 
         for _ in range(20):
@@ -201,7 +244,8 @@ async def _ensure_npm_install() -> None:
 def _kill_port_process(port: int) -> None:
     """Kill any orphaned process listening on the given TCP port."""
     try:
-        if platform.system() == "Windows":
+        system = platform.system()
+        if system == "Windows":
             result = subprocess.run(
                 ["netstat", "-ano", "-p", "TCP"],
                 capture_output=True, text=True, timeout=5,
@@ -217,6 +261,16 @@ def _kill_port_process(port: int) -> None:
                             )
                         except subprocess.SubprocessError:
                             pass
+        elif system == "Darwin":
+            result = subprocess.run(
+                ["lsof", "-ti", f"tcp:{port}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for pid_str in result.stdout.strip().splitlines():
+                try:
+                    os.kill(int(pid_str.strip()), 9)
+                except (ValueError, OSError):
+                    pass
         else:
             result = subprocess.run(
                 ["fuser", f"{port}/tcp"],
@@ -231,7 +285,7 @@ def _kill_port_process(port: int) -> None:
         pass
 
 
-def _start_log_reader(process: subprocess.Popen) -> None:
+def _start_log_reader(process: _BridgeProcess) -> None:
     def _reader():
         assert process.stdout
         for line in iter(process.stdout.readline, b""):
