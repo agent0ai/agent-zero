@@ -705,6 +705,7 @@ export function _drawMessage({
       let processedContent = content;
       processedContent = convertImageTags(processedContent);
       processedContent = convertImgFilePaths(processedContent);
+      processedContent = convertMediaFilePaths(processedContent);
       processedContent = convertFilePaths(processedContent);
       processedContent = marked.parse(processedContent, { breaks: true });
       processedContent = convertPathsToLinks(processedContent);
@@ -2326,3 +2327,62 @@ function smoothRender(element, newContent, delay = 350) {
 
   element.dataset.smoothTimeoutId = String(timeoutId);
 }
+
+
+// ===== Media Display Enhancement - Audio/Video Handlers =====
+
+function convertAudioFilePaths(str) {
+  // Convert audio:// paths to HTML5 audio players
+  return str.replace(
+    /audio:\/\/([^\s"]+\.(wav|mp3|ogg|flac|webm|m4a|aac))/gi,
+    function(match, path) {
+      const ext = path.split('.').pop().toLowerCase();
+      const mimeTypes = {
+        'wav': 'audio/wav',
+        'mp3': 'audio/mpeg',
+        'ogg': 'audio/ogg',
+        'flac': 'audio/flac',
+        'webm': 'audio/webm',
+        'm4a': 'audio/mp4',
+        'aac': 'audio/aac'
+      };
+      const mimeType = mimeTypes[ext] || 'audio/' + ext;
+      return '<audio controls preload="metadata" style="max-width: 100%; width: 100%; max-width: 400px; margin: 10px 0; border-radius: 8px; background: #f0f0f0;">' +
+             '<source src="/media_get?path=' + path + '" type="' + mimeType + '">' +
+             'Your browser does not support the audio element. ' +
+             '<a href="/download_work_dir_file?path=' + path + '">Download audio</a>' +
+             '</audio>';
+    }
+  );
+}
+
+function convertVideoFilePaths(str) {
+  // Convert video:// paths to HTML5 video players
+  return str.replace(
+    /video:\/\/([^\s"]+\.(mp4|webm|ogv|mov))/gi,
+    function(match, path) {
+      const ext = path.split('.').pop().toLowerCase();
+      const mimeTypes = {
+        'mp4': 'video/mp4',
+        'webm': 'video/webm',
+        'ogv': 'video/ogg',
+        'mov': 'video/quicktime'
+      };
+      const mimeType = mimeTypes[ext] || 'video/' + ext;
+      return '<video controls preload="metadata" style="max-width: 100%; width: 100%; max-width: 640px; max-height: 480px; margin: 10px 0; border-radius: 8px; background: #000;">' +
+             '<source src="/media_get?path=' + path + '" type="' + mimeType + '">' +
+             'Your browser does not support the video element. ' +
+             '<a href="/download_work_dir_file?path=' + path + '">Download video</a>' +
+             '</video>';
+    }
+  );
+}
+
+function convertMediaFilePaths(str) {
+  // Process all media types
+  let result = convertAudioFilePaths(str);
+  result = convertVideoFilePaths(result);
+  return result;
+}
+
+// ===== End Media Display Enhancement =====
