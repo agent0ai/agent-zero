@@ -164,6 +164,9 @@ embedding:
   huggingface:
     name: HuggingFace
     litellm_provider: huggingface
+  jina:
+    name: Jina AI
+    litellm_provider: jina_ai
   google:
     name: Google
     litellm_provider: gemini
