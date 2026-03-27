@@ -41,7 +41,8 @@
             <textarea id="chat-input" :placeholder="$store.chatInput.inputPlaceholder" rows="1"
                       @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
                       @input="$store.chatInput.adjustTextareaHeight()"
-                      x-model="$store.chatInput.message"></textarea>
+                      x-model="$store.chatInput.message"
+                      x-effect="if (!$store.chatInput.message) $el.style.height = ''"></textarea>
             <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">
                 <span class="material-symbols-outlined" aria-hidden="true">open_in_full</span>
             </button>
