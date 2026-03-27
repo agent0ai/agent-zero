@@ -29,7 +29,9 @@
             return (config?.allowed_users || []).join(', ');
         },
         set_allowed(val) {
-            config.allowed_users = val.split(',').map(s => s.trim()).filter(s => s);
+            config.allowed_users = val.split(',')
+                .map(s => s.trim().replace(/^\+/, '').replace(/^0+/, ''))
+                .filter(s => s);
         },
         async test_connection() {
             this.testing = true;
@@ -238,10 +240,10 @@
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Allowed Users</div>
-                        <div class="field-description">International format without + or leading 0<br>e.g. 14155551234 for US +1. Empty = allow all</div>
+                        <div class="field-description">Use international format without + or leading 0<br>e.g. +1 (415) 555-1234 → 14155551234. Empty = allow all</div>
                     </div>
                     <div class="field-control">
-                        <input type="text" :value="allowed_text()" @input="set_allowed($event.target.value)" placeholder="14155551234, 447911123456" />
+                        <input type="text" :value="allowed_text()" @change="set_allowed($event.target.value)" placeholder="14155551234, 447911123456" />
                     </div>
                 </div>
 

@@ -200,7 +200,10 @@ async function startSocket() {
       // Check allowlist (resolve LID -> phone if needed)
       if (!msg.key.fromMe && ALLOWED_USERS.length > 0) {
         const resolvedNumber = lidToPhone[senderNumber] || senderNumber;
-        if (!ALLOWED_USERS.includes(resolvedNumber)) continue;
+        if (!ALLOWED_USERS.includes(resolvedNumber)) {
+          console.log(`[bridge] Ignored message from ${resolvedNumber} (not in allowed users)`);
+          continue;
+        }
       }
 
       // Unwrap documentWithCaptionMessage (Baileys wraps captioned docs)
