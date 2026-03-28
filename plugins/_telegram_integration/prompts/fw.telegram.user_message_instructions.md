@@ -1,2 +1,2 @@
-
-[Handler instructions: {{instructions}}]
+# Telegram custom rules
+{{instructions}}
