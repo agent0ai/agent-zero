@@ -1,4 +1,6 @@
 import asyncio
+import litellm
+from litellm.exceptions import AuthenticationError
 from helpers.extension import Extension
 from agent import LoopData
 from helpers import dirty_json, errors, log, plugins
@@ -101,7 +103,18 @@ class RecallMemories(Extension):
                 )
                 query = query.strip()
                 log_item.update(query=query) # no need for streaming here
+            except AuthenticationError as e:
+                # Guard against NVIDIA API key being sent to OpenAI endpoint
+                if "nvapi-" in str(e):
+                    log_item.update(heading="SKIPPED: Invalid API Key (NVIDIA key on OpenAI endpoint)")
+                    log_item.update(content="Memory recall skipped due to configuration error. Please update API_KEY_OPENAI in .env or fix provider routing.")
+                    # Gracefully exit without crashing or logging full traceback
+                    query = ""
+                else:
+                    # Re-raise if it is a different authentication error
+                    raise
             except Exception as e:
+                # Catch any other unexpected errors
                 err = errors.format_error(e)
                 self.agent.context.log.log(
                     type="warning", heading="Recall memories extension error:", content=err
@@ -114,7 +127,7 @@ class RecallMemories(Extension):
                     heading="Failed to generate memory query",
                 )
                 return
-        
+
         # otherwise use the message and history as query
         else:
             query = user_instruction + "\n\n" + history
