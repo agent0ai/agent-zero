@@ -4,6 +4,7 @@
 **/__pycache__/
 *.py[cod]
 **/.conda/
+**/node_modules/
 
 #Ignore IDE files
 .cursor/

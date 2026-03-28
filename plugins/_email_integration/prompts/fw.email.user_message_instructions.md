@@ -1,2 +1,2 @@
-
-[Handler instructions: {{instructions}}]
+# Email custom rules
+{{instructions}}

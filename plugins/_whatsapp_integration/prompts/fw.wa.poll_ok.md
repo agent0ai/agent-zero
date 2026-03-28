@@ -1,0 +1,1 @@
+whatsapp poll complete: {{result}}

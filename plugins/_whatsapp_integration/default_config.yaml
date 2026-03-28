@@ -1,0 +1,12 @@
+enabled: false
+mode: dedicated
+# dedicated: separate phone number — people message it directly
+# self-chat: personal number — you message yourself to talk to the agent
+bridge_port: 3100
+poll_interval_seconds: 3
+allow_group: false
+# allow_group: respond in group chats when mentioned or replied to
+allowed_numbers: []
+# Example: ["34652029134", "1234567890"]
+project: ""
+agent_instructions: ""
