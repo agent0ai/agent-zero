@@ -1,5 +1,6 @@
 # noqa: D401 (docstrings) – internal helper
 import asyncio
+import hmac
 import uuid
 import atexit
 from typing import Any, List
@@ -457,7 +458,7 @@ class DynamicA2AProxy:
             cfg = settings.get_settings()
             expected_token = cfg.get("mcp_server_token")
 
-            if expected_token and request_token != expected_token:
+            if expected_token and not hmac.compare_digest(request_token, expected_token):
                 # Invalid token, return 401
                 await send({
                     'type': 'http.response.start',
@@ -533,8 +534,8 @@ class DynamicA2AProxy:
                 api_key = request.headers.get("X-API-KEY") or request.query_params.get("api_key")
 
                 is_authorized = (
-                    (auth_header.startswith("Bearer ") and auth_header.split(" ", 1)[1] == expected) or
-                    (api_key == expected)
+                    (auth_header.startswith("Bearer ") and hmac.compare_digest(auth_header.split(" ", 1)[1], expected)) or
+                    (api_key is not None and hmac.compare_digest(api_key, expected))
                 )
 
                 if not is_authorized:
