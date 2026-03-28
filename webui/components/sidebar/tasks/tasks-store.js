@@ -36,12 +36,12 @@ const model = {
 
   // Returns true if a task with the given id exists in the current list
   contains(taskId) {
-    return Array.isArray(this.tasks) && this.tasks.some((t) => t?.id === taskId);
+    return Array.isArray(this.tasks) && this.tasks.some((t) => t?.uuid === taskId);
   },
 
   // Convenience: id of the first task in the current list (or empty string)
   firstId() {
-    return (Array.isArray(this.tasks) && this.tasks[0]?.id) || "";
+    return (Array.isArray(this.tasks) && this.tasks[0]?.uuid) || "";
   },
 
   // Action methods for task management
