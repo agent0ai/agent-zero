@@ -115,11 +115,18 @@ class Message(Record):
         return output_text(self.output(), ai_label, human_label)
 
     def to_dict(self):
+        # Strip binary RawMessage content (e.g. base64 images) before disk serialization.
+        # raw_content blobs are for single-session LLM use only — persist only the preview text.
+        # Without this, chat.json bloats to MBs and reloaded chats re-send images on every LLM call.
+        content = self.content
+        if _is_raw_message(content):
+            preview = content.get("preview", "")  # type: ignore
+            content = preview if preview else "<Image content — not persisted>"
         return {
             "_cls": "Message",
             "id": self.id,
             "ai": self.ai,
-            "content": self.content,
+            "content": content,
             "summary": self.summary,
             "tokens": self.tokens,
         }
