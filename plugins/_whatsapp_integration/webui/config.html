@@ -26,10 +26,10 @@
             } catch (e) { this.projects = []; }
         },
         allowed_text() {
-            return (config?.allowed_users || []).join(', ');
+            return (config?.allowed_numbers || []).join(', ');
         },
         set_allowed(val) {
-            config.allowed_users = val.split(',')
+            config.allowed_numbers = val.split(',')
                 .map(s => s.trim().replace(/^\+/, '').replace(/^0+/, ''))
                 .filter(s => s);
         },
@@ -239,7 +239,7 @@
 
                 <div class="field">
                     <div class="field-label">
-                        <div class="field-title">Allowed Users</div>
+                        <div class="field-title">Allowed Numbers</div>
                         <div class="field-description">Use international format without + or leading 0<br>e.g. +1 (415) 555-1234 → 14155551234. Empty = allow all</div>
                     </div>
                     <div class="field-control">

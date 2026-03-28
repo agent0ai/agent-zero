@@ -57,11 +57,11 @@ async def _poll_loop() -> None:
             port = int(config.get("bridge_port", 3100))
             session_dir = files.get_abs_path("usr/whatsapp/sessions")
             cache_dir = files.get_abs_path("usr/whatsapp/media")
-            allowed_users = config.get("allowed_users") or []
+            allowed_numbers = config.get("allowed_numbers") or []
             mode = config.get("mode", "dedicated")
 
             # Detect config changes that require bridge restart
-            desired = {"port": port, "mode": mode, "allowed_users": sorted(allowed_users)}
+            desired = {"port": port, "mode": mode, "allowed_numbers": sorted(allowed_numbers)}
             running = bridge_manager.get_running_config()
             if bridge_started and bridge_manager.is_process_alive() and running and running != desired:
                 PrintStyle.info(f"WhatsApp: config changed, restarting bridge")
@@ -72,7 +72,7 @@ async def _poll_loop() -> None:
             if not bridge_started or not bridge_manager.is_process_alive():
                 try:
                     bridge_started = await bridge_manager.start_bridge(
-                        port, session_dir, cache_dir, allowed_users, mode=mode,
+                        port, session_dir, cache_dir, allowed_numbers, mode=mode,
                     )
                 except Exception as e:
                     PrintStyle.error(f"WhatsApp bridge start error: {format_error(e)}")

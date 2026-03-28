@@ -73,7 +73,7 @@ async def start_bridge(
     port: int,
     session_dir: str,
     cache_dir: str,
-    allowed_users: list[str] | None = None,
+    allowed_numbers: list[str] | None = None,
     mode: str = "dedicated",
 ) -> bool:
     global _bridge_process
@@ -91,8 +91,8 @@ async def start_bridge(
             "--cache-dir", cache_dir,
             "--mode", mode,
         ]
-        if allowed_users:
-            cmd += ["--allowed-users", ",".join(allowed_users)]
+        if allowed_numbers:
+            cmd += ["--allowed-numbers", ",".join(allowed_numbers)]
 
         _kill_port_process(port)
         PrintStyle.info("WhatsApp: starting bridge")
@@ -104,7 +104,7 @@ async def start_bridge(
         ), port)
         _start_log_reader(_bridge_process)
         _bridge_config.clear()
-        _bridge_config.update({"port": port, "mode": mode, "allowed_users": sorted(allowed_users or [])})
+        _bridge_config.update({"port": port, "mode": mode, "allowed_numbers": sorted(allowed_numbers or [])})
 
         # Wait for bridge to become healthy
         for _ in range(20):
@@ -151,7 +151,7 @@ async def ensure_bridge_http_up(
     port: int,
     session_dir: str,
     cache_dir: str,
-    allowed_users: list[str] | None = None,
+    allowed_numbers: list[str] | None = None,
     mode: str = "dedicated",
 ) -> bool:
     """Start bridge if needed and wait for HTTP server only (not WA connection)."""
@@ -170,8 +170,8 @@ async def ensure_bridge_http_up(
             "--cache-dir", cache_dir,
             "--mode", mode,
         ]
-        if allowed_users:
-            cmd += ["--allowed-users", ",".join(allowed_users)]
+        if allowed_numbers:
+            cmd += ["--allowed-numbers", ",".join(allowed_numbers)]
 
         _kill_port_process(port)
         PrintStyle.info("WhatsApp: starting bridge for pairing")

@@ -36,7 +36,7 @@ The WhatsApp session persists across restarts in `usr/whatsapp/sessions/`. No re
 | `allow_group` | Respond in group chats when mentioned or replied to | `false` |
 | `bridge_port` | Local HTTP port for bridge | `3100` |
 | `poll_interval_seconds` | Poll frequency (min 2) | `3` |
-| `allowed_users` | Phone numbers without + prefix | `[]` (all) |
+| `allowed_numbers` | Phone numbers without + prefix | `[]` (all) |
 | `project` | Activate project for WA chats | `""` |
 | `agent_instructions` | Extra agent instructions | `""` |
 
