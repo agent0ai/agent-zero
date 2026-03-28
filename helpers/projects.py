@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Literal, TypedDict, TYPE_CHECKING, cast
 
 from helpers import files, dirty_json, persist_chat, file_tree
@@ -34,6 +35,7 @@ class BasicProjectData(TypedDict):
     instructions: str
     color: str
     git_url: str
+    plugin_dir: str
     file_structure: FileStructureInjectionSettings
 
 class GitStatusData(TypedDict, total=False):
@@ -45,6 +47,13 @@ class GitStatusData(TypedDict, total=False):
     last_commit: dict
     error: str
 
+class PluginSymlinkStatus(TypedDict, total=False):
+    has_plugin_yaml: bool
+    plugin_dir: str
+    is_linked: bool
+    symlink_path: str
+    default_plugin_dir: str
+
 class EditProjectData(BasicProjectData):
     name: str
     instruction_files_count: int
@@ -53,6 +62,7 @@ class EditProjectData(BasicProjectData):
     secrets: str
     subagents: dict[str, SubAgentSettings]
     git_status: GitStatusData
+    plugin_symlink_status: PluginSymlinkStatus
 
 
 
@@ -155,6 +165,7 @@ def _normalizeBasicData(data: BasicProjectData) -> BasicProjectData:
         "instructions": data.get("instructions", ""),
         "color": data.get("color", ""),
         "git_url": data.get("git_url", ""),
+        "plugin_dir": data.get("plugin_dir", ""),
         "file_structure": data.get(
             "file_structure",
             _default_file_structure_settings(),
@@ -180,6 +191,7 @@ def _normalizeEditData(data: EditProjectData) -> EditProjectData:
             _default_file_structure_settings(),
         ),
         "subagents": data.get("subagents", {}),
+        "plugin_symlink_status": data.get("plugin_symlink_status", {"has_plugin_yaml": False}),
     }
     return normalized
 
@@ -200,6 +212,7 @@ def _basic_data_to_edit_data(data: BasicProjectData) -> EditProjectData:
             "secrets": "",
             "subagents": {},
             "git_status": {"is_git_repo": False},
+            "plugin_symlink_status": {"has_plugin_yaml": False},
         },
     )
     return _normalizeEditData(base)
@@ -240,6 +253,7 @@ def load_edit_project_data(name: str) -> EditProjectData:
     subagents = load_project_subagents(name)
     knowledge_files_count = get_knowledge_files_count(name)
     git_status = cast(GitStatusData, git.get_repo_status(get_project_folder(name)))
+    plugin_symlink_status = get_plugin_symlink_status(name)
     
     data = cast(
         EditProjectData,
@@ -252,6 +266,7 @@ def load_edit_project_data(name: str) -> EditProjectData:
             "secrets": secrets,
             "subagents": subagents,
             "git_status": git_status,
+            "plugin_symlink_status": plugin_symlink_status,
         },
     )
     data = _normalizeEditData(data)
@@ -492,3 +507,119 @@ def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str
         tree += "\n # Empty"
 
     return tree
+
+
+def get_plugin_symlink_status(name: str) -> PluginSymlinkStatus:
+    """Get the current plugin symlink status for a project."""
+    project_folder = get_project_folder(name)
+    has_plugin_yaml = os.path.exists(os.path.join(project_folder, 'plugin.yaml'))
+
+    # load plugin_dir from project header
+    try:
+        header = load_project_header(name)
+        plugin_dir = header.get('plugin_dir', '') or ''
+    except Exception:
+        plugin_dir = ''
+
+    # determine default plugin_dir suggestion
+    default_plugin_dir = _get_default_plugin_dir(name)
+
+    # check if symlink exists and points to this project
+    is_linked = False
+    symlink_path = ''
+    if plugin_dir:
+        symlink_path = files.get_abs_path('usr/plugins', plugin_dir)
+        if os.path.islink(symlink_path):
+            link_target = os.path.realpath(symlink_path)
+            project_real = os.path.realpath(project_folder)
+            is_linked = (link_target == project_real)
+
+    return PluginSymlinkStatus(
+        has_plugin_yaml=has_plugin_yaml,
+        plugin_dir=plugin_dir,
+        is_linked=is_linked,
+        symlink_path=symlink_path,
+        default_plugin_dir=default_plugin_dir,
+    )
+
+
+def _get_default_plugin_dir(name: str) -> str:
+    """Suggest a plugin_dir name from plugin.yaml name field or project folder name."""
+    project_folder = get_project_folder(name)
+    plugin_yaml_path = os.path.join(project_folder, 'plugin.yaml')
+    if os.path.exists(plugin_yaml_path):
+        try:
+            import yaml
+            with open(plugin_yaml_path) as f:
+                data = yaml.safe_load(f)
+            yaml_name = data.get('name', '') if data else ''
+            if yaml_name and re.match(r'^[a-z0-9_-]+$', str(yaml_name).strip()):
+                return str(yaml_name).strip()
+        except Exception:
+            pass
+    return name
+
+
+def create_plugin_symlink(name: str, plugin_dir: str) -> PluginSymlinkStatus:
+    """Create symlink /a0/usr/plugins/<plugin_dir> -> project folder."""
+    if not plugin_dir or not re.match(r'^[a-z0-9_-]+$', plugin_dir):
+        raise ValueError('plugin_dir must be lowercase letters, numbers, hyphens, underscores only')
+
+    project_folder = get_project_folder(name)
+    plugins_dir = files.get_abs_path('usr/plugins')
+    symlink_path = os.path.join(plugins_dir, plugin_dir)
+
+    if os.path.islink(symlink_path):
+        os.unlink(symlink_path)
+    elif os.path.exists(symlink_path):
+        raise ValueError(f'Target {symlink_path} exists and is not a symlink — remove it manually first')
+
+    os.makedirs(plugins_dir, exist_ok=True)
+    os.symlink(project_folder, symlink_path)
+    _save_plugin_dir(name, plugin_dir)
+
+    try:
+        from helpers import plugins as _plugins
+        _plugins.invalidate_plugin_cache()
+    except Exception:
+        pass
+
+    return get_plugin_symlink_status(name)
+
+
+def remove_plugin_symlink(name: str) -> PluginSymlinkStatus:
+    """Remove the plugin symlink for this project."""
+    try:
+        header = load_project_header(name)
+        plugin_dir = header.get('plugin_dir', '') or ''
+    except Exception:
+        plugin_dir = ''
+
+    if plugin_dir:
+        symlink_path = files.get_abs_path('usr/plugins', plugin_dir)
+        if os.path.islink(symlink_path):
+            link_target = os.path.realpath(symlink_path)
+            project_real = os.path.realpath(get_project_folder(name))
+            if link_target == project_real:
+                os.unlink(symlink_path)
+
+    _save_plugin_dir(name, '')
+
+    try:
+        from helpers import plugins as _plugins
+        _plugins.invalidate_plugin_cache()
+    except Exception:
+        pass
+
+    return get_plugin_symlink_status(name)
+
+
+def _save_plugin_dir(name: str, plugin_dir: str):
+    """Save plugin_dir field to project.json."""
+    try:
+        abs_path = files.get_abs_path(PROJECTS_PARENT_DIR, name, PROJECT_META_DIR, PROJECT_HEADER_FILE)
+        current = dirty_json.parse(files.read_file(abs_path)) or {}
+        current['plugin_dir'] = plugin_dir
+        files.write_file(abs_path, dirty_json.stringify(current))
+    except Exception as e:
+        PrintStyle.error(f'Error saving plugin_dir: {e}')

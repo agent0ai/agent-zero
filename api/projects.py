@@ -32,6 +32,10 @@ class Projects(ApiHandler):
                 data = self.deactivate_project(ctxid)
             elif action == "file_structure":
                 data = self.get_file_structure(input.get("name", None), input.get("settings"))
+            elif action == "symlink_plugin":
+                data = self.symlink_plugin(input.get("name"), input.get("plugin_dir"))
+            elif action == "unsymlink_plugin":
+                data = self.unsymlink_plugin(input.get("name"))
             else:
                 raise Exception("Invalid action")
 
@@ -146,3 +150,15 @@ class Projects(ApiHandler):
             basic_data["file_structure"] = settings # type: ignore
         # get structure
         return projects.get_file_structure(name, basic_data)
+
+    def symlink_plugin(self, name, plugin_dir):
+        if not name:
+            raise Exception("Project name is required")
+        if not plugin_dir:
+            raise Exception("plugin_dir is required")
+        return projects.create_plugin_symlink(name, plugin_dir)
+
+    def unsymlink_plugin(self, name):
+        if not name:
+            raise Exception("Project name is required")
+        return projects.remove_plugin_symlink(name)

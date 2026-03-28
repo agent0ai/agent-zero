@@ -99,7 +99,7 @@ const model = {
   },
 
   async openEditModal(name) {
-    this.selectedProject = await this._createEditProjectData(name);
+    this.selectedProject = await this._createEditProjectData(name)
     await modals.openModal(editModal);
     this.selectedProject = null;
   },
@@ -522,6 +522,100 @@ const model = {
         message: "Error testing file structure",
         priority: shortcuts.NotificationPriority.NORMAL,
         displayTime: 3,
+        frontendOnly: true,
+      });
+    }
+  },
+
+  async linkPlugin() {
+    const project = this.selectedProject;
+    if (!project) return;
+    const pluginDir = project.plugin_symlink_status?.plugin_dir
+      || project.plugin_symlink_status?.default_plugin_dir;
+    if (!pluginDir) {
+      shortcuts.frontendNotification({
+        type: shortcuts.NotificationType.ERROR,
+        message: "Plugin dir name is required",
+        priority: shortcuts.NotificationPriority.NORMAL,
+        displayTime: 3,
+        group: "plugin_link",
+        frontendOnly: true,
+      });
+      return;
+    }
+    try {
+      const response = await api.callJsonApi("projects", {
+        action: "symlink_plugin",
+        name: project.name,
+        plugin_dir: pluginDir,
+      });
+      if (response?.ok) {
+        project.plugin_symlink_status = response.data;
+        shortcuts.frontendNotification({
+          type: shortcuts.NotificationType.SUCCESS,
+          message: "Plugin linked successfully",
+          priority: shortcuts.NotificationPriority.NORMAL,
+          displayTime: 3,
+          group: "plugin_link",
+          frontendOnly: true,
+        });
+      } else {
+        shortcuts.frontendNotification({
+          type: shortcuts.NotificationType.ERROR,
+          message: response?.error || "Failed to link plugin",
+          priority: shortcuts.NotificationPriority.NORMAL,
+          displayTime: 5,
+          group: "plugin_link",
+          frontendOnly: true,
+        });
+      }
+    } catch (error) {
+      shortcuts.frontendNotification({
+        type: shortcuts.NotificationType.ERROR,
+        message: "Error linking plugin: " + error,
+        priority: shortcuts.NotificationPriority.NORMAL,
+        displayTime: 5,
+        group: "plugin_link",
+        frontendOnly: true,
+      });
+    }
+  },
+
+  async unlinkPlugin() {
+    const project = this.selectedProject;
+    if (!project) return;
+    try {
+      const response = await api.callJsonApi("projects", {
+        action: "unsymlink_plugin",
+        name: project.name,
+      });
+      if (response?.ok) {
+        project.plugin_symlink_status = response.data;
+        shortcuts.frontendNotification({
+          type: shortcuts.NotificationType.SUCCESS,
+          message: "Plugin unlinked successfully",
+          priority: shortcuts.NotificationPriority.NORMAL,
+          displayTime: 3,
+          group: "plugin_link",
+          frontendOnly: true,
+        });
+      } else {
+        shortcuts.frontendNotification({
+          type: shortcuts.NotificationType.ERROR,
+          message: response?.error || "Failed to unlink plugin",
+          priority: shortcuts.NotificationPriority.NORMAL,
+          displayTime: 5,
+          group: "plugin_link",
+          frontendOnly: true,
+        });
+      }
+    } catch (error) {
+      shortcuts.frontendNotification({
+        type: shortcuts.NotificationType.ERROR,
+        message: "Error unlinking plugin: " + error,
+        priority: shortcuts.NotificationPriority.NORMAL,
+        displayTime: 5,
+        group: "plugin_link",
         frontendOnly: true,
       });
     }
