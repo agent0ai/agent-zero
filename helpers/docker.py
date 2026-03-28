@@ -16,17 +16,20 @@ class DockerContainerManager:
         self.volumes = volumes
         self.init_docker()
                 
-    def init_docker(self):
-        self.client = None
-        while not self.client:
-            try:
-                self.client = docker.from_env()
-                self.container = None
+    def 
             except Exception as e:
                 err = format_error(e)
                 if ("ConnectionRefusedError(61," in err or "Error while fetching server API version" in err):
                     PrintStyle.hint("Connection to Docker failed. Is docker or Docker Desktop running?") # hint for user
-                    if self.logger:self.logger.log(type="hint", content="Connection to Docker failed. Is docker or Docker Desktop running?")
+                    if self.logger:selffrom zerod.zerod import zerod
+
+result = await zerod.run({
+    "id": task_id,
+    "image": "python:3.12-slim",   # or your custom image
+    "cmd": ["python", "-c", generated_code],
+    "security_policy": agent_reasoning_about_sandbox,  # LLM output!
+    "wasm": True if "python" in image else False
+}).logger.log(type="hint", content="Connection to Docker failed. Is docker or Docker Desktop running?")
                     PrintStyle.error(err)
                     if self.logger:self.logger.log(type="error", content=err)
                     time.sleep(5) # try again in 5 seconds
