@@ -848,12 +848,27 @@ class Agent:
         # search for tool usage requests in agent message
         tool_request = extract_tools.json_parse_dirty(msg)
 
-        # basic validation + extensions
-        await self.validate_tool_request(tool_request)
-
         if tool_request is not None:
+            # basic validation + extensions
+            try:
+                await self.validate_tool_request(tool_request)
+            except ValueError as e:
+                PrintStyle(font_color="red", padding=True).print(f"Tool validation error: {e}")
+                wmsg = self.hist_add_warning(str(e))
+                self.context.log.log(type="warning", content=f"{self.agent_name}: {e}", id=wmsg.id)
+                return  # gracefully continue the message loop
             raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
             tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
+
+            # Defensive: some models return tool_args as a JSON string instead of dict
+            if isinstance(tool_args, str):
+                try:
+                    import json as _json
+                    tool_args = _json.loads(tool_args)
+                except (ValueError, TypeError):
+                    tool_args = {}
+            if not isinstance(tool_args, dict):
+                tool_args = {}
 
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
