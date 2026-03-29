@@ -32,6 +32,9 @@
                   <span class="chat-name"
                     x-text="context.name ? context.name : 'Chat #' + context.no"></span>
                 </div>
+                <button class="btn-icon-action chat-list-action-btn" title="Chat model settings" @click.stop="$store.chats.openChatModelSettings(context.id)">
+                  <span class="material-symbols-outlined">tune</span>
+                </button>
                 <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
                   <span class="material-symbols-outlined">close</span>
                 </button>
