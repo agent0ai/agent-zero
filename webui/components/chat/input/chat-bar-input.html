@@ -1,7 +1,6 @@
 <html>
 <head>
     <script type="module">
-        import { store as speechStore } from "/components/chat/speech/speech-store.js";
         import { store as fullScreenStore } from "/components/modals/full-screen-input/full-screen-store.js";
         import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
         import { store as chatInputStore } from "/components/chat/input/input-store.js";
@@ -54,14 +53,6 @@
                     :class="$store.chatInput.sendButtonClass"
                     :title="$store.chatInput.sendButtonTitle">
                     <span class="material-symbols-outlined" x-text="$store.chatInput.sendButtonIcon"></span>
-            </button>
-
-            <!-- Microphone button -->
-            <button class="chat-button mic-inactive" id="microphone-button" aria-label="Start/Stop recording"
-                    @click="$store.speech.handleMicrophoneClick()" x-effect="$store.speech.updateMicrophoneButtonUI()">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 18" fill="currentColor">
-                    <path d="m8,12c1.66,0,3-1.34,3-3V3c0-1.66-1.34-3-3-3s-3,1.34-3,3v6c0,1.66,1.34,3,3,3Zm-1,1.9c-2.7-.4-4.8-2.6-5-5.4H0c.2,3.8,3.1,6.9,7,7.5v2h2v-2c3.9-.6,6.8-3.7,7-7.5h-2c-.2,2.8-2.3,5-5,5.4h-2Z" />
-                </svg>
             </button>
         </div>
         </div>

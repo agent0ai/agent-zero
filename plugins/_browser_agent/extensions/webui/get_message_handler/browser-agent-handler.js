@@ -3,7 +3,7 @@ import {
   copyToClipboard,
 } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { store as stepDetailStore } from "/components/modals/process-step-detail/step-detail-store.js";
-import { store as speechStore } from "/components/chat/speech/speech-store.js";
+import { ttsService } from "/js/tts-service.js";
 import {
   buildDetailPayload,
   cleanStepTitle,
@@ -36,7 +36,7 @@ function drawMessageBrowserAgent({
             buildDetailPayload(arguments[0], { headerLabels: [] }),
           ),
         ),
-        createActionButton("speak", "", () => speechStore.speak(answerText)),
+        createActionButton("speak", "", () => ttsService.speak(answerText)),
         createActionButton("copy", "", () => copyToClipboard(answerText)),
       ].filter(Boolean)
     : [];

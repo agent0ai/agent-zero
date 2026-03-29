@@ -144,6 +144,9 @@ A detailed setup guide for Windows, macOS, and Linux can be found in the Agent Z
 - The Web UI output is very clean, fluid, colorful, readable, and interactive; nothing is hidden.
 - You can load or save chats directly within the Web UI.
 - The same output you see in the terminal is automatically saved to an HTML file in **logs/** folder for every session.
+- Voice is provided by the built-in `_kokoro_tts` and `_whisper_stt` plugins.
+- Docker/bootstrap remains responsible for installing Kokoro, Whisper, `ffmpeg`, and related speech dependencies.
+- If `_kokoro_tts` is disabled, spoken output falls back to the browser's native speech synthesis.
 
 ![Time example](/docs/res/time_example.jpg)
 

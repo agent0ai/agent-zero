@@ -1,0 +1,103 @@
+<div x-data x-init="$store.whisperStt.ensureStatusLoaded()" x-show="$store.whisperStt">
+  <div class="voice-plugin-card">
+    <div class="voice-plugin-card-header">
+      <div>
+        <div class="voice-plugin-title">Whisper STT</div>
+        <div class="voice-plugin-description">
+          Browser microphone input routed into the built-in Whisper transcription backend.
+        </div>
+      </div>
+      <span class="voice-plugin-badge" :class="`is-${$store.whisperStt.statusClass || 'warn'}`" x-text="$store.whisperStt.statusText || 'Idle'"></span>
+    </div>
+
+    <div class="voice-plugin-meta">
+      <div class="voice-plugin-meta-row">
+        <span>Model size</span>
+        <span x-text="$store.whisperStt.config.model_size || 'base'"></span>
+      </div>
+      <div class="voice-plugin-meta-row">
+        <span>Language</span>
+        <span x-text="$store.whisperStt.config.language || 'en'"></span>
+      </div>
+      <div class="voice-plugin-meta-row">
+        <span>Microphone</span>
+        <span x-text="$store.whisperStt.selectedDeviceLabel"></span>
+      </div>
+    </div>
+
+    <div class="voice-plugin-actions">
+      <button class="btn btn-field" @click="$store.whisperStt.openConfig()">Configure</button>
+      <button class="btn btn-field" @click="$store.whisperStt.openPanel()">Status</button>
+    </div>
+  </div>
+
+  <style>
+    .voice-plugin-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+      background: var(--color-input);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+    }
+
+    .voice-plugin-card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .voice-plugin-title {
+      font-weight: 700;
+      font-size: 0.98rem;
+    }
+
+    .voice-plugin-description {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+      margin-top: 0.25rem;
+    }
+
+    .voice-plugin-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .voice-plugin-badge.is-ok {
+      color: #1b5e20;
+      background: rgba(46, 125, 50, 0.14);
+      border-color: rgba(46, 125, 50, 0.24);
+    }
+
+    .voice-plugin-badge.is-warn {
+      color: #8a6100;
+      background: rgba(191, 144, 0, 0.14);
+      border-color: rgba(191, 144, 0, 0.24);
+    }
+
+    .voice-plugin-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.84rem;
+    }
+
+    .voice-plugin-meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .voice-plugin-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+  </style>
+</div>

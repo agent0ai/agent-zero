@@ -748,12 +748,19 @@ If you encounter issues with the tunnel feature:
 > Combine tunneling with authentication for secure remote access to your Agent Zero instance from any device, including mobile phones and tablets.
 
 ## Voice Interface
-Agent Zero provides both Text-to-Speech (TTS) and Speech-to-Text (STT) capabilities for natural voice interaction:
+Agent Zero provides both Text-to-Speech (TTS) and Speech-to-Text (STT) capabilities for natural voice interaction through built-in plugins:
+
+- `_kokoro_tts` handles server-side Kokoro speech synthesis when enabled
+- `_whisper_stt` handles server-side Whisper transcription and injects the microphone UI when enabled
+- Browser-native `speechSynthesis` remains the fallback output path when `_kokoro_tts` is disabled
+
+Use the Agent Plugins section in Settings to enable or disable either plugin independently.
 
 ### Text-to-Speech
 Enable voice responses from agents:
 * Toggle the "Speech" switch in the Preferences section of the sidebar
-* Agents will use your system's built-in voice synthesizer to speak their messages
+* If `_kokoro_tts` is enabled, agents will use Kokoro for spoken output
+* If `_kokoro_tts` is disabled, agents will use your browser's built-in voice synthesizer
 * Click the "Stop Speech" button above the input area to immediately stop any ongoing speech
 * You can also click the speech button when hovering over messages to speak individual messages or their parts
 
@@ -761,7 +768,7 @@ Enable voice responses from agents:
 
 - The interface allows users to stop speech at any time if a response is too lengthy or if they wish to intervene during the conversation.
 
-The TTS uses a standard voice interface provided by modern browsers, which may sound robotic but is effective and does not require complex AI models. This ensures low latency and quick responses across various platforms, including mobile devices.
+Kokoro gives you a local container-side TTS path when the plugin is enabled. When it is disabled, Agent Zero falls back to the browser voice stack, which is lower-friction and works well across devices.
 
 
 > [!TIP]
@@ -771,19 +778,20 @@ The TTS uses a standard voice interface provided by modern browsers, which may s
 > - Creating a more interactive experience
 
 ### Speech-to-Text
-Send voice messages to agents using OpenAI's Whisper model (does not require OpenAI API key!):
+Send voice messages to agents using Whisper (does not require an OpenAI API key):
 
 1. Click the microphone button in the input area to start recording
+   - The microphone button only appears when `_whisper_stt` is enabled
 2. The button color indicates the current status:
    - Grey: Inactive
-   - Red: Listening
-   - Green: Recording
-   - Teal: Waiting
-   - Cyan (pulsing): Processing
+   - Teal: Listening
+   - Red: Recording
+   - Amber: Waiting
+   - Purple: Processing or activating
 
 Users can adjust settings such as silence threshold and message duration before sending to optimize their interaction experience.
 
-Configure STT settings in the Settings page:
+Configure Whisper STT from the plugin settings screen in the Voice section or from Agent Plugins:
 * **Model Size:** Choose between Base (74M, English) or other models
   - Note: Only Large and Turbo models support multiple languages
 * **Language Code:** Set your preferred language (e.g., 'en', 'fr', 'it', 'cz')
@@ -795,9 +803,8 @@ Configure STT settings in the Settings page:
 ![Speech to Text Settings](../res/usage/ui-settings-5-speech-to-text.png)
 
 > [!IMPORTANT]
-> All STT and TTS functionalities operate locally within the Docker container,
-> ensuring that no data is transmitted to external servers or OpenAI APIs. This
-> enhances user privacy while maintaining functionality.
+> Whisper STT and Kokoro TTS operate locally within the Docker/container runtime when their plugins are enabled.
+> Browser fallback TTS runs locally in the browser. No voice path requires OpenAI APIs.
 
 ## Mathematical Expressions
 * **Complex Mathematics:** Supports full KaTeX syntax for:

@@ -1,6 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as css from "/js/css.js";
-import { store as speechStore } from "/components/chat/speech/speech-store.js";
+import { ttsService } from "/js/tts-service.js";
 import { applyModeSteps } from "/components/messages/process-group/process-group-dom.js";
 
 // Preferences store centralizes user preference toggles and side-effects
@@ -153,7 +153,7 @@ const model = {
 
   _applySpeech(value) {
     localStorage.setItem("speech", value);
-    if (!value) speechStore.stopAudio();
+    if (!value) ttsService.stop();
   },
 
 

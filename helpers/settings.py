@@ -7,7 +7,7 @@ import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
-from helpers import runtime, whisper, defer, git, subagents
+from helpers import runtime, defer, git, subagents
 from . import files, dotenv
 from helpers.print_style import PrintStyle
 from helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -78,14 +78,6 @@ class Settings(TypedDict):
     websocket_server_restart_enabled: bool
     uvicorn_access_logs_enabled: bool
 
-    stt_model_size: str
-    stt_language: str
-    stt_silence_threshold: float
-    stt_silence_duration: int
-    stt_waiting_timeout: int
-
-    tts_kokoro: bool
-
     mcp_servers: str
     mcp_client_init_timeout: int
     mcp_client_tool_timeout: int
@@ -151,7 +143,6 @@ class SettingsOutputAdditional(TypedDict):
     embedding_providers: list[ModelProvider]
     agent_subdirs: list[FieldOption]
     knowledge_subdirs: list[FieldOption]
-    stt_models: list[FieldOption]
     is_dockerized: bool
     runtime_settings: dict[str, Any]
 
@@ -196,14 +187,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 if item["key"] != "_example"],
             knowledge_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")],
-            stt_models=[
-                {"value": "tiny", "label": "Tiny (39M, English)"},
-                {"value": "base", "label": "Base (74M, English)"},
-                {"value": "small", "label": "Small (244M, English)"},
-                {"value": "medium", "label": "Medium (769M, English)"},
-                {"value": "large", "label": "Large (1.5B, Multilingual)"},
-                {"value": "turbo", "label": "Turbo (Multilingual)"},
-            ],
             runtime_settings={},
         ),
     )
@@ -225,7 +208,6 @@ def convert_out(settings: Settings) -> SettingsOutput:
 
     additional["agent_subdirs"] = _ensure_option_present(additional.get("agent_subdirs"), current.get("agent_profile"))
     additional["knowledge_subdirs"] = _ensure_option_present(additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir"))
-    additional["stt_models"] = _ensure_option_present(additional.get("stt_models"), current.get("stt_model_size"))
 
     # masked api keys
     providers = get_providers("chat") + get_providers("embedding")
@@ -470,12 +452,6 @@ def get_default_settings() -> Settings:
         rfc_port_http=get_default_value("rfc_port_http", 55080),
         websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
         uvicorn_access_logs_enabled=get_default_value("uvicorn_access_logs_enabled", False),
-        stt_model_size=get_default_value("stt_model_size", "base"),
-        stt_language=get_default_value("stt_language", "en"),
-        stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
-        stt_silence_duration=get_default_value("stt_silence_duration", 1000),
-        stt_waiting_timeout=get_default_value("stt_waiting_timeout", 2000),
-        tts_kokoro=get_default_value("tts_kokoro", True),
         mcp_servers=get_default_value("mcp_servers", '{\n    "mcpServers": {}\n}'),
         mcp_client_init_timeout=get_default_value("mcp_client_init_timeout", 10),
         mcp_client_tool_timeout=get_default_value("mcp_client_tool_timeout", 120),
@@ -504,12 +480,6 @@ def _apply_settings(previous: Settings | None):
             while agent:
                 agent.config = ctx.config
                 agent = agent.get_data(agent.DATA_NAME_SUBORDINATE)
-
-        # reload whisper model if necessary
-        if not previous or _settings["stt_model_size"] != previous["stt_model_size"]:
-            task = defer.DeferredTask().start_task(
-                whisper.preload, _settings["stt_model_size"]
-            )  # TODO overkill, replace with background task
 
         # update mcp settings if necessary
         if not previous or _settings["mcp_servers"] != previous["mcp_servers"]:

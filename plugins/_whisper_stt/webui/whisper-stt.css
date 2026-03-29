@@ -1,0 +1,49 @@
+.microphone-button {
+  position: relative;
+  background: #0f766e;
+  color: #f8fafc;
+}
+
+.microphone-button:hover {
+  background: #115e59;
+}
+
+.microphone-button:active {
+  background: #134e4a;
+}
+
+.microphone-button.mic-activating,
+.microphone-button.mic-processing {
+  background: #6d28d9;
+}
+
+.microphone-button.mic-listening {
+  background: #0f766e;
+}
+
+.microphone-button.mic-recording {
+  background: #c1121f;
+  animation: whisper-mic-pulse 1.2s ease-in-out infinite;
+}
+
+.microphone-button.mic-waiting {
+  background: #9a6700;
+}
+
+.microphone-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+@keyframes whisper-mic-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(193, 18, 31, 0.35);
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 8px rgba(193, 18, 31, 0);
+  }
+}
