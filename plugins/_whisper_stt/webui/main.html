@@ -1,0 +1,176 @@
+<html>
+<head>
+  <title>Whisper STT</title>
+  <script type="module">
+    import { store } from "/plugins/_whisper_stt/webui/whisper-stt-store.js";
+  </script>
+</head>
+
+<body>
+  <div
+    x-data
+    x-init="$store.whisperStt.initRuntime()"
+    class="speech-plugin-page"
+  >
+    <template x-if="$store.whisperStt">
+      <div>
+        <div class="section-title">Whisper STT</div>
+        <div class="section-description">
+          Built-in Whisper transcription. Dependency installation stays on the Docker/bootstrap path;
+          this plugin only owns the speech-to-text behavior, UI, and routing.
+        </div>
+
+        <div class="speech-plugin-grid">
+          <div class="speech-plugin-card">
+            <div class="field-title">Provider State</div>
+            <div class="status-row">
+              <span class="status-key">Enabled</span>
+              <span class="status-badge" :class="$store.whisperStt.enabled ? 'ok' : 'warn'" x-text="$store.whisperStt.enabled ? 'Yes' : 'No'"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">Model</span>
+              <span class="status-badge" :class="$store.whisperStt.statusClass" x-text="$store.whisperStt.statusText"></span>
+            </div>
+            <div class="status-row" x-show="$store.whisperStt.loadedModel">
+              <span class="status-key">Loaded</span>
+              <span class="status-value" x-text="$store.whisperStt.loadedModel"></span>
+            </div>
+            <div class="status-row" x-show="$store.whisperStt.packageVersion">
+              <span class="status-key">Package</span>
+              <span class="status-value" x-text="$store.whisperStt.packageVersion"></span>
+            </div>
+          </div>
+
+          <div class="speech-plugin-card">
+            <div class="field-title">Resolved Config</div>
+            <div class="status-row">
+              <span class="status-key">Model size</span>
+              <span class="status-value" x-text="$store.whisperStt.config.model_size"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">Language</span>
+              <span class="status-value" x-text="$store.whisperStt.config.language"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">Threshold</span>
+              <span class="status-value" x-text="$store.whisperStt.config.silence_threshold"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">Silence</span>
+              <span class="status-value" x-text="`${$store.whisperStt.config.silence_duration} ms`"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">Wait</span>
+              <span class="status-value" x-text="`${$store.whisperStt.config.waiting_timeout} ms`"></span>
+            </div>
+          </div>
+
+          <div class="speech-plugin-card">
+            <div class="field-title">Microphone</div>
+            <div class="status-row">
+              <span class="status-key">Status</span>
+              <span class="status-badge warn" x-text="$store.whisperStt.micStatus"></span>
+            </div>
+            <label class="device-picker">
+              <span class="status-key">Device</span>
+              <select
+                :value="$store.whisperStt.selectedDevice"
+                @change="$store.whisperStt.selectDevice($event.target.value)"
+              >
+                <option value="">System default</option>
+                <template x-for="device in $store.whisperStt.devices" :key="device.deviceId">
+                  <option :value="device.deviceId" x-text="device.label || `Microphone ${device.deviceId}`"></option>
+                </template>
+              </select>
+            </label>
+            <div class="field-description">
+              Device selection is browser-local and applies to the microphone button injected by this plugin.
+            </div>
+          </div>
+        </div>
+
+        <div class="speech-plugin-actions">
+          <button class="btn btn-field" @click="$store.whisperStt.requestMicrophonePermission()">Request Mic Permission</button>
+          <button class="btn btn-field" @click="$store.whisperStt.openConfig()">Open Settings</button>
+          <button class="btn btn-field" @click="$store.whisperStt.refreshStatus()">Refresh</button>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .speech-plugin-page {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .speech-plugin-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .speech-plugin-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+      background: var(--color-input);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+    }
+
+    .speech-plugin-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-row,
+    .device-picker {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.84rem;
+    }
+
+    .device-picker {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .status-key {
+      opacity: 0.7;
+      min-width: 64px;
+    }
+
+    .status-value {
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      text-transform: capitalize;
+    }
+
+    .status-badge.ok {
+      color: #1b5e20;
+      background: rgba(46, 125, 50, 0.14);
+      border-color: rgba(46, 125, 50, 0.24);
+    }
+
+    .status-badge.warn {
+      color: #8a6100;
+      background: rgba(191, 144, 0, 0.14);
+      border-color: rgba(191, 144, 0, 0.24);
+    }
+  </style>
+</body>
+</html>

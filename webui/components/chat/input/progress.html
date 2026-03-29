@@ -1,7 +1,6 @@
 <html>
 <head>
     <script type="module">
-        import { store as speechStore } from "/components/chat/speech/speech-store.js";
         import { store as chatNavStore } from "/components/chat/navigation/chat-navigation-store.js";
     </script>
 </head>
@@ -13,8 +12,29 @@
         <span id="progress-bar" style="display:none;"></span>
 
         <div id="progress-bar-right">
-          <h4 id="progress-bar-stop-speech" x-data x-cloak x-show="$store.speech.isSpeaking">
-              <span id="stop-speech" @click="$store.speech.stop()" style="cursor: pointer" title="Stop Speech" aria-label="Stop Speech">
+          <h4
+            id="progress-bar-stop-speech"
+            x-data="{
+              speaking: window.ttsService?.isSpeaking?.() || false,
+              _listener: null,
+              init() {
+                this._listener = (event) => {
+                  this.speaking = !!event?.detail?.isSpeaking;
+                };
+                window.ttsService?.addEventListener?.('statechange', this._listener);
+              },
+              cleanup() {
+                if (this._listener) {
+                  window.ttsService?.removeEventListener?.('statechange', this._listener);
+                }
+              },
+            }"
+            x-init="init()"
+            x-destroy="cleanup()"
+            x-cloak
+            x-show="speaking"
+          >
+              <span id="stop-speech" @click="window.ttsService?.stop?.()" style="cursor: pointer" title="Stop Speech" aria-label="Stop Speech">
                   <span class="icon material-symbols-outlined">volume_off</span>
               </span>
           </h4>
