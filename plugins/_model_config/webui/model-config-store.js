@@ -1,5 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { store as pluginSettingsStore } from "/components/plugins/plugin-settings-store.js";
+import { apiKeysState, apiKeysMethods } from "/plugins/_model_config/webui/api-keys-mixin.js";
+import { switcherState, switcherMethods } from "/plugins/_model_config/webui/switcher-mixin.js";
 
 
 export const MODEL_SECTIONS = [
@@ -48,61 +50,36 @@ export function textToHeaders(text) {
 const API_BASE = "/plugins/_model_config";
 
 export const store = createStore("modelConfig", {
-  // Shared state
+  // Core state
   chatProviders: [],
   embeddingProviders: [],
-  apiKeyStatus: {},
-  apiKeyValues: {},
-  apiKeyDirty: {},
-  allProviders: [],
   _loaded: false,
+
+  // API Keys state (from mixin)
+  ...apiKeysState,
 
   // Global presets state
   globalPresets: [],
   _presetsLoaded: false,
 
-  // Settings include summary state
+  // Model summary state
   modelsSummary: [],
   modelsSummaryLoading: false,
   _modelsSummaryLoaded: false,
   _modelsSummaryPromise: null,
 
-  // Switcher state
-  switcherAllowed: false,
-  switcherOverride: null,
-  switcherPresets: [],
-  switcherLoading: true,
+  // Switcher state (from mixin)
+  ...switcherState,
 
   init() {},
 
-  _setProviderHasKey(provider, hasKey) {
-    if (!provider) return;
-    this.apiKeyStatus = { ...this.apiKeyStatus, [provider]: !!hasKey };
-    const normalized = provider.toLowerCase();
-    this.allProviders = (this.allProviders || []).map((item) =>
-      item.value?.toLowerCase() === normalized ? { ...item, has_key: !!hasKey } : item
-    );
-  },
+  // ── API Keys methods (from mixin) ──
+  ...apiKeysMethods,
 
-  _ensureApiKeySlot(provider) {
-    if (!provider) return;
-    if (!(provider in this.apiKeyValues)) {
-      this.apiKeyValues = { ...this.apiKeyValues, [provider]: '' };
-    }
-    if (!(provider in this.apiKeyDirty)) {
-      this.apiKeyDirty = { ...this.apiKeyDirty, [provider]: false };
-    }
-  },
+  // ── Switcher methods (from mixin) ──
+  ...switcherMethods,
 
-  _setApiKeyDirty(provider, isDirty) {
-    if (!provider) return;
-    this._ensureApiKeySlot(provider);
-    this.apiKeyDirty = { ...this.apiKeyDirty, [provider]: !!isDirty };
-  },
-
-  touchApiKey(provider) {
-    this._setApiKeyDirty(provider, true);
-  },
+  // ── Core methods ──
 
   _normalizePresets(rawPresets) {
     return (rawPresets || []).map(p => ({
@@ -143,52 +120,6 @@ export const store = createStore("modelConfig", {
     this._loaded = true;
   },
 
-  async refreshApiKeyStatus() {
-    await this.ensureLoaded();
-    const res = await fetchApi(`${API_BASE}/api_keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'get' })
-    });
-    const data = await res.json();
-    const keys = data.keys || {};
-
-    const nextStatus = { ...this.apiKeyStatus };
-    const nextValues = { ...this.apiKeyValues };
-    const nextDirty = { ...this.apiKeyDirty };
-
-    for (const provider of this.allProviders) {
-      const entry = keys[provider.value] || {};
-      const hasKey = !!entry.has_key;
-      nextStatus[provider.value] = hasKey;
-      provider.has_key = hasKey;
-      if (!(provider.value in nextDirty)) {
-        nextDirty[provider.value] = false;
-      }
-      if (!hasKey && !nextDirty[provider.value]) {
-        nextValues[provider.value] = '';
-      }
-    }
-
-    this.apiKeyStatus = nextStatus;
-    this.apiKeyValues = nextValues;
-    this.apiKeyDirty = nextDirty;
-    this.allProviders = [...this.allProviders];
-    return keys;
-  },
-
-  resetApiKeyDrafts() {
-    const nextValues = {};
-    const nextDirty = {};
-    for (const provider of this.allProviders || []) {
-      if (!provider?.value) continue;
-      nextValues[provider.value] = '';
-      nextDirty[provider.value] = false;
-    }
-    this.apiKeyValues = nextValues;
-    this.apiKeyDirty = nextDirty;
-  },
-
   async _fetchConfigData() {
     const res = await fetchApi(`${API_BASE}/model_config_get`, {
       method: 'POST',
@@ -223,12 +154,12 @@ export const store = createStore("modelConfig", {
   },
 
   async saveGlobalPresets(presets) {
-    // Strip UI-only fields before saving
+    // Strip UI-only and globally-managed fields before saving
     const clean = presets.map(p => {
       const c = { name: p.name };
       for (const slot of ['chat', 'utility']) {
         if (p[slot]) {
-          const { _kwargs_text, ...rest } = p[slot];
+          const { _kwargs_text, api_key, ...rest } = p[slot];
           c[slot] = rest;
         }
       }
@@ -265,85 +196,14 @@ export const store = createStore("modelConfig", {
     }
   },
 
-  // API Key operations
-  async saveApiKeys(updates) {
-    const normalized = {};
-    for (const [provider, value] of Object.entries(updates || {})) {
-      if (!provider || typeof value !== 'string') continue;
-      normalized[provider] = value.trim() ? value : '';
-    }
+  /**
+   * Install save and reset hooks on the plugin settings context.
+   * - Save: persists dirty API keys before the normal config save.
+   * - Reset: reloads global presets when settings are reset to defaults.
+   */
+  installSettingsHooks(context, config) {
+    if (!context || context.__modelConfigHooksInstalled) return;
 
-    if (Object.keys(normalized).length === 0) {
-      return { ok: true };
-    }
-
-    const res = await fetchApi(`${API_BASE}/api_keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'set', keys: normalized })
-    });
-    const data = await res.json();
-    if (!data?.ok) {
-      throw new Error(data?.error || 'Failed to save API keys.');
-    }
-
-    const nextValues = { ...this.apiKeyValues };
-    const nextDirty = { ...this.apiKeyDirty };
-    for (const [provider, value] of Object.entries(normalized)) {
-      nextValues[provider] = value;
-      nextDirty[provider] = false;
-      this._setProviderHasKey(provider, !!value.trim());
-    }
-    this.apiKeyValues = nextValues;
-    this.apiKeyDirty = nextDirty;
-    return data;
-  },
-
-  async saveApiKey(provider, value) {
-    return this.saveApiKeys({ [provider]: value });
-  },
-
-  saveApiKeyIfSet(provider) {
-    if (provider in this.apiKeyValues) {
-      return this.saveApiKey(provider, this.apiKeyValues[provider] || '');
-    }
-  },
-
-  async revealApiKey(provider) {
-    const res = await fetchApi(`${API_BASE}/api_keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reveal', provider })
-    });
-    const data = await res.json();
-    if (!data?.ok) {
-      throw new Error(data?.error || 'Failed to load API key.');
-    }
-    const value = data.value || '';
-    if (provider) {
-      this._ensureApiKeySlot(provider);
-      this.apiKeyValues = { ...this.apiKeyValues, [provider]: value };
-      this._setApiKeyDirty(provider, false);
-      this._setProviderHasKey(provider, !!value.trim());
-    }
-    return value;
-  },
-
-  async persistApiKeysForConfig(config) {
-    const updates = {};
-    const seen = new Set();
-    for (const section of this.MODEL_SECTIONS) {
-      const provider = config?.[section.key]?.provider;
-      if (!provider || seen.has(provider) || !this.apiKeyDirty[provider]) continue;
-      seen.add(provider);
-      const value = this.apiKeyValues[provider];
-      updates[provider] = typeof value === 'string' ? value : '';
-    }
-    return this.saveApiKeys(updates);
-  },
-
-  installPluginSettingsSaveHook(context, config) {
-    if (!context || context.__modelConfigSaveHookInstalled) return;
     const originalSave = context.save.bind(context);
     context.save = async () => {
       context.error = null;
@@ -355,7 +215,17 @@ export const store = createStore("modelConfig", {
       }
       await originalSave();
     };
-    context.__modelConfigSaveHookInstalled = true;
+
+    const originalReset = context.resetToDefault.bind(context);
+    context.resetToDefault = async () => {
+      const before = context.settings;
+      await originalReset();
+      if (context.settings !== before) {
+        await this.resetGlobalPresets();
+      }
+    };
+
+    context.__modelConfigHooksInstalled = true;
   },
 
   // Model search
@@ -393,68 +263,6 @@ export const store = createStore("modelConfig", {
       else rest.push(m);
     }
     return { matched, rest };
-  },
-
-  // Model Switcher
-  async loadSwitcherState(contextId) {
-    const result = { allowed: false, presets: [], override: null };
-    try {
-      await this.loadGlobalPresets();
-      result.presets = this.globalPresets.filter(p => p.name);
-      if (contextId) {
-        const overRes = await fetchApi(`${API_BASE}/model_override`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get", context_id: contextId }),
-        });
-        const overData = await overRes.json();
-        result.allowed = !!overData.allowed;
-        result.override = overData.override || null;
-      }
-    } catch (e) {
-      console.error("Model switcher load failed:", e);
-    }
-    return result;
-  },
-
-  async setPresetOverride(contextId, presetName) {
-    try {
-      const res = await fetchApi(`${API_BASE}/model_override`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "set_preset", context_id: contextId, preset_name: presetName }),
-      });
-      return !!(await res.json()).ok;
-    } catch (e) {
-      console.error("Failed to set preset override:", e);
-      return false;
-    }
-  },
-
-  async clearOverride(contextId) {
-    try {
-      const res = await fetchApi(`${API_BASE}/model_override`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "clear", context_id: contextId }),
-      });
-      return !!(await res.json()).ok;
-    } catch (e) {
-      console.error("Failed to clear override:", e);
-      return false;
-    }
-  },
-
-  getPresetLabel(preset) {
-    return preset?.name || "Unnamed";
-  },
-
-  getPresetSummary(preset) {
-    if (!preset) return "";
-    const parts = [];
-    if (preset.chat?.name) parts.push(preset.chat.name);
-    if (preset.utility?.name) parts.push(preset.utility.name);
-    return parts.join(" / ");
   },
 
   // Model summary for agent-settings page
@@ -522,54 +330,6 @@ export const store = createStore("modelConfig", {
         console.error('Failed to refresh API key status:', e);
       });
     }
-  },
-
-  // Switcher high-level methods
-  async refreshSwitcher(contextId) {
-    this.switcherLoading = true;
-    try {
-      const state = await this.loadSwitcherState(contextId);
-      this.switcherAllowed = state.allowed;
-      this.switcherPresets = state.presets;
-      this.switcherOverride = state.override;
-    } catch (e) {
-      console.error('Model switcher refresh failed:', e);
-    } finally {
-      this.switcherLoading = false;
-    }
-  },
-
-  async selectPresetSwitch(contextId, presetName) {
-    const ok = await this.setPresetOverride(contextId, presetName);
-    if (ok) this.switcherOverride = { preset_name: presetName };
-    return ok;
-  },
-
-  async clearOverrideSwitch(contextId) {
-    const ok = await this.clearOverride(contextId);
-    if (ok) this.switcherOverride = null;
-    return ok;
-  },
-
-  getSwitcherLabel() {
-    const o = this.switcherOverride;
-    if (!o) return 'Default LLM';
-    return o.preset_name || o.name || o.provider || 'Custom';
-  },
-
-  getActivePreset() {
-    const o = this.switcherOverride;
-    if (!o || !o.preset_name) return null;
-    return this.switcherPresets.find(p => p.name === o.preset_name) || null;
-  },
-
-  getActiveModels() {
-    const preset = this.getActivePreset();
-    if (!preset) return { main: null, utility: null };
-    return {
-      main: preset.chat?.name ? { provider: preset.chat.provider, name: preset.chat.name } : null,
-      utility: preset.utility?.name ? { provider: preset.utility.provider, name: preset.utility.name } : null,
-    };
   },
 
   // Text conversion utilities (accessible from templates via $store.modelConfig)

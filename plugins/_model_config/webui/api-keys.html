@@ -11,35 +11,22 @@
 <div x-data>
 <template x-if="$store.modelConfig">
 <div x-data="{
-       keys: {},
-       originalKeys: {},
-       touched: {},
        loading: true,
        saving: false,
        error: '',
        get hasChanges() {
-         return Object.keys(this.touched).some((provider) => this.touched[provider]);
+         const dirty = $store.modelConfig.apiKeyDirty;
+         return Object.keys(dirty).some((p) => dirty[p]);
        },
        async init() {
          await $store.modelConfig.ensureLoaded();
          $store.modelConfig.resetApiKeyDrafts();
          await $store.modelConfig.refreshApiKeyStatus();
-         $store.modelConfig.allProviders.forEach((provider) => {
-           this.keys[provider.value] = '';
-           this.originalKeys[provider.value] = '';
-           this.touched[provider.value] = false;
-         });
          this.loading = false;
-       },
-       markChanged(provider) {
-         this.touched[provider] = this.keys[provider] !== this.originalKeys[provider];
        },
        async reveal(provider) {
          try {
-           const value = await $store.modelConfig.revealApiKey(provider);
-           this.keys[provider] = value || '';
-           this.originalKeys[provider] = value || '';
-           this.touched[provider] = false;
+           await $store.modelConfig.revealApiKey(provider);
          } catch (e) {
            this.error = e?.message || 'Failed to reveal API key.';
          }
@@ -48,12 +35,7 @@
          this.saving = true;
          this.error = '';
          try {
-           const updates = {};
-           for (const provider of Object.keys(this.touched)) {
-             if (!this.touched[provider]) continue;
-             updates[provider] = this.keys[provider] || '';
-           }
-           await $store.modelConfig.saveApiKeys(updates);
+           await $store.modelConfig.persistAllDirtyApiKeys();
            await $store.modelConfig.refreshApiKeyStatus();
            window.closeModal?.();
          } catch (e) {
@@ -89,15 +71,15 @@
           </div>
           <div class="field-control" style="position:relative;" x-data="{ showKey: false }">
             <input :type="showKey ? 'text' : 'password'"
-                   x-model="keys[provider.value]"
+                   :value="$store.modelConfig.apiKeyValues[provider.value]"
                    :placeholder="provider.has_key ? '••••••••••••' : ''"
                    autocomplete="off"
-                   @input="markChanged(provider.value)"
+                   @input="$store.modelConfig.setApiKeyValue(provider.value, $el.value)"
                    style="padding-right:32px;" />
             <span class="material-symbols-outlined eye-toggle"
                   @click="
                     showKey = !showKey;
-                    if (showKey && !keys[provider.value] && provider.has_key) {
+                    if (showKey && !$store.modelConfig.apiKeyValues[provider.value] && provider.has_key) {
                       reveal(provider.value);
                     }
                   "
