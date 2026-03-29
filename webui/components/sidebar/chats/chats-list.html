@@ -26,6 +26,7 @@
             <li>
               <div :class="{'chat-container': true, 'chat-selected': context.id === $store.chats.selected}"
                 @click="$store.chats.selectChat(context.id)">
+                <x-extension id="sidebar-chat-item-start"></x-extension>
                 <div class="chat-list-button">
                   <span :class="{'project-color-ball': true, 'heartbeat': context.running}"
                     :style="context.project?.color ? { backgroundColor: context.project.color } : { border: '1px solid var(--color-border)' }"></span>
@@ -35,6 +36,7 @@
                 <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
                   <span class="material-symbols-outlined">close</span>
                 </button>
+                <x-extension id="sidebar-chat-item-end"></x-extension>
               </div>
             </li>
           </template>
