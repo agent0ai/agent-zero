@@ -907,6 +907,7 @@ class Agent:
                         self,
                         tool_args=tool_args or {},
                         tool_name=tool_name,
+                        tool=tool,
                     )
 
                     response = await tool.execute(**tool_args)
@@ -918,6 +919,7 @@ class Agent:
                         self,
                         response=response,
                         tool_name=tool_name,
+                        tool=tool,
                     )
 
                     await tool.after_execution(response)
