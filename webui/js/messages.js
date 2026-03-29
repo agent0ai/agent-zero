@@ -3,7 +3,7 @@ import { store as imageViewerStore } from "../components/modals/image-viewer/ima
 import { marked } from "../vendor/marked/marked.esm.js";
 import { store as _messageResizeStore } from "/components/messages/resize/message-resize-store.js"; // keep here, required in html
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
-import { store as speechStore } from "/components/chat/speech/speech-store.js";
+import { ttsService } from "/js/tts-service.js";
 import {
   createActionButton,
   copyToClipboard,
@@ -779,7 +779,7 @@ export function drawMessageDefault({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -832,7 +832,7 @@ export function drawMessageAgent({
 
   if (thoughtsText.trim()) {
     actionButtons.push(
-      createActionButton("speak", "", () => speechStore.speak(thoughtsText)),
+      createActionButton("speak", "", () => ttsService.speak(thoughtsText)),
     );
     actionButtons.push(
       createActionButton("copy", "", () => copyToClipboard(thoughtsText)),
@@ -870,7 +870,7 @@ export function drawMessageResponse({
     const contentText = String(content ?? "");
     const actionButtons = contentText.trim()
       ? [
-          createActionButton("speak", "", () => speechStore.speak(contentText)),
+          createActionButton("speak", "", () => ttsService.speak(contentText)),
           createActionButton("copy", "", () => copyToClipboard(contentText)),
         ].filter(Boolean)
       : [];
@@ -937,7 +937,7 @@ export function drawMessageResponse({
   const responseText = String(content ?? "");
   const responseActionButtons = responseText.trim()
     ? [
-        createActionButton("speak", "", () => speechStore.speak(responseText)),
+        createActionButton("speak", "", () => ttsService.speak(responseText)),
         createActionButton("copy", "", () => copyToClipboard(responseText)),
       ].filter(Boolean)
     : [];
@@ -1080,7 +1080,7 @@ export function drawMessageUser({
   const userText = String(content ?? "");
   const userActionButtons = userText.trim()
     ? [
-        createActionButton("speak", "", () => speechStore.speak(userText)),
+        createActionButton("speak", "", () => ttsService.speak(userText)),
         createActionButton("copy", "", () => copyToClipboard(userText)),
       ].filter(Boolean)
     : [];
@@ -1170,7 +1170,7 @@ export function drawMessageToolSimple({
             buildDetailPayload(arguments[0], { headerLabels }),
           ),
         ),
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1215,7 +1215,7 @@ export function drawMessageMcp({
             buildDetailPayload(arguments[0], { headerLabels }),
           ),
         ),
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1260,7 +1260,7 @@ export function drawMessageSubagent({
             buildDetailPayload(arguments[0], { headerLabels }),
           ),
         ),
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1294,7 +1294,7 @@ export function drawMessageInfo({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1330,7 +1330,7 @@ export function drawMessageUtil({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1369,7 +1369,7 @@ export function drawMessageHint({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1437,7 +1437,7 @@ export function drawMessageWarning({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => speechStore.speak(contentText)),
+        createActionButton("speak", "", () => ttsService.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];

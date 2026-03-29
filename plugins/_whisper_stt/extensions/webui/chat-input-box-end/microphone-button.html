@@ -1,0 +1,18 @@
+<div x-data>
+  <template x-if="$store.whisperStt">
+    <template x-teleport="#chat-buttons-wrapper">
+      <button
+        type="button"
+        id="microphone-button"
+        class="chat-button microphone-button"
+        :class="`mic-${$store.whisperStt.micStatus}`"
+        :title="$store.whisperStt.buttonTitle"
+        :aria-label="$store.whisperStt.buttonTitle"
+        :disabled="$store.whisperStt.loading || $store.whisperStt.isProcessingClick"
+        @click="$store.whisperStt.handleMicrophoneClick()"
+      >
+        <span class="material-symbols-outlined" x-text="$store.whisperStt.buttonIcon"></span>
+      </button>
+    </template>
+  </template>
+</div>

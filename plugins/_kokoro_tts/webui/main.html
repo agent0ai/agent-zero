@@ -1,0 +1,135 @@
+<html>
+<head>
+  <title>Kokoro TTS</title>
+  <script type="module">
+    import { store } from "/plugins/_kokoro_tts/webui/kokoro-tts-store.js";
+  </script>
+</head>
+
+<body>
+  <div
+    x-data
+    x-init="$store.kokoroTts.ensureStatusLoaded()"
+    class="speech-plugin-page"
+  >
+    <template x-if="$store.kokoroTts">
+      <div>
+        <div class="section-title">Kokoro TTS</div>
+        <div class="section-description">
+          Built-in Kokoro speech synthesis. Dependency installation remains on the
+          Docker/bootstrap path; disabling this plugin returns spoken output to the
+          browser fallback.
+        </div>
+
+        <div class="speech-plugin-grid">
+          <div class="speech-plugin-card">
+            <div class="field-title">Provider State</div>
+            <div class="status-row">
+              <span class="status-key">Enabled</span>
+              <span class="status-badge" :class="$store.kokoroTts.enabled ? 'ok' : 'warn'" x-text="$store.kokoroTts.enabled ? 'Yes' : 'No'"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">Model</span>
+              <span class="status-badge" :class="$store.kokoroTts.statusClass" x-text="$store.kokoroTts.statusText"></span>
+            </div>
+            <div class="status-row" x-show="$store.kokoroTts.packageVersion">
+              <span class="status-key">Package</span>
+              <span class="status-value" x-text="$store.kokoroTts.packageVersion"></span>
+            </div>
+          </div>
+
+          <div class="speech-plugin-card">
+            <div class="field-title">Resolved Config</div>
+            <div class="status-row">
+              <span class="status-key">Voice</span>
+              <span class="status-value mono" x-text="$store.kokoroTts.config.voice"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">Speed</span>
+              <span class="status-value" x-text="$store.kokoroTts.config.speed"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="speech-plugin-actions">
+          <button class="btn btn-field" @click="$store.kokoroTts.openConfig()">Open Settings</button>
+          <button class="btn btn-field" @click="$store.kokoroTts.refreshStatus()">Refresh</button>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .speech-plugin-page {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .speech-plugin-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .speech-plugin-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+      background: var(--color-input);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+    }
+
+    .speech-plugin-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.84rem;
+    }
+
+    .status-key {
+      opacity: 0.7;
+      min-width: 64px;
+    }
+
+    .status-value {
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .status-badge.ok {
+      color: #1b5e20;
+      background: rgba(46, 125, 50, 0.14);
+      border-color: rgba(46, 125, 50, 0.24);
+    }
+
+    .status-badge.warn {
+      color: #8a6100;
+      background: rgba(191, 144, 0, 0.14);
+      border-color: rgba(191, 144, 0, 0.24);
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+  </style>
+</body>
+</html>
