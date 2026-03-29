@@ -23,10 +23,9 @@ This guide consolidates everything you need to design, implement, and troublesho
 ## Architecture at a Glance
 
 - **Runtime (`run_ui.py`)** – boots `python-socketio.AsyncServer` inside an ASGI stack served by Uvicorn. Flask routes are mounted via `uvicorn.middleware.wsgi.WSGIMiddleware`, and Flask + Socket.IO share the same process so session cookies and CSRF semantics stay aligned.
-- **Singleton handlers** – every `WebSocketHandler` subclass exposes `get_instance()` and is registered exactly once. Direct instantiation raises `SingletonInstantiationError`, keeping shared state and lifecycle hooks deterministic.
-- **Dispatcher offload** – handler entrypoints (`process_event`, `on_connect`, `on_disconnect`) run in a background worker loop (via `DeferredTask`) so blocking handlers cannot stall the Socket.IO transport. Socket.IO emits/disconnects are marshalled back to the dispatcher loop. Diagnostic timing and payload summaries are only built when Event Console watchers are subscribed (development mode).
-- **`python/helpers/websocket_manager.py`** – orchestrates routing, buffering, aggregation, metadata envelopes, and session tracking. Think of it as the “switchboard” for every WebSocket event.
-- **`python/helpers/websocket.py`** – base class for application handlers. Provides lifecycle hooks, helper methods (`emit_to`, `broadcast`, `request`, `request_all`) and identifier metadata.
+- **Handler base class** – every handler derives from `WsHandler` (defined in `helpers/ws.py`) and implements `process(event, data, sid)`. Handlers are instantiated directly and registered with the manager.
+- **Dispatcher offload** – handler entrypoints (`process`, `on_connect`, `on_disconnect`) run in a background worker loop (via `DeferredTask`) so blocking handlers cannot stall the Socket.IO transport. Socket.IO emits/disconnects are marshalled back to the dispatcher loop. Diagnostic timing and payload summaries are only built when Event Console watchers are subscribed (development mode).
+- **`helpers/ws_manager.py`** – orchestrates routing, buffering, aggregation, metadata envelopes, and session tracking. Think of it as the "switchboard" for every WebSocket event.
 - **`webui/js/websocket.js`** – frontend singleton exposing a minimal client API (`emit`, `request`, `on`, `off`) with lazy connection management and development-only logging (no client-side `broadcast()` or `requestAll()` helpers).
 - **Developer Harness (`webui/components/settings/developer/websocket-test-store.js`)** – manual and automatic validation suite for emit/request flows, timeout behaviour (including the default unlimited wait), correlation ID propagation, envelope metadata, subscription persistence across reconnect, and development-mode diagnostics.
 - **Specs & Contracts** – canonical definitions live under `specs/003-websocket-event-handlers/`. This guide references those documents but focuses on applied usage.
@@ -38,7 +37,7 @@ This guide consolidates everything you need to design, implement, and troublesho
 | Term | Where it Appears | Meaning |
 |------|------------------|---------|
 | `sid` | Socket.IO | Connection identifier for a Socket.IO namespace connection. With only the root namespace (`/`), each tab has one `sid`. When connecting to multiple namespaces, a tab has one `sid` per namespace. Treat connection identity as `(namespace, sid)`. |
-| `handlerId` | Manager Envelope | Fully-qualified Python class name (e.g., `python.websocket_handlers.notifications.NotificationHandler`). Used for result aggregation and logging. |
+| `handlerId` | Manager Envelope | Fully-qualified Python class name (e.g., `api.ws_webui.WsWebui`). Used for result aggregation and logging. |
 | `eventId` | Manager Envelope | UUIDv4 generated for every server→client delivery. Unique per emission. Useful when correlating broadcast fan-out or diagnosing duplicates. |
 | `correlationId` | Bidirectional flows | Thread that ties together request, response, and any follow-up events. Client may supply one; otherwise the manager generates and echoes it everywhere. |
 | `data` | Envelope payload | Application payload you define. Always a JSON-serialisable object. |
@@ -53,7 +52,7 @@ Useful mental model: **client ↔ manager ↔ handler**. The manager normalises 
 
 1. **Lazy Connect** – `/js/websocket.js` connects only when a consumer uses the client API (e.g., `emit`, `request`, `on`). Consumers may still explicitly `await websocket.connect()` to block UI until the socket is ready.
 2. **Handshake** – Socket.IO connects using the existing Flask session cookie and a CSRF token provided via the Socket.IO `auth` payload (`csrf_token`). The token is obtained from `GET /csrf_token` (see `/js/api.js#getCsrfToken()`), which also sets the runtime-scoped cookie `csrf_token_{runtime_id}`. The server validates an **Origin allowlist** (RFC 6455 / OWASP CSWSH baseline) and then checks handler requirements (`requires_auth`, `requires_csrf`) before accepting.
-3. **Lifecycle Hooks** – After acceptance, `WebSocketHandler.on_connect(sid)` fires for every registered handler. Use it for initial emits, state bookkeeping, or session tracking.
+3. **Lifecycle Hooks** – After acceptance, `WsHandler.on_connect(sid)` fires for every registered handler. Use it for initial emits, state bookkeeping, or session tracking.
 4. **Normal Operation** – Client emits events. Manager routes them to the appropriate handlers, gathers results, and wraps outbound deliveries in the mandatory envelope.
 5. **Disconnection & Buffering** – If a tab goes away without a graceful disconnect, fire-and-forget events accumulate (max 100). On reconnect, the manager flushes the buffer via `emit_to`. Request flows respond with explicit `CONNECTION_NOT_FOUND` errors.
 6. **Reconnection Attempts** – Socket.IO handles reconnect attempts; the manager continues to buffer fire-and-forget events (up to 1 hour) for temporarily disconnected SIDs and flushes them on reconnect.
@@ -70,13 +69,13 @@ Agent Zero can also push poll-shaped state snapshots over the WebSocket bus, rep
 ### Thinking in Roles
 
 - **Client** (frontend) is the page that imports `/js/websocket.js`. It acts as both a **producer** (calling `emit`, `request`) and a **consumer** (subscribing with `on`).
-- **Manager** (`WebSocketManager`) sits server-side and routes everything. It resolves correlation IDs, wraps envelopes, and fans out results.
-- **Handler** (`WebSocketHandler`) executes the application logic. Each handler may emit additional events back to the client or initiate its own requests to connected SIDs.
+- **Manager** (`WsManager`) sits server-side and routes everything. It resolves correlation IDs, wraps envelopes, and fans out results.
+- **Handler** (`WsHandler`) executes the application logic. Each handler may emit additional events back to the client or initiate its own requests to connected SIDs.
 
 ### Flow Overview (by Operation)
 
 ```
-Client emit() ───▶ Manager route_event() ───▶ Handler.process_event()
+Client emit() ───▶ Manager route_event() ───▶ Handler.process()
    │                │                           └──(fire-and-forget, no ack)
    └── throws if    └── validates payload + routes by namespace/event type
        not connected    updates last_activity
@@ -137,28 +136,25 @@ These expanded flows complement the operation matrix later in the guide, ensurin
 
 ### 1. Handler Discovery & Setup
 
-Handlers are discovered deterministically from `python/websocket_handlers/`:
+Handlers are `WsHandler` subclasses discovered from `api/ws_*.py`:
 
-- **File entry**: `python/websocket_handlers/webui_handler.py` → namespace `/webui`
-- **Folder entry**: `python/websocket_handlers/orders/` or `python/websocket_handlers/orders_handler/` → namespace `/orders` (loads `*.py` one level deep; ignores `__init__.py` and deeper nesting)
-- **Reserved root**: `python/websocket_handlers/_default.py` → namespace `/` (diagnostics-only by default)
+- **Example**: `api/ws_webui.py` → handles WebUI events
+- **Dev test**: `api/ws_dev_test.py` → developer harness handler
+- **Hello**: `api/ws_hello.py` → minimal example handler
 
-Create handler modules under the appropriate namespace entry and inherit from `WebSocketHandler`.
+Create new handler files as `api/ws_<name>.py` and inherit from `WsHandler`.
 
 ```python
-from helpers.websocket import WebSocketHandler
+from helpers.ws import WsHandler
 
-class DashboardHandler(WebSocketHandler):
-    @classmethod
-    def get_event_types(cls) -> list[str]:
-        return ["dashboard_refresh", "dashboard_push"]
+class WsMyFeature(WsHandler):
 
-    async def process_event(self, event_type: str, data: dict[str, Any], sid: str) -> dict | None:
-        if event_type == "dashboard_refresh":
+    async def process(self, event: str, data: dict, sid: str) -> dict | None:
+        if event == "dashboard_refresh":
             stats = await self._load_stats(data.get("scope", "all"))
             return {"ok": True, "stats": stats}
 
-        if event_type == "dashboard_push":
+        if event == "dashboard_push":
             await self.broadcast(
                 "dashboard_update",
                 {"stats": data.get("stats", {}), "source": sid},
@@ -167,16 +163,16 @@ class DashboardHandler(WebSocketHandler):
         return None
 ```
 
-Handlers are auto-loaded on startup; duplicate event declarations produce warnings but are supported. Use `validate_event_types` to ensure names follow lowercase snake_case and avoid Socket.IO reserved events.
+Handlers are auto-loaded on startup. The `handlerId` is derived automatically from the fully-qualified class name (e.g., `api.ws_my_feature.WsMyFeature`). All registered handlers receive every event; use conditional logic inside `process()` to filter by event type.
 
 ### 2. Consuming Client Events (Server as Consumer)
 
-- Implement `process_event` and return either `None` (fire-and-forget) or a dict that becomes the handler’s contribution in `results[]`.
+- Implement `process` and return either `None` (fire-and-forget) or a dict that becomes the handler's contribution in `results[]`.
 - Use dependency injection (async functions, database calls, etc.) but keep event loop friendly—no blocking calls.
 - Validate input vigorously and return structured errors as needed.
 
 ```python
-async def process_event(self, event_type: str, data: dict, sid: str) -> dict | None:
+async def process(self, event: str, data: dict, sid: str) -> dict | None:
     if "query" not in data:
         return {"ok": False, "error": {"code": "VALIDATION", "error": "Missing query"}}
 
@@ -226,7 +222,7 @@ if not results:
 
 ### 5. Session Tracking Helpers
 
-`WebSocketManager` maintains lightweight mappings that you can use from handlers:
+`WsManager` maintains lightweight mappings that you can use from handlers:
 
 ```python
 all_sids = self.manager.get_sids_for_user()      # today: every active sid
@@ -273,7 +269,7 @@ console.log(window.runtimeInfo.id, window.runtimeInfo.isDevelopment);
 
 ### Namespaces (end-state)
 
-- The root namespace (`/`) is reserved and intentionally unhandled by default for application events. Feature code should connect to an explicit namespace (for example `/webui`).
+- The root namespace (`/`) is reserved and intentionally unhandled by default for application events. Feature code should connect to the `/ws` namespace (defined as `NAMESPACE` in `helpers/ws.py`).
 - The frontend exposes `createNamespacedClient(namespace)` and `getNamespacedClient(namespace)` (one client instance per namespace per tab). Namespaced clients expose the same minimal API: `emit`, `request`, `on`, `off`.
 - Unknown namespaces are rejected deterministically during the Socket.IO connect handshake with a `connect_error` payload:
   - `err.message === "UNKNOWN_NAMESPACE"`
@@ -470,21 +466,15 @@ results.forEach(({ handlerId, ok, data, error }) => {
 Server (two handlers listening to the same event):
 
 ```python
-class TaskMetrics(WebSocketHandler):
-    @classmethod
-    def get_event_types(cls) -> list[str]:
-        return ["refresh_metrics"]
+class TaskMetrics(WsHandler):
 
-    async def process_event(self, event_type: str, data: dict, sid: str) -> dict | None:
+    async def process(self, event: str, data: dict, sid: str) -> dict | None:
         stats = await self._load_task_metrics(data["duration"])
         return {"metrics": stats}
 
-class HostMetrics(WebSocketHandler):
-    @classmethod
-    def get_event_types(cls) -> list[str]:
-        return ["refresh_metrics"]
+class HostMetrics(WsHandler):
 
-    async def process_event(self, event_type: str, data: dict, sid: str) -> dict | None:
+    async def process(self, event: str, data: dict, sid: str) -> dict | None:
         return {"metrics": await self._load_host_metrics(data["duration"])}
 ```
 
@@ -517,8 +507,8 @@ websocket.on("confirm_close_tab", async ({ data, correlationId }) => {
 Sometimes you want to acknowledge work immediately but stream additional updates later. Combine `request()` for the initial confirmation and `emit_to()` for follow-up events using the same correlation ID.
 
 ```python
-async def process_event(self, event_type: str, data: dict, sid: str) -> dict | None:
-    if event_type != "start_long_task":
+async def process(self, event: str, data: dict, sid: str) -> dict | None:
+    if event != "start_long_task":
         return None
 
     correlation_id = data.get("correlationId")
@@ -550,7 +540,7 @@ The manager validates the payload, resolves/creates `correlationId`, and passes 
 
 ```json
 {
-  "handlerId": "python.websocket_handlers.notifications.NotificationHandler",
+  "handlerId": "api.ws_webui.WsWebui",
   "eventId": "b7e2a9cd-2857-4f7a-8bf4-12a736cb6720",
   "correlationId": "caller-supplied-or-generated",
   "ts": "2025-10-31T13:13:37.123Z",
@@ -579,8 +569,8 @@ The manager validates the payload, resolves/creates `correlationId`, and passes 
 ### WebSocket Event Console
 
 - Location: `Settings → Developer → WebSocket Event Console`.
-- Enabling capture calls `websocket.request("ws_event_console_subscribe", { requestedAt })`. The handler (`DevWebsocketTestHandler`) refuses the subscription outside development mode and registers the SID as a **diagnostic watcher** by calling `WebSocketManager.register_diagnostic_watcher`. Only connected SIDs can subscribe.
-- Disabling capture calls `websocket.request("ws_event_console_unsubscribe", {})`. Disconnecting also triggers `WebSocketManager.unregister_diagnostic_watcher`, so stranded watchers never accumulate.
+- Enabling capture calls `websocket.request("ws_event_console_subscribe", { requestedAt })`. The handler (`DevWebsocketTestHandler`) refuses the subscription outside development mode and registers the SID as a **diagnostic watcher** by calling `WsManager.register_diagnostic_watcher`. Only connected SIDs can subscribe.
+- Disabling capture calls `websocket.request("ws_event_console_unsubscribe", {})`. Disconnecting also triggers `WsManager.unregister_diagnostic_watcher`, so stranded watchers never accumulate.
 - While at least one watcher exists, the manager streams `ws_dev_console_event` envelopes (documented in `contracts/event-schemas.md`). Each payload contains:
   - `kind`: `"inbound" | "outbound" | "lifecycle"`
   - `eventType`, `sid`, `targets[]`, delivery/buffer flags
@@ -596,7 +586,7 @@ The manager validates the payload, resolves/creates `correlationId`, and passes 
 
 ### Instrumentation & Logging
 
-- `WebSocketManager` offloads handler execution via `DeferredTask` and may record `durationMs` when development diagnostics are active (Event Console watchers subscribed). These metrics flow into the Event Console stream (and may also appear in `request()` / `request_all()` results), keeping steady-state overhead near zero when diagnostics are closed.
+- `WsManager` offloads handler execution via `DeferredTask` and may record `durationMs` when development diagnostics are active (Event Console watchers subscribed). These metrics flow into the Event Console stream (and may also appear in `request()` / `request_all()` results), keeping steady-state overhead near zero when diagnostics are closed.
 - Lifecycle events capture `connectionCount`, ISO8601 timestamps, and SID so dashboards can correlate UI behaviour with connection churn.
 - Backend logging: use `PrintStyle.debug/info/warning` and always include `handlerId`, `eventType`, `sid`, and `correlationId`. The manager already logs connection events, missing handlers, and buffer overflows.
 - Frontend logging: `websocket.debugLog()` mirrors backend debug messages but only when `window.runtimeInfo.isDevelopment` is true.
@@ -617,7 +607,7 @@ The manager validates the payload, resolves/creates `correlationId`, and passes 
 
 ## Best Practices Checklist
 
-- [ ] Always validate inbound payloads in `process_event` (required fields, type constraints, length limits).
+- [ ] Always validate inbound payloads in `process()` (required fields, type constraints, length limits).
 - [ ] Propagate `correlationId` through multi-step workflows so logs and envelopes align.
 - [ ] Respect the 50 MB payload cap; prefer HTTP + polling for bulk data transfers.
 - [ ] Ensure long-running operations emit progress via `emit_to` or switch to an async task with periodic updates.
@@ -661,20 +651,21 @@ The manager validates the payload, resolves/creates `correlationId`, and passes 
   - [`frontend-api.md`](../specs/003-websocket-event-handlers/contracts/frontend-api.md)
   - [`event-schemas.md`](../specs/003-websocket-event-handlers/contracts/event-schemas.md)
   - [`security-contract.md`](../specs/003-websocket-event-handlers/contracts/security-contract.md)
-- **Implementation Reference** – Inspect `python/helpers/websocket_manager.py`, `python/helpers/websocket.py`, `webui/js/websocket.js`, and the developer harness in `webui/components/settings/developer/websocket-test-store.js` for concrete examples.
+- **Implementation Reference** – Inspect `helpers/ws_manager.py`, `helpers/ws.py`, `webui/js/websocket.js`, and the developer harness in `webui/components/settings/developer/websocket-test-store.js` for concrete examples.
 
 > **Tip:** When extending the infrastructure (new metadata) start by updating the contracts, sync the manager/frontend helpers, and then document the change here so producers and consumers stay in lockstep.
 
-## Error Codes Registry (Draft for Phase 6)
+## Error Codes Registry
 
 The WebSocket stack standardizes backend error codes returned in `RequestResultItem.error.code`. This registry documents the currently used codes and their intended meaning. Client and server implementations should reference these values verbatim (UPPER_SNAKE_CASE).
 
 | Code | Scope | Meaning | Typical Remediation | Example Payload |
 |------|-------|---------|---------------------|-----------------|
-| `NO_HANDLERS` | Manager routing | No handler is registered for the requested `eventType`. | Register a handler for the event or correct the event name. | `{ "handlerId": "WebSocketManager", "ok": false, "error": { "code": "NO_HANDLERS", "error": "No handler for 'missing'" } }` |
+| `NO_HANDLERS` | Manager routing | No handler is registered for the requested `eventType`. | Register a handler for the event or correct the event name. | `{ "handlerId": "WsManager", "ok": false, "error": { "code": "NO_HANDLERS", "error": "No handler for 'missing'" } }` |
 | `TIMEOUT` | Aggregated or single request | The request exceeded `timeoutMs`. | Increase `timeoutMs`, reduce handler processing time, or split work. | `{ "handlerId": "ExampleHandler", "ok": false, "error": { "code": "TIMEOUT", "error": "Request timeout" } }` |
-| `CONNECTION_NOT_FOUND` | Single‑sid request | Target `sid` is not connected/known. | Use an active `sid` or retry after reconnect. | `{ "handlerId": "WebSocketManager", "ok": false, "error": { "code": "CONNECTION_NOT_FOUND", "error": "Connection 'sid-123' not found" } }` |
-| `HARNESS_UNKNOWN_EVENT` | Developer harness | Harness test handler received an unsupported event name. | Update harness sources or disable the step before running automation. | `{ "handlerId": "python.websocket_handlers.dev_websocket_test_handler.DevWebsocketTestHandler", "ok": false, "error": { "code": "HARNESS_UNKNOWN_EVENT", "error": "Unhandled event", "details": "ws_tester_foo" } }` |
+| `CONNECTION_NOT_FOUND` | Single‑sid request | Target `sid` is not connected/known. | Use an active `sid` or retry after reconnect. | `{ "handlerId": "WsManager", "ok": false, "error": { "code": "CONNECTION_NOT_FOUND", "error": "Connection 'sid-123' not found" } }` |
+| `NOT_AVAILABLE` | Developer harness | Feature is restricted to development mode. | Ensure `runtime.is_development()` returns `True` or skip the operation. | `{ "handlerId": "api.ws_dev_test.WsDevTest", "ok": false, "error": { "code": "NOT_AVAILABLE", "error": "Event console is available only in development mode" } }` |
+| `SUBSCRIBE_FAILED` | Developer harness | Diagnostic watcher subscription failed. | Verify the SID is connected and retry. | `{ "handlerId": "api.ws_dev_test.WsDevTest", "ok": false, "error": { "code": "SUBSCRIBE_FAILED", "error": "Unable to subscribe to diagnostics" } }` |
 
 Notes
 - Error payload shape follows the contract documented in `contracts/event-schemas.md` (`RequestResultItem.error`).

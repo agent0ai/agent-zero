@@ -6,7 +6,8 @@ import { store as chatTopStore } from "/components/chat/top-section/chat-top-sto
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import * as Extensions from "/js/extensions.js"
 
-const stateSocket = getNamespacedClient("/webui");
+const stateSocket = getNamespacedClient("/ws");
+stateSocket.addHandlers(["ws_webui"]);
 
 const SYNC_MODES = {
   DISCONNECTED: "DISCONNECTED",

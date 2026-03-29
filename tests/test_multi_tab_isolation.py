@@ -18,7 +18,7 @@ async def test_state_monitor_per_sid_isolation_independent_snapshots_seq_and_cur
     snapshot_calls: list[dict[str, object]] = []
     emitted: list[dict[str, object]] = []
 
-    namespace = "/webui"
+    namespace = "/ws"
 
     async def fake_build_snapshot_from_request(*, request):
         context = request.context
@@ -133,7 +133,7 @@ async def test_state_monitor_mark_dirty_for_context_scopes_to_active_context():
     from helpers.state_snapshot import StateRequestV1
 
     monitor = StateMonitor(debounce_seconds=60.0)
-    namespace = "/webui"
+    namespace = "/ws"
     monitor.register_sid(namespace, "sid-a")
     monitor.register_sid(namespace, "sid-b")
 

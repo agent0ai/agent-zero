@@ -64,4 +64,4 @@ The plugin system (`python/helpers/plugins.py`) discovers plugins from `plugins/
 
 The web UI is built with Alpine.js and ES module components. The main shell is `webui/index.html`. Components are in `webui/components/`. Frontend state is managed via Alpine stores defined with `createStore` from `/js/AlpineStore.js`.
 
-Real-time communication uses Socket.io WebSockets. The backend WebSocket handlers are in `python/websocket_handlers/`. API handlers are in `python/api/`, each deriving from `ApiHandler` in `python/helpers/api.py`.
+Real-time communication uses Socket.io WebSockets via a unified `/ws` namespace. WebSocket handlers (WsHandler subclasses) are in `api/ws_*.py`. The connection manager is in `helpers/ws_manager.py`. API handlers are in `api/`, each deriving from `ApiHandler` in `helpers/api.py`.

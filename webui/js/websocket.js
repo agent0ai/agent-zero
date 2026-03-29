@@ -5,7 +5,7 @@ const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB hard cap per contract
 const DEFAULT_TIMEOUT_MS = 0;
 
 const _UUID_HEX = [..."0123456789abcdef"];
-const _OPTION_KEYS = new Set(["correlationId"]);
+const _OPTION_KEYS = new Set(["correlationId", "includeHandlers", "excludeHandlers", "excludeSids"]);
 
 /**
  * @param {unknown} value
@@ -274,6 +274,33 @@ class WebSocketClient {
     this._csrfInvalidatedForConnectError = false;
     this._connectErrorRetryTimer = null;
     this._connectErrorRetryAttempt = 0;
+    this._handlers = new Set();
+  }
+
+  /**
+   * Declare WS handler paths to activate on connect (e.g. "ws_webui").
+   * Must be called before connect().
+   * @param {string[]} handlers
+   */
+  addHandlers(handlers) {
+    if (!Array.isArray(handlers)) return;
+    let changed = false;
+    for (const h of handlers) {
+      if (typeof h === "string" && h.trim()) {
+        const key = h.trim();
+        if (!this._handlers.has(key)) {
+          this._handlers.add(key);
+          changed = true;
+        }
+      }
+    }
+    // If new handlers were added while already connected, reconnect so the
+    // updated handler list is sent to the server via the auth callback.
+    if (changed && this.socket && this.socket.connected) {
+      this.debugLog("addHandlers: reconnecting to activate new handlers", [...this._handlers]);
+      this.socket.disconnect();
+      this.socket.connect();
+    }
   }
 
   _clearConnectErrorRetryTimer() {
@@ -594,11 +621,12 @@ class WebSocketClient {
       transports: ["websocket", "polling"],
       withCredentials: true,
       auth: (cb) => {
+        const handlers = [...this._handlers];
         getCsrfToken()
-          .then((token) => cb({ csrf_token: token }))
+          .then((token) => cb({ csrf_token: token, handlers }))
           .catch((error) => {
             console.error("[websocket] failed to fetch CSRF token for connect", error);
-            cb({});
+            cb({ handlers });
           });
       },
     });
@@ -716,5 +744,3 @@ export function getNamespacedClient(namespace) {
   _namespacedClients.set(key, client);
   return client;
 }
-
-export const websocket = getNamespacedClient("/");

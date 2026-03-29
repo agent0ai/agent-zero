@@ -1,11 +1,9 @@
 from abc import abstractmethod
 import json
-import socket
-import struct
 import threading
 from functools import wraps
 from pathlib import Path
-from typing import Union, TypedDict, Dict, Any
+from typing import Union, Dict, Any
 from flask import (
     Request,
     Response,
@@ -19,7 +17,6 @@ from flask import (
 )
 from werkzeug.wrappers.response import Response as BaseResponse
 from agent import AgentContext
-from initialize import initialize_agent
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
 from helpers import files, cache
@@ -30,7 +27,7 @@ CACHE_AREA = "api_handlers(api)"
 cache.toggle_area(CACHE_AREA, False)  # cache off for now
 
 Input = dict
-Output = Union[Dict[str, Any], Response, TypedDict]  # type: ignore
+Output = Union[Dict[str, Any], Response]
 
 
 class ApiHandler:
@@ -99,59 +96,11 @@ class ApiHandler:
 
     # get context to run agent zero in
     def use_context(self, ctxid: str, create_if_not_exists: bool = True):
-        with self.thread_lock:
-            if not ctxid:
-                first = AgentContext.first()
-                if first:
-                    AgentContext.use(first.id)
-                    return first
-                context = AgentContext(config=initialize_agent(), set_current=True)
-                return context
-            got = AgentContext.use(ctxid)
-            if got:
-                return got
-            if create_if_not_exists:
-                context = AgentContext(
-                    config=initialize_agent(), id=ctxid, set_current=True
-                )
-                return context
-            else:
-                raise Exception(f"Context {ctxid} not found")
+        from helpers.context_utils import use_context as _use_context
+        return _use_context(self.thread_lock, ctxid, create_if_not_exists)
 
 
-def is_loopback_address(address: str) -> bool:
-    loopback_checker = {
-        socket.AF_INET: lambda x: (
-            struct.unpack("!I", socket.inet_aton(x))[0] >> (32 - 8)
-        )
-        == 127,
-        socket.AF_INET6: lambda x: x == "::1",
-    }
-    address_type = "hostname"
-    try:
-        socket.inet_pton(socket.AF_INET6, address)
-        address_type = "ipv6"
-    except socket.error:
-        try:
-            socket.inet_pton(socket.AF_INET, address)
-            address_type = "ipv4"
-        except socket.error:
-            address_type = "hostname"
-
-    if address_type == "ipv4":
-        return loopback_checker[socket.AF_INET](address)
-    elif address_type == "ipv6":
-        return loopback_checker[socket.AF_INET6](address)
-    else:
-        for family in (socket.AF_INET, socket.AF_INET6):
-            try:
-                r = socket.getaddrinfo(address, None, family, socket.SOCK_STREAM)
-            except socket.gaierror:
-                return False
-            for family, _, _, _, sockaddr in r:
-                if not loopback_checker[family](sockaddr[0]):
-                    return False
-        return True
+from helpers.network import is_loopback_address
 
 
 def requires_api_key(f):
@@ -300,4 +249,21 @@ def register_watchdogs():
         ],
         patterns=["*.py"],
         handler=on_api_change,
+    )
+
+    # WS handler cache shares the same watched directories (api/, usr/api/)
+    from helpers.ws import CACHE_AREA as WS_CACHE_AREA
+
+    def on_ws_change(items: list[watchdog.WatchItem]):
+        PrintStyle.debug("WS handler watchdog triggered:", items)
+        cache.clear(WS_CACHE_AREA)
+
+    watchdog.add_watchdog(
+        "ws_handlers",
+        roots=[
+            files.get_abs_path(files.API_DIR),
+            files.get_abs_path(files.USER_DIR, files.API_DIR),
+        ],
+        patterns=["ws_*.py"],
+        handler=on_ws_change,
     )

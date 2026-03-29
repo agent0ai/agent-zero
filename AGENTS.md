@@ -71,12 +71,10 @@ When running in Docker, Agent Zero uses two distinct Python runtimes to isolate 
 ├── initialize.py         # Framework initialization logic
 ├── models.py             # LLM provider configurations
 ├── run_ui.py             # WebUI server entry point
-├── python/
-│   ├── api/              # API Handlers (ApiHandler subclasses)
-│   ├── extensions/       # Backend lifecycle extensions
-│   ├── helpers/          # Shared Python utilities (plugins, files, etc.)
-│   ├── tools/            # Agent tools (Tool subclasses)
-│   └── websocket_handlers/# WebSocket event handlers
+├── api/                  # API Handlers (ApiHandler subclasses) + WsHandler subclasses (ws_*.py)
+├── extensions/           # Backend lifecycle extensions
+├── helpers/              # Shared Python utilities (plugins, files, etc.)
+├── tools/                # Agent tools (Tool subclasses)
 ├── webui/
 │   ├── components/       # Alpine.js components
 │   ├── js/               # Core frontend logic (modals, stores, etc.)

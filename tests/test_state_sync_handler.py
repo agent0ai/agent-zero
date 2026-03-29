@@ -10,9 +10,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from helpers.websocket_manager import WebSocketManager
+from helpers.ws_manager import WsManager
 
-NAMESPACE = "/webui"
+NAMESPACE = "/ws"
 
 
 class FakeSocketIOServer:
@@ -23,94 +23,76 @@ class FakeSocketIOServer:
         self.disconnect = AsyncMock()
 
 
-async def _create_manager() -> WebSocketManager:
-    socketio = FakeSocketIOServer()
-    manager = WebSocketManager(socketio, threading.RLock())
-
-    from python.websocket_handlers.webui_handler import WebuiHandler
+async def _create_manager() -> tuple[WsManager, "WsWebui"]:
+    from api.ws_webui import WsWebui
     from helpers.state_monitor import _reset_state_monitor_for_testing
 
-    _reset_state_monitor_for_testing()
-    WebuiHandler._reset_instance_for_testing()
-    handler = WebuiHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers({NAMESPACE: [handler]})
-    await manager.handle_connect(NAMESPACE, "sid-1")
-    return manager
-
-
-async def _create_manager_with_socketio() -> tuple[WebSocketManager, FakeSocketIOServer]:
     socketio = FakeSocketIOServer()
-    manager = WebSocketManager(socketio, threading.RLock())
+    lock = threading.RLock()
+    manager = WsManager(socketio, lock)
 
-    from python.websocket_handlers.webui_handler import WebuiHandler
+    _reset_state_monitor_for_testing()
+    handler = WsWebui(socketio, lock, manager=manager, namespace=NAMESPACE)
+    await manager.handle_connect(NAMESPACE, "sid-1")
+    await handler.on_connect("sid-1")
+    return manager, handler
+
+
+async def _create_manager_with_socketio() -> tuple[WsManager, "WsWebui", FakeSocketIOServer]:
+    from api.ws_webui import WsWebui
     from helpers.state_monitor import _reset_state_monitor_for_testing
 
+    socketio = FakeSocketIOServer()
+    lock = threading.RLock()
+    manager = WsManager(socketio, lock)
+
     _reset_state_monitor_for_testing()
-    WebuiHandler._reset_instance_for_testing()
-    handler = WebuiHandler.get_instance(socketio, threading.RLock())
-    manager.register_handlers({NAMESPACE: [handler]})
+    handler = WsWebui(socketio, lock, manager=manager, namespace=NAMESPACE)
     await manager.handle_connect(NAMESPACE, "sid-1")
-    return manager, socketio
+    await handler.on_connect("sid-1")
+    return manager, handler, socketio
 
 
 @pytest.mark.asyncio
 async def test_state_request_success_returns_wire_level_shape_and_contract_payload():
-    manager = await _create_manager()
+    _manager, handler = await _create_manager()
 
-    response = await manager.route_event(
-        NAMESPACE,
+    result = await handler.process(
         "state_request",
         {
             "correlationId": "client-1",
-            "ts": "2025-12-28T00:00:00.000Z",
-            "data": {
-                "context": None,
-                "log_from": 0,
-                "notifications_from": 0,
-                "timezone": "UTC",
-            },
+            "context": None,
+            "log_from": 0,
+            "notifications_from": 0,
+            "timezone": "UTC",
         },
         "sid-1",
     )
 
-    assert response["correlationId"] == "client-1"
-    assert isinstance(response.get("results"), list)
-    assert response["results"]
-
-    first = response["results"][0]
-    assert first["ok"] is True
-    assert first["correlationId"] == "client-1"
-    assert isinstance(first.get("data"), dict)
-    assert set(first["data"].keys()) >= {"runtime_epoch", "seq_base"}
-    assert isinstance(first["data"]["runtime_epoch"], str) and first["data"]["runtime_epoch"]
-    assert isinstance(first["data"]["seq_base"], int)
+    assert isinstance(result, dict)
+    assert set(result.keys()) >= {"runtime_epoch", "seq_base"}
+    assert isinstance(result["runtime_epoch"], str) and result["runtime_epoch"]
+    assert isinstance(result["seq_base"], int)
 
 
 @pytest.mark.asyncio
 async def test_state_request_invalid_payload_returns_invalid_request_error():
-    manager = await _create_manager()
+    _manager, handler = await _create_manager()
 
-    response = await manager.route_event(
-        NAMESPACE,
+    result = await handler.process(
         "state_request",
         {
             "correlationId": "client-2",
-            "ts": "2025-12-28T00:00:00.000Z",
-            "data": {
-                "context": None,
-                "log_from": -1,
-                "notifications_from": 0,
-                "timezone": "UTC",
-            },
+            "context": None,
+            "log_from": -1,
+            "notifications_from": 0,
+            "timezone": "UTC",
         },
         "sid-1",
     )
 
-    assert response["correlationId"] == "client-2"
-    assert response["results"]
-    first = response["results"][0]
-    assert first["ok"] is False
-    assert first["error"]["code"] == "INVALID_REQUEST"
+    assert isinstance(result, dict)
+    assert result.get("code") == "INVALID_REQUEST"
 
 
 @pytest.mark.asyncio
@@ -118,7 +100,7 @@ async def test_state_push_gating_and_initial_snapshot_delivery():
     from helpers.state_monitor import get_state_monitor
     from helpers.state_snapshot import validate_snapshot_schema_v1
 
-    manager, socketio = await _create_manager_with_socketio()
+    manager, handler, socketio = await _create_manager_with_socketio()
 
     push_ready = asyncio.Event()
     captured: dict[str, object] = {}
@@ -136,18 +118,14 @@ async def test_state_push_gating_and_initial_snapshot_delivery():
     assert not push_ready.is_set()
 
     start = time.monotonic()
-    await manager.route_event(
-        NAMESPACE,
+    await handler.process(
         "state_request",
         {
             "correlationId": "client-gating",
-            "ts": "2025-12-28T00:00:00.000Z",
-            "data": {
-                "context": None,
-                "log_from": 0,
-                "notifications_from": 0,
-                "timezone": "UTC",
-            },
+            "context": None,
+            "log_from": 0,
+            "notifications_from": 0,
+            "timezone": "UTC",
         },
         "sid-1",
     )

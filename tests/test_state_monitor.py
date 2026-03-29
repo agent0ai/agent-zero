@@ -13,7 +13,7 @@ async def test_state_monitor_debounce_coalesces_without_postponing_and_cleanup_c
     from helpers.state_monitor import StateMonitor
     from helpers.state_snapshot import StateRequestV1
 
-    namespace = "/webui"
+    namespace = "/ws"
     monitor = StateMonitor(debounce_seconds=10.0)
     monitor.register_sid(namespace, "sid-1")
     monitor.bind_manager(type("FakeManager", (), {"_dispatcher_loop": None})())

@@ -1,5 +1,6 @@
 import base64
 import os
+from urllib.parse import quote
 from helpers.api import ApiHandler, Request, Response, send_file
 from helpers import files, runtime
 import io
@@ -47,24 +48,31 @@ class ImageGet(ApiHandler):
 
             # in development environment, try to serve the image from local file system if exists, otherwise from docker
             if runtime.is_development():
-                if files.exists(path):
-                    response = send_file(path)
-                elif await runtime.call_development_function(files.exists, path):
-                    b64_content = await runtime.call_development_function(
-                        files.read_file_base64, path
-                    )
-                    file_content = base64.b64decode(b64_content)
-                    mime_type, _ = guess_type(filename)
-                    if not mime_type:
-                        mime_type = "application/octet-stream"
-                    response = send_file(
-                        io.BytesIO(file_content),
-                        mimetype=mime_type,
-                        as_attachment=False,
-                        download_name=filename,
-                    )
+                # Convert /a0/... Docker paths to local absolute paths
+                local_path = files.fix_dev_path(path)
+                if files.exists(local_path):
+                    response = send_file(local_path)
                 else:
-                    response = _send_fallback_icon("image")
+                    # Try fetching from Docker via RFC as fallback
+                    try:
+                        if await runtime.call_development_function(files.exists, path):
+                            b64_content = await runtime.call_development_function(
+                                files.read_file_base64, path
+                            )
+                            file_content = base64.b64decode(b64_content)
+                            mime_type, _ = guess_type(filename)
+                            if not mime_type:
+                                mime_type = "application/octet-stream"
+                            response = send_file(
+                                io.BytesIO(file_content),
+                                mimetype=mime_type,
+                                as_attachment=False,
+                                download_name=filename,
+                            )
+                        else:
+                            response = _send_fallback_icon("image")
+                    except Exception:
+                        response = _send_fallback_icon("image")
             else:
                 if files.exists(path):
                     response = send_file(path)
@@ -74,7 +82,7 @@ class ImageGet(ApiHandler):
             # Add cache headers for better device sync performance
             response.headers["Cache-Control"] = "public, max-age=3600"
             response.headers["X-File-Type"] = "image"
-            response.headers["X-File-Name"] = filename
+            response.headers["X-File-Name"] = quote(filename)
             return response
         else:
             # Handle non-image files with fallback icons
@@ -135,7 +143,7 @@ def _send_file_type_icon(file_ext, filename=None):
         response.headers["X-File-Type"] = "icon"
         response.headers["X-Icon-Type"] = icon_name
         if filename:
-            response.headers["X-File-Name"] = filename
+            response.headers["X-File-Name"] = quote(filename)
 
     return response
 

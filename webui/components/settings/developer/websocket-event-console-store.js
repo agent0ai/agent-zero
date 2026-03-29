@@ -2,7 +2,8 @@ import { createStore } from "/js/AlpineStore.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 
-const websocket = getNamespacedClient("/dev_websocket_test");
+const websocket = getNamespacedClient("/ws");
+websocket.addHandlers(["ws_dev_test"]);
 
 const DIAGNOSTIC_EVENT = "ws_dev_console_event";
 const SUBSCRIBE_EVENT = "ws_event_console_subscribe";
@@ -205,7 +206,7 @@ const model = {
       sid: payload.sid || null,
       correlationId: payload.correlationId || envelope?.correlationId || null,
       timestamp: payload.timestamp || envelope?.ts || new Date().toISOString(),
-      handlerId: payload.handlerId || envelope?.handlerId || "WebSocketManager",
+      handlerId: payload.handlerId || envelope?.handlerId || "WsManager",
       resultSummary: payload.resultSummary || {},
       payloadSummary: payload.payloadSummary || {},
       delivered: payload.delivered ?? null,

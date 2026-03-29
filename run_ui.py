@@ -14,9 +14,8 @@ import initialize
 from helpers import files, git, mcp_server, fasta2a_server, settings as settings_helper, extension
 from helpers.files import get_abs_path
 from helpers import runtime, dotenv, process
-from helpers.websocket import WebSocketHandler, validate_ws_origin
 from helpers.api import register_api_route, requires_auth, csrf_protect
-from helpers.ws import register_ws_namespace
+from helpers.ws import register_ws_namespace, validate_ws_origin
 from helpers.print_style import PrintStyle
 from helpers import login
 import socketio  # type: ignore[import-untyped]
@@ -24,8 +23,7 @@ from socketio import ASGIApp, packet
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from uvicorn.middleware.wsgi import WSGIMiddleware
-from helpers.websocket_manager import WebSocketManager, set_shared_websocket_manager
-from helpers.websocket_namespace_discovery import discover_websocket_namespaces
+from helpers.ws_manager import WsManager, set_shared_ws_manager
 from flask import send_file
 
 # disable logging
@@ -73,11 +71,11 @@ socketio_server = socketio.AsyncServer(
     max_http_buffer_size=50 * 1024 * 1024,
 )
 
-websocket_manager = WebSocketManager(socketio_server, lock)
-set_shared_websocket_manager(websocket_manager)
+ws_manager = WsManager(socketio_server, lock)
+set_shared_ws_manager(ws_manager)
 _settings = settings_helper.get_settings()
 settings_helper.set_runtime_settings_snapshot(_settings)
-websocket_manager.set_server_restart_broadcast(
+ws_manager.set_server_restart_broadcast(
     _settings.get("websocket_server_restart_enabled", True)
 )
 
@@ -191,160 +189,6 @@ async def _serve_plugin_asset(plugin_name, asset_path):
         return Response("Error serving asset", 500)
 
 
-def _build_websocket_handlers_by_namespace(
-    socketio_server: socketio.AsyncServer,
-    lock: threading.RLock,
-) -> dict[str, list[WebSocketHandler]]:
-    discoveries = discover_websocket_namespaces(
-        handlers_folder="python/websocket_handlers",
-        include_root_default=True,
-    )
-
-    handlers_by_namespace: dict[str, list[WebSocketHandler]] = {}
-    for discovery in discoveries:
-        namespace = discovery.namespace
-        for handler_cls in discovery.handler_classes:
-            handler = handler_cls.get_instance(socketio_server, lock)
-            handlers_by_namespace.setdefault(namespace, []).append(handler)
-
-    return handlers_by_namespace
-
-
-def configure_websocket_namespaces(
-    *,
-    webapp: Flask,
-    socketio_server: socketio.AsyncServer,
-    websocket_manager: WebSocketManager,
-    handlers_by_namespace: dict[str, list[WebSocketHandler]],
-) -> set[str]:
-    namespace_map: dict[str, list[WebSocketHandler]] = {
-        namespace: list(handlers) for namespace, handlers in handlers_by_namespace.items()
-    }
-
-    # Always include the reserved root namespace. It is unhandled for application events by
-    # default, but request-style calls must resolve deterministically with NO_HANDLERS.
-    namespace_map.setdefault("/", [])
-
-    websocket_manager.register_handlers(namespace_map)
-
-    allowed_namespaces = set(namespace_map.keys())
-    original_handle_connect = socketio_server._handle_connect  # type: ignore[attr-defined]
-
-    async def _handle_connect_with_namespace_gatekeeper(eio_sid, namespace, data):
-        requested = namespace or "/"
-        if requested not in allowed_namespaces:
-            await socketio_server._send_packet(
-                eio_sid,
-                socketio_server.packet_class(
-                    packet.CONNECT_ERROR,
-                    data={
-                        "message": "UNKNOWN_NAMESPACE",
-                        "data": {"code": "UNKNOWN_NAMESPACE", "namespace": requested},
-                    },
-                    namespace=requested,
-                ),
-            )
-            return
-        await original_handle_connect(eio_sid, namespace, data)
-
-    socketio_server._handle_connect = _handle_connect_with_namespace_gatekeeper  # type: ignore[assignment]
-
-    def _register_namespace_handlers(
-        namespace: str, namespace_handlers: list[WebSocketHandler]
-    ) -> None:
-        # A namespace is the WebSocket equivalent of an API endpoint.
-        # Security requirements must be consistent within the namespace (no any()-based union).
-        auth_required = False
-        csrf_required = False
-        if namespace_handlers:
-            auth_required = bool(namespace_handlers[0].requires_auth())
-            csrf_required = bool(namespace_handlers[0].requires_csrf())
-            for handler in namespace_handlers[1:]:
-                if (
-                    bool(handler.requires_auth()) != auth_required
-                    or bool(handler.requires_csrf()) != csrf_required
-                ):
-                    raise ValueError(
-                        f"WebSocket namespace {namespace!r} has mixed auth/csrf requirements across handlers"
-                    )
-
-        @socketio_server.on("connect", namespace=namespace)
-        async def _connect(  # type: ignore[override]
-            sid,
-            environ,
-            _auth,
-            _namespace: str = namespace,
-            _auth_required: bool = auth_required,
-            _csrf_required: bool = csrf_required,
-        ):
-            with webapp.request_context(environ):
-                origin_ok, origin_reason = validate_ws_origin(environ)
-                if not origin_ok:
-                    PrintStyle.warning(
-                        f"WebSocket origin validation failed for {_namespace} {sid}: {origin_reason or 'invalid'}"
-                    )
-                    return False
-
-                if _auth_required:
-                    credentials_hash = login.get_credentials_hash()
-                    if credentials_hash:
-                        if session.get("authentication") != credentials_hash:
-                            PrintStyle.warning(
-                                f"WebSocket authentication failed for {_namespace} {sid}: session not valid"
-                            )
-                            return False
-                    else:
-                        PrintStyle.debug(
-                            "WebSocket authentication required but credentials not configured; proceeding"
-                        )
-
-                if _csrf_required:
-                    expected_token = session.get("csrf_token")
-                    if not isinstance(expected_token, str) or not expected_token:
-                        PrintStyle.warning(
-                            f"WebSocket CSRF validation failed for {_namespace} {sid}: csrf_token not initialized"
-                        )
-                        return False
-
-                    auth_token = None
-                    if isinstance(_auth, dict):
-                        auth_token = _auth.get("csrf_token") or _auth.get("csrfToken")
-                    if not isinstance(auth_token, str) or not auth_token:
-                        PrintStyle.warning(
-                            f"WebSocket CSRF validation failed for {_namespace} {sid}: missing csrf_token in auth"
-                        )
-                        return False
-                    if auth_token != expected_token:
-                        PrintStyle.warning(
-                            f"WebSocket CSRF validation failed for {_namespace} {sid}: csrf_token mismatch"
-                        )
-                        return False
-
-                    cookie_name = f"csrf_token_{runtime.get_runtime_id()}"
-                    cookie_token = request.cookies.get(cookie_name)
-                    if cookie_token != expected_token:
-                        PrintStyle.warning(
-                            f"WebSocket CSRF validation failed for {_namespace} {sid}: csrf cookie mismatch"
-                        )
-                        return False
-
-                user_id = session.get("user_id") or "single_user"
-                await websocket_manager.handle_connect(_namespace, sid, user_id=user_id)
-                return True
-
-        @socketio_server.on("disconnect", namespace=namespace)
-        async def _disconnect(sid, _namespace: str = namespace):  # type: ignore[override]
-            await websocket_manager.handle_disconnect(_namespace, sid)
-
-        @socketio_server.on("*", namespace=namespace)
-        async def _catch_all(event, sid, data, _namespace: str = namespace):
-            payload = data or {}
-            return await websocket_manager.route_event(_namespace, event, payload, sid)
-
-    for namespace, namespace_handlers in namespace_map.items():
-        _register_namespace_handlers(namespace, namespace_handlers)
-
-    return allowed_namespaces
 
 
 def run():
@@ -373,16 +217,7 @@ def run():
 
     register_api_route(webapp, lock)
 
-    handlers_by_namespace = _build_websocket_handlers_by_namespace(socketio_server, lock)
-    allowed_namespaces = configure_websocket_namespaces(
-        webapp=webapp,
-        socketio_server=socketio_server,
-        websocket_manager=websocket_manager,
-        handlers_by_namespace=handlers_by_namespace,
-    )
-
-    register_ws_namespace(socketio_server, webapp, lock)
-    allowed_namespaces.add("/ws")
+    register_ws_namespace(socketio_server, webapp, lock, manager=ws_manager)
 
     init_a0()
 
@@ -443,7 +278,7 @@ def run():
 
 
 def wait_for_health(host: str, port: int):
-    url = f"http://{host}:{port}/health"
+    url = f"http://{host}:{port}/api/health"
     while True:
         try:
             with urllib.request.urlopen(url, timeout=2) as resp:
