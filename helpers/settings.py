@@ -14,6 +14,7 @@ from helpers.providers import get_providers, FieldOption as ProvidersFO
 from helpers.secrets import get_default_secrets_manager
 from helpers import dirty_json
 from helpers.notification import NotificationManager, NotificationType, NotificationPriority
+from helpers.extension import extensible
 
 
 T = TypeVar('T')
@@ -312,6 +313,7 @@ def set_runtime_settings_snapshot(settings: Settings) -> None:
     _runtime_settings_snapshot = settings.copy()
 
 
+@extensible
 def set_settings(settings: Settings, apply: bool = True):
     global _settings
     previous = _settings
@@ -322,6 +324,7 @@ def set_settings(settings: Settings, apply: bool = True):
     return reload_settings()
 
 
+@extensible
 def set_settings_delta(delta: dict, apply: bool = True):
     current = get_settings()
     new = {**current, **delta}
