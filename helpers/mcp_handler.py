@@ -42,6 +42,7 @@ from pydantic import BaseModel, Field, Discriminator, Tag, PrivateAttr
 from helpers import dirty_json
 from helpers.print_style import PrintStyle
 from helpers.tool import Tool, Response
+from helpers.extension import call_extensions_async
 
 
 def normalize_name(name: str) -> str:
@@ -1105,10 +1106,21 @@ class MCPClientRemote(MCPClientBase):
         # Check if this is a streaming HTTP type
         if _is_streaming_http_type(server.type):
             # Use streamable HTTP client
+            # Before passing headers to httpx, allow extensions to resolve placeholders
+            resolved_headers = await call_extensions_async(
+                "resolve_mcp_server_headers",
+                agent=None,
+                server_name=server.name,
+                headers=dict(server.headers or {}),
+            )
+            if resolved_headers is not None:
+                headers_to_use = resolved_headers
+            else:
+                headers_to_use = server.headers
             transport_result = await current_exit_stack.enter_async_context(
                 streamablehttp_client(
                     url=server.url,
-                    headers=server.headers,
+                    headers=headers_to_use,
                     timeout=timedelta(seconds=init_timeout),
                     sse_read_timeout=timedelta(seconds=tool_timeout),
                     httpx_client_factory=client_factory,
@@ -1123,10 +1135,21 @@ class MCPClientRemote(MCPClientBase):
             return read_stream, write_stream
         else:
             # Use traditional SSE client (default behavior)
+            # Before passing headers to httpx, allow extensions to resolve placeholders
+            resolved_headers = await call_extensions_async(
+                "resolve_mcp_server_headers",
+                agent=None,
+                server_name=server.name,
+                headers=dict(server.headers or {}),
+            )
+            if resolved_headers is not None:
+                headers_to_use = resolved_headers
+            else:
+                headers_to_use = server.headers
             stdio_transport = await current_exit_stack.enter_async_context(
                 sse_client(
                     url=server.url,
-                    headers=server.headers,
+                    headers=headers_to_use,
                     timeout=init_timeout,
                     sse_read_timeout=tool_timeout,
                     httpx_client_factory=client_factory,
