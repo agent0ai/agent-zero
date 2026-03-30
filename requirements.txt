@@ -20,7 +20,7 @@ langchain-unstructured==0.1.6
 openai-whisper==20250625
 lxml_html_clean>=0.4.0  # CVE-2024-52595 fix: XSS CWE-79 CVSS 8.4
 markdown==3.7
-mcp==1.23.0
+mcp==1.24.0
 newspaper3k==0.2.8
 paramiko==3.5.0
 playwright==1.52.0
