@@ -1,0 +1,295 @@
+<html>
+<head>
+    <script type="module">
+        import { store } from "/components/chat/elicitation/elicitation-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.elicitation && $store.elicitation.hasPending()">
+            <div class="elicitation-panel">
+                <template x-for="item in $store.elicitation.pending" :key="item.request_id">
+                    <div class="elicitation-card">
+                        <div class="elicitation-header">
+                            <span class="material-symbols-outlined elicitation-icon">input</span>
+                            <div class="elicitation-header-text">
+                                <span class="elicitation-server" x-text="item.server_name"></span>
+                                <span class="elicitation-title">requests input</span>
+                            </div>
+                        </div>
+
+                        <div class="elicitation-message" x-text="item.message"></div>
+
+                        <div class="elicitation-form">
+                            <template x-for="field in $store.elicitation.getFields(item.requested_schema)" :key="field.key">
+                                <div class="elicitation-field">
+                                    <label class="elicitation-label">
+                                        <span x-text="field.label"></span>
+                                        <span x-show="field.required" class="elicitation-required">*</span>
+                                    </label>
+                                    <template x-if="field.description">
+                                        <div class="elicitation-description" x-text="field.description"></div>
+                                    </template>
+
+                                    <!-- Enum/select field -->
+                                    <template x-if="field.enum">
+                                        <select class="elicitation-input elicitation-select"
+                                                :value="item.formData[field.key]"
+                                                @change="$store.elicitation.updateField(item.request_id, field.key, $event.target.value)">
+                                            <option value="">-- Select --</option>
+                                            <template x-for="opt in field.enum" :key="opt">
+                                                <option :value="opt" x-text="opt" :selected="item.formData[field.key] === opt"></option>
+                                            </template>
+                                        </select>
+                                    </template>
+
+                                    <!-- Boolean field -->
+                                    <template x-if="!field.enum && field.type === 'boolean'">
+                                        <label class="elicitation-checkbox-label">
+                                            <input type="checkbox"
+                                                   class="elicitation-checkbox"
+                                                   :checked="item.formData[field.key]"
+                                                   @change="$store.elicitation.updateField(item.request_id, field.key, $event.target.checked)">
+                                            <span x-text="item.formData[field.key] ? 'Yes' : 'No'"></span>
+                                        </label>
+                                    </template>
+
+                                    <!-- Number field -->
+                                    <template x-if="!field.enum && (field.type === 'number' || field.type === 'integer')">
+                                        <input type="number"
+                                               class="elicitation-input"
+                                               :value="item.formData[field.key]"
+                                               :min="field.minimum"
+                                               :max="field.maximum"
+                                               :step="field.type === 'integer' ? 1 : 'any'"
+                                               @input="$store.elicitation.updateField(item.request_id, field.key, field.type === 'integer' ? parseInt($event.target.value) : parseFloat($event.target.value))">
+                                    </template>
+
+                                    <!-- String field (default) -->
+                                    <template x-if="!field.enum && field.type !== 'boolean' && field.type !== 'number' && field.type !== 'integer'">
+                                        <input type="text"
+                                               class="elicitation-input"
+                                               :value="item.formData[field.key]"
+                                               :placeholder="field.label"
+                                               @input="$store.elicitation.updateField(item.request_id, field.key, $event.target.value)">
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="elicitation-actions">
+                            <button class="btn btn-ok elicitation-btn-submit"
+                                    :disabled="item.status !== 'pending'"
+                                    @click="$store.elicitation.submit(item.request_id)">
+                                <span class="material-symbols-outlined">check</span>
+                                Submit
+                            </button>
+                            <button class="btn elicitation-btn-decline"
+                                    :disabled="item.status !== 'pending'"
+                                    @click="$store.elicitation.decline(item.request_id)">
+                                <span class="material-symbols-outlined">block</span>
+                                Decline
+                            </button>
+                            <button class="btn elicitation-btn-cancel"
+                                    :disabled="item.status !== 'pending'"
+                                    @click="$store.elicitation.cancel(item.request_id)">
+                                <span class="material-symbols-outlined">close</span>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <style>
+    .elicitation-panel {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-xs) var(--spacing-md);
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .elicitation-card {
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-left: 4px solid #2196F3;
+        border-radius: 8px;
+        padding: var(--spacing-sm) var(--spacing-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        animation: elicitation-slide-in 0.3s ease-out;
+    }
+
+    @keyframes elicitation-slide-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .elicitation-header {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+    }
+
+    .elicitation-icon {
+        font-size: 1.25rem;
+        color: #2196F3;
+        flex-shrink: 0;
+    }
+
+    .elicitation-header-text {
+        display: flex;
+        align-items: baseline;
+        gap: var(--spacing-xxs);
+        flex-wrap: wrap;
+    }
+
+    .elicitation-server {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--color-text);
+    }
+
+    .elicitation-title {
+        font-size: 0.8rem;
+        color: var(--color-secondary);
+    }
+
+    .elicitation-message {
+        font-size: 0.85rem;
+        color: var(--color-text);
+        line-height: 1.45;
+        padding: var(--spacing-xs) 0;
+    }
+
+    .elicitation-form {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .elicitation-field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .elicitation-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text);
+    }
+
+    .elicitation-required {
+        color: #F44336;
+        margin-left: 2px;
+    }
+
+    .elicitation-description {
+        font-size: 0.75rem;
+        color: var(--color-secondary);
+        margin-bottom: 2px;
+    }
+
+    .elicitation-input {
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        font-size: 0.85rem;
+        color: var(--color-text);
+        width: 100%;
+        box-sizing: border-box;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .elicitation-input:focus {
+        border-color: #2196F3;
+    }
+
+    .elicitation-select {
+        cursor: pointer;
+    }
+
+    .elicitation-checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        font-size: 0.85rem;
+        color: var(--color-text);
+        cursor: pointer;
+    }
+
+    .elicitation-checkbox {
+        width: 1rem;
+        height: 1rem;
+        cursor: pointer;
+    }
+
+    .elicitation-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding-top: var(--spacing-xs);
+    }
+
+    .elicitation-actions .btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.8rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .elicitation-actions .btn .material-symbols-outlined {
+        font-size: 1rem;
+    }
+
+    .elicitation-btn-submit {
+        background-color: #2196F3;
+        color: white;
+    }
+
+    .elicitation-btn-submit:hover:not(:disabled) {
+        background-color: #1976D2;
+    }
+
+    .elicitation-btn-decline {
+        background: var(--color-bg);
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+    }
+
+    .elicitation-btn-decline:hover:not(:disabled) {
+        background: var(--color-border);
+    }
+
+    .elicitation-btn-cancel {
+        background: transparent;
+        color: var(--color-secondary);
+        border: none;
+    }
+
+    .elicitation-btn-cancel:hover:not(:disabled) {
+        color: var(--color-text);
+    }
+
+    .elicitation-actions .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    </style>
+</body>
+</html>

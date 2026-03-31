@@ -24,6 +24,7 @@ import json
 from helpers import errors
 from helpers import settings
 from helpers.log import LogItem
+from helpers.mcp_elicitation import ElicitationManager
 
 import httpx
 
@@ -852,6 +853,9 @@ class MCPClientBase(ABC):
 
                     stdio, write = await self._create_stdio_transport(temp_stack)
                     # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name} - {operation_name}): Transport created. Initializing session...")
+                    elicitation_cb = ElicitationManager.get_instance().create_elicitation_callback(
+                        self.server.name
+                    )
                     session = await temp_stack.enter_async_context(
                         ClientSession(
                             stdio,  # type: ignore
@@ -859,6 +863,7 @@ class MCPClientBase(ABC):
                             read_timeout_seconds=timedelta(
                                 seconds=read_timeout_seconds
                             ),
+                            elicitation_callback=elicitation_cb,
                         )
                     )
                     await session.initialize()
