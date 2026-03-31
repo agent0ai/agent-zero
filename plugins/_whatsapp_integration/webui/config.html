@@ -30,6 +30,11 @@
             if (Array.isArray(value)) return value.join(', ');
             return typeof value === 'string' ? value : '';
         },
+        allowed_is_empty() {
+            const value = config?.allowed_numbers;
+            if (Array.isArray(value)) return value.length === 0;
+            return !String(value || '').trim();
+        },
         set_allowed(val) {
             config.allowed_numbers = val.split(',')
                 .map(s => s.trim())
@@ -104,10 +109,7 @@
         <template x-if="config">
             <div>
                 <div class="section-title">WhatsApp Integration</div>
-                <div class="section-description">
-                    Connect Agent Zero to WhatsApp using a Baileys bridge.
-                    Requires Node.js installed on the system.
-                </div>
+
 
                 <div class="field">
                     <div class="field-label">
@@ -119,23 +121,6 @@
                             <input type="checkbox" x-model="config.enabled" />
                             <span class="toggler"></span>
                         </label>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <div class="field-label">
-                        <div class="field-title">Mode</div>
-                        <div class="field-description"
-                             x-text="config.mode === 'self-chat'
-                                 ? 'Message yourself to talk to the agent — no extra number needed'
-                                 : 'Uses a second phone number — others message it directly'">
-                        </div>
-                    </div>
-                    <div class="field-control">
-                        <select x-model="config.mode">
-                            <option value="dedicated">Separate number (dedicated)</option>
-                            <option value="self-chat">Personal number (self-chat)</option>
-                        </select>
                     </div>
                 </div>
 
@@ -221,28 +206,43 @@
 
                 <div class="field">
                     <div class="field-label">
-                        <div class="field-title">Bridge Port</div>
-                        <div class="field-description">Local port for the WhatsApp bridge HTTP server</div>
+                        <div class="field-title">Mode</div>
+                        <div class="field-description">
+                            <span x-show="config.mode === 'self-chat'">
+                                Use your personal number. You can message yourself to talk to the agent, and the agent can also handle messages that other people send to your number.
+                            </span>
+                            <span x-show="config.mode !== 'self-chat'">
+                                Use a separate WhatsApp number dedicated to Agent Zero conversations.
+                            </span>
+                        </div>
                     </div>
                     <div class="field-control">
-                        <input type="number" x-model.number="config.bridge_port" placeholder="3100" />
+                        <select x-model="config.mode">
+                            <option value="self-chat">Personal number (self-chat)</option>
+                            <option value="dedicated">Separate number (dedicated)</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="field">
-                    <div class="field-label">
-                        <div class="field-title">Poll Interval (seconds)</div>
-                        <div class="field-description">How often to check for new messages (minimum 2)</div>
+                <template x-if="config.enabled && allowed_is_empty()">
+                    <div style="margin: 8px 0 20px; padding: 12px 14px; border-radius: 10px;
+                                border: 1px solid rgba(255, 170, 0, 0.45);
+                                background: rgba(255, 170, 0, 0.12);
+                                color: var(--color-warning-text);">
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            <span aria-hidden="true">&#9888;</span>
+                            <span>Warning</span>
+                        </div>
+                        <div style="margin-top: 4px; line-height: 1.45;">
+                            Allowed Numbers is empty. If other people can message this WhatsApp number, they can use your Agent Zero.
+                        </div>
                     </div>
-                    <div class="field-control">
-                        <input type="number" x-model.number="config.poll_interval_seconds" min="2" placeholder="3" />
-                    </div>
-                </div>
+                </template>
 
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Allowed Numbers</div>
-                        <div class="field-description">Comma-separated phone numbers. Matching is normalized by the backend, so punctuation and + prefixes are okay. Empty = allow all</div>
+                        <div class="field-description">Comma-separated phone numbers. Matching is normalized by the backend, so punctuation and + prefixes are okay. Empty = allow all.</div>
                     </div>
                     <div class="field-control">
                         <input type="text" :value="allowed_text()" @change="set_allowed($event.target.value)" placeholder="+1 (415) 555-1234, +44 7911 123456" />
@@ -284,6 +284,26 @@
                     </div>
                     <div class="field-control">
                         <textarea x-model="config.agent_instructions" rows="3" placeholder="e.g. Always respond concisely..."></textarea>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Bridge Port</div>
+                        <div class="field-description">Local port for the WhatsApp bridge HTTP server</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" x-model.number="config.bridge_port" placeholder="3100" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Poll Interval (seconds)</div>
+                        <div class="field-description">How often to check for new messages (minimum 2)</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" x-model.number="config.poll_interval_seconds" min="2" placeholder="3" />
                     </div>
                 </div>
 

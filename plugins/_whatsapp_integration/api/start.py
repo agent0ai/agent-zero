@@ -13,7 +13,7 @@ class Start(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         config = plugins.get_plugin_config(PLUGIN_NAME) or {}
         port = int(config.get("bridge_port", 3100))
-        mode = config.get("mode", "dedicated")
+        mode = config.get("mode", "self-chat")
 
         from plugins._whatsapp_integration.helpers.bridge_manager import (
             ensure_bridge_http_up,

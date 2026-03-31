@@ -105,7 +105,7 @@ async def start_bridge(
     port: int,
     session_dir: str,
     cache_dir: str,
-    mode: str = "dedicated",
+    mode: str = "self-chat",
 ) -> bool:
     async with _get_bridge_lock():
         return await _ensure_bridge_started(
@@ -137,7 +137,7 @@ async def ensure_bridge_http_up(
     port: int,
     session_dir: str,
     cache_dir: str,
-    mode: str = "dedicated",
+    mode: str = "self-chat",
 ) -> bool:
     """Start bridge if needed and wait for HTTP server only (not WA connection)."""
     async with _get_bridge_lock():

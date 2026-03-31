@@ -21,18 +21,19 @@ Dependencies are auto-installed on first bridge start if missing.
 ### Configure and pair
 
 1. Enable the plugin in Settings > External > WhatsApp Integration
-2. Configure allowed phone numbers (optional)
+2. Configure allowed phone numbers
 3. Click Show QR Code and scan with WhatsApp on your phone
 4. Send a message from an allowed number to start a chat
 
-The WhatsApp session persists across restarts in `usr/whatsapp/session/`. No re-pairing needed unless you disconnect via settings.
+The WhatsApp session persists across restarts in `tmp/whatsapp/session/`. No re-pairing needed unless you disconnect via settings.
+Be careful: if you use your personal number and leave `allowed_numbers` open, other people could misuse your Agent Zero.
 
 ## Configuration
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | `enabled` | Enable bridge and polling | `false` |
-| `mode` | `dedicated` (separate number) or `self-chat` (personal number) | `dedicated` |
+| `mode` | `self-chat` (personal number) or `dedicated` (separate number) | `self-chat` |
 | `allow_group` | Respond in group chats when mentioned or replied to | `false` |
 | `bridge_port` | Local HTTP port for bridge | `3100` |
 | `poll_interval_seconds` | Poll frequency (min 2) | `3` |
@@ -43,10 +44,11 @@ The WhatsApp session persists across restarts in `usr/whatsapp/session/`. No re-
 ## How It Works
 
 1. The bridge connects to WhatsApp via Baileys and exposes HTTP endpoints on localhost
-2. The plugin polls the bridge for new messages every few seconds
-3. Incoming messages are routed to existing chats by WhatsApp chat ID or new chats are created
-4. Agent responses are sent back via the bridge as WhatsApp messages
-5. Media (images, documents) is supported in both directions
+2. In personal-number mode, you can message your own WhatsApp number to talk to the agent, and the agent can also handle messages that other people send to that number
+3. The plugin polls the bridge for new messages every few seconds
+4. Incoming messages are routed to existing chats by WhatsApp chat ID or new chats are created
+5. Agent responses are sent back via the bridge as WhatsApp messages
+6. Media (images, documents) is supported in both directions
 
 ## Architecture
 

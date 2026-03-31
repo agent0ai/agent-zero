@@ -1,7 +1,7 @@
 enabled: false
-mode: dedicated
+mode: self-chat
 # dedicated: separate phone number — people message it directly
-# self-chat: personal number — you message yourself to talk to the agent
+# self-chat: personal number — you can message yourself, and the agent can also handle messages sent to your number
 bridge_port: 3100
 poll_interval_seconds: 3
 allow_group: false

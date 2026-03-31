@@ -4,8 +4,8 @@ from helpers import files
 
 
 def get_bridge_session_dir() -> str:
-    return files.get_abs_path(files.USER_DIR, "whatsapp", "session")
+    return files.get_abs_path(files.TEMP_DIR, "whatsapp", "session")
 
 
 def get_bridge_media_dir() -> str:
-    return files.get_abs_path(files.USER_DIR, "whatsapp", "media")
+    return files.get_abs_path(files.TEMP_DIR, "whatsapp", "media")

@@ -63,7 +63,7 @@ async def _poll_loop() -> None:
             port = int(config.get("bridge_port", 3100))
             session_dir = get_bridge_session_dir()
             cache_dir = get_bridge_media_dir()
-            mode = config.get("mode", "dedicated")
+            mode = config.get("mode", "self-chat")
 
             # Detect config changes that require bridge restart
             desired = {"port": port, "mode": mode}

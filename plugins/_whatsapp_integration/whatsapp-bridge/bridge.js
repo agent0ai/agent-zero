@@ -46,7 +46,7 @@ const PORT = parseInt(getArg('port', '3100'), 10);
 const SESSION_DIR = getArg('session', path.join(DEFAULT_DATA_ROOT, 'session'));
 const CACHE_DIR = getArg('cache-dir', path.join(DEFAULT_DATA_ROOT, 'media'));
 const PAIR_ONLY = args.includes('--pair-only');
-const MODE = getArg('mode', 'dedicated'); // "dedicated" or "self-chat"
+const MODE = getArg('mode', 'self-chat'); // "dedicated" or "self-chat"
 
 
 mkdirSync(SESSION_DIR, { recursive: true });

@@ -317,7 +317,7 @@ async def send_wa_reply(
     response_text = _md_to_whatsapp(response_text)
 
     # Prefix response in self-chat mode so user can distinguish agent messages
-    mode = config.get("mode", "dedicated")
+    mode = config.get("mode", "self-chat")
     if mode == "self-chat":
         response_text = context.agent0.read_prompt(
             "fw.wa.self_chat_prefix.md", response_text=response_text,
