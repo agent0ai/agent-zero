@@ -222,8 +222,14 @@ async def _check_http_up(port: int) -> bool:
 
 async def _ensure_npm_install() -> None:
     node_modules = os.path.join(BRIDGE_DIR, "node_modules")
-    if os.path.isdir(node_modules):
+    key_package = os.path.join(node_modules, "@whiskeysockets", "baileys")
+    if os.path.isdir(key_package):
         return
+    # Missing or corrupt node_modules — wipe and reinstall
+    if os.path.isdir(node_modules):
+        import shutil
+        PrintStyle.warning("WhatsApp: node_modules corrupt, reinstalling")
+        shutil.rmtree(node_modules, ignore_errors=True)
     PrintStyle.info("WhatsApp: installing bridge dependencies")
     proc = await asyncio.create_subprocess_exec(
         "npm", "install", "--production",

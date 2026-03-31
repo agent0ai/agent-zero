@@ -12,6 +12,7 @@ from helpers import files, plugins
 PLUGIN_NAME: str = "_whatsapp_integration"
 DEFAULT_INTERVAL: int = 3
 MIN_INTERVAL: int = 2
+MAX_CONSECUTIVE_FAILURES: int = 5
 
 
 # ------------------------------------------------------------------
@@ -45,6 +46,7 @@ async def _poll_loop() -> None:
     from plugins._whatsapp_integration.helpers.handler import poll_messages
 
     bridge_started = False
+    consecutive_failures = 0
 
     try:
         while True:
@@ -66,6 +68,7 @@ async def _poll_loop() -> None:
                 PrintStyle.info(f"WhatsApp: config changed, restarting bridge")
                 await bridge_manager.stop_bridge()
                 bridge_started = False
+                consecutive_failures = 0
 
             # Start bridge if needed
             if not bridge_started or not bridge_manager.is_process_alive():
@@ -73,8 +76,22 @@ async def _poll_loop() -> None:
                     bridge_started = await bridge_manager.start_bridge(
                         port, session_dir, cache_dir, mode=mode,
                     )
+                    if bridge_started:
+                        consecutive_failures = 0
+                    else:
+                        consecutive_failures += 1
                 except Exception as e:
+                    consecutive_failures += 1
                     PrintStyle.error(f"WhatsApp bridge start error: {format_error(e)}")
+
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    PrintStyle.error(
+                        f"WhatsApp: bridge failed {consecutive_failures} times in a row, "
+                        f"stopping poll loop. Disable and re-enable the plugin to retry."
+                    )
+                    break
+
+                if not bridge_started:
                     await asyncio.sleep(10)
                     continue
 
