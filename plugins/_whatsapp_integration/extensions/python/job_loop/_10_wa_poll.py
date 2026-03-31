@@ -80,6 +80,12 @@ async def _poll_loop() -> None:
                         consecutive_failures = 0
                     else:
                         consecutive_failures += 1
+                except FileNotFoundError:
+                    PrintStyle.error(
+                        "WhatsApp: Node.js is not installed. "
+                        "Stopping poll loop — install Node.js and re-enable the plugin."
+                    )
+                    break
                 except Exception as e:
                     consecutive_failures += 1
                     PrintStyle.error(f"WhatsApp bridge start error: {format_error(e)}")
