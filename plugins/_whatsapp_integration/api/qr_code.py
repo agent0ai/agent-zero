@@ -15,7 +15,6 @@ class QrCode(ApiHandler):
         port = int(config.get("bridge_port", 3100))
         session_dir = files.get_abs_path("usr/whatsapp/sessions")
         cache_dir = files.get_abs_path("usr/whatsapp/media")
-        allowed_numbers = config.get("allowed_numbers") or []
         mode = config.get("mode", "dedicated")
 
         from plugins._whatsapp_integration.helpers.bridge_manager import (
@@ -31,7 +30,7 @@ class QrCode(ApiHandler):
         if not is_process_alive():
             try:
                 ok = await ensure_bridge_http_up(
-                    port, session_dir, cache_dir, allowed_numbers, mode=mode,
+                    port, session_dir, cache_dir, mode=mode,
                 )
                 if not ok:
                     return {

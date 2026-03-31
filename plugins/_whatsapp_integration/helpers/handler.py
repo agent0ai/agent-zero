@@ -25,6 +25,17 @@ from plugins._whatsapp_integration.helpers import bridge_manager
 PLUGIN_NAME = "_whatsapp_integration"
 MEDIA_FOLDER = "usr/whatsapp/media"
 
+# Regex: strip everything from first '@' or ':' onward, then leading '+' and '0's
+_NUM_STRIP_RE = re.compile(r"[@:].*")
+_NUM_PREFIX_RE = re.compile(r"^[+0]+")
+
+
+def _normalize_number(raw: str) -> str:
+    """Strip JID suffix, device suffix, leading + and 0s to get a plain number."""
+    n = _NUM_STRIP_RE.sub("", raw)
+    n = _NUM_PREFIX_RE.sub("", n)
+    return n
+
 # Context data keys (no underscore prefix — must persist across restarts)
 CTX_WA_CHAT_ID = "wa_chat_id"
 CTX_WA_SENDER_NAME = "wa_sender_name"
@@ -80,8 +91,21 @@ async def poll_messages(config: dict) -> None:
     if not messages:
         return
 
+    # Allowed-numbers filtering (authoritative check — bridge.js is secondary)
+    allowed_numbers = config.get("allowed_numbers") or []
+    allowed_set = {_normalize_number(n) for n in allowed_numbers} if allowed_numbers else set()
+
     for msg in messages:
         try:
+            # Filter by allowed numbers if configured
+            if allowed_set:
+                sender_num = _normalize_number(msg.get("senderNumber", "") or msg.get("senderId", ""))
+                if sender_num not in allowed_set:
+                    PrintStyle.debug(
+                        f"WhatsApp: ignored message from {sender_num} "
+                        f"(senderId: {msg.get('senderId', '')}, allowed: {allowed_set})"
+                    )
+                    continue
             await _dispatch_message(config, msg)
         except Exception as e:
             PrintStyle.error(f"WhatsApp dispatch error: {format_error(e)}")
@@ -126,7 +150,7 @@ async def _start_new_chat(config: dict, msg: dict) -> None:
     from helpers import projects
 
     sender_name = msg.get("senderName", "Unknown")
-    sender_number = msg.get("senderId", "").replace("@s.whatsapp.net", "").replace("@lid", "")
+    sender_number = msg.get("senderNumber", "") or _normalize_number(msg.get("senderId", ""))
     chat_id = msg.get("chatId", "")
     is_group = msg.get("isGroup", False)
 
@@ -260,7 +284,7 @@ def _md_to_whatsapp(text: str) -> str:
 
 def _build_user_message(agent: Agent, msg: dict) -> str:
     sender_name = msg.get("senderName", "Unknown")
-    sender_number = msg.get("senderId", "").replace("@s.whatsapp.net", "").replace("@lid", "")
+    sender_number = msg.get("senderNumber", "") or _normalize_number(msg.get("senderId", ""))
     is_group = msg.get("isGroup", False)
     prompt = "fw.wa.user_message_group.md" if is_group else "fw.wa.user_message.md"
     text = agent.read_prompt(

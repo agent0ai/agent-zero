@@ -46,7 +46,7 @@ const SESSION_DIR = getArg('session', path.join(process.env.HOME || '~', '.agent
 const CACHE_DIR = getArg('cache-dir', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'media'));
 const PAIR_ONLY = args.includes('--pair-only');
 const MODE = getArg('mode', 'dedicated'); // "dedicated" or "self-chat"
-const ALLOWED_NUMBERS = (getArg('allowed-numbers', '') || '').split(',').map(s => s.trim()).filter(Boolean);
+
 
 mkdirSync(SESSION_DIR, { recursive: true });
 mkdirSync(CACHE_DIR, { recursive: true });
@@ -197,14 +197,7 @@ async function startSocket() {
       // Skip status broadcasts
       if (chatId === 'status@broadcast') continue;
 
-      // Check allowlist (resolve LID -> phone if needed)
-      if (!msg.key.fromMe && ALLOWED_NUMBERS.length > 0) {
-        const resolvedNumber = lidToPhone[senderNumber] || senderNumber;
-        if (!ALLOWED_NUMBERS.includes(resolvedNumber)) {
-          console.log(`[bridge] Ignored message from ${resolvedNumber} (not in allowed numbers)`);
-          continue;
-        }
-      }
+      // Allowed-numbers filtering is handled in Python (handler.py)
 
       // Unwrap documentWithCaptionMessage (Baileys wraps captioned docs)
       if (msg.message.documentWithCaptionMessage?.message?.documentMessage) {
@@ -379,6 +372,7 @@ async function startSocket() {
         messageId: msg.key.id,
         chatId,
         senderId,
+        senderNumber: resolvedSender,
         senderName: msg.pushName || resolvedSender,
         chatName,
         isGroup,
@@ -616,11 +610,6 @@ if (PAIR_ONLY) {
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`[bridge] WhatsApp bridge listening on port ${PORT} (mode: ${MODE})`);
     console.log(`[bridge] Session: ${SESSION_DIR}`);
-    if (ALLOWED_NUMBERS.length > 0) {
-      console.log(`[bridge] Allowed numbers: ${ALLOWED_NUMBERS.join(', ')}`);
-    } else {
-      console.log('[bridge] No allowed numbers set — all messages will be processed');
-    }
     console.log();
     startSocket();
   });
