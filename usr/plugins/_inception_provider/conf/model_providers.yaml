@@ -1,0 +1,10 @@
+# Inception Labs provider for Agent Zero
+# Provider ID 'inception' automatically maps to INCEPTION_API_KEY
+chat:
+  inception:
+    name: Inception Labs
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "https://api.inceptionlabs.ai/v1/models"
+    kwargs:
+      api_base: https://api.inceptionlabs.ai/v1
