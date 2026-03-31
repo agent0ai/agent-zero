@@ -25,6 +25,7 @@ from typing import Optional
 
 from fastmcp import FastMCP, Context
 from fastmcp.server.elicitation import AcceptedElicitation
+from mcp.types import TextContent, SamplingMessage
 from pydantic import BaseModel, Field
 
 
@@ -138,6 +139,50 @@ async def simple_echo(message: str) -> str:
         message: The message to echo.
     """
     return f"Echo: {message}"
+
+
+# --- Sampling tools ---
+
+@mcp.tool()
+async def summarize_text(ctx: Context, text: str) -> str:
+    """Summarize a piece of text using the client's LLM via MCP sampling.
+
+    Args:
+        text: The text to summarize.
+    """
+    result = await ctx.sample(
+        messages=[
+            SamplingMessage(
+                role="user",
+                content=TextContent(type="text", text=f"Please summarize the following text in 2-3 sentences:\n\n{text}"),
+            )
+        ],
+        system_prompt="You are a concise summarizer. Respond only with the summary.",
+        max_tokens=256,
+        temperature=0.3,
+    )
+    return f"Summary: {result.text}"
+
+
+@mcp.tool()
+async def analyze_sentiment(ctx: Context, text: str) -> str:
+    """Analyze the sentiment of text using the client's LLM via MCP sampling.
+
+    Args:
+        text: The text to analyze.
+    """
+    result = await ctx.sample(
+        messages=[
+            SamplingMessage(
+                role="user",
+                content=TextContent(type="text", text=f"Analyze the sentiment of this text and respond with one word (positive, negative, or neutral) followed by a brief explanation:\n\n{text}"),
+            )
+        ],
+        system_prompt="You are a sentiment analysis expert. Be concise.",
+        max_tokens=128,
+        temperature=0.0,
+    )
+    return f"Sentiment analysis: {result.text}"
 
 
 if __name__ == "__main__":

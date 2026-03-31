@@ -25,6 +25,7 @@ from helpers import errors
 from helpers import settings
 from helpers.log import LogItem
 from helpers.mcp_elicitation import ElicitationManager
+from helpers.mcp_sampling import SamplingManager
 
 import httpx
 
@@ -856,6 +857,9 @@ class MCPClientBase(ABC):
                     elicitation_cb = ElicitationManager.get_instance().create_elicitation_callback(
                         self.server.name
                     )
+                    sampling_cb = SamplingManager.get_instance().create_sampling_callback(
+                        self.server.name
+                    )
                     session = await temp_stack.enter_async_context(
                         ClientSession(
                             stdio,  # type: ignore
@@ -864,6 +868,7 @@ class MCPClientBase(ABC):
                                 seconds=read_timeout_seconds
                             ),
                             elicitation_callback=elicitation_cb,
+                            sampling_callback=sampling_cb,
                         )
                     )
                     await session.initialize()
