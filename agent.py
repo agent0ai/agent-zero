@@ -920,6 +920,7 @@ class Agent:
                         self,
                         response=response,
                         tool_name=tool_name,
+                        tool_args=tool_args or {},
                     )
 
                     await tool.after_execution(response)
@@ -954,8 +955,8 @@ class Agent:
             raise ValueError("Tool request must be a dictionary")
         if not tool_request.get("tool_name") or not isinstance(tool_request.get("tool_name"), str):
             raise ValueError("Tool request must have a tool_name (type string) field")
-        if not tool_request.get("tool_args") or not isinstance(tool_request.get("tool_args"), dict):
-            raise ValueError("Tool request must have a tool_args (type dictionary) field")
+        # if not tool_request.get("tool_args") or not isinstance(tool_request.get("tool_args"), dict):
+        #     raise ValueError("Tool request must have a tool_args (type dictionary) field")
 
 
 

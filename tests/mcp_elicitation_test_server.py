@@ -20,6 +20,8 @@ Tools provided:
   - simple_echo: No elicitation, just echoes input (control test).
 """
 
+import json
+import time
 from enum import Enum
 from typing import Optional
 
@@ -183,6 +185,217 @@ async def analyze_sentiment(ctx: Context, text: str) -> str:
         temperature=0.0,
     )
     return f"Sentiment analysis: {result.text}"
+
+
+# --- MCP Apps tools ---
+
+DASHBOARD_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Server Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; background: #1a1a2e; color: #e0e0e0; }
+  .card { background: #16213e; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #0f3460; }
+  .card h3 { color: #e94560; margin-bottom: 8px; font-size: 14px; }
+  .card .value { font-size: 28px; font-weight: 700; color: #fff; }
+  .card .label { font-size: 12px; color: #888; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  h1 { font-size: 18px; margin-bottom: 16px; color: #e94560; }
+  button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 12px; }
+  button:hover { background: #c73e54; }
+  #status { margin-top: 8px; font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+  <h1>📊 Server Dashboard</h1>
+  <div class="grid">
+    <div class="card">
+      <h3>Server Time</h3>
+      <div class="value" id="time">Loading...</div>
+      <div class="label">Last updated</div>
+    </div>
+    <div class="card">
+      <h3>Status</h3>
+      <div class="value" id="status-val">●</div>
+      <div class="label" id="status-label">Checking...</div>
+    </div>
+    <div class="card">
+      <h3>Uptime</h3>
+      <div class="value" id="uptime">--</div>
+      <div class="label">Hours</div>
+    </div>
+    <div class="card">
+      <h3>Requests</h3>
+      <div class="value" id="requests">--</div>
+      <div class="label">Total served</div>
+    </div>
+  </div>
+  <button id="refresh-btn">Refresh Data</button>
+  <div id="status"></div>
+
+  <script>
+    // Simple MCP App client using postMessage JSON-RPC
+    let nextId = 1;
+    const pending = new Map();
+
+    function sendRequest(method, params) {
+      const id = nextId++;
+      window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
+      return new Promise((resolve, reject) => {
+        pending.set(id, { resolve, reject });
+        setTimeout(() => {
+          if (pending.has(id)) {
+            pending.delete(id);
+            reject(new Error("Timeout"));
+          }
+        }, 10000);
+      });
+    }
+
+    function sendNotification(method, params) {
+      window.parent.postMessage({ jsonrpc: "2.0", method, params }, "*");
+    }
+
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || data.jsonrpc !== "2.0") return;
+
+      // Handle responses
+      if (data.id !== undefined && !data.method) {
+        const p = pending.get(data.id);
+        if (p) {
+          pending.delete(data.id);
+          if (data.error) p.reject(new Error(data.error.message));
+          else p.resolve(data.result);
+        }
+        return;
+      }
+
+      // Handle notifications from host
+      if (data.method === "ui/notifications/tool-result") {
+        displayResult(data.params);
+      }
+      if (data.method === "ui/notifications/tool-input") {
+        document.getElementById("status").textContent = "Tool input received: " + JSON.stringify(data.params?.arguments || {});
+      }
+    });
+
+    function displayResult(result) {
+      if (!result || !result.content) return;
+      const text = result.content.find(c => c.type === "text")?.text || "";
+      try {
+        const data = JSON.parse(text);
+        document.getElementById("time").textContent = data.time || "--";
+        document.getElementById("status-val").textContent = data.healthy ? "● Online" : "● Offline";
+        document.getElementById("status-val").style.color = data.healthy ? "#4ecca3" : "#e94560";
+        document.getElementById("status-label").textContent = data.healthy ? "All systems go" : "Issues detected";
+        document.getElementById("uptime").textContent = data.uptime_hours || "--";
+        document.getElementById("requests").textContent = data.total_requests || "--";
+      } catch {
+        document.getElementById("time").textContent = text.slice(0, 30);
+      }
+    }
+
+    // Initialize: send ui/initialize
+    async function init() {
+      try {
+        const result = await sendRequest("ui/initialize", {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "Dashboard App", version: "1.0.0" },
+        });
+        sendNotification("ui/notifications/initialized", {});
+        document.getElementById("status").textContent = "Connected to host";
+      } catch (e) {
+        document.getElementById("status").textContent = "Init failed: " + e.message;
+      }
+    }
+
+    // Refresh button: call server tool
+    document.getElementById("refresh-btn").addEventListener("click", async () => {
+      document.getElementById("status").textContent = "Refreshing...";
+      try {
+        const result = await sendRequest("tools/call", {
+          name: "get_server_stats",
+          arguments: {},
+        });
+        displayResult(result);
+        document.getElementById("status").textContent = "Refreshed at " + new Date().toLocaleTimeString();
+      } catch (e) {
+        document.getElementById("status").textContent = "Refresh failed: " + e.message;
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>"""
+
+_server_start = time.time()
+_request_count = 0
+
+
+@mcp.resource(
+    "ui://elicitation-test/dashboard",
+    name="Server Dashboard",
+    description="Interactive server monitoring dashboard",
+    mime_type="text/html",
+)
+def get_dashboard_html() -> str:
+    """Serve the dashboard HTML for the MCP App."""
+    return DASHBOARD_HTML
+
+
+@mcp.tool(
+    meta={
+        "ui": {
+            "resourceUri": "ui://elicitation-test/dashboard",
+            "visibility": ["model", "app"],
+        }
+    }
+)
+async def show_dashboard(ctx: Context, title: str = "Server Dashboard") -> str:
+    """Show an interactive server monitoring dashboard. Returns live server statistics.
+
+    This tool demonstrates MCP Apps — it renders an interactive UI in the host.
+    """
+    global _request_count
+    _request_count += 1
+    uptime = (time.time() - _server_start) / 3600
+    data = {
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "healthy": True,
+        "uptime_hours": round(uptime, 2),
+        "total_requests": _request_count,
+    }
+    return json.dumps(data)
+
+
+@mcp.tool(
+    meta={
+        "ui": {
+            "resourceUri": "ui://elicitation-test/dashboard",
+            "visibility": ["app"],
+        }
+    }
+)
+async def get_server_stats(name: str = "Server") -> str:
+    """Get current server statistics. This is an app-only tool (hidden from model).
+
+    Called by the dashboard UI's refresh button.
+    """
+    global _request_count
+    _request_count += 1
+    uptime = (time.time() - _server_start) / 3600
+    data = {
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "healthy": True,
+        "uptime_hours": round(uptime, 2),
+        "total_requests": _request_count,
+    }
+    return json.dumps(data)
 
 
 if __name__ == "__main__":
