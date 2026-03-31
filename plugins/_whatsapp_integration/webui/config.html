@@ -26,11 +26,13 @@
             } catch (e) { this.projects = []; }
         },
         allowed_text() {
-            return (config?.allowed_numbers || []).join(', ');
+            const value = config?.allowed_numbers;
+            if (Array.isArray(value)) return value.join(', ');
+            return typeof value === 'string' ? value : '';
         },
         set_allowed(val) {
             config.allowed_numbers = val.split(',')
-                .map(s => s.trim().replace(/^\+/, '').replace(/^0+/, ''))
+                .map(s => s.trim())
                 .filter(s => s);
         },
         async test_connection() {
@@ -39,7 +41,7 @@
             try {
                 const { callJsonApi } = await import('/js/api.js');
                 const res = await callJsonApi('/plugins/_whatsapp_integration/test_connection', {
-                    config: config
+                    config: { bridge_port: config.bridge_port }
                 });
                 this.test_results = res;
             } catch (e) {
@@ -240,10 +242,10 @@
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Allowed Numbers</div>
-                        <div class="field-description">Use international format without + or leading 0<br>e.g. +1 (415) 555-1234 → 14155551234. Empty = allow all</div>
+                        <div class="field-description">Comma-separated phone numbers. Matching is normalized by the backend, so punctuation and + prefixes are okay. Empty = allow all</div>
                     </div>
                     <div class="field-control">
-                        <input type="text" :value="allowed_text()" @change="set_allowed($event.target.value)" placeholder="14155551234, 447911123456" />
+                        <input type="text" :value="allowed_text()" @change="set_allowed($event.target.value)" placeholder="+1 (415) 555-1234, +44 7911 123456" />
                     </div>
                 </div>
 

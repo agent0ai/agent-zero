@@ -25,7 +25,7 @@ Dependencies are auto-installed on first bridge start if missing.
 3. Click Show QR Code and scan with WhatsApp on your phone
 4. Send a message from an allowed number to start a chat
 
-The WhatsApp session persists across restarts in `usr/whatsapp/sessions/`. No re-pairing needed unless you disconnect via settings.
+The WhatsApp session persists across restarts in `usr/whatsapp/session/`. No re-pairing needed unless you disconnect via settings.
 
 ## Configuration
 

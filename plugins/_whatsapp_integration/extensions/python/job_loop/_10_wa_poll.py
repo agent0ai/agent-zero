@@ -6,7 +6,7 @@ from typing import Any
 from helpers.extension import Extension
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
-from helpers import files, plugins
+from helpers import plugins
 
 
 PLUGIN_NAME: str = "_whatsapp_integration"
@@ -44,6 +44,10 @@ class WhatsAppAutoPoll(Extension):
 async def _poll_loop() -> None:
     from plugins._whatsapp_integration.helpers import bridge_manager
     from plugins._whatsapp_integration.helpers.handler import poll_messages
+    from plugins._whatsapp_integration.helpers.storage_paths import (
+        get_bridge_media_dir,
+        get_bridge_session_dir,
+    )
 
     bridge_started = False
     consecutive_failures = 0
@@ -57,8 +61,8 @@ async def _poll_loop() -> None:
                 break
 
             port = int(config.get("bridge_port", 3100))
-            session_dir = files.get_abs_path("usr/whatsapp/sessions")
-            cache_dir = files.get_abs_path("usr/whatsapp/media")
+            session_dir = get_bridge_session_dir()
+            cache_dir = get_bridge_media_dir()
             mode = config.get("mode", "dedicated")
 
             # Detect config changes that require bridge restart

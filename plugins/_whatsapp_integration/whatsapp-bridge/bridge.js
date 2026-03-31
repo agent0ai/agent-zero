@@ -41,9 +41,10 @@ const WHATSAPP_DEBUG =
   typeof process.env.WHATSAPP_DEBUG === 'string' &&
   ['1', 'true', 'yes', 'on'].includes(process.env.WHATSAPP_DEBUG.toLowerCase());
 
+const DEFAULT_DATA_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'tmp', 'whatsapp');
 const PORT = parseInt(getArg('port', '3100'), 10);
-const SESSION_DIR = getArg('session', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'session'));
-const CACHE_DIR = getArg('cache-dir', path.join(process.env.HOME || '~', '.agent-zero', 'whatsapp', 'media'));
+const SESSION_DIR = getArg('session', path.join(DEFAULT_DATA_ROOT, 'session'));
+const CACHE_DIR = getArg('cache-dir', path.join(DEFAULT_DATA_ROOT, 'media'));
 const PAIR_ONLY = args.includes('--pair-only');
 const MODE = getArg('mode', 'dedicated'); // "dedicated" or "self-chat"
 
@@ -196,8 +197,6 @@ async function startSocket() {
 
       // Skip status broadcasts
       if (chatId === 'status@broadcast') continue;
-
-      // Allowed-numbers filtering is handled in Python (handler.py)
 
       // Unwrap documentWithCaptionMessage (Baileys wraps captioned docs)
       if (msg.message.documentWithCaptionMessage?.message?.documentMessage) {
