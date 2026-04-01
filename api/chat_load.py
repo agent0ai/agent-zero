@@ -11,6 +11,9 @@ class LoadChats(ApiHandler):
 
         ctxids = persist_chat.load_json_chats(chats)
 
+        from python.helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="api.chat_load.LoadChats")
+
         return {
             "message": "Chats loaded.",
             "ctxids": ctxids,
