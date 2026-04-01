@@ -1,0 +1,337 @@
+<html>
+<head>
+    <title>WhatsApp Integration</title>
+</head>
+
+<body>
+    <div x-data="{
+        testing: false,
+        test_results: null,
+        projects: [],
+
+        qr_visible: false,
+        qr_status: '',
+        qr_message: '',
+        qr_data_url: null,
+        qr_poll_timer: null,
+
+        disconnecting: false,
+        disconnect_message: '',
+
+        async init() {
+            try {
+                const { callJsonApi } = await import('/js/api.js');
+                const res = await callJsonApi('projects', { action: 'list' });
+                this.projects = res.data || [];
+            } catch (e) { this.projects = []; }
+        },
+        allowed_text() {
+            const value = config?.allowed_numbers;
+            if (Array.isArray(value)) return value.join(', ');
+            return typeof value === 'string' ? value : '';
+        },
+        allowed_is_empty() {
+            const value = config?.allowed_numbers;
+            if (Array.isArray(value)) return value.length === 0;
+            return !String(value || '').trim();
+        },
+        set_allowed(val) {
+            config.allowed_numbers = val.split(',')
+                .map(s => s.trim())
+                .filter(s => s);
+        },
+        async test_connection() {
+            this.testing = true;
+            this.test_results = null;
+            try {
+                const { callJsonApi } = await import('/js/api.js');
+                const res = await callJsonApi('/plugins/_whatsapp_integration/test_connection', {
+                    config: { bridge_port: config.bridge_port }
+                });
+                this.test_results = res;
+            } catch (e) {
+                this.test_results = { success: false, results: [{ test: 'Connection', ok: false, message: String(e) }] };
+            }
+            this.testing = false;
+        },
+
+        async show_qr() {
+            this.qr_visible = true;
+            this.qr_status = 'loading';
+            this.qr_message = 'Starting bridge...';
+            this.qr_data_url = null;
+            await this.poll_qr();
+            this.qr_poll_timer = setInterval(() => this.poll_qr(), 3000);
+        },
+        hide_qr() {
+            this.qr_visible = false;
+            this.qr_data_url = null;
+            this.qr_status = '';
+            if (this.qr_poll_timer) {
+                clearInterval(this.qr_poll_timer);
+                this.qr_poll_timer = null;
+            }
+        },
+        async poll_qr() {
+            try {
+                const { callJsonApi } = await import('/js/api.js');
+                const res = await callJsonApi('/plugins/_whatsapp_integration/qr_code', {});
+                this.qr_status = res.status || 'error';
+                this.qr_message = res.message || '';
+                this.qr_data_url = res.qr || null;
+
+                if (res.status === 'connected') {
+                    if (this.qr_poll_timer) {
+                        clearInterval(this.qr_poll_timer);
+                        this.qr_poll_timer = null;
+                    }
+                }
+            } catch (e) {
+                this.qr_status = 'error';
+                this.qr_message = String(e);
+                this.qr_data_url = null;
+            }
+        },
+        async disconnect_account() {
+            if (!confirm('Disconnect this WhatsApp account? You will need to scan a new QR code to reconnect.')) return;
+            this.disconnecting = true;
+            this.disconnect_message = '';
+            try {
+                const { callJsonApi } = await import('/js/api.js');
+                const res = await callJsonApi('/plugins/_whatsapp_integration/disconnect', {});
+                this.disconnect_message = res.success ? 'Account disconnected' : (res.message || 'Failed');
+            } catch (e) {
+                this.disconnect_message = String(e);
+            }
+            this.disconnecting = false;
+        }
+    }">
+        <template x-if="config">
+            <div>
+                <div class="section-title">WhatsApp Integration</div>
+
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Enabled</div>
+                        <div class="field-description">Enable WhatsApp bridge and message polling</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.enabled" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- WhatsApp Account (shown when enabled) -->
+                <template x-if="config.enabled">
+                    <div>
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">WhatsApp Account</div>
+                                <div class="field-description">
+                                    <span x-show="!disconnect_message">Pair or switch your WhatsApp account</span>
+                                    <span x-show="disconnect_message" x-text="disconnect_message"
+                                          :style="'color:' + (disconnect_message === 'Account disconnected' ? '#4caf50' : '#f44336')"></span>
+                                </div>
+                            </div>
+                            <div class="field-control" style="display: flex; gap: 8px;">
+                                <button class="btn btn-field" @click="show_qr()">
+                                    Show QR Code
+                                </button>
+                                <button class="btn btn-field" @click="disconnect_account()" :disabled="disconnecting">
+                                    <span x-show="!disconnecting">Disconnect</span>
+                                    <span x-show="disconnecting">Disconnecting...</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- QR Code panel -->
+                        <template x-if="qr_visible">
+                            <div style="margin-top: 8px; padding: 16px; border-radius: 8px;
+                                        border: 1px solid var(--border-color, #333);
+                                        text-align: center;">
+
+                                <!-- Connected state -->
+                                <template x-if="qr_status === 'connected'">
+                                    <div>
+                                        <div style="font-size: 1.5rem; margin-bottom: 8px;">&#10003;</div>
+                                        <div style="font-weight: 500; color: #4caf50;" x-text="qr_message"></div>
+                                        <button class="btn btn-field" @click="hide_qr()" style="margin-top: 12px;">
+                                            Close
+                                        </button>
+                                    </div>
+                                </template>
+
+                                <!-- QR code ready -->
+                                <template x-if="qr_status === 'waiting_scan' && qr_data_url">
+                                    <div>
+                                        <div style="font-weight: 500; margin-bottom: 12px;">
+                                            Scan with WhatsApp on your phone
+                                        </div>
+                                        <img :src="qr_data_url" alt="WhatsApp QR Code"
+                                             style="width: 256px; height: 256px; border-radius: 8px;
+                                                    background: white; padding: 4px;" />
+                                        <div style="margin-top: 8px; font-size: 0.8rem; opacity: 0.6;">
+                                            QR code refreshes automatically
+                                        </div>
+                                        <button class="btn btn-field" @click="hide_qr()" style="margin-top: 12px;">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </template>
+
+                                <!-- Loading / waiting for QR -->
+                                <template x-if="qr_status !== 'connected' && !(qr_status === 'waiting_scan' && qr_data_url)">
+                                    <div>
+                                        <div style="font-weight: 500; margin-bottom: 8px;" x-text="qr_message || 'Connecting...'"></div>
+                                        <div style="font-size: 0.85rem; opacity: 0.6;">
+                                            <template x-if="qr_status === 'error'">
+                                                <span style="color: #f44336;" x-text="qr_message"></span>
+                                            </template>
+                                            <template x-if="qr_status !== 'error'">
+                                                <span>Please wait...</span>
+                                            </template>
+                                        </div>
+                                        <button class="btn btn-field" @click="hide_qr()" style="margin-top: 12px;">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Mode</div>
+                        <div class="field-description">
+                            <span x-show="config.mode === 'self-chat'">
+                                Use your personal number. You can message yourself to talk to the agent, and the agent can also handle messages that other people send to your number.
+                            </span>
+                            <span x-show="config.mode !== 'self-chat'">
+                                Use a separate WhatsApp number dedicated to Agent Zero conversations.
+                            </span>
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <select x-model="config.mode">
+                            <option value="self-chat">Personal number (self-chat)</option>
+                            <option value="dedicated">Separate number (dedicated)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <template x-if="config.enabled && allowed_is_empty()">
+                    <div style="margin: 8px 0 20px; padding: 12px 14px; border-radius: 10px;
+                                border: 1px solid rgba(255, 170, 0, 0.45);
+                                background: rgba(255, 170, 0, 0.12);
+                                color: var(--color-warning-text);">
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            <span aria-hidden="true">&#9888;</span>
+                            <span>Warning</span>
+                        </div>
+                        <div style="margin-top: 4px; line-height: 1.45;">
+                            Allowed Numbers is empty. If other people can message this WhatsApp number, they can use your Agent Zero.
+                        </div>
+                    </div>
+                </template>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Allowed Numbers</div>
+                        <div class="field-description">Comma-separated phone numbers. Matching is normalized by the backend, so punctuation and + prefixes are okay. Empty = allow all.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="text" :value="allowed_text()" @change="set_allowed($event.target.value)" placeholder="+1 (415) 555-1234, +44 7911 123456" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Allow Group</div>
+                        <div class="field-description">Respond in group chats when mentioned or replied to</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.allow_group" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Project</div>
+                        <div class="field-description">Project to activate for WhatsApp chats</div>
+                    </div>
+                    <div class="field-control">
+                        <select :value="config.project" @change="config.project = $event.target.value">
+                            <option value="">No project</option>
+                            <template x-for="proj in projects" :key="proj.name">
+                                <option :value="proj.name" x-text="proj.title || proj.name" :selected="config.project === proj.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Agent Instructions</div>
+                        <div class="field-description">Extra instructions for the agent in WhatsApp chats</div>
+                    </div>
+                    <div class="field-control">
+                        <textarea x-model="config.agent_instructions" rows="3" placeholder="e.g. Always respond concisely..."></textarea>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Bridge Port</div>
+                        <div class="field-description">Local port for the WhatsApp bridge HTTP server</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" x-model.number="config.bridge_port" placeholder="3100" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Poll Interval (seconds)</div>
+                        <div class="field-description">How often to check for new messages (minimum 2)</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" x-model.number="config.poll_interval_seconds" min="2" placeholder="3" />
+                    </div>
+                </div>
+
+                <!-- Test connection -->
+                <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
+                    <button class="btn btn-field" @click="test_connection()" :disabled="testing">
+                        <span x-show="!testing">Test Connection</span>
+                        <span x-show="testing">Testing...</span>
+                    </button>
+                </div>
+
+                <!-- Test results -->
+                <template x-if="test_results">
+                    <div style="margin-top: 8px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem;
+                                border: 1px solid var(--border-color, #333);">
+                        <template x-for="r in test_results.results" :key="r.test">
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+                                <span x-text="r.ok ? '✓' : '✗'"
+                                      :style="'font-weight: bold; color:' + (r.ok ? '#4caf50' : '#f44336')"></span>
+                                <span style="font-weight: 500; min-width: 50px;" x-text="r.test"></span>
+                                <span style="opacity: 0.8;" x-text="r.message"></span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

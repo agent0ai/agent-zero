@@ -1,0 +1,2 @@
+# WhatsApp custom rules
+{{instructions}}
