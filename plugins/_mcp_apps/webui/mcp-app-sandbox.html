@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MCP App Sandbox</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  iframe { width: 100%; height: 100%; border: none; }
+</style>
+</head>
+<body>
+<script>
+/**
+ * MCP App Sandbox Proxy (SEP-1865)
+ *
+ * This page is loaded in an outer sandbox iframe with sandbox="allow-scripts".
+ * It receives the raw HTML resource from the host, creates an inner iframe with
+ * restrictive CSP, and transparently forwards all non-sandbox messages between
+ * the inner iframe (View) and the host.
+ */
+(function() {
+  "use strict";
+
+  let innerFrame = null;
+
+  function buildCspMeta(csp) {
+    // CSP construction per SEP-1865 § Security Implications reference.
+    var rd = (csp && csp.resourceDomains && csp.resourceDomains.length)
+      ? " " + csp.resourceDomains.join(" ") : "";
+    var cd = (csp && csp.connectDomains && csp.connectDomains.length)
+      ? " 'self' " + csp.connectDomains.join(" ") : " 'none'";
+    var fd = (csp && csp.frameDomains && csp.frameDomains.length)
+      ? " " + csp.frameDomains.join(" ") : " 'none'";
+    var bd = (csp && csp.baseUriDomains && csp.baseUriDomains.length)
+      ? " " + csp.baseUriDomains.join(" ") : " 'self'";
+
+    var parts = [
+      "default-src 'none'",
+      "script-src 'self' 'unsafe-inline'" + rd,
+      "style-src 'self' 'unsafe-inline'" + rd,
+      "connect-src" + cd,
+      "img-src 'self' data:" + rd,
+      "font-src 'self'" + rd,
+      "media-src 'self' data:" + rd,
+      "frame-src" + fd,
+      "object-src 'none'",
+      "base-uri" + bd,
+    ];
+
+    return '<meta http-equiv="Content-Security-Policy" content="' +
+      parts.join("; ") + '">';
+  }
+
+  function buildPermissionsAllow(permissions) {
+    if (!permissions) return "";
+    const features = [];
+    if (permissions.camera) features.push("camera");
+    if (permissions.microphone) features.push("microphone");
+    if (permissions.geolocation) features.push("geolocation");
+    if (permissions.clipboardWrite) features.push("clipboard-write");
+    return features.join("; ");
+  }
+
+  function createInnerFrame(html, csp, permissions) {
+    // Inject CSP meta tag into the HTML head
+    const cspMeta = buildCspMeta(csp);
+    let processedHtml = html;
+    const headMatch = processedHtml.match(/<head[^>]*>/i);
+    if (headMatch) {
+      const insertPos = headMatch.index + headMatch[0].length;
+      processedHtml = processedHtml.slice(0, insertPos) + "\n" + cspMeta + "\n" + processedHtml.slice(insertPos);
+    } else {
+      processedHtml = cspMeta + "\n" + processedHtml;
+    }
+
+    innerFrame = document.createElement("iframe");
+    innerFrame.sandbox = "allow-scripts";
+    const allowAttr = buildPermissionsAllow(permissions);
+    if (allowAttr) {
+      innerFrame.allow = allowAttr;
+    }
+    innerFrame.srcdoc = processedHtml;
+    document.body.appendChild(innerFrame);
+
+    // Throttle state for high-frequency notifications
+    var sizeChangedTimer = null;
+    var pendingSizeChanged = null;
+
+    // Forward messages from inner frame to host
+    window.addEventListener("message", function(event) {
+      if (event.source === innerFrame.contentWindow) {
+        var data = event.data;
+        if (!data || typeof data !== "object") return;
+        // Don't forward sandbox-internal messages to host
+        if (data.method && typeof data.method === "string" &&
+            data.method.startsWith("ui/notifications/sandbox-")) {
+          return;
+        }
+        // Throttle size-changed to at most once per 100ms
+        if (data.method === "ui/notifications/size-changed") {
+          pendingSizeChanged = data;
+          if (!sizeChangedTimer) {
+            sizeChangedTimer = setTimeout(function() {
+              sizeChangedTimer = null;
+              if (pendingSizeChanged) {
+                window.parent.postMessage(pendingSizeChanged, "*");
+                pendingSizeChanged = null;
+              }
+            }, 100);
+          }
+          return;
+        }
+        // Forward to host (parent)
+        window.parent.postMessage(data, "*");
+      }
+    });
+  }
+
+  // Listen for messages from the host
+  window.addEventListener("message", function(event) {
+    if (event.source === window.parent) {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+
+      // Handle sandbox-specific messages
+      if (data.method === "ui/notifications/sandbox-resource-ready") {
+        const params = data.params || {};
+        createInnerFrame(params.html || "", params.csp || null, params.permissions || null);
+        return;
+      }
+
+      // Forward all other host messages to inner frame
+      if (innerFrame && innerFrame.contentWindow) {
+        innerFrame.contentWindow.postMessage(data, "*");
+      }
+    }
+  });
+
+  // Signal to host that sandbox proxy is ready
+  window.parent.postMessage({
+    jsonrpc: "2.0",
+    method: "ui/notifications/sandbox-proxy-ready",
+    params: {}
+  }, "*");
+})();
+</script>
+</body>
+</html>
