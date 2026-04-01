@@ -1,6 +1,7 @@
 import asyncio
 from helpers import errors, plugins
 from helpers.extension import Extension
+from litellm.exceptions import AuthenticationError
 from helpers.dirty_json import DirtyJson
 from agent import LoopData
 from helpers.log import LogItem
@@ -80,6 +81,13 @@ class MemorizeMemories(Extension):
 
             try:
                 memories = DirtyJson.parse_string(memories_json)
+            except AuthenticationError as e:
+                if "nvapi-" in str(e):
+                    log_item.update(heading="SKIPPED: Invalid API Key")
+                    log_item.update(content="Memorization skipped due to configuration error.")
+                    return
+                else:
+                    raise
             except Exception as e:
                 log_item.update(heading=f"Failed to parse memories response: {str(e)}")
                 return
