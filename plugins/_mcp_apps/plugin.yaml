@@ -1,0 +1,8 @@
+name: mcp_apps
+title: MCP Apps
+description: Renders interactive UI applications from MCP servers in sandboxed iframes within chat messages. Implements the MCP Apps extension (SEP-1865).
+version: 0.1.0
+settings_sections: []
+per_project_config: false
+per_agent_config: false
+always_enabled: false

@@ -24,6 +24,8 @@ import json
 from helpers import errors
 from helpers import settings
 from helpers.log import LogItem
+from helpers.mcp_elicitation import ElicitationManager
+from helpers.mcp_sampling import SamplingManager
 
 import httpx
 
@@ -32,7 +34,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.message import SessionMessage
-from mcp.types import CallToolResult, ListToolsResult
+from mcp.types import CallToolResult, ListToolsResult, ReadResourceResult
 from anyio.streams.memory import (
     MemoryObjectReceiveStream,
     MemoryObjectSendStream,
@@ -265,6 +267,14 @@ class MCPServerRemote(BaseModel):
             # We already run in an event loop, dont believe Pylance
             return await self.__client.call_tool(tool_name, input_data)  # type: ignore
 
+    def get_tool_ui_meta(self, tool_name: str) -> dict[str, Any] | None:
+        with self.__lock:
+            return self.__client.get_tool_ui_meta(tool_name)  # type: ignore
+
+    async def read_resource(self, uri: str) -> ReadResourceResult:
+        with self.__lock:
+            return await self.__client.read_resource(uri)  # type: ignore
+
     def update(self, config: dict[str, Any]) -> "MCPServerRemote":
         with self.__lock:
             for key, value in config.items():
@@ -342,6 +352,14 @@ class MCPServerLocal(BaseModel):
         with self.__lock:
             # We already run in an event loop, dont believe Pylance
             return await self.__client.call_tool(tool_name, input_data)  # type: ignore
+
+    def get_tool_ui_meta(self, tool_name: str) -> dict[str, Any] | None:
+        with self.__lock:
+            return self.__client.get_tool_ui_meta(tool_name)  # type: ignore
+
+    async def read_resource(self, uri: str) -> ReadResourceResult:
+        with self.__lock:
+            return await self.__client.read_resource(uri)  # type: ignore
 
     def update(self, config: dict[str, Any]) -> "MCPServerLocal":
         with self.__lock:
@@ -791,6 +809,25 @@ class MCPConfig(BaseModel):
             return None
         return MCPTool(agent=agent, name=tool_name, method=None, args={}, message="", loop_data=None)
 
+    def get_tool_ui_meta(self, tool_name: str) -> dict[str, Any] | None:
+        """Return the _meta.ui dict for a qualified tool name (server.tool), or None."""
+        if "." not in tool_name:
+            return None
+        server_name_part, tool_name_part = tool_name.split(".", 1)
+        with self.__lock:
+            for server in self.servers:
+                if server.name == server_name_part:
+                    return server.get_tool_ui_meta(tool_name_part)
+        return None
+
+    async def read_resource(self, server_name: str, uri: str) -> ReadResourceResult:
+        """Read a resource by URI from a specific server."""
+        with self.__lock:
+            for server in self.servers:
+                if server.name == server_name:
+                    return await server.read_resource(uri)
+            raise ValueError(f"Server '{server_name}' not found")
+
     async def call_tool(
         self, tool_name: str, input_data: Dict[str, Any]
     ) -> CallToolResult:
@@ -806,6 +843,63 @@ class MCPConfig(BaseModel):
 
 
 T = TypeVar("T")
+
+
+async def _initialize_with_ui_ext(session: ClientSession):
+    """Initialize a ClientSession with the io.modelcontextprotocol/ui extension capability.
+
+    Replicates the SDK's initialize() logic but injects an extensions field
+    into ClientCapabilities to advertise MCP Apps support.
+    """
+    from mcp import types as _t
+    from mcp.client.session import (
+        SUPPORTED_PROTOCOL_VERSIONS,
+        _default_sampling_callback,
+        _default_elicitation_callback,
+        _default_list_roots_callback,
+    )
+
+    sampling = _t.SamplingCapability() if session._sampling_callback is not _default_sampling_callback else None
+    elicitation = _t.ElicitationCapability() if session._elicitation_callback is not _default_elicitation_callback else None
+    roots = (
+        _t.RootsCapability(listChanged=True)
+        if session._list_roots_callback is not _default_list_roots_callback
+        else None
+    )
+
+    capabilities = _t.ClientCapabilities(
+        sampling=sampling,
+        elicitation=elicitation,
+        experimental=None,
+        roots=roots,
+    )
+    # Inject MCP Apps extension capability (ClientCapabilities allows extra fields)
+    capabilities.extensions = {  # type: ignore[attr-defined]
+        "io.modelcontextprotocol/ui": {
+            "mimeTypes": ["text/html;profile=mcp-app"]
+        }
+    }
+
+    result = await session.send_request(
+        _t.ClientRequest(
+            _t.InitializeRequest(
+                params=_t.InitializeRequestParams(
+                    protocolVersion=_t.LATEST_PROTOCOL_VERSION,
+                    capabilities=capabilities,
+                    clientInfo=session._client_info,
+                ),
+            )
+        ),
+        _t.InitializeResult,
+    )
+
+    if result.protocolVersion not in SUPPORTED_PROTOCOL_VERSIONS:
+        raise RuntimeError(f"Unsupported protocol version from the server: {result.protocolVersion}")
+
+    session._server_capabilities = result.capabilities
+    await session.send_notification(_t.ClientNotification(_t.InitializedNotification()))
+
+    return result
 
 
 class MCPClientBase(ABC):
@@ -852,6 +946,12 @@ class MCPClientBase(ABC):
 
                     stdio, write = await self._create_stdio_transport(temp_stack)
                     # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name} - {operation_name}): Transport created. Initializing session...")
+                    elicitation_cb = ElicitationManager.get_instance().create_elicitation_callback(
+                        self.server.name
+                    )
+                    sampling_cb = SamplingManager.get_instance().create_sampling_callback(
+                        self.server.name
+                    )
                     session = await temp_stack.enter_async_context(
                         ClientSession(
                             stdio,  # type: ignore
@@ -859,9 +959,11 @@ class MCPClientBase(ABC):
                             read_timeout_seconds=timedelta(
                                 seconds=read_timeout_seconds
                             ),
+                            elicitation_callback=elicitation_cb,
+                            sampling_callback=sampling_cb,
                         )
                     )
-                    await session.initialize()
+                    await _initialize_with_ui_ext(session)
 
                     result = await coro_func(session)
 
@@ -902,14 +1004,25 @@ class MCPClientBase(ABC):
         async def list_tools_op(current_session: ClientSession):
             response: ListToolsResult = await current_session.list_tools()
             with self.__lock:
-                self.tools = [
-                    {
+                self.tools = []
+                for tool in response.tools:
+                    tool_dict: dict[str, Any] = {
                         "name": tool.name,
                         "description": tool.description,
                         "input_schema": tool.inputSchema,
                     }
-                    for tool in response.tools
-                ]
+                    # Preserve _meta.ui for MCP Apps support
+                    PrintStyle(font_color="yellow", padding=True).print(
+                        f"DEBUG update_tools: tool '{tool.name}' meta={tool.meta}"
+                    )
+                    if tool.meta and isinstance(tool.meta, dict):
+                        ui_meta = tool.meta.get("ui")
+                        if ui_meta and isinstance(ui_meta, dict):
+                            tool_dict["ui_meta"] = ui_meta
+                            PrintStyle(font_color="green", padding=True).print(
+                                f"DEBUG update_tools: captured ui_meta for '{tool.name}': {ui_meta}"
+                            )
+                    self.tools.append(tool_dict)
             PrintStyle(font_color="green").print(
                 f"MCPClientBase ({self.server.name}): Tools updated. Found {len(self.tools)} tools."
             )
@@ -947,6 +1060,33 @@ class MCPClientBase(ABC):
         """Get all tools from the server (uses cached tools)"""
         with self.__lock:
             return self.tools
+
+    def get_tool_ui_meta(self, tool_name: str) -> dict[str, Any] | None:
+        """Return the _meta.ui dict for a tool, or None."""
+        with self.__lock:
+            for tool in self.tools:
+                if tool["name"] == tool_name:
+                    return tool.get("ui_meta")
+        return None
+
+    async def read_resource(self, uri: str) -> "ReadResourceResult":
+        """Read a resource by URI (e.g. ui:// resources for MCP Apps)."""
+        from pydantic import AnyUrl
+
+        async def read_resource_op(current_session: ClientSession):
+            return await current_session.read_resource(AnyUrl(uri))
+
+        try:
+            return await self._execute_with_session(read_resource_op)
+        except Exception as e:
+            PrintStyle(
+                background_color="#AA4455", font_color="white", padding=True
+            ).print(
+                f"MCPClientBase ({self.server.name}): 'read_resource' for '{uri}' failed: {type(e).__name__}: {e}"
+            )
+            raise ConnectionError(
+                f"Failed to read resource '{uri}' on server '{self.server.name}': {type(e).__name__}: {e}"
+            )
 
     async def call_tool(
         self, tool_name: str, input_data: Dict[str, Any]

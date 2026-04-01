@@ -1,0 +1,292 @@
+<html>
+<head>
+    <script type="module">
+        import { store } from "/components/chat/sampling/sampling-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.sampling && $store.sampling.hasPending()">
+            <div class="sampling-panel">
+                <template x-for="item in $store.sampling.pending" :key="item.request_id">
+                    <div class="sampling-card">
+                        <div class="sampling-header">
+                            <span class="material-symbols-outlined sampling-icon">smart_toy</span>
+                            <div class="sampling-header-text">
+                                <span class="sampling-server" x-text="item.server_name"></span>
+                                <span class="sampling-title">requests LLM sampling</span>
+                            </div>
+                        </div>
+
+                        <!-- System prompt -->
+                        <template x-if="item.system_prompt">
+                            <div class="sampling-section">
+                                <div class="sampling-section-label">System Prompt</div>
+                                <div class="sampling-section-content" x-text="item.system_prompt"></div>
+                            </div>
+                        </template>
+
+                        <!-- Messages -->
+                        <div class="sampling-section">
+                            <div class="sampling-section-label">
+                                Messages
+                                <span class="sampling-badge" x-text="item.messages.length"></span>
+                            </div>
+                            <div class="sampling-messages">
+                                <template x-for="(msg, idx) in item.messages" :key="idx">
+                                    <div class="sampling-msg" :class="'sampling-msg-' + msg.role">
+                                        <span class="sampling-msg-role" x-text="msg.role"></span>
+                                        <span class="sampling-msg-content" x-text="msg.content_type === 'text' ? msg.content : '[' + msg.content_type + ']'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Parameters -->
+                        <div class="sampling-params">
+                            <span class="sampling-param">
+                                <span class="sampling-param-label">max_tokens:</span>
+                                <span x-text="item.max_tokens"></span>
+                            </span>
+                            <template x-if="item.temperature !== null && item.temperature !== undefined">
+                                <span class="sampling-param">
+                                    <span class="sampling-param-label">temperature:</span>
+                                    <span x-text="item.temperature"></span>
+                                </span>
+                            </template>
+                            <template x-if="item.model_preferences && item.model_preferences.hints && item.model_preferences.hints.length">
+                                <span class="sampling-param">
+                                    <span class="sampling-param-label">model hints:</span>
+                                    <span x-text="item.model_preferences.hints.map(h => h.name).join(', ')"></span>
+                                </span>
+                            </template>
+                        </div>
+
+                        <div class="sampling-actions">
+                            <button class="btn btn-ok sampling-btn-approve"
+                                    :disabled="item.status !== 'pending'"
+                                    @click="$store.sampling.approve(item.request_id)">
+                                <span class="material-symbols-outlined">check</span>
+                                Approve
+                            </button>
+                            <button class="btn sampling-btn-reject"
+                                    :disabled="item.status !== 'pending'"
+                                    @click="$store.sampling.reject(item.request_id)">
+                                <span class="material-symbols-outlined">block</span>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <style>
+    .sampling-panel {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-xs) var(--spacing-md);
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .sampling-card {
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-left: 4px solid #9C27B0;
+        border-radius: 8px;
+        padding: var(--spacing-sm) var(--spacing-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        animation: sampling-slide-in 0.3s ease-out;
+    }
+
+    @keyframes sampling-slide-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .sampling-header {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+    }
+
+    .sampling-icon {
+        font-size: 1.25rem;
+        color: #9C27B0;
+        flex-shrink: 0;
+    }
+
+    .sampling-header-text {
+        display: flex;
+        align-items: baseline;
+        gap: var(--spacing-xxs);
+        flex-wrap: wrap;
+    }
+
+    .sampling-server {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--color-text);
+    }
+
+    .sampling-title {
+        font-size: 0.8rem;
+        color: var(--color-secondary);
+    }
+
+    .sampling-section {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .sampling-section-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--color-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xxs);
+    }
+
+    .sampling-badge {
+        background: var(--color-border);
+        color: var(--color-text);
+        font-size: 0.7rem;
+        padding: 0 6px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    .sampling-section-content {
+        font-size: 0.8rem;
+        color: var(--color-text);
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        line-height: 1.45;
+        max-height: 120px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .sampling-messages {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .sampling-msg {
+        display: flex;
+        gap: var(--spacing-xs);
+        font-size: 0.8rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 6px;
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        line-height: 1.4;
+    }
+
+    .sampling-msg-role {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--color-secondary);
+        flex-shrink: 0;
+        min-width: 60px;
+    }
+
+    .sampling-msg-user .sampling-msg-role {
+        color: #2196F3;
+    }
+
+    .sampling-msg-assistant .sampling-msg-role {
+        color: #4CAF50;
+    }
+
+    .sampling-msg-content {
+        color: var(--color-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .sampling-params {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs) var(--spacing-md);
+        font-size: 0.75rem;
+        color: var(--color-secondary);
+    }
+
+    .sampling-param {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .sampling-param-label {
+        font-weight: 600;
+    }
+
+    .sampling-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding-top: var(--spacing-xs);
+    }
+
+    .sampling-actions .btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.8rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .sampling-actions .btn .material-symbols-outlined {
+        font-size: 1rem;
+    }
+
+    .sampling-btn-approve {
+        background-color: #9C27B0;
+        color: white;
+    }
+
+    .sampling-btn-approve:hover:not(:disabled) {
+        background-color: #7B1FA2;
+    }
+
+    .sampling-btn-reject {
+        background: var(--color-bg);
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+    }
+
+    .sampling-btn-reject:hover:not(:disabled) {
+        background: var(--color-border);
+    }
+
+    .sampling-actions .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    </style>
+</body>
+</html>

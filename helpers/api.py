@@ -24,7 +24,7 @@ from helpers import files, cache
 ThreadLockType = Union[threading.Lock, threading.RLock]
 
 CACHE_AREA = "api_handlers(api)"
-cache.toggle_area(CACHE_AREA, False)  # cache off for now
+# cache.toggle_area(CACHE_AREA, False)  # cache off for now
 
 Input = dict
 Output = Union[Dict[str, Any], Response]
@@ -236,10 +236,13 @@ def register_api_route(app: Flask, lock: ThreadLockType) -> None:
 
 def register_watchdogs():
     from helpers import watchdog
+    from helpers.ws import CACHE_AREA as WS_CACHE_AREA
+
 
     def on_api_change(items: list[watchdog.WatchItem]):
         PrintStyle.debug("API endpoint watchdog triggered:", items)
         cache.clear(CACHE_AREA)
+        cache.clear(WS_CACHE_AREA)
 
     watchdog.add_watchdog(
         "api_handlers",
@@ -249,21 +252,4 @@ def register_watchdogs():
         ],
         patterns=["*.py"],
         handler=on_api_change,
-    )
-
-    # WS handler cache shares the same watched directories (api/, usr/api/)
-    from helpers.ws import CACHE_AREA as WS_CACHE_AREA
-
-    def on_ws_change(items: list[watchdog.WatchItem]):
-        PrintStyle.debug("WS handler watchdog triggered:", items)
-        cache.clear(WS_CACHE_AREA)
-
-    watchdog.add_watchdog(
-        "ws_handlers",
-        roots=[
-            files.get_abs_path(files.API_DIR),
-            files.get_abs_path(files.USER_DIR, files.API_DIR),
-        ],
-        patterns=["ws_*.py"],
-        handler=on_ws_change,
     )

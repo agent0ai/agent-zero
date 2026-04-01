@@ -99,6 +99,10 @@ export async function getMessageHandler(type) {
       return drawMessageProgress;
     case "mcp":
       return drawMessageMcp;
+    case "mcp_elicitation":
+      return drawMessageMcpElicitation;
+    case "mcp_sampling":
+      return drawMessageMcpSampling;
     case "subagent":
       return drawMessageSubagent;
     case "warning":
@@ -1192,6 +1196,76 @@ export function drawMessageToolSimple({
  * @param {MessageHandlerArgs & Record<string, any>} param0
  * @returns {MessageHandlerResult}
  */
+export function drawMessageMcpSampling({
+  id,
+  type,
+  heading,
+  content,
+  kvps,
+  timestamp,
+  agentno = 0,
+  ...additional
+}) {
+  const title = cleanStepTitle(heading);
+  let displayKvps = { ...kvps };
+  const contentText = String(content ?? "");
+  const actionButtons = contentText.trim()
+    ? [
+        createActionButton("detail", "", () =>
+          stepDetailStore.showStepDetail(
+            buildDetailPayload(arguments[0], { headerLabels: [] }),
+          ),
+        ),
+      ].filter(Boolean)
+    : [];
+
+  return drawProcessStep({
+    id,
+    title,
+    code: "SMP",
+    classes: undefined,
+    kvps: displayKvps,
+    content,
+    actionButtons,
+    log: arguments[0],
+  });
+}
+
+export function drawMessageMcpElicitation({
+  id,
+  type,
+  heading,
+  content,
+  kvps,
+  timestamp,
+  agentno = 0,
+  ...additional
+}) {
+  const title = cleanStepTitle(heading);
+  let displayKvps = { ...kvps };
+  const contentText = String(content ?? "");
+  const actionButtons = contentText.trim()
+    ? [
+        createActionButton("detail", "", () =>
+          stepDetailStore.showStepDetail(
+            buildDetailPayload(arguments[0], { headerLabels: [] }),
+          ),
+        ),
+      ].filter(Boolean)
+    : [];
+
+  return drawProcessStep({
+    id,
+    title,
+    code: "ELC",
+    classes: undefined,
+    kvps: displayKvps,
+    content,
+    actionButtons,
+    log: arguments[0],
+  });
+}
+
 export function drawMessageMcp({
   id,
   type,

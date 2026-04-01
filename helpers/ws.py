@@ -159,7 +159,7 @@ ThreadLockType = Union[threading.Lock, threading.RLock]
 
 NAMESPACE = "/ws"
 CACHE_AREA = "ws_handlers(api)(plugins)"
-cache.toggle_area(CACHE_AREA, False)  # cache off for now
+# cache.toggle_area(CACHE_AREA, False)  # cache off for now
 
 
 @dataclass

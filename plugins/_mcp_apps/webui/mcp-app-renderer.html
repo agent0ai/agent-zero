@@ -1,0 +1,115 @@
+<!--
+  MCP App Renderer — renders a sandboxed iframe for an MCP App within a chat message.
+  This is used by the mcp_app message handler JS extension.
+
+  Expected Alpine.js data context:
+    appId: string — the app instance ID
+    serverName: string
+    toolName: string
+    resourceUri: string
+    csp: object
+    permissions: object
+    prefersBorder: boolean
+-->
+<div x-data="{
+  appId: '',
+  loading: true,
+  error: '',
+  expanded: true,
+
+  async initApp(kvps) {
+    this.appId = kvps?.app_id || '';
+    if (!this.appId) {
+      this.error = 'No app_id provided';
+      this.loading = false;
+      return;
+    }
+
+    try {
+      const store = Alpine.store('mcpApps');
+      if (!store) {
+        this.error = 'MCP Apps plugin not loaded';
+        this.loading = false;
+        return;
+      }
+
+      // Check if already set up
+      if (store.hasApp(this.appId)) {
+        this.loading = false;
+        return;
+      }
+
+      // Fetch app data from backend
+      const appData = await store.fetchAppData(this.appId);
+      if (!appData || appData.error) {
+        this.error = appData?.error || 'Failed to load app data';
+        this.loading = false;
+        return;
+      }
+
+      // Wait for the iframe to be in DOM
+      await this.$nextTick();
+      const iframe = this.$refs.sandboxFrame;
+      if (!iframe) {
+        this.error = 'Iframe not found';
+        this.loading = false;
+        return;
+      }
+
+      await store.setupApp(this.appId, iframe, appData);
+      this.loading = false;
+    } catch (e) {
+      this.error = e.message || 'Failed to initialize app';
+      this.loading = false;
+    }
+  }
+}"
+  x-init="initApp($el.closest('[data-mcp-app-kvps]')?.__mcp_app_kvps)"
+  class="mcp-app-container"
+  style="width: 100%; margin: 8px 0;"
+>
+  <!-- Loading state -->
+  <template x-if="loading">
+    <div style="padding: 16px; text-align: center; color: var(--color-text-secondary, #888);">
+      <span class="material-symbols-outlined" style="animation: spin 1s linear infinite; font-size: 24px;">progress_activity</span>
+      <div style="margin-top: 8px; font-size: 13px;">Loading MCP App...</div>
+    </div>
+  </template>
+
+  <!-- Error state -->
+  <template x-if="!loading && error">
+    <div style="padding: 12px 16px; border-radius: 8px; background: var(--color-error-bg, #fee); color: var(--color-error, #c00); font-size: 13px;">
+      <span class="material-symbols-outlined" style="vertical-align: middle; font-size: 18px;">error</span>
+      <span x-text="error" style="margin-left: 4px;"></span>
+    </div>
+  </template>
+
+  <!-- App iframe (sandbox proxy) -->
+  <div x-show="!loading && !error" style="width: 100%;">
+    <div x-show="expanded" style="width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--color-border, #333);">
+      <iframe
+        x-ref="sandboxFrame"
+        :src="'/usr/plugins/mcp_apps/webui/mcp-app-sandbox.html'"
+        sandbox="allow-scripts"
+        style="width: calc(100% - 24px); min-height: 200px; height: 400px; max-height: 800px; border: none; display: block; margin: 0 auto;"
+        loading="lazy"
+      ></iframe>
+    </div>
+    <div style="margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+      <button
+        @click="expanded = !expanded"
+        style="background: none; border: none; cursor: pointer; color: var(--color-text-secondary, #888); font-size: 12px; padding: 2px 6px; display: flex; align-items: center; gap: 4px;"
+      >
+        <span class="material-symbols-outlined" style="font-size: 16px;" x-text="expanded ? 'expand_less' : 'expand_more'"></span>
+        <span x-text="expanded ? 'Collapse' : 'Expand'"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>
