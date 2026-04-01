@@ -45,6 +45,9 @@ from sentence_transformers import SentenceTransformer
 from pydantic import ConfigDict
 
 
+_logger = logging.getLogger(__name__)
+
+
 # disable extra logging, must be done repeatedly, otherwise browser-use will turn it back on for some reason
 def turn_off_logging():
     os.environ["LITELLM_LOG"] = "ERROR"  # only errors
@@ -509,6 +512,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
 
+        # Prevent negative max_tokens when input exceeds context window
+        for key in ("max_tokens", "max_completion_tokens"):
+            if key in call_kwargs and isinstance(call_kwargs[key], (int, float)) and call_kwargs[key] < 1:
+                call_kwargs.pop(key)
+
         # results
         result = ChatGenerationResult()
 
@@ -521,8 +529,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
                     model=self.model_name,
                     messages=msgs_conv,
                     stream=stream,
+                    drop_params=True,
                     **call_kwargs,
                 )
+
+                finish_reason = ""
 
                 if stream:
                     # iterate over chunks
@@ -531,6 +542,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
                         # parse chunk
                         parsed = _parse_chunk(chunk)
                         output = result.add_chunk(parsed)
+                        reason = _get_finish_reason(chunk)
+                        if reason:
+                            finish_reason = reason
 
                         # collect reasoning delta and call callbacks
                         if output["reasoning_delta"]:
@@ -561,11 +575,19 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 else:
                     parsed = _parse_chunk(_completion)
                     output = result.add_chunk(parsed)
+                    finish_reason = _get_finish_reason(_completion)
                     if limiter:
                         if output["response_delta"]:
                             limiter.add(output=approximate_tokens(output["response_delta"]))
                         if output["reasoning_delta"]:
                             limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+
+                if finish_reason == "length":
+                    _logger.warning(
+                        "LLM response truncated (finish_reason=length) for model %s. "
+                        "Output may be incomplete. Consider increasing max_tokens in model kwargs.",
+                        self.model_name,
+                    )
 
                 # Successful completion of stream
                 return result.response, result.reasoning
@@ -721,6 +743,15 @@ def _get_litellm_embedding(
     return LiteLLMEmbeddingWrapper(
         model=model_name, provider=provider_name, model_config=model_config, **kwargs
     )
+
+
+def _get_finish_reason(chunk: Any) -> str:
+    try:
+        choice = chunk["choices"][0] if chunk.get("choices") else {}
+        reason = choice.get("finish_reason", "") or ""
+        return reason
+    except (IndexError, KeyError, TypeError, AttributeError):
+        return ""
 
 
 def _parse_chunk(chunk: Any) -> ChatChunk:
