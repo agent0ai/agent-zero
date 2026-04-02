@@ -524,6 +524,20 @@ globalThis.pauseAgent = async function (paused) {
   await inputStore.pauseAgent(paused);
 };
 
+globalThis.stopAgent = async function () {
+  await inputStore.stopAgent();
+};
+
+// Escape key to stop running agent (only when not typing in an input/textarea)
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && chatsStore.selectedContext?.running) {
+    const tag = document.activeElement?.tagName;
+    if (tag === "TEXTAREA" || tag === "INPUT") return;
+    e.preventDefault();
+    globalThis.stopAgent();
+  }
+});
+
 function generateShortId() {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

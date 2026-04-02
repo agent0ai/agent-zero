@@ -115,6 +115,18 @@ const model = {
     }
   },
 
+  async stopAgent() {
+    try {
+      const context = globalThis.getContext();
+      if (!globalThis.sendJsonData) throw new Error("sendJsonData not available");
+      await globalThis.sendJsonData("/stop", { context });
+    } catch (e) {
+      if (globalThis.toastFetchError) {
+        globalThis.toastFetchError("Error stopping agent", e);
+      }
+    }
+  },
+
   async loadKnowledge() {
     try {
       const resp = await shortcuts.callJsonApi(
