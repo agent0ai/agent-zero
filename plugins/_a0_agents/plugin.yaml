@@ -1,0 +1,8 @@
+name: _a0_agents
+title: Agent Zero Default Profiles
+version: 1.0.0
+description: Default agent profiles for Agent Zero (agent0, developer, hacker, researcher).
+always_enabled: false
+settings_sections: []
+per_project_config: false
+per_agent_config: false
