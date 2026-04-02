@@ -107,7 +107,9 @@ async def run_compaction(
 
         resolved_cfg, model = _build_model(use_chat_model, preset_name, agent)
         ctx_length = int(resolved_cfg.get("ctx_length", 128000)) if resolved_cfg else 128000
-        max_input_tokens = int(ctx_length * 0.7)
+        # Buffer for BOS/EOS/system tokens (llama.cpp adds 3 special tokens)
+        SPECIAL_TOKEN_BUFFER = 10
+        max_input_tokens = int(ctx_length * 0.7) - SPECIAL_TOKEN_BUFFER
         
         # Step 3: Create progress log item (count user-visible messages only)
         visible_types = {"user", "response"}
