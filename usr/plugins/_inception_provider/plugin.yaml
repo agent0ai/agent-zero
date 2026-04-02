@@ -1,4 +1,4 @@
-name: _inception_provider
+name: inception_provider
 title: Inception Labs Provider
 description: Adds Inception Labs (mercury-2) as an LLM provider option in Agent Zero.
 version: 1.0.0
