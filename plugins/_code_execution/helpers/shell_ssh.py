@@ -1,5 +1,6 @@
 import asyncio
 import paramiko
+import shlex
 import time
 import re
 from typing import Tuple
@@ -14,7 +15,8 @@ class SSHInteractiveSession:
     # ps1_label = "SSHInteractiveSession CLI>"
 
     def __init__(
-        self, logger: Log, hostname: str, port: int, username: str, password: str, cwd: str|None = None
+        self, logger: Log, hostname: str, port: int, username: str, password: str,
+        cwd: str | None = None, extra_env: dict | None = None
     ):
         self.logger = logger
         self.hostname = hostname
@@ -28,6 +30,7 @@ class SSHInteractiveSession:
         self.last_command = b""
         self.trimmed_command_length = 0  # Initialize trimmed_command_length
         self.cwd = cwd
+        self.extra_env = extra_env
 
     async def connect(self, keepalive_interval: int = 5):
         """
@@ -37,7 +40,7 @@ class SSHInteractiveSession:
         ----------
         keepalive_interval : int
             Interval in **seconds** between keep-alive packets sent by Paramiko.
-            A value ≤ 0 disables Paramiko’s keep-alive feature.
+            A value ≤ 0 disables Paramiko's keep-alive feature.
         """
         errors = 0
         while True:
@@ -66,6 +69,17 @@ class SSHInteractiveSession:
                 initial_command = "unset PROMPT_COMMAND PS0; stty -echo"
                 if self.cwd:
                     initial_command = f"cd {self.cwd}; {initial_command}"
+
+                # When extra_env is provided, prepend export statements so the
+                # variables are available for the entire session.  Values are
+                # shell-quoted via shlex.quote to prevent injection.
+                if self.extra_env:
+                    exports = "; ".join(
+                        f"export {k}={shlex.quote(str(v))}"
+                        for k, v in self.extra_env.items()
+                    )
+                    initial_command = f"{exports}; {initial_command}"
+
                 self.shell.send(f"{initial_command}\n".encode())
 
                 # wait for initial prompt/output to settle
@@ -104,7 +118,7 @@ class SSHInteractiveSession:
         self.last_command = command.encode()
         self.trimmed_command_length = 0
         self.shell.send(self.last_command)
-        
+
     async def read_output(
         self, timeout: float = 0, reset_full_output: bool = False
     ) -> Tuple[str, str]:
@@ -138,7 +152,7 @@ class SSHInteractiveSession:
             #         deviation_threshold=8,
             #         deviation_reset=2,
             #         ignore_patterns=[
-            #             rb"\x1b\[\?\d{4}[a-zA-Z](?:> )?",  # ANSI escape sequences
+            #             rb"\[\?\d{4}[a-zA-Z](?:> )?",  # ANSI escape sequences
             #             rb"\r",  # Carriage return
             #             rb">\s",  # Greater-than symbol
             #         ],
@@ -212,13 +226,14 @@ class SSHInteractiveSession:
 
         return data
 
+
 def clean_string(input_string):
     # Remove ANSI escape codes
-    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    ansi_escape = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
     cleaned = ansi_escape.sub("", input_string)
 
     # remove null bytes
-    cleaned = cleaned.replace("\x00", "")
+    cleaned = cleaned.replace("", "")
 
     # remove ipython \r\r\n> sequences from the start
     cleaned = re.sub(r'^[ \r]*(?:\r*\n>[ \r]*)*', '', cleaned)

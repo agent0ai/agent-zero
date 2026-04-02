@@ -1,3 +1,4 @@
+import os
 import platform
 import select
 import subprocess
@@ -8,14 +9,27 @@ from helpers import runtime
 from plugins._code_execution.helpers import tty_session
 from plugins._code_execution.helpers.shell_ssh import clean_string
 
+# Environment variable keys that are safe to forward to the subprocess.
+# Deliberately excludes API keys, bearer tokens, secrets, and all framework
+# env vars — only the minimal set required for a functional interactive shell.
+_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "SHELL", "TERM", "LANG", "LC_ALL", "TMPDIR", "PWD"}
+
+
 class LocalInteractiveSession:
-    def __init__(self, cwd: str|None = None):
-        self.session: tty_session.TTYSession|None = None
+    def __init__(self, cwd: str | None = None, extra_env: dict | None = None):
+        self.session: tty_session.TTYSession | None = None
         self.full_output = ''
         self.cwd = cwd
+        self.extra_env = extra_env
 
     async def connect(self):
-        self.session = tty_session.TTYSession(runtime.get_terminal_executable(), cwd=self.cwd)
+        # When extra_env is provided, build a clean env from the safe whitelist
+        # only — never merge the full os.environ, which would expose API keys
+        # and other framework secrets to the subprocess.
+        env = (
+            {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS} | self.extra_env
+        ) if self.extra_env else None
+        self.session = tty_session.TTYSession(runtime.get_terminal_executable(), cwd=self.cwd, env=env)
         await self.session.start()
         await self.session.read_full_until_idle(idle_timeout=1, total_timeout=1)
 
@@ -29,7 +43,7 @@ class LocalInteractiveSession:
             raise Exception("Shell not connected")
         self.full_output = ""
         await self.session.sendline(command)
- 
+
     async def read_output(self, timeout: float = 0, reset_full_output: bool = False) -> Tuple[str, Optional[str]]:
         if not self.session:
             raise Exception("Shell not connected")
