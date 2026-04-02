@@ -749,13 +749,12 @@ def find_plugin_assets(
             )
             if _collect(path, project_name, agent_profile):
                 return results
-        if not agent_profile or agent_profile == "*":
-            # project/.a0proj/plugins/<plugin_name>/...
-            path = projects.get_project_meta(
-                project_name, files.PLUGINS_DIR, plugin_name, *subpaths
-            )
-            if _collect(path, project_name, ""):
-                return results
+        # project/.a0proj/plugins/<plugin_name>/...
+        path = projects.get_project_meta(
+            project_name, files.PLUGINS_DIR, plugin_name, *subpaths
+        )
+        if _collect(path, project_name, ""):
+            return results
 
     # usr/agents/<profile>/plugins/<plugin_name>/...
     if agent_profile:
