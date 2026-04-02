@@ -131,7 +131,7 @@ def _build_ignore_spec(gitignore: str) -> PathSpec | None:
     ]
     if not lines:
         return None
-    return PathSpec.from_lines("gitwildmatch", lines)
+    return PathSpec.from_lines("gitignore", lines)
 
 
 def _find_matching_files(
