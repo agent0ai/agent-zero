@@ -314,6 +314,26 @@ class AgentConfig:
     knowledge_subdirs: list[str] = field(default_factory=lambda: ["default", "custom"])
     additional: Dict[str, Any] = field(default_factory=dict)
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Dict-like access to config attributes.
+        
+        Provides dict-style .get() access to AgentConfig fields and
+        the additional dict. This is useful for extensions and skills
+        that treat config as a dict-like object.
+        
+        Args:
+            key: The attribute name to look up
+            default: Value to return if key not found
+            
+        Returns:
+            The attribute value, or value from additional dict, or default
+        """
+        if hasattr(self, key):
+            return getattr(self, key)
+        if key in self.additional:
+            return self.additional[key]
+        return default
+
 
 @dataclass
 class UserMessage:
