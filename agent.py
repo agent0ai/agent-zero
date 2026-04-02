@@ -954,7 +954,7 @@ class Agent:
             raise ValueError("Tool request must be a dictionary")
         if not tool_request.get("tool_name") or not isinstance(tool_request.get("tool_name"), str):
             raise ValueError("Tool request must have a tool_name (type string) field")
-        if not tool_request.get("tool_args") or not isinstance(tool_request.get("tool_args"), dict):
+        if not isinstance(tool_request.get("tool_args"), dict):
             raise ValueError("Tool request must have a tool_args (type dictionary) field")
 
 
