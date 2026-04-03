@@ -283,3 +283,52 @@ async def test_api_key_query_auth_uses_compare_digest(monkeypatch):
     assert compare_calls == [(b"secret", b"secret")]
     assert len(delegated_scopes) == 1
     assert sent_messages[0]["status"] == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("headers", "query_string", "expected_compare_calls"),
+    [
+        ([(b"authorization", b"Bearer wrong")], b"", 1),
+        ([(b"x-api-key", b"wrong")], b"", 1),
+        ([], b"api_key=wrong", 1),
+        ([], b"", 0),
+    ],
+    ids=["bearer-wrong", "header-api-key-wrong", "query-api-key-wrong", "no-auth"],
+)
+async def test_non_token_auth_rejects_unauthorized_requests(
+    monkeypatch, headers, query_string, expected_compare_calls
+):
+    module = _load_target_module(
+        monkeypatch,
+        {"a2a_server_enabled": True, "mcp_server_token": "secret"},
+    )
+
+    compare_calls = []
+
+    def _fake_compare(left, right):
+        compare_calls.append((left, right))
+        return left == right
+
+    monkeypatch.setattr(module.hmac, "compare_digest", _fake_compare)
+
+    delegated_scopes = []
+    sent_messages = []
+
+    async def _app(scope, receive, send):
+        delegated_scopes.append(scope)
+
+    proxy = _build_proxy(module, _app)
+    scope = {
+        "type": "http",
+        "path": "/.well-known/agent.json",
+        "headers": headers,
+        "query_string": query_string,
+    }
+
+    await proxy(scope, _empty_receive, lambda message: _collecting_send(sent_messages, message))
+
+    assert delegated_scopes == []
+    assert len(compare_calls) == expected_compare_calls
+    assert sent_messages[0]["status"] == 401
+    assert sent_messages[1]["body"] == b"Unauthorized"
