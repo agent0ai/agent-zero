@@ -1,4 +1,6 @@
 import asyncio
+import litellm
+from litellm.exceptions import AuthenticationError
 from helpers import errors, plugins
 from helpers.extension import Extension
 from helpers.dirty_json import DirtyJson
@@ -23,7 +25,7 @@ class MemorizeSolutions(Extension):
 
         if not set["memory_memorize_enabled"]:
             return
- 
+
         # show full util message
         log_item = self.agent.context.log.log(
             type="util",
@@ -57,12 +59,28 @@ class MemorizeSolutions(Extension):
             #     log_item.stream(content=content)
 
             # call util llm to find solutions in history
-            solutions_json = await self.agent.call_utility_model(
-                system=system,
-                message=msgs_text,
-                # callback=log_callback,
-                background=True,
-            )
+            try:
+                solutions_json = await self.agent.call_utility_model(
+                    system=system,
+                    message=msgs_text,
+                    # callback=log_callback,
+                    background=True,
+                )
+            except AuthenticationError as e:
+                # Guard against NVIDIA API key being sent to OpenAI endpoint
+                if "nvapi-" in str(e):
+                    log_item.update(heading="SKIPPED: Invalid API Key (NVIDIA key on OpenAI endpoint)")
+                    log_item.update(content="Memory memorization skipped due to configuration error. Please update API_KEY_OPENAI in .env or fix provider routing.")
+                    # Gracefully exit without crashing the background thread
+                    return
+                else:
+                    # Re-raise if it is a different authentication error
+                    raise
+            except Exception as e:
+                # Catch any other unexpected errors to prevent thread crashes
+                log_item.update(heading="SKIPPED: Memory memorization failed")
+                log_item.update(content=f"Error: {str(e)}")
+                return
 
             # log query < no need for streaming utility messages
             log_item.update(content=solutions_json)
