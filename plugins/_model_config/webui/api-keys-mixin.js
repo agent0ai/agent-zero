@@ -111,6 +111,7 @@ export const apiKeysMethods = {
     }
 
     const res = await fetchApi(`${API_BASE}/api_keys`, {
+      credentials: 'same-origin',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'set', keys: normalized })
@@ -149,6 +150,7 @@ export const apiKeysMethods = {
 
   async revealApiKey(provider) {
     const res = await fetchApi(`${API_BASE}/api_keys`, {
+      credentials: 'same-origin',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'reveal', provider })
