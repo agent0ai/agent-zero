@@ -2,6 +2,7 @@
 import asyncio
 import uuid
 import atexit
+import hmac
 from typing import Any, List
 import contextlib
 import threading
@@ -59,6 +60,19 @@ except ImportError:  # pragma: no cover – library not installed
     Message = Artifact = AgentProvider = Skill = Any  # type: ignore
 
 _PRINTER = PrintStyle(italic=True, font_color="purple", padding=False)
+
+
+def _tokens_match(provided: str | None, expected: str | None) -> bool:
+    """Compare authentication tokens in constant time.
+
+    Empty values are never treated as a valid match.
+    """
+    if not provided or not expected:
+        return False
+    return hmac.compare_digest(
+        provided.encode("utf-8"),
+        expected.encode("utf-8"),
+    )
 
 
 class AgentZeroWorker(Worker):  # type: ignore[misc]
@@ -457,7 +471,7 @@ class DynamicA2AProxy:
             cfg = settings.get_settings()
             expected_token = cfg.get("mcp_server_token")
 
-            if expected_token and request_token != expected_token:
+            if expected_token and not _tokens_match(request_token, expected_token):
                 # Invalid token, return 401
                 await send({
                     'type': 'http.response.start',
@@ -533,8 +547,11 @@ class DynamicA2AProxy:
                 api_key = request.headers.get("X-API-KEY") or request.query_params.get("api_key")
 
                 is_authorized = (
-                    (auth_header.startswith("Bearer ") and auth_header.split(" ", 1)[1] == expected) or
-                    (api_key == expected)
+                    (
+                        auth_header.startswith("Bearer ")
+                        and _tokens_match(auth_header.split(" ", 1)[1], expected)
+                    )
+                    or _tokens_match(api_key, expected)
                 )
 
                 if not is_authorized:
