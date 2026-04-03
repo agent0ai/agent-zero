@@ -180,7 +180,13 @@ export function updateChatInput(text) {
   // Append text with proper spacing
   const currentValue = chatInputEl.value;
   const needsSpace = currentValue.length > 0 && !currentValue.endsWith(" ");
-  chatInputEl.value = currentValue + (needsSpace ? " " : "") + text + " ";
+  const nextValue = currentValue + (needsSpace ? " " : "") + text + " ";
+  chatInputEl.value = nextValue;
+
+  // Keep the Alpine-backed input store synchronized immediately.
+  // Speech-to-text sends the message right after this call, so waiting for
+  // Alpine's next input tick can race with sendMessage() reading stale state.
+  inputStore.message = nextValue;
 
   // Adjust height and trigger input event
   adjustTextareaHeight();
