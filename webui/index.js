@@ -3,8 +3,8 @@ import * as api from "/js/api.js";
 import { callJsExtensions } from "/js/extensions.js";
 import * as css from "/js/css.js";
 import { sleep } from "/js/sleep.js";
+import { ttsService } from "/js/tts-service.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
-import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { store as inputStore } from "/components/chat/input/input-store.js";
@@ -458,7 +458,7 @@ function speakMessages(logs) {
     // finished response
     if (log.type == "response") {
       // lastSpokenNo = log.no;
-      speechStore.speakStream(
+      ttsService.speakStream(
         getChatBasedId(log.no),
         log.content,
         log.kvps?.finished
@@ -474,7 +474,7 @@ function speakMessages(logs) {
       log.kvps.tool_name != "response"
     ) {
       // lastSpokenNo = log.no;
-      speechStore.speakStream(getChatBasedId(log.no), log.kvps.headline, true);
+      ttsService.speakStream(getChatBasedId(log.no), log.kvps.headline, true);
       return;
     }
   }
@@ -550,7 +550,7 @@ export const setContext = function (id) {
   lastSpokenNo = 0;
 
   // Stop speech when switching chats
-  speechStore.stopAudio();
+  ttsService.stop();
 
   // Clear the chat history immediately to avoid showing stale content
   const chatHistoryEl = document.getElementById("chat-history");

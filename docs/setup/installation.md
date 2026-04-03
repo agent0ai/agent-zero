@@ -352,11 +352,13 @@ Use `claude-sonnet-4-5` for Anthropic, but use `anthropic/claude-sonnet-4-5` for
 > [!NOTE]
 > Agent Zero uses a local embedding model by default (runs on CPU), but you can switch to OpenAI embeddings like `text-embedding-3-small` or `text-embedding-3-large` if preferred.
 
-### Speech to Text Options
+### Built-in Voice Plugins
 
-- **Model Size:** Choose the speech recognition model size
-- **Language Code:** Set the primary language for voice recognition
-- **Silence Settings:** Configure silence threshold, duration, and timeout parameters for voice input
+- Agent Zero ships Whisper STT as the built-in `_whisper_stt` plugin and Kokoro TTS as the built-in `_kokoro_tts` plugin.
+- Docker/bootstrap remains responsible for installing the required speech dependencies such as `ffmpeg`, Kokoro, Whisper, and `soundfile`.
+- Both plugins can be enabled or disabled independently from the Agent Plugins section in the Web UI.
+- Whisper model size, language, and silence behavior are configured from the plugin settings screen.
+- If `_kokoro_tts` is disabled, spoken output falls back to the browser's native speech synthesis instead of the container runtime.
 
 ### API Keys
 
