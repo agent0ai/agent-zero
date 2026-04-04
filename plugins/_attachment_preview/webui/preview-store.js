@@ -41,6 +41,8 @@ function detectType(ext) {
 
 const PLUGIN_API_PREFIX = "/plugins/_attachment_preview";
 
+const WORKDIR_LINK_RE = /\/a0\/usr\/workdir\/|\/api\/download_work_dir_file\?/;
+
 const model = {
   isOpen: false,
   filePath: "",
@@ -53,6 +55,33 @@ const model = {
   error: /** @type {string|null} */ (null),
   isResizing: false,
   isMaximized: false,
+
+  init() {
+    const chatHistory = document.getElementById("chat-history");
+    if (!chatHistory) return;
+
+    chatHistory.addEventListener("click", (e) => {
+      const anchor = /** @type {HTMLElement} */ (e.target).closest("a[href]");
+      if (!anchor) return;
+
+      const href = anchor.getAttribute("href") || "";
+      if (!WORKDIR_LINK_RE.test(href)) return;
+
+      const filename = href.split("/").pop()?.split("?")[0] || "";
+      if (!ALL_PREVIEWABLE.has(getExt(filename))) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      let filePath = href;
+      if (href.includes("/api/download_work_dir_file?")) {
+        const url = new URL(href, location.origin);
+        filePath = url.searchParams.get("path") || href;
+      }
+
+      this.open(filePath, filename);
+    });
+  },
 
   isPreviewable(filename) {
     return ALL_PREVIEWABLE.has(getExt(filename));
