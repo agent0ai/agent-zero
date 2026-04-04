@@ -117,7 +117,7 @@ class RecallMemories(Extension):
         
         # otherwise use the message and history as query
         else:
-            query = user_instruction + "\n\n" + history
+            query = (user_instruction + "\n\n" + history)[:4000]
 
         # if there is no query (or just dash by the LLM), do not continue
         if not query or len(query) <= 3:
