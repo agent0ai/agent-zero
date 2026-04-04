@@ -41,4 +41,4 @@ This plugin adds a split-screen preview panel below the chat area. Clicking a pr
 - **Name**: `_attachment_preview`
 - **Title**: `Attachment Preview`
 - **Description**: Inline preview panel for attachments - supports PDF, text, code, video, audio, markdown, and HTML files.
-- **Always enabled**: `true`
+- **Always enabled**: `false` (can be toggled on/off)
