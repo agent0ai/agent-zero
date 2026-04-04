@@ -593,12 +593,24 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         **kwargs: Any,
     ):
         self.model_name = f"{provider}/{model}" if provider != "openai" else model
+        self.provider = provider
         self.kwargs = kwargs
         self.a0_model_conf = model_config
+
+    def _ollama_embed(self, inputs: List[str]) -> List[List[float]]:
+        import httpx
+        api_base = self.kwargs.get("api_base", "http://host.docker.internal:11434").rstrip("/")
+        model = self.model_name.split("/", 1)[-1]  # strip "ollama/" prefix
+        resp = httpx.post(f"{api_base}/api/embed", json={"model": model, "input": inputs}, timeout=60)
+        resp.raise_for_status()
+        return resp.json()["embeddings"]
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+
+        if self.provider == "ollama":
+            return self._ollama_embed(texts)
 
         resp = embedding(model=self.model_name, input=texts, **self.kwargs)
         return [
@@ -609,6 +621,9 @@ class LiteLLMEmbeddingWrapper(Embeddings):
     def embed_query(self, text: str) -> List[float]:
         # Apply rate limiting if configured
         apply_rate_limiter_sync(self.a0_model_conf, text)
+
+        if self.provider == "ollama":
+            return self._ollama_embed([text])[0]
 
         resp = embedding(model=self.model_name, input=[text], **self.kwargs)
         item = resp.data[0]  # type: ignore
