@@ -177,6 +177,15 @@ export function updateChatInput(text) {
   }
   console.log("updateChatInput called with:", text);
 
+  // ✅ FIX: Update Alpine store directly (source of truth) to prevent x-model overwrite
+  const inputStore = window.Alpine?.store('chatInput');
+  if (inputStore) {
+    const currentValue = inputStore.message || "";
+    const needsSpace = currentValue.length > 0 && !currentValue.endsWith(" ");
+    inputStore.message = currentValue + (needsSpace ? " " : "") + text + " ";
+    console.log("Updated Alpine store message:", inputStore.message);
+  }
+
   // Append text with proper spacing
   const currentValue = chatInputEl.value;
   const needsSpace = currentValue.length > 0 && !currentValue.endsWith(" ");
