@@ -603,7 +603,14 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         embed_kwargs = {"encoding_format": "float", **self.kwargs}
         ctx = int(max((self.a0_model_conf.ctx_length if self.a0_model_conf else 0) or 8192, 1000) * 0.80)
         texts = [trim_to_tokens(t, ctx, "start", ellipsis="") for t in texts]
-        resp = embedding(model=self.model_name, input=texts, **embed_kwargs)
+        try:
+            resp = embedding(model=self.model_name, input=texts, **embed_kwargs)
+        except Exception as e:
+            if "input_tokens" in str(e) and "context" in str(e):
+                texts = [t[: len(t) // 2] for t in texts]
+                resp = embedding(model=self.model_name, input=texts, **embed_kwargs)
+            else:
+                raise
         return [
             item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
             for item in resp.data  # type: ignore
@@ -616,7 +623,13 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         embed_kwargs = {"encoding_format": "float", **self.kwargs}
         ctx = int(max((self.a0_model_conf.ctx_length if self.a0_model_conf else 0) or 8192, 1000) * 0.80)
         text = trim_to_tokens(text, ctx, "start", ellipsis="")
-        resp = embedding(model=self.model_name, input=[text], **embed_kwargs)
+        try:
+            resp = embedding(model=self.model_name, input=[text], **embed_kwargs)
+        except Exception as e:
+            if "input_tokens" in str(e) and "context" in str(e):
+                resp = embedding(model=self.model_name, input=[text[: len(text) // 2]], **embed_kwargs)
+            else:
+                raise
         item = resp.data[0]  # type: ignore
         return item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
 
