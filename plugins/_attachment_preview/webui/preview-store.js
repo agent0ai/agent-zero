@@ -240,7 +240,3 @@ const model = {
 };
 
 export const store = createStore("attachmentPreview", model);
-
-export function isPreviewable(filename) {
-  return ALL_PREVIEWABLE.has(getExt(filename));
-}
