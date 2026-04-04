@@ -107,6 +107,9 @@ class PreviewWorkDirFile(ApiHandler):
         filename = os.path.basename(info["file_name"])
 
         if runtime.is_development():
+            local_path = files.fix_dev_path(file_path)
+            if os.path.isfile(local_path):
+                return stream_file_inline(local_path, filename)
             b64 = await runtime.call_development_function(fetch_file, info["abs_path"])
             file_data = BytesIO(base64.b64decode(b64))
             return stream_file_inline(file_data, filename)

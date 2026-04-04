@@ -41,8 +41,6 @@ function detectType(ext) {
 
 const PLUGIN_API_PREFIX = "/plugins/_attachment_preview";
 
-const WORKDIR_LINK_RE = /\/a0\/usr\/workdir\/|\/api\/download_work_dir_file\?/;
-
 const model = {
   isOpen: false,
   filePath: "",
@@ -56,7 +54,28 @@ const model = {
   isResizing: false,
   isMaximized: false,
 
+  // Intercept openFileLink + download_work_dir_file links
   init() {
+    this._interceptOpenFileLink();
+    this._interceptDownloadLinks();
+  },
+
+  _interceptOpenFileLink() {
+    const w = /** @type {any} */ (window);
+    const origFn = w.openFileLink;
+    if (!origFn) return;
+    const self = this;
+    w.openFileLink = function (path) {
+      const filename = path.split("/").pop() || "";
+      if (ALL_PREVIEWABLE.has(getExt(filename))) {
+        self.open(path, filename);
+        return;
+      }
+      return origFn.call(this, path);
+    };
+  },
+
+  _interceptDownloadLinks() {
     const chatHistory = document.getElementById("chat-history");
     if (!chatHistory) return;
 
@@ -65,20 +84,17 @@ const model = {
       if (!anchor) return;
 
       const href = anchor.getAttribute("href") || "";
-      if (!WORKDIR_LINK_RE.test(href)) return;
+      if (!href.includes("/api/download_work_dir_file?")) return;
 
-      const filename = href.split("/").pop()?.split("?")[0] || "";
+      const url = new URL(href, location.origin);
+      const filePath = url.searchParams.get("path") || "";
+      if (!filePath) return;
+
+      const filename = filePath.split("/").pop()?.split("?")[0] || "";
       if (!ALL_PREVIEWABLE.has(getExt(filename))) return;
 
       e.preventDefault();
       e.stopPropagation();
-
-      let filePath = href;
-      if (href.includes("/api/download_work_dir_file?")) {
-        const url = new URL(href, location.origin);
-        filePath = url.searchParams.get("path") || href;
-      }
-
       this.open(filePath, filename);
     });
   },
@@ -88,6 +104,7 @@ const model = {
   },
 
   async open(filePath, fileName) {
+    filePath = decodeURIComponent(filePath);
     const ext = getExt(fileName || filePath);
     const type = detectType(ext);
 
