@@ -337,13 +337,17 @@ class Memory:
     ):
         comparator = Memory._get_comparator(filter) if filter else None
 
-        return await self.db.asearch(
-            query,
-            search_type="similarity_score_threshold",
-            k=limit,
-            score_threshold=threshold,
-            filter=comparator,
-        )
+        try:
+            return await self.db.asearch(
+                query,
+                search_type="similarity_score_threshold",
+                k=limit,
+                score_threshold=threshold,
+                filter=comparator,
+            )
+        except Exception as e:
+            PrintStyle(font_color="yellow").print(f"Memory search failed (embedding error): {e}")
+            return []
 
     async def delete_documents_by_query(
         self, query: str, threshold: float, filter: str = ""
