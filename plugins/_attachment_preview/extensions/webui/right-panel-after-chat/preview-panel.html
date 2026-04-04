@@ -1,0 +1,389 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/plugins/_attachment_preview/webui/preview-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.attachmentPreview">
+      <div>
+        <!-- Backdrop -->
+        <div class="preview-maximized-backdrop"
+             :class="{ 'active': $store.attachmentPreview.isMaximized && $store.attachmentPreview.isOpen }"
+             @click="$store.attachmentPreview.toggleMaximize()">
+        </div>
+
+        <div id="preview-panel"
+             :class="{ 'open': $store.attachmentPreview.isOpen, 'maximized': $store.attachmentPreview.isMaximized }"
+             x-show="$store.attachmentPreview.isOpen">
+
+        <!-- Resize -->
+        <div class="preview-resize-handle"
+             @mousedown="$store.attachmentPreview.startResize($event)"
+             @touchstart="$store.attachmentPreview.startResize($event)">
+        </div>
+
+        <!-- Header -->
+        <div class="preview-header">
+          <div class="preview-header-info">
+            <span class="material-symbols-outlined preview-header-icon">description</span>
+            <span class="preview-header-name" x-text="$store.attachmentPreview.fileName" :title="$store.attachmentPreview.filePath"></span>
+          </div>
+          <div class="preview-header-actions">
+            <button class="btn-icon-action" @click="$store.attachmentPreview.downloadFile()" title="Download">
+              <span class="material-symbols-outlined">download</span>
+            </button>
+            <button class="btn-icon-action" @click="$store.attachmentPreview.toggleMaximize()" :title="$store.attachmentPreview.isMaximized ? 'Restore' : 'Maximize'">
+              <span class="material-symbols-outlined" x-text="$store.attachmentPreview.isMaximized ? 'close_fullscreen' : 'open_in_full'"></span>
+            </button>
+            <button class="btn-icon-action" @click="$store.attachmentPreview.close()" title="Close">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="preview-body">
+
+          <!-- Loading -->
+          <div x-show="$store.attachmentPreview.isLoading" class="preview-status">
+            <div class="loading-spinner"></div>
+            <p>Loading preview…</p>
+          </div>
+
+          <!-- Error -->
+          <div x-show="$store.attachmentPreview.error" class="preview-status preview-error">
+            <span class="material-symbols-outlined">error</span>
+            <p x-text="$store.attachmentPreview.error"></p>
+            <button class="btn btn-ok" @click="$store.attachmentPreview.downloadFile()">Download Instead</button>
+          </div>
+
+          <!-- Image -->
+          <template x-if="$store.attachmentPreview.fileType === 'image' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-content preview-image">
+              <img :src="$store.attachmentPreview.previewUrl" :alt="$store.attachmentPreview.fileName" />
+            </div>
+          </template>
+
+          <!-- Markdown -->
+          <template x-if="$store.attachmentPreview.fileType === 'markdown' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-content preview-markdown message-text" x-html="$store.attachmentPreview.content"></div>
+          </template>
+
+          <!-- Text -->
+          <template x-if="$store.attachmentPreview.fileType === 'text' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-content preview-text">
+              <pre x-text="$store.attachmentPreview.content"></pre>
+            </div>
+          </template>
+
+          <!-- HTML -->
+          <template x-if="$store.attachmentPreview.fileType === 'html' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-content preview-iframe">
+              <iframe :src="$store.attachmentPreview.previewUrl"
+                      sandbox="allow-same-origin"
+                      referrerpolicy="no-referrer"></iframe>
+            </div>
+          </template>
+
+          <!-- PDF -->
+          <template x-if="$store.attachmentPreview.fileType === 'pdf' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-content preview-iframe">
+              <iframe :src="$store.attachmentPreview.previewUrl"></iframe>
+            </div>
+          </template>
+
+          <!-- Video -->
+          <template x-if="$store.attachmentPreview.fileType === 'video' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-content preview-video">
+              <video controls :src="$store.attachmentPreview.previewUrl">
+                Your browser does not support video playback.
+              </video>
+            </div>
+          </template>
+
+          <!-- Audio -->
+          <template x-if="$store.attachmentPreview.fileType === 'audio' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-content preview-audio">
+              <span class="material-symbols-outlined preview-audio-icon">music_note</span>
+              <span class="preview-audio-name" x-text="$store.attachmentPreview.fileName"></span>
+              <audio controls :src="$store.attachmentPreview.previewUrl">
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          </template>
+
+          <!-- Unsupported -->
+          <template x-if="$store.attachmentPreview.fileType === 'unsupported' && !$store.attachmentPreview.isLoading && !$store.attachmentPreview.error">
+            <div class="preview-status">
+              <span class="material-symbols-outlined">visibility_off</span>
+              <p>This file type cannot be previewed.</p>
+              <button class="btn btn-ok" @click="$store.attachmentPreview.downloadFile()">Download File</button>
+            </div>
+          </template>
+
+        </div>
+      </div>
+      </div>
+    </template>
+  </div>
+
+<style>
+#preview-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 0;
+  min-height: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--color-chat-background);
+  border-top: 0 solid var(--color-border);
+  transition: height 0.2s ease, min-height 0.2s ease, border-top-width 0.2s ease;
+  position: relative;
+}
+
+#preview-panel.open {
+  height: 40vh;
+  min-height: 180px;
+  border-top-width: 1px;
+}
+
+.preview-maximized-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 1999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.preview-maximized-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#preview-panel.maximized {
+  position: fixed;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80% !important;
+  min-height: 0;
+  z-index: 2000;
+  border-top: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 23px rgba(0, 0, 0, 0.2);
+}
+
+.preview-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: row-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s;
+}
+.preview-resize-handle:hover,
+.preview-resize-handle:active {
+  background: var(--color-highlight);
+  opacity: 0.5;
+}
+#preview-panel.maximized .preview-resize-handle {
+  display: none;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-panel);
+  flex-shrink: 0;
+  min-height: 42px;
+}
+
+.preview-header-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.preview-header-icon {
+  font-size: 1.1rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.preview-header-name {
+  font-size: var(--font-size-smaller);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.preview-header-actions .btn-icon-action {
+  padding: var(--spacing-xxs);
+}
+
+.preview-body {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  position: relative;
+}
+
+.preview-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  height: 100%;
+  text-align: center;
+  color: var(--color-text-muted);
+  gap: var(--spacing-sm);
+}
+
+.preview-status .material-symbols-outlined {
+  font-size: 2.5rem;
+  opacity: 0.5;
+}
+
+.preview-status p {
+  margin: 0;
+  font-size: var(--font-size-smaller);
+}
+
+.preview-error .material-symbols-outlined {
+  color: var(--color-error-text);
+}
+
+.preview-status .loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.preview-content {
+  width: 100%;
+  height: 100%;
+}
+
+.preview-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm);
+  overflow: auto;
+}
+.preview-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--border-radius-sm);
+}
+
+.preview-markdown {
+  padding: var(--spacing-md);
+  overflow: auto;
+  line-height: 1.6;
+}
+
+.preview-text {
+  overflow: auto;
+  padding: 0;
+}
+.preview-text pre {
+  margin: 0;
+  padding: var(--spacing-sm);
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-small);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.preview-iframe {
+  display: flex;
+}
+.preview-iframe iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+.preview-video {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm);
+}
+.preview-video video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--border-radius-sm);
+}
+
+.preview-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+.preview-audio-icon {
+  font-size: 3rem;
+  color: var(--color-text-muted);
+  opacity: 0.4;
+}
+.preview-audio-name {
+  font-size: var(--font-size-smaller);
+  color: var(--color-text-muted);
+  word-break: break-all;
+  text-align: center;
+}
+.preview-audio audio {
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #preview-panel.open {
+    height: 50vh;
+  }
+  .preview-resize-handle {
+    display: none;
+  }
+}
+</style>
+</body>
+</html>

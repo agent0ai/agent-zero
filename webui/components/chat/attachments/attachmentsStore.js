@@ -354,6 +354,8 @@ const model = {
         clickHandler: () => {
           if (this.isImageFile(filename)) {
             imageViewerStore.open(this.getServerImgUrl(filename), { name: filename });
+          } else if (Alpine.store('attachmentPreview')?.isPreviewable?.(filename)) {
+            Alpine.store('attachmentPreview').open(this.getServerFileUrl(filename), filename);
           } else {
             this.downloadAttachment(filename);
           }
@@ -376,6 +378,8 @@ const model = {
           if (attachment.type === "image") {
             const imageUrl = this.getServerImgUrl(attachment.name);
             imageViewerStore.open(imageUrl, { name: attachment.name });
+          } else if (Alpine.store('attachmentPreview')?.isPreviewable?.(attachment.name)) {
+            Alpine.store('attachmentPreview').open(this.getServerFileUrl(attachment.name), attachment.name);
           } else {
             this.downloadAttachment(attachment.name);
           }

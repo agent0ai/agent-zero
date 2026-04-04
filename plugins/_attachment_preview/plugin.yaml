@@ -1,0 +1,5 @@
+name: _attachment_preview
+title: Attachment Preview
+description: Inline preview panel for attachments - supports PDF, text, code, video, audio, markdown, and HTML files.
+version: 1.0.0
+always_enabled: true
