@@ -900,6 +900,26 @@ def execute_pending_update(
                 backup_zip_path=backup_zip_path,
                 rollback_applied=False,
             )
+            # Write breadcrumb to /a0/usr/ so initialize.sh can restore this
+            # update after container recreation. /a0/usr/ is the directory
+            # operators mount as a persistent volume.
+            # See: https://github.com/MrTrenchTrucker/agent-zero-self-update-rollback
+            try:
+                breadcrumb_path = Path("/a0/usr/.a0_self_update_state")
+                if breadcrumb_path.parent.exists():
+                    import json as _json
+                    breadcrumb_path.write_text(
+                        _json.dumps({
+                            "updated_at": now_iso(),
+                            "target_tag": resolved_target.get("expected_short_tag", ""),
+                            "target_hash": resolved_target.get("expected_commit", ""),
+                            "branch": branch,
+                        }, indent=2),
+                        encoding="utf-8",
+                    )
+                    logger.log(f"Self-update breadcrumb written to {breadcrumb_path}")
+            except Exception as exc:
+                logger.log(f"Warning: Could not write self-update breadcrumb: {exc}")
             if stash_ref:
                 logger.log(
                     f"Update succeeded, dropping temporary rollback stash {stash_ref}. "
