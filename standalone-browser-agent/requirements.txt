@@ -1,0 +1,8 @@
+browser-use==0.5.11
+playwright==1.52.0
+litellm>=1.75.0
+python-dotenv==1.1.0
+nest-asyncio==1.6.0
+pydantic>=2.0.0
+click>=8.1.0
+rich>=13.0.0
