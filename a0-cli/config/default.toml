@@ -1,0 +1,11 @@
+# Agent Zero CLI default configuration
+
+[connection]
+agent_url = "http://localhost:55080"
+# api_key = ""
+
+[display]
+theme = "dark"
+
+[acp]
+acp_auto_approve = false
