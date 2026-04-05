@@ -1,0 +1,200 @@
+<html>
+  <head>
+    <title>Browser Settings</title>
+    <script type="module">
+      import { store } from "/plugins/browser_use/webui/browser-settings-store.js";
+    </script>
+  </head>
+
+  <body>
+    <div x-data x-create="$store.browserSettings.load()">
+      <template x-if="$store.browserSettings">
+        <div class="browser-settings">
+
+          <!-- Browser Configuration -->
+          <div class="section">
+            <div class="section-title">Browser Configuration</div>
+            <div class="section-description">
+              Browser engine and display settings.
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Browser Mode</div>
+                <div class="field-description">Browser engine to use for web automation.</div>
+              </div>
+              <div class="field-control">
+                <select
+                  x-model="$store.browserSettings.settings.browser_mode"
+                  @change="$store.browserSettings.save()"
+                >
+                  <option value="chromium">Chromium (local)</option>
+                  <option value="chrome">Chrome (local)</option>
+                  <option value="firefox">Firefox (local)</option>
+                  <option value="remote">Remote (Browser Use Cloud)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Headless</div>
+                <div class="field-description">Run the browser without a visible window. Faster but no visual feedback.</div>
+              </div>
+              <div class="field-control">
+                <label class="toggle">
+                  <input
+                    type="checkbox"
+                    x-model="$store.browserSettings.settings.headless"
+                    @change="$store.browserSettings.save()"
+                  />
+                  <span class="toggler"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Window Size</div>
+                <div class="field-description">Browser viewport dimensions in pixels.</div>
+              </div>
+              <div class="field-control">
+                <select
+                  x-model="$store.browserSettings.settings.window_size"
+                  @change="$store.browserSettings.save()"
+                >
+                  <option value="800x600">800 x 600</option>
+                  <option value="1024x768">1024 x 768</option>
+                  <option value="1280x720">1280 x 720 (HD)</option>
+                  <option value="1280x1024">1280 x 1024</option>
+                  <option value="1920x1080">1920 x 1080 (Full HD)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Agent Defaults -->
+          <div class="section">
+            <div class="section-title">Agent Defaults</div>
+            <div class="section-description">
+              Default parameters for browser automation tasks.
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Default Max Steps</div>
+                <div class="field-description">Maximum number of browser actions per task. Higher values allow more complex workflows.</div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  x-model.number="$store.browserSettings.settings.default_max_steps"
+                  @change="$store.browserSettings.save()"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Vision Mode</div>
+                <div class="field-description">How the agent perceives page content. "auto" uses vision when available, "text" uses DOM only.</div>
+              </div>
+              <div class="field-control">
+                <select
+                  x-model="$store.browserSettings.settings.vision_mode"
+                  @change="$store.browserSettings.save()"
+                >
+                  <option value="auto">Auto (use vision when available)</option>
+                  <option value="text">Text only (DOM extraction)</option>
+                  <option value="vision">Vision only (screenshots)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Flash Mode</div>
+                <div class="field-description">Use faster, lighter model calls for browser actions. Reduces quality but improves speed.</div>
+              </div>
+              <div class="field-control">
+                <label class="toggle">
+                  <input
+                    type="checkbox"
+                    x-model="$store.browserSettings.settings.flash_mode"
+                    @change="$store.browserSettings.save()"
+                  />
+                  <span class="toggler"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Viewer -->
+          <div class="section">
+            <div class="section-title">Viewer</div>
+            <div class="section-description">
+              Settings for the live browser screencast viewer.
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Screencast Quality</div>
+                <div class="field-description">JPEG quality for screencast frames. Lower values reduce bandwidth, higher values improve clarity.</div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  x-model.number="$store.browserSettings.settings.screencast_quality"
+                  @change="$store.browserSettings.save()"
+                />
+                <span class="range-value" x-text="$store.browserSettings.settings.screencast_quality + '%'"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Remote Browser (conditional) -->
+          <template x-if="$store.browserSettings.settings.browser_mode === 'remote'">
+            <div class="section">
+              <div class="section-title">Remote Browser</div>
+              <div class="section-description">
+                Configuration for Browser Use Cloud remote browser service.
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Browser Use API Key</div>
+                  <div class="field-description">API key for the Browser Use Cloud service. Required for remote browser mode.</div>
+                </div>
+                <div class="field-control">
+                  <input
+                    type="password"
+                    x-model="$store.browserSettings.settings.browser_use_api_key"
+                    @change="$store.browserSettings.save()"
+                    placeholder="Enter API key"
+                    autocomplete="off"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+
+        </div>
+      </template>
+    </div>
+
+    <style>
+      .browser-settings .section {
+        min-width: 0;
+        overflow: hidden;
+      }
+      .browser-settings select {
+        width: auto;
+      }
+    </style>
+  </body>
+</html>
