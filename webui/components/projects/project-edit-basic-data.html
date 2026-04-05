@@ -134,6 +134,56 @@
                         </div>
                     </div>
                 </template>
+
+                <!-- Plugin Section -->
+                <template x-if="!$store.projects.selectedProject._meta.creating && $store.projects.selectedProject.plugin_symlink_status?.has_plugin_yaml">
+                    <div class="projects-form-group plugin-status-section">
+                        <label class="projects-form-label">
+                            <span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1em;">extension</span>
+                            Plugin
+                        </label>
+                        <div class="git-status-card">
+                            <div class="git-status-row">
+                                <span class="git-status-label">Plugin Dir</span>
+                                <input class="projects-form-input" style="flex:1;"
+                                    x-model="$store.projects.selectedProject.plugin_symlink_status.plugin_dir"
+                                    :placeholder="$store.projects.selectedProject.plugin_symlink_status?.default_plugin_dir"
+                                />
+                            </div>
+                            <div class="git-status-row">
+                                <span class="git-status-label">Symlink</span>
+                                <span class="git-status-value">
+                                    <template x-if="$store.projects.selectedProject.plugin_symlink_status?.is_linked">
+                                        <span class="plugin-linked">&#10003; Linked</span>
+                                    </template>
+                                    <template x-if="!$store.projects.selectedProject.plugin_symlink_status?.is_linked">
+                                        <span class="plugin-unlinked">Not linked</span>
+                                    </template>
+                                </span>
+                            </div>
+                            <template x-if="$store.projects.selectedProject.plugin_symlink_status?.is_linked">
+                                <div class="git-status-row">
+                                    <span class="git-status-label">Path</span>
+                                    <span class="git-status-value git-url" x-text="$store.projects.selectedProject.plugin_symlink_status?.symlink_path"></span>
+                                </div>
+                            </template>
+                            <div class="git-status-row">
+                                <span class="git-status-label"></span>
+                                <div style="display:flex;gap:0.5em;">
+                                    <template x-if="!$store.projects.selectedProject.plugin_symlink_status?.is_linked">
+                                        <button class="btn btn-primary btn-sm" @click="$store.projects.linkPlugin()">Link as Plugin</button>
+                                    </template>
+                                    <template x-if="$store.projects.selectedProject.plugin_symlink_status?.is_linked">
+                                        <div style="display:flex;gap:0.5em;">
+                                            <button class="btn btn-secondary btn-sm" @click="$store.projects.unlinkPlugin()">Unlink</button>
+                                            <button class="btn btn-primary btn-sm" disabled>&#10003; Linked</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
             </div>
 
 
