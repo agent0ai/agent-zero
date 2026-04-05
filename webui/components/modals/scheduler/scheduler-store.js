@@ -944,7 +944,7 @@ const schedulerStoreModel = {
     // Smart merge: preserve object references to prevent UI flickering
     const taskMap = new Map(this.tasks.map((t) => [t.uuid, t]));
     this.tasks = sidebarTasks.map((sidebarTask) => {
-      const taskId = sidebarTask.uuid || sidebarTask.id;
+      const taskId = sidebarTask.uuid || sidebarTask.id || sidebarTask.context_id;
       const existing = taskMap.get(taskId);
       if (existing) {
         // Update existing object in-place if different
