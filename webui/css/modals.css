@@ -78,7 +78,7 @@ some classes like modal-header are shared between the old and the new system */
 /* Modal Header */
 .modal-header {
   display: grid;
-  grid-template-columns: 40fr 0.5fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 1.5rem 0.5rem 2rem;
