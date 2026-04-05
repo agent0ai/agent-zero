@@ -3,6 +3,7 @@ import { updateChatInput, sendMessage } from "/index.js";
 import { sleep } from "/js/sleep.js";
 import { store as microphoneSettingStore } from "/components/settings/speech/microphone-setting-store.js";
 import * as shortcuts from "/js/shortcuts.js";
+import * as API from "/js/api.js";
 
 const Status = {
   INACTIVE: "inactive",
@@ -110,8 +111,7 @@ const model = {
   // Load settings from server
   async loadSettings() {
     try {
-      const response = await fetchApi("/settings_get", { method: "POST" });
-      const data = await response.json();
+      const data = await API.callJsonApi("settings_get", null);
       const settings = data?.settings || {};
 
       if (settings) {
@@ -126,8 +126,7 @@ const model = {
         this.tts_kokoro = settings.tts_kokoro ?? this.tts_kokoro;
       }
     } catch (error) {
-      window.toastFetchError("Failed to load speech settings", error);
-      console.error("Failed to load speech settings:", error);
+      console.warn("Failed to load speech settings, using defaults:", error);
     }
   },
 
