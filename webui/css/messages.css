@@ -785,3 +785,92 @@
     opacity: 0;
   }
 }
+
+
+
+/* ===== MEDIA DISPLAY ENHANCEMENT - Audio/Video Players ===== */
+
+/* Audio player styling - Enhanced visibility with accent colors */
+audio {
+ width: 100%;
+ max-width: 400px;
+ height: 44px;
+ margin: 10px 0;
+ border-radius: 22px;
+ border: 2px solid #4a9eff;
+ background: linear-gradient(135deg, #e8f4ff 0%, #f0f8ff 100%);
+ box-shadow: 0 3px 8px rgba(74, 158, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+audio::-webkit-media-controls-panel {
+ background: transparent;
+}
+
+/* Video player styling - Enhanced visibility */
+video {
+ max-width: 100%;
+ width: 100%;
+ max-width: 640px;
+ max-height: 480px;
+ margin: 10px 0;
+ border-radius: 12px;
+ border: 2px solid #4a9eff;
+ background: #000;
+ box-shadow: 0 4px 12px rgba(74, 158, 255, 0.4);
+}
+
+/* Light mode specific - ensure visibility */
+@media (prefers-color-scheme: light) {
+ audio {
+ border-color: #2d7dd2;
+ background: linear-gradient(135deg, #e3f0ff 0%, #eef6ff 100%);
+ box-shadow: 0 3px 8px rgba(45, 125, 210, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+ }
+
+ video {
+ border-color: #2d7dd2;
+ box-shadow: 0 4px 12px rgba(45, 125, 210, 0.35);
+ }
+}
+
+/* Dark mode adjustments - distinct from background */
+@media (prefers-color-scheme: dark) {
+ audio {
+ border-color: #6bb3ff;
+ background: linear-gradient(135deg, #1a3a5c 0%, #0d2137 100%);
+ box-shadow: 0 3px 8px rgba(107, 179, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+ }
+
+ audio::-webkit-media-controls-panel {
+ background: transparent;
+ }
+
+ video {
+ border-color: #6bb3ff;
+ box-shadow: 0 4px 12px rgba(107, 179, 255, 0.5);
+ }
+}
+
+/* Message content media container */
+.message-content audio,
+.message-content video {
+ display: block;
+ margin: 12px 0;
+}
+
+/* Hover effects for better interactivity */
+audio:hover {
+ border-color: #66b3ff;
+ box-shadow: 0 4px 12px rgba(74, 158, 255, 0.5);
+ transform: translateY(-1px);
+ transition: all 0.2s ease;
+}
+
+video:hover {
+ border-color: #66b3ff;
+ box-shadow: 0 6px 16px rgba(74, 158, 255, 0.6);
+ transform: translateY(-1px);
+ transition: all 0.2s ease;
+}
+
+/* ===== END MEDIA DISPLAY ENHANCEMENT ===== */
