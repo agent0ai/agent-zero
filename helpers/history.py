@@ -539,7 +539,9 @@ class History(Record):
         chat_cfg = get_chat_model_config(self.agent)
         ctx_length = int(chat_cfg.get("ctx_length", 128000))
         ctx_history = float(chat_cfg.get("ctx_history", 0.7))
-        return int(ctx_length * ctx_history)
+        # Buffer for BOS/EOS/system tokens (llama.cpp adds 3 special tokens)
+        SPECIAL_TOKEN_BUFFER = 10
+        return int(ctx_length * ctx_history) - SPECIAL_TOKEN_BUFFER
 
     def _get_max_embeds(self) -> int:
         chat_cfg = get_chat_model_config(self.agent)
