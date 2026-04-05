@@ -1,0 +1,216 @@
+<html>
+<head>
+  <title>Chat Model Settings</title>
+  <script type="module">
+    import { store } from "/components/modals/chat-model/chat-model-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.chatModelStore">
+      <div class="chat-model-modal-content">
+
+        <div x-show="$store.chatModelStore.loading" class="chat-model-loading">
+          Loading...
+        </div>
+
+        <template x-if="!$store.chatModelStore.loading">
+          <div>
+
+            <!-- Toggle: global vs custom -->
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Use custom model for this chat</div>
+                <div class="field-description">
+                  When enabled, this chat uses its own model configuration instead of the global settings.
+                </div>
+              </div>
+              <div class="field-control">
+                <label class="toggle">
+                  <input type="checkbox" x-model="$store.chatModelStore.isCustom" />
+                  <span class="toggler"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Custom fields (only shown when isCustom is true) -->
+            <div x-show="$store.chatModelStore.isCustom" class="chat-model-custom-fields">
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Provider</div>
+                  <div class="field-description">Model provider for this chat</div>
+                </div>
+                <div class="field-control">
+                  <select x-model="$store.chatModelStore.settings.chat_model_provider">
+                    <template x-for="option in $store.chatModelStore.providers" :key="option.value">
+                      <option :value="option.value"
+                        :selected="option.value === $store.chatModelStore.settings.chat_model_provider"
+                        x-text="option.label">
+                      </option>
+                    </template>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Model name</div>
+                  <div class="field-description">Exact name of the model from the selected provider</div>
+                </div>
+                <div class="field-control">
+                  <input type="text" x-model="$store.chatModelStore.settings.chat_model_name" />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">API base URL</div>
+                  <div class="field-description">
+                    Optional. Leave empty for default. Relevant for Azure, local and custom providers.
+                  </div>
+                </div>
+                <div class="field-control">
+                  <input type="text" x-model="$store.chatModelStore.settings.chat_model_api_base" />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Context length</div>
+                  <div class="field-description">Maximum number of tokens in the context window</div>
+                </div>
+                <div class="field-control">
+                  <input type="number" x-model.number="$store.chatModelStore.settings.chat_model_ctx_length" />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Context window for chat history</div>
+                  <div class="field-description">
+                    Portion of context window dedicated to chat history (0.01 to 1.0)
+                  </div>
+                </div>
+                <div class="field-control">
+                  <input type="range" min="0.01" max="1" step="0.01"
+                    x-model.number="$store.chatModelStore.settings.chat_model_ctx_history" />
+                  <span class="range-value"
+                    x-text="$store.chatModelStore.settings.chat_model_ctx_history"></span>
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Supports Vision</div>
+                  <div class="field-description">Enable if the model supports image inputs</div>
+                </div>
+                <div class="field-control">
+                  <label class="toggle">
+                    <input type="checkbox" x-model="$store.chatModelStore.settings.chat_model_vision" />
+                    <span class="toggler"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Requests per minute limit</div>
+                  <div class="field-description">0 to disable rate limiting</div>
+                </div>
+                <div class="field-control">
+                  <input type="number" x-model.number="$store.chatModelStore.settings.chat_model_rl_requests" />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Input tokens per minute limit</div>
+                  <div class="field-description">0 to disable</div>
+                </div>
+                <div class="field-control">
+                  <input type="number" x-model.number="$store.chatModelStore.settings.chat_model_rl_input" />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Output tokens per minute limit</div>
+                  <div class="field-description">0 to disable</div>
+                </div>
+                <div class="field-control">
+                  <input type="number" x-model.number="$store.chatModelStore.settings.chat_model_rl_output" />
+                </div>
+              </div>
+
+              <div class="field field-full">
+                <div class="field-label">
+                  <div class="field-title">Additional parameters</div>
+                  <div class="field-description">
+                    Extra parameters in KEY=VALUE format (one per line)
+                  </div>
+                </div>
+                <div class="field-control">
+                  <textarea x-model="$store.chatModelStore.settings.chat_model_kwargs"></textarea>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Modal Footer -->
+    <template x-if="$store.chatModelStore && !$store.chatModelStore.loading">
+      <div class="modal-footer chat-model-modal-footer" data-modal-footer>
+        <div class="buttons-container">
+          <div class="buttons-right">
+            <button type="button" class="button cancel"
+              @click="$store.chatModelStore.cancel()">Cancel</button>
+            <button type="button" class="button confirm"
+              :disabled="$store.chatModelStore.saving"
+              @click="$store.chatModelStore.save()">
+              <span x-text="$store.chatModelStore.saving ? 'Saving...' : 'Save'"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .chat-model-modal-content {
+      padding: 0.5rem 0;
+      min-width: 460px;
+    }
+
+    .chat-model-loading {
+      padding: 2rem;
+      text-align: center;
+      color: var(--color-secondary);
+    }
+
+    .chat-model-custom-fields {
+      margin-top: 0.5rem;
+      border-top: 1px solid var(--color-border);
+      padding-top: 0.5rem;
+    }
+
+    .chat-model-modal-footer {
+      padding: 0.6rem 1rem;
+    }
+
+    .chat-model-modal-footer .buttons-container {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .chat-model-modal-footer .buttons-right {
+      display: flex;
+      gap: 0.5rem;
+    }
+  </style>
+</body>
+</html>

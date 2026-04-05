@@ -215,6 +215,10 @@ def _deserialize_context(data):
     context.agent0 = agent0
     context.streaming_agent = streaming_agent
 
+    # Re-apply per-chat model override if present
+    from helpers.chat_model_override import apply_override
+    apply_override(context)
+
     return context
 
 
