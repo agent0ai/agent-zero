@@ -241,6 +241,14 @@ class AgentContext:
         return self.task
 
     @extension.extensible
+    def stop(self):
+        """Stop the running agent immediately, preserving conversation history."""
+        self.kill_process()
+        self.paused = False
+        self.streaming_agent = None
+        self.log.log(type="info", content="Agent stopped by user.")
+
+    @extension.extensible
     def get_agent(self):
         return self.streaming_agent or self.agent0
 

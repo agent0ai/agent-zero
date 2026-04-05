@@ -2,6 +2,7 @@
 <head>
   <script type="module">
     import { store } from "/components/chat/input/input-store.js";
+    import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
   </script>
 </head>
 <body>
@@ -20,6 +21,16 @@
           </svg>
         </template>
         <span x-text="$store.chatInput.paused ? 'Resume Agent' : 'Pause Agent'"></span>
+      </button>
+
+      <button type="button" class="text-button stop-button"
+              @click="$store.chatInput.stopAgent()"
+              x-show="$store.chats?.selectedContext?.running"
+              title="Stop the agent immediately">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="M6 6h12v12H6z"></path>
+        </svg>
+        <span>Stop Agent</span>
       </button>
 
       <button type="button" class="text-button" id="nudges_window" @click="$store.chatInput.nudge()">
@@ -77,6 +88,10 @@
       flex-shrink: 0;
     }
     .text-button p { margin-block: 0; }
+    .stop-button { color: var(--color-error, #e74c3c) !important; }
+    .stop-button:hover:not(:disabled) {
+      background-color: rgba(231, 76, 60, 0.1) !important;
+    }
 
     @media (max-width: 768px) {
       .text-buttons-row {
