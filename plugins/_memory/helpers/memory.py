@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, List, Sequence
 from langchain.storage import InMemoryByteStore, LocalFileStore
@@ -16,9 +18,8 @@ from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores.utils import (
     DistanceStrategy,
 )
-from langchain_core.embeddings import Embeddings
-
-import os, json
+import os
+import json
 
 import numpy as np
 
@@ -392,9 +393,34 @@ class Memory:
             self._save_db()  # persist
         return rem_docs
 
-    async def insert_text(self, text, metadata: dict = {}):
-        doc = Document(text, metadata=metadata)
+    async def insert_text(self, text, metadata: dict | None = None):
+        from helpers.extension import call_extensions_async
+
+        metadata = metadata or {}
+
+        # memory_save_before: pass mutable object so extensions can edit or skip
+        obj = {"text": text, "metadata": metadata, "memory_subdir": self.memory_subdir}
+        await call_extensions_async(
+            "memory_save_before",
+            agent=getattr(self, "agent", None),
+            object=obj,
+        )
+
+        # If an extension set text to None, skip the save
+        if obj["text"] is None:
+            return None
+
+        doc = Document(obj["text"], metadata=obj["metadata"])
         ids = await self.insert_documents([doc])
+
+        # memory_save_after: notify extensions after successful persist
+        obj["doc_id"] = ids[0]
+        await call_extensions_async(
+            "memory_save_after",
+            agent=getattr(self, "agent", None),
+            object=obj,
+        )
+
         return ids[0]
 
     async def insert_documents(self, docs: list[Document]):
@@ -575,3 +601,4 @@ def get_knowledge_subdirs_by_memory_subdir(
 
         default.append(get_project_meta(memory_subdir[9:], "knowledge"))
     return default
+
