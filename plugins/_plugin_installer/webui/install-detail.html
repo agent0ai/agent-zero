@@ -193,6 +193,22 @@
                     </template>
                 </div>
 
+                <template x-if="$store.pluginInstallStore.detailError">
+                    <div class="pi-detail-error">
+                        <div class="pi-detail-error-header">
+                            <x-icon name="error"></x-icon>
+                            <span x-text="$store.pluginInstallStore.detailError.message"></span>
+                        </div>
+                        <template x-if="$store.pluginInstallStore.detailError.conflicting_files?.length">
+                            <ul class="pi-detail-error-files">
+                                <template x-for="f in $store.pluginInstallStore.detailError.conflicting_files" :key="f">
+                                    <li x-text="f"></li>
+                                </template>
+                            </ul>
+                        </template>
+                    </div>
+                </template>
+
                 <div class="pi-readme-section" x-show="$store.pluginInstallStore.readmeContent || $store.pluginInstallStore.readmeLoading">
                     <div class="pi-readme-header">Readme</div>
                     <div x-show="$store.pluginInstallStore.readmeLoading" class="pi-loading-text">
