@@ -203,6 +203,13 @@ chat:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
         "X-OpenRouter-Categories": "personal-agent,cloud-agent"
+  trustedrouter:
+    name: TrustedRouter
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "/models"
+    kwargs:
+      api_base: https://api.trustedrouter.com/v1
   sambanova:
     name: Sambanova
     litellm_provider: sambanova

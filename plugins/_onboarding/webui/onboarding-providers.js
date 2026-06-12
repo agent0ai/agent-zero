@@ -1,5 +1,6 @@
 export const TOP_CLOUD_PROVIDER_IDS = [
   "openrouter",
+  "trustedrouter",
   "a0_venice",
   "openai",
   "anthropic",
@@ -240,6 +241,17 @@ export const ONBOARDING_PROVIDER_OVERRIDES = {
     api_key_mode: "required",
     model_list_autoload: true,
     short_description: "One key for many model families.",
+  },
+  trustedrouter: {
+    logo: "https://trustedrouter.com/favicon.ico",
+    setup_url: "https://trustedrouter.com/",
+    api_key_url: "https://trustedrouter.com/console/keys",
+    docs_url: "https://trustedrouter.com/docs",
+    default_chat_model: "trustedrouter/auto",
+    default_utility_model: "trustedrouter/auto",
+    api_key_mode: "required",
+    model_list_autoload: true,
+    short_description: "OpenRouter-compatible routing with attested gateways.",
   },
   other: {
     logo: "/public/darkSymbol.svg",
