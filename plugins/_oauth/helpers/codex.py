@@ -599,6 +599,9 @@ def request_codex(
             "thread-id": metadata["thread_id"],
         }
     )
+    client_version = resolve_codex_version()
+    if client_version:
+        request_headers["version"] = client_version
 
     return requests.request(
         method,

@@ -223,7 +223,10 @@ def test_prepare_responses_body_sends_empty_continuation_input_as_list(monkeypat
     assert body["previous_response_id"] == "resp_1"
 
 
-def test_request_codex_sends_current_codex_headers_from_body(monkeypatch):
+@pytest.mark.parametrize("client_version", ["0.142.5", ""])
+def test_request_codex_sends_current_codex_headers_from_body(
+    monkeypatch, client_version
+):
     calls = []
     body = json.dumps(
         {
@@ -255,6 +258,7 @@ def test_request_codex_sends_current_codex_headers_from_body(monkeypatch):
             account_id="account-1",
         ),
     )
+    monkeypatch.setattr(codex, "resolve_codex_version", lambda: client_version)
 
     def fake_request(method, target, headers, data, params, timeout, stream):
         calls.append(
@@ -291,6 +295,10 @@ def test_request_codex_sends_current_codex_headers_from_body(monkeypatch):
     assert call["headers"]["session-id"] == "session-1"
     assert call["headers"]["thread-id"] == "thread-1"
     assert call["headers"]["x-codex-window-id"] == "agent-zero"
+    if client_version:
+        assert call["headers"]["version"] == "0.142.5"
+    else:
+        assert "version" not in call["headers"]
 
 
 def test_chat_messages_to_response_body_preserves_image_parts_for_responses():
