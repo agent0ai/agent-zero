@@ -331,6 +331,14 @@ def _run_server_attempt(
                 log_level=log_level,
                 access_log=access_log,
                 ws=ws,
+                # Without a cap, graceful shutdown waits forever on in-flight
+                # requests (e.g. a long-running message task), wedging the
+                # restart flow: /api/restart's sys.exit(0) is swallowed by
+                # uvicorn's BaseException handler, the listener is already
+                # closed, and the process never exits until killed manually.
+                timeout_graceful_shutdown=_env_int(
+                    "A0_SHUTDOWN_TIMEOUT_SECONDS", 10, minimum=1
+                ),
             )
 
         with startup_monitor.stage("uvicorn.server.create"):
