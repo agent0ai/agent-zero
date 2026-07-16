@@ -73,6 +73,23 @@ class DirtyJson:
         else:
             self.current_char = None
 
+    def _consume_low_surrogate_escape(self):
+        """If the next characters are a \\uXXXX escape encoding a UTF-16 low
+        surrogate (DC00-DFFF), consume them and return the code unit as an int.
+        Otherwise consume nothing and return None."""
+        s = self.json_string
+        i = self.index
+        if self.current_char != "\\" or i + 5 >= len(s) or s[i + 1] != "u":
+            return None
+        try:
+            low = int(s[i + 2 : i + 6], 16)
+        except ValueError:
+            return None
+        if not (0xDC00 <= low <= 0xDFFF):
+            return None
+        self._advance(6)
+        return low
+
     def _skip_whitespace(self):
         while self.current_char is not None:
             if self.current_char.isspace():
@@ -293,10 +310,26 @@ class DirtyJson:
                         unicode_char += self.current_char
                         self._advance()
                     try:
-                        result += chr(int(unicode_char, 16))
+                        code = int(unicode_char, 16)
                     except ValueError:
                         # If invalid hex value, treat as literal
                         result += "\\u" + unicode_char
+                        continue
+                    if 0xD800 <= code <= 0xDBFF:
+                        # UTF-16 high surrogate: combine with a following \uXXXX low
+                        # surrogate into the real character (matches json.loads), e.g.
+                        # \ud83c\udf78 -> U+1F378. An unpaired surrogate becomes U+FFFD:
+                        # Python strings tolerate lone surrogates, but any later
+                        # .encode("utf-8") raises "surrogates not allowed", crashing
+                        # tool execution and log writes downstream of the parse.
+                        low = self._consume_low_surrogate_escape()
+                        if low is not None:
+                            code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
+                        else:
+                            code = 0xFFFD
+                    elif 0xDC00 <= code <= 0xDFFF:
+                        code = 0xFFFD
+                    result += chr(code)
                     continue
             else:
                 result += self.current_char
