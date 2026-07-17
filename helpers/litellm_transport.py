@@ -517,14 +517,13 @@ class ChatCompletionsTransport:
             message, "reasoning_content"
         ) or ""
         parsed = {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
-        if not response_delta:
-            tool_calls = _as_list(_get_value(message, "tool_calls"))
-            response_delta = ChatCompletionsTransport.tool_calls_text(tool_calls)
-            if response_delta:
-                parsed["response_delta"] = response_delta
-                parsed["_output_items"] = ChatCompletionsTransport.output_items(
-                    tool_calls
-                )
+        tool_calls = _as_list(_get_value(message, "tool_calls"))
+        tool_calls_text = ChatCompletionsTransport.tool_calls_text(tool_calls) if tool_calls else ""
+        if tool_calls_text:
+            parsed["response_delta"] = tool_calls_text
+            parsed["_output_items"] = ChatCompletionsTransport.output_items(
+                tool_calls
+            )
         return parsed
 
     @classmethod
@@ -1046,8 +1045,9 @@ class ResponsesTransport:
     def parse_response(cls, response: Any) -> ChatChunk:
         response_delta = cls.output_text(response)
         reasoning_delta = cls.reasoning_text(response)
-        if not response_delta:
-            response_delta = cls.function_calls_text(response)
+        function_calls_text = cls.function_calls_text(response)
+        if function_calls_text:
+            response_delta = function_calls_text
         return {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
 
     @classmethod
