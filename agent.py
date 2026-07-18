@@ -1407,6 +1407,8 @@ class Agent:
 
     @extension.extensible
     async def process_tools(self, msg: str):
+        # Pre-flight: normalize any non-tool-call output before the framework sees it
+        msg = extract_tools.ensure_valid_tool_response(msg)
         # search for tool usage requests in agent message
         tool_request = extract_tools.json_parse_dirty(msg)
 
